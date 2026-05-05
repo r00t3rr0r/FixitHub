@@ -10,6 +10,7 @@ export function Layout() {
   const isMobile = useIsMobile()
   const location = useLocation()
   const hideFooter = location.pathname.startsWith('/admin') || location.pathname.startsWith('/staff')
+  const isAdminAnalyticsPage = location.pathname.startsWith('/admin/analytics')
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
@@ -37,7 +38,7 @@ export function Layout() {
             isMobile ? 'ml-0' : (shouldShowSidebar ? 'ml-64' : 'ml-16')
           }`}
         >
-          <div className="mx-auto w-full max-w-7xl">
+          <div className={isAdminAnalyticsPage ? "w-full max-w-none" : "mx-auto w-full max-w-7xl"}>
             <Outlet />
           </div>
         </main>

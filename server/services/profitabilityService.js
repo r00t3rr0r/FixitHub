@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS = {
   otherCosts: {
     packagingRate: 0.01,
     paymentFeeRate: 0.015,
+    paymentFeeFixedAmount: 0,
     flatShippingCostPerBooking: 6.9,
     warrantyReserveRate: 0.02,
   },
@@ -70,6 +71,11 @@ const DEFAULT_SETTINGS = {
       bookingFlatShipping: 1,
     },
   },
+  accounting: {
+    vatRate: 0.19,
+    targetGrossMarginRate: 0.3,
+    defaultProjectionWorkdays: 22,
+  },
 };
 
 const safeArray = (value) => (Array.isArray(value) ? value : []);
@@ -93,6 +99,206 @@ const toNumber = (value) => {
 const roundCurrency = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 const roundHours = (value) => Math.round((value + Number.EPSILON) * 10) / 10;
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+function parseDate(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function isBusinessDay(date) {
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+}
+
+function countBusinessDaysInclusive(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  if (end < start) return 0;
+
+  let count = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    if (isBusinessDay(current)) count += 1;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+function sumCostBlocks(costs = {}) {
+  return roundCurrency(
+    toNumber(costs.technicianCost) +
+      toNumber(costs.shippingCost) +
+      toNumber(costs.additionalCost) +
+      toNumber(costs.packagingCost) +
+      toNumber(costs.paymentFee)
+  );
+}
+
+function calculateContributionMarginMetrics({ grossAmount, netAmount, costs, targetGrossMarginRate = 0.3, ppCredit = 0 }) {
+  const gross = roundCurrency(toNumber(grossAmount));
+  const net = roundCurrency(toNumber(netAmount));
+  const totalCosts = sumCostBlocks(costs);
+  const contributionMargin = roundCurrency(net - totalCosts);
+  const profitability = net !== 0 ? roundCurrency((contributionMargin / net) * 100) : 0;
+  const target30Percent = roundCurrency(gross * toNumber(targetGrossMarginRate));
+  const contributionVsTarget = roundCurrency(contributionMargin - target30Percent);
+
+  return {
+    grossAmount: gross,
+    netAmount: net,
+    technicianCost: roundCurrency(toNumber(costs.technicianCost)),
+    shippingCost: roundCurrency(toNumber(costs.shippingCost)),
+    additionalCost: roundCurrency(toNumber(costs.additionalCost)),
+    packagingCost: roundCurrency(toNumber(costs.packagingCost)),
+    paymentFee: roundCurrency(toNumber(costs.paymentFee)),
+    totalCosts,
+    contributionMargin,
+    profitability,
+    target30Percent,
+    contributionVsTarget,
+    ppCredit: roundCurrency(toNumber(ppCredit)),
+  };
+}
+
+function deriveNetFromGross(grossAmount, vatRate = 0.19) {
+  const gross = toNumber(grossAmount);
+  const divisor = 1 + toNumber(vatRate);
+  if (divisor <= 0) return roundCurrency(gross);
+  return roundCurrency(gross / divisor);
+}
+
+function summarizeDeckungsbeitragRows(rows, projectedWorkdays = 22) {
+  const totals = rows.reduce(
+    (accumulator, row) => ({
+      invoiceCount: accumulator.invoiceCount + 1,
+      grossAmount: accumulator.grossAmount + toNumber(row.grossAmount),
+      netAmount: accumulator.netAmount + toNumber(row.netAmount),
+      technicianCost: accumulator.technicianCost + toNumber(row.technicianCost),
+      shippingCost: accumulator.shippingCost + toNumber(row.shippingCost),
+      additionalCost: accumulator.additionalCost + toNumber(row.additionalCost),
+      packagingCost: accumulator.packagingCost + toNumber(row.packagingCost),
+      paymentFee: accumulator.paymentFee + toNumber(row.paymentFee),
+      totalCosts: accumulator.totalCosts + toNumber(row.totalCosts),
+      contributionMargin: accumulator.contributionMargin + toNumber(row.contributionMargin),
+      target30Percent: accumulator.target30Percent + toNumber(row.target30Percent),
+      contributionVsTarget: accumulator.contributionVsTarget + toNumber(row.contributionVsTarget),
+      ppCredit: accumulator.ppCredit + toNumber(row.ppCredit),
+    }),
+    {
+      invoiceCount: 0,
+      grossAmount: 0,
+      netAmount: 0,
+      technicianCost: 0,
+      shippingCost: 0,
+      additionalCost: 0,
+      packagingCost: 0,
+      paymentFee: 0,
+      totalCosts: 0,
+      contributionMargin: 0,
+      target30Percent: 0,
+      contributionVsTarget: 0,
+      ppCredit: 0,
+    }
+  );
+
+  const dates = rows
+    .map((row) => parseDate(row.invoiceDate || row.bookingDate || row.orderDate))
+    .filter(Boolean)
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  const startDate = dates.length > 0 ? dates[0] : null;
+  const endDate = dates.length > 0 ? dates[dates.length - 1] : null;
+  const workdays = Math.max(1, countBusinessDaysInclusive(startDate, endDate));
+
+  const roundedTotals = {
+    invoiceCount: totals.invoiceCount,
+    grossAmount: roundCurrency(totals.grossAmount),
+    netAmount: roundCurrency(totals.netAmount),
+    technicianCost: roundCurrency(totals.technicianCost),
+    shippingCost: roundCurrency(totals.shippingCost),
+    additionalCost: roundCurrency(totals.additionalCost),
+    packagingCost: roundCurrency(totals.packagingCost),
+    paymentFee: roundCurrency(totals.paymentFee),
+    totalCosts: roundCurrency(totals.totalCosts),
+    contributionMargin: roundCurrency(totals.contributionMargin),
+    target30Percent: roundCurrency(totals.target30Percent),
+    contributionVsTarget: roundCurrency(totals.contributionVsTarget),
+    ppCredit: roundCurrency(totals.ppCredit),
+    profitability: totals.netAmount !== 0 ? roundCurrency((totals.contributionMargin / totals.netAmount) * 100) : 0,
+  };
+
+  const perWorkday = {
+    grossAmount: roundCurrency(roundedTotals.grossAmount / workdays),
+    netAmount: roundCurrency(roundedTotals.netAmount / workdays),
+    technicianCost: roundCurrency(roundedTotals.technicianCost / workdays),
+    shippingCost: roundCurrency(roundedTotals.shippingCost / workdays),
+    additionalCost: roundCurrency(roundedTotals.additionalCost / workdays),
+    packagingCost: roundCurrency(roundedTotals.packagingCost / workdays),
+    paymentFee: roundCurrency(roundedTotals.paymentFee / workdays),
+    totalCosts: roundCurrency(roundedTotals.totalCosts / workdays),
+    contributionMargin: roundCurrency(roundedTotals.contributionMargin / workdays),
+    target30Percent: roundCurrency(roundedTotals.target30Percent / workdays),
+    contributionVsTarget: roundCurrency(roundedTotals.contributionVsTarget / workdays),
+    ppCredit: roundCurrency(roundedTotals.ppCredit / workdays),
+    invoiceCount: roundCurrency(roundedTotals.invoiceCount / workdays),
+  };
+
+  const targetDays = Math.max(1, Math.round(toNumber(projectedWorkdays)));
+
+  const projection = {
+    grossAmount: roundCurrency(perWorkday.grossAmount * targetDays),
+    netAmount: roundCurrency(perWorkday.netAmount * targetDays),
+    technicianCost: roundCurrency(perWorkday.technicianCost * targetDays),
+    shippingCost: roundCurrency(perWorkday.shippingCost * targetDays),
+    additionalCost: roundCurrency(perWorkday.additionalCost * targetDays),
+    packagingCost: roundCurrency(perWorkday.packagingCost * targetDays),
+    paymentFee: roundCurrency(perWorkday.paymentFee * targetDays),
+    totalCosts: roundCurrency(perWorkday.totalCosts * targetDays),
+    contributionMargin: roundCurrency(perWorkday.contributionMargin * targetDays),
+    target30Percent: roundCurrency(perWorkday.target30Percent * targetDays),
+    contributionVsTarget: roundCurrency(perWorkday.contributionVsTarget * targetDays),
+    ppCredit: roundCurrency(perWorkday.ppCredit * targetDays),
+    invoiceCount: roundCurrency(perWorkday.invoiceCount * targetDays),
+    profitability: perWorkday.netAmount !== 0 ? roundCurrency((perWorkday.contributionMargin / perWorkday.netAmount) * 100) : 0,
+    workdays: targetDays,
+  };
+
+  return {
+    totals: roundedTotals,
+    workdays,
+    range: {
+      startDate: startDate ? startDate.toISOString() : null,
+      endDate: endDate ? endDate.toISOString() : null,
+    },
+    perWorkday,
+    projection,
+  };
+}
+
+function buildGroupedPeriodSummaries(rows, granularity = 'day', projectedWorkdays = 22) {
+  const groups = new Map();
+
+  for (const row of rows) {
+    const date = parseDate(row.invoiceDate || row.bookingDate || row.orderDate);
+    if (!date) continue;
+
+    const key =
+      granularity === 'month'
+        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([periodKey, periodRows]) => ({
+      periodKey,
+      ...summarizeDeckungsbeitragRows(periodRows, projectedWorkdays),
+    }));
+}
 
 const PAYMENT_METHOD_TO_PROVIDER = {
   stripe: 'stripe',
@@ -134,6 +340,14 @@ function sanitizeSettings(rawSettings) {
     0,
     500
   );
+  normalized.otherCosts.paymentFeeFixedAmount = clamp(
+    toNumber(normalized.otherCosts.paymentFeeFixedAmount),
+    -100,
+    100
+  );
+  normalized.accounting.vatRate = clamp(toNumber(normalized.accounting.vatRate), 0, 1);
+  normalized.accounting.targetGrossMarginRate = clamp(toNumber(normalized.accounting.targetGrossMarginRate), 0, 1);
+  normalized.accounting.defaultProjectionWorkdays = clamp(toNumber(normalized.accounting.defaultProjectionWorkdays), 1, 31);
 
   normalized.formula.profitWeights.netRevenue = clamp(toNumber(normalized.formula.profitWeights.netRevenue), 0, 3);
   normalized.formula.profitWeights.directCosts = clamp(toNumber(normalized.formula.profitWeights.directCosts), 0, 3);
@@ -272,13 +486,24 @@ function hasMatchingKeyword(texts, regexList) {
   return texts.some((text) => regexList.some((regex) => regex.test(String(text || ''))));
 }
 
-function getBookingNetRevenue(booking) {
+function getBookingNetRevenue(booking, vatRate = 0.19) {
   const grossRevenue = toNumber(booking.totalCost);
   const tax = toNumber(booking.tax);
   const subtotal = toNumber(booking.subtotal);
   const discount = toNumber(booking.discount);
-  const rawNetRevenue = subtotal > 0 ? subtotal - discount : grossRevenue - tax;
-  return roundCurrency(Math.max(rawNetRevenue, 0));
+
+  if (subtotal > 0) {
+    return roundCurrency(subtotal - discount);
+  }
+
+  if (tax > 0 || grossRevenue >= 0) {
+    const taxDerivedNet = grossRevenue - tax;
+    if (Number.isFinite(taxDerivedNet) && taxDerivedNet !== 0) {
+      return roundCurrency(taxDerivedNet);
+    }
+  }
+
+  return deriveNetFromGross(grossRevenue, vatRate);
 }
 
 function getOrderRevenueShare(order, bookingItem, totalOrderGross) {
@@ -289,14 +514,28 @@ function getOrderRevenueShare(order, bookingItem, totalOrderGross) {
 
 function resolvePartUnitCost(partDocument, versionId) {
   const versions = safeArray(partDocument?.versions);
-  const matchingVersion = versions.find((version) => String(version?.versionId) === String(versionId));
-  if (matchingVersion) return toNumber(matchingVersion.unitCost);
-  const firstVersionWithCost = versions.find((version) => toNumber(version?.unitCost) > 0);
-  return toNumber(firstVersionWithCost?.unitCost);
+  const normalizedVersionId = String(versionId || '').trim();
+
+  if (!normalizedVersionId) return 0;
+
+  // Orders usually persist the version subdocument _id; keep versionId matching as a fallback.
+  const matchingVersion = versions.find(
+    (version) =>
+      String(version?._id || '') === normalizedVersionId ||
+      String(version?.versionId || '') === normalizedVersionId
+  );
+
+  return toNumber(matchingVersion?.unitCost);
 }
 
 function getMaterialCost(order, bookingItem, netRevenue, settings) {
-  const ePartCost = safeArray(order?.eParts).reduce((sum, entry) => {
+  const allPartEntries = safeArray(order?.eParts);
+  const usedPartEntries = allPartEntries.filter(
+    (entry) => String(entry?.status || '').toLowerCase() === 'used'
+  );
+  const effectivePartEntries = usedPartEntries.length > 0 ? usedPartEntries : allPartEntries;
+
+  const ePartCost = effectivePartEntries.reduce((sum, entry) => {
     const quantity = Math.max(1, toNumber(entry?.quantity) || 1);
     const unitCost = resolvePartUnitCost(entry?.partId, entry?.versionId);
     return sum + quantity * unitCost;
@@ -308,23 +547,9 @@ function getMaterialCost(order, bookingItem, netRevenue, settings) {
     return sum + quantity * priceAtOrder * toNumber(settings.materials.fallbackShopProductCostRate);
   }, 0);
 
-  if (ePartCost > 0 || productCost > 0) {
-    return roundCurrency(ePartCost + productCost);
-  }
-
-  const serviceCount = Math.max(1, safeArray(order?.services).length + safeArray(order?.addOns).length);
-  const plannedHours = getPlannedHours(order, settings);
-  const repairMaterialRate = clamp(
-    toNumber(settings.materials.repairMaterialBaseRate) +
-      serviceCount * toNumber(settings.materials.repairMaterialPerServiceRate) +
-      (plannedHours >= 2 ? 0.03 : 0),
-    toNumber(settings.materials.minimumRepairMaterialRate),
-    toNumber(settings.materials.maximumRepairMaterialRate)
-  );
-
-  const hasProducts = safeArray(order?.shopProducts).length > 0 || bookingItem?.type === 'product';
-  const rate = hasProducts ? toNumber(settings.materials.productMaterialRate) : repairMaterialRate;
-  return roundCurrency(netRevenue * rate);
+  // Materialkosten sollen auf den echten Part-Unit-Costs basieren.
+  // Wenn keine Parts vorhanden sind, bleiben nur produktbezogene COGS.
+  return roundCurrency(ePartCost + productCost);
 }
 
 function getSubcontractCost(order, description, netRevenue, settings, subcontractRegexes) {
@@ -463,12 +688,50 @@ function resolveGatewayFeeRate(payment, gatewaysById, gatewaysByProvider, defaul
   return toNumber(defaultRate);
 }
 
-function calculateGatewayFeeAmount(payment, gatewaysById, gatewaysByProvider, fallbackRate) {
+function calculateGatewayFeeAmount(payment, gatewaysById, gatewaysByProvider, fallbackRate, fixedAmount = 0) {
   const amount = Math.max(0, toNumber(payment?.amount));
   if (amount <= 0) return 0;
 
   const rate = resolveGatewayFeeRate(payment, gatewaysById, gatewaysByProvider, fallbackRate);
-  return roundCurrency(amount * Math.max(0, toNumber(rate)));
+  return roundCurrency(amount * Math.max(0, toNumber(rate)) + toNumber(fixedAmount));
+}
+
+function describeGatewayFeeUsage({ bookingPayments, bookingPaymentMethod, gatewaysByProvider, fallbackRate }) {
+  const payments = safeArray(bookingPayments);
+  const fallback = toNumber(fallbackRate);
+
+  if (payments.length > 0) {
+    const totalsByProvider = new Map();
+    for (const payment of payments) {
+      const provider = resolveGatewayProvider(payment) || 'unknown';
+      const amount = Math.max(0, toNumber(payment?.amount));
+      totalsByProvider.set(provider, toNumber(totalsByProvider.get(provider)) + amount);
+    }
+
+    const [primaryProvider] = Array.from(totalsByProvider.entries()).sort((a, b) => b[1] - a[1])[0] || ['unknown'];
+    const gateway = gatewaysByProvider.get(primaryProvider) || null;
+    const configuredFee = toNumber(gateway?.configuration?.processingFee);
+    const rate = configuredFee > 1 ? configuredFee / 100 : configuredFee > 0 ? configuredFee : fallback;
+
+    return {
+      gatewayProvider: primaryProvider,
+      gatewayFeeRate: roundCurrency(rate * 100) / 100,
+      gatewayFeePercentLabel: `${roundCurrency(rate * 100)}%`,
+      gatewayFeeSource: gateway ? 'payment-gateway-config' : 'settings-fallback',
+    };
+  }
+
+  const fallbackProvider = PAYMENT_METHOD_TO_PROVIDER[String(bookingPaymentMethod || '').toLowerCase()] || String(bookingPaymentMethod || '').toLowerCase() || 'fallback';
+  const fallbackGateway = gatewaysByProvider.get(fallbackProvider) || null;
+  const fallbackConfiguredFee = toNumber(fallbackGateway?.configuration?.processingFee);
+  const resolvedFallbackRate = fallbackConfiguredFee > 1 ? fallbackConfiguredFee / 100 : fallbackConfiguredFee > 0 ? fallbackConfiguredFee : fallback;
+
+  return {
+    gatewayProvider: fallbackProvider,
+    gatewayFeeRate: roundCurrency(resolvedFallbackRate * 100) / 100,
+    gatewayFeePercentLabel: `${roundCurrency(resolvedFallbackRate * 100)}%`,
+    gatewayFeeSource: fallbackGateway ? 'payment-gateway-config-fallback' : 'settings-fallback',
+  };
 }
 
 class ProfitabilityService {
@@ -486,7 +749,7 @@ class ProfitabilityService {
     return nextSettings;
   }
 
-  static async getProfitabilityReport({ limit = 200 } = {}) {
+  static async getProfitabilityReport({ limit = 200, startDate = null, endDate = null, projectedWorkdays = null } = {}) {
     const settings = await this.getSettings();
     const financialSettings = await FinancialService.getFinancialSettings();
     const settingsMeta = buildSettingsMeta(settings);
@@ -500,7 +763,17 @@ class ProfitabilityService {
         .map((gateway) => [String(gateway.provider).toLowerCase(), gateway])
     );
 
-    const bookings = await Booking.find({})
+    const bookingFilter = {};
+    const parsedStartDate = parseDate(startDate);
+    const parsedEndDate = parseDate(endDate);
+
+    if (parsedStartDate || parsedEndDate) {
+      bookingFilter.createdAt = {};
+      if (parsedStartDate) bookingFilter.createdAt.$gte = parsedStartDate;
+      if (parsedEndDate) bookingFilter.createdAt.$lte = parsedEndDate;
+    }
+
+    const bookings = await Booking.find(bookingFilter)
       .sort({ createdAt: -1 })
       .limit(Math.max(1, Math.min(500, toNumber(limit) || 200)))
       .populate('customerId', 'firstName lastName name email paymentTerms discount paymentMethod primaryCustomerGroupId customerGroup')
@@ -551,14 +824,17 @@ class ProfitabilityService {
           $or: [
             { orderId: { $in: uniqueOrderIds } },
             { repairOrderIds: { $in: uniqueOrderIds } },
+            { bookingId: { $in: bookings.map((booking) => booking._id).filter(Boolean) } },
           ],
         })
-          .select('_id orderId repairOrderIds')
+          .select('_id orderId repairOrderIds bookingId invoiceNumber subtotal tax discount total createdAt updatedAt')
           .lean()
       : [];
 
     const relatedInvoiceIds = invoices.map((invoice) => String(invoice._id));
     const invoiceToOrderIds = new Map();
+    const invoicesByBookingId = new Map();
+    const invoicesByOrderId = new Map();
     for (const invoice of invoices) {
       const relatedOrderIds = Array.from(
         new Set(
@@ -569,6 +845,21 @@ class ProfitabilityService {
         )
       );
       invoiceToOrderIds.set(String(invoice._id), relatedOrderIds);
+
+      const bookingId = toObjectIdString(invoice?.bookingId);
+      if (bookingId) {
+        if (!invoicesByBookingId.has(bookingId)) {
+          invoicesByBookingId.set(bookingId, []);
+        }
+        invoicesByBookingId.get(bookingId).push(invoice);
+      }
+
+      for (const orderId of relatedOrderIds) {
+        if (!invoicesByOrderId.has(orderId)) {
+          invoicesByOrderId.set(orderId, []);
+        }
+        invoicesByOrderId.get(orderId).push(invoice);
+      }
     }
 
     const payments = (uniqueOrderIds.length > 0 || relatedInvoiceIds.length > 0)
@@ -694,20 +985,49 @@ class ProfitabilityService {
               payment,
               gatewaysById,
               gatewaysByProvider,
-              toNumber(settings.otherCosts.paymentFeeRate)
+              toNumber(settings.otherCosts.paymentFeeRate),
+              toNumber(settings.otherCosts.paymentFeeFixedAmount)
             ),
           0
         )
       );
+      const bookingGatewayFallbackRate = resolveGatewayFeeRate(
+        { paymentMethod: booking?.paymentMethod },
+        gatewaysById,
+        gatewaysByProvider,
+        toNumber(settings.otherCosts.paymentFeeRate)
+      );
+      const gatewayFeeUsage = describeGatewayFeeUsage({
+        bookingPayments,
+        bookingPaymentMethod: booking?.paymentMethod,
+        gatewaysByProvider,
+        fallbackRate: toNumber(settings.otherCosts.paymentFeeRate),
+      });
       const bookingFlatShippingCost = roundCurrency(toNumber(settings.otherCosts.flatShippingCostPerBooking));
       const hasGatewayTransactions = bookingPayments.length > 0;
-      const profitWeights = settings.formula?.profitWeights || {};
       const operatingCostWeights = settings.formula?.operatingCostWeights || {};
+      const targetGrossMarginRate = toNumber(settings.accounting?.targetGrossMarginRate);
+      const vatRate = toNumber(settings.accounting?.vatRate);
+      const bookingGrossRevenue = roundCurrency(toNumber(booking.totalCost));
+
+      const bookingId = toObjectIdString(booking?._id);
+      const bookingInvoices = bookingId
+        ? safeArray(invoicesByBookingId.get(bookingId))
+        : bookingOrderIds.flatMap((orderId) => safeArray(invoicesByOrderId.get(orderId)));
+      const primaryInvoice = bookingInvoices
+        .slice()
+        .sort((a, b) => {
+          const aTime = parseDate(a?.createdAt || a?.updatedAt)?.getTime() || 0;
+          const bTime = parseDate(b?.createdAt || b?.updatedAt)?.getTime() || 0;
+          return bTime - aTime;
+        })[0] || null;
 
       const orderRows = bookingOrders.map((order, index) => {
         const bookingItem = bookingItemsByOrderId.get(String(order._id));
         const share = getOrderRevenueShare(order, bookingItem, totalOrderGross) || (bookingOrders.length > 0 ? 1 / bookingOrders.length : 1);
-        const netRevenue = roundCurrency(bookingNetRevenue * share);
+        const grossAmount = roundCurrency(bookingGrossRevenue * share);
+        const netAmount = roundCurrency(bookingNetRevenue * share);
+        const netRevenue = netAmount;
         const plannedHours = getPlannedHours(order, settings);
         const trackedHours = getTrackedHours(order._id, trackedMinutesByOrderId);
         const fallbackHours = getFallbackActualHours(order, plannedHours, settings);
@@ -728,26 +1048,32 @@ class ProfitabilityService {
         const warrantyState = getWarrantyState(booking, order, description, settings, warrantyRegexes);
         const paymentGatewayFees = roundCurrency(bookingGatewayFees * share);
         const shippingFlatCost = roundCurrency(bookingFlatShippingCost * share);
-        const packagingCost =
-          netRevenue *
+        const packagingCostRaw =
+          netAmount *
           toNumber(settings.otherCosts.packagingRate) *
           Math.max(0, toNumber(operatingCostWeights.packaging || 1));
-        const fallbackPaymentRateCost = hasGatewayTransactions
+        const fallbackPaymentRateCostRaw = hasGatewayTransactions
           ? 0
-          : netRevenue *
-            toNumber(settings.otherCosts.paymentFeeRate) *
+          : netAmount *
+            toNumber(bookingGatewayFallbackRate) *
             Math.max(0, toNumber(operatingCostWeights.paymentFallback || 1));
-        const paymentGatewayFeeCost =
+        const paymentGatewayFeeCostRaw =
           paymentGatewayFees * Math.max(0, toNumber(operatingCostWeights.paymentGateway || 1));
-        const warrantyReserveCost = warrantyState.flagged
-          ? netRevenue *
+        const warrantyReserveCostRaw = warrantyState.flagged
+          ? netAmount *
             toNumber(settings.otherCosts.warrantyReserveRate) *
             Math.max(0, toNumber(operatingCostWeights.warrantyReserve || 1))
           : 0;
-        const orderShippingCost =
+        const orderShippingCostRaw =
           toNumber(order?.shippingCost) * Math.max(0, toNumber(operatingCostWeights.orderShipping || 1));
-        const bookingShippingCost =
+        const bookingShippingCostRaw =
           shippingFlatCost * Math.max(0, toNumber(operatingCostWeights.bookingFlatShipping || 1));
+        const packagingCost = roundCurrency(packagingCostRaw);
+        const fallbackPaymentRateCost = roundCurrency(fallbackPaymentRateCostRaw);
+        const paymentGatewayFeeCost = roundCurrency(paymentGatewayFeeCostRaw);
+        const warrantyReserveCost = roundCurrency(warrantyReserveCostRaw);
+        const orderShippingCost = roundCurrency(orderShippingCostRaw);
+        const bookingShippingCost = roundCurrency(bookingShippingCostRaw);
         const otherOperatingCost = roundCurrency(
           packagingCost +
             fallbackPaymentRateCost +
@@ -757,30 +1083,53 @@ class ProfitabilityService {
             bookingShippingCost
         );
         const directCosts = roundCurrency(materialCost + subcontractCost + laborCost);
-        const weightedNetRevenue = netRevenue * Math.max(0, toNumber(profitWeights.netRevenue || 1));
-        const weightedDirectCosts = directCosts * Math.max(0, toNumber(profitWeights.directCosts || 1));
-        const weightedOverheadCost = overheadCost * Math.max(0, toNumber(profitWeights.overheadCost || 1));
-        const weightedDepreciationCost = depreciationCost * Math.max(0, toNumber(profitWeights.depreciationCost || 1));
-        const weightedOtherOperatingCost =
-          otherOperatingCost * Math.max(0, toNumber(profitWeights.otherOperatingCost || 1));
-        const profit = roundCurrency(
-          weightedNetRevenue -
-            weightedDirectCosts -
-            weightedOverheadCost -
-            weightedDepreciationCost -
-            weightedOtherOperatingCost
-        );
-        const marginPercent = netRevenue > 0 ? roundCurrency((profit / netRevenue) * 100) : 0;
+
+        const technicianCost = laborCost;
+        const shippingCost = roundCurrency(orderShippingCost + bookingShippingCost);
+        const additionalCost = roundCurrency(materialCost + subcontractCost + overheadCost + depreciationCost + warrantyReserveCost);
+        const paymentFee = roundCurrency(fallbackPaymentRateCost + paymentGatewayFeeCost);
+        const ppCredit = paymentGatewayFees;
+        const contribution = calculateContributionMarginMetrics({
+          grossAmount,
+          netAmount,
+          costs: {
+            technicianCost,
+            shippingCost,
+            additionalCost,
+            packagingCost,
+            paymentFee,
+          },
+          targetGrossMarginRate,
+          ppCredit,
+        });
+        const profit = contribution.contributionMargin;
+        const marginPercent = contribution.profitability;
+        const assignedTechnicians = safeArray(order?.assignedStaff)
+          .map((entry) => String(entry?.name || '').trim())
+          .filter(Boolean);
 
         return {
           id: `${bookingNumber}-${String(order._id || index)}`,
           orderId: String(order._id),
           orderNumber: String(order.orderNumber || `${bookingNumber}-${index + 1}`),
+          internalOrderNumber: String(order.orderNumber || `${bookingNumber}-${index + 1}`),
+          externalOrderNumber: String(primaryInvoice?.invoiceNumber || bookingNumber),
+          orderDate: order?.createdAt || booking?.createdAt || booking?.updatedAt,
+          invoiceDate: primaryInvoice?.createdAt || booking?.createdAt || booking?.updatedAt,
+          invoiceNumber: String(primaryInvoice?.invoiceNumber || '-'),
           serviceType: determineOrderType(order, bookingItem),
           status: String(order.status || booking.status || 'pending'),
           progress: toNumber(order.progress),
           paymentLabel,
+          paymentType: String(paymentLabel || booking?.paymentMethod || ''),
           warrantyLabel: warrantyState.label,
+          companyName: String(customer?.name || '').trim(),
+          contactPerson: customerNameFromBooking(booking),
+          customerGroup: resolvedGroup?.name || customer?.customerGroup || customerGroupFromBooking(booking),
+          description,
+          technician: assignedTechnicians.join(', '),
+          grossAmount: contribution.grossAmount,
+          netAmount: contribution.netAmount,
           netRevenue,
           directCosts,
           materialCost,
@@ -793,11 +1142,25 @@ class ProfitabilityService {
           otherOperatingCost,
           profit,
           marginPercent,
+          technicianCost: contribution.technicianCost,
+          shippingCost: contribution.shippingCost,
+          additionalCost: contribution.additionalCost,
+          packagingCost: contribution.packagingCost,
+          paymentFee: contribution.paymentFee,
+          gatewayProvider: gatewayFeeUsage.gatewayProvider,
+          gatewayFeeRate: gatewayFeeUsage.gatewayFeeRate,
+          gatewayFeePercentLabel: gatewayFeeUsage.gatewayFeePercentLabel,
+          gatewayFeeSource: gatewayFeeUsage.gatewayFeeSource,
+          totalCosts: contribution.totalCosts,
+          contributionMargin: contribution.contributionMargin,
+          profitability: contribution.profitability,
+          target30Percent: contribution.target30Percent,
+          contributionVsTarget: contribution.contributionVsTarget,
+          ppCredit: contribution.ppCredit,
           plannedHours,
           actualHours,
           hourlyRate: toNumber(settings.labor.defaultHourlyRate),
           varianceHours: roundHours(actualHours - plannedHours),
-          description,
           trackedHours,
           device: [order.deviceBrand, order.deviceModel].filter(Boolean).join(' ').trim(),
         };
@@ -826,12 +1189,27 @@ class ProfitabilityService {
       const itemSummary = orderRows.length > 0 ? orderRows.map((row) => row.description).join(' | ') : 'Keine Positionen';
       const serviceTypes = Array.from(new Set(orderRows.map((order) => order.serviceType)));
       const serviceType = serviceTypes.length === 0 ? 'Reparaturservice' : serviceTypes.length === 1 ? serviceTypes[0] : 'Reparatur und Produkt';
+      const bookingContribution = summarizeDeckungsbeitragRows(orderRows, settings.accounting?.defaultProjectionWorkdays || 22).totals;
+      const customerCompanyName = String(customer?.name || '').trim();
+      const orderDates = orderRows
+        .map((order) => parseDate(order.orderDate))
+        .filter(Boolean)
+        .sort((a, b) => a.getTime() - b.getTime());
+      const primaryOrderDate = orderDates[0] ? orderDates[0].toISOString() : (booking.createdAt || booking.updatedAt);
+      const primaryPaymentType = String(booking?.paymentMethod || paymentLabel || '').trim();
 
       return {
         id: String(booking._id || bookingNumber),
         bookingNumber,
         bookingDate: booking.createdAt || booking.updatedAt,
+        invoiceDate: primaryInvoice?.createdAt || booking.createdAt || booking.updatedAt,
+        invoiceNumber: String(primaryInvoice?.invoiceNumber || '-'),
+        orderDate: primaryOrderDate,
+        externalOrderNumber: String(primaryInvoice?.invoiceNumber || bookingNumber),
+        internalOrderNumber: bookingNumber,
         customerName: customerNameFromBooking(booking),
+        companyName: customerCompanyName,
+        contactPerson: customerNameFromBooking(booking),
         customerGroup: resolvedGroup?.name || customer?.customerGroup || customerGroupFromBooking(booking),
         customerGroupName: resolvedGroup?.name || customer?.customerGroup || '-',
         customerGroupKey: resolvedGroup?.key || '-',
@@ -844,8 +1222,13 @@ class ProfitabilityService {
         customerGroupFinancialCreditLimit: toNumber(bookingFinancialCreditLimit),
         serviceType,
         paymentLabel,
+        paymentType: primaryPaymentType,
         warrantyLabel: bookingWarranty ? settings.warranty.flaggedLabel : settings.warranty.defaultLabel,
         status: String(booking.status || 'pending'),
+        description: itemSummary,
+        technician: orderRows.map((order) => order.technician).filter(Boolean).join(', '),
+        grossAmount: bookingContribution.grossAmount,
+        netAmount: bookingContribution.netAmount || deriveNetFromGross(booking.totalCost, vatRate),
         netRevenue: totals.netRevenue,
         directCosts: totals.directCosts,
         materialCost: totals.materialCost,
@@ -858,6 +1241,21 @@ class ProfitabilityService {
         otherOperatingCost: totals.otherOperatingCost,
         profit: totals.profit,
         marginPercent: totals.marginPercent,
+        technicianCost: bookingContribution.technicianCost,
+        shippingCost: bookingContribution.shippingCost,
+        additionalCost: bookingContribution.additionalCost,
+        packagingCost: bookingContribution.packagingCost,
+        paymentFee: bookingContribution.paymentFee,
+        gatewayProvider: gatewayFeeUsage.gatewayProvider,
+        gatewayFeeRate: gatewayFeeUsage.gatewayFeeRate,
+        gatewayFeePercentLabel: gatewayFeeUsage.gatewayFeePercentLabel,
+        gatewayFeeSource: gatewayFeeUsage.gatewayFeeSource,
+        totalCosts: bookingContribution.totalCosts,
+        contributionMargin: bookingContribution.contributionMargin,
+        profitability: bookingContribution.profitability,
+        target30Percent: bookingContribution.target30Percent,
+        contributionVsTarget: bookingContribution.contributionVsTarget,
+        ppCredit: bookingContribution.ppCredit,
         plannedHours: totals.plannedHours,
         actualHours: totals.actualHours,
         hourlyRate: toNumber(settings.labor.defaultHourlyRate),
@@ -868,11 +1266,27 @@ class ProfitabilityService {
       };
     }));
 
+    const targetProjectionDays = projectedWorkdays
+      ? Math.max(1, Math.round(toNumber(projectedWorkdays)))
+      : Math.max(1, Math.round(toNumber(settings.accounting?.defaultProjectionWorkdays) || 22));
+
     return {
       rows,
       summary: summarizeBookings(rows),
+      periodSummary: summarizeDeckungsbeitragRows(rows, targetProjectionDays),
+      dailySummary: buildGroupedPeriodSummaries(rows, 'day', targetProjectionDays),
+      monthlySummary: buildGroupedPeriodSummaries(rows, 'month', targetProjectionDays),
       settings,
       settingsMeta,
+      calculationMeta: {
+        vatRate: toNumber(settings.accounting?.vatRate),
+        targetGrossMarginRate: toNumber(settings.accounting?.targetGrossMarginRate),
+        projectionWorkdays: targetProjectionDays,
+        configurableFormulas: {
+          paymentFeeModel: 'payment_fee = amount * rate + fixedAmount',
+          dynamicAdditionalCosts: 'additionalCost can be customized via settings.formula and booking/order type rules',
+        },
+      },
     };
   }
 }

@@ -2,9 +2,24 @@ import api from './api';
 
 export interface RepairService {
   _id: string;
+  articleNumber?: string;
   name: string;
+  shortDescription?: string;
   description: string;
+  printShortDescription?: string;
+  printDescription?: string;
+  note?: string;
+  searchKeywords?: string;
+  seoName?: string;
+  seoTitleTag?: string;
+  seoMetaKeywords?: string;
+  seoMetaDescription?: string;
   price: number;
+  purchasePrice?: number;
+  msrp?: number;
+  taxClass?: string;
+  source?: string;
+  service?: string;
   estimatedTime: string;
   category: string;
   deviceTypes: string[];

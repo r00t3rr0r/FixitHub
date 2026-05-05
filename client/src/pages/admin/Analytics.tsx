@@ -26,12 +26,12 @@ import {
   type ProfitabilitySettingsMeta,
   updateProfitabilitySettings,
 } from "@/api/adminAnalytics"
+import type { ProfitabilityReportParams } from "@/api/adminAnalytics"
 import {
   BarChart3,
   CalendarRange,
   ChevronDown,
   ChevronUp,
-  Columns3,
   Download,
   Filter,
   RefreshCw,
@@ -41,6 +41,7 @@ import {
   TrendingUp,
   Wallet,
   Wrench,
+  X,
 } from "lucide-react"
 import "./Analytics.css"
 
@@ -89,8 +90,14 @@ const DEFAULT_SETTINGS: ProfitabilitySettings = {
   otherCosts: {
     packagingRate: 0.01,
     paymentFeeRate: 0.015,
+    paymentFeeFixedAmount: 0,
     flatShippingCostPerBooking: 6.9,
     warrantyReserveRate: 0.02,
+  },
+  accounting: {
+    vatRate: 0.19,
+    targetGrossMarginRate: 0.3,
+    defaultProjectionWorkdays: 22,
   },
   warranty: {
     keywords: ["nacharbeit", "rework", "warranty", "garantie", "gewaehr"],
@@ -226,6 +233,21 @@ const getPaymentMeta = (status?: string) => {
   }
 }
 
+const getGatewayFeeSourceLabel = (source?: string) => {
+  const normalized = String(source || "").trim().toLowerCase()
+
+  if (normalized === "payment-gateway-config") return "Gateway-Konfiguration"
+  if (normalized === "payment-gateway-config-fallback") return "Gateway-Fallback"
+  if (normalized === "settings-fallback") return "System-Fallback"
+  if (!normalized) return "Unbekannt"
+
+  return normalized
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 function ToneBadge({ label, tone, className = "" }: { label: string; tone: StatusTone; className?: string }) {
   return (
     <Badge variant="outline" className={`analytics-inline-badge analytics-status-badge analytics-status-${tone} ${className}`.trim()}>
@@ -270,7 +292,12 @@ type ProfitabilityColumnId =
   | "cgCurrency"
   | "serviceType"
   | "status"
+  | "grossAmount"
   | "netRevenue"
+  | "totalCosts"
+  | "contributionMargin"
+  | "target30Percent"
+  | "contributionVsTarget"
   | "directCosts"
   | "materialCost"
   | "subcontractCost"
@@ -278,6 +305,10 @@ type ProfitabilityColumnId =
   | "overheadCost"
   | "depreciationCost"
   | "paymentGatewayFees"
+  | "paymentFee"
+  | "shippingCost"
+  | "packagingCost"
+  | "additionalCost"
   | "shippingFlatCost"
   | "otherOperatingCost"
   | "profit"
@@ -295,19 +326,27 @@ type ProfitabilityColumnPreference = {
 }
 
 type OrderDetailColumnId =
-  | "order"
-  | "status"
-  | "device"
-  | "netRevenue"
-  | "materialCost"
-  | "subcontractCost"
-  | "laborCost"
-  | "paymentGatewayFees"
-  | "shippingFlatCost"
-  | "profit"
-  | "plannedHours"
-  | "actualHours"
-  | "trackedHours"
+  | "invoiceDate"
+  | "invoiceNumber"
+  | "orderDate"
+  | "orderNumber"
+  | "grossAmount"
+  | "netAmount"
+  | "paymentType"
+  | "billingRecipient"
+  | "customerGroup"
+  | "serviceDescription"
+  | "technician"
+  | "opTechnician"
+  | "dhl"
+  | "additionalCost"
+  | "packaging"
+  | "opPayment"
+  | "total"
+  | "contributionMargin"
+  | "profitability"
+  | "target30Percent"
+  | "ppCredit"
 
 type OrderDetailColumnPreference = {
   id: OrderDetailColumnId
@@ -335,122 +374,219 @@ type OrderDetailColumnDefinition = {
   cell: (order: ProfitabilityOrderRow) => ReactNode
 }
 
+const getOrderDetailCsvValue = (order: ProfitabilityOrderRow, columnId: OrderDetailColumnId): string | number => {
+  switch (columnId) {
+    case "invoiceDate":
+      return formatDate(order.invoiceDate)
+    case "invoiceNumber":
+      return order.invoiceNumber || "-"
+    case "orderDate":
+      return formatDate(order.orderDate)
+    case "orderNumber":
+      return order.internalOrderNumber || order.orderNumber
+    case "grossAmount":
+      return (order.grossAmount ?? 0).toFixed(2)
+    case "netAmount":
+      return (order.netAmount ?? order.netRevenue ?? 0).toFixed(2)
+    case "paymentType":
+      return order.paymentType || order.paymentLabel || "-"
+    case "billingRecipient":
+      return [order.companyName, order.contactPerson].filter(Boolean).join(", ") || "-"
+    case "customerGroup":
+      return order.customerGroup || "-"
+    case "serviceDescription":
+      return order.description || "-"
+    case "technician":
+      return order.technician || "-"
+    case "opTechnician":
+      return (order.technicianCost ?? order.laborCost ?? 0).toFixed(2)
+    case "dhl":
+      return (order.shippingCost ?? order.shippingFlatCost ?? 0).toFixed(2)
+    case "additionalCost":
+      return (order.additionalCost ?? order.otherOperatingCost ?? 0).toFixed(2)
+    case "packaging":
+      return (order.packagingCost ?? 0).toFixed(2)
+    case "opPayment":
+      return (order.paymentFee ?? order.paymentGatewayFees ?? 0).toFixed(2)
+    case "total":
+      return (order.totalCosts ?? order.directCosts + order.otherOperatingCost ?? 0).toFixed(2)
+    case "contributionMargin":
+      return (order.contributionMargin ?? order.profit ?? 0).toFixed(2)
+    case "profitability":
+      return (order.profitability ?? order.marginPercent ?? 0).toFixed(2)
+    case "target30Percent":
+      return (order.target30Percent ?? 0).toFixed(2)
+    case "ppCredit":
+      return (order.ppCredit ?? order.paymentGatewayFees ?? 0).toFixed(2)
+    default:
+      return "-"
+  }
+}
+
 const COLUMN_STORAGE_KEY = "fixithub-profitability-columns-v1"
-const ORDER_DETAIL_COLUMN_STORAGE_KEY = "fixithub-profitability-order-columns-v1"
+const ORDER_DETAIL_COLUMN_STORAGE_KEY = "fixithub-profitability-order-columns-v2"
 const DENSE_VIEW_STORAGE_KEY = "fixithub-profitability-dense-view-v1"
 
 const ORDER_DETAIL_COLUMNS: OrderDetailColumnDefinition[] = [
   {
-    id: "order",
-    label: "Auftrag",
-    description: "Auftragsnummer und Kurzbeschreibung.",
+    id: "invoiceDate",
+    label: "RG Datum",
+    description: "Rechnungsdatum.",
+    defaultVisible: true,
+    cell: (order) => formatDate(order.invoiceDate),
+  },
+  {
+    id: "invoiceNumber",
+    label: "RG Nr.",
+    description: "Rechnungsnummer.",
+    defaultVisible: true,
+    cell: (order) => order.invoiceNumber || "-",
+  },
+  {
+    id: "orderDate",
+    label: "Best. Datum",
+    description: "Bestelldatum.",
+    defaultVisible: true,
+    cell: (order) => formatDate(order.orderDate),
+  },
+  {
+    id: "orderNumber",
+    label: "Bestellnr.",
+    description: "Interne Bestellnummer.",
     defaultVisible: true,
     required: true,
-    cell: (order) => (
-      <div className="analytics-cell-stack analytics-cell-stack-wide">
-        <strong>{order.orderNumber}</strong>
-        <span>{order.description}</span>
-      </div>
-    ),
+    cell: (order) => order.internalOrderNumber || order.orderNumber,
   },
   {
-    id: "status",
-    label: "Status",
-    description: "Aktueller Bearbeitungsstatus mit Fortschritt.",
-    defaultVisible: true,
-    cell: (order) => (
-      <div className="analytics-cell-stack">
-        <StatusBadge status={order.status} />
-        <span>{Math.round(order.progress)} % Fortschritt</span>
-      </div>
-    ),
-  },
-  {
-    id: "device",
-    label: "Geraet",
-    description: "Geraet oder Modellbezug des Auftrags.",
-    defaultVisible: true,
-    cell: (order) => order.device || "-",
-  },
-  {
-    id: "netRevenue",
-    label: "Netto",
-    description: "Nettoerloes des Einzelauftrags.",
+    id: "grossAmount",
+    label: "RG Brutto",
+    description: "Rechnungsbetrag brutto.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatCurrency(order.netRevenue),
+    cell: (order) => formatCurrency(order.grossAmount ?? 0),
   },
   {
-    id: "materialCost",
-    label: "Material",
-    description: "Material- und Teilekosten.",
+    id: "netAmount",
+    label: "RG Netto",
+    description: "Rechnungsbetrag netto.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatCurrency(order.materialCost),
+    cell: (order) => formatCurrency(order.netAmount ?? order.netRevenue),
   },
   {
-    id: "subcontractCost",
-    label: "Fremdleistung",
-    description: "Extern vergebene Kostenanteile.",
-    defaultVisible: false,
-    align: "right",
-    cell: (order) => formatCurrency(order.subcontractCost),
+    id: "paymentType",
+    label: "Zahlungsartname",
+    description: "Verwendete Zahlungsart.",
+    defaultVisible: true,
+    cell: (order) => order.paymentType || order.paymentLabel || "-",
   },
   {
-    id: "laborCost",
-    label: "Lohn",
-    description: "Interne Lohnkosten des Auftrags.",
+    id: "billingRecipient",
+    label: "RA Firma, RA Vorname RA Nachname",
+    description: "Rechnungsempfaenger.",
+    defaultVisible: true,
+    cell: (order) => [order.companyName, order.contactPerson].filter(Boolean).join(", ") || "-",
+  },
+  {
+    id: "customerGroup",
+    label: "Kunden Gruppe",
+    description: "Zugeordnete Kundengruppe.",
+    defaultVisible: true,
+    cell: (order) => order.customerGroup || "-",
+  },
+  {
+    id: "serviceDescription",
+    label: "Service Beschreibung",
+    description: "Beschreibung des Auftragsinhalts.",
+    defaultVisible: true,
+    cell: (order) => order.description || "-",
+  },
+  {
+    id: "technician",
+    label: "Techniker",
+    description: "Zugeordneter Techniker.",
+    defaultVisible: true,
+    cell: (order) => order.technician || "-",
+  },
+  {
+    id: "opTechnician",
+    label: "OP",
+    description: "Operative Personalkosten.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatCurrency(order.laborCost),
+    cell: (order) => formatCurrency(order.technicianCost ?? order.laborCost),
   },
   {
-    id: "paymentGatewayFees",
-    label: "Gateway",
-    description: "Transaktionsgebuehren der genutzten Zahlungsgateways.",
+    id: "dhl",
+    label: "DHL",
+    description: "Versandkosten.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatCurrency(order.paymentGatewayFees),
+    cell: (order) => formatCurrency(order.shippingCost ?? order.shippingFlatCost),
   },
   {
-    id: "shippingFlatCost",
-    label: "Versand pauschal",
-    description: "Pauschale Versandkosten je Buchung (anteilig pro Auftrag).",
+    id: "additionalCost",
+    label: "Zusatz/Adcell",
+    description: "Zusaetzliche Kostenpositionen.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatCurrency(order.shippingFlatCost),
+    cell: (order) => formatCurrency(order.additionalCost ?? order.otherOperatingCost),
   },
   {
-    id: "profit",
-    label: "Ergebnis",
-    description: "Gewinn oder Verlust je Auftrag.",
+    id: "packaging",
+    label: "Verpackung",
+    description: "Verpackungskosten.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => <span className={order.profit >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(order.profit)}</span>,
+    cell: (order) => formatCurrency(order.packagingCost ?? 0),
   },
   {
-    id: "plannedHours",
-    label: "Soll",
-    description: "Geplante Stunden.",
+    id: "opPayment",
+    label: "OP",
+    description: "Operative Zahlungsgebuehren.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatHours(order.plannedHours),
+    cell: (order) => formatCurrency(order.paymentFee ?? order.paymentGatewayFees),
   },
   {
-    id: "actualHours",
-    label: "Ist",
-    description: "Tatsaechlich angesetzte Stunden.",
+    id: "total",
+    label: "Gesamt",
+    description: "Gesamtkosten.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatHours(order.actualHours),
+    cell: (order) => formatCurrency(order.totalCosts ?? order.directCosts + order.otherOperatingCost),
   },
   {
-    id: "trackedHours",
-    label: "Erfasst",
-    description: "Reale Zeiterfassung aus WorkSessions.",
+    id: "contributionMargin",
+    label: "dB",
+    description: "Deckungsbeitrag.",
     defaultVisible: true,
     align: "right",
-    cell: (order) => formatHours(order.trackedHours),
+    cell: (order) => <span className={(order.contributionMargin ?? order.profit) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(order.contributionMargin ?? order.profit)}</span>,
+  },
+  {
+    id: "profitability",
+    label: "UmsRenta",
+    description: "Umsatzrentabilitaet.",
+    defaultVisible: true,
+    align: "right",
+    cell: (order) => formatPercent(order.profitability ?? order.marginPercent),
+  },
+  {
+    id: "target30Percent",
+    label: "30% vom Brutto",
+    description: "Referenzwert 30% vom Brutto.",
+    defaultVisible: true,
+    align: "right",
+    cell: (order) => formatCurrency(order.target30Percent ?? 0),
+  },
+  {
+    id: "ppCredit",
+    label: "PP Kredit",
+    description: "Gateway/PP Kredit.",
+    defaultVisible: true,
+    align: "right",
+    cell: (order) => formatCurrency(order.ppCredit ?? order.paymentGatewayFees),
   },
 ]
 
@@ -662,6 +798,15 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
     csvValue: (row) => getStatusMeta(row.status).label,
   },
   {
+    id: "grossAmount",
+    label: "Umsatz brutto",
+    description: "Bruttoumsatz je Buchung.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => formatCurrency(row.grossAmount ?? 0),
+    csvValue: (row) => (row.grossAmount ?? 0).toFixed(2),
+  },
+  {
     id: "netRevenue",
     label: "Erloese netto",
     description: "Nettoerloes nach Abzug der Steuer.",
@@ -669,6 +814,42 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
     align: "right",
     cell: (row) => formatCurrency(row.netRevenue),
     csvValue: (row) => row.netRevenue.toFixed(2),
+  },
+  {
+    id: "totalCosts",
+    label: "Gesamtkosten",
+    description: "Summe aller Kostenbloecke.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => formatCurrency(row.totalCosts ?? 0),
+    csvValue: (row) => (row.totalCosts ?? 0).toFixed(2),
+  },
+  {
+    id: "contributionMargin",
+    label: "Deckungsbeitrag",
+    description: "Netto-Umsatz minus Gesamtkosten.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => <span className={(row.contributionMargin ?? 0) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.contributionMargin ?? 0)}</span>,
+    csvValue: (row) => (row.contributionMargin ?? 0).toFixed(2),
+  },
+  {
+    id: "target30Percent",
+    label: "30% vom Brutto",
+    description: "Referenzwert: Bruttoumsatz * 0,30.",
+    defaultVisible: false,
+    align: "right",
+    cell: (row) => formatCurrency(row.target30Percent ?? 0),
+    csvValue: (row) => (row.target30Percent ?? 0).toFixed(2),
+  },
+  {
+    id: "contributionVsTarget",
+    label: "DB zu 30%",
+    description: "Differenz zwischen Deckungsbeitrag und 30%-Referenz.",
+    defaultVisible: false,
+    align: "right",
+    cell: (row) => <span className={(row.contributionVsTarget ?? 0) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.contributionVsTarget ?? 0)}</span>,
+    csvValue: (row) => (row.contributionVsTarget ?? 0).toFixed(2),
   },
   {
     id: "directCosts",
@@ -732,6 +913,42 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
     align: "right",
     cell: (row) => formatCurrency(row.paymentGatewayFees),
     csvValue: (row) => row.paymentGatewayFees.toFixed(2),
+  },
+  {
+    id: "paymentFee",
+    label: "Zahlungsgebuehren",
+    description: "PayPal-/Gateway-/Fallback-Gebuehren gesamt.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => formatCurrency(row.paymentFee ?? 0),
+    csvValue: (row) => (row.paymentFee ?? 0).toFixed(2),
+  },
+  {
+    id: "shippingCost",
+    label: "DHL / Versand",
+    description: "Versandbezogene Kosten (Auftrag + Buchung).",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => formatCurrency(row.shippingCost ?? 0),
+    csvValue: (row) => (row.shippingCost ?? 0).toFixed(2),
+  },
+  {
+    id: "packagingCost",
+    label: "Verpackung",
+    description: "Verpackungskosten je Buchung.",
+    defaultVisible: false,
+    align: "right",
+    cell: (row) => formatCurrency(row.packagingCost ?? 0),
+    csvValue: (row) => (row.packagingCost ?? 0).toFixed(2),
+  },
+  {
+    id: "additionalCost",
+    label: "Zusatzkosten",
+    description: "Sonstige/Adcell/Fremdkosten gemaess Konfiguration.",
+    defaultVisible: false,
+    align: "right",
+    cell: (row) => formatCurrency(row.additionalCost ?? 0),
+    csvValue: (row) => (row.additionalCost ?? 0).toFixed(2),
   },
   {
     id: "shippingFlatCost",
@@ -1028,6 +1245,18 @@ const sanitizeSettingsDraft = (input: ProfitabilitySettings): ProfitabilitySetti
   const next = JSON.parse(JSON.stringify(input)) as ProfitabilitySettings
 
   next.otherCosts.flatShippingCostPerBooking = clampNumber(Number(next.otherCosts.flatShippingCostPerBooking || 0), 0, 500)
+  next.otherCosts.paymentFeeFixedAmount = clampNumber(Number(next.otherCosts.paymentFeeFixedAmount || 0), -100, 100)
+
+  if (!next.accounting) {
+    next.accounting = {
+      vatRate: 0.19,
+      targetGrossMarginRate: 0.3,
+      defaultProjectionWorkdays: 22,
+    }
+  }
+  next.accounting.vatRate = clampNumber(Number(next.accounting.vatRate || 0), 0, 1)
+  next.accounting.targetGrossMarginRate = clampNumber(Number(next.accounting.targetGrossMarginRate || 0), 0, 1)
+  next.accounting.defaultProjectionWorkdays = clampNumber(Number(next.accounting.defaultProjectionWorkdays || 22), 1, 31)
 
   const profitWeights = next.formula.profitWeights
   profitWeights.netRevenue = clampNumber(Number(profitWeights.netRevenue || 0), 0, 3)
@@ -1057,11 +1286,20 @@ export function Analytics() {
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [orderColumnsOpen, setOrderColumnsOpen] = useState(false)
   const [rows, setRows] = useState<ProfitabilityBookingRow[]>([])
+  const [periodSummary, setPeriodSummary] = useState<{
+    totals: Record<string, number>
+    workdays: number
+    range: { startDate: string | null; endDate: string | null }
+    perWorkday: Record<string, number>
+    projection: Record<string, number>
+  } | null>(null)
   const [settings, setSettings] = useState<ProfitabilitySettings>(DEFAULT_SETTINGS)
   const [settingsDraft, setSettingsDraft] = useState<ProfitabilitySettings>(DEFAULT_SETTINGS)
   const [settingsMeta, setSettingsMeta] = useState<ProfitabilitySettingsMeta>(DEFAULT_SETTINGS_META)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [denseView, setDenseView] = useState<boolean>(() => {
     if (typeof window === "undefined") return false
@@ -1114,7 +1352,7 @@ export function Analytics() {
     }
   }
 
-  const loadReport = async (showToast = false) => {
+  const loadReport = async (showToast = false, params?: Partial<ProfitabilityReportParams>) => {
     try {
       if (showToast) {
         setRefreshing(true)
@@ -1122,12 +1360,18 @@ export function Analytics() {
         setLoading(true)
       }
 
-      const response = await getProfitabilityReport(200)
+      const response = await getProfitabilityReport({
+        limit: 500,
+        startDate: params?.startDate ?? (dateFrom || null),
+        endDate: params?.endDate ?? (dateTo || null),
+      })
       const nextRows = Array.isArray(response?.rows) ? response.rows : []
       const nextSettings = response?.settings || DEFAULT_SETTINGS
       const nextMeta = response?.settingsMeta || DEFAULT_SETTINGS_META
+      const nextPeriodSummary = response?.periodSummary || null
 
       setRows(nextRows)
+      setPeriodSummary(nextPeriodSummary)
       setSettings(nextSettings)
       setSettingsDraft(nextSettings)
       setSettingsMeta(nextMeta)
@@ -1152,7 +1396,18 @@ export function Analytics() {
 
   useEffect(() => {
     loadReport()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const applyDateFilter = () => {
+    loadReport(true, { startDate: dateFrom || null, endDate: dateTo || null })
+  }
+
+  const resetDateFilter = () => {
+    setDateFrom("")
+    setDateTo("")
+    loadReport(true, { startDate: null, endDate: null })
+  }
 
   useEffect(() => {
     persistColumnPreferences(columnPreferences)
@@ -1199,6 +1454,32 @@ export function Analytics() {
   }, [rows, searchTerm, statusFilter])
 
   const totals = useMemo(() => aggregateRows(filteredRows), [filteredRows])
+  const controllingTotals = useMemo(() => {
+    return filteredRows.reduce(
+      (acc, row) => ({
+        technicianCost: acc.technicianCost + (row.technicianCost ?? row.laborCost ?? 0),
+        shippingCost: acc.shippingCost + (row.shippingCost ?? row.shippingFlatCost ?? 0),
+        additionalCost: acc.additionalCost + (row.additionalCost ?? row.otherOperatingCost ?? 0),
+        packagingCost: acc.packagingCost + (row.packagingCost ?? 0),
+        paymentFee: acc.paymentFee + (row.paymentFee ?? row.paymentGatewayFees ?? 0),
+        totalCosts: acc.totalCosts + (row.totalCosts ?? row.directCosts + row.otherOperatingCost ?? 0),
+        contributionMargin: acc.contributionMargin + (row.contributionMargin ?? row.profit ?? 0),
+        target30Percent: acc.target30Percent + (row.target30Percent ?? 0),
+        contributionVsTarget: acc.contributionVsTarget + (row.contributionVsTarget ?? 0),
+      }),
+      {
+        technicianCost: 0,
+        shippingCost: 0,
+        additionalCost: 0,
+        packagingCost: 0,
+        paymentFee: 0,
+        totalCosts: 0,
+        contributionMargin: 0,
+        target30Percent: 0,
+        contributionVsTarget: 0,
+      },
+    )
+  }, [filteredRows])
   const settingsDraftMeta = useMemo(() => buildSettingsMetaFromDraft(settingsDraft), [settingsDraft])
 
   const formulaPreview = useMemo(() => {
@@ -1334,12 +1615,40 @@ export function Analytics() {
       .filter((column): column is OrderDetailColumnDefinition => Boolean(column))
   }, [orderDetailPreferences])
 
+  const orderDatasetRows = useMemo(() => {
+    return filteredRows.flatMap((booking) =>
+      (booking.orders || []).map((order) => ({
+        ...order,
+        __bookingNumber: booking.bookingNumber,
+        __customerName: booking.customerName,
+      })),
+    )
+  }, [filteredRows])
+
   const exportCsv = () => {
-    const header = visibleColumns.map((column) => column.label)
+    const bookingHeader = visibleColumns.map((column) => column.label)
+    const bookingLines = filteredRows.map((row) => visibleColumns.map((column) => column.csvValue(row)))
 
-    const lines = filteredRows.map((row) => visibleColumns.map((column) => column.csvValue(row)))
+    const orderDetailHeader = ["Buchung", "Kunde", ...visibleOrderDetailColumns.map((column) => column.label)]
+    const orderDetailLines = filteredRows.flatMap((booking) =>
+      (booking.orders || []).map((order) => [
+        booking.bookingNumber,
+        booking.customerName,
+        ...visibleOrderDetailColumns.map((column) => getOrderDetailCsvValue(order, column.id)),
+      ]),
+    )
 
-    const csvContent = [header, ...lines].map((line) => line.map((value) => csvEscape(value)).join(";")).join("\n")
+    const exportRows: Array<Array<string | number>> = [
+      ["Rentabilitaet je Buchung"],
+      bookingHeader,
+      ...bookingLines,
+      [],
+      ["Order Details je Buchung"],
+      orderDetailHeader,
+      ...orderDetailLines,
+    ]
+
+    const csvContent = exportRows.map((line) => line.map((value) => csvEscape(value)).join(";")).join("\n")
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -1704,6 +2013,14 @@ export function Analytics() {
                 <strong>Versandpauschale je Buchung</strong>
                 <span>{formatCurrency(settings.otherCosts.flatShippingCostPerBooking)}</span>
               </div>
+              <div>
+                <strong>Durchschnitt pro Werktag (DB)</strong>
+                <span>{formatCurrency(periodSummary?.perWorkday?.contributionMargin ?? 0)}</span>
+              </div>
+              <div>
+                <strong>Hochrechnung (DB)</strong>
+                <span>{formatCurrency(periodSummary?.projection?.contributionMargin ?? 0)} auf {Math.round(periodSummary?.projection?.workdays ?? 0)} Werktage</span>
+              </div>
               <p>
                 Prioritaet hat immer die erfasste WorkSession-Zeit pro Auftrag. Wenn fuer einen Auftrag noch keine vollständige Zeiterfassung vorliegt, greift der Backend-Fallback auf Basis von Sollzeit und Fortschritt.
               </p>
@@ -1714,8 +2031,8 @@ export function Analytics() {
         <Card className="analytics-panel analytics-table-panel">
           <CardHeader className="analytics-table-header">
             <div>
-              <CardTitle>Rentabilitaetstabelle</CardTitle>
-              <CardDescription>Pflichtfelder und Zusatzspalten pro Buchung mit echter Auftragsaufschluesselung</CardDescription>
+              <CardTitle>Controlling-Ansicht</CardTitle>
+              <CardDescription>Vollstaendige Deckungsbeitragsrechnung mit Kostenbloecken, Referenzwerten und Detailaufschluesselung</CardDescription>
             </div>
 
             <div className="analytics-toolbar">
@@ -1740,6 +2057,45 @@ export function Analytics() {
                 </select>
               </label>
 
+              <div className="analytics-date-filter">
+                <CalendarRange className="h-4 w-4 analytics-date-filter-icon" />
+                <input
+                  type="date"
+                  className="analytics-date-input"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  title="Von"
+                />
+                <span className="analytics-date-sep">–</span>
+                <input
+                  type="date"
+                  className="analytics-date-input"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  title="Bis"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="analytics-date-apply"
+                  onClick={applyDateFilter}
+                >
+                  Anwenden
+                </Button>
+                {(dateFrom || dateTo) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="analytics-date-reset"
+                    onClick={resetDateFilter}
+                    title="Filter zuruecksetzen"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+
               <Button
                 type="button"
                 variant="outline"
@@ -1749,7 +2105,6 @@ export function Analytics() {
                   setColumnsOpen(true)
                 }}
               >
-                <Columns3 className="h-4 w-4" />
                 Spalten
                 <span className="analytics-column-pill">{visibleColumns.length}</span>
               </Button>
@@ -1763,7 +2118,6 @@ export function Analytics() {
                   setOrderColumnsOpen(true)
                 }}
               >
-                <Columns3 className="h-4 w-4" />
                 Detailspalten
                 <span className="analytics-column-pill">{visibleOrderDetailColumns.length}</span>
               </Button>
@@ -1784,16 +2138,59 @@ export function Analytics() {
               </div>
             ) : (
               <>
-                <div className="analytics-desktop-table">
+                <div className="analytics-controlling-summary">
+                  <div>
+                    <span>Technikerkosten</span>
+                    <strong>{formatCurrency(controllingTotals.technicianCost)}</strong>
+                  </div>
+                  <div>
+                    <span>DHL / Versand</span>
+                    <strong>{formatCurrency(controllingTotals.shippingCost)}</strong>
+                  </div>
+                  <div>
+                    <span>Zusatzkosten</span>
+                    <strong>{formatCurrency(controllingTotals.additionalCost)}</strong>
+                  </div>
+                  <div>
+                    <span>Verpackung</span>
+                    <strong>{formatCurrency(controllingTotals.packagingCost)}</strong>
+                  </div>
+                  <div>
+                    <span>Zahlungsgebuehren</span>
+                    <strong>{formatCurrency(controllingTotals.paymentFee)}</strong>
+                  </div>
+                  <div>
+                    <span>Gesamtkosten</span>
+                    <strong>{formatCurrency(controllingTotals.totalCosts)}</strong>
+                  </div>
+                  <div>
+                    <span>Deckungsbeitrag</span>
+                    <strong className={controllingTotals.contributionMargin >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(controllingTotals.contributionMargin)}</strong>
+                  </div>
+                  <div>
+                    <span>30% Referenz</span>
+                    <strong>{formatCurrency(controllingTotals.target30Percent)}</strong>
+                  </div>
+                  <div>
+                    <span>DB zu Referenz</span>
+                    <strong className={controllingTotals.contributionVsTarget >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(controllingTotals.contributionVsTarget)}</strong>
+                  </div>
+                </div>
+
+                <div className="analytics-profit-table-wrapper">
                   <Table>
                     <TableHeader>
-                      <TableRow className="analytics-table-head-row">
+                      <TableRow className="analytics-profit-table-head">
+                        <TableHead>Buchung</TableHead>
+                        <TableHead>Datum / Kunde</TableHead>
+                        <TableHead className="text-right">Brutto</TableHead>
+                        <TableHead className="text-right">Netto</TableHead>
+                        <TableHead>Kostenbloecke</TableHead>
+                        <TableHead className="text-right">Deckungsbeitrag</TableHead>
+                        <TableHead className="text-right">Rentabilitaet</TableHead>
+                        <TableHead className="text-right">30% Referenz</TableHead>
+                        <TableHead className="text-right">Diff.</TableHead>
                         <TableHead className="analytics-table-control"></TableHead>
-                        {visibleColumns.map((column) => (
-                          <TableHead key={column.id} className={column.align === "right" ? "text-right" : undefined}>
-                            {column.label}
-                          </TableHead>
-                        ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1802,40 +2199,107 @@ export function Analytics() {
 
                         return (
                           <Fragment key={row.id}>
-                            <TableRow className="analytics-table-row">
+                            <TableRow className="analytics-profit-row">
+                              <TableCell>
+                                <div className="analytics-profit-booking">
+                                  <strong>{row.bookingNumber}</strong>
+                                  <span>{row.orderCount} Auftraege</span>
+                                  <StatusBadge status={row.status} />
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="analytics-profit-customer">
+                                  <strong>{formatDate(row.invoiceDate || row.bookingDate)}</strong>
+                                  <span>{row.customerName}</span>
+                                  <span>{row.customerGroup}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <strong>{formatCurrency(row.grossAmount ?? 0)}</strong>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <strong>{formatCurrency(row.netAmount ?? row.netRevenue)}</strong>
+                              </TableCell>
+                              <TableCell>
+                                <div className="analytics-cost-blocks">
+                                  <span>Technik: {formatCurrency(row.technicianCost ?? row.laborCost)}</span>
+                                  <span>DHL: {formatCurrency(row.shippingCost ?? row.shippingFlatCost)}</span>
+                                  <span>Zusatz: {formatCurrency(row.additionalCost ?? row.otherOperatingCost)}</span>
+                                  <span>Verpackung: {formatCurrency(row.packagingCost ?? 0)}</span>
+                                  <span>Zahlung: {formatCurrency(row.paymentFee ?? row.paymentGatewayFees)}</span>
+                                  <span>Gateway: {(row.gatewayProvider || "-").toUpperCase()} {row.gatewayFeePercentLabel || "-"}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <strong className={(row.contributionMargin ?? row.profit) >= 0 ? "analytics-positive" : "analytics-negative"}>
+                                  {formatCurrency(row.contributionMargin ?? row.profit)}
+                                </strong>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <strong>{formatPercent(row.profitability ?? row.marginPercent)}</strong>
+                              </TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.target30Percent ?? 0)}</TableCell>
+                              <TableCell className="text-right">
+                                <strong className={(row.contributionVsTarget ?? 0) >= 0 ? "analytics-positive" : "analytics-negative"}>
+                                  {formatCurrency(row.contributionVsTarget ?? 0)}
+                                </strong>
+                              </TableCell>
                               <TableCell className="analytics-table-control">
                                 <button type="button" className="analytics-expand-button" onClick={() => toggleRow(row.id)}>
                                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                 </button>
                               </TableCell>
-                              {visibleColumns.map((column) => (
-                                <TableCell key={`${row.id}-${column.id}`} className={column.align === "right" ? "text-right" : undefined}>
-                                  {column.cell(row)}
-                                </TableCell>
-                              ))}
                             </TableRow>
 
                             {isExpanded ? (
-                              <TableRow className="analytics-detail-row">
-                                <TableCell colSpan={visibleColumns.length + 1}>
-                                  <div className="analytics-detail-panel">
-                                    <div className="analytics-detail-summary">
-                                      <div>
-                                        <span>{t('common.status')}</span>
-                                        <strong>{getStatusMeta(row.status).label}</strong>
-                                      </div>
-                                      <div>
-                                        <span>{t('analyticsPage.revenue')}</span>
-                                        <strong>{formatCurrency(row.netRevenue)}</strong>
-                                      </div>
-                                      <div>
-                                        <span>Ergebnis</span>
-                                        <strong className={row.profit >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.profit)}</strong>
-                                      </div>
-                                      <div>
-                                        <span>Umsatzrentabilitaet</span>
-                                        <strong>{formatPercent(row.marginPercent)}</strong>
-                                      </div>
+                              <TableRow className="analytics-profit-detail-row">
+                                <TableCell colSpan={10}>
+                                  <div className="analytics-profit-detail-panel">
+                                    <div className="analytics-profit-detail-table-wrapper">
+                                      <table className="analytics-profit-detail-table">
+                                        <thead>
+                                          <tr>
+                                            <th>Rechnung</th>
+                                            <th>Netto-Umsatz</th>
+                                            <th>Gesamtkosten</th>
+                                            <th>Technikerkosten</th>
+                                            <th>DHL / Versand</th>
+                                            <th>Zusatzkosten</th>
+                                            <th>Zahlungsgebuehren</th>
+                                            <th>Gateway-Fee Rate</th>
+                                            <th>Deckungsbeitrag</th>
+                                            <th>30% vom Brutto</th>
+                                            <th>DB zu Referenz</th>
+                                            <th>Durchschn. Ist-Zeit</th>
+                                            <th>Zahlungsart</th>
+                                            <th>PP-Credit / Gateway</th>
+                                            <th>Gebuehrenquelle</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          <tr>
+                                            <td>{row.invoiceNumber || "-"}</td>
+                                            <td>{formatCurrency(row.netAmount ?? row.netRevenue)}</td>
+                                            <td>{formatCurrency(row.totalCosts ?? row.directCosts + row.otherOperatingCost)}</td>
+                                            <td>{formatCurrency(row.technicianCost ?? row.laborCost)}</td>
+                                            <td>{formatCurrency(row.shippingCost ?? row.shippingFlatCost)}</td>
+                                            <td>{formatCurrency(row.additionalCost ?? row.otherOperatingCost)}</td>
+                                            <td>{formatCurrency(row.paymentFee ?? row.paymentGatewayFees)}</td>
+                                            <td>{(row.gatewayProvider || "-").toUpperCase()} {row.gatewayFeePercentLabel || "-"}</td>
+                                            <td className={(row.contributionMargin ?? row.profit) >= 0 ? "analytics-positive" : "analytics-negative"}>
+                                              {formatCurrency(row.contributionMargin ?? row.profit)}
+                                            </td>
+                                            <td>{formatCurrency(row.target30Percent ?? 0)}</td>
+                                            <td className={(row.contributionVsTarget ?? 0) >= 0 ? "analytics-positive" : "analytics-negative"}>
+                                              {formatCurrency(row.contributionVsTarget ?? 0)}
+                                            </td>
+                                            <td>{formatHours(row.actualHours)}</td>
+                                            <td>{row.paymentType || row.paymentLabel || "-"}</td>
+                                            <td>{formatCurrency(row.ppCredit ?? row.paymentGatewayFees)}</td>
+                                            <td>{getGatewayFeeSourceLabel(row.gatewayFeeSource)}</td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
                                     </div>
                                     <OrderDetailsTable orders={row.orders} columns={visibleOrderDetailColumns} />
                                   </div>
@@ -1859,7 +2323,7 @@ export function Analytics() {
                           <div>
                             <strong>{row.bookingNumber}</strong>
                             <span>{row.customerName}</span>
-                            <span>{row.serviceType}</span>
+                            <span>{formatDate(row.invoiceDate || row.bookingDate)}</span>
                           </div>
                           <div className="analytics-mobile-card-header-actions">
                             <StatusBadge status={row.status} />
@@ -1869,27 +2333,35 @@ export function Analytics() {
 
                         <div className="analytics-mobile-card-metrics">
                           <div>
-                            <span>{t('analyticsPage.revenue')}</span>
-                            <strong>{formatCurrency(row.netRevenue)}</strong>
+                            <span>Brutto</span>
+                            <strong>{formatCurrency(row.grossAmount ?? 0)}</strong>
                           </div>
                           <div>
-                            <span>Ergebnis</span>
-                            <strong className={row.profit >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.profit)}</strong>
+                            <span>Netto</span>
+                            <strong>{formatCurrency(row.netAmount ?? row.netRevenue)}</strong>
                           </div>
                           <div>
-                            <span>Ist</span>
-                            <strong>{formatHours(row.actualHours)}</strong>
+                            <span>Deckungsbeitrag</span>
+                            <strong className={(row.contributionMargin ?? row.profit) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.contributionMargin ?? row.profit)}</strong>
                           </div>
                           <div>
-                            <span>Marge</span>
-                            <strong>{formatPercent(row.marginPercent)}</strong>
+                            <span>Rentabilitaet</span>
+                            <strong>{formatPercent(row.profitability ?? row.marginPercent)}</strong>
                           </div>
                         </div>
 
+                        <div className="analytics-mobile-cost-blocks">
+                          <span>Technik: {formatCurrency(row.technicianCost ?? row.laborCost)}</span>
+                          <span>DHL: {formatCurrency(row.shippingCost ?? row.shippingFlatCost)}</span>
+                          <span>Zusatz: {formatCurrency(row.additionalCost ?? row.otherOperatingCost)}</span>
+                          <span>Zahlung: {formatCurrency(row.paymentFee ?? row.paymentGatewayFees)}</span>
+                          <span>Gateway: {(row.gatewayProvider || "-").toUpperCase()} {row.gatewayFeePercentLabel || "-"}</span>
+                        </div>
+
                         <div className="analytics-mobile-card-meta">
-                          <span>{formatDate(row.bookingDate)}</span>
-                          <span>{row.paymentLabel}</span>
-                          <span>{row.warrantyLabel}</span>
+                          <span>30%: {formatCurrency(row.target30Percent ?? 0)}</span>
+                          <span>Diff.: {formatCurrency(row.contributionVsTarget ?? 0)}</span>
+                          <span>{row.paymentType || row.paymentLabel}</span>
                         </div>
 
                         {isExpanded ? (
@@ -1902,6 +2374,54 @@ export function Analytics() {
                   })}
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="analytics-panel analytics-table-panel">
+          <CardHeader className="analytics-table-header">
+            <div>
+              <CardTitle>Order Datensaetze</CardTitle>
+              <CardDescription>Alle einzelnen Auftraege aus dem aktuellen Filter in Tabellenform</CardDescription>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            {orderDatasetRows.length === 0 ? (
+              <div className="analytics-empty-state">
+                <BarChart3 className="h-12 w-12" />
+                <h3>Keine Order-Datensaetze vorhanden</h3>
+                <p>Im aktuellen Filter wurden keine einzelnen Auftragsdatensaetze gefunden.</p>
+              </div>
+            ) : (
+              <div className="analytics-order-dataset-table-wrapper">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="analytics-order-dataset-head">
+                      <TableHead>Buchung</TableHead>
+                      <TableHead>Kunde</TableHead>
+                      {visibleOrderDetailColumns.map((column) => (
+                        <TableHead key={`dataset-${column.id}`} className={column.align === "right" ? "text-right" : undefined}>
+                          {column.label}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderDatasetRows.map((order) => (
+                      <TableRow key={`dataset-${order.id}`} className="analytics-order-dataset-row">
+                        <TableCell>{order.__bookingNumber}</TableCell>
+                        <TableCell>{order.__customerName}</TableCell>
+                        {visibleOrderDetailColumns.map((column) => (
+                          <TableCell key={`dataset-${order.id}-${column.id}`} className={column.align === "right" ? "text-right" : undefined}>
+                            {column.cell(order)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

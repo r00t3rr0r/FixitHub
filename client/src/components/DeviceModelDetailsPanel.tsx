@@ -56,6 +56,13 @@ const SpecificationRow = ({ label, value }: { label: string, value?: string | bo
 export function DeviceModelDetailsPanel({ model, deviceType }: DeviceModelDetailsPanelProps) {
   if (!model) return null
 
+  const modelNumbers =
+    (Array.isArray((model as any).modelNumbers) && (model as any).modelNumbers.length > 0)
+      ? (model as any).modelNumbers
+      : (Array.isArray((model as any).other?.modelNumbers) && (model as any).other.modelNumbers.length > 0)
+        ? (model as any).other.modelNumbers
+        : (Array.isArray(model.other?.models) ? model.other.models : [])
+
   return (
     <Card className="w-full border-2 border-blue-200 dark:border-blue-800 shadow-lg animate-in zoom-in duration-300">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 pb-3">
@@ -445,11 +452,11 @@ export function DeviceModelDetailsPanel({ model, deviceType }: DeviceModelDetail
                   <span className="text-amber-900 dark:text-amber-100">Other Information</span>
                 </h4>
                 <div className="space-y-3">
-                  {model.other.models && model.other.models.length > 0 && (
+                  {modelNumbers.length > 0 && (
                     <div className="pb-3 border-b border-amber-100 dark:border-amber-900">
                       <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Model Numbers:</p>
                       <div className="flex flex-wrap gap-2">
-                        {model.other.models.map((m, idx) => (
+                        {modelNumbers.map((m, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-100">{m}</Badge>
                         ))}
                       </div>

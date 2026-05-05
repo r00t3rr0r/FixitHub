@@ -130,9 +130,24 @@ export function ServiceManagement() {
   const [detailService, setDetailService] = useState<RepairService | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [formData, setFormData] = useState({
+    articleNumber: "",
     name: "",
+    service: "",
+    shortDescription: "",
     description: "",
+    printShortDescription: "",
+    printDescription: "",
+    note: "",
+    searchKeywords: "",
+    seoName: "",
+    seoTitleTag: "",
+    seoMetaKeywords: "",
+    seoMetaDescription: "",
     price: 0,
+    purchasePrice: 0,
+    msrp: 0,
+    taxClass: "",
+    source: "",
     estimatedTime: "",
     category: "",
     deviceTypes: [] as string[],
@@ -375,9 +390,24 @@ export function ServiceManagement() {
   const openEditDialog = (service: RepairService) => {
     setSelectedService(service)
     setFormData({
+      articleNumber: service.articleNumber || "",
       name: service.name,
+      service: service.service || "",
+      shortDescription: service.shortDescription || "",
       description: service.description,
+      printShortDescription: service.printShortDescription || "",
+      printDescription: service.printDescription || "",
+      note: service.note || "",
+      searchKeywords: service.searchKeywords || "",
+      seoName: service.seoName || "",
+      seoTitleTag: service.seoTitleTag || "",
+      seoMetaKeywords: service.seoMetaKeywords || "",
+      seoMetaDescription: service.seoMetaDescription || "",
       price: service.price,
+      purchasePrice: service.purchasePrice || 0,
+      msrp: service.msrp || 0,
+      taxClass: service.taxClass || "",
+      source: service.source || "",
       estimatedTime: service.estimatedTime,
       category: service.category,
       deviceTypes: service.deviceTypes,
@@ -398,9 +428,24 @@ export function ServiceManagement() {
 
   const resetForm = () => {
     setFormData({
+      articleNumber: "",
       name: "",
+      service: "",
+      shortDescription: "",
       description: "",
+      printShortDescription: "",
+      printDescription: "",
+      note: "",
+      searchKeywords: "",
+      seoName: "",
+      seoTitleTag: "",
+      seoMetaKeywords: "",
+      seoMetaDescription: "",
       price: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: "",
+      source: "",
       estimatedTime: "",
       category: "",
       deviceTypes: [],
@@ -907,6 +952,14 @@ export function ServiceManagement() {
                         <p className="text-sm font-semibold">{detailService.name}</p>
                       </div>
                       <div>
+                        <Label className="text-xs font-medium text-muted-foreground">Artikelnummer</Label>
+                        <p className="mt-1 font-medium">{detailService.articleNumber || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">Service</Label>
+                        <p className="mt-1 text-xs">{detailService.service || '-'}</p>
+                      </div>
+                      <div>
                         <Label className="text-xs font-medium text-muted-foreground">Category</Label>
                         <div className="mt-1">
                           <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
@@ -916,8 +969,26 @@ export function ServiceManagement() {
                         </div>
                       </div>
                       <div>
+                        <Label className="text-xs font-medium text-muted-foreground">Kurzbeschreibung</Label>
+                        {detailService.shortDescription ? (
+                          <div
+                            className="mt-1 text-xs leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
+                            dangerouslySetInnerHTML={{ __html: detailService.shortDescription }}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xs leading-relaxed">-</p>
+                        )}
+                      </div>
+                      <div>
                         <Label className="text-xs font-medium text-muted-foreground">Description</Label>
-                        <p className="mt-1 text-xs leading-relaxed">{detailService.description}</p>
+                        {detailService.description ? (
+                          <div
+                            className="mt-1 text-xs leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
+                            dangerouslySetInnerHTML={{ __html: detailService.description }}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xs leading-relaxed">-</p>
+                        )}
                       </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">Status</Label>
@@ -951,6 +1022,26 @@ export function ServiceManagement() {
                           </div>
                         </div>
                       </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground">UVP</Label>
+                            <p className="font-medium">${detailService.msrp || 0}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground">Purchase Price</Label>
+                            <p className="font-medium">${detailService.purchasePrice || 0}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground">Steuerklasse</Label>
+                            <p className="font-medium">{detailService.taxClass || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-muted-foreground">_quelle</Label>
+                            <p className="font-medium">{detailService.source || '-'}</p>
+                          </div>
+                        </div>
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">Estimated Time</Label>
                         <div className="flex items-center gap-1 mt-1">
@@ -968,6 +1059,49 @@ export function ServiceManagement() {
                     </CardContent>
                   </Card>
                 </div>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4" />
+                      SEO, Print & Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-xs">
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Suchbegriffe</Label>
+                      <p className="mt-1">{detailService.searchKeywords || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">SEO Namen (Suchmaschienenname)</Label>
+                      <p className="mt-1">{detailService.seoName || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">SEO Titel-Tag</Label>
+                      <p className="mt-1">{detailService.seoTitleTag || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">SEO Meta-Keywords</Label>
+                      <p className="mt-1">{detailService.seoMetaKeywords || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">SEO Meta-Description</Label>
+                      <p className="mt-1 whitespace-pre-wrap">{detailService.seoMetaDescription || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Druck Kurzbeschreibung</Label>
+                      <p className="mt-1 whitespace-pre-wrap">{detailService.printShortDescription || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Druck Beschreibung</Label>
+                      <p className="mt-1 whitespace-pre-wrap">{detailService.printDescription || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Amerkung / Anmerkung</Label>
+                      <p className="mt-1 whitespace-pre-wrap">{detailService.note || '-'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="device" className="space-y-4">
@@ -1148,6 +1282,16 @@ export function ServiceManagement() {
             <TabsContent value="basic" className="space-y-4">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-2">
+                  <Label htmlFor="articleNumber" className="text-xs">Artikelnummer</Label>
+                  <Input
+                    id="articleNumber"
+                    value={formData.articleNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, articleNumber: e.target.value }))}
+                    placeholder="e.g. ART-100023"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="name" className="text-xs">Service Name</Label>
                   <Input
                     id="name"
@@ -1233,6 +1377,29 @@ export function ServiceManagement() {
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="service" className="text-xs">Service</Label>
+                  <Input
+                    id="service"
+                    value={formData.service}
+                    onChange={(e) => setFormData(prev => ({ ...prev, service: e.target.value }))}
+                    placeholder="e.g. Display Reparatur"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shortDescription" className="text-xs">Kurzbeschreibung</Label>
+                  <Input
+                    id="shortDescription"
+                    value={formData.shortDescription}
+                    onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
+                    placeholder="Kurze Zusammenfassung"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="device" className="space-y-4">
@@ -1248,6 +1415,151 @@ export function ServiceManagement() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="msrp" className="text-xs">UVP ($)</Label>
+                  <Input
+                    id="msrp"
+                    type="number"
+                    value={formData.msrp}
+                    onChange={(e) => setFormData(prev => ({ ...prev, msrp: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="purchasePrice" className="text-xs">Purchase Price ($)</Label>
+                  <Input
+                    id="purchasePrice"
+                    type="number"
+                    value={formData.purchasePrice}
+                    onChange={(e) => setFormData(prev => ({ ...prev, purchasePrice: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="taxClass" className="text-xs">Steuerklasse</Label>
+                  <Input
+                    id="taxClass"
+                    value={formData.taxClass}
+                    onChange={(e) => setFormData(prev => ({ ...prev, taxClass: e.target.value }))}
+                    placeholder="e.g. A"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="source" className="text-xs">_quelle</Label>
+                  <Input
+                    id="source"
+                    value={formData.source}
+                    onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
+                    placeholder="e.g. JTL"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label htmlFor="searchKeywords" className="text-xs">Suchbegriffe</Label>
+                <Input
+                  id="searchKeywords"
+                  value={formData.searchKeywords}
+                  onChange={(e) => setFormData(prev => ({ ...prev, searchKeywords: e.target.value }))}
+                  placeholder="keyword1, keyword2"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="seoName" className="text-xs">SEO Namen (Suchmaschienenname)</Label>
+                  <Input
+                    id="seoName"
+                    value={formData.seoName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, seoName: e.target.value }))}
+                    placeholder="seo-name"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="seoTitleTag" className="text-xs">SEO Titel-Tag</Label>
+                  <Input
+                    id="seoTitleTag"
+                    value={formData.seoTitleTag}
+                    onChange={(e) => setFormData(prev => ({ ...prev, seoTitleTag: e.target.value }))}
+                    placeholder="SEO Title"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seoMetaKeywords" className="text-xs">SEO Meta-Keywords</Label>
+                <Input
+                  id="seoMetaKeywords"
+                  value={formData.seoMetaKeywords}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seoMetaKeywords: e.target.value }))}
+                  placeholder="meta, keywords"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seoMetaDescription" className="text-xs">SEO Meta-Description</Label>
+                <Textarea
+                  id="seoMetaDescription"
+                  value={formData.seoMetaDescription}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seoMetaDescription: e.target.value }))}
+                  placeholder="Meta description"
+                  rows={2}
+                  className="min-h-[64px] text-xs"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="printShortDescription" className="text-xs">Druck Kurzbeschreibung</Label>
+                <Textarea
+                  id="printShortDescription"
+                  value={formData.printShortDescription}
+                  onChange={(e) => setFormData(prev => ({ ...prev, printShortDescription: e.target.value }))}
+                  placeholder="Kurzer Drucktext"
+                  rows={2}
+                  className="min-h-[64px] text-xs"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="printDescription" className="text-xs">Druck Beschreibung</Label>
+                <Textarea
+                  id="printDescription"
+                  value={formData.printDescription}
+                  onChange={(e) => setFormData(prev => ({ ...prev, printDescription: e.target.value }))}
+                  placeholder="Langer Drucktext"
+                  rows={2}
+                  className="min-h-[64px] text-xs"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="note" className="text-xs">Amerkung / Anmerkung</Label>
+                <Textarea
+                  id="note"
+                  value={formData.note}
+                  onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                  placeholder="Interne Notiz"
+                  rows={2}
+                  className="min-h-[64px] text-xs"
+                />
+              </div>
+                <div className="space-y-2">
                   <Label htmlFor="model" className="text-xs">Model</Label>
                   <Input
                     id="model"
@@ -1257,7 +1569,6 @@ export function ServiceManagement() {
                     className="h-8 text-xs"
                   />
                 </div>
-              </div>
 
               <div className="space-y-2">
                 <Label className="text-xs">Device Types</Label>

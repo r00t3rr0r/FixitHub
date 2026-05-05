@@ -76,11 +76,11 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
         return;
       }
 
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > 100 * 1024 * 1024) {
         toast({
           variant: 'destructive',
           title: 'File Too Large',
-          description: 'Please select a file smaller than 10MB',
+          description: 'Please select a file smaller than 100MB',
         });
         return;
       }
@@ -217,7 +217,7 @@ const ProductCSVImportDialog: React.FC<ProductCSVImportDialogProps> = ({
               <div className="space-y-2">
                 <h3 className="font-semibold">Upload CSV File</h3>
                 <p className="text-sm text-muted-foreground">
-                  Select a CSV file containing product data (max 10MB)
+                  Select a CSV file containing product data (max 100MB)
                 </p>
                 <input
                   type="file"

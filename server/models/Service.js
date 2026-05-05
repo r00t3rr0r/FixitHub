@@ -6,7 +6,50 @@ const serviceSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  articleNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  shortDescription: {
+    type: String,
+    default: ''
+  },
   description: {
+    type: String,
+    default: ''
+  },
+  printShortDescription: {
+    type: String,
+    default: ''
+  },
+  printDescription: {
+    type: String,
+    default: ''
+  },
+  note: {
+    type: String,
+    default: ''
+  },
+  searchKeywords: {
+    type: String,
+    default: ''
+  },
+  seoName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  seoTitleTag: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  seoMetaKeywords: {
+    type: String,
+    default: ''
+  },
+  seoMetaDescription: {
     type: String,
     default: ''
   },
@@ -15,7 +58,27 @@ const serviceSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  priceGrossCategory: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  priceGrossJtl: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   priceNet: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  priceNetCategory: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  priceNetJtl: {
     type: Number,
     default: 0,
     min: 0
@@ -24,6 +87,21 @@ const serviceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: 0
+  },
+  msrp: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  taxClass: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  source: {
+    type: String,
+    trim: true,
+    default: ''
   },
   estimatedTime: {
     type: String,
@@ -36,7 +114,17 @@ const serviceSchema = new mongoose.Schema({
     // No enum validation to allow dynamic categories
     trim: true
   },
+  service: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   color: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  deviceType: {
     type: String,
     trim: true,
     default: ''

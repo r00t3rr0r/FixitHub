@@ -16,7 +16,6 @@ import {
   Smartphone,
   Tablet,
   Laptop,
-  Gamepad2,
   ShoppingBag,
   Calendar,
   FileText,
@@ -46,7 +45,6 @@ interface DeviceMenuData {
   smartphone: { [manufacturer: string]: DeviceMenuModel[] };
   tablet: { [manufacturer: string]: DeviceMenuModel[] };
   notebook: { [manufacturer: string]: DeviceMenuModel[] };
-  konsole: { [manufacturer: string]: DeviceMenuModel[] };
 }
 
 interface DeviceMenuModel {
@@ -58,7 +56,6 @@ interface DeviceBrandIconData {
   smartphone: { [manufacturer: string]: string | undefined };
   tablet: { [manufacturer: string]: string | undefined };
   notebook: { [manufacturer: string]: string | undefined };
-  konsole: { [manufacturer: string]: string | undefined };
 }
 
 export function McRepairNav() {
@@ -78,14 +75,12 @@ export function McRepairNav() {
   const [deviceMenuData, setDeviceMenuData] = useState<DeviceMenuData>({
     smartphone: {},
     tablet: {},
-    notebook: {},
-    konsole: {}
+    notebook: {}
   });
   const [brandIconData, setBrandIconData] = useState<DeviceBrandIconData>({
     smartphone: {},
     tablet: {},
-    notebook: {},
-    konsole: {}
+    notebook: {}
   });
   const [loadingDevices, setLoadingDevices] = useState(true);
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -248,14 +243,12 @@ export function McRepairNav() {
         const menuData: DeviceMenuData = {
           smartphone: {},
           tablet: {},
-          notebook: {},
-          konsole: {}
+          notebook: {}
         };
         const iconData: DeviceBrandIconData = {
           smartphone: {},
           tablet: {},
-          notebook: {},
-          konsole: {}
+          notebook: {}
         };
 
         // Map device type names to menu categories
@@ -263,10 +256,7 @@ export function McRepairNav() {
           'smartphone': 'smartphone',
           'tablet': 'tablet',
           'notebook': 'notebook',
-          'laptop': 'notebook',
-          'konsole': 'konsole',
-          'console': 'konsole',
-          'gaming console': 'konsole'
+          'laptop': 'notebook'
         };
 
         // Load manufacturers and models for each device type
@@ -332,14 +322,12 @@ export function McRepairNav() {
         const menuData: DeviceMenuData = {
           smartphone: {},
           tablet: {},
-          notebook: {},
-          konsole: {}
+          notebook: {}
         };
         const iconData: DeviceBrandIconData = {
           smartphone: {},
           tablet: {},
-          notebook: {},
-          konsole: {}
+          notebook: {}
         };
 
         // Map device type names to menu categories
@@ -347,10 +335,7 @@ export function McRepairNav() {
           'smartphone': 'smartphone',
           'tablet': 'tablet',
           'notebook': 'notebook',
-          'laptop': 'notebook',
-          'konsole': 'konsole',
-          'console': 'konsole',
-          'gaming console': 'konsole'
+          'laptop': 'notebook'
         };
 
         // Load manufacturers and models for each device type
@@ -917,27 +902,6 @@ export function McRepairNav() {
             </a>
             {activeDropdown === 'notebook' && renderDeviceDropdown('notebook')}
             {mobileMenuOpen && mobileCategoryOpen === 'notebook' && renderMobileDeviceDropdown('notebook')}
-          </div>
-
-          {/* Konsole */}
-          <div 
-            className="nav-item-with-dropdown nav-category-item nav-partial-hidden"
-            onMouseEnter={() => handleMouseEnter('konsole')}
-            onMouseLeave={handleMouseLeave}
-          >
-            <a href="#konsole" className="nav-link" onClick={(e) => handleCategoryClick(e, 'konsole')}>
-              <Gamepad2 width={16} height={16} />
-              {t('home.nav.konsole', 'Konsole')}
-              {mobileMenuOpen && (
-                <ChevronDown
-                  width={16}
-                  height={16}
-                  className={`nav-mobile-caret ${mobileCategoryOpen === 'konsole' ? 'open' : ''}`}
-                />
-              )}
-            </a>
-            {activeDropdown === 'konsole' && renderDeviceDropdown('konsole')}
-            {mobileMenuOpen && mobileCategoryOpen === 'konsole' && renderMobileDeviceDropdown('konsole')}
           </div>
 
           {/* Shop */}
