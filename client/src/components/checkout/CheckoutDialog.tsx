@@ -114,6 +114,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   const [paymentMethod, setPaymentMethod] = useState<"card" | "paypal" | "invoice">("card")
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const [highlightTermsConsent, setHighlightTermsConsent] = useState(false)
   const [processingCheckout, setProcessingCheckout] = useState(false)
 
   const [checkoutSuccessResult, setCheckoutSuccessResult] = useState<any>(null)
@@ -262,6 +263,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     setProcessingCheckout(false)
     setPaymentMethod("card")
     setAcceptTerms(false)
+    setHighlightTermsConsent(false)
     setCardholderName("")
     setCardNumber("")
     setCardExpiry("")
@@ -674,6 +676,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       },
       createOrder: async () => {
         if (!acceptTerms) {
+          setHighlightTermsConsent(true)
           toast({
             title: t("common.error"),
             description: t("checkout.acceptTermsRequired"),
@@ -1060,6 +1063,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   const handlePayNow = async () => {
     if (!acceptTerms) {
+      setHighlightTermsConsent(true)
       toast({
         title: t("common.error"),
         description: t("checkout.acceptTermsRequired"),
@@ -1493,7 +1497,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
           <>
             <div className="sticky top-0 z-10 bg-[#1a2a5e] px-4 py-3 text-white sm:px-5 sm:py-3.5">
               <DialogHeader className="space-y-1 text-left">
-                <DialogTitle className="text-base font-bold tracking-tight sm:text-lg">
+                <DialogTitle className="text-base font-bold tracking-tight text-[#f5b800] sm:text-lg">
                   {step === "review" ? t("checkout.proceedToCheckoutDialogTitle") : t("checkout.authenticationRequired")}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-blue-100 sm:text-sm">
@@ -1554,7 +1558,12 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             <button
                               key={option.value}
                               type="button"
-                              onClick={() => setPaymentMethod(option.value)}
+                              onClick={() => {
+                                if (!acceptTerms) {
+                                  setHighlightTermsConsent(true)
+                                }
+                                setPaymentMethod(option.value)
+                              }}
                               className={`w-full rounded-lg border px-3 py-2 text-left transition-all ${active ? "border-[#1a2a5e] bg-[#eef3ff] ring-1 ring-[#1a2a5e]" : "border-[#e3e7ef] bg-white hover:border-[#c9d3e7]"}`}
                             >
                               <div className="flex items-center gap-2">
@@ -1624,11 +1633,17 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                         </div>
 
                         {/* Accept terms */}
-                        <div className="flex items-start gap-2 rounded-lg bg-[#f7f9fd] px-2.5 py-2">
+                        <div className={`flex items-start gap-2 rounded-lg px-2.5 py-2 transition-all ${highlightTermsConsent && !acceptTerms ? "border-2 border-[#f5b800] bg-[#fff8db] shadow-[0_0_0_2px_rgba(245,184,0,0.25)]" : "bg-[#f7f9fd]"}`}>
                           <Checkbox
                             id="accept-terms"
                             checked={acceptTerms}
-                            onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                            onCheckedChange={(checked) => {
+                              const isAccepted = checked === true
+                              setAcceptTerms(isAccepted)
+                              if (isAccepted) {
+                                setHighlightTermsConsent(false)
+                              }
+                            }}
                             className="mt-0.5 h-5 w-5 border-2 border-[#1a2a5e] bg-white ring-2 ring-[#2a3f7e] ring-offset-1 ring-offset-white shadow-sm data-[state=checked]:border-[#0f1d45] data-[state=checked]:bg-[#1a2a5e] data-[state=checked]:text-white focus-visible:ring-[#1a2a5e]"
                           />
                           <Label htmlFor="accept-terms" className="cursor-pointer text-xs leading-snug text-[#4b5b79]">
