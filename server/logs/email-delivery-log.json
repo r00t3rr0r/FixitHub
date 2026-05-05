@@ -4476,5 +4476,97 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1777978869599-8ao6s58op",
+    "timestamp": "2026-05-05T11:01:09.599Z",
+    "to": "admin@example.com",
+    "templateName": "Statusupdate Auftrag oder Buchung",
+    "subject": "Statusupdate zu Ihrem Auftrag ORD-2026-001: Neue Reklamation",
+    "messageId": "<c5831c80-39c9-8713-d9d3-c71215f5d1ed@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2751,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderId",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderStatus",
+        "statusMessage",
+        "statusUpdatedAt",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777978872122-n08l7jump",
+    "timestamp": "2026-05-05T11:01:12.122Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Reklamation eingegangen",
+    "subject": "Ihre Reklamation R69f9c4a2c83b1c83ce14f5ea wurde erfolgreich aufgenommen",
+    "messageId": "<7926fad7-ccd0-1f39-2d77-9e483383945c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2479,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777978978175-zo9kbvkzk",
+    "timestamp": "2026-05-05T11:02:58.175Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0001 von McRepair.de steht bereit",
+    "messageId": "<c1c598f4-b180-3cd6-492f-072be842ea2f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1221,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
