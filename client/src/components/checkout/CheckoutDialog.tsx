@@ -1545,58 +1545,6 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
                   {/* ── Right column ── */}
                   <div className="space-y-3">
-                    {/* Payment method selection */}
-                    <Card className="border-[#d8dce6]">
-                      <CardHeader className="pb-2 pt-3">
-                        <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.paymentMethod")}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 pt-1">
-                        {paymentOptions.map((option) => {
-                          const Icon = option.icon
-                          const active = paymentMethod === option.value
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => {
-                                if (!acceptTerms) {
-                                  setHighlightTermsConsent(true)
-                                }
-                                setPaymentMethod(option.value)
-                              }}
-                              className={`w-full rounded-lg border px-3 py-2 text-left transition-all ${active ? "border-[#1a2a5e] bg-[#eef3ff] ring-1 ring-[#1a2a5e]" : "border-[#e3e7ef] bg-white hover:border-[#c9d3e7]"}`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${active ? "border-[#1a2a5e] bg-[#1a2a5e]" : "border-[#c9d3e7]"}`}>
-                                  {active && <Check className="h-2.5 w-2.5 text-white" />}
-                                </div>
-                                <Icon className="h-4 w-4 text-[#1a2a5e]" />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-[#1a2a5e]">{option.label}</p>
-                                  <p className="text-xs text-[#5f6d86]">{option.hint}</p>
-                                </div>
-                              </div>
-                            </button>
-                          )
-                        })}
-
-                        {/* Accepted card/payment logos */}
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          {(paymentMethod === "card" || paymentMethod !== "invoice") && (
-                            <>
-                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#1a334f]">VISA</span>
-                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#eb001b]">MC</span>
-                              <span className="rounded border border-[#003087] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#003087]">PayPal</span>
-                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-[#5f6d86]">SEPA</span>
-                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-semibold text-[#5f6d86]">Amex</span>
-                            </>
-                          )}
-                        </div>
-
-                        {renderPaymentDetails()}
-                      </CardContent>
-                    </Card>
-
                     {/* Order totals + CTA */}
                     <Card className="border-[#d8dce6]">
                       <CardContent className="space-y-2 p-3.5 text-sm">
@@ -1682,6 +1630,58 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                           <Shield className="h-3.5 w-3.5 shrink-0 text-[#5f6d86]" />
                           <span className="text-[11px] text-[#5f6d86]">{t("checkout.securePaymentNotice")}</span>
                         </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Payment method selection */}
+                    <Card className="border-[#d8dce6]">
+                      <CardHeader className="pb-2 pt-3">
+                        <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.paymentMethod")}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pt-1">
+                        {paymentOptions.map((option) => {
+                          const Icon = option.icon
+                          const active = paymentMethod === option.value
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                if (!acceptTerms) {
+                                  setHighlightTermsConsent(true)
+                                }
+                                setPaymentMethod(option.value)
+                              }}
+                              className={`w-full rounded-lg border px-3 py-2 text-left transition-all ${active ? "border-[#1a2a5e] bg-[#eef3ff] ring-1 ring-[#1a2a5e]" : "border-[#e3e7ef] bg-white hover:border-[#c9d3e7]"}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${active ? "border-[#1a2a5e] bg-[#1a2a5e]" : "border-[#c9d3e7]"}`}>
+                                  {active && <Check className="h-2.5 w-2.5 text-white" />}
+                                </div>
+                                <Icon className="h-4 w-4 text-[#1a2a5e]" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-[#1a2a5e]">{option.label}</p>
+                                  <p className="text-xs text-[#5f6d86]">{option.hint}</p>
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+
+                        {/* Accepted card/payment logos */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          {(paymentMethod === "card" || paymentMethod !== "invoice") && (
+                            <>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#1a334f]">VISA</span>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#eb001b]">MC</span>
+                              <span className="rounded border border-[#003087] px-1.5 py-0.5 text-[9px] font-bold tracking-widest text-[#003087]">PayPal</span>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-semibold tracking-widest text-[#5f6d86]">SEPA</span>
+                              <span className="rounded border border-[#d8dce6] px-1.5 py-0.5 text-[9px] font-semibold text-[#5f6d86]">Amex</span>
+                            </>
+                          )}
+                        </div>
+
+                        {renderPaymentDetails()}
                       </CardContent>
                     </Card>
                   </div>
