@@ -205,6 +205,30 @@ Beispiel fuer eine konkrete B2B-Konfiguration:
 - Bearbeitbar:
   - Prozessstatus, Billingstatus, Versand-/Retourenstatus
 
+### Orders (/admin/orders -> /orders/:id)
+- Interface-Funktionen:
+  - Uebersicht aller Auftraege mit Einstieg in die Detailseite (`/orders/:id`)
+  - Rollenbasierte Detailseite fuer Admin/Staff (operative Steuerung) und Kunde (Informationssicht)
+  - Auftragsstatus-Steuerung inkl. KPI-Header
+  - Direkte Bearbeitung von Geraet, Services, Add-ons, Shop-Produkten, E-Parts, Workflows
+  - Integrierte Kommunikations- und Reklamationsprozesse
+  - Inspektionsstart inkl. PDF-Report-Download
+- Untermenuepunkte (erweiterte Funktionen):
+  - `Header & Status`: Auftragsstatus, Zahlungsstatus, Gesamtkosten, Schnellstatuswechsel
+  - `Device Information`: Geraetedaten, Lock-Informationen, Unlock-Bestaetigung, Historie
+  - `Device Inspection`: Start/Fortfuehrung Inspektion, Report-Export
+  - `Repair Services`: Servicepositionen anlegen/bearbeiten/loeschen
+  - `Add-On Services`: Zusatzleistungen aus Katalog oder individuell
+  - `Shop-Produkte`: Produktpositionen inkl. Menge/Bestandsbezug
+  - `E-Parts`: Lagerteile zuweisen oder in Bedarfsliste ueberfuehren
+  - `Workflows`: Workflow zuweisen/starten/pausieren/fortsetzen/ausfuehren
+  - `Staff`: Mitarbeiter einem Auftrag oder Add-on zuweisen
+  - `Complaint-Flows`: Reklamation melden, anerkennen, ablehnen, Angebot steuern
+- Angezeigt wird:
+  - Vollstaendiger operativer Auftragskontext (Technik, Kosten, Personal, Historie, Kommunikation)
+- Bearbeitbar:
+  - Alle operativen Kerndaten ausser historisierte Timeline-Eintraege
+
 ### Service Management (/admin/services)
 - Interface-Funktionen:
   - Reparaturservices auflisten, suchen, filtern, sortieren
@@ -2539,6 +2563,846 @@ Praxismuster fuer Tagessteuerung:
 | Detaildialog | Buchung, Positionen, Tracking, Kommunikation | Vollansicht fuer operative Entscheidung | Immer zuerst Detaildialog statt Listenannahme |
 | Rechnungsaktionen | Rechnung erzeugen/anzeigen | Finanzbelege und Versandtrigger | Vor Erzeugung Positionen und Steuerklasse pruefen |
 | Reklamation/Erinnerung | Dialog mit Grund/Notiz | Folgeprozess und Kommunikation | Interne Notiz und Kundenhinweis trennen |
+
+#### 20.5.1 Admin Order Detail Seite (`/orders/:id`) - Vollstaendige Bedienanleitung
+
+Die operative Auftragsbearbeitung erfolgt auf der Detailseite `OrderDetails`.
+Einstieg typischerweise ueber:
+- `/admin/orders` (Admin-Auftragsliste)
+- `/admin/bookings` (Buchung -> zugehoeriger Auftrag)
+- Staff-Listen (`/staff/bookings`, `/staff/orders`)
+
+Wichtige Rollenlogik:
+- `admin`/`staff`: sehen die volle Arbeitsoberflaeche mit allen Bearbeitungsdialogen.
+- `customer`: sieht eine reduzierte Informations- und Kommunikationssicht.
+
+##### Screenshots (Uebersicht)
+
+Screenshot 1 - Vollstaendige Order-Detail-Seite (Scrolluebersicht):
+
+![Order Detail Uebersicht](screenshots/order-detail-overview.png)
+
+Screenshot 2 - Kopfbereich mit Fortschrittsbalken, Device-Infos und Lock-Daten:
+
+![Order Detail Oberer Bereich](screenshots/order-detail-device-section.png)
+
+##### Seitenaufbau: Was ist wo und warum
+
+1. Kopfbereich (`Order #...` + Statusleiste)
+- Enthalten:
+  - Auftragsnummer, Geraet, Erstellungsdatum
+  - Status-Badge + Dropdown zum direkten Statuswechsel
+  - Zahlungsstatus, Gesamtbetrag
+  - KPI-Kacheln (Fortschritt, Status, Personal, Leistungen, letzte Aktualisierung)
+- Warum:
+  - Schnellentscheidungen ohne Scrollen.
+
+2. Fortschrittsbereich (`Repair Progress`)
+- Enthalten:
+  - Prozentwert, aktuelle Phase, Stage-Visualisierung
+  - Ableitung aus Workflow/Timeline/Order-Status
+- Warum:
+  - Einheitlicher Referenzpunkt fuer Team, Kunde und Kommunikation.
+
+3. Geraete- und Inspektionsblock
+- `Device Information`:
+  - Modell/Brand, Modellbild, Kundennotiz
+  - Lock-Daten inkl. Verifizierungsstatus
+  - Historie-Collapsible (Meilensteine + Ereignisse)
+- `Device Inspection`:
+  - Start/Fortsetzen der technischen Pruefung
+  - Report-Download
+
+4. Reparatur-/Leistungsblock
+- `Repair Services`
+- `Add-On Services`
+- `Shop-Produkte`
+- `E-Parts`
+- Warum:
+  - Alle kosten- und arbeitsrelevanten Positionen in einem Arbeitsbereich.
+
+5. Workflow- und Teamblock
+- Workflow-Karten + Ausfuehrungsmodal
+- Staff-Zuweisung fuer Auftrag und Add-ons
+
+6. Kommunikationsblock
+- `CommunicationPanel` direkt im Auftrag
+- Reklamations-/Angebotsaktionen im Kontext des Auftrags
+
+##### Bedienlogik: Standardablauf fuer Admin/Staff
+
+1. Auftrag oeffnen und Header-Status plausibilisieren.
+2. Device + Lock-Infos pruefen, ggf. `Unlock bestaetigen`.
+3. Inspektion starten/aktualisieren.
+4. Reparaturservices/Add-ons/Shop-Produkte/E-Parts finalisieren.
+5. Workflow zuweisen und starten.
+6. Staff bei Bedarf auf Auftrag/Add-on verteilen.
+7. Statuswechsel durchfuehren (`pending -> in-progress -> quality-check -> completed`).
+8. Kommunikation/Complaint-Aktionen dokumentiert ausfuehren.
+
+##### Vollstaendige Dialogliste auf der Seite (inkl. Zweck und Felder)
+
+Die folgende Liste deckt alle Dialoge/Modals ab, die in `OrderDetails` direkt oder ueber eingebundene Komponenten geoeffnet werden.
+
+1. `Assign Staff to Order` (Staff-Zuweisung)
+- Oeffnen ueber: Karte `Assigned Staff` -> `Assign Staff`.
+- Eingaben:
+  - Mehrfachauswahl von Mitarbeitern (Checkbox je Staff)
+- Wirkung:
+  - Speichert `assignedStaff` am Auftrag.
+- Wann nutzen:
+  - Zu Schichtbeginn, bei Eskalation, bei Lastverteilung.
+
+2. `Confirm Unlock Dialog` (Entsperrinformation bestaetigen)
+- Oeffnen ueber: Device-Lock-Abschnitt -> `Confirm Unlock Information`.
+- Eingaben:
+  - Verifizierungsstatus: `verified`, `incorrect`, `unable-to-verify`
+  - Notizfeld
+  - Optional: Anfrage an Kunden ausloesen
+- Wirkung:
+  - Speichert Unlock-Bestaetigungsstatus inkl. Bearbeiter/Notiz.
+  - Optional wird ein Kundenkontaktprozess angestossen.
+- Kritisch:
+  - Vor Hardwaretests immer zuerst diese Bestaetigung setzen.
+
+3. `Reklamation anmelden`
+- Oeffnen ueber: Kundenansicht bei abgeschlossenem Auftrag.
+- Eingaben:
+  - `reason`
+  - `description`
+- Wirkung:
+  - Erstellt Reklamationsfall und verknuepft ihn mit dem Auftrag.
+
+4. `Techniker: Anerkennen` (Complaint Action `ack`)
+- Oeffnen ueber: Complaint-Aktionsfluss.
+- Eingaben:
+  - Preset- oder Freitextgrund (`technician_reason`)
+- Wirkung:
+  - Reklamation wird als anerkannt bearbeitet.
+
+5. `Reklamation ablehnen` (Complaint Action `deny`)
+- Oeffnen ueber: Complaint-Aktionsfluss.
+- Eingaben:
+  - Ablehnungsgrund
+  - Angebotsbetrag
+  - Angebotsbeschreibung
+- Wirkung:
+  - Technikerfall: eskaliert zur Admin-Pruefung oder sendet Angebot.
+  - Adminfall: bestaetigt Ablehnung und sendet Angebot an Kunden.
+
+6. `Geraeteinspektion` Dialog
+- Oeffnen ueber: `Device Inspection` -> Start.
+- Eingaben:
+  - Vollstaendiges Inspektionsformular (zustands- und testbezogen)
+- Zusatzaktion:
+  - Report-Button erzeugt PDF-Report.
+- Wirkung:
+  - Abschluss aktualisiert Auftrag + Inspektionsdaten.
+
+7. `Ersatzteil dem Auftrag zuweisen` (`EPartSelectionDialog`)
+- Oeffnen ueber: `E-Parts` -> `Add EPart`.
+- Eingaben:
+  - Teilsuche, Version, Menge, Lieferant
+- Wirkung:
+  - Lagerteil wird dem Auftrag zugewiesen.
+- Validierung:
+  - Menge > 0 und <= verfuegbarer Bestand.
+
+8. `Fehlendes Teil zur Bedarfsliste hinzufuegen` (Unterdialog im E-Part-Dialog)
+- Oeffnen ueber: E-Part-Dialog -> Need-List-Aktion.
+- Eingaben:
+  - Ziel: bestehende Liste / neue Liste / Tagesliste
+  - ggf. Listenname
+- Wirkung:
+  - Teil wird in Bedarfsliste geschrieben + order-verknuepfte Notiz.
+
+9. `Zusatzservice hinzufuegen` (Add Add-On)
+- Oeffnen ueber: `Add-On Services` -> `Add Add-On`.
+- Modi:
+  - Vorlage waehlen (Katalog)
+  - Individuell erstellen
+- Eingaben:
+  - Name, Beschreibung, Preis, Zeit
+- Wirkung:
+  - Add-on-Position wird am Auftrag angelegt.
+
+10. `Edit Add-On Service`
+- Oeffnen ueber: Add-on-Liste -> Edit-Icon.
+- Eingaben:
+  - Name, Beschreibung, Preis, Zeit
+- Wirkung:
+  - Bestehende Add-on-Position wird aktualisiert.
+
+11. `Assign Staff to Add-On`
+- Oeffnen ueber: Add-on-Liste -> UserPlus-Icon.
+- Eingaben:
+  - Staff-Auswahl
+- Wirkung:
+  - Mitarbeiter wird einer Add-on-Aufgabe zugeordnet.
+
+12. `Assign Workflow to Order`
+- Oeffnen ueber: Workflow-Karte -> `Assign Workflow`.
+- Eingaben:
+  - Auswahl aus vorgeschlagenen Workflows (template-basiert)
+- Wirkung:
+  - Workflow wird dem Auftrag zugewiesen.
+
+13. `RepairServiceDialog` (Service hinzufuegen/bearbeiten)
+- Oeffnen ueber: `Repair Services` -> Add/Edit.
+- Modi:
+  - `add`
+  - `edit`
+- Eingaben:
+  - Service-Vorlage
+  - Preis
+  - geschaetzte Zeit
+  - Notiz
+- Wirkung:
+  - Serviceposition am Auftrag erstellen/aktualisieren.
+
+14. `Shop-Produkt zum Auftrag hinzufuegen` (`ShopProductSelectionDialog`)
+- Oeffnen ueber: `Shop-Produkte` -> `Produkt hinzufuegen`.
+- Eingaben:
+  - Produktauswahl (Suche/Filter/Sort)
+  - Menge
+- Wirkung:
+  - Shop-Artikel als Auftragsposition mit Preis/Bestandsbezug.
+
+15. `WorkflowExecutionModal`
+- Oeffnen ueber:
+  - Workflow-Aktionen (Start/Resume/Execute/View)
+  - Routing-State (Direktoeffnung mit Workflow-ID)
+- Bereiche:
+  - `overview` (Schritte, Status, Zeiten)
+  - `execute` (aktive Step-Ausfuehrung)
+- Wirkung:
+  - Step-Completion, Skip, Navigation, Fortschrittsaktualisierung.
+
+16. `Workflow pausieren` (`AlertDialog` im WorkflowExecutionModal)
+- Oeffnen ueber: Pause-Aktion im Workflow.
+- Eingaben:
+  - Pausengrund
+- Wirkung:
+  - Workflow-Status auf `on-hold`, Pausehistorie wird fortgeschrieben.
+
+17. `Workflow starten?/fortsetzen?` (`AlertDialog` Bestaetigung)
+- Oeffnen ueber: Confirm-Action in Modus `start` oder `resume`.
+- Wirkung:
+  - Start/Fortsetzen wird serverseitig final bestaetigt.
+
+18. `Geraet aendern` (`DeviceChangeDialog`)
+- Oeffnen ueber: `Device Information` -> `Edit`.
+- Schrittlogik:
+  - Schritt 1 `select`: Zielgeraet suchen und auswaehlen
+  - Schritt 2 `review`: Preis-/Serviceaenderungen pruefen
+  - Schritt 3 `confirm`: Aenderung final bestaetigen
+- Wirkung:
+  - Auftrag erhaelt neues Device inkl. Servicepreis-Neuberechnung.
+
+19. Kunden-Popups auf derselben Seite (nicht Admin-Kern, aber vorhanden)
+- `Reparaturdetails`
+- `Diagnosebewertung`
+- `Reparatur in Bearbeitung`
+- Zweck:
+  - Verdichtete Kundenkommunikation je Prozessphase.
+
+##### Statussteuerung auf der Order-Detail-Seite
+
+Statuswerte im Header-Dropdown:
+- `pending`
+- `in-progress`
+- `paused`
+- `quality-check`
+- `ready-for-pickup`
+- `completed`
+- `cancelled`
+
+Regel:
+- Jeder Statuswechsel sollte fachlich begruendet und in der Historie nachvollziehbar sein.
+- Nach Statuswechsel wird die Auftragsansicht aktiv neu geladen.
+
+##### Welche Aenderung beeinflusst was? (Schnellmatrix)
+
+| Aktion | Hauptwirkung | Sekundaerwirkung |
+|---|---|---|
+| Service/Add-on/Shop-Produkt aendern | Positions- und Preisstruktur | Gesamtbetrag, Marge, Kommunikationsbedarf |
+| E-Part zuweisen/entfernen | Materialeinsatz | Lagerbestand, Bedarfslistenbedarf |
+| Workflow starten/pausieren/fortsetzen | Operativer Ablauf | Fortschrittsanzeige, Teamkoordination |
+| Unlock bestaetigen | Testfreigabe | weniger Rueckfragen/Blocker |
+| Device aendern | Korrekte Servicegrundlage | Preisneuberechnung, Kundeninformation |
+| Complaint-Aktionen | Reklamationspfad | Angebot, Erstattung, Folgeauftrag |
+
+##### Troubleshooting direkt auf der Seite
+
+1. Dialog speichert nicht:
+- Pflichtfelder im jeweiligen Dialog pruefen.
+- Zahlenfelder auf gueltigen Bereich pruefen (z. B. Menge > 0).
+
+2. Status springt nicht um:
+- Rollenrechte (admin/staff) und API-Antwort pruefen.
+- Seite kurz neu laden, um Synchronisation zu erzwingen.
+
+3. E-Part kann nicht zugewiesen werden:
+- Bestand der gewaehlten Version gegen Menge pruefen.
+- Bei Nichtverfuegbarkeit Need-List-Unterdialog nutzen.
+
+4. Workflow kann nicht gestartet werden:
+- Pruefen, ob Template korrekt zugewiesen wurde.
+- Im Ausfuehrungsmodal offene Pflichtsteps/Formfelder abschliessen.
+
+5. Unlock bleibt unklar:
+- `unable-to-verify` setzen und Kundenanforderung ausloesen.
+- Ergebnis in Notiz dokumentieren, bevor Folgetests starten.
+
+---
+
+##### 20.5.1.1 Prozess: Device Information
+
+![Device Information und Lock-Bereich](screenshots/order-detail-device-section.png)
+
+**Was ist der Bereich?**
+Die linke Spalte der Order-Detail-Seite zeigt die Geraetekarte. Sie enthaelt: Geraetebild, Modellname, Geraetetyp, den gebuchten Hauptservice mit Preis sowie alle Sperrinformationen des Geraets.
+
+**Geraetedaten anzeigen und bearbeiten**
+
+Der obere Teil der Karte zeigt:
+- Geraetebild (aus Stammdaten)
+- Modell- und Markenname (z. B. "Asus Eee Pad MeMo")
+- Geraetetyp (z. B. "Smartphone")
+- Gebuchter Hauptservice + Preis (z. B. "Apple iPhone 15 Pro Max Akkutausch — $109.90")
+
+Ueber den `Edit`-Button (Stift-Icon neben "Device Information") oeffnet sich der `DeviceChangeDialog`. Dieser Prozess laeuft in 3 Schritten ab:
+
+1. **Schritt 1 — Geraet auswaehlen (`select`):**
+   - Suchfeld: Live-Suche mit 140 ms Debounce ueber alle Geraete.
+   - Ergebnisliste zeigt Bild, Modell, Geraetetyp.
+   - Gewuenschtes Geraet anklicken → weiter mit "Weiter".
+
+2. **Schritt 2 — Preisaenderungen pruefen (`review`):**
+   - Tabelle zeigt alle bestehenden Reparaturservices.
+   - Je Service wird angezeigt, ob sich der Preis erhoehrt (+), senkt (−) oder gleich bleibt.
+   - Gesamtbetrag alt vs. neu wird gegenueber gestellt.
+   - Pruefen, ob Preisaenderungen plausibel sind. Dann "Weiter".
+
+3. **Schritt 3 — Aenderung bestaetigen (`confirm`):**
+   - Zusammenfassung der Aenderung wird nochmals gezeigt.
+   - "Bestaetigen" schreibt neues Geraet auf den Auftrag und loest Preisneuberechnung aus.
+   - Kunde wird automatisch benachrichtigt.
+
+**Wann Geraet aendern?**
+- Kunde hatte das falsche Modell beim Buchen angegeben.
+- Im Verlauf wurde ein anderes Modell identifiziert (z. B. falsches iPhone-Modell).
+- Wichtig: Servicepreise werden automatisch neu berechnet — immer in Schritt 2 kontrollieren.
+
+---
+
+**Lock-Informationen**
+
+Der Abschnitt "Device Lock Information" zeigt:
+- Lock-Typ: `Unlock Pattern`, `PIN-Code` oder `Kein Sperrcode` (noLock)
+- Die konkrete Information (z. B. Muster-Sequenz: "1 → 2 → 3 → 4 → 5 → 6 (6 dots)")
+- Confirmation Status: `Verified`, `Incorrect` oder `Unable to Verify`
+- Bestaetigt durch: Name des Mitarbeiters der bestaetigt hat
+- Button: `Update Confirmation` → oeffnet den `ConfirmUnlockDialog`
+
+**Unlock-Bestaetigung (ConfirmUnlockDialog)**
+
+Der Dialog zeigt die aktuellen Sperrdaten und fragt den Techniker, ob diese korrekt sind:
+
+| Statusoption | Bedeutung | Folgeanktion |
+|---|---|---|
+| `verified` | Entsperrcode wurde am Geraet erfolgreich getestet | Testfreigabe erteilt, kein weiterer Schritt |
+| `incorrect` | Angegebener Code funktioniert nicht | Notiz erfassen, optional Kundenanfrage ausloesen |
+| `unable-to-verify` | Code konnte nicht geprueft werden (z. B. Akku leer) | Notiz erfassen, optional Kundenanfrage ausloesen |
+
+Bei `incorrect` oder `unable-to-verify`:
+- Freitext-Notizfeld erscheint (Pflicht fuer gute Dokumentation).
+- Checkbox "Kundenanfrage ausloesen": Wenn aktiviert, wird eine automatische Kontaktanfrage an den Kunden gesendet, damit dieser den korrekten Code mitteilt.
+
+**Reihenfolge im Arbeitsalltag:**
+1. Auftrag oeffnen.
+2. Lock-Typ ablesen.
+3. Geraet physisch entsperren.
+4. `Update Confirmation` anklicken, Status setzen, Notiz hinzufuegen.
+5. Erst danach Diagnose/Reparatur durchfuehren.
+
+---
+
+**Auftragsverlauf und Historie**
+
+Am unteren Ende der Geraetekarte befindet sich der einklappbare Bereich "Auftragsverlauf & Historie":
+- Zeigt: Anzahl Meilensteine + Anzahl Historieneintraege (z. B. "5 Meilensteine · 22 Historieneintraege")
+- Aufklappen zeigt einen chronologischen Ablauf aller relevanten Ereignisse:
+  - Statuswechsel (wer, wann)
+  - Dialog-Aktionen (Unlock bestaetigt, Geraet geaendert, Service hinzugefuegt)
+  - Automatische System-Events
+- Die Historie ist unveraenderlich — jede Aktion wird protokolliert.
+
+**Warum wichtig?**
+Die Historie ist das zentrale Audit-Log eines Auftrags. Bei Streitigkeiten, Reklamationen oder Qualitaetskontrollen zeigt sie exakt, wer was wann getan hat.
+
+---
+
+##### 20.5.1.2 Prozess: Device Inspection
+
+![Device Inspection Bereich](screenshots/order-detail-inspection-section.png)
+
+**Was ist der Bereich?**
+Die Geraeteinspektion ist die formale technische Zustandserfassung des Kundengeraets beim Eingang. Sie dokumentiert Zustand, Tests, Zubehoer und bildet die Grundlage fuer Reparaturentscheidungen und Haftungsabgrenzung.
+
+**Wo befindet sich der Bereich?**
+Untere Bereiche der Seite — direkt unterhalb der Geraetekarte bzw. als eigenstaendige Karte "Device Inspection".
+
+**Inspektion starten**
+
+Voraussetzung: Das Geraet muss am Auftrag geprueft werden (Modell, Typ, Lock-Infos klar).
+
+Ablauf:
+1. Klick auf den Button "Start Inspection" (oder "Inspektion starten").
+2. Der Inspektionsdialog oeffnet sich als Vollbild-Modal.
+3. Das Formular enthaelt folgende Bereiche:
+   - **Geraetedaten:** Modell, Geraetetyp, IMEI (falls vorhanden)
+   - **Geraetstests:** z. B. Display-Test (Correct / Failed), Tasten, Backcover, Frame, Bildschirm
+   - **Zubehoer:** Packaging, Case, Adapter (Checkboxen)
+   - **Aeusserer Zustand:** Display, Buttons, Frame (jeweils mit Checkbox + X fuer Schaeden)
+   - **Sichtbare Schaeden:** Freitextfeld (z. B. "Alles vollkommen verklebt")
+   - **Reparierbarkeit:** Ja/Nein
+4. Alle relevanten Felder ausfullen.
+5. "Speichern" / "Abschliessen" → Inspektion wird am Auftrag gespeichert.
+
+**Inspektion fortfuehren**
+
+Wenn eine Inspektion bereits begonnen wurde (Status "Completed" oder "Failed"):
+- Der Button zeigt "Continue Inspection" oder "Inspektion fortsetzen".
+- Das Modal oeffnet sich mit vorausgefuellten Werten — aendern was notwendig ist.
+- Nach Speichern wird Zeitstempel und Bearbeiter aktualisiert.
+
+**Inspektionsbericht exportieren (Download PDF)**
+
+Nach abgeschlossener Inspektion erscheint der Button "Download PDF" am unteren Rand der Inspektionskarte:
+- Klick generiert und laedt einen PDF-Report direkt im Browser herunter.
+- Der Report enthaelt: Auftragsnummer, Geraetedaten, alle Testresultate, Zubehoerliste, Schadensbild, Bearbeiter, Zeitstempel.
+- Verwendung: Aufbewahrung als Eingangsbeleg, Kundenkommunikation bei Streitigkeiten, interne QA-Ablage.
+
+**Wann Inspektion durchfuehren?**
+- Immer beim Geraeteeingang, bevor mit der Reparatur begonnen wird.
+- Erneut nach der Reparatur (bei Quality-Check-Phase) als Abnahmeprotokoll.
+
+**Typische Fehler:**
+- Inspektion nach Reparatur nicht aktualisiert → Zustand-Mismatch zwischen Eingang/Ausgang.
+- Schadensdokumentation fehlt → bei Streitigkeiten kein Nachweis.
+
+---
+
+##### 20.5.1.3 Prozess: Repair Services
+
+![Repair Services Bereich](screenshots/order-detail-repair-services.png)
+
+**Was ist der Bereich?**
+Die "Repair Services"-Karte zeigt alle dem Auftrag zugeordneten Reparaturservices. Diese sind die kostenpflichtigen Arbeitspositionen der Reparatur. Jede Position basiert auf einer Service-Vorlage aus dem Service-Stamm.
+
+**Servicepositionen anlegen**
+
+Klick auf `+ Add Service` (rechts oben in der Karte) → `RepairServiceDialog` oeffnet sich im Modus `add`.
+
+Ablauf im Dialog:
+1. **Service suchen:** Suchfeld mit Dropdown — Eingabe von mindestens 2 Buchstaben filtert verfuegbare Services.
+2. **Service auswaehlen:** Aus der Dropdown-Liste den passenden Service anklicken.
+3. **Werte werden vorausgefuellt:** Preis und geschaetzte Zeit werden aus der Service-Vorlage uebernommen.
+4. **Optional anpassen:**
+   - Preis kann geaendert werden (z. B. Sonderpreis fuer Stammkunde).
+   - Zeitschaetzung anpassen (Quick-Buttons: 15, 30, 45, 60 Min).
+   - Notiz hinzufuegen (Freitext oder Vorlage waehlen: "Diagnose durchgefuehrt", "Prioritaetsanfrage", "Qualitaetskontrolle").
+5. **"Service hinzufuegen" klicken** → Position wird am Auftrag gespeichert.
+6. **Gesamtbetrag aktualisiert sich sofort** in der Auftrags-KPI-Leiste.
+
+**Serviceposition bearbeiten**
+
+Jede bestehende Serviceposition in der Liste hat ein Edit-Icon (Stift):
+- Klick oeffnet `RepairServiceDialog` im Modus `edit` mit vorausgefuellten Werten.
+- Preis, Zeit, Notiz koennen geaendert werden.
+- "Speichern" schreibt Aenderungen auf den Auftrag.
+- Vorsicht: Preisaenderungen beeinflussen den Gesamtbetrag und ggf. die Rechnung.
+
+**Serviceposition loeschen**
+
+Jede Position hat ein Loeschen-Icon (Muelleimer):
+- Klick loescht die Position sofort (Bestaetigung je nach Implementierung eingebaut).
+- Gesamtbetrag verringert sich entsprechend.
+- Vorsicht: Wenn ein Service geloescht wird, der bereits in einer Rechnung enthalten ist, entstehen Abweichungen. Loeschen nur vor Rechnungsstellung oder nach Ruecksprache mit Finance.
+
+**Wann welche Aktion?**
+
+| Situation | Aktion |
+|---|---|
+| Zusaetzliche Reparatur notwendig | + Add Service |
+| Preis wurde falsch uebernommen | Edit → Preis korrigieren |
+| Reparatur entfaellt (nicht ausfuehrbar) | Loeschen oder Preisaenderung auf 0 |
+| Notiz fuer Techniker hinterlegen | Edit → Notiz ergaenzen |
+
+---
+
+##### 20.5.1.4 Prozess: Add-On Services
+
+![Add-On Services und Addon-Dialog](screenshots/order-detail-addon-dialog.png)
+
+**Was ist der Bereich?**
+Add-On Services ("Zusatzleistungen") sind optionale ergaenzende Leistungen, die neben der Hauptreparatur erbracht werden. Beispiele: Express-Service, Datensicherung, Geraetepruefung nach Reparatur.
+
+**Zusatzleistung aus dem Katalog hinzufuegen**
+
+Klick auf `+ Add Add-On` → Dialog "Zusatzservice hinzufuegen" oeffnet sich.
+
+Tab "Vorlage waehlen" (Standard):
+1. Suchfeld: Nach Name oder Beschreibung suchen.
+2. Dropdown "Zusatzservice auswaehlen": Vordefinierte Vorlagen erscheinen als Auswahlliste.
+3. Vorlage auswaehlen → Vorschau zeigt Name, Zeit und aktuellen Gesamtpreis nach Hinzufuegen.
+4. Klick "Zusatzservice hinzufuegen" → Position wird am Auftrag gespeichert.
+
+**Individuelle Zusatzleistung erstellen**
+
+Tab "Individuell erstellen":
+1. Felder:
+   - `Name` (Pflicht)
+   - `Beschreibung`
+   - `Preis` (numerisch, >= 0)
+   - `Geschaetzte Zeit` (Minuten)
+2. Diese Werte werden direkt als neue Add-on-Position angelegt (keine Vorlage notwendig).
+3. Klick "Zusatzservice hinzufuegen" → Position wird am Auftrag gespeichert.
+
+**Vorhandene Zusatzleistung bearbeiten**
+
+In der Add-on-Liste jeder Position:
+- Edit-Icon (Stift): Oeffnet Dialog mit vorausgefuellten Werten (Name, Beschreibung, Preis, Zeit) → speichern.
+- UserPlus-Icon: Oeffnet `Assign Staff to Add-On`-Dialog (Mitarbeiterzuweisung, siehe Abschnitt Staff).
+- Trash-Icon: Loescht die Add-on-Position.
+
+**Statusanzeige je Add-on:**
+Jede Position zeigt einen Status-Badge (z. B. `pending`, `in-progress`, `completed`). Dieser kann separat vom Auftragsstatus sein und erlaubt feingranulares Tracking einzelner Zusatzleistungen.
+
+**Wann Katalog vs. individuell?**
+- Katalog: Standardleistungen mit fixen Preisen und beschriebenen Inhalten (z. B. "Express-Service").
+- Individuell: Kundenspezifische Sonderleistungen, einmalige Auftragserweiterungen, die im Katalog nicht existieren.
+
+---
+
+##### 20.5.1.5 Prozess: Shop-Produkte
+
+![Shop-Produkte Dialog](screenshots/order-detail-shop-product-dialog.png)
+
+**Was ist der Bereich?**
+Ueber die Shop-Produkte-Karte koennen physische Artikel aus dem Online-Shop als Positionen auf einen Auftrag gelegt werden. Typische Anwendungsfaelle: Schutzhuellen, Zubehoer, Kabel, die der Kunde beim Reparaturauftrag gleich mitbestellen moechte.
+
+**Produkt hinzufuegen**
+
+Klick auf `+ Produkt hinzufuegen` → Dialog "Shop-Produkt zum Auftrag hinzufuegen" oeffnet sich.
+
+Ablauf:
+1. **Suche:** Suchfeld — Eingabe nach Name, Kategorie, Marke, Beschreibung oder SKU. Ergebnisse erscheinen als Quick-Treffer (bis zu 6 Treffer direkt sichtbar).
+2. **Filter:** Checkbox "Nur verfuegbare Produkte anzeigen" blendet ausverkaufte Artikel aus.
+3. **Sortierung:** Dropdown mit Optionen: Relevanz, Name, Preis aufsteigend, Preis absteigend, Bestand absteigend.
+4. **Produkt auswaehlen:** Dropdown "Produkt auswaehlen" oder direktes Anklicken in der Ergebnisliste.
+5. **Menge festlegen:**
+   - Zahlenfeld (Standardwert: 1)
+   - Quick-Buttons: 1, 2, 3, 5
+   - Button "Max. Bestand": fuellt Menge mit verfuegbarem Lagerbestand.
+6. **Validierung:** System prueft, ob Menge <= verfuegbarer Bestand. Bei Ueberschreitung erscheint Fehlermeldung.
+7. **"Produkt hinzufuegen"** → Position inkl. Preis und Menge wird am Auftrag gespeichert.
+8. **"Hinzufuegen & weiter"** → Produkt wird gespeichert, Dialog bleibt offen fuer weiteres Produkt.
+
+**Bestandsbezug und Lagerwirkung**
+- Der angezeigte Bestand kommt direkt aus dem Shop-Lager (`stockCount`).
+- Beim Hinzufuegen wird der Lagerbestand reserviert/reduziert.
+- "Max. Bestand"-Button verhindert Ueberbuchung.
+- Liegt `stockCount = 0`, erscheint das Produkt nur, wenn der Filter "Nur verfuegbare Produkte" deaktiviert ist.
+
+**Positionsuebersicht**
+Nach dem Hinzufuegen erscheinen in der Karte alle Shop-Produkt-Positionen mit:
+- Produktname, SKU
+- Menge
+- Einzelpreis x Menge = Zeilenbetrag
+- Loeschen-Icon zum Entfernen der Position
+
+**Wann Shop-Produkte nutzen?**
+- Kunde wuenscht Zubehoer zum Reparaturauftrag (z. B. Case, Schutzfolie).
+- Produkt soll auf derselben Rechnung erscheinen wie die Reparatur.
+- Cross-Selling waehrend des Eingangs/Abholgespraechs.
+
+---
+
+##### 20.5.1.6 Prozess: E-Parts (Elektronische Ersatzteile)
+
+![E-Part Zuweisung Dialog](screenshots/order-detail-epart-dialog.png)
+
+**Was ist der Bereich?**
+E-Parts sind Ersatzteile aus dem internen Lager (z. B. Displays, Akkus, Ladebuchsen), die einem Reparaturauftrag zugewiesen werden. Die Zuweisung koppelt den Materialeinsatz direkt an den Auftrag und reduziert den Lagerbestand.
+
+**E-Part dem Auftrag direkt zuweisen**
+
+Klick auf `+ Add EPart` → Dialog "Ersatzteil dem Auftrag zuweisen" oeffnet sich.
+
+Ablauf:
+1. **Teile suchen:** Suchfeld (nach Name, SKU, Marke) + Kategorie-Filter (Dropdown).
+2. **Ergebnisliste:** Zeigt alle Treffer mit Name, Kategorie-Tag, SKU, Anzahl Versionen und aktuellem Bestand.
+3. **Teil auswaehlen:** Klick auf einen Listeneintrag → rechte Seite zeigt "Ausgewaehltes Teil".
+4. **Version auswaehlen:** Je Teil gibt es Versionen (z. B. `original`, `cheap`, `efficient`) mit Einzelpreisen.
+5. **Menge eingeben** (Standard: 1, muss > 0 und <= Bestand sein).
+6. **"Ersatzteil zuweisen"** klicken → Teil wird dem Auftrag zugewiesen und Bestand wird reduziert.
+
+Validierung:
+- Menge > 0 → Pflicht.
+- Menge <= verfuegbarer Bestand → sonst Fehlermeldung.
+- Kein Teil ausgewaehlt → Button bleibt inaktiv.
+
+**E-Part in die Bedarfsliste ueberführen (bei fehlendem Bestand)**
+
+Wenn der Bestand 0 ist oder das Teil nicht vorratig ist:
+1. Klick auf "Fehlendes Teil zur Bedarfsliste hinzufuegen" (unterer Bereich des Dialogs).
+2. Ein Unterdialog oeffnet sich mit drei Ziel-Optionen:
+
+| Option | Bedeutung |
+|---|---|
+| `Bestehende Liste` | Teil wird einer bereits offenen Bedarfsliste hinzugefuegt (aus Dropdown auswaehlen) |
+| `Neue Liste` | Neue Bedarfsliste anlegen — Name eingeben (Pflicht) |
+| `Tagesliste` | Automatisch in die Tages-Bedarfsliste eingetragen (z. B. "Tages-Bedarfsliste 2026-04-08") |
+
+3. **Lieferant auswaehlen** (Pflicht bei neuer Liste und Tagesliste).
+4. **Bestaetigen** → Teil wird in der Bedarfsliste eingetragen UND mit dem Auftrag verknuepft (sogenannter "Need List Entry").
+
+**Was passiert im Hintergrund?**
+- Bei direkter Zuweisung: `assignEPartToOrder()` — Bestand wird sofort abgezogen.
+- Bei Bedarfsliste: `addItemToNeedList()` + `recordEPartNeedListEntry()` — Auftrag weiss, welches Teil bestellt wurde.
+
+**Wann welche Option?**
+| Situation | Empfehlung |
+|---|---|
+| Teil lagernd und ausreichend Bestand | Direkt zuweisen |
+| Teil nicht lagernd, heute bestellen | Tagesliste verwenden |
+| Spezialteil bei bestimmtem Lieferanten | Neue Liste erstellen |
+| Sammelbestellung laeuft bereits | Bestehende Liste auswaehlen |
+
+---
+
+##### 20.5.1.7 Prozess: Workflows
+
+![Workflow Zuweisung Dialog](screenshots/order-detail-workflow-assign-dialog.png)
+
+**Was ist der Bereich?**
+Workflows strukturieren den Reparaturprozess als definierte Schrittfolge. Sie stellen sicher, dass kein Prozessschritt uebersprungen wird, und liefern den Fortschrittswert fuer die KPI-Leiste und den Fortschrittsbalken.
+
+**Workflow zuweisen**
+
+Klick auf `Assign Workflow` → Dialog "Assign Workflow to Order" oeffnet sich.
+
+Inhalt des Dialogs:
+- Liste aller aktiven Workflow-Vorlagen mit Name, Beschreibung, Anzahl Steps und Gesamtzeit.
+- Jede Vorlage hat einen `Assign`-Button.
+
+Ablauf:
+1. Passende Vorlage auswaehlen (z. B. "Standard Repair Process", "Quick Diagnostic").
+2. Klick auf `Assign` → Workflow wird dem Auftrag zugewiesen.
+3. Dialog schliesst sich, Workflow-Karte auf der Seite zeigt nun den zugewiesenen Workflow.
+
+Tipps zur Vorlagenauswahl:
+- "Standard Repair Process": Standardvorlage fuer die meisten Smartphone-Reparaturen (3 Schritte).
+- "Quick Diagnostic": Fuer Walk-in-Inspektionen ohne Reparatur (2 Schritte).
+- Geraetespezifische Vorlagen (z. B. "Tablet-Diagnose Standard") fuer abweichende Geraetkategorien.
+
+**Workflow starten**
+
+Nach Zuweisung zeigt die Workflow-Karte:
+- Workflow-Name, Anzahl Steps, aktueller Fortschritt.
+- Button `Start Workflow` oder `Start` → `AlertDialog` erscheint zur Bestaetigung.
+- Nach Bestaetigung: Workflow laeuft, Status wechselt auf `in-progress`.
+- Das `WorkflowExecutionModal` kann nun im Modus `execute` geoeffnet werden.
+
+**Workflow ausfuehren (Step-Durchfuehrung)**
+
+Klick auf `Execute` oder `Continue` an der Workflow-Karte → `WorkflowExecutionModal` oeffnet sich.
+
+Das Modal hat zwei Tabs:
+- **Uebersicht (`overview`):** Zeigt alle Steps mit Status, geschaetzte Zeit, abgeschlossene Schritte.
+- **Ausfuehren (`execute`):** Zeigt den aktuellen Step zur Bearbeitung.
+
+Schrittausfuehrung:
+1. Aktuellen Step lesen — Beschreibung, Felder, Checklisten-Punkte.
+2. Formularfelder ausfuellen (wenn `requiresFormCompletion=true`).
+3. Checklisten-Punkte abarbeiten.
+4. `Schritt abschliessen` → naechster Step wird aktiv.
+5. Optional: `Schritt ueberspringen` (nur wenn `canSkip=true`).
+
+**Workflow pausieren**
+
+Im Modal-Header: `Pause`-Button → `AlertDialog` erscheint.
+- Pflichtfeld: Pausengrund (Freitext).
+- Nach Bestaetigung: Workflow-Status wechselt auf `on-hold`.
+- Pausezeit und -grund werden in der Pausenhistorie gespeichert.
+- Fortschrittsanzeige zeigt "Pausiert" und kumulierte Pausedauer.
+
+**Workflow fortsetzen**
+
+Bei pausiertem Workflow:
+- Button `Resume` → `AlertDialog` zur Bestaetigung.
+- Nach Bestaetigung: Status zurueck auf `in-progress`, Ausfuehrung wird ab aktuellem Step fortgesetzt.
+
+**Workflow-Bericht anzeigen**
+
+Nach Abschluss des letzten Steps: Button `View Report` erscheint in der Workflow-Karte.
+- Zeigt Zusammenfassung aller Steps, Zeiten, eingegebene Formulardaten.
+- `Download PDF`-Option exportiert den Report.
+
+**Workflow loeschen**
+
+Button `Delete` in der Workflow-Karte:
+- Entfernt den zugewiesenen Workflow vom Auftrag.
+- Nur moeglich, wenn Workflow noch nicht gestartet oder vollstaendig abgeschlossen ist (je nach Konfiguration).
+
+**Zusammenfassung Workflow-Aktionen:**
+
+| Situation | Aktion |
+|---|---|
+| Kein Workflow zugewiesen | "Assign Workflow" → Vorlage auswaehlen |
+| Workflow zugewiesen, nicht gestartet | "Start" → Bestaetigen |
+| Workflow laeuft, naechster Step offen | "Execute/Continue" → Schritte abarbeiten |
+| Unterbrechung notwendig | "Pause" → Grund eingeben |
+| Nach Pause weiterarbeiten | "Resume" → Bestaetigen |
+| Workflow abgeschlossen | "View Report" → optional PDF |
+
+---
+
+##### 20.5.1.8 Prozess: Staff (Mitarbeiterzuweisung)
+
+![Staff Zuweisung Dialog](screenshots/order-detail-staff-dialog.png)
+
+**Was ist der Bereich?**
+Die rechte Spalte der Seite enthaelt den "Assigned Staff"-Bereich. Hier werden Mitarbeiter, die an diesem Auftrag arbeiten, dem Auftrag zugeordnet. Die Zuweisung ist die Grundlage fuer Zeiterfassung, Lastverteilung und Kommunikation.
+
+**Mitarbeiter dem Auftrag zuweisen**
+
+Klick auf `Assign Staff` → Dialog "Assign Staff to Order" oeffnet sich.
+
+Inhalt des Dialogs:
+- Liste aller Mitarbeiter (Staff/Admin) mit:
+  - Name, E-Mail
+  - Spezialisierungs-Tags (z. B. "iPhone Repair", "Samsung Repair")
+  - Aktuell aktive Auftraege / Tasks
+  - Auslastungsanzeige in Prozent ("0% utilized")
+  - Checkbox zum Auswaehlen
+
+Ablauf:
+1. Einen oder mehrere Mitarbeiter per Checkbox auswaehlen.
+2. `Assign Staff` klicken → Mitarbeiter werden dem Auftrag zugeordnet.
+3. Die zugeordneten Mitarbeiter erscheinen sofort in der "Assigned Staff"-Karte auf der Auftragsseite.
+
+**Wer sollte zugewiesen werden?**
+- Haupt-Techniker: wer die Reparatur ausfuehrt.
+- Bei grosseren Auftraegen: mehrere Techniker moeglich.
+- Auslastungsanzeige hilft bei der Entscheidung — freie Mitarbeiter bevorzugen.
+- Spezialisierungstags zeigen, wer das passende Know-how hat.
+
+**Mitarbeiter einem Add-On zuweisen**
+
+In der Add-On-Services-Karte hat jede Position ein UserPlus-Icon:
+- Klick oeffnet einen separaten "Assign Staff to Add-On"-Dialog.
+- Ablauf wie oben, aber die Zuweisung gilt nur fuer diese spezifische Add-on-Aufgabe.
+- Sinnvoll bei arbeitsteiliger Bearbeitung: Techniker A macht Hauptreparatur, Techniker B Express-Service.
+
+**Mitarbeiter entfernen**
+
+In der "Assigned Staff"-Karte kann ein Mitarbeiter durch das X-Icon entfernt werden (sofern keine laufende Zeiterfassung aktiv ist).
+
+**Zeiterfassungs-Kontext**
+- Die Zeiterfassung laeuft im Hintergrund automatisch, sobald ein Admin oder Staff-Mitglied den Auftrag oeffnet (automatisch gestartet beim Laden, automatisch gestoppt beim Verlassen).
+- Zugewiesene Mitarbeiter sehen den Auftrag in ihren persoenlichen Aufgabenlisten.
+
+---
+
+##### 20.5.1.9 Prozess: Complaint-Flows (Reklamationsbearbeitung)
+
+**Was ist der Bereich?**
+Reklamationen entstehen, wenn ein Kunde nach Abschluss einer Reparatur einen Mangel meldet. Der Complaint-Flow steuert, wie Admin und Techniker auf diese Reklamation reagieren. Der Prozess hat eine klare Rollenlogik und mehrere Entscheidungsstufen.
+
+**Wie entsteht eine Reklamation?**
+
+Eine Reklamation wird immer vom Kunden eroefffnet:
+- In der Kundenansicht des abgeschlossenen Auftrags erscheint ein "Reklamation melden"-Button.
+- Der Kunde gibt an:
+  - `reason` (Grund aus vordefinierten Optionen)
+  - `description` (Freitextbeschreibung)
+- Nach Absenden: Status der Reklamation = `pending_approval`.
+
+**Phase 1 — Admin-Pruefung (`pending_approval`)**
+
+Der Admin sieht die Reklamation im Auftrag (Complaint-Abschnitt unten auf der Seite) und in der globalen Complaints-Uebersicht unter `/admin/complaints`.
+
+Aktionen:
+- **Genehmigen** (`approved`): Reklamation wird als pruefenswert akzeptiert → geht zur Techniker-Bearbeitung.
+- **Ablehnen** (`rejected`): Reklamation wird zurueckgewiesen. Pflichtfeld: `rejection_reason`.
+
+**Phase 2 — Techniker-Bearbeitung (`approved`)**
+
+Nach Admin-Genehmigung sieht der zugewiesene Techniker (oder Admin) im Auftrag die Reklamation.
+
+Aktionen:
+
+1. **Anerkennen (Complaint Action `ack`):**
+   - Oeffnet den Acknowledge-Dialog.
+   - Felder:
+     - `technician_reason` (Preset-Optionen oder Freitext)
+     - Optional: `partial_refund` (Betrag)
+     - Optional: `additional_parts[]` (Zusatzteile mit Name, Menge, Kosten)
+     - `repair_notes`
+   - Nach Absenden: Status → `acknowledged`.
+   - Im Hintergrund: Zusatzkosten werden in `extraCosts` eingerechnet, Folgearbeiten werden geplant.
+
+2. **Ablehnen (Complaint Action `deny`):**
+   - Oeffnet den Deny-Dialog.
+   - Felder:
+     - `Ablehnungsgrund` (Freitext)
+     - `offerAmount` (Angebotsbetrag in EUR/USD)
+     - `offerDescription` (Beschreibung des Angebots)
+   - Nach Absenden: Status → `denied`.
+   - Techniker-Ablehnung geht zurueck an Admin zur finalen Pruefung.
+
+**Phase 3 — Admin-Abschluss (nach Techniker-Ablehnung)**
+
+Wenn der Techniker abgelehnt hat, landet der Fall erneut beim Admin:
+- Admin bestaetigt Ablehnung → Angebot wird dem Kunden zugesendet.
+- Oder Admin genehmigt doch und eskaliert zurueck.
+
+**Phase 4 — Kundenentscheidung (bei `denied`)**
+
+Der Kunde wird per E-Mail ueber das Angebot informiert:
+- **Annehmen:** Fall wird mit `new_repair` oder `resolved` abgeschlossen.
+- **Ablehnen:** Fall eskaliert ggf. weiter oder wird als `closed` markiert.
+
+**Vollstaendiger Status-Pfad:**
+
+```
+pending_approval
+  → approved (Admin genehmigt)
+      → acknowledged (Techniker anerkennt → Losung/Nacharbeit)
+      → denied (Techniker lehnt ab)
+          → [Admin-Pruefung]
+              → resolved/closed (mit Angebot an Kunden)
+  → rejected (Admin lehnt direkt ab)
+      → closed
+```
+
+**Interne Kommentare im Complaint**
+
+In der Complaint-Karte koennen Kommentare hinterlassen werden:
+- `isInternal = true` → nur fuer Staff/Admin sichtbar (interne Notiz).
+- `isInternal = false` → Kommentar loest Kundenbenachrichtigung aus.
+- Immer den `isInternal`-Flag korrekt setzen, bevor ein Kommentar abgesendet wird.
+
+**Wichtige Regeln im Prozess:**
+- Jeder Statuswechsel muss mit einem Grund dokumentiert werden.
+- Kostenfelder (Refund, Zusatzteile) vor Speichern immer plausibilisieren.
+- Externe Kommunikation (ohne `isInternal`) loest automatisch E-Mail an den Kunden aus.
+- Bei unklarem Sachverhalt: erst internen Kommentar hinterlegen, dann Kunde kontaktieren.
+
+---
 
 ### 20.6 Service Management (/admin/services)
 
