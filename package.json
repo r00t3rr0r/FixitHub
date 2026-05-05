@@ -12,7 +12,9 @@
     "server": "npm --prefix server run dev:clean",
     "server-install": "cd server && npm install",
     "start": "concurrently -n \"client,server\" \"npm run client\" \"npm run server\"",
-    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm --prefix server run dev:clean\""
+    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm --prefix server run dev:clean\"",
+    "build:handbook-pdf": "node tools/generate-handbook-pdf.js",
+    "capture:admin-detail-dialogs": "node tools/capture-admin-detail-dialogs.js"
   },
   "author": "",
   "license": "ISC",
@@ -29,6 +31,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "marked": "^18.0.3",
+    "puppeteer-core": "^24.42.0"
   }
 }

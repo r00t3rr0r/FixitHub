@@ -1,0 +1,120 @@
+[
+  {
+    "route": "/admin/users",
+    "file": "10-users-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/bookings",
+    "file": "20-bookings-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/services",
+    "file": "21-services-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/addons",
+    "file": "22-addons-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/devices",
+    "file": "24-devices-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/parts",
+    "file": "25-parts-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/epart-orders",
+    "file": "26-epart-orders-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/workflow",
+    "file": "27-workflow-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/repair-requests",
+    "file": "29-repair-requests-detail.png",
+    "menu": true,
+    "ok": false,
+    "error": "Dialog oder Detailseite wurde nicht erkannt"
+  },
+  {
+    "route": "/admin/financial",
+    "file": "30-financial-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/complaints",
+    "file": "31-complaints-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/shop",
+    "file": "40-shop-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/blog",
+    "file": "41-blog-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/faq",
+    "file": "42-faq-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/marketing-promo/newsletters",
+    "file": "51-marketing-newsletters-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/marketing-promo/promo-codes",
+    "file": "52-marketing-promo-codes-detail.png",
+    "menu": true,
+    "ok": true
+  },
+  {
+    "route": "/admin/system",
+    "file": "60-system-configuration-detail.png",
+    "menu": false,
+    "ok": false,
+    "error": "Dialog oder Detailseite wurde nicht erkannt"
+  },
+  {
+    "route": "/admin/email",
+    "file": "61-email-administration-detail.png",
+    "menu": false,
+    "ok": false,
+    "error": "Dialog oder Detailseite wurde nicht erkannt"
+  },
+  {
+    "route": "/admin/security",
+    "file": "64-security-settings-detail.png",
+    "menu": false,
+    "ok": false,
+    "error": "Dialog oder Detailseite wurde nicht erkannt"
+  }
+]
