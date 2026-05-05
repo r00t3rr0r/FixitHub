@@ -1495,9 +1495,9 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
           </div>
         ) : (
           <>
-            <div className="sticky top-0 z-10 bg-[#1a2a5e] px-4 py-3 text-white sm:px-5 sm:py-3.5">
+            <div className="sticky top-0 z-10 bg-[#1a2a5e] px-4 py-3 sm:px-5 sm:py-3.5">
               <DialogHeader className="space-y-1 text-left">
-                <DialogTitle className="text-base font-bold tracking-tight text-[#f5b800] sm:text-lg">
+                <DialogTitle className="text-base font-bold tracking-tight !text-[#f5b800] sm:text-lg">
                   {step === "review" ? t("checkout.proceedToCheckoutDialogTitle") : t("checkout.authenticationRequired")}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-blue-100 sm:text-sm">

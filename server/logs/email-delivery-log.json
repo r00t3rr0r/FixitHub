@@ -3973,5 +3973,104 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1777977170991-ni48qq9q9",
+    "timestamp": "2026-05-05T10:32:50.991Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0002 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<afc64d30-4a6a-c587-c299-e3a0576fd767@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2479,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777977290706-axpdg1me4",
+    "timestamp": "2026-05-05T10:34:50.706Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<e86197aa-989d-4ad9-ab6a-407ed798d924@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 960,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1777977290883-33ye813bi",
+    "timestamp": "2026-05-05T10:34:50.883Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<7a1f26e2-fbfb-bda4-7708-d013b61631b8@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1078,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]
