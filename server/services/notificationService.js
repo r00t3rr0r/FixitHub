@@ -76,7 +76,7 @@ class NotificationService {
     </tr>${extraRows || ''}`;
   }
 
-  static async sendCustomerNotificationEmail(savedNotification) {
+  static async sendCustomerNotificationEmail(savedNotification, options = {}) {
     try {
       const user = await User.findById(savedNotification.userId)
         .select('email firstName lastName name role preferences.notifications.email')
@@ -90,7 +90,7 @@ class NotificationService {
         return;
       }
 
-      const emailNotificationsEnabled = user?.preferences?.notifications?.email !== false;
+      const emailNotificationsEnabled = options.forceEmail || user?.preferences?.notifications?.email !== false;
       if (!emailNotificationsEnabled) {
         return;
       }
@@ -187,7 +187,7 @@ class NotificationService {
       const savedNotification = await notification.save();
 
       if (options.sendEmail !== false) {
-        await this.sendCustomerNotificationEmail(savedNotification);
+        await this.sendCustomerNotificationEmail(savedNotification, options);
       }
 
       console.log('NotificationService: Notification created successfully');
