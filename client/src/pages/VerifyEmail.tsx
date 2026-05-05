@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '@/hooks/useToast'
 import { TopBar } from '@/components/home/TopBar'
@@ -17,8 +17,16 @@ export function VerifyEmail() {
   const [verifying, setVerifying] = useState(true)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string>('')
+  const verificationStartedRef = useRef(false)
+  const cartMergeDoneRef = useRef(false)
 
   useEffect(() => {
+    if (verificationStartedRef.current) {
+      return
+    }
+
+    verificationStartedRef.current = true
+
     const verifyEmail = async () => {
       const token = searchParams.get('token')
       const redirectParam = searchParams.get('redirect')
@@ -55,18 +63,21 @@ export function VerifyEmail() {
 
           // Merge guest cart (localStorage) into the freshly activated user's server cart.
           // Without this, services chosen before registration are lost after verification.
-          try {
-            await mergeGuestCartWithUserCart({ addToCart, addRepairOrderToCart })
-            console.log('VerifyEmail: Guest cart merged into user cart')
-          } catch (mergeError) {
-            console.error('VerifyEmail: Failed to merge guest cart:', mergeError)
-            // Non-fatal: continue with verification success flow
+          if (!cartMergeDoneRef.current) {
+            try {
+              await mergeGuestCartWithUserCart({ addToCart, addRepairOrderToCart })
+              cartMergeDoneRef.current = true
+              console.log('VerifyEmail: Guest cart merged into user cart')
+            } catch (mergeError) {
+              console.error('VerifyEmail: Failed to merge guest cart:', mergeError)
+              // Non-fatal: continue with verification success flow
+            }
           }
 
           setSuccess(true)
           toast({ title: 'Erfolg', description: data.message || 'E-Mail-Adresse erfolgreich verifiziert!' })
 
-          const hasCheckoutSource = source === 'checkout' || redirectParam?.includes('/cart')
+          const hasCheckoutSource = source === 'checkout'
           const safeRedirectTarget = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/login'
 
           setTimeout(() => {

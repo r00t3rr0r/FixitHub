@@ -834,8 +834,6 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       setLoginLoading(true)
       await login(loginEmail, loginPassword)
 
-      await mergeGuestCartIntoUserCart()
-
       toast({
         title: t("common.success"),
         description: t("checkout.loginSuccessful"),

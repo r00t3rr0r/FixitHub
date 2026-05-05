@@ -3861,5 +3861,31 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1777974929455-bbk16tgny",
+    "timestamp": "2026-05-05T09:55:29.455Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<09564707-17d9-955b-9f7c-2be50f8481ff@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1518,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

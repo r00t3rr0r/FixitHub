@@ -1,0 +1,1 @@
+{"timestamp":"2026-05-05T09:55:29.454Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Registrierung und Kontoaktivierung) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"1518ms","messageId":"<09564707-17d9-955b-9f7c-2be50f8481ff@fixithub.com>","to":"adarozerr@gmail.com"},"pid":79481}
