@@ -289,7 +289,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
           orderNumber: order.orderNumber,
           priority: complaint.priority || 'medium',
           submittedAt: new Date().toLocaleDateString('de-DE'),
-          complaintUrl: await EmailService.buildSystemUrl(`/complaints/${complaint._id}`),
+          complaintUrl: await EmailService.buildSystemUrl(`/my-complaints/${complaint._id}`),
           supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });
