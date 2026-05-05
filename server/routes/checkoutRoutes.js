@@ -13,6 +13,28 @@ const Payment = require('../models/Payment');
 const jwt = require('jsonwebtoken');
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
 
+const normalizeCheckoutAddress = (address) => {
+  const normalized = {
+    street: String(address?.street || '').trim(),
+    city: String(address?.city || '').trim(),
+    state: String(address?.state || '').trim(),
+    zipCode: String(address?.zipCode || address?.postalCode || '').trim(),
+    country: String(address?.country || '').trim(),
+  };
+
+  const cityLooksLikePostalCode = /^\d{4,10}$/.test(normalized.city);
+  const zipLooksLikeCity = /[A-Za-zÄÖÜäöüß]/.test(normalized.zipCode);
+
+  // Guard against browser autofill swapping city and postal code.
+  if (cityLooksLikePostalCode && zipLooksLikeCity) {
+    const originalCity = normalized.city;
+    normalized.city = normalized.zipCode;
+    normalized.zipCode = originalCity;
+  }
+
+  return normalized;
+};
+
 const buildCheckoutVerificationUrl = async (user) => {
   const verificationToken = jwt.sign(
     { userId: user._id, email: user.email },
@@ -21,7 +43,7 @@ const buildCheckoutVerificationUrl = async (user) => {
   );
 
   const verificationBaseUrl = await EmailService.buildSystemUrl('/verify-email');
-  const redirectPath = encodeURIComponent('/cart?checkout=1');
+  const redirectPath = encodeURIComponent('/cart');
   return `${verificationBaseUrl}?token=${verificationToken}&redirect=${redirectPath}&source=checkout`;
 };
 
@@ -1236,6 +1258,8 @@ router.post('/register', async (req, res) => {
     } = req.body;
 
     const normalizedEmail = normalizeEmailAddress(email);
+    const normalizedBillingAddress = normalizeCheckoutAddress(billingAddress);
+    const normalizedShippingAddress = normalizeCheckoutAddress(shippingAddress);
 
     // Validate required fields
     if (!normalizedEmail || !password || !firstName || !lastName) {
@@ -1272,18 +1296,10 @@ router.post('/register', async (req, res) => {
       existingUser.country = country || '';
       existingUser.vatId = vatId || '';
       existingUser.invoiceAddress = {
-        street: billingAddress?.street || '',
-        city: billingAddress?.city || '',
-        state: billingAddress?.state || '',
-        zipCode: billingAddress?.zipCode || '',
-        country: billingAddress?.country || ''
+        ...normalizedBillingAddress
       };
       existingUser.paymentAddress = {
-        street: shippingAddress?.street || '',
-        city: shippingAddress?.city || '',
-        state: shippingAddress?.state || '',
-        zipCode: shippingAddress?.zipCode || '',
-        country: shippingAddress?.country || '',
+        ...normalizedShippingAddress,
         sameAsInvoice: false
       };
       existingUser.status = 'inactive';
@@ -1310,19 +1326,9 @@ router.post('/register', async (req, res) => {
         company: company || '',
         country: country || '',
         vatId: vatId || '',
-        invoiceAddress: {
-          street: billingAddress?.street || '',
-          city: billingAddress?.city || '',
-          state: billingAddress?.state || '',
-          zipCode: billingAddress?.zipCode || '',
-          country: billingAddress?.country || ''
-        },
+        invoiceAddress: normalizedBillingAddress,
         paymentAddress: {
-          street: shippingAddress?.street || '',
-          city: shippingAddress?.city || '',
-          state: shippingAddress?.state || '',
-          zipCode: shippingAddress?.zipCode || '',
-          country: shippingAddress?.country || '',
+          ...normalizedShippingAddress,
           sameAsInvoice: false
         }
       };

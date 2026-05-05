@@ -1537,7 +1537,7 @@ class BookingService {
               invoiceAmount: `EUR ${(savedInvoice.total || 0).toFixed(2)}`,
               dueDate: new Date(savedInvoice.dueDate).toLocaleDateString('de-DE'),
               paymentMethod: savedInvoice.paymentMethod || 'Ueberweisung',
-              invoiceUrl: await EmailService.buildSystemUrl(`/invoices/${savedInvoice._id}`),
+              invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${savedInvoice._id}`),
               supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
               supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
             });

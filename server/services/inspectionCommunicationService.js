@@ -3,8 +3,48 @@ const Order = require('../models/Order');
 const DeviceInspection = require('../models/DeviceInspection');
 const Complaint = require('../models/Complaint');
 const NotificationService = require('./notificationService');
+const EmailService = require('./emailService');
 
 class InspectionCommunicationService {
+  static async notifyGuestMessageRecipient(order, senderType, senderName, content) {
+    try {
+      if (senderType === 'customer') {
+        return;
+      }
+
+      const guestEmail = String(order?.guestInfo?.email || '').trim();
+      if (!guestEmail) {
+        return;
+      }
+
+      const guestName = String(`${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() || guestEmail);
+      const guestTrackingToken = String(order?.guestTrackingToken || '').trim();
+      const trackingPath = guestTrackingToken
+        ? `/track-order?token=${encodeURIComponent(guestTrackingToken)}&email=${encodeURIComponent(guestEmail)}`
+        : '/track-order';
+
+      const trimmedContent = String(content || '').trim();
+      const preview = trimmedContent.length > 240 ? `${trimmedContent.slice(0, 237)}...` : trimmedContent;
+
+      await EmailService.sendTriggerEmail('system_notification', guestEmail, {
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
+        customerName: guestName,
+        notificationTitle: 'Neue Nachricht zu Ihrem Auftrag',
+        notificationPreview: `Neue Nachricht von ${senderName || 'unserem Service-Team'}`,
+        notificationTopic: order?.orderNumber ? `Auftrag ${order.orderNumber}` : 'Ihr Auftrag',
+        notificationBody: preview || 'Es liegt eine neue Nachricht in Ihrem Auftragsverlauf vor.',
+        notificationDate: new Date().toLocaleString('de-DE'),
+        effectiveDate: new Date().toLocaleDateString('de-DE'),
+        ctaLabel: 'Auftrag ansehen',
+        ctaUrl: trackingPath,
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
+      });
+    } catch (guestEmailError) {
+      console.error(`InspectionCommunicationService: Error sending guest message email: ${guestEmailError.message || guestEmailError}`);
+    }
+  }
+
   static async getComplaintNotificationContext(orderId) {
     try {
       const complaint = await Complaint.findOne({
@@ -31,7 +71,7 @@ class InspectionCommunicationService {
 
   static async notifyMessageRecipients(orderId, senderId, senderType, senderName, content) {
     try {
-      const order = await Order.findById(orderId).select('customerId assignedStaff orderNumber').lean();
+      const order = await Order.findById(orderId).select('customerId assignedStaff orderNumber guestInfo guestTrackingToken').lean();
       if (!order) return;
       const complaintContext = await this.getComplaintNotificationContext(orderId);
 
@@ -52,7 +92,10 @@ class InspectionCommunicationService {
         }
       }
 
-      if (!recipientIds.size) return;
+      if (!recipientIds.size) {
+        await this.notifyGuestMessageRecipient(order, senderType, senderName, content);
+        return;
+      }
 
       const trimmedContent = String(content || '').trim();
       const preview = trimmedContent.length > 140 ? `${trimmedContent.slice(0, 137)}...` : trimmedContent;
@@ -72,7 +115,7 @@ class InspectionCommunicationService {
             message: `${senderName} hat eine neue Nachricht zu ${notificationReference} gesendet${preview ? `: ${preview}` : '.'}`,
             type: 'message',
             orderId,
-            actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
+            actionUrl: `/orders/${orderId}`,
             metadata: {
               senderId: senderIdString || null,
               senderType,
@@ -80,9 +123,14 @@ class InspectionCommunicationService {
               complaintId: complaintContext?.complaintId || null,
               complaintNumber: complaintContext?.complaintNumber || null,
             },
+          }, {
+            // Ensure customer receives an email alert for new staff/admin messages.
+            forceEmail: senderType !== 'customer' && String(order.customerId || '') === String(recipientId || ''),
           })
         )
       );
+
+      await this.notifyGuestMessageRecipient(order, senderType, senderName, content);
     } catch (notificationError) {
       console.error(`InspectionCommunicationService: Error notifying message recipients: ${notificationError.message || notificationError}`);
     }

@@ -197,6 +197,8 @@ export function DeviceInspectionForm({
   };
 
   const handleModelVerification = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await updateModelVerification(
@@ -221,6 +223,8 @@ export function DeviceInspectionForm({
   };
 
   const handleIdentification = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await updateIdentification(orderId, deviceType, imei, serialNumber);
@@ -238,6 +242,8 @@ export function DeviceInspectionForm({
   };
 
   const handleAccessories = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await updateAccessories(orderId, {
@@ -261,6 +267,8 @@ export function DeviceInspectionForm({
   };
 
   const handleExternalInspection = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await updateExternalInspection(orderId, {
@@ -285,6 +293,8 @@ export function DeviceInspectionForm({
   };
 
   const handleDeviceTests = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await updateDeviceTests(orderId, {
@@ -308,6 +318,8 @@ export function DeviceInspectionForm({
   };
 
   const handleAppleSpecific = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await updateAppleSpecific(orderId, {
@@ -328,6 +340,8 @@ export function DeviceInspectionForm({
   };
 
   const handleCompleteInspection = async () => {
+    if (submitting) return;
+
     try {
       setSubmitting(true);
       await completeInspection(orderId, isRepairable || false, {

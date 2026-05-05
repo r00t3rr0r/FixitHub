@@ -481,7 +481,7 @@ class FinancialService {
 
       const customerName = String(invoice.customerName || '').trim() || 'Kunde';
       const invoiceAmount = Number(invoice.total || 0);
-      const invoiceUrl = await EmailService.buildSystemUrl(`/customer/invoices?invoiceId=${invoice._id}`);
+      const invoiceUrl = await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`);
 
       const emailResult = await EmailService.sendTriggerEmail('invoice_created', recipientEmail, {
         companyName: process.env.COMPANY_NAME || 'McRepair.de',

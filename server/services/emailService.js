@@ -1034,7 +1034,9 @@ This is an automated email. Please do not reply to this message.
    * Send payment confirmation email
    */
   static async sendPaymentConfirmationEmail(toEmail, paymentData, companyName = 'McRepair.de') {
-    const defaultInvoiceUrl = await this.buildSystemUrl(`/invoices/${paymentData.invoiceId}`);
+    const defaultInvoiceUrl = paymentData.invoiceId
+      ? await this.buildSystemUrl(`/invoices?invoiceId=${paymentData.invoiceId}`)
+      : await this.buildSystemUrl('/invoices');
     return this.sendTriggerEmail('payment_confirmed', toEmail, {
       companyName,
       customerName: paymentData.customerName || 'Valued Customer',
