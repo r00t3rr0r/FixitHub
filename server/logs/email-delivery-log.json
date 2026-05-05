@@ -3887,5 +3887,91 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1777975727970-khbmwsplo",
+    "timestamp": "2026-05-05T10:08:47.970Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Kontaktformular Bestaetigung an Absender",
+    "subject": "Wir haben Ihre Anfrage erhalten - McRepair.de",
+    "messageId": "<3f0c3687-5461-9d13-0e79-94644bb713a0@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 877,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "contactSubject",
+        "submittedAt",
+        "messagePreview",
+        "supportEmail",
+        "supportPhone",
+        "contactUrl",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777976232985-u4ez2fgte",
+    "timestamp": "2026-05-05T10:17:12.985Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<fca0b8c7-c755-e533-bac1-e681cc0f6610@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2063,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1777976484912-yd222a25v",
+    "timestamp": "2026-05-05T10:21:24.912Z",
+    "to": "adarozerr@gmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0001 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<f1d7ae62-e656-7ad4-f1c8-46ea40a811c0@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1815,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

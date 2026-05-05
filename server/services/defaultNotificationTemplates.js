@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 14;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 15;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -262,23 +262,23 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Willkommen bei {{companyName}} - bitte Konto aktivieren',
       content: renderEmailTemplate({
-        preheader: 'Bitte bestaetigen Sie Ihre E-Mail-Adresse fuer Ihr neues Kundenkonto.',
+        preheader: 'Bitte bestätigen Sie Ihre E-Mail-Adresse für Ihr neues Kundenkonto.',
         eyebrow: 'Konto & Registrierung',
         title: 'Willkommen bei {{companyName}}',
-        intro: 'Hallo {{customerName}}, vielen Dank fuer Ihre Registrierung. Bitte bestaetigen Sie Ihre E-Mail-Adresse, damit Sie Reparaturauftraege, Statusupdates und Dokumente bequem in Ihrem Kundenkonto verwalten koennen.',
+        intro: 'Hallo {{customerName}}, vielen Dank für Ihre Registrierung. Bitte bestätigen Sie Ihre E-Mail-Adresse, damit Sie Reparaturaufträge, Statusupdates und Dokumente bequem in Ihrem Kundenkonto verwalten können.',
         highlights: [
-          { label: 'Kundenkonto', value: 'Schneller Zugriff auf Ihre Auftraege, Rechnungen und Service-Historie.' },
-          { label: 'Sicherheit', value: 'Die Aktivierung schuetzt Ihr Konto und ermoeglicht sichere Benachrichtigungen.', tone: 'yellow' }
+          { label: 'Kundenkonto', value: 'Schneller Zugriff auf Ihre Aufträge, Rechnungen und Service-Historie.' },
+          { label: 'Sicherheit', value: 'Die Aktivierung schützt Ihr Konto und ermöglicht sichere Benachrichtigungen.', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Kunde', value: '{{customerName}}' },
           { label: 'E-Mail-Adresse', value: '{{customerEmail}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Nach der Aktivierung koennen Sie Reparaturen beauftragen, den aktuellen Bearbeitungsstatus verfolgen und mit unserem Service-Team kommunizieren.</p><p style="margin:0;">Sollten Sie sich nicht registriert haben, koennen Sie diese Nachricht ignorieren.</p>',
+        body: '<p style="margin:0 0 16px 0;">Nach der Aktivierung können Sie Reparaturen beauftragen, den aktuellen Bearbeitungsstatus verfolgen und mit unserem Service-Team kommunizieren.</p><p style="margin:0;">Sollten Sie sich nicht registriert haben, können Sie diese Nachricht ignorieren.</p>',
         ctaLabel: 'Konto aktivieren',
         ctaUrl: '{{verificationUrl}}',
         closing: 'Wir freuen uns darauf, Sie bei Ihren Reparaturen schnell, transparent und professionell zu begleiten.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht wurde automatisch fuer Ihr Kundenkonto erstellt.'
+        footerNote: 'Diese Nachricht wurde automatisch für Ihr Kundenkonto erstellt.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
@@ -298,32 +298,32 @@ function getDefaultNotificationTemplates() {
         preheader: 'Ihr Reparaturauftrag wurde erfolgreich angelegt.',
         eyebrow: 'Auftrag & Bearbeitung',
         title: 'Ihr Auftrag ist bei uns eingegangen',
-        intro: 'Hallo {{customerName}}, wir haben Ihren Reparaturauftrag erfolgreich aufgenommen und die Bearbeitung vorbereitet. Vielen Dank fuer Ihr Vertrauen in {{companyName}}.',
+        intro: 'Hallo {{customerName}}, wir haben Ihren Reparaturauftrag erfolgreich aufgenommen und die Bearbeitung vorbereitet. Vielen Dank für Ihr Vertrauen in {{companyName}}.',
         highlights: [
-          { label: 'Naechster Schritt', value: 'Unser Technik-Team prueft den Auftrag und informiert Sie ueber jeden wichtigen Fortschritt.' },
-          { label: 'Transparenz', value: 'Sie koennen alle Schritte jederzeit online nachvollziehen.', tone: 'yellow' }
+          { label: 'Nächster Schritt', value: 'Unser Technik-Team prüft den Auftrag und informiert Sie über jeden wichtigen Fortschritt.' },
+          { label: 'Transparenz', value: 'Sie können alle Schritte jederzeit online nachvollziehen.', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
           { label: 'Leistung', value: '{{serviceName}}' },
           { label: 'Voraussichtliche Fertigstellung', value: '{{estimatedCompletion}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte pruefen Sie bei Gelegenheit Ihre hinterlegten Daten. Wenn Sie Rueckfragen zum Fehlerbild oder zum Versand haben, antworten Sie einfach auf diese E-Mail.</p><p style="margin:0;">Sobald sich der Status aendert, informieren wir Sie automatisch.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte prüfen Sie bei Gelegenheit Ihre hinterlegten Daten. Wenn Sie Rückfragen zum Fehlerbild oder zum Versand haben, antworten Sie einfach auf diese E-Mail.</p><p style="margin:0;">Sobald sich der Status ändert, informieren wir Sie automatisch.</p>',
         ctaLabel: 'Auftrag online verfolgen',
         ctaUrl: '{{trackingUrl}}',
-        closing: 'Vielen Dank fuer Ihren Auftrag. Wir halten Sie waehrend des gesamten Reparaturprozesses aktiv auf dem Laufenden.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Auftragsbestaetigung bezieht sich auf Ihren aktuellen Reparaturauftrag.'
+        closing: 'Vielen Dank für Ihren Auftrag. Wir halten Sie während des gesamten Reparaturprozesses aktiv auf dem Laufenden.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Auftragsbestätigung bezieht sich auf Ihren aktuellen Reparaturauftrag.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
         createVariable('serviceName', 'Gebuchte Reparaturleistung', true),
-        createVariable('estimatedCompletion', 'Geschaetztes Fertigstellungsdatum'),
+        createVariable('estimatedCompletion', 'Geschätztes Fertigstellungsdatum'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -341,32 +341,32 @@ function getDefaultNotificationTemplates() {
         intro: 'Hallo {{customerName}}, der Status Ihres Vorgangs wurde aktualisiert. Damit Sie immer informiert bleiben, finden Sie unten die wichtigsten Details auf einen Blick.',
         highlights: [
           { label: 'Neuer Status', value: '{{orderStatus}}' },
-          { label: 'Naechster Hinweis', value: '{{statusMessage}}', tone: 'yellow' }
+          { label: 'Nächster Hinweis', value: '{{statusMessage}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
           { label: 'Buchungsstatus', value: '{{bookingStatus}}' },
           { label: 'Reparaturstatus', value: '{{orderStatus}}' },
           { label: 'Aktualisiert am', value: '{{statusUpdatedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Sollten wir noch Informationen von Ihnen benoetigen, melden wir uns separat. In Ihrem Kundenbereich sehen Sie jederzeit den aktuellen Bearbeitungsstand.</p><p style="margin:0;">Wenn Sie Fragen zu diesem Update haben, steht Ihnen unser Service-Team gerne zur Verfuegung.</p>',
+        body: '<p style="margin:0 0 16px 0;">Sollten wir noch Informationen von Ihnen benötigen, melden wir uns separat. In Ihrem Kundenbereich sehen Sie jederzeit den aktuellen Bearbeitungsstand.</p><p style="margin:0;">Wenn Sie Fragen zu diesem Update haben, steht Ihnen unser Service-Team gerne zur Verfügung.</p>',
         ctaLabel: 'Status im Kundenkonto ansehen',
         ctaUrl: '{{trackingUrl}}',
         closing: 'Wir begleiten Ihren Auftrag transparent und informieren Sie bei jedem wichtigen Meilenstein.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Benachrichtigung wurde automatisch durch eine Statusaenderung ausgeloest.'
+        footerNote: 'Diese Benachrichtigung wurde automatisch durch eine Statusänderung ausgelöst.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('bookingStatus', 'Status der Buchung'),
-        createVariable('deviceBrand', 'Geraetemarke'),
-        createVariable('deviceModel', 'Geraetemodell'),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
+        createVariable('deviceBrand', 'Gerätemarke'),
+        createVariable('deviceModel', 'Gerätemodell'),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
         createVariable('orderStatus', 'Status des Reparaturauftrags', true),
-        createVariable('statusMessage', 'Zusaetzlicher Hinweis zum Status'),
-        createVariable('statusUpdatedAt', 'Zeitpunkt der Statusaenderung'),
+        createVariable('statusMessage', 'Zusätzlicher Hinweis zum Status'),
+        createVariable('statusUpdatedAt', 'Zeitpunkt der Statusänderung'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -376,34 +376,34 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Geraet eingegangen',
       type: 'email',
-      subject: 'Ihr Geraet ist bei {{companyName}} eingetroffen',
+      subject: 'Ihr Gerät ist bei {{companyName}} eingetroffen',
       content: renderEmailTemplate({
-        preheader: 'Wir haben Ihr Geraet erhalten und zur Pruefung uebernommen.',
+        preheader: 'Wir haben Ihr Gerät erhalten und zur Prüfung übernommen.',
         eyebrow: 'Wareneingang',
-        title: 'Ihr Geraet ist sicher bei uns angekommen',
-        intro: 'Hallo {{customerName}}, wir bestaetigen den Eingang Ihres Geraets. Unser Team prueft den Zustand nun im Detail und bereitet die weitere Bearbeitung vor.',
+        title: 'Ihr Gerät ist sicher bei uns angekommen',
+        intro: 'Hallo {{customerName}}, wir bestätigen den Eingang Ihres Geräts. Unser Team prüft den Zustand nun im Detail und bereitet die weitere Bearbeitung vor.',
         highlights: [
-          { label: 'Eingang bestaetigt', value: 'Ihr Paket wurde erfasst und intern zugeordnet.' },
-          { label: 'Naechster Schritt', value: 'Diagnose, Sichtpruefung und weitere Statusmeldung.', tone: 'yellow' }
+          { label: 'Eingang bestätigt', value: 'Ihr Paket wurde erfasst und intern zugeordnet.' },
+          { label: 'Nächster Schritt', value: 'Diagnose, Sichtprüfung und weitere Statusmeldung.', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
           { label: 'Eingangsdatum', value: '{{receivedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Nach der Erstpruefung informieren wir Sie, sobald die Reparatur startet oder wenn Rueckfragen zum Geraet bestehen.</p><p style="margin:0;">Bitte bewahren Sie Ihre Auftragsnummer fuer eventuelle Rueckfragen auf.</p>',
+        body: '<p style="margin:0 0 16px 0;">Nach der Erstprüfung informieren wir Sie, sobald die Reparatur startet oder wenn Rückfragen zum Gerät bestehen.</p><p style="margin:0;">Bitte bewahren Sie Ihre Auftragsnummer für eventuelle Rückfragen auf.</p>',
         ctaLabel: 'Auftragsdetails aufrufen',
         ctaUrl: '{{trackingUrl}}',
-        closing: 'Vielen Dank fuer Ihr Vertrauen. Ihr Geraet befindet sich nun in professioneller Bearbeitung.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt den physischen Eingang Ihres Geraets.'
+        closing: 'Vielen Dank für Ihr Vertrauen. Ihr Gerät befindet sich nun in professioneller Bearbeitung.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt den physischen Eingang Ihres Geräts.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
         createVariable('receivedAt', 'Datum des Wareneingangs'),
         createVariable('trackingUrl', 'Link zur Auftragsverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -416,39 +416,39 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Diagnose abgeschlossen: Auftrag {{orderNumber}} – {{deviceBrand}} {{deviceModel}}',
       content: renderEmailTemplate({
-        preheader: 'Die Diagnose Ihres Geraetes wurde abgeschlossen. Hier finden Sie alle Ergebnisse auf einen Blick.',
+        preheader: 'Die Diagnose Ihres Gerätes wurde abgeschlossen. Hier finden Sie alle Ergebnisse auf einen Blick.',
         eyebrow: 'Diagnose abgeschlossen',
-        title: 'Diagnosebericht fuer Ihr Geraet',
-        intro: 'Hallo {{customerName}}, die technische Diagnose Ihres Geraetes ist abgeschlossen. Im Folgenden finden Sie eine Zusammenfassung der Ergebnisse sowie die naechsten Schritte fuer Ihren Auftrag.',
+        title: 'Diagnosebericht für Ihr Gerät',
+        intro: 'Hallo {{customerName}}, die technische Diagnose Ihres Gerätes ist abgeschlossen. Im Folgenden finden Sie eine Zusammenfassung der Ergebnisse sowie die nächsten Schritte für Ihren Auftrag.',
         highlights: [
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Diagnoseergebnis', value: '{{diagnosisResult}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
           { label: 'Diagnose abgeschlossen am', value: '{{diagnosisCompletedAt}}' },
           { label: 'Zustand', value: '{{deviceCondition}}' },
-          { label: 'Empfohlene Massnahme', value: '{{recommendedAction}}' }
+          { label: 'Empfohlene Maßnahme', value: '{{recommendedAction}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto koennen Sie den vollstaendigen Diagnosebericht einsehen und ggf. direkt auf unsere Empfehlung reagieren.</p><p style="margin:0;">Sollten Sie Fragen zu den Ergebnissen oder zum weiteren Vorgehen haben, stehen wir Ihnen jederzeit zur Verfuegung.</p>',
+        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto können Sie den vollständigen Diagnosebericht einsehen und ggf. direkt auf unsere Empfehlung reagieren.</p><p style="margin:0;">Sollten Sie Fragen zu den Ergebnissen oder zum weiteren Vorgehen haben, stehen wir Ihnen jederzeit zur Verfügung.</p>',
         ctaLabel: 'Auftrag online einsehen',
         ctaUrl: '{{orderUrl}}',
-        closing: 'Wir halten Sie weiterhin aktiv ueber den Fortschritt Ihres Auftrags informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht wurde automatisch nach Abschluss der Gereatediagnose erstellt.'
+        closing: 'Wir halten Sie weiterhin aktiv über den Fortschritt Ihres Auftrags informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde automatisch nach Abschluss der Gerätediagnose erstellt.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
         createVariable('diagnosisResult', 'Kernaussage des Diagnoseergebnisses (z.B. Reparierbar / Nicht reparierbar)', true),
         createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Diagnoseabschlusses', true),
-        createVariable('deviceCondition', 'Zustand des Geraetes nach Diagnose'),
-        createVariable('recommendedAction', 'Empfohlene Massnahme (z.B. Kostenvoranschlag folgt, Kundenfreigabe erforderlich)'),
-        createVariable('orderUrl', 'Vollstaendiger Link zur Auftragsdetailseite im Kundenkonto', true),
+        createVariable('deviceCondition', 'Zustand des Gerätes nach Diagnose'),
+        createVariable('recommendedAction', 'Empfohlene Maßnahme (z.B. Kostenvoranschlag folgt, Kundenfreigabe erforderlich)'),
+        createVariable('orderUrl', 'Vollständiger Link zur Auftragsdetailseite im Kundenkonto', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
@@ -457,38 +457,38 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Kostenvoranschlag zur Freigabe',
       type: 'email',
-      subject: 'Bitte pruefen Sie Ihren Kostenvoranschlag zu Auftrag {{orderNumber}}',
+      subject: 'Bitte prüfen Sie Ihren Kostenvoranschlag zu Auftrag {{orderNumber}}',
       content: renderEmailTemplate({
-        preheader: 'Ihr Kostenvoranschlag ist verfuegbar und wartet auf Ihre Freigabe.',
+        preheader: 'Ihr Kostenvoranschlag ist verfügbar und wartet auf Ihre Freigabe.',
         eyebrow: 'Freigabe erforderlich',
-        title: 'Ihr Kostenvoranschlag ist verfuegbar',
-        intro: 'Hallo {{customerName}}, fuer Ihren Auftrag liegt nun ein Kostenvoranschlag vor. Bitte pruefen Sie die vorgeschlagene Reparatur und geben Sie die Bearbeitung bei Bedarf frei.',
+        title: 'Ihr Kostenvoranschlag ist verfügbar',
+        intro: 'Hallo {{customerName}}, für Ihren Auftrag liegt nun ein Kostenvoranschlag vor. Bitte prüfen Sie die vorgeschlagene Reparatur und geben Sie die Bearbeitung bei Bedarf frei.',
         highlights: [
           { label: 'Gesamtbetrag', value: '{{quoteAmount}}' },
-          { label: 'Antwort benoetigt', value: 'Mit Ihrer Freigabe kann die Reparatur direkt fortgesetzt werden.', tone: 'yellow' }
+          { label: 'Antwort benötigt', value: 'Mit Ihrer Freigabe kann die Reparatur direkt fortgesetzt werden.', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
           { label: 'Empfohlene Leistung', value: '{{serviceName}}' },
           { label: 'Freigabe bis', value: '{{approvalDeadline}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto finden Sie alle Informationen zum Umfang der Reparatur. Dort koennen Sie den Kostenvoranschlag freigeben oder bei Bedarf Rueckfragen stellen.</p><p style="margin:0;">Ohne Freigabe koennen wir die Reparatur nicht fortsetzen.</p>',
-        ctaLabel: 'Kostenvoranschlag pruefen',
+        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto finden Sie alle Informationen zum Umfang der Reparatur. Dort können Sie den Kostenvoranschlag freigeben oder bei Bedarf Rückfragen stellen.</p><p style="margin:0;">Ohne Freigabe können wir die Reparatur nicht fortsetzen.</p>',
+        ctaLabel: 'Kostenvoranschlag prüfen',
         ctaUrl: '{{approvalUrl}}',
-        closing: 'Sobald Ihre Freigabe vorliegt, setzen wir den Auftrag ohne unnoetige Verzoegerung fort.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht wurde erstellt, weil fuer Ihren Auftrag eine Entscheidung erforderlich ist.'
+        closing: 'Sobald Ihre Freigabe vorliegt, setzen wir den Auftrag ohne unnötige Verzögerung fort.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde erstellt, weil für Ihren Auftrag eine Entscheidung erforderlich ist.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
         createVariable('serviceName', 'Empfohlene Reparaturleistung'),
         createVariable('quoteAmount', 'Betrag des Kostenvoranschlags', true),
-        createVariable('approvalDeadline', 'Frist fuer die Freigabe'),
+        createVariable('approvalDeadline', 'Frist für die Freigabe'),
         createVariable('approvalUrl', 'Link zur Freigabeseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -500,34 +500,34 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Gute Nachrichten: Ihr Auftrag {{orderNumber}} ist abgeschlossen',
       content: renderEmailTemplate({
-        preheader: 'Ihre Reparatur ist abgeschlossen und der Rueckversand wurde vorbereitet.',
+        preheader: 'Ihre Reparatur ist abgeschlossen und der Rückversand wurde vorbereitet.',
         eyebrow: 'Abschluss & Versand',
         title: 'Ihre Reparatur ist abgeschlossen',
-        intro: 'Hallo {{customerName}}, Ihr Geraet wurde erfolgreich bearbeitet. Je nach Ablauf steht es nun zur Abholung bereit oder befindet sich bereits im Rueckversand.',
+        intro: 'Hallo {{customerName}}, Ihr Gerät wurde erfolgreich bearbeitet. Je nach Ablauf steht es nun zur Abholung bereit oder befindet sich bereits im Rückversand.',
         highlights: [
           { label: 'Reparaturstatus', value: 'Abgeschlossen' },
           { label: 'Versandstatus', value: '{{returnShipmentStatus}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
-          { label: 'Ruecksendungsnummer', value: '{{returnTrackingNumber}}' }
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
+          { label: 'Rücksendungsnummer', value: '{{returnTrackingNumber}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Falls Ihr Geraet versendet wurde, koennen Sie den Versandstatus online verfolgen. Sollte eine Abholung vorgesehen sein, teilen wir Ihnen die relevanten Informationen direkt mit.</p><p style="margin:0;">Bitte pruefen Sie nach Erhalt kurz die Funktion und melden Sie sich bei Unklarheiten jederzeit bei uns.</p>',
+        body: '<p style="margin:0 0 16px 0;">Falls Ihr Gerät versendet wurde, können Sie den Versandstatus online verfolgen. Sollte eine Abholung vorgesehen sein, teilen wir Ihnen die relevanten Informationen direkt mit.</p><p style="margin:0;">Bitte prüfen Sie nach Erhalt kurz die Funktion und melden Sie sich bei Unklarheiten jederzeit bei uns.</p>',
         ctaLabel: 'Versand verfolgen',
         ctaUrl: '{{trackingUrl}}',
-        closing: 'Wir freuen uns, Ihren Auftrag erfolgreich abgeschlossen zu haben, und bedanken uns fuer Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht informiert Sie ueber den erfolgreichen Abschluss Ihrer Reparatur.'
+        closing: 'Wir freuen uns, Ihren Auftrag erfolgreich abgeschlossen zu haben, und bedanken uns für Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht informiert Sie über den erfolgreichen Abschluss Ihrer Reparatur.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
-        createVariable('returnShipmentStatus', 'Status des Rueckversands'),
-        createVariable('returnTrackingNumber', 'Sendungsnummer fuer den Rueckversand'),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
+        createVariable('returnShipmentStatus', 'Status des Rückversands'),
+        createVariable('returnTrackingNumber', 'Sendungsnummer für den Rückversand'),
         createVariable('trackingUrl', 'Link zur Sendungsverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -539,9 +539,9 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Zahlung zu Auftrag {{orderNumber}} erfolgreich eingegangen',
       content: renderEmailTemplate({
-        preheader: 'Wir bestaetigen den Eingang Ihrer Zahlung.',
+        preheader: 'Wir bestätigen den Eingang Ihrer Zahlung.',
         eyebrow: 'Zahlung & Dokumente',
-        title: 'Vielen Dank fuer Ihre Zahlung',
+        title: 'Vielen Dank für Ihre Zahlung',
         intro: 'Hallo {{customerName}}, wir haben Ihre Zahlung erfolgreich verbucht. Die wichtigsten Informationen zu Ihrem Zahlungsvorgang finden Sie nachfolgend.',
         highlights: [
           { label: 'Betrag', value: '{{amountPaid}}' },
@@ -552,11 +552,11 @@ function getDefaultNotificationTemplates() {
           { label: 'Zahlung eingegangen am', value: '{{paidAt}}' },
           { label: 'Rechnungsnummer', value: '{{invoiceNumber}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Ihre Zahlung wurde Ihrem Auftrag eindeutig zugeordnet. Falls bereits ein Rechnungsdokument verfuegbar ist, koennen Sie es ueber den untenstehenden Link aufrufen.</p><p style="margin:0;">Bei Rueckfragen zur Abrechnung hilft Ihnen unser Team gerne weiter.</p>',
+        body: '<p style="margin:0 0 16px 0;">Ihre Zahlung wurde Ihrem Auftrag eindeutig zugeordnet. Falls bereits ein Rechnungsdokument verfügbar ist, können Sie es über den untenstehenden Link aufrufen.</p><p style="margin:0;">Bei Rückfragen zur Abrechnung hilft Ihnen unser Team gerne weiter.</p>',
         ctaLabel: 'Rechnung ansehen',
         ctaUrl: '{{invoiceUrl}}',
-        closing: 'Vielen Dank fuer die schnelle Zahlung. Damit ist Ihr Auftrag auch kaufmaennisch sauber abgeschlossen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt den erfolgreichen Zahlungseingang fuer Ihren Auftrag.'
+        closing: 'Vielen Dank für die schnelle Zahlung. Damit ist Ihr Auftrag auch kaufmännisch sauber abgeschlossen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt den erfolgreichen Zahlungseingang für Ihren Auftrag.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
@@ -575,32 +575,32 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Passwort zuruecksetzen',
       type: 'email',
-      subject: 'Passwort fuer Ihr {{companyName}} Konto zuruecksetzen',
+      subject: 'Passwort für Ihr {{companyName}} Konto zurücksetzen',
       content: renderEmailTemplate({
-        preheader: 'Setzen Sie Ihr Passwort sicher ueber den zugesandten Link zurueck.',
+        preheader: 'Setzen Sie Ihr Passwort sicher über den zugesandten Link zurück.',
         eyebrow: 'Sicherheit',
-        title: 'Passwort sicher zuruecksetzen',
-        intro: 'Hallo {{customerName}}, fuer Ihr Kundenkonto wurde eine Anfrage zum Zuruecksetzen des Passworts gestellt. Ueber den folgenden Link koennen Sie ein neues Passwort vergeben.',
+        title: 'Passwort sicher zurücksetzen',
+        intro: 'Hallo {{customerName}}, für Ihr Kundenkonto wurde eine Anfrage zum Zurücksetzen des Passworts gestellt. Über den folgenden Link können Sie ein neues Passwort vergeben.',
         highlights: [
-          { label: 'Wichtig', value: 'Der Link ist nur fuer einen begrenzten Zeitraum gueltig.' },
+          { label: 'Wichtig', value: 'Der Link ist nur für einen begrenzten Zeitraum gültig.' },
           { label: 'Sicherheitshinweis', value: 'Wenn Sie diese Anfrage nicht selbst gestellt haben, ignorieren Sie die E-Mail bitte.', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Kunde', value: '{{customerName}}' },
           { label: 'E-Mail-Adresse', value: '{{customerEmail}}' },
-          { label: 'Gueltig bis', value: '{{resetExpiresAt}}' }
+          { label: 'Gültig bis', value: '{{resetExpiresAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Aus Sicherheitsgruenden empfehlen wir ein starkes Passwort mit ausreichend Zeichen, Gross- und Kleinbuchstaben sowie Zahlen.</p><p style="margin:0;">Falls Sie Hilfe benoetigen, steht unser Support-Team gerne fuer Sie bereit.</p>',
+        body: '<p style="margin:0 0 16px 0;">Aus Sicherheitsgründen empfehlen wir ein starkes Passwort mit ausreichend Zeichen, Groß- und Kleinbuchstaben sowie Zahlen.</p><p style="margin:0;">Falls Sie Hilfe benötigen, steht unser Support-Team gerne für Sie bereit.</p>',
         ctaLabel: 'Neues Passwort vergeben',
         ctaUrl: '{{passwordResetUrl}}',
-        closing: 'Die Sicherheit Ihres Kundenkontos hat fuer uns hohe Prioritaet.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Die Sicherheit Ihres Kundenkontos hat für uns hohe Priorität.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Sicherheitsnachricht wurde aufgrund einer Passwort-Reset-Anfrage erstellt.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('customerEmail', 'E-Mail-Adresse des Kunden', true),
-        createVariable('passwordResetUrl', 'Link zum Zuruecksetzen des Passworts', true),
+        createVariable('passwordResetUrl', 'Link zum Zurücksetzen des Passworts', true),
         createVariable('resetExpiresAt', 'Ablaufzeit des Reset-Links'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -615,9 +615,9 @@ function getDefaultNotificationTemplates() {
       subject: 'Ihre Buchung {{bookingNumber}} wurde erfolgreich angelegt – {{companyName}}',
       content: renderEmailTemplate({
         preheader: 'Ihre Buchung ist eingegangen und wird bearbeitet.',
-        eyebrow: 'Buchungsbestaetigung',
+        eyebrow: 'Buchungsbestätigung',
         title: 'Ihre Buchung ist erfolgreich eingegangen',
-        intro: 'Hallo {{customerName}}, wir haben Ihre Buchung erfolgreich aufgenommen. Unser Team wird den Vorgang pruefen und Sie ueber den naechsten Schritt informieren.',
+        intro: 'Hallo {{customerName}}, wir haben Ihre Buchung erfolgreich aufgenommen. Unser Team wird den Vorgang prüfen und Sie über den nächsten Schritt informieren.',
         highlights: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
           { label: 'Gesamtbetrag', value: '{{totalAmount}}', tone: 'yellow' }
@@ -625,26 +625,26 @@ function getDefaultNotificationTemplates() {
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
           { label: 'Buchungsdatum', value: '{{bookingDate}}' },
-          { label: 'Enthaltene Auftraege im Ueberblick', value: '{{itemSummary}}' },
+          { label: 'Enthaltene Aufträge im Überblick', value: '{{itemSummary}}' },
           { label: 'Gesamtbetrag', value: '{{totalAmount}}' },
           { label: 'Status', value: '{{bookingStatus}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">In Ihrer Buchung sind alle zugeordneten Reparaturauftraege und Leistungen zusammengefasst. Sie koennen den aktuellen Buchungsstatus jederzeit in Ihrem Kundenkonto einsehen.</p><p style="margin:0;">Bei Rueckfragen zu Ihrer Buchung steht Ihnen unser Support-Team gerne zur Verfuegung.</p>',
+        body: '<p style="margin:0 0 16px 0;">In Ihrer Buchung sind alle zugeordneten Reparaturaufträge und Leistungen zusammengefasst. Sie können den aktuellen Buchungsstatus jederzeit in Ihrem Kundenkonto einsehen.</p><p style="margin:0;">Bei Rückfragen zu Ihrer Buchung steht Ihnen unser Support-Team gerne zur Verfügung.</p>',
         ctaLabel: 'Buchung online einsehen',
         ctaUrl: '{{bookingUrl}}',
         ctaTone: 'accent',
         secondaryCtaLabel: 'Versandlabel (PDF)',
         secondaryCtaUrl: '{{shippingLabelUrl}}',
         secondaryCtaTone: 'primary',
-        closing: 'Vielen Dank fuer Ihr Vertrauen. Wir halten Sie waehrend des gesamten Prozesses auf dem Laufenden.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Buchungsbestaetigung bezieht sich auf Ihre aktuell angelegte Buchung.'
+        closing: 'Vielen Dank für Ihr Vertrauen. Wir halten Sie während des gesamten Prozesses auf dem Laufenden.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Buchungsbestätigung bezieht sich auf Ihre aktuell angelegte Buchung.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('bookingNumber', 'Buchungsnummer', true),
         createVariable('bookingDate', 'Datum der Buchungserstellung'),
-        createVariable('itemSummary', 'Nutzerfreundliche Uebersicht der enthaltenen Auftraege mit Status und Betrag'),
+        createVariable('itemSummary', 'Nutzerfreundliche Übersicht der enthaltenen Aufträge mit Status und Betrag'),
         createVariable('totalAmount', 'Gesamtbetrag der Buchung'),
         createVariable('bookingStatus', 'Aktueller Buchungsstatus'),
         createVariable('bookingUrl', 'Link zur Buchungsdetailseite', true),
@@ -689,7 +689,7 @@ function getDefaultNotificationTemplates() {
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('bookingNumber', 'Buchungsnummer', true),
         createVariable('bookingDate', 'Datum der Buchungserstellung', true),
-        createVariable('itemSummary', 'Nutzerfreundliche Uebersicht der enthaltenen Auftraege', true),
+        createVariable('itemSummary', 'Nutzerfreundliche Übersicht der enthaltenen Aufträge', true),
         createVariable('totalAmount', 'Gesamtbetrag der Buchung', true),
         createVariable('bookingStatus', 'Aktueller Buchungsstatus', true),
         createVariable('trackingUrl', 'Direkter Gast-Tracking-Link zur Buchung', true),
@@ -707,32 +707,32 @@ function getDefaultNotificationTemplates() {
         preheader: 'Der Status Ihrer Buchung wurde aktualisiert.',
         eyebrow: 'Buchungsstatus',
         title: 'Status Ihrer Buchung wurde aktualisiert',
-        intro: 'Hallo {{customerName}}, der Status Ihrer Buchung hat sich geaendert. Nachfolgend finden Sie alle relevanten Informationen auf einen Blick.',
+        intro: 'Hallo {{customerName}}, der Status Ihrer Buchung hat sich geändert. Nachfolgend finden Sie alle relevanten Informationen auf einen Blick.',
         highlights: [
           { label: 'Neuer Status', value: '{{bookingStatus}}' },
           { label: 'Hinweis', value: '{{statusNote}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
-          { label: 'Enthaltene Auftraege', value: '{{itemSummary}}' },
+          { label: 'Enthaltene Aufträge', value: '{{itemSummary}}' },
           { label: 'Gesamtfortschritt', value: '{{progressPercent}}%' },
           { label: 'Aktualisiert am', value: '{{updatedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte melden Sie sich in Ihrem Kundenkonto an, um alle Details zu Ihrer Buchung, den einzelnen Auftraegen und den jeweiligen Fortschritten einzusehen.</p><p style="margin:0;">Unser Team begleitet Ihren Vorgang und informiert Sie bei jedem weiteren Meilenstein automatisch.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte melden Sie sich in Ihrem Kundenkonto an, um alle Details zu Ihrer Buchung, den einzelnen Aufträgen und den jeweiligen Fortschritten einzusehen.</p><p style="margin:0;">Unser Team begleitet Ihren Vorgang und informiert Sie bei jedem weiteren Meilenstein automatisch.</p>',
         ctaLabel: 'Buchungsstatus einsehen',
         ctaUrl: '{{bookingUrl}}',
-        closing: 'Wir danken Ihnen fuer Ihr Vertrauen und begleiten Ihre Buchung transparent bis zum Abschluss.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Benachrichtigung wurde automatisch durch eine Statusaenderung Ihrer Buchung ausgeloest.'
+        closing: 'Wir danken Ihnen für Ihr Vertrauen und begleiten Ihre Buchung transparent bis zum Abschluss.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Benachrichtigung wurde automatisch durch eine Statusänderung Ihrer Buchung ausgelöst.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('bookingNumber', 'Buchungsnummer', true),
         createVariable('bookingStatus', 'Neuer Buchungsstatus', true),
-        createVariable('statusNote', 'Zusaetzlicher Hinweis zum Status'),
-        createVariable('itemSummary', 'Kurzuebersicht der enthaltenen Auftraege'),
+        createVariable('statusNote', 'Zusätzlicher Hinweis zum Status'),
+        createVariable('itemSummary', 'Kurzübersicht der enthaltenen Aufträge'),
         createVariable('progressPercent', 'Gesamtfortschritt in Prozent'),
-        createVariable('updatedAt', 'Zeitpunkt der Statusaenderung'),
+        createVariable('updatedAt', 'Zeitpunkt der Statusänderung'),
         createVariable('bookingUrl', 'Link zur Buchungsdetailseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -747,31 +747,31 @@ function getDefaultNotificationTemplates() {
         preheader: 'Ihr Auftrag ist fertig und wartet auf Ihre Abholung.',
         eyebrow: 'Abholung',
         title: 'Ihr Auftrag ist bereit zur Abholung',
-        intro: 'Hallo {{customerName}}, alle Arbeiten zu Ihrer Buchung wurden erfolgreich abgeschlossen. Ihr Geraet steht nun bei uns zur Abholung bereit.',
+        intro: 'Hallo {{customerName}}, alle Arbeiten zu Ihrer Buchung wurden erfolgreich abgeschlossen. Ihr Gerät steht nun bei uns zur Abholung bereit.',
         highlights: [
           { label: 'Abholtage', value: '{{pickupHours}}' },
           { label: 'Standort', value: '{{workshopAddress}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Buchungsnummer', value: '{{bookingNumber}}' },
-          { label: 'Geraet', value: '{{orderDeviceVisual}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
           { label: 'Abholbereit seit', value: '{{readySince}}' },
           { label: 'Aufbewahrung bis', value: '{{holdUntil}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte bringen Sie bei der Abholung Ihren Abholcode oder die Auftragsnummer mit. Falls Sie das Geraet nicht persoenlich abholen koennen, kontaktieren Sie uns bitte rechtzeitig.</p><p style="margin:0;">Nach Ablauf des Aufbewahrungszeitraums behalten wir uns vor, eine Lagergebuehr zu erheben.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte bringen Sie bei der Abholung Ihren Abholcode oder die Auftragsnummer mit. Falls Sie das Gerät nicht persönlich abholen können, kontaktieren Sie uns bitte rechtzeitig.</p><p style="margin:0;">Nach Ablauf des Aufbewahrungszeitraums behalten wir uns vor, eine Lagergebühr zu erheben.</p>',
         ctaLabel: 'Abholdetails ansehen',
         ctaUrl: '{{bookingUrl}}',
-        closing: 'Wir freuen uns auf Ihren Besuch und bedanken uns herzlich fuer Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Ihr Geraet wurde sorgfaeltig vorbereitet und wartet auf Sie.'
+        closing: 'Wir freuen uns auf Ihren Besuch und bedanken uns herzlich für Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Ihr Gerät wurde sorgfältig vorbereitet und wartet auf Sie.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('bookingNumber', 'Buchungsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke'),
-        createVariable('deviceModel', 'Geraetemodell'),
-        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Geraetename'),
-        createVariable('pickupHours', 'Oeffnungszeiten fuer die Abholung'),
+        createVariable('deviceBrand', 'Gerätemarke'),
+        createVariable('deviceModel', 'Gerätemodell'),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
+        createVariable('pickupHours', 'Öffnungszeiten für die Abholung'),
         createVariable('workshopAddress', 'Adresse der Werkstatt / Filiale'),
         createVariable('readySince', 'Zeitpunkt der Fertigstellung'),
         createVariable('holdUntil', 'Aufbewahrungsfrist'),
@@ -786,10 +786,10 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Ihre Buchung {{bookingNumber}} wurde storniert',
       content: renderEmailTemplate({
-        preheader: 'Ihre Buchung wurde storniert. Wir informieren Sie ueber die naechsten Schritte.',
+        preheader: 'Ihre Buchung wurde storniert. Wir informieren Sie über die nächsten Schritte.',
         eyebrow: 'Stornierung',
         title: 'Ihre Buchung wurde storniert',
-        intro: 'Hallo {{customerName}}, Ihre Buchung wurde storniert. Wir bedauern dies und moechten Ihnen alle relevanten Informationen zur Stornierung mitteilen.',
+        intro: 'Hallo {{customerName}}, Ihre Buchung wurde storniert. Wir bedauern dies und möchten Ihnen alle relevanten Informationen zur Stornierung mitteilen.',
         highlights: [
           { label: 'Stornogrund', value: '{{cancellationReason}}' },
           { label: 'Erstattung', value: '{{refundInfo}}', tone: 'yellow' }
@@ -800,11 +800,11 @@ function getDefaultNotificationTemplates() {
           { label: 'Storniert von', value: '{{cancelledBy}}' },
           { label: 'Erstattungsbetrag', value: '{{refundAmount}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Falls Sie eine Erstattung erwarten, wird diese in der Regel innerhalb von 5-10 Werktagen bearbeitet. Bei spezifischen Fragen zur Stornierung stehen wir Ihnen gerne zur Verfuegung.</p><p style="margin:0;">Wenn Sie einen neuen Auftrag beauftragen moechten, koennen Sie dies jederzeit ueber unser Portal tun.</p>',
+        body: '<p style="margin:0 0 16px 0;">Falls Sie eine Erstattung erwarten, wird diese in der Regel innerhalb von 5-10 Werktagen bearbeitet. Bei spezifischen Fragen zur Stornierung stehen wir Ihnen gerne zur Verfügung.</p><p style="margin:0;">Wenn Sie einen neuen Auftrag beauftragen möchten, können Sie dies jederzeit über unser Portal tun.</p>',
         ctaLabel: 'Neuen Auftrag anlegen',
         ctaUrl: '{{newBookingUrl}}',
-        closing: 'Wir hoffen, Sie bald wieder als Kunden begrueßen zu duerfen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt die Stornierung Ihrer Buchung.'
+        closing: 'Wir hoffen, Sie bald wieder als Kunden begrüßen zu dürfen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt die Stornierung Ihrer Buchung.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
@@ -828,34 +828,34 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Ihre Reparaturanfrage {{requestNumber}} ist bei uns eingegangen',
       content: renderEmailTemplate({
-        preheader: 'Ihre Reparaturanfrage wurde erfolgreich uebermittelt.',
+        preheader: 'Ihre Reparaturanfrage wurde erfolgreich übermittelt.',
         eyebrow: 'Reparaturanfrage',
         title: 'Ihre Reparaturanfrage ist eingegangen',
-        intro: 'Hallo {{customerName}}, wir haben Ihre Reparaturanfrage erhalten und werden sie schnellstmoeglich pruefen. Wir melden uns mit einem Angebot oder weiteren Informationen.',
+        intro: 'Hallo {{customerName}}, wir haben Ihre Reparaturanfrage erhalten und werden sie schnellstmöglich prüfen. Wir melden uns mit einem Angebot oder weiteren Informationen.',
         highlights: [
           { label: 'Anfragenummer', value: '{{requestNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}', tone: 'yellow' }
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Anfragenummer', value: '{{requestNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Fehlerbeschreibung', value: '{{issueDescription}}' },
           { label: 'Eingegangen am', value: '{{submittedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Unser Techniker-Team prueft Ihre Anfrage und wird sich in Kuerze mit einem Angebot oder Rueckfragen bei Ihnen melden. In der Regel erhalten Sie eine Rueckmeldung innerhalb von 1–2 Werktagen.</p><p style="margin:0;">Ueber Ihren persoenlichen Bereich koennen Sie den aktuellen Status Ihrer Anfrage jederzeit einsehen.</p>',
+        body: '<p style="margin:0 0 16px 0;">Unser Techniker-Team prüft Ihre Anfrage und wird sich in Kürze mit einem Angebot oder Rückfragen bei Ihnen melden. In der Regel erhalten Sie eine Rückmeldung innerhalb von 1–2 Werktagen.</p><p style="margin:0;">Über Ihren persönlichen Bereich können Sie den aktuellen Status Ihrer Anfrage jederzeit einsehen.</p>',
         ctaLabel: 'Anfrage verfolgen',
         ctaUrl: '{{requestUrl}}',
-        closing: 'Wir freuen uns, Ihnen schnell und professionell helfen zu koennen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt den Eingang Ihrer Reparaturanfrage.'
+        closing: 'Wir freuen uns, Ihnen schnell und professionell helfen zu können.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt den Eingang Ihrer Reparaturanfrage.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('issueDescription', 'Beschreibung des Fehlerbildes'),
-        createVariable('submittedAt', 'Zeitpunkt der Uebermittlung'),
+        createVariable('submittedAt', 'Zeitpunkt der Übermittlung'),
         createVariable('requestUrl', 'Link zur Anfrageverfolgung', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
@@ -870,30 +870,30 @@ function getDefaultNotificationTemplates() {
         preheader: 'Unser Team hat die Bearbeitung Ihrer Reparaturanfrage aufgenommen.',
         eyebrow: 'In Bearbeitung',
         title: 'Ihre Anfrage wird bearbeitet',
-        intro: 'Hallo {{customerName}}, wir moechten Sie informieren, dass Ihre Reparaturanfrage nun aktiv von unserem Team bearbeitet wird. Wir halten Sie weiterhin auf dem Laufenden.',
+        intro: 'Hallo {{customerName}}, wir möchten Sie informieren, dass Ihre Reparaturanfrage nun aktiv von unserem Team bearbeitet wird. Wir halten Sie weiterhin auf dem Laufenden.',
         highlights: [
           { label: 'Status', value: 'In Bearbeitung' },
-          { label: 'Zustaendiger Techniker', value: '{{technicianName}}', tone: 'yellow' }
+          { label: 'Zuständiger Techniker', value: '{{technicianName}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Anfragenummer', value: '{{requestNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Bearbeitung gestartet', value: '{{processingStartedAt}}' },
           { label: 'Voraussichtliche Antwort', value: '{{estimatedResponseDate}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Unser Techniker analysiert nun das von Ihnen geschilderte Problem und erarbeitet eine Loesungsempfehlung oder einen Kostenvoranschlag fuer Sie.</p><p style="margin:0;">Falls wir zusaetzliche Informationen von Ihnen benoetigen, werden wir uns direkt bei Ihnen melden.</p>',
+        body: '<p style="margin:0 0 16px 0;">Unser Techniker analysiert nun das von Ihnen geschilderte Problem und erarbeitet eine Lösungsempfehlung oder einen Kostenvoranschlag für Sie.</p><p style="margin:0;">Falls wir zusätzliche Informationen von Ihnen benötigen, werden wir uns direkt bei Ihnen melden.</p>',
         ctaLabel: 'Anfragestatus ansehen',
         ctaUrl: '{{requestUrl}}',
-        closing: 'Wir sind dabei, Ihnen die bestmoegliche Loesung bereitzustellen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Benachrichtigung informiert Sie ueber den Bearbeitungsstart Ihrer Reparaturanfrage.'
+        closing: 'Wir sind dabei, Ihnen die bestmögliche Lösung bereitzustellen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Benachrichtigung informiert Sie über den Bearbeitungsstart Ihrer Reparaturanfrage.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
-        createVariable('technicianName', 'Name des zustaendigen Technikers'),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('technicianName', 'Name des zuständigen Technikers'),
         createVariable('processingStartedAt', 'Zeitpunkt des Bearbeitungsbeginns'),
         createVariable('estimatedResponseDate', 'Voraussichtliches Antwortdatum'),
         createVariable('requestUrl', 'Link zur Anfrageverfolgung', true),
@@ -907,36 +907,36 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Diagnoseergebnis zu Ihrer Anfrage {{requestNumber}} liegt vor',
       content: renderEmailTemplate({
-        preheader: 'Die Diagnose Ihres Geraetes ist abgeschlossen. Bitte pruefen Sie das Ergebnis.',
+        preheader: 'Die Diagnose Ihres Gerätes ist abgeschlossen. Bitte prüfen Sie das Ergebnis.',
         eyebrow: 'Diagnoseergebnis',
-        title: 'Diagnose Ihres Geraetes abgeschlossen',
-        intro: 'Hallo {{customerName}}, die Diagnose Ihres Geraetes wurde abgeschlossen. Wir praesentieren Ihnen nachfolgend die Ergebnisse sowie unsere Empfehlung fuer die weitere Vorgehensweise.',
+        title: 'Diagnose Ihres Gerätes abgeschlossen',
+        intro: 'Hallo {{customerName}}, die Diagnose Ihres Gerätes wurde abgeschlossen. Wir praesentieren Ihnen nachfolgend die Ergebnisse sowie unsere Empfehlung für die weitere Vorgehensweise.',
         highlights: [
           { label: 'Diagnoseergebnis', value: '{{diagnosisResult}}' },
-          { label: 'Empfohlene Massnahme', value: '{{recommendedAction}}', tone: 'yellow' }
+          { label: 'Empfohlene Maßnahme', value: '{{recommendedAction}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Anfragenummer', value: '{{requestNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Fehlerdiagnose', value: '{{diagnosisResult}}' },
           { label: 'Angebotsbetrag', value: '{{offerAmount}}' },
           { label: 'Diagnose abgeschlossen am', value: '{{diagnosisDate}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte pruefen Sie das Diagnoseergebnis und das beigefuegte Angebot. Sie koennen die Reparatur direkt ueber Ihr Kundenkonto freigeben oder uns bei weiteren Fragen kontaktieren.</p><p style="margin:0;">Wir empfehlen, die Freigabe moeglichst zeitnah zu erteilen, damit wir sofort mit der Reparatur beginnen koennen.</p>',
-        ctaLabel: 'Angebot pruefen und freigeben',
+        body: '<p style="margin:0 0 16px 0;">Bitte prüfen Sie das Diagnoseergebnis und das beigefuegte Angebot. Sie können die Reparatur direkt über Ihr Kundenkonto freigeben oder uns bei weiteren Fragen kontaktieren.</p><p style="margin:0;">Wir empfehlen, die Freigabe möglichst zeitnah zu erteilen, damit wir sofort mit der Reparatur beginnen können.</p>',
+        ctaLabel: 'Angebot prüfen und freigeben',
         ctaUrl: '{{approvalUrl}}',
-        closing: 'Wir stehen Ihnen bei allen Fragen zur Diagnose und zum Angebot jederzeit zur Verfuegung.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht informiert Sie ueber das Diagnoseergebnis Ihres Geraetes.'
+        closing: 'Wir stehen Ihnen bei allen Fragen zur Diagnose und zum Angebot jederzeit zur Verfügung.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht informiert Sie über das Diagnoseergebnis Ihres Gerätes.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('diagnosisResult', 'Zusammenfassung der Diagnose', true),
         createVariable('recommendedAction', 'Handlungsempfehlung des Technikers'),
-        createVariable('offerAmount', 'Angebotsbetrag fuer die Reparatur'),
+        createVariable('offerAmount', 'Angebotsbetrag für die Reparatur'),
         createVariable('diagnosisDate', 'Datum des Diagnoseabschlusses'),
         createVariable('approvalUrl', 'Link zur Freigabe / Angebotseinsicht', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -952,29 +952,29 @@ function getDefaultNotificationTemplates() {
         preheader: 'Es gibt eine neue Nachricht zu Ihrer Reparaturanfrage.',
         eyebrow: 'Neue Mitteilung',
         title: 'Neue Mitteilung zu Ihrer Anfrage',
-        intro: 'Hallo {{customerName}}, es gibt eine neue Nachricht zu Ihrer Reparaturanfrage. Bitte melden Sie sich in Ihrem Kundenkonto an, um die vollstaendige Nachricht zu lesen und zu antworten.',
+        intro: 'Hallo {{customerName}}, es gibt eine neue Nachricht zu Ihrer Reparaturanfrage. Bitte melden Sie sich in Ihrem Kundenkonto an, um die vollständige Nachricht zu lesen und zu antworten.',
         highlights: [
           { label: 'Absender', value: '{{senderName}}' },
           { label: 'Anfragenummer', value: '{{requestNumber}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Anfragenummer', value: '{{requestNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Nachricht von', value: '{{senderName}}' },
           { label: 'Gesendet am', value: '{{messageSentAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte lesen Sie die Nachricht in Ihrem Kundenkonto und antworten Sie bei Bedarf direkt dort. Auf diese Weise bleiben alle Kommunikationen lueckenlos dokumentiert.</p><p style="margin:0;">Damit wir Ihren Auftrag reibungslos bearbeiten koennen, bitten wir um eine zeitnahe Rueckmeldung.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte lesen Sie die Nachricht in Ihrem Kundenkonto und antworten Sie bei Bedarf direkt dort. Auf diese Weise bleiben alle Kommunikationen lueckenlos dokumentiert.</p><p style="margin:0;">Damit wir Ihren Auftrag reibungslos bearbeiten können, bitten wir um eine zeitnahe Rückmeldung.</p>',
         ctaLabel: 'Nachricht lesen und antworten',
         ctaUrl: '{{requestUrl}}',
-        closing: 'Vielen Dank fuer Ihre Zusammenarbeit. Wir stehen fuer alle Rueckfragen gerne bereit.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Vielen Dank für Ihre Zusammenarbeit. Wir stehen für alle Rückfragen gerne bereit.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Benachrichtigung gilt als Hinweis auf eine neue Kommunikation zu Ihrer Anfrage.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetemarke'),
-        createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('deviceBrand', 'Gerätemarke'),
+        createVariable('deviceModel', 'Gerätemodell'),
         createVariable('senderName', 'Name des Absenders'),
         createVariable('messageSentAt', 'Zeitpunkt der Nachricht'),
         createVariable('requestUrl', 'Link zur Anfragekommunikation', true),
@@ -991,29 +991,29 @@ function getDefaultNotificationTemplates() {
         preheader: 'Ihre Reparaturanfrage wurde abgeschlossen.',
         eyebrow: 'Anfrage abgeschlossen',
         title: 'Ihre Reparaturanfrage ist abgeschlossen',
-        intro: 'Hallo {{customerName}}, wir moechten Sie informieren, dass Ihre Reparaturanfrage nun vollstaendig abgeschlossen wurde. Vielen Dank fuer Ihre Geduld und Ihr Vertrauen.',
+        intro: 'Hallo {{customerName}}, wir möchten Sie informieren, dass Ihre Reparaturanfrage nun vollständig abgeschlossen wurde. Vielen Dank für Ihre Geduld und Ihr Vertrauen.',
         highlights: [
           { label: 'Ergebnis', value: '{{resolutionSummary}}' },
           { label: 'Abgeschlossen am', value: '{{completedAt}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Anfragenummer', value: '{{requestNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Ergebnis', value: '{{resolutionSummary}}' },
           { label: 'Abgeschlossen am', value: '{{completedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Falls ein Folgeauftrag erstellt wurde, erhalten Sie hierzu separat eine Auftragsbestaetigung. Andernfalls ist der Vorgang mit diesem Schritt vollstaendig beendet.</p><p style="margin:0;">Wir wuerden uns ueber eine kurze Bewertung Ihrer Erfahrung sehr freuen – Ihr Feedback hilft uns, unsere Dienstleistungen kontinuierlich zu verbessern.</p>',
+        body: '<p style="margin:0 0 16px 0;">Falls ein Folgeauftrag erstellt wurde, erhalten Sie hierzu separat eine Auftragsbestätigung. Andernfalls ist der Vorgang mit diesem Schritt vollständig beendet.</p><p style="margin:0;">Wir würden uns über eine kurze Bewertung Ihrer Erfahrung sehr freuen – Ihr Feedback hilft uns, unsere Dienstleistungen kontinuierlich zu verbessern.</p>',
         ctaLabel: 'Anfrage abschliessend einsehen',
         ctaUrl: '{{requestUrl}}',
-        closing: 'Wir bedanken uns herzlich fuer Ihr Vertrauen und freuen uns, Ihnen geholfen zu haben.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt den Abschluss Ihrer Reparaturanfrage.'
+        closing: 'Wir bedanken uns herzlich für Ihr Vertrauen und freuen uns, Ihnen geholfen zu haben.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt den Abschluss Ihrer Reparaturanfrage.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetemarke'),
-        createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('deviceBrand', 'Gerätemarke'),
+        createVariable('deviceModel', 'Gerätemodell'),
         createVariable('resolutionSummary', 'Zusammenfassung des Ergebnisses'),
         createVariable('completedAt', 'Zeitpunkt des Abschlusses'),
         createVariable('requestUrl', 'Link zur Anfrage', true),
@@ -1029,13 +1029,13 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Ihre Reklamation {{complaintNumber}} wurde erfolgreich aufgenommen',
       content: renderEmailTemplate({
-        preheader: 'Ihre Reklamation ist bei uns eingegangen. Wir kuemmern uns darum.',
+        preheader: 'Ihre Reklamation ist bei uns eingegangen. Wir kümmern uns darum.',
         eyebrow: 'Reklamation',
         title: 'Ihre Reklamation ist bei uns eingegangen',
-        intro: 'Hallo {{customerName}}, wir haben Ihre Reklamation erhalten und nehmen Ihr Anliegen sehr ernst. Unser Team wird den Vorgang umgehend pruefen und sich bei Ihnen melden.',
+        intro: 'Hallo {{customerName}}, wir haben Ihre Reklamation erhalten und nehmen Ihr Anliegen sehr ernst. Unser Team wird den Vorgang umgehend prüfen und sich bei Ihnen melden.',
         highlights: [
           { label: 'Reklamationsnummer', value: '{{complaintNumber}}' },
-          { label: 'Prioritaet', value: '{{priority}}', tone: 'yellow' }
+          { label: 'Priorität', value: '{{priority}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Reklamationsnummer', value: '{{complaintNumber}}' },
@@ -1044,11 +1044,11 @@ function getDefaultNotificationTemplates() {
           { label: 'Referenz-Auftrag', value: '{{orderNumber}}' },
           { label: 'Eingegangen am', value: '{{submittedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Wir bedauern, dass Sie Grund zur Beanstandung hatten, und werden alles daran setzen, Ihr Anliegen schnell und fair zu klaeren. In der Regel erhalten Sie innerhalb von 2–3 Werktagen eine erste Rueckmeldung.</p><p style="margin:0;">Falls Sie weitere Unterlagen oder Informationen bereitstellen moechten, koennen Sie diese jederzeit ueber Ihr Kundenkonto hinzufuegen.</p>',
+        body: '<p style="margin:0 0 16px 0;">Wir bedauern, dass Sie Grund zur Beanstandung hatten, und werden alles daran setzen, Ihr Anliegen schnell und fair zu klären. In der Regel erhalten Sie innerhalb von 2–3 Werktagen eine erste Rückmeldung.</p><p style="margin:0;">Falls Sie weitere Unterlagen oder Informationen bereitstellen möchten, können Sie diese jederzeit über Ihr Kundenkonto hinzufügen.</p>',
         ctaLabel: 'Reklamation einsehen',
         ctaUrl: '{{complaintUrl}}',
-        closing: 'Wir nehmen Ihr Feedback ernst und arbeiten daran, Ihnen eine zufriedenstellende Loesung zu bieten.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt den Eingang Ihrer Reklamation.'
+        closing: 'Wir nehmen Ihr Feedback ernst und arbeiten daran, Ihnen eine zufriedenstellende Lösung zu bieten.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt den Eingang Ihrer Reklamation.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
@@ -1057,7 +1057,7 @@ function getDefaultNotificationTemplates() {
         createVariable('complaintCategory', 'Kategorie der Reklamation'),
         createVariable('complaintSubject', 'Betreff der Reklamation'),
         createVariable('orderNumber', 'Referenzierter Auftrag'),
-        createVariable('priority', 'Prioritaet der Bearbeitung'),
+        createVariable('priority', 'Priorität der Bearbeitung'),
         createVariable('submittedAt', 'Zeitpunkt des Eingangs'),
         createVariable('complaintUrl', 'Link zur Reklamationsseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -1073,28 +1073,28 @@ function getDefaultNotificationTemplates() {
         preheader: 'Wir haben mit der Bearbeitung Ihrer Reklamation begonnen.',
         eyebrow: 'Reklamation in Bearbeitung',
         title: 'Bearbeitung Ihrer Reklamation gestartet',
-        intro: 'Hallo {{customerName}}, wir moechten Ihnen mitteilen, dass wir mit der Bearbeitung Ihrer Reklamation begonnen haben. Unser Team prueft Ihren Fall mit hoechster Sorgfalt.',
+        intro: 'Hallo {{customerName}}, wir möchten Ihnen mitteilen, dass wir mit der Bearbeitung Ihrer Reklamation begonnen haben. Unser Team prüft Ihren Fall mit höchster Sorgfalt.',
         highlights: [
           { label: 'Status', value: 'In Bearbeitung' },
-          { label: 'Zustaendig', value: '{{handlerName}}', tone: 'yellow' }
+          { label: 'Zuständig', value: '{{handlerName}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Reklamationsnummer', value: '{{complaintNumber}}' },
           { label: 'Bearbeitung gestartet', value: '{{processingStartedAt}}' },
           { label: 'Voraussichtliche Bearbeitung bis', value: '{{estimatedResolutionDate}}' },
-          { label: 'Zustaendiger Mitarbeiter', value: '{{handlerName}}' }
+          { label: 'Zuständiger Mitarbeiter', value: '{{handlerName}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Waehrend der Pruefungsphase koennen weitere Informationen oder Unterlagen angefordert werden. Bitte halten Sie Ihre Auftragsdaten und relevante Belege griffbereit.</p><p style="margin:0;">Sobald eine Entscheidung oder ein Zwischenergebnis vorliegt, werden Sie automatisch benachrichtigt.</p>',
+        body: '<p style="margin:0 0 16px 0;">Während der Prüfungsphase können weitere Informationen oder Unterlagen angefordert werden. Bitte halten Sie Ihre Auftragsdaten und relevante Belege griffbereit.</p><p style="margin:0;">Sobald eine Entscheidung oder ein Zwischenergebnis vorliegt, werden Sie automatisch benachrichtigt.</p>',
         ctaLabel: 'Reklamationsstatus verfolgen',
         ctaUrl: '{{complaintUrl}}',
         closing: 'Wir setzen alles daran, Ihr Anliegen fair und schnell zu loesen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Benachrichtigung informiert Sie ueber den Bearbeitungsstart Ihrer Reklamation.'
+        footerNote: 'Diese Benachrichtigung informiert Sie über den Bearbeitungsstart Ihrer Reklamation.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('complaintNumber', 'Reklamationsnummer', true),
-        createVariable('handlerName', 'Name des zustaendigen Mitarbeiters'),
+        createVariable('handlerName', 'Name des zuständigen Mitarbeiters'),
         createVariable('processingStartedAt', 'Zeitpunkt des Bearbeitungsbeginns'),
         createVariable('estimatedResolutionDate', 'Voraussichtliches Abschlussdatum'),
         createVariable('complaintUrl', 'Link zur Reklamationsseite', true),
@@ -1111,7 +1111,7 @@ function getDefaultNotificationTemplates() {
         preheader: 'Es gibt eine neue Mitteilung zu Ihrer Reklamation.',
         eyebrow: 'Mitteilung',
         title: 'Neue Mitteilung zu Ihrer Reklamation',
-        intro: 'Hallo {{customerName}}, zu Ihrer Reklamation gibt es eine neue Nachricht von unserem Team. Bitte melden Sie sich an, um die vollstaendige Mitteilung zu lesen.',
+        intro: 'Hallo {{customerName}}, zu Ihrer Reklamation gibt es eine neue Nachricht von unserem Team. Bitte melden Sie sich an, um die vollständige Mitteilung zu lesen.',
         highlights: [
           { label: 'Von', value: '{{senderName}}' },
           { label: 'Reklamationsnummer', value: '{{complaintNumber}}', tone: 'yellow' }
@@ -1122,10 +1122,10 @@ function getDefaultNotificationTemplates() {
           { label: 'Gesendet am', value: '{{messageSentAt}}' },
           { label: 'Aktueller Status', value: '{{complaintStatus}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte lesen Sie die Mitteilung und antworten Sie gegebenenfalls ueber Ihr Kundenkonto. Eine zeitnahe Reaktion hilft uns, Ihr Anliegen zügig abzuschließen.</p><p style="margin:0;">Sollte die Mitteilung eine Entscheidung oder Genehmigung Ihrerseits erfordern, bitten wir um Ihre Rueckmeldung innerhalb der angegebenen Frist.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte lesen Sie die Mitteilung und antworten Sie gegebenenfalls über Ihr Kundenkonto. Eine zeitnahe Reaktion hilft uns, Ihr Anliegen zügig abzuschließen.</p><p style="margin:0;">Sollte die Mitteilung eine Entscheidung oder Genehmigung Ihrerseits erfordern, bitten wir um Ihre Rückmeldung innerhalb der angegebenen Frist.</p>',
         ctaLabel: 'Mitteilung lesen und antworten',
         ctaUrl: '{{complaintUrl}}',
-        closing: 'Wir danken Ihnen fuer Ihre Mitarbeit und freuen uns auf eine schnelle Klaerung.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Wir danken Ihnen für Ihre Mitarbeit und freuen uns auf eine schnelle Klärung.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Benachrichtigung ist ein Hinweis auf eine neue Kommunikation zu Ihrer Reklamation.'
       }),
       variables: [
@@ -1144,33 +1144,33 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Reklamation geloest',
       type: 'email',
-      subject: 'Ihre Reklamation {{complaintNumber}} wurde geloest',
+      subject: 'Ihre Reklamation {{complaintNumber}} wurde gelöst',
       content: renderEmailTemplate({
         preheader: 'Ihre Reklamation wurde erfolgreich abgeschlossen.',
-        eyebrow: 'Reklamation geloest',
-        title: 'Ihre Reklamation wurde erfolgreich geloest',
-        intro: 'Hallo {{customerName}}, wir freuen uns, Ihnen mitteilen zu koennen, dass Ihre Reklamation abgeschlossen und eine Loesung erarbeitet wurde. Wir hoffen, dass das Ergebnis Ihren Erwartungen entspricht.',
+        eyebrow: 'Reklamation gelöst',
+        title: 'Ihre Reklamation wurde erfolgreich gelöst',
+        intro: 'Hallo {{customerName}}, wir freuen uns, Ihnen mitteilen zu können, dass Ihre Reklamation abgeschlossen und eine Lösung erarbeitet wurde. Wir hoffen, dass das Ergebnis Ihren Erwartungen entspricht.',
         highlights: [
-          { label: 'Loesung', value: '{{resolutionSummary}}' },
+          { label: 'Lösung', value: '{{resolutionSummary}}' },
           { label: 'Kompensation', value: '{{compensationInfo}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Reklamationsnummer', value: '{{complaintNumber}}' },
-          { label: 'Loesung', value: '{{resolutionSummary}}' },
+          { label: 'Lösung', value: '{{resolutionSummary}}' },
           { label: 'Abgeschlossen am', value: '{{resolvedAt}}' },
           { label: 'Kompensation / Erstattung', value: '{{compensationInfo}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Sollte die vereinbarte Loesung eine finanzielle Kompensation oder Erstattung beinhalten, wird diese in Kuerze bearbeitet. Bitte pruefen Sie Ihre Daten im Kundenkonto auf Vollstaendigkeit.</p><p style="margin:0;">Falls Sie mit der Loesung nicht einverstanden sein sollten, kontaktieren Sie uns bitte innerhalb von 14 Tagen. Wir helfen Ihnen gerne weiter.</p>',
-        ctaLabel: 'Abschluss bestaetigen',
+        body: '<p style="margin:0 0 16px 0;">Sollte die vereinbarte Lösung eine finanzielle Kompensation oder Erstattung beinhalten, wird diese in Kürze bearbeitet. Bitte prüfen Sie Ihre Daten im Kundenkonto auf Vollständigkeit.</p><p style="margin:0;">Falls Sie mit der Lösung nicht einverstanden sein sollten, kontaktieren Sie uns bitte innerhalb von 14 Tagen. Wir helfen Ihnen gerne weiter.</p>',
+        ctaLabel: 'Abschluss bestätigen',
         ctaUrl: '{{complaintUrl}}',
-        closing: 'Wir bedanken uns fuer Ihr Vertrauen und hoffen, Sie bald als zufriedenen Kunden zu begrueßen.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht bestaetigt den Abschluss Ihrer Reklamation.'
+        closing: 'Wir bedanken uns für Ihr Vertrauen und hoffen, Sie bald als zufriedenen Kunden zu begrüßen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht bestätigt den Abschluss Ihrer Reklamation.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('complaintNumber', 'Reklamationsnummer', true),
-        createVariable('resolutionSummary', 'Zusammenfassung der erarbeiteten Loesung', true),
+        createVariable('resolutionSummary', 'Zusammenfassung der erarbeiteten Lösung', true),
         createVariable('compensationInfo', 'Information zu Kompensation oder Erstattung'),
         createVariable('resolvedAt', 'Zeitpunkt des Abschlusses'),
         createVariable('complaintUrl', 'Link zur Reklamationsseite', true),
@@ -1184,13 +1184,13 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Entscheidung zu Ihrer Reklamation {{complaintNumber}}',
       content: renderEmailTemplate({
-        preheader: 'Wir informieren Sie ueber die Entscheidung zu Ihrer Reklamation.',
+        preheader: 'Wir informieren Sie über die Entscheidung zu Ihrer Reklamation.',
         eyebrow: 'Reklamationsergebnis',
         title: 'Ergebnis zu Ihrer Reklamation liegt vor',
-        intro: 'Hallo {{customerName}}, nach eingehender Pruefung Ihrer Reklamation moechten wir Ihnen das Ergebnis unserer Bewertung mitteilen.',
+        intro: 'Hallo {{customerName}}, nach eingehender Prüfung Ihrer Reklamation möchten wir Ihnen das Ergebnis unserer Bewertung mitteilen.',
         highlights: [
           { label: 'Entscheidung', value: '{{decision}}' },
-          { label: 'Begruendung', value: '{{decisionReason}}', tone: 'yellow' }
+          { label: 'Begründung', value: '{{decisionReason}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Reklamationsnummer', value: '{{complaintNumber}}' },
@@ -1198,10 +1198,10 @@ function getDefaultNotificationTemplates() {
           { label: 'Entscheidung', value: '{{decision}}' },
           { label: 'Entschieden am', value: '{{decidedAt}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Unsere Entscheidung basiert auf einer sorgfaeltigen Pruefung aller Informationen und angefuehrten Unterlagen. Bitte lesen Sie die detaillierte Begruendung in Ihrem Kundenkonto.</p><p style="margin:0;">Falls Sie Fragen zur Entscheidung haben oder einen Widerspruch einlegen moechten, koennen Sie sich innerhalb von 14 Tagen an unseren Support wenden.</p>',
+        body: '<p style="margin:0 0 16px 0;">Unsere Entscheidung basiert auf einer sorgfältigen Prüfung aller Informationen und angefuehrten Unterlagen. Bitte lesen Sie die detaillierte Begründung in Ihrem Kundenkonto.</p><p style="margin:0;">Falls Sie Fragen zur Entscheidung haben oder einen Widerspruch einlegen möchten, können Sie sich innerhalb von 14 Tagen an unseren Support wenden.</p>',
         ctaLabel: 'Entscheidung einsehen',
         ctaUrl: '{{complaintUrl}}',
-        closing: 'Wir stehen fuer weitere Fragen selbstverstaendlich gerne zur Verfuegung.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Wir stehen für weitere Fragen selbstverständlich gerne zur Verfügung.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Nachricht stellt die offizielle Entscheidung zu Ihrer Reklamation dar.'
       }),
       variables: [
@@ -1210,7 +1210,7 @@ function getDefaultNotificationTemplates() {
         createVariable('complaintNumber', 'Reklamationsnummer', true),
         createVariable('complaintCategory', 'Kategorie der Reklamation'),
         createVariable('decision', 'Entscheidung (z.B. Abgelehnt / Teilweise anerkannt)', true),
-        createVariable('decisionReason', 'Begruendung der Entscheidung'),
+        createVariable('decisionReason', 'Begründung der Entscheidung'),
         createVariable('decidedAt', 'Zeitpunkt der Entscheidung'),
         createVariable('complaintUrl', 'Link zur Reklamationsseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -1228,7 +1228,7 @@ function getDefaultNotificationTemplates() {
         preheader: 'Erinnerung an Ihren bevorstehenden Termin.',
         eyebrow: 'Terminerinnerung',
         title: 'Ihr Termin steht bald an',
-        intro: 'Hallo {{customerName}}, wir erinnern Sie an Ihren bevorstehenden Termin bei {{companyName}}. Bitte halten Sie alle relevanten Unterlagen und Ihr Geraet bereit.',
+        intro: 'Hallo {{customerName}}, wir erinnern Sie an Ihren bevorstehenden Termin bei {{companyName}}. Bitte halten Sie alle relevanten Unterlagen und Ihr Gerät bereit.',
         highlights: [
           { label: 'Termin am', value: '{{appointmentDate}}' },
           { label: 'Uhrzeit', value: '{{appointmentTime}}', tone: 'yellow' }
@@ -1240,11 +1240,11 @@ function getDefaultNotificationTemplates() {
           { label: 'Terminart', value: '{{appointmentType}}' },
           { label: 'Referenz-Auftrag', value: '{{orderNumber}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte erscheinen Sie puenktlich zu Ihrem Termin. Falls Sie den Termin nicht einhalten koennen, bitten wir Sie, uns fruehzeitig zu informieren, damit wir den Termin umplanen koennen.</p><p style="margin:0;">Halten Sie bitte Ihren Auftrag oder Ihre Buchungsnummer sowie ein Ausweisdokument bereit.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte erscheinen Sie pünktlich zu Ihrem Termin. Falls Sie den Termin nicht einhalten können, bitten wir Sie, uns frühzeitig zu informieren, damit wir den Termin umplanen können.</p><p style="margin:0;">Halten Sie bitte Ihren Auftrag oder Ihre Buchungsnummer sowie ein Ausweisdokument bereit.</p>',
         ctaLabel: 'Termindetails einsehen',
         ctaUrl: '{{appointmentUrl}}',
         closing: 'Wir freuen uns auf Ihren Besuch.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Erinnerung wurde automatisch fuer Ihren bevorstehenden Termin erstellt.'
+        footerNote: 'Diese Erinnerung wurde automatisch für Ihren bevorstehenden Termin erstellt.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
@@ -1263,33 +1263,33 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Garantieerinnerung',
       type: 'email',
-      subject: 'Ihre Geraetegarantie bei {{companyName}} laeuft bald ab',
+      subject: 'Ihre Gerätegarantie bei {{companyName}} laeuft bald ab',
       content: renderEmailTemplate({
-        preheader: 'Ihre Garantie fuer dieses Geraet laeuft in Kuerze ab.',
+        preheader: 'Ihre Garantie für dieses Gerät laeuft in Kürze ab.',
         eyebrow: 'Garantiehinweis',
-        title: 'Ihre Geraetegarantie laeuft demnachst ab',
-        intro: 'Hallo {{customerName}}, wir moechten Sie darauf hinweisen, dass die Garantie fuer Ihr Geraet in Kuerze auslaeuft. Nutzen Sie die verbleibende Zeit, um eventuelle Ansprueche geltend zu machen.',
+        title: 'Ihre Gerätegarantie laeuft demnächst ab',
+        intro: 'Hallo {{customerName}}, wir möchten Sie darauf hinweisen, dass die Garantie für Ihr Gerät in Kürze auslaeuft. Nutzen Sie die verbleibende Zeit, um eventuelle Ansprueche geltend zu machen.',
         highlights: [
           { label: 'Garantie laeuft ab am', value: '{{warrantyExpiryDate}}' },
           { label: 'Restgarantie', value: '{{remainingWarrantyDays}} Tage', tone: 'yellow' }
         ],
         detailRows: [
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
           { label: 'Garantiebeginn', value: '{{warrantyStartDate}}' },
           { label: 'Garantieende', value: '{{warrantyExpiryDate}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Falls Sie an Ihrem Geraet einen Defekt oder eine Fehlfunktion feststellen, empfehlen wir Ihnen, dies noch vor Ablauf der Garantiefrist bei uns zu melden.</p><p style="margin:0;">Auch nach Ablauf der Garantie stehen wir Ihnen selbstverstaendlich mit unseren Reparaturleistungen zur Verfuegung.</p>',
-        ctaLabel: 'Garantieanspruch pruefen',
+        body: '<p style="margin:0 0 16px 0;">Falls Sie an Ihrem Gerät einen Defekt oder eine Fehlfunktion feststellen, empfehlen wir Ihnen, dies noch vor Ablauf der Garantiefrist bei uns zu melden.</p><p style="margin:0;">Auch nach Ablauf der Garantie stehen wir Ihnen selbstverständlich mit unseren Reparaturleistungen zur Verfügung.</p>',
+        ctaLabel: 'Garantieanspruch prüfen',
         ctaUrl: '{{warrantyUrl}}',
-        closing: 'Wir kuemmern uns auch weiterhin professionell um Ihre Geraete.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Wir kümmern uns auch weiterhin professionell um Ihre Geräte.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Nachricht ist eine automatische Garantieerinnerung.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
-        createVariable('deviceBrand', 'Geraetemarke', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('orderNumber', 'Referenzierter Auftrag'),
         createVariable('warrantyStartDate', 'Garantiebeginn'),
         createVariable('warrantyExpiryDate', 'Garantieablaufdatum', true),
@@ -1305,10 +1305,10 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Ihre Rechnung {{invoiceNumber}} von {{companyName}} steht bereit',
       content: renderEmailTemplate({
-        preheader: 'Eine neue Rechnung fuer Ihren Auftrag wurde erstellt.',
+        preheader: 'Eine neue Rechnung für Ihren Auftrag wurde erstellt.',
         eyebrow: 'Rechnungsdokument',
-        title: 'Ihre Rechnung ist verfuegbar',
-        intro: 'Hallo {{customerName}}, fuer Ihren Auftrag wurde eine Rechnung erstellt. Sie koennen das Dokument ueber den untenstehenden Link abrufen und herunterladen.',
+        title: 'Ihre Rechnung ist verfügbar',
+        intro: 'Hallo {{customerName}}, für Ihren Auftrag wurde eine Rechnung erstellt. Sie können das Dokument über den untenstehenden Link abrufen und herunterladen.',
         highlights: [
           { label: 'Rechnungsbetrag', value: '{{invoiceAmount}}' },
           { label: 'Faellig bis', value: '{{dueDate}}', tone: 'yellow' }
@@ -1320,11 +1320,11 @@ function getDefaultNotificationTemplates() {
           { label: 'Zahlungsziel', value: '{{dueDate}}' },
           { label: 'Zahlungsart', value: '{{paymentMethod}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte begleichen Sie den ausstehenden Betrag bis zum angegebenen Zahlungsziel. Fuer Fragen zur Rechnung steht Ihnen unser Team gerne zur Verfuegung.</p><p style="margin:0;">Nach vollstaendigem Zahlungseingang erhalten Sie eine separate Zahlungsbestaetigung.</p>',
+        body: '<p style="margin:0 0 16px 0;">Bitte begleichen Sie den ausstehenden Betrag bis zum angegebenen Zahlungsziel. Für Fragen zur Rechnung steht Ihnen unser Team gerne zur Verfügung.</p><p style="margin:0;">Nach vollständigem Zahlungseingang erhalten Sie eine separate Zahlungsbestätigung.</p>',
         ctaLabel: 'Rechnung herunterladen',
         ctaUrl: '{{invoiceUrl}}',
-        closing: 'Vielen Dank fuer Ihr Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Diese Nachricht informiert Sie ueber eine neu ausgestellte Rechnung.'
+        closing: 'Vielen Dank für Ihr Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht informiert Sie über eine neu ausgestellte Rechnung.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
@@ -1348,10 +1348,10 @@ function getDefaultNotificationTemplates() {
         preheader: '{{notificationPreview}}',
         eyebrow: 'Information',
         title: '{{notificationTitle}}',
-        intro: 'Hallo {{customerName}}, wir moechten Ihnen eine wichtige Information mitteilen.',
+        intro: 'Hallo {{customerName}}, wir möchten Ihnen eine wichtige Information mitteilen.',
         highlights: [
           { label: 'Betrifft', value: '{{notificationTopic}}' },
-          { label: 'Gueltig ab', value: '{{effectiveDate}}', tone: 'yellow' }
+          { label: 'Gültig ab', value: '{{effectiveDate}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Betrifft', value: '{{notificationTopic}}' },
@@ -1360,7 +1360,7 @@ function getDefaultNotificationTemplates() {
         body: '<p style="margin:0 0 16px 0;">{{notificationBody}}</p>',
         ctaLabel: '{{ctaLabel}}',
         ctaUrl: '{{ctaUrl}}',
-        closing: 'Bei Rueckfragen stehen wir Ihnen jederzeit gerne zur Verfuegung.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Bei Rückfragen stehen wir Ihnen jederzeit gerne zur Verfügung.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Nachricht wurde automatisch durch unser System versendet.'
       }),
       variables: [
@@ -1382,23 +1382,23 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Abholung bereit Erinnerung',
       type: 'email',
-      subject: 'Bitte holen Sie Ihr Geraet bei {{companyName}} ab – Auftrag {{orderNumber}}',
+      subject: 'Bitte holen Sie Ihr Gerät bei {{companyName}} ab – Auftrag {{orderNumber}}',
       content: renderEmailTemplate({
-        preheader: 'Ihr Geraet wartet auf Sie – bitte holen Sie es zeitnah ab.',
+        preheader: 'Ihr Gerät wartet auf Sie – bitte holen Sie es zeitnah ab.',
         eyebrow: 'Abholung ausstehend',
-        title: 'Ihr Geraet wartet noch auf Abholung',
-        intro: 'Hallo {{customerName}}, Ihr Geraet steht bei uns noch zur Abholung bereit. Wir moechten Sie freundlich erinnern, damit es nicht in weitere Kosten auslaeuft.',
+        title: 'Ihr Gerät wartet noch auf Abholung',
+        intro: 'Hallo {{customerName}}, Ihr Gerät steht bei uns noch zur Abholung bereit. Wir möchten Sie freundlich erinnern, damit es nicht in weitere Kosten auslaeuft.',
         highlights: [
           { label: 'Bereit seit', value: '{{readySince}}' },
           { label: 'Aufbewahrung bis', value: '{{holdUntil}}', tone: 'yellow' }
         ],
         detailRows: [
           { label: 'Auftragsnummer', value: '{{orderNumber}}' },
-          { label: 'Geraet', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
           { label: 'Abholtage & Zeiten', value: '{{pickupHours}}' },
           { label: 'Adresse', value: '{{workshopAddress}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Wir bewahren Ihr Geraet bis zum angegebenen Termin kostenlos fuer Sie auf. Sollten Sie das Geraet nicht persoenlich abholen koennen, kontaktieren Sie uns bitte, um eine alternative Loesung zu vereinbaren.</p><p style="margin:0;">Bitte bringen Sie Ihren Abholcode oder die Auftragsnummer mit.</p>',
+        body: '<p style="margin:0 0 16px 0;">Wir bewahren Ihr Gerät bis zum angegebenen Termin kostenlos für Sie auf. Sollten Sie das Gerät nicht persönlich abholen können, kontaktieren Sie uns bitte, um eine alternative Lösung zu vereinbaren.</p><p style="margin:0;">Bitte bringen Sie Ihren Abholcode oder die Auftragsnummer mit.</p>',
         ctaLabel: 'Abholdetails einsehen',
         ctaUrl: '{{trackingUrl}}',
         closing: 'Wir freuen uns auf Ihren Besuch.<br /><strong>Ihr {{companyName}} Team</strong>',
@@ -1408,11 +1408,11 @@ function getDefaultNotificationTemplates() {
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vor- und Nachname des Kunden', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetemarke'),
-        createVariable('deviceModel', 'Geraetemodell'),
+        createVariable('deviceBrand', 'Gerätemarke'),
+        createVariable('deviceModel', 'Gerätemodell'),
         createVariable('readySince', 'Zeitpunkt der Fertigstellung'),
         createVariable('holdUntil', 'Aufbewahrungsfrist'),
-        createVariable('pickupHours', 'Oeffnungszeiten'),
+        createVariable('pickupHours', 'Öffnungszeiten'),
         createVariable('workshopAddress', 'Adresse der Abholung'),
         createVariable('trackingUrl', 'Link zur Auftragsseite'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
@@ -1427,8 +1427,8 @@ function getDefaultNotificationTemplates() {
       content: renderEmailTemplate({
         preheader: 'Sie haben eine neue Benachrichtigung in Ihrem Kundenkonto erhalten.',
         eyebrow: 'Benachrichtigungszentrale',
-        title: 'Neue Benachrichtigung fuer Ihr Kundenkonto',
-        intro: 'Hallo {{customerName}}, es gibt ein neues Update zu Ihrem Konto. Unten finden Sie die wichtigsten Informationen zur aktuellen Benachrichtigung sowie eine kompakte Uebersicht aller relevanten Benachrichtigungstypen.',
+        title: 'Neue Benachrichtigung für Ihr Kundenkonto',
+        intro: 'Hallo {{customerName}}, es gibt ein neues Update zu Ihrem Konto. Unten finden Sie die wichtigsten Informationen zur aktuellen Benachrichtigung sowie eine kompakte Übersicht aller relevanten Benachrichtigungstypen.',
         highlights: [
           { label: 'Kategorie', value: '{{notificationCategoryLabel}}' },
           { label: 'Erstellt am', value: '{{notificationCreatedAt}}', tone: 'yellow' }
@@ -1440,10 +1440,10 @@ function getDefaultNotificationTemplates() {
           { label: 'Empfohlene Aktion', value: '{{notificationActionLabel}}' }
         ],
         extraTableRows: '{{notificationTypeSummary}}',
-        body: '<p style="margin:0 0 16px 0;">Mit dieser E-Mail informieren wir Sie automatisch ueber jede neue Benachrichtigung. So bleiben Sie bei Auftraegen, Zahlungen, Nachrichten, Zuweisungen, Erinnerungen und Systemhinweisen stets auf dem neuesten Stand.</p><p style="margin:0;">Im Kundenkonto koennen Sie alle Eintraege im Detail ansehen und als gelesen markieren. <a href="{{notificationsUrl}}" style="color:#1a2a5e;font-weight:700;">Alle Benachrichtigungen ansehen</a></p>',
+        body: '<p style="margin:0 0 16px 0;">Mit dieser E-Mail informieren wir Sie automatisch über jede neue Benachrichtigung. So bleiben Sie bei Aufträgen, Zahlungen, Nachrichten, Zuweisungen, Erinnerungen und Systemhinweisen stets auf dem neuesten Stand.</p><p style="margin:0;">Im Kundenkonto können Sie alle Eintraege im Detail ansehen und als gelesen markieren. <a href="{{notificationsUrl}}" style="color:#1a2a5e;font-weight:700;">Alle Benachrichtigungen ansehen</a></p>',
         ctaLabel: 'Direkt zur Benachrichtigung',
         ctaUrl: '{{notificationActionUrl}}',
-        closing: 'Vielen Dank fuer Ihr Vertrauen. Wir halten Sie aktiv und transparent informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
+        closing: 'Vielen Dank für Ihr Vertrauen. Wir halten Sie aktiv und transparent informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese E-Mail wurde automatisch durch eine neue Benachrichtigung erstellt.'
       }),
       variables: [
@@ -1454,10 +1454,10 @@ function getDefaultNotificationTemplates() {
         createVariable('notificationTitle', 'Titel der Benachrichtigung', true),
         createVariable('notificationMessage', 'Inhalt der Benachrichtigung', true),
         createVariable('notificationReference', 'Referenz wie Auftrag/Rechnung/Nachricht'),
-        createVariable('notificationActionLabel', 'Empfohlene Aktion fuer den Kunden'),
-        createVariable('notificationTypeSummary', 'Vorgerenderte HTML-Tabellenzeile fuer die aktive Benachrichtigungskategorie'),
-        createVariable('notificationsUrl', 'Vollstaendiger Link zur Benachrichtigungsseite (/notifications)', true),
-        createVariable('notificationActionUrl', 'Vollstaendiger direkter Link zur ausloesenden Ressource (Auftrag, Anfrage etc.) oder Benachrichtigungsseite', true),
+        createVariable('notificationActionLabel', 'Empfohlene Aktion für den Kunden'),
+        createVariable('notificationTypeSummary', 'Vorgerenderte HTML-Tabellenzeile für die aktive Benachrichtigungskategorie'),
+        createVariable('notificationsUrl', 'Vollständiger Link zur Benachrichtigungsseite (/notifications)', true),
+        createVariable('notificationActionUrl', 'Vollständiger direkter Link zur auslösenden Ressource (Auftrag, Anfrage etc.) oder Benachrichtigungsseite', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
@@ -1469,7 +1469,7 @@ function getDefaultNotificationTemplates() {
       name: 'Registrierung SMS',
       type: 'sms',
       subject: 'Willkommen bei {{companyName}}',
-      content: '{{companyName}}: Willkommen {{customerName}}! Bitte bestaetigen Sie Ihre E-Mail unter {{verificationUrl}} Viel Erfolg!',
+      content: '{{companyName}}: Willkommen {{customerName}}! Bitte bestätigen Sie Ihre E-Mail unter {{verificationUrl}} Viel Erfolg!',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerName', 'Vorname des Kunden', true),
@@ -1481,12 +1481,12 @@ function getDefaultNotificationTemplates() {
       name: 'Auftragsbestaetigung SMS',
       type: 'sms',
       subject: 'Auftrag {{orderNumber}} eingegangen',
-      content: '{{companyName}}: Auftrag {{orderNumber}} fuer {{deviceBrand}} {{deviceModel}} eingegangen. Status: {{trackingUrl}}',
+      content: '{{companyName}}: Auftrag {{orderNumber}} für {{deviceBrand}} {{deviceModel}} eingegangen. Status: {{trackingUrl}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('trackingUrl', 'Short-Link zum Tracking', true)
       ],
       isActive: true
@@ -1507,12 +1507,12 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Geraetemeldung SMS',
       type: 'sms',
-      subject: 'Geraet eingegangen',
+      subject: 'Gerät eingegangen',
       content: '{{companyName}}: Ihr {{deviceBrand}} {{deviceModel}} ist eingegangen. Auftrag: {{orderNumber}}. Ihr Team',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('orderNumber', 'Auftragsnummer', true)
       ],
       isActive: true
@@ -1524,10 +1524,10 @@ function getDefaultNotificationTemplates() {
       content: '{{companyName}}: Reparatur {{deviceBrand}} kostet {{quoteAmount}}. Genehmigung: {{approvalUrl}} Deadline: {{approvalDeadline}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
         createVariable('quoteAmount', 'Kostenvoranschlag', true),
         createVariable('approvalUrl', 'Short-Link zur Freigabe', true),
-        createVariable('approvalDeadline', 'Frist fuer Genehmigung', true)
+        createVariable('approvalDeadline', 'Frist für Genehmigung', true)
       ],
       isActive: true
     },
@@ -1538,8 +1538,8 @@ function getDefaultNotificationTemplates() {
       content: '{{companyName}}: {{deviceBrand}} {{deviceModel}} repariert! Version sendet Versand. {{trackingUrl }}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('trackingUrl', 'Versand-Tracking-Link', true)
       ],
       isActive: true
@@ -1548,7 +1548,7 @@ function getDefaultNotificationTemplates() {
       name: 'Zahlungsbestaetigung SMS',
       type: 'sms',
       subject: 'Zahlung erhalten',
-      content: '{{companyName}}: Zahlung von {{amountPaid}} fuer Auftrag {{orderNumber}} eingegangen. Rechnung: {{invoiceNumber}}',
+      content: '{{companyName}}: Zahlung von {{amountPaid}} für Auftrag {{orderNumber}} eingegangen. Rechnung: {{invoiceNumber}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('amountPaid', 'Bezahlter Betrag', true),
@@ -1560,13 +1560,13 @@ function getDefaultNotificationTemplates() {
     {
       name: 'Passwort-Reset SMS',
       type: 'sms',
-      subject: 'Passwort zuruecksetzen',
-      content: '{{companyName}}: Passwort-Reset fuer {{customerEmail}}: {{passwordResetUrl}} Gueltig {{resetExpiresAt}}',
+      subject: 'Passwort zurücksetzen',
+      content: '{{companyName}}: Passwort-Reset für {{customerEmail}}: {{passwordResetUrl}} Gültig {{resetExpiresAt}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('customerEmail', 'E-Mail des Kunden', true),
         createVariable('passwordResetUrl', 'Short-Link zum Reset', true),
-        createVariable('resetExpiresAt', 'Gueltigkeitsdauer des Links', true)
+        createVariable('resetExpiresAt', 'Gültigkeitsdauer des Links', true)
       ],
       isActive: true
     },
@@ -1599,7 +1599,7 @@ function getDefaultNotificationTemplates() {
       name: 'Buchung bereit zur Abholung SMS',
       type: 'sms',
       subject: 'Buchung abholbereit',
-      content: '{{companyName}}: Ihre Buchung {{bookingNumber}} ist abholbereit. Oeffnungszeiten: {{pickupHours}}',
+      content: '{{companyName}}: Ihre Buchung {{bookingNumber}} ist abholbereit. Öffnungszeiten: {{pickupHours}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('bookingNumber', 'Buchungsnummer', true),
@@ -1623,12 +1623,12 @@ function getDefaultNotificationTemplates() {
       name: 'Repair Request eingegangen SMS',
       type: 'sms',
       subject: 'Anfrage {{requestNumber}} eingegangen',
-      content: '{{companyName}}: Reparaturanfrage {{requestNumber}} fuer {{deviceBrand}} {{deviceModel}} eingegangen. Status: {{requestUrl}}',
+      content: '{{companyName}}: Reparaturanfrage {{requestNumber}} für {{deviceBrand}} {{deviceModel}} eingegangen. Status: {{requestUrl}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('requestUrl', 'Short-Link zur Anfrage', true)
       ],
       isActive: true
@@ -1685,11 +1685,11 @@ function getDefaultNotificationTemplates() {
       name: 'Abholung ausstehend SMS',
       type: 'sms',
       subject: 'Abholung ausstehend',
-      content: '{{companyName}}: Geraet {{deviceBrand}} {{deviceModel}} wartet auf Abholung. Abholbar bis: {{holdUntil}}',
+      content: '{{companyName}}: Gerät {{deviceBrand}} {{deviceModel}} wartet auf Abholung. Abholbar bis: {{holdUntil}}',
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('holdUntil', 'Aufbewahrungsfrist', true)
       ],
       isActive: true
@@ -1713,7 +1713,7 @@ function getDefaultNotificationTemplates() {
       subject: 'Auftrag eingegangen',
       content: 'Ihr {{deviceBrand}}-Reparaturauftrag #{{orderNumber}} wurde aufgenommen.',
       variables: [
-        createVariable('deviceBrand', 'Geraetehersteller', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
         createVariable('orderNumber', 'Auftragsnummer', true),
         createVariable('trackingUrl', 'Deep-Link zum Status', true)
       ],
@@ -1737,8 +1737,8 @@ function getDefaultNotificationTemplates() {
       subject: 'Gerät eingegangen ✓',
       content: 'Ihr {{deviceBrand}} {{deviceModel}} wurde empfangen und wird bearbeitet.',
       variables: [
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('orderNumber', 'Auftragsnummer', true)
       ],
       isActive: true
@@ -1761,8 +1761,8 @@ function getDefaultNotificationTemplates() {
       subject: 'Reparatur vollständig ✓',
       content: '{{deviceBrand}} {{deviceModel}} fertig! Versand unterwegs zu Ihnen.',
       variables: [
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('trackingUrl', 'Deep-Link zum Versand-Status', true)
       ],
       isActive: true
@@ -1786,7 +1786,7 @@ function getDefaultNotificationTemplates() {
       content: 'Sicherheitslink zur Passwortänderung. Gültig {{resetExpiresAt}}.',
       variables: [
         createVariable('passwordResetUrl', 'Deep-Link zum Reset', true),
-        createVariable('resetExpiresAt', 'Gueltigkeitsdauer', true)
+        createVariable('resetExpiresAt', 'Gültigkeitsdauer', true)
       ],
       isActive: true
     },
@@ -1838,11 +1838,11 @@ function getDefaultNotificationTemplates() {
       name: 'Repair Request eingegangen Push',
       type: 'push',
       subject: 'Anfrage eingegangen ✓',
-      content: 'Reparaturanfrage #{{requestNumber}} fuer {{deviceBrand}} {{deviceModel}} eingegangen.',
+      content: 'Reparaturanfrage #{{requestNumber}} für {{deviceBrand}} {{deviceModel}} eingegangen.',
       variables: [
         createVariable('requestNumber', 'Anfragenummer', true),
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('requestUrl', 'Deep-Link zur Anfrage', true)
       ],
       isActive: true
@@ -1944,8 +1944,8 @@ function getDefaultNotificationTemplates() {
       subject: 'Garantie läuft ab',
       content: 'Garantie für {{deviceBrand}} {{deviceModel}} läuft am {{warrantyExpiryDate}} ab.',
       variables: [
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('warrantyExpiryDate', 'Ablaufdatum', true)
       ],
       isActive: true
@@ -1956,8 +1956,8 @@ function getDefaultNotificationTemplates() {
       subject: 'Gerät wartet auf Abholung',
       content: '{{deviceBrand}} {{deviceModel}} bei uns abholbereit bis {{holdUntil}}.',
       variables: [
-        createVariable('deviceBrand', 'Geraetehersteller', true),
-        createVariable('deviceModel', 'Geraetemodell', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
         createVariable('holdUntil', 'Aufbewahrungsfrist', true)
       ],
       isActive: true
@@ -1979,10 +1979,10 @@ function getDefaultNotificationTemplates() {
       type: 'email',
       subject: 'Wir haben Ihre Anfrage erhalten - {{companyName}}',
       content: renderEmailTemplate({
-        preheader: 'Ihre Kontaktanfrage wurde erfolgreich uebermittelt.',
+        preheader: 'Ihre Kontaktanfrage wurde erfolgreich übermittelt.',
         eyebrow: 'Kontakt & Service',
-        title: 'Danke fuer Ihre Nachricht',
-        intro: 'Hallo {{customerName}}, wir haben Ihre Anfrage erhalten und an unser Service-Team weitergeleitet. Sie erhalten in der Regel innerhalb eines Werktages eine persoenliche Rueckmeldung.',
+        title: 'Danke für Ihre Nachricht',
+        intro: 'Hallo {{customerName}}, wir haben Ihre Anfrage erhalten und an unser Service-Team weitergeleitet. Sie erhalten in der Regel innerhalb eines Werktages eine persönliche Rückmeldung.',
         highlights: [
           { label: 'Anliegen', value: '{{contactSubject}}' },
           { label: 'Eingang', value: '{{submittedAt}}', tone: 'yellow' }
@@ -1992,12 +1992,12 @@ function getDefaultNotificationTemplates() {
           { label: 'E-Mail', value: '{{customerEmail}}' },
           { label: 'Anliegen', value: '{{contactSubject}}' }
         ],
-        body: '<p style="margin:0 0 14px 0;">Zur schnellen Einordnung haben wir folgenden Auszug Ihrer Nachricht gespeichert:</p><div style="padding:14px 16px;border:1px solid #d8dce6;background:#f8f9fc;border-radius:12px;font-size:14px;line-height:1.7;color:#2d3748;">{{messagePreview}}</div><p style="margin:16px 0 0 0;">Falls Sie weitere Informationen nachreichen moechten, antworten Sie einfach auf diese E-Mail.</p>',
+        body: '<p style="margin:0 0 14px 0;">Zur schnellen Einordnung haben wir folgenden Auszug Ihrer Nachricht gespeichert:</p><div style="padding:14px 16px;border:1px solid #d8dce6;background:#f8f9fc;border-radius:12px;font-size:14px;line-height:1.7;color:#2d3748;">{{messagePreview}}</div><p style="margin:16px 0 0 0;">Falls Sie weitere Informationen nachreichen möchten, antworten Sie einfach auf diese E-Mail.</p>',
         ctaLabel: 'Kontaktseite aufrufen',
         ctaUrl: '{{contactUrl}}',
         ctaTone: 'primary',
-        closing: 'Vielen Dank fuer Ihr Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
-        footerNote: 'Dies ist eine automatische Eingangsbestaetigung auf Ihre Kontaktanfrage.'
+        closing: 'Vielen Dank für Ihr Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Dies ist eine automatische Eingangsbestätigung auf Ihre Kontaktanfrage.'
       }),
       variables: [
         createVariable('companyName', 'Name des Unternehmens', true),
