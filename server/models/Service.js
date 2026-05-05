@@ -6,6 +6,11 @@ const serviceSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  articleNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   shortDescription: {
     type: String,
     default: ''

@@ -110,13 +110,21 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
           const n = norm(col);
           const lowerCol = col.toLowerCase();
 
+          // Article number / SKU
+          if (n === 'artikelnummer' || n === 'artikel_nr' || n === 'artnr' || n === 'article_number' || n === 'sku') {
+            autoMapping['articleNumber'] = col;
+          }
+
           // Name
-          if (n === 'artikelname' || n === 'name' || n === 'service_name' || n === 'bezeichnung') {
+          else if (n === 'artikelname' || n === 'name' || n === 'service_name' || n === 'bezeichnung') {
             autoMapping['name'] = col;
           }
           // Category / Service type (German repair_services.csv uses "Service")
           else if (n === 'service' || n === 'service_precise' || lowerCol.includes('category') || lowerCol.includes('kategorie')) {
             autoMapping['category'] = col;
+            if (n === 'service' || n === 'service_precise') {
+              autoMapping['service'] = col;
+            }
           }
           // Prices
           else if (n === 'std._vk_brutto' || n === 'std_vk_brutto' || n === 'price_gross') {
@@ -128,12 +136,49 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
           else if (n === 'ek_netto' || n.startsWith('ek_netto') || n === 'purchase_price') {
             autoMapping['purchasePrice'] = col;
           }
+          else if (n === 'uvp') {
+            autoMapping['msrp'] = col;
+          }
+          else if (n === 'steuerklasse') {
+            autoMapping['taxClass'] = col;
+          }
+          else if (n === '_quelle') {
+            autoMapping['source'] = col;
+          }
           else if (!autoMapping['price'] && (lowerCol.includes('preis') || (lowerCol.includes('price') && !lowerCol.includes('net') && !lowerCol.includes('brutto')))) {
             autoMapping['price'] = col;
           }
           // Description
+          else if (n === 'kurzbeschreibung') {
+            autoMapping['shortDescription'] = col;
+          }
           else if (lowerCol.includes('beschreibung') || lowerCol === 'description') {
             autoMapping['description'] = col;
+          }
+          else if (n === 'druck_kurzbeschreibung' || n === 'druckkurzbeschreibung') {
+            autoMapping['printShortDescription'] = col;
+          }
+          else if (n === 'druck_beschreibung' || n === 'druckbeschreibung') {
+            autoMapping['printDescription'] = col;
+          }
+          else if (n === 'anmerkung' || n === 'amerkung') {
+            autoMapping['note'] = col;
+          }
+          // Search / SEO
+          else if (n === 'suchbegriffe' || n === 'keywords') {
+            autoMapping['searchKeywords'] = col;
+          }
+          else if (n.includes('seo_name') || n.includes('seo_namen')) {
+            autoMapping['seoName'] = col;
+          }
+          else if (n.includes('seo_titel')) {
+            autoMapping['seoTitleTag'] = col;
+          }
+          else if (n.includes('seo_meta_keywords') || n === 'meta_keywords') {
+            autoMapping['seoMetaKeywords'] = col;
+          }
+          else if (n.includes('seo_meta_description') || n === 'meta_description') {
+            autoMapping['seoMetaDescription'] = col;
           }
           // Manufacturer / model
           else if (n === 'hersteller_precise' || n === 'manufacturer_precise') {

@@ -65,6 +65,23 @@ const CSV_COLUMN_MAP = {
   'seo_meta_keywords': 'seoMetaKeywords',
   'seo_meta-description': 'seoMetaDescription',
   'seo_meta_description': 'seoMetaDescription',
+  'artikelnummer': 'articleNumber',
+  'artikel_nr': 'articleNumber',
+  'artnr': 'articleNumber',
+  'article_number': 'articleNumber',
+  'sku': 'articleNumber',
+  'keywords': 'searchKeywords',
+  'seo_namen_(suchmaschienename)': 'seoName',
+  'seo_namen_(suchmaschienenname)': 'seoName',
+  'seo_name_(suchmaschienenname)': 'seoName',
+  'seo_name_(search_engine_name)': 'seoName',
+  'seo_namen': 'seoName',
+  'seo_titel': 'seoTitleTag',
+  'meta_keywords': 'seoMetaKeywords',
+  'meta_description': 'seoMetaDescription',
+  'druckkurzbeschreibung': 'printShortDescription',
+  'druckbeschreibung': 'printDescription',
+  'amerkung': 'note',
   // Time
   'dauer': 'estimatedTime',
   'estimated_time': 'estimatedTime',
@@ -322,6 +339,7 @@ class CSVServiceImportService {
     const trim = (v) => (typeof v === 'string' ? v.trim() : v);
 
     cleaned.name = trim(readField('name')) || '';
+    cleaned.articleNumber = trim(readField('articleNumber')) || '';
     cleaned.service = trim(readField('service')) || '';
     cleaned.category = trim(readField('category')) || '';
     cleaned.deviceType = trim(readField('deviceType')) || '';
