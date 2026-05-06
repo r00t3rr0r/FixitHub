@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UnlockPatternInput } from '@/components/inspection/UnlockPatternInput';
@@ -66,6 +67,26 @@ const getModelImage = (model: any, fallbackImage?: string) => {
     return model.images[0]?.url || model.images[0]?.base64 || fallbackImage || '';
   }
   return fallbackImage || '';
+};
+
+const parseServiceDescription = (description: string) => {
+  const lines = String(description || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const paragraphs: string[] = [];
+  const bullets: string[] = [];
+
+  for (const line of lines) {
+    if (/^[-*•]\s+/.test(line)) {
+      bullets.push(line.replace(/^[-*•]\s+/, ''));
+    } else {
+      paragraphs.push(line);
+    }
+  }
+
+  return { paragraphs, bullets };
 };
 
 const normalizeSearchText = (value: string | undefined | null) =>
@@ -198,6 +219,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   // Configurator state
   const [currentStep, setCurrentStep] = useState(1);
   const [showDiagnoseModal, setShowDiagnoseModal] = useState(false);
+  const [serviceInfoDialog, setServiceInfoDialog] = useState<RepairService | null>(null);
+  const [hoveredTooltip, setHoveredTooltip] = useState<{ service: RepairService; left: number; top: number; arrowLeft: number } | null>(null);
+  const TOOLTIP_WIDTH = 220;
+  const TOOLTIP_MARGIN = 8;
 
   // Data states
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
@@ -1571,6 +1596,40 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           <Check className="w-5 h-5 text-green-600" />
                         </div>
                       )}
+                      {(service.shortDescription || service.description) && (
+                        <div className="repair-card-info-wrap">
+                          <button
+                            type="button"
+                            className="repair-card-info-btn"
+                            aria-label={`${t('home.configurator.serviceInfoLabel', { name: service.name })}`}
+                            onMouseEnter={(e) => {
+                              if (!service.shortDescription) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const iconCenter = rect.left + rect.width / 2;
+                              const idealLeft = iconCenter - TOOLTIP_WIDTH / 2;
+                              const clampedLeft = Math.max(TOOLTIP_MARGIN, Math.min(idealLeft, window.innerWidth - TOOLTIP_WIDTH - TOOLTIP_MARGIN));
+                              setHoveredTooltip({ service, left: clampedLeft, top: rect.bottom + 8, arrowLeft: iconCenter - clampedLeft });
+                            }}
+                            onMouseLeave={() => setHoveredTooltip(null)}
+                            onFocus={(e) => {
+                              if (!service.shortDescription) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const iconCenter = rect.left + rect.width / 2;
+                              const idealLeft = iconCenter - TOOLTIP_WIDTH / 2;
+                              const clampedLeft = Math.max(TOOLTIP_MARGIN, Math.min(idealLeft, window.innerWidth - TOOLTIP_WIDTH - TOOLTIP_MARGIN));
+                              setHoveredTooltip({ service, left: clampedLeft, top: rect.bottom + 8, arrowLeft: iconCenter - clampedLeft });
+                            }}
+                            onBlur={() => setHoveredTooltip(null)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHoveredTooltip(null);
+                              setServiceInfoDialog(service);
+                            }}
+                          >
+                            <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ));
                 })()}
@@ -2506,6 +2565,145 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     </div>
 
     <VorabdiagnoseModal isOpen={showDiagnoseModal} onClose={() => setShowDiagnoseModal(false)} />
+
+    {/* Portal tooltip for repair service short description */}
+    {hoveredTooltip && hoveredTooltip.service.shortDescription && createPortal(
+      <div
+        className="repair-card-portal-tooltip"
+        role="tooltip"
+        style={{
+          position: 'fixed',
+          top: hoveredTooltip.top,
+          left: hoveredTooltip.left,
+          width: TOOLTIP_WIDTH,
+        }}
+      >
+        <div className="repair-card-portal-tooltip-arrow" style={{ left: hoveredTooltip.arrowLeft }} />
+        <p className="repair-card-portal-tooltip-name">{hoveredTooltip.service.name}</p>
+        <p className="repair-card-portal-tooltip-text">{hoveredTooltip.service.shortDescription}</p>
+        <span className="repair-card-portal-tooltip-hint">{t('home.configurator.serviceInfo.clickForMore')}</span>
+      </div>,
+      document.body
+    )}
+
+    {/* Service Info Dialog */}
+    <Dialog open={!!serviceInfoDialog} onOpenChange={(open) => { if (!open) setServiceInfoDialog(null); }}>
+      <DialogContent
+        className="repair-service-info-dialog sm:max-w-lg"
+        aria-describedby={serviceInfoDialog?.description ? 'service-dialog-description' : undefined}
+      >
+        {serviceInfoDialog && (
+          <>
+            <DialogHeader className="repair-service-info-dialog-header">
+              <div className="repair-service-info-dialog-badge">
+                {serviceInfoDialog.category && (
+                  <span className="repair-service-info-dialog-category">{serviceInfoDialog.category}</span>
+                )}
+              </div>
+              <DialogTitle className="repair-service-info-dialog-title" itemProp="name">
+                {serviceInfoDialog.seoTitleTag || serviceInfoDialog.name}
+              </DialogTitle>
+              {serviceInfoDialog.estimatedTime && (
+                <div className="repair-service-info-dialog-meta">
+                  <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{serviceInfoDialog.estimatedTime}</span>
+                </div>
+              )}
+            </DialogHeader>
+
+            <article
+              className="repair-service-info-dialog-body"
+              itemScope
+              itemType="https://schema.org/Service"
+            >
+              {/* Hidden SEO metadata */}
+              <meta itemProp="name" content={serviceInfoDialog.seoName || serviceInfoDialog.name} />
+              {serviceInfoDialog.seoMetaDescription && (
+                <meta itemProp="description" content={serviceInfoDialog.seoMetaDescription} />
+              )}
+              {serviceInfoDialog.seoMetaKeywords && (
+                <meta itemProp="keywords" content={serviceInfoDialog.seoMetaKeywords} />
+              )}
+
+              {/* Main description */}
+              {serviceInfoDialog.description && (() => {
+                const { paragraphs, bullets } = parseServiceDescription(serviceInfoDialog.description);
+
+                return (
+                  <div
+                    id="service-dialog-description"
+                    className="repair-service-info-dialog-description"
+                    itemProp="description"
+                  >
+                    {paragraphs.map((paragraph, index) => (
+                      <p key={`desc-p-${index}`}>{paragraph}</p>
+                    ))}
+                    {bullets.length > 0 && (
+                      <ul className="repair-service-info-dialog-description-list">
+                        {bullets.map((bullet, index) => (
+                          <li key={`desc-li-${index}`}>{bullet}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Price row */}
+              <dl className="repair-service-info-dialog-details">
+                <div className="repair-service-info-dialog-detail-row">
+                  <dt>{t('home.configurator.serviceInfo.priceFrom')}</dt>
+                  <dd itemProp="offers" itemScope itemType="https://schema.org/Offer">
+                    <span itemProp="price" content={String(serviceInfoDialog.price)} className="repair-service-info-dialog-price">
+                      {t('home.configurator.repairFrom', { price: serviceInfoDialog.price.toFixed(2) })}
+                    </span>
+                    <meta itemProp="priceCurrency" content="EUR" />
+                  </dd>
+                </div>
+                {serviceInfoDialog.estimatedTime && (
+                  <div className="repair-service-info-dialog-detail-row">
+                    <dt>{t('home.configurator.serviceInfo.estimatedTime')}</dt>
+                    <dd>{serviceInfoDialog.estimatedTime}</dd>
+                  </div>
+                )}
+              </dl>
+
+              {/* Note / additional info */}
+              {serviceInfoDialog.note && (
+                <div className="repair-service-info-dialog-note">
+                  <Info className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                  <p>{serviceInfoDialog.note}</p>
+                </div>
+              )}
+            </article>
+
+            {/* CTA buttons */}
+            <div className="repair-service-info-dialog-actions">
+              <button
+                type="button"
+                className="repair-service-info-dialog-select-btn"
+                onClick={() => {
+                  toggleRepairSelection(serviceInfoDialog);
+                  setServiceInfoDialog(null);
+                }}
+              >
+                {selectedRepairs.find(s => s._id === serviceInfoDialog._id)
+                  ? t('home.configurator.serviceInfo.deselect')
+                  : t('home.configurator.serviceInfo.select')}
+              </button>
+              <button
+                type="button"
+                className="repair-service-info-dialog-close-btn"
+                onClick={() => setServiceInfoDialog(null)}
+              >
+                {t('home.configurator.serviceInfo.close')}
+              </button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+
     
     {/* Mobile Model Selection Modal for Mobile & Tablet Devices - Rendered as Portal */}
     {showMobileModelModal && useMobileModal && createPortal(

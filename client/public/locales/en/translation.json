@@ -1362,7 +1362,16 @@
       "searchModel": "Search Model",
       "modelSearchPlaceholder": "e.g. iPhone 15 Pro...",
       "browseOrSearch": "Browse or tap to search",
-      "typeToSearch": "Tap to Search"
+      "typeToSearch": "Tap to Search",
+      "serviceInfoLabel": "Information about {{name}}",
+      "serviceInfo": {
+        "priceFrom": "Price from",
+        "estimatedTime": "Estimated time",
+        "select": "Select this service",
+        "deselect": "Deselect service",
+        "close": "Close",
+        "clickForMore": "Click for details"
+      }
     },
     "shop": {
       "title": "Featured Products",
