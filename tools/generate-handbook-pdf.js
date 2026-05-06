@@ -4,9 +4,45 @@ const { marked } = require('marked');
 const puppeteer = require('puppeteer-core');
 
 const ROOT = path.resolve(__dirname, '..');
-const SOURCE_MD = path.join(ROOT, 'ADMIN_NUTZERHANDBUCH.md');
-const OUTPUT_PDF = path.join(ROOT, 'ADMIN_NUTZERHANDBUCH.pdf');
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+
+function parseArgs(argv) {
+  const options = {};
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const current = argv[index];
+    if (!current.startsWith('--')) continue;
+
+    const key = current.slice(2);
+    const next = argv[index + 1];
+    if (!next || next.startsWith('--')) {
+      options[key] = true;
+      continue;
+    }
+
+    options[key] = next;
+    index += 1;
+  }
+
+  return options;
+}
+
+function toAbsolutePath(filePath, fallback) {
+  if (!filePath) return fallback;
+  return path.isAbsolute(filePath) ? filePath : path.join(ROOT, filePath);
+}
+
+const args = parseArgs(process.argv.slice(2));
+const SOURCE_MD = toAbsolutePath(args.source, path.join(ROOT, 'ADMIN_NUTZERHANDBUCH.md'));
+const OUTPUT_PDF = toAbsolutePath(
+  args.output,
+  path.join(ROOT, `${path.basename(SOURCE_MD, path.extname(SOURCE_MD))}.pdf`)
+);
+
+const resolvedDocTitle = args.title || `FixitHub ${path.basename(SOURCE_MD, path.extname(SOURCE_MD)).replace(/_/g, ' ')}`;
+const coverKicker = args.kicker || 'FixitHub · Handbuch';
+const coverSubtitle = args.subtitle || 'Dokumentation fuer FixitHub';
+const footerLabel = args.footer || resolvedDocTitle;
 
 function slugify(text) {
   return String(text)
@@ -344,13 +380,29 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
         border-top: 1px solid var(--border);
         margin: 6mm 0;
       }
+
+      img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 3.5mm auto 5mm;
+        border: 1px solid #d9e1ea;
+        border-radius: 8px;
+        box-shadow: 0 3px 14px rgba(15, 23, 42, 0.08);
+        page-break-inside: avoid;
+      }
+
+      figure {
+        margin: 0;
+        page-break-inside: avoid;
+      }
     </style>
   </head>
   <body>
     <section class="cover">
-      <span class="cover-kicker">FixitHub · Admin Doku</span>
+      <span class="cover-kicker">${coverKicker}</span>
       <h1>${title}</h1>
-      <p>Administrationsdokumentation fuer FixitHub</p>
+      <p>${coverSubtitle}</p>
       <p class="cover-summary">Kompakte Referenz fuer Konfiguration, Prozesse, Felder und Datenfluesse im Tagesbetrieb.</p>
       <div class="cover-stats">
         <div class="cover-stat">
@@ -381,6 +433,18 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
 </html>`;
 }
 
+function rewriteRelativeImagePaths(html) {
+  return html.replace(/<img([^>]*?)src="([^"]+)"([^>]*?)>/g, (fullMatch, before, src, after) => {
+    if (/^(https?:|data:|file:)/i.test(src)) {
+      return fullMatch;
+    }
+
+    const absolutePath = path.resolve(path.dirname(SOURCE_MD), src);
+    const fileUrl = `file://${absolutePath}`;
+    return `<img${before}src="${fileUrl}"${after}>`;
+  });
+}
+
 async function generatePdf() {
   if (!fs.existsSync(SOURCE_MD)) {
     throw new Error(`Datei nicht gefunden: ${SOURCE_MD}`);
@@ -408,11 +472,11 @@ async function generatePdf() {
     renderer
   });
 
-  const contentHtml = marked.parse(markdown);
+  const contentHtml = rewriteRelativeImagePaths(marked.parse(markdown));
   const tocHtml = createToc(headings);
   const chapterChipsHtml = createChapterChips(headings);
   const chapterCount = headings.filter((h) => h.level === 2).length;
-  const title = 'FixitHub Admin Nutzerhandbuch';
+  const title = resolvedDocTitle;
   const html = buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount);
 
   const browser = await puppeteer.launch({
@@ -433,7 +497,7 @@ async function generatePdf() {
       headerTemplate: '<div></div>',
       footerTemplate:
         '<div style="font-size:8px;width:100%;padding:0 10mm;color:#5f6b7a;display:flex;justify-content:space-between;">' +
-        '<span>FixitHub - Admin Nutzerhandbuch</span>' +
+        `<span>${footerLabel}</span>` +
         '<span><span class="pageNumber"></span> / <span class="totalPages"></span></span>' +
         '</div>',
       margin: {
