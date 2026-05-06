@@ -189,6 +189,19 @@ export const updateDeviceType = async (id: string, data: DeviceTypeInput) => {
   }
 };
 
+// Description: Delete an existing device type/category
+// Endpoint: DELETE /api/devices/types/:id
+// Request: {}
+// Response: { success: boolean, message: string }
+export const deleteDeviceType = async (id: string) => {
+  try {
+    const response = await api.delete(`/api/devices/types/${id}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Get manufacturers by device type
 // Endpoint: GET /api/devices/manufacturers?deviceType=smartphone
 // Request: { deviceType: string }

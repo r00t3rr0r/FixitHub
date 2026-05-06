@@ -247,6 +247,42 @@ class DeviceService {
     }
   }
 
+  // Delete device type/category (admin only)
+  static async deleteDeviceType(typeId) {
+    try {
+      const normalizedTypeId = slugifyDeviceType(typeId);
+
+      if (!normalizedTypeId) {
+        throw new Error('Device type is required');
+      }
+
+      const [savedType, modelCount] = await Promise.all([
+        DeviceType.findOne({ _id: normalizedTypeId, isActive: true }),
+        DeviceModel.countDocuments({ deviceType: normalizedTypeId, isActive: true }),
+      ]);
+
+      if (!savedType && modelCount === 0) {
+        throw new Error('Device type not found');
+      }
+
+      if (modelCount > 0) {
+        throw new Error('Cannot delete device type while models still use this category');
+      }
+
+      if (savedType) {
+        await DeviceType.deleteOne({ _id: normalizedTypeId });
+      }
+
+      return {
+        _id: normalizedTypeId,
+        deleted: true,
+      };
+    } catch (error) {
+      console.error('DeviceService: Error deleting device type:', error);
+      throw error;
+    }
+  }
+
   // Get manufacturers by device type
   static async getManufacturersByDeviceType(deviceType) {
     try {
