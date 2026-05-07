@@ -114,7 +114,9 @@ export function RepairRequestsManagement() {
   const { toast } = useToast()
 
   // Tab state
-  const [activeTab, setActiveTab] = useState("repair-requests")
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") === "contact-messages" ? "contact-messages" : "repair-requests"
+  )
 
   const [requests, setRequests] = useState<RepairRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<RepairRequest[]>([])
@@ -174,6 +176,27 @@ export function RepairRequestsManagement() {
     setSelectedRequest(request)
     setShowDetailsDialog(true)
   }, [searchParams, requests, selectedRequest?._id, showDetailsDialog])
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab")
+    if (tabParam === "contact-messages" || tabParam === "repair-requests") {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams)
+      nextParams.set("tab", tab)
+
+      if (tab !== "contact-messages") {
+        nextParams.delete("messageId")
+      }
+
+      return nextParams
+    }, { replace: true })
+  }
 
   const fetchData = async () => {
     try {
@@ -618,7 +641,7 @@ export function RepairRequestsManagement() {
   return (
     <div className="repair-requests-management">
       {/* Tab Navigation */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="mb-6">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="repair-requests" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />

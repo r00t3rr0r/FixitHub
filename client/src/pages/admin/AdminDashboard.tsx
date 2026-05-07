@@ -29,6 +29,7 @@ import {
   Wrench,
 } from "lucide-react"
 import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
+import { getContactMessages, type ContactMessage } from "@/api/contactMessages"
 import "./AdminDashboard.css"
 
 type NotificationMeta = {
@@ -79,6 +80,16 @@ const FALLBACK_DATA: DashboardData = {
   },
 }
 
+const OPEN_CONTACT_STATUSES = new Set(["new", "read"])
+
+const CONTACT_SUBJECT_LABELS: Record<string, string> = {
+  repair: "Reparatur",
+  status: "Status",
+  business: "Business",
+  complaint: "Reklamation",
+  other: "Sonstiges",
+}
+
 const safeArray = (value: unknown) => (Array.isArray(value) ? value : [])
 const safeObject = (value: unknown) =>
   typeof value === "object" && value !== null ? (value as Record<string, any>) : {}
@@ -118,6 +129,8 @@ export function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData>(FALLBACK_DATA)
   const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([])
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0)
+  const [openContactRequests, setOpenContactRequests] = useState<ContactMessage[]>([])
+  const [unansweredContactCount, setUnansweredContactCount] = useState(0)
 
   const fetchDashboardData = async (showToast = false) => {
     try {
@@ -127,12 +140,26 @@ export function AdminDashboard() {
         setLoading(true)
       }
 
-      const [data, msgData] = await Promise.all([
+      const [data, msgData, contactData] = await Promise.all([
         getDashboardSummary(),
         getCustomerMessages(15),
+        getContactMessages({
+          limit: 12,
+          page: 1,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        }),
       ])
       setCustomerMessages(msgData.messages)
       setTotalUnreadMessages(msgData.totalUnread)
+
+      const unresolvedContactMessages = Array.isArray(contactData?.messages)
+        ? contactData.messages.filter((message: ContactMessage) => OPEN_CONTACT_STATUSES.has(String(message?.status || "").toLowerCase()))
+        : []
+
+      setOpenContactRequests(unresolvedContactMessages.slice(0, 5))
+      setUnansweredContactCount(unresolvedContactMessages.length)
+
       const processedData: DashboardData = {
         bookings: safeArray(data.bookings),
         repairRequests: safeArray(data.repairRequests),
@@ -524,6 +551,50 @@ export function AdminDashboard() {
                 })}
               </div>
             </ScrollArea>
+
+            <div className="compact-nested-contact">
+              <div className="compact-nested-contact-head">
+                <p>Kontaktanfragen offen</p>
+                <Badge variant="outline" className="compact-badge compact-nested-contact-count">
+                  {unansweredContactCount}
+                </Badge>
+              </div>
+
+              {openContactRequests.length === 0 ? (
+                <p className="compact-empty compact-nested-empty">Keine offenen Kontaktanfragen</p>
+              ) : (
+                <div className="compact-nested-contact-list">
+                  {openContactRequests.map((request) => (
+                    <button
+                      key={request._id}
+                      type="button"
+                      className="compact-nested-contact-item"
+                      onClick={() => navigate(`/admin/repair-requests?tab=contact-messages&messageId=${request._id}`)}
+                    >
+                      <div>
+                        <p className="compact-title">{request.name}</p>
+                        <p className="compact-sub">{CONTACT_SUBJECT_LABELS[request.subject] || request.subject}</p>
+                      </div>
+                      <div className="compact-list-side">
+                        <Badge className="compact-badge-unread">Offen</Badge>
+                        <small>{timeAgo(request.createdAt)}</small>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate("/admin/repair-requests?tab=contact-messages")}
+              >
+                Alle Kontaktanfragen
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
             <Separator />
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/orders")}>
               {t('adminDashboard.allOrders')}

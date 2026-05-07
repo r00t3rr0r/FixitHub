@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,6 +82,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function ContactMessagesPanel() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [messages, setMessages] = useState<ContactMessage[]>([])
   const [stats, setStats] = useState<ContactMessageStats | null>(null)
@@ -97,6 +99,9 @@ export function ContactMessagesPanel() {
   const [showReplyDialog, setShowReplyDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [lastHandledMessageId, setLastHandledMessageId] = useState<string | null>(null);
+
+  const queryMessageId = searchParams.get('messageId');
 
   useEffect(() => {
     fetchData();
@@ -105,6 +110,28 @@ export function ContactMessagesPanel() {
   useEffect(() => {
     fetchMessages();
   }, [searchTerm, statusFilter, page]);
+
+  useEffect(() => {
+    if (!queryMessageId || queryMessageId === lastHandledMessageId) return;
+
+    const openMessageFromQuery = async () => {
+      try {
+        const fullMessage = await getContactMessageById(queryMessageId);
+        setSelectedMessage(fullMessage);
+        setShowDetailsDialog(true);
+      } catch (error) {
+        toast({
+          title: 'Fehler',
+          description: 'Die verlinkte Kontaktanfrage konnte nicht geladen werden.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLastHandledMessageId(queryMessageId);
+      }
+    };
+
+    openMessageFromQuery();
+  }, [queryMessageId, lastHandledMessageId, toast]);
 
   const fetchData = async () => {
     try {
@@ -158,6 +185,12 @@ export function ContactMessagesPanel() {
       const fullMessage = await getContactMessageById(message._id);
       setSelectedMessage(fullMessage);
       setShowDetailsDialog(true);
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        nextParams.set('tab', 'contact-messages');
+        nextParams.set('messageId', message._id);
+        return nextParams;
+      }, { replace: true });
     } catch (error) {
       toast({
         title: 'Fehler',
@@ -165,6 +198,17 @@ export function ContactMessagesPanel() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleDetailsDialogOpenChange = (open: boolean) => {
+    setShowDetailsDialog(open);
+    if (open) return;
+
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.delete('messageId');
+      return nextParams;
+    }, { replace: true });
   };
 
   const handleStatusChange = async (newStatus: string) => {
@@ -421,7 +465,7 @@ export function ContactMessagesPanel() {
 
       {/* Details Dialog */}
       {selectedMessage && (
-        <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <Dialog open={showDetailsDialog} onOpenChange={handleDetailsDialogOpenChange}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>Kontaktanfrage Details</DialogTitle>
