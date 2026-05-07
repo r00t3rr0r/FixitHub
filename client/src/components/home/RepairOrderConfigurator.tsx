@@ -21,7 +21,6 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
-  Check,
   Clock,
   Shield,
   Upload,
@@ -1591,11 +1590,6 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <div className="repair-name">{service.name}</div>
                         <div className="repair-price">{t('home.configurator.repairFrom', { price: service.price.toFixed(2) })}</div>
                       </div>
-                      {selectedRepairs.find(s => s._id === service._id) && (
-                        <div className="absolute top-2 right-2">
-                          <Check className="w-5 h-5 text-green-600" />
-                        </div>
-                      )}
                       {(service.shortDescription || service.description) && (
                         <div className="repair-card-info-wrap">
                           <button
@@ -1626,7 +1620,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               setServiceInfoDialog(service);
                             }}
                           >
-                            <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                            <Info className="repair-card-info-icon" aria-hidden="true" />
                           </button>
                         </div>
                       )}
@@ -2590,7 +2584,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     <Dialog open={!!serviceInfoDialog} onOpenChange={(open) => { if (!open) setServiceInfoDialog(null); }}>
       <DialogContent
         className="repair-service-info-dialog sm:max-w-lg"
-        aria-describedby={serviceInfoDialog?.description ? 'service-dialog-description' : undefined}
+        aria-describedby={[
+          serviceInfoDialog?.shortDescription &&
+          serviceInfoDialog.shortDescription.trim() !== String(serviceInfoDialog.description || '').trim()
+            ? 'service-dialog-short-description'
+            : '',
+          serviceInfoDialog?.description ? 'service-dialog-description' : '',
+        ].filter(Boolean).join(' ') || undefined}
       >
         {serviceInfoDialog && (
           <>
@@ -2624,6 +2624,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               {serviceInfoDialog.seoMetaKeywords && (
                 <meta itemProp="keywords" content={serviceInfoDialog.seoMetaKeywords} />
               )}
+
+              {/* Always show short description directly in dialog when available */}
+              {serviceInfoDialog.shortDescription &&
+                serviceInfoDialog.shortDescription.trim() !== String(serviceInfoDialog.description || '').trim() && (
+                  <div id="service-dialog-short-description" className="repair-service-info-dialog-lead">
+                    {serviceInfoDialog.shortDescription}
+                  </div>
+                )}
 
               {/* Main description */}
               {serviceInfoDialog.description && (() => {

@@ -1163,7 +1163,7 @@ ul, ol {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.08);
+  background: transparent;
   color: rgba(100, 116, 139, 0.6);
   border: none;
   cursor: pointer;
@@ -1173,13 +1173,57 @@ ul, ol {
   line-height: 1;
 }
 
+.repair-card .repair-card-info-icon {
+  width: 14px;
+  height: 14px;
+  color: rgba(100, 116, 139, 0.6);
+}
+
 .repair-card-info-btn:hover,
 .repair-card-info-btn:focus-visible {
-  background: #f5b800;
-  color: #1a2a5e;
-  transform: scale(1.15);
-  box-shadow: 0 0 0 3px rgba(245, 184, 0, 0.35);
+  background: transparent;
+  transform: scale(1.08);
+  box-shadow: none;
   outline: none;
+}
+
+.repair-card .repair-card-info-btn:hover .repair-card-info-icon,
+.repair-card .repair-card-info-btn:focus-visible .repair-card-info-icon {
+  color: #f5b800;
+}
+
+@media (max-width: 430px), (max-height: 720px) {
+  .repair-card-info-wrap {
+    bottom: 3px;
+    right: 3px;
+  }
+
+  .repair-card-info-btn {
+    width: 14px;
+    height: 14px;
+  }
+
+  .repair-card-info-icon {
+    width: 9px;
+    height: 9px;
+  }
+}
+
+@media (max-width: 360px), (max-height: 620px) {
+  .repair-card-info-wrap {
+    bottom: 2px;
+    right: 2px;
+  }
+
+  .repair-card-info-btn {
+    width: 12px;
+    height: 12px;
+  }
+
+  .repair-card-info-icon {
+    width: 8px;
+    height: 8px;
+  }
 }
 
 /* Tooltip — rendered as a fixed portal to escape overflow clipping */
