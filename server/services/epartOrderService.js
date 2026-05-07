@@ -1,7 +1,158 @@
 const { Supplier, EPartOrder } = require('../models/EPartOrder');
 const Inventory = require('../models/Inventory');
+const NeedList = require('../models/NeedList');
+const Order = require('../models/Order');
+const NotificationService = require('./notificationService');
 
 class EPartOrderService {
+  static getSafeVersionForAllocation(part, requestedQuantity = 1) {
+    if (!part || !Array.isArray(part.versions) || part.versions.length === 0) {
+      return null;
+    }
+
+    const normalizedRequested = Math.max(1, Number(requestedQuantity) || 1);
+    const versions = part.versions.filter((version) => Number(version.quantity || 0) > 0);
+    if (versions.length === 0) {
+      return null;
+    }
+
+    const fittingVersion = versions.find((version) => Number(version.quantity || 0) >= normalizedRequested);
+    if (fittingVersion) {
+      return fittingVersion;
+    }
+
+    return versions.sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0))[0];
+  }
+
+  static async autoAssignConvertedNeedListOrderItems(epartOrder, userId) {
+    const needList = await NeedList.findOne({ convertedToOrder: epartOrder._id });
+    if (!needList) {
+      return;
+    }
+
+    const linkedOrders = await Order.find({
+      'ePartNeedListEntries.needListId': needList._id,
+    }).setOptions({ skipAutoPopulate: true });
+
+    if (!linkedOrders.length) {
+      return;
+    }
+
+    for (const linkedOrder of linkedOrders) {
+      let orderChanged = false;
+      let autoAssignedLines = 0;
+
+      for (const entry of [...linkedOrder.ePartNeedListEntries]) {
+        const matchesNeedList = String(entry.needListId || '') === String(needList._id);
+        const pendingQuantity = Math.max(0, Number(entry.quantity) || 0);
+        if (!matchesNeedList || pendingQuantity === 0) {
+          continue;
+        }
+
+        const part = await Inventory.findById(entry.partId);
+        if (!part) {
+          continue;
+        }
+
+        const chosenVersion = this.getSafeVersionForAllocation(part, pendingQuantity);
+        if (!chosenVersion) {
+          continue;
+        }
+
+        const assignableQuantity = Math.min(
+          pendingQuantity,
+          Math.max(0, Number(chosenVersion.quantity) || 0)
+        );
+
+        if (assignableQuantity <= 0) {
+          continue;
+        }
+
+        chosenVersion.quantity -= assignableQuantity;
+        await part.save();
+
+        const existingEPart = linkedOrder.eParts.find(
+          (ep) => String(ep.partId) === String(entry.partId)
+            && String(ep.versionId) === String(chosenVersion._id)
+        );
+
+        if (existingEPart) {
+          existingEPart.quantity += assignableQuantity;
+          existingEPart.status = 'allocated';
+          existingEPart.assignedAt = new Date();
+          existingEPart.assignedBy = userId;
+        } else {
+          linkedOrder.eParts.push({
+            partId: entry.partId,
+            versionId: String(chosenVersion._id),
+            quantity: assignableQuantity,
+            status: 'allocated',
+            assignedAt: new Date(),
+            assignedBy: userId,
+          });
+        }
+
+        if (assignableQuantity >= pendingQuantity) {
+          linkedOrder.ePartNeedListEntries.pull(entry._id);
+        } else {
+          entry.quantity = pendingQuantity - assignableQuantity;
+          entry.needListStatus = 'ordered';
+        }
+
+        linkedOrder.timeline.push({
+          status: 'EPart Assigned',
+          description: `${part.itemName} x${assignableQuantity} automatically assigned from received need list \"${needList.name}\"`,
+          completedAt: new Date(),
+          staffId: userId || 'system',
+          staffName: 'System',
+        });
+
+        autoAssignedLines += 1;
+        orderChanged = true;
+      }
+
+      if (orderChanged) {
+        await linkedOrder.save({ validateModifiedOnly: true });
+
+        const assignedStaffIds = Array.isArray(linkedOrder.assignedStaff)
+          ? [...new Set(
+            linkedOrder.assignedStaff
+              .map((assignment) => String(assignment?.staffId || ''))
+              .filter((staffId) => staffId)
+          )]
+          : [];
+
+        await Promise.all(
+          assignedStaffIds.map(async (staffId) => {
+            try {
+              await NotificationService.createNotification({
+                userId: staffId,
+                title: 'Ersatzteil fuer Reparatur verfuegbar',
+                message: `Fuer Auftrag ${linkedOrder.orderNumber || linkedOrder._id} wurde ein angefordertes Ersatzteil empfangen und der Reparatur zugewiesen.`,
+                type: 'assignment',
+                orderId: linkedOrder._id,
+                actionUrl: `/admin/orders/${linkedOrder._id}`,
+              }, { sendEmail: false });
+            } catch (notificationError) {
+              console.error('EPartOrderService: Failed to notify assigned staff:', notificationError.message || notificationError);
+            }
+          })
+        );
+
+        if (autoAssignedLines > 0) {
+          linkedOrder.timeline.push({
+            status: 'Staff Notified',
+            description: `Assigned staff notified that ${autoAssignedLines} replacement part position(s) are now available for repair`,
+            completedAt: new Date(),
+            staffId: userId || 'system',
+            staffName: 'System',
+          });
+          await linkedOrder.save({ validateModifiedOnly: true });
+        }
+      }
+    }
+  }
+
   static roundTo(value, decimals = 4) {
     const factor = 10 ** decimals;
     return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
@@ -382,6 +533,11 @@ class EPartOrderService {
     }
 
     await order.save();
+
+    if (updateData.status === 'received') {
+      await this.autoAssignConvertedNeedListOrderItems(order, userId);
+    }
+
     return await this.getEPartOrderById(orderId);
   }
 
@@ -419,10 +575,17 @@ class EPartOrderService {
         allItemsReceived = false;
       }
 
-      // Update inventory stock
-      await Inventory.findByIdAndUpdate(orderItem.partId, {
-        $inc: { quantityInStock: receivedItem.quantity }
-      });
+      // Add received quantity to the most appropriate inventory version.
+      const inventoryPart = await Inventory.findById(orderItem.partId);
+      if (inventoryPart) {
+        const targetVersion = this.getSafeVersionForAllocation(inventoryPart, receivedItem.quantity)
+          || inventoryPart.versions[0];
+
+        if (targetVersion) {
+          targetVersion.quantity = Math.max(0, Number(targetVersion.quantity) || 0) + receivedItem.quantity;
+          await inventoryPart.save();
+        }
+      }
 
       // Add timeline entry
       order.timeline.push({
@@ -443,6 +606,11 @@ class EPartOrderService {
     }
 
     await order.save();
+
+    if (allItemsReceived) {
+      await this.autoAssignConvertedNeedListOrderItems(order, userId);
+    }
+
     return await this.getEPartOrderById(orderId);
   }
 

@@ -63,6 +63,11 @@ export interface NeedListConvertItemConfig {
   additionalCost: number;
 }
 
+export interface NeedListSupplierShippingConfig {
+  supplierId: string;
+  shippingCost: number;
+}
+
 // Description: Get all need lists with optional filtering
 // Endpoint: GET /api/need-lists
 // Request: { status?: string, priority?: string, search?: string }
@@ -259,6 +264,7 @@ export const convertNeedListToOrder = async (
     supplier?: string;
     notes?: string;
     itemConfigurations?: NeedListConvertItemConfig[];
+    supplierShippingCosts?: NeedListSupplierShippingConfig[];
   }
 ): Promise<{ order: any; needList: NeedList }> => {
   try {

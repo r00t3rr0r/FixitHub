@@ -12,6 +12,7 @@ import {
   type NeedListStatistics,
   type NeedListItem,
   type NeedListConvertItemConfig,
+  type NeedListSupplierShippingConfig,
 } from '@/api/needLists';
 import { getParts, type Part } from '@/api/parts';
 import { getSuppliers, type Supplier } from '@/api/epartOrders';
@@ -231,10 +232,12 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     supplier: string;
     notes: string;
     itemConfigurations: NeedListConvertItemConfig[];
+    supplierShippingCosts: Record<string, number>;
   }>({
     supplier: '',
     notes: '',
     itemConfigurations: [],
+    supplierShippingCosts: {},
   });
 
   // Load data
@@ -450,6 +453,12 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
         supplier: convertData.supplier || undefined,
         notes: convertData.notes,
         itemConfigurations: convertData.itemConfigurations,
+        supplierShippingCosts: Object.entries(convertData.supplierShippingCosts)
+          .filter(([supplierId]) => supplierId)
+          .map(([supplierId, shippingCost]) => ({
+            supplierId,
+            shippingCost: Math.max(0, Number(shippingCost) || 0),
+          })) as NeedListSupplierShippingConfig[],
       });
 
       toast({
@@ -458,7 +467,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       });
 
       setShowConvertDialog(false);
-      setConvertData({ supplier: '', notes: '', itemConfigurations: [] });
+      setConvertData({ supplier: '', notes: '', itemConfigurations: [], supplierShippingCosts: {} });
       setSelectedNeedList(null);
       loadData();
 
@@ -512,11 +521,20 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       additionalCost: typeof item.additionalCost === 'number' ? item.additionalCost : 0,
     }));
 
+    const supplierShippingCosts = itemConfigurations.reduce<Record<string, number>>((acc, config) => {
+      if (!config.supplier) {
+        return acc;
+      }
+      acc[config.supplier] = (acc[config.supplier] || 0) + Math.max(0, Number(config.shippingCost) || 0);
+      return acc;
+    }, {});
+
     setSelectedNeedList(needList);
     setConvertData({
       supplier: '',
       notes: '',
       itemConfigurations,
+      supplierShippingCosts,
     });
     setShowConvertDialog(true);
   };
@@ -535,6 +553,86 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     }));
   };
 
+  const roundTo = (value: number, decimals = 2) => {
+    const factor = 10 ** decimals;
+    return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+  };
+
+  const selectedSuppliersForConvert = Array.from(
+    new Set(
+      convertData.itemConfigurations
+        .map((config) => config.supplier)
+        .filter((supplierId) => Boolean(supplierId))
+    )
+  );
+
+  const allocatedShippingByItem = convertData.itemConfigurations.reduce<Record<string, number>>((acc, itemConfig) => {
+    const supplierId = itemConfig.supplier;
+    if (!supplierId) {
+      acc[itemConfig.needListItemId] = 0;
+      return acc;
+    }
+
+    const supplierItems = convertData.itemConfigurations.filter((cfg) => cfg.supplier === supplierId);
+    const supplierShippingTotal = roundTo(Math.max(0, Number(convertData.supplierShippingCosts[supplierId]) || 0), 2);
+
+    if (supplierItems.length === 0 || supplierShippingTotal <= 0) {
+      acc[itemConfig.needListItemId] = 0;
+      return acc;
+    }
+
+    const supplierSubtotal = roundTo(
+      supplierItems.reduce((sum, cfg) => {
+        const sourceItem = selectedNeedList?.items.find((it) => (it._id || it.part) === cfg.needListItemId);
+        const quantity = Math.max(1, Number(sourceItem?.quantity) || 1);
+        const unitPrice = Math.max(0, Number(cfg.price) || 0);
+        return sum + (quantity * unitPrice);
+      }, 0),
+      4
+    );
+
+    let supplierAllocated = 0;
+    const sharesByItemId: Record<string, number> = {};
+
+    supplierItems.forEach((cfg) => {
+      if (supplierSubtotal > 0) {
+        const sourceItem = selectedNeedList?.items.find((it) => (it._id || it.part) === cfg.needListItemId);
+        const quantity = Math.max(1, Number(sourceItem?.quantity) || 1);
+        const unitPrice = Math.max(0, Number(cfg.price) || 0);
+        const rawShare = ((quantity * unitPrice) / supplierSubtotal) * supplierShippingTotal;
+        const roundedShare = roundTo(rawShare, 2);
+        sharesByItemId[cfg.needListItemId] = roundedShare;
+        supplierAllocated += roundedShare;
+      } else {
+        const equalShare = roundTo(supplierShippingTotal / supplierItems.length, 2);
+        sharesByItemId[cfg.needListItemId] = equalShare;
+        supplierAllocated += equalShare;
+      }
+    });
+
+    const delta = roundTo(supplierShippingTotal - supplierAllocated, 2);
+    if (delta !== 0) {
+      const targetItem = supplierItems.reduce((best, cfg) => {
+        const current = selectedNeedList?.items.find((it) => (it._id || it.part) === cfg.needListItemId);
+        const bestItem = selectedNeedList?.items.find((it) => (it._id || it.part) === best.needListItemId);
+        const currentValue = (Math.max(1, Number(current?.quantity) || 1) * Math.max(0, Number(cfg.price) || 0));
+        const bestValue = (Math.max(1, Number(bestItem?.quantity) || 1) * Math.max(0, Number(best.price) || 0));
+        return currentValue > bestValue ? cfg : best;
+      }, supplierItems[0]);
+
+      sharesByItemId[targetItem.needListItemId] = roundTo(
+        (sharesByItemId[targetItem.needListItemId] || 0) + delta,
+        2
+      );
+    }
+
+    Object.entries(sharesByItemId).forEach(([itemId, share]) => {
+      acc[itemId] = Math.max(0, roundTo(share, 2));
+    });
+
+    return acc;
+  }, {});
+
   const convertSummary = convertData.itemConfigurations.reduce(
     (acc, itemConfig) => {
       const sourceItem = selectedNeedList?.items.find((it) => (it._id || it.part) === itemConfig.needListItemId);
@@ -542,11 +640,14 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
         return acc;
       }
 
+      const quantity = Math.max(1, Number(sourceItem.quantity) || 1);
       const lineSubtotal = (sourceItem.quantity * itemConfig.price) + itemConfig.additionalCost;
-      const lineTotal = lineSubtotal + itemConfig.shippingCost;
+      const shippingShareLine = allocatedShippingByItem[itemConfig.needListItemId] || 0;
+      const shippingSharePerItem = shippingShareLine / quantity;
+      const lineTotal = lineSubtotal + (shippingSharePerItem * quantity);
 
       acc.subtotal += lineSubtotal;
-      acc.shipping += itemConfig.shippingCost;
+      acc.shipping += shippingSharePerItem * quantity;
       acc.total += lineTotal;
       return acc;
     },
@@ -1539,7 +1640,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
           <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
             <DialogTitle className="text-base font-semibold !text-yellow-300">Convert Need List to Order</DialogTitle>
             <DialogDescription className="text-xs text-slate-200">
-              Configure supplier and costs per item before creating the order.
+              Configure supplier and costs per item, then set shipping total per supplier.
             </DialogDescription>
           </DialogHeader>
 
@@ -1584,6 +1685,42 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
               </div>
             </div>
 
+            {selectedSuppliersForConvert.length > 0 && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Shipping per Supplier</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {selectedSuppliersForConvert.map((supplierId) => {
+                    const supplierName = suppliers.find((supplier) => supplier._id === supplierId)?.name || supplierId;
+                    const shippingValue = convertData.supplierShippingCosts[supplierId] || 0;
+
+                    return (
+                      <div key={supplierId}>
+                        <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">{supplierName}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="h-8 text-xs bg-white"
+                          value={shippingValue === 0 ? '' : shippingValue}
+                          onChange={(e) => {
+                            const nextValue = Math.max(0, parseFloat(e.target.value) || 0);
+                            setConvertData((prev) => ({
+                              ...prev,
+                              supplierShippingCosts: {
+                                ...prev.supplierShippingCosts,
+                                [supplierId]: nextValue,
+                              },
+                            }));
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="border border-slate-200 rounded-md overflow-hidden">
               <Table className="w-full table-fixed">
                 <TableHeader>
@@ -1592,7 +1729,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     <TableHead className="w-[16%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Supplier</TableHead>
                     <TableHead className="w-[10%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Price Type</TableHead>
                     <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Unit Price</TableHead>
-                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shipping</TableHead>
+                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shipping Share</TableHead>
                     <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Additional</TableHead>
                     <TableHead className="w-[8%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 text-center">Qty</TableHead>
                     <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 text-right">Line Total</TableHead>
@@ -1606,7 +1743,10 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                       return null;
                     }
 
-                    const lineTotal = (item.quantity * itemConfig.price) + itemConfig.shippingCost + itemConfig.additionalCost;
+                      const quantity = Math.max(1, Number(item.quantity) || 1);
+                      const shippingShareLine = allocatedShippingByItem[itemId] || 0;
+                      const shippingSharePerItem = shippingShareLine / quantity;
+                      const lineTotal = (item.quantity * itemConfig.price) + (shippingSharePerItem * quantity) + itemConfig.additionalCost;
 
                     return (
                       <TableRow key={itemId}>
@@ -1659,12 +1799,9 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                         <TableCell className="px-2 py-2 align-top">
                           <Input
                             type="number"
-                            min="0"
-                            step="0.01"
-                            className="h-8 text-xs"
-                            value={itemConfig.shippingCost === 0 ? '' : itemConfig.shippingCost}
-                            onChange={(e) => updateConvertItemConfig(itemId, { shippingCost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                            placeholder="0.00"
+                            className="h-8 text-xs bg-slate-100"
+                            value={shippingSharePerItem.toFixed(2)}
+                            readOnly
                           />
                         </TableCell>
                         <TableCell className="px-2 py-2 align-top">
@@ -1706,7 +1843,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
           <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 flex justify-end gap-2">
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
               setShowConvertDialog(false);
-              setConvertData({ supplier: '', notes: '', itemConfigurations: [] });
+              setConvertData({ supplier: '', notes: '', itemConfigurations: [], supplierShippingCosts: {} });
               setSelectedNeedList(null);
             }}>
               Cancel

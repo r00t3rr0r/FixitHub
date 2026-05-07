@@ -1998,10 +1998,11 @@ export default function EPartOrderManagement() {
 
                       const quantity = Math.max(1, Number(item.quantity) || 1);
                       const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
-                      const shippingCost = Math.max(
+                      const shippingShareLine = Math.max(
                         0,
                         Number(item.shippingShare ?? item.shippingCost) || 0
                       );
+                      const shippingCost = shippingShareLine / quantity;
                       const additionalCost = Math.max(0, Number(item.additionalCost) || 0);
 
                       const unitConverted = convertByPriceType(unitPrice, priceType, taxRate);
@@ -2010,11 +2011,11 @@ export default function EPartOrderManagement() {
 
                       const lineNet =
                         unitConverted.net * quantity +
-                        shippingConverted.net +
+                        (shippingConverted.net * quantity) +
                         additionalConverted.net;
                       const lineGross =
                         unitConverted.gross * quantity +
-                        shippingConverted.gross +
+                        (shippingConverted.gross * quantity) +
                         additionalConverted.gross;
 
                       return (

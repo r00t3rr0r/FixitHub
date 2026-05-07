@@ -1,6 +1,7 @@
 const NeedList = require('../models/NeedList');
 const Inventory = require('../models/Inventory');
 const { EPartOrder } = require('../models/EPartOrder');
+const Order = require('../models/Order');
 
 class NeedListService {
   static roundTo(value, decimals = 4) {
@@ -55,6 +56,83 @@ class NeedListService {
 
     const pricedItems = normalizedItems.map((item, index) => {
       const shippingShare = Math.max(0, this.roundTo(shares[index], 2));
+      const adjustedLineTotal = this.roundTo(item.lineTotal + shippingShare, 4);
+      const adjustedUnitPrice = this.roundTo(adjustedLineTotal / item.quantity, 4);
+      const totalPrice = this.roundTo(item.lineTotal + item.additionalCost + shippingShare, 4);
+
+      return {
+        ...item,
+        shippingShare,
+        adjustedLineTotal,
+        adjustedUnitPrice,
+        totalPrice,
+      };
+    });
+
+    const subtotal = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.lineTotal + item.additionalCost, 0),
+      4
+    );
+    const distributedShippingCost = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.shippingShare, 0),
+      2
+    );
+
+    return {
+      items: pricedItems,
+      subtotal,
+      shippingCost: distributedShippingCost,
+    };
+  }
+
+  static allocateShippingBySupplier(items, supplierShippingTotals = {}) {
+    const normalizedItems = items.map((item) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+      const additionalCost = Math.max(0, Number(item.additionalCost) || 0);
+      const lineTotal = this.roundTo(quantity * unitPrice, 4);
+
+      return {
+        ...item,
+        quantity,
+        unitPrice,
+        additionalCost,
+        lineTotal,
+      };
+    });
+
+    const shippingShares = normalizedItems.map(() => 0);
+    const itemsBySupplier = new Map();
+
+    normalizedItems.forEach((item, index) => {
+      const supplierKey = String(item.supplier || '');
+      if (!itemsBySupplier.has(supplierKey)) {
+        itemsBySupplier.set(supplierKey, []);
+      }
+      itemsBySupplier.get(supplierKey).push(index);
+    });
+
+    itemsBySupplier.forEach((indexes, supplierKey) => {
+      const supplierShippingTotal = this.roundTo(
+        Math.max(0, Number(supplierShippingTotals[supplierKey]) || 0),
+        2
+      );
+
+      if (supplierShippingTotal <= 0 || indexes.length === 0) {
+        return;
+      }
+
+      const supplierItems = indexes.map((itemIndex) => normalizedItems[itemIndex]);
+      const supplierAllocation = this.allocateShippingProportionally(supplierItems, supplierShippingTotal);
+
+      supplierAllocation.items.forEach((allocatedItem, idx) => {
+        const originalIndex = indexes[idx];
+        shippingShares[originalIndex] = Math.max(0, this.roundTo(allocatedItem.shippingShare, 2));
+      });
+    });
+
+    const pricedItems = normalizedItems.map((item, index) => {
+      const shippingShare = Math.max(0, this.roundTo(shippingShares[index], 2));
       const adjustedLineTotal = this.roundTo(item.lineTotal + shippingShare, 4);
       const adjustedUnitPrice = this.roundTo(adjustedLineTotal / item.quantity, 4);
       const totalPrice = this.roundTo(item.lineTotal + item.additionalCost + shippingShare, 4);
@@ -388,9 +466,20 @@ class NeedListService {
     const itemConfigurations = Array.isArray(orderData.itemConfigurations)
       ? orderData.itemConfigurations
       : [];
+    const supplierShippingCosts = Array.isArray(orderData.supplierShippingCosts)
+      ? orderData.supplierShippingCosts
+      : [];
     const itemConfigMap = new Map(
       itemConfigurations.map((cfg) => [String(cfg.needListItemId), cfg])
     );
+    const supplierShippingMap = supplierShippingCosts.reduce((acc, config) => {
+      const supplierId = String(config.supplierId || '');
+      if (!supplierId) {
+        return acc;
+      }
+      acc[supplierId] = Math.max(0, Number(config.shippingCost) || 0);
+      return acc;
+    }, {});
 
     // Create order items from need list items
     const orderItems = [];
@@ -439,7 +528,10 @@ class NeedListService {
       throw new Error('No items to add to the order');
     }
 
-    const allocation = this.allocateShippingProportionally(orderItems, requestedShippingTotal);
+    const useSupplierShipping = Object.keys(supplierShippingMap).length > 0;
+    const allocation = useSupplierShipping
+      ? this.allocateShippingBySupplier(orderItems, supplierShippingMap)
+      : this.allocateShippingProportionally(orderItems, requestedShippingTotal);
 
     const tax = 0; // Can be calculated based on business rules
     const shippingCost = allocation.shippingCost;
@@ -465,6 +557,18 @@ class NeedListService {
     needList.convertedToOrder = order._id;
     needList.status = 'ordered';
     await needList.save();
+
+    await Order.updateMany(
+      { 'ePartNeedListEntries.needListId': needList._id },
+      {
+        $set: {
+          'ePartNeedListEntries.$[entry].needListStatus': 'ordered',
+        },
+      },
+      {
+        arrayFilters: [{ 'entry.needListId': needList._id }],
+      }
+    );
 
     console.log('NeedListService.convertToOrder: Order created successfully:', order.orderNumber);
 
