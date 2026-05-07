@@ -12,7 +12,6 @@ const mongoose = require('mongoose');
 const {
   REFRESH_COOKIE_NAME,
   setAuthCookies,
-  rotateCsrfCookie,
   clearAuthCookies,
 } = require('../utils/authCookies');
 
@@ -450,7 +449,6 @@ router.post('/refresh', async (req, res) => {
 
 router.get('/me', requireUser, async (req, res) => {
   console.log('Get user profile request received');
-  rotateCsrfCookie(res);
   return res.status(200).json(serializeAuthUser(req.user));
 });
 

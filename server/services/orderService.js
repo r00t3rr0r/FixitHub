@@ -191,11 +191,16 @@ class OrderService {
 
       console.log('OrderService: Found', orders.length, 'orders for customer');
 
-      // Convert to plain objects and ensure totalCost is a number
+      // Convert to plain objects and ensure numeric fields are numbers
       const plainOrders = orders.map(order => {
         const plain = order.toObject ? order.toObject() : order;
+        
+        // Convert numeric fields from Decimal128 to Number
         if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
           plain.totalCost = Number(plain.totalCost);
+        }
+        if (plain.progress !== undefined && typeof plain.progress === 'object') {
+          plain.progress = Number(plain.progress);
         }
 
         // Transform services array from objects to service names
@@ -297,11 +302,16 @@ class OrderService {
 
       console.log('OrderService: Found', orders.length, 'orders out of', totalOrders, 'total');
 
-      // Convert to plain objects and ensure totalCost is a number
+      // Convert to plain objects and ensure numeric fields are numbers
       const plainOrders = orders.map(order => {
         const plain = order.toObject ? order.toObject() : order;
+        
+        // Convert numeric fields from Decimal128 to Number
         if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
           plain.totalCost = Number(plain.totalCost);
+        }
+        if (plain.progress !== undefined && typeof plain.progress === 'object') {
+          plain.progress = Number(plain.progress);
         }
 
         // Transform services array from objects to service names
@@ -348,10 +358,15 @@ class OrderService {
 
       console.log('OrderService: Order found:', order.orderNumber);
 
-      // Convert to plain object and ensure totalCost is a number
+      // Convert to plain object and ensure numeric fields are numbers
       const plain = order.toObject ? order.toObject() : order;
+      
+      // Convert numeric fields from Decimal128 to Number
       if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
         plain.totalCost = Number(plain.totalCost);
+      }
+      if (plain.progress !== undefined && typeof plain.progress === 'object') {
+        plain.progress = Number(plain.progress);
       }
 
       return plain;
