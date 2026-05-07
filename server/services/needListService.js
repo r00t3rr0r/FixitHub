@@ -3,6 +3,87 @@ const Inventory = require('../models/Inventory');
 const { EPartOrder } = require('../models/EPartOrder');
 
 class NeedListService {
+  static roundTo(value, decimals = 4) {
+    const factor = 10 ** decimals;
+    return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+  }
+
+  static allocateShippingProportionally(items, shippingTotal) {
+    const normalizedItems = items.map((item) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+      const additionalCost = Math.max(0, Number(item.additionalCost) || 0);
+      const lineTotal = this.roundTo(quantity * unitPrice, 4);
+
+      return {
+        ...item,
+        quantity,
+        unitPrice,
+        additionalCost,
+        lineTotal,
+      };
+    });
+
+    const orderSubtotal = this.roundTo(
+      normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0),
+      4
+    );
+    const roundedShippingTotal = this.roundTo(Math.max(0, Number(shippingTotal) || 0), 2);
+
+    const shares = normalizedItems.map(() => 0);
+    if (orderSubtotal > 0 && roundedShippingTotal > 0) {
+      let allocatedShipping = 0;
+
+      normalizedItems.forEach((item, index) => {
+        const rawShare = (item.lineTotal / orderSubtotal) * roundedShippingTotal;
+        const roundedShare = this.roundTo(rawShare, 2);
+        shares[index] = roundedShare;
+        allocatedShipping += roundedShare;
+      });
+
+      const roundingDelta = this.roundTo(roundedShippingTotal - allocatedShipping, 2);
+      if (roundingDelta !== 0 && normalizedItems.length > 0) {
+        const targetIndex = normalizedItems.reduce((bestIndex, item, index, arr) => {
+          if (item.lineTotal > arr[bestIndex].lineTotal) {
+            return index;
+          }
+          return bestIndex;
+        }, 0);
+        shares[targetIndex] = this.roundTo(shares[targetIndex] + roundingDelta, 2);
+      }
+    }
+
+    const pricedItems = normalizedItems.map((item, index) => {
+      const shippingShare = Math.max(0, this.roundTo(shares[index], 2));
+      const adjustedLineTotal = this.roundTo(item.lineTotal + shippingShare, 4);
+      const adjustedUnitPrice = this.roundTo(adjustedLineTotal / item.quantity, 4);
+      const totalPrice = this.roundTo(item.lineTotal + item.additionalCost + shippingShare, 4);
+
+      return {
+        ...item,
+        shippingShare,
+        adjustedLineTotal,
+        adjustedUnitPrice,
+        totalPrice,
+      };
+    });
+
+    const subtotal = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.lineTotal + item.additionalCost, 0),
+      4
+    );
+    const distributedShippingCost = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.shippingShare, 0),
+      2
+    );
+
+    return {
+      items: pricedItems,
+      subtotal,
+      shippingCost: distributedShippingCost,
+    };
+  }
+
   /**
    * Delete all need lists
    */
@@ -89,6 +170,10 @@ class NeedListService {
         partNumber: part.sku || part.partNumber || 'N/A',
         partName: part.itemName || part.name || 'Unknown',
         quantity: item.quantity,
+        unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+        priceType: item.priceType === 'gross' ? 'gross' : 'net',
+        shippingCost: Math.max(0, Number(item.shippingCost) || 0),
+        additionalCost: Math.max(0, Number(item.additionalCost) || 0),
         currentStock: part.currentStock || (part.versions && part.versions.length > 0 ? part.versions[0].quantity : 0),
         notes: item.notes || '',
         supplier: item.supplier || null
@@ -150,6 +235,10 @@ class NeedListService {
           partNumber: part.sku || part.partNumber || 'N/A',
           partName: part.itemName || part.name || 'Unknown',
           quantity: item.quantity,
+          unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+          priceType: item.priceType === 'gross' ? 'gross' : 'net',
+          shippingCost: Math.max(0, Number(item.shippingCost) || 0),
+          additionalCost: Math.max(0, Number(item.additionalCost) || 0),
           currentStock: part.currentStock || (part.versions && part.versions.length > 0 ? part.versions[0].quantity : 0),
           notes: item.notes || '',
           supplier: item.supplier || null
@@ -218,6 +307,18 @@ class NeedListService {
       // Update quantity if item already exists
       needList.items[existingItemIndex].quantity += itemData.quantity;
       needList.items[existingItemIndex].notes = itemData.notes || needList.items[existingItemIndex].notes;
+      if (typeof itemData.unitPrice === 'number') {
+        needList.items[existingItemIndex].unitPrice = itemData.unitPrice;
+      }
+      if (itemData.priceType === 'gross' || itemData.priceType === 'net') {
+        needList.items[existingItemIndex].priceType = itemData.priceType;
+      }
+      if (itemData.shippingCost !== undefined) {
+        needList.items[existingItemIndex].shippingCost = Math.max(0, Number(itemData.shippingCost) || 0);
+      }
+      if (itemData.additionalCost !== undefined) {
+        needList.items[existingItemIndex].additionalCost = Math.max(0, Number(itemData.additionalCost) || 0);
+      }
       if (itemData.supplier) {
         needList.items[existingItemIndex].supplier = itemData.supplier;
       }
@@ -228,6 +329,10 @@ class NeedListService {
         partNumber: part.sku || part.partNumber || 'N/A',
         partName: part.itemName || part.name || 'Unknown',
         quantity: itemData.quantity,
+        unitPrice: typeof itemData.unitPrice === 'number' ? itemData.unitPrice : 0,
+        priceType: itemData.priceType === 'gross' ? 'gross' : 'net',
+        shippingCost: Math.max(0, Number(itemData.shippingCost) || 0),
+        additionalCost: Math.max(0, Number(itemData.additionalCost) || 0),
         currentStock: part.currentStock || (part.versions && part.versions.length > 0 ? part.versions[0].quantity : 0),
         notes: itemData.notes || '',
         supplier: itemData.supplier || null
@@ -280,23 +385,42 @@ class NeedListService {
       throw new Error('Cannot convert an empty need list to an order');
     }
 
-    // Validate supplier is provided
-    if (!orderData.supplier) {
-      throw new Error('Supplier is required to create an order');
-    }
+    const itemConfigurations = Array.isArray(orderData.itemConfigurations)
+      ? orderData.itemConfigurations
+      : [];
+    const itemConfigMap = new Map(
+      itemConfigurations.map((cfg) => [String(cfg.needListItemId), cfg])
+    );
 
     // Create order items from need list items
     const orderItems = [];
+    let requestedShippingTotal = 0;
+
     for (const item of needList.items) {
       const part = item.part;
+      const itemConfig = itemConfigMap.get(String(item._id));
 
-      // Get price from the first version if available
-      let unitPrice = 0;
-      if (part.versions && part.versions.length > 0) {
+      const itemSupplier = itemConfig?.supplier || item.supplier || orderData.supplier;
+      if (!itemSupplier) {
+        throw new Error(`Supplier is required for item ${item.partNumber || item.partName}`);
+      }
+
+      const priceType = itemConfig?.priceType || item.priceType || 'net';
+      const configuredPrice = Number(itemConfig?.price);
+
+      // Prefer manually set need-list price, then fallback to inventory cost.
+      let unitPrice = Number.isFinite(configuredPrice)
+        ? configuredPrice
+        : (typeof item.unitPrice === 'number' ? item.unitPrice : 0);
+      if (unitPrice === 0 && part.versions && part.versions.length > 0) {
         unitPrice = part.versions[0].unitCost || 0;
       }
 
-      const totalPrice = item.quantity * unitPrice;
+      const shippingCost = Math.max(0, Number(itemConfig?.shippingCost) || Number(item.shippingCost) || 0);
+      const additionalCost = Math.max(0, Number(itemConfig?.additionalCost) || Number(item.additionalCost) || 0);
+
+      requestedShippingTotal += shippingCost;
+
 
       orderItems.push({
         partId: item.part._id,
@@ -304,7 +428,9 @@ class NeedListService {
         sku: item.partNumber,
         quantity: item.quantity,
         unitPrice: unitPrice,
-        totalPrice: totalPrice,
+        priceType,
+        additionalCost,
+        supplier: itemSupplier,
         status: 'pending'
       });
     }
@@ -313,15 +439,18 @@ class NeedListService {
       throw new Error('No items to add to the order');
     }
 
-    const subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const allocation = this.allocateShippingProportionally(orderItems, requestedShippingTotal);
+
     const tax = 0; // Can be calculated based on business rules
-    const shippingCost = 0; // Can be set based on supplier or order size
-    const totalCost = subtotal + tax + shippingCost;
+    const shippingCost = allocation.shippingCost;
+    const totalCost = this.roundTo(allocation.subtotal + tax + shippingCost, 4);
+
+    const primarySupplierId = orderData.supplier || String(orderItems[0].supplier);
 
     const order = new EPartOrder({
-      supplierId: orderData.supplier,
-      items: orderItems,
-      subtotal: subtotal,
+      supplierId: primarySupplierId,
+      items: allocation.items,
+      subtotal: allocation.subtotal,
       tax: tax,
       shippingCost: shippingCost,
       totalCost: totalCost,

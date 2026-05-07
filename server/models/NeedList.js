@@ -19,6 +19,26 @@ const needListItemSchema = new mongoose.Schema({
     required: true,
     min: 1
   },
+  unitPrice: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  priceType: {
+    type: String,
+    enum: ['net', 'gross'],
+    default: 'net'
+  },
+  shippingCost: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  additionalCost: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
   currentStock: {
     type: Number,
     default: 0

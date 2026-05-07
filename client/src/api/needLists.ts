@@ -6,6 +6,10 @@ export interface NeedListItem {
   partNumber: string;
   partName: string;
   quantity: number;
+  unitPrice?: number;
+  priceType?: 'net' | 'gross';
+  shippingCost?: number;
+  additionalCost?: number;
   currentStock: number;
   notes?: string;
   supplier?: string;
@@ -48,6 +52,15 @@ export interface NeedListStatistics {
     high?: number;
     urgent?: number;
   };
+}
+
+export interface NeedListConvertItemConfig {
+  needListItemId: string;
+  supplier: string;
+  priceType: 'net' | 'gross';
+  price: number;
+  shippingCost: number;
+  additionalCost: number;
 }
 
 // Description: Get all need lists with optional filtering
@@ -114,7 +127,16 @@ export const getNeedListById = async (id: string): Promise<NeedList> => {
 export const createNeedList = async (data: {
   name: string;
   description?: string;
-  items: Array<{ part: string; quantity: number; notes?: string; supplier?: string }>; // supplier hinzugefügt
+  items: Array<{
+    part: string;
+    quantity: number;
+    notes?: string;
+    supplier?: string;
+    unitPrice?: number;
+    priceType?: 'net' | 'gross';
+    shippingCost?: number;
+    additionalCost?: number;
+  }>;
   priority?: string;
   tags?: string[];
 }): Promise<NeedList> => {
@@ -138,7 +160,16 @@ export const updateNeedList = async (
   data: Partial<{
     name: string;
     description: string;
-    items: Array<{ part: string; quantity: number; notes?: string; supplier?: string }>;
+    items: Array<{
+      part: string;
+      quantity: number;
+      notes?: string;
+      supplier?: string;
+      unitPrice?: number;
+      priceType?: 'net' | 'gross';
+      shippingCost?: number;
+      additionalCost?: number;
+    }>;
     status: string;
     priority: string;
     tags: string[];
@@ -177,7 +208,16 @@ export const deleteNeedList = async (id: string): Promise<{ message: string }> =
 // Response: { needList: NeedList }
 export const addItemToNeedList = async (
   id: string,
-  item: { part: string; quantity: number; notes?: string; supplier?: string }
+  item: {
+    part: string;
+    quantity: number;
+    notes?: string;
+    supplier?: string;
+    unitPrice?: number;
+    priceType?: 'net' | 'gross';
+    shippingCost?: number;
+    additionalCost?: number;
+  }
 ): Promise<NeedList> => {
   try {
     console.log('Adding item to need list:', id);
@@ -215,7 +255,11 @@ export const removeItemFromNeedList = async (
 // Response: { order: EPartOrder, needList: NeedList }
 export const convertNeedListToOrder = async (
   id: string,
-  data: { supplier?: string; notes?: string }
+  data: {
+    supplier?: string;
+    notes?: string;
+    itemConfigurations?: NeedListConvertItemConfig[];
+  }
 ): Promise<{ order: any; needList: NeedList }> => {
   try {
     console.log('Converting need list to order:', id);

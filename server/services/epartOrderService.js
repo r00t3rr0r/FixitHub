@@ -2,6 +2,87 @@ const { Supplier, EPartOrder } = require('../models/EPartOrder');
 const Inventory = require('../models/Inventory');
 
 class EPartOrderService {
+  static roundTo(value, decimals = 4) {
+    const factor = 10 ** decimals;
+    return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+  }
+
+  static allocateShippingProportionally(items, shippingTotal) {
+    const normalizedItems = items.map((item) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+      const additionalCost = Math.max(0, Number(item.additionalCost) || 0);
+      const lineTotal = this.roundTo(quantity * unitPrice, 4);
+
+      return {
+        ...item,
+        quantity,
+        unitPrice,
+        additionalCost,
+        lineTotal,
+      };
+    });
+
+    const orderSubtotal = this.roundTo(
+      normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0),
+      4
+    );
+    const roundedShippingTotal = this.roundTo(Math.max(0, Number(shippingTotal) || 0), 2);
+
+    const shares = normalizedItems.map(() => 0);
+    if (orderSubtotal > 0 && roundedShippingTotal > 0) {
+      let allocatedShipping = 0;
+
+      normalizedItems.forEach((item, index) => {
+        const rawShare = (item.lineTotal / orderSubtotal) * roundedShippingTotal;
+        const roundedShare = this.roundTo(rawShare, 2);
+        shares[index] = roundedShare;
+        allocatedShipping += roundedShare;
+      });
+
+      const roundingDelta = this.roundTo(roundedShippingTotal - allocatedShipping, 2);
+      if (roundingDelta !== 0 && normalizedItems.length > 0) {
+        const targetIndex = normalizedItems.reduce((bestIndex, item, index, arr) => {
+          if (item.lineTotal > arr[bestIndex].lineTotal) {
+            return index;
+          }
+          return bestIndex;
+        }, 0);
+        shares[targetIndex] = this.roundTo(shares[targetIndex] + roundingDelta, 2);
+      }
+    }
+
+    const pricedItems = normalizedItems.map((item, index) => {
+      const shippingShare = Math.max(0, this.roundTo(shares[index], 2));
+      const adjustedLineTotal = this.roundTo(item.lineTotal + shippingShare, 4);
+      const adjustedUnitPrice = this.roundTo(adjustedLineTotal / item.quantity, 4);
+      const totalPrice = this.roundTo(item.lineTotal + item.additionalCost + shippingShare, 4);
+
+      return {
+        ...item,
+        shippingShare,
+        adjustedLineTotal,
+        adjustedUnitPrice,
+        totalPrice,
+      };
+    });
+
+    const subtotal = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.lineTotal + item.additionalCost, 0),
+      4
+    );
+    const distributedShippingCost = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.shippingShare, 0),
+      2
+    );
+
+    return {
+      items: pricedItems,
+      subtotal,
+      shippingCost: distributedShippingCost,
+    };
+  }
+
   // ============ SUPPLIER OPERATIONS ============
 
   /**
@@ -167,9 +248,7 @@ class EPartOrderService {
    * Create new epart order
    */
   static async createEPartOrder(orderData, userId) {
-    // Calculate subtotal and total
-    let subtotal = 0;
-    const items = [];
+    const preparedItems = [];
 
     for (const item of orderData.items) {
       // Get part details from inventory
@@ -178,34 +257,36 @@ class EPartOrderService {
         throw new Error(`Part not found: ${item.partId}`);
       }
 
-      const totalPrice = item.quantity * item.unitPrice;
-      subtotal += totalPrice;
-
-      items.push({
+      preparedItems.push({
         partId: item.partId,
         partName: part.name,
         sku: part.sku,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: totalPrice,
+        unitPrice: Math.max(0, Number(item.unitPrice) || 0),
+        additionalCost: Math.max(0, Number(item.additionalCost) || 0),
+        priceType: item.priceType === 'gross' ? 'gross' : 'net',
         receivedQuantity: 0,
         status: 'pending'
       });
     }
 
-    const tax = orderData.tax || 0;
-    const shippingCost = orderData.shippingCost || 0;
-    const totalCost = subtotal + tax + shippingCost;
+    const allocation = this.allocateShippingProportionally(
+      preparedItems,
+      orderData.shippingCost || 0
+    );
+
+    const tax = Math.max(0, Number(orderData.tax) || 0);
+    const totalCost = this.roundTo(allocation.subtotal + tax + allocation.shippingCost, 4);
 
     const order = new EPartOrder({
       supplierId: orderData.supplierId,
-      items: items,
+      items: allocation.items,
       status: orderData.status || 'draft',
       orderDate: orderData.orderDate || new Date(),
       expectedDeliveryDate: orderData.expectedDeliveryDate,
-      subtotal: subtotal,
+      subtotal: allocation.subtotal,
       tax: tax,
-      shippingCost: shippingCost,
+      shippingCost: allocation.shippingCost,
       totalCost: totalCost,
       paymentMethod: orderData.paymentMethod || 'account',
       notes: orderData.notes,
@@ -273,12 +354,31 @@ class EPartOrderService {
 
     if (updateData.tax !== undefined) {
       order.tax = updateData.tax;
-      order.totalCost = order.subtotal + order.tax + order.shippingCost;
+      order.totalCost = this.roundTo(order.subtotal + order.tax + order.shippingCost, 4);
     }
 
     if (updateData.shippingCost !== undefined) {
-      order.shippingCost = updateData.shippingCost;
-      order.totalCost = order.subtotal + order.tax + order.shippingCost;
+      const allocation = this.allocateShippingProportionally(
+        order.items.map((item) => ({
+          ...item.toObject(),
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          additionalCost: item.additionalCost || 0,
+        })),
+        updateData.shippingCost
+      );
+
+      order.items.forEach((item, index) => {
+        const allocated = allocation.items[index];
+        item.shippingShare = allocated.shippingShare;
+        item.adjustedLineTotal = allocated.adjustedLineTotal;
+        item.adjustedUnitPrice = allocated.adjustedUnitPrice;
+        item.totalPrice = allocated.totalPrice;
+      });
+
+      order.shippingCost = allocation.shippingCost;
+      order.subtotal = allocation.subtotal;
+      order.totalCost = this.roundTo(order.subtotal + order.tax + order.shippingCost, 4);
     }
 
     await order.save();

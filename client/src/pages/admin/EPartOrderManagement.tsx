@@ -78,6 +78,7 @@ import { cn } from '@/lib/utils';
 
 export default function EPartOrderManagement() {
   const { toast } = useToast();
+  const fallbackVatRate = 0.19;
   const pageSectionCardClass = 'border-slate-200 shadow-sm';
   const compactCardHeaderClass = 'space-y-1 px-4 py-3';
   const compactCardContentClass = 'px-4 pb-4';
@@ -95,6 +96,33 @@ export default function EPartOrderManagement() {
   const compactDialogDescriptionClass = 'text-xs text-slate-200';
   const compactDialogBodyClass = 'space-y-4 p-4 pt-3';
   const compactDialogFooterClass = 'border-t border-slate-200 bg-slate-50 px-4 py-3';
+
+  const getOrderTaxRate = (order: EPartOrder) => {
+    const netBase =
+      Math.max(0, Number(order.subtotal) || 0) + Math.max(0, Number(order.shippingCost) || 0);
+
+    if (netBase <= 0) {
+      return fallbackVatRate;
+    }
+
+    const derivedRate = (Math.max(0, Number(order.tax) || 0) / netBase);
+    if (!Number.isFinite(derivedRate) || derivedRate <= 0) {
+      return fallbackVatRate;
+    }
+
+    return derivedRate;
+  };
+
+  const convertByPriceType = (amount: number, priceType: 'net' | 'gross', taxRate: number) => {
+    const normalized = Math.max(0, Number(amount) || 0);
+    if (priceType === 'gross') {
+      const net = normalized / (1 + taxRate);
+      return { net, gross: normalized };
+    }
+
+    const gross = normalized * (1 + taxRate);
+    return { net: normalized, gross };
+  };
 
   // State
   const [orders, setOrders] = useState<EPartOrder[]>([]);
@@ -579,15 +607,15 @@ export default function EPartOrderManagement() {
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="orders" className="space-y-4">
+      <Tabs defaultValue="need-lists" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1">
-          <TabsTrigger value="orders" className="h-9 text-xs font-semibold">
-            <ShoppingCart className="mr-2 h-3.5 w-3.5" />
-            Orders
-          </TabsTrigger>
           <TabsTrigger value="need-lists" className="h-9 text-xs font-semibold">
             <ClipboardList className="mr-2 h-3.5 w-3.5" />
             Need Lists
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="h-9 text-xs font-semibold">
+            <ShoppingCart className="mr-2 h-3.5 w-3.5" />
+            Orders
           </TabsTrigger>
           <TabsTrigger value="suppliers" className="h-9 text-xs font-semibold">
             <Package className="mr-2 h-3.5 w-3.5" />
@@ -1736,6 +1764,27 @@ export default function EPartOrderManagement() {
                   </div>
 
                   <div>
+                    <Label className={compactLabelClass}>Total Net</Label>
+                    <p className="text-sm font-semibold">
+                      ${(
+                        Math.max(0, Number(selectedOrder.subtotal) || 0) +
+                        Math.max(0, Number(selectedOrder.shippingCost) || 0)
+                      ).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label className={compactLabelClass}>Total Gross</Label>
+                    <p className="text-sm font-semibold">
+                      ${(
+                        Math.max(0, Number(selectedOrder.subtotal) || 0) +
+                        Math.max(0, Number(selectedOrder.shippingCost) || 0) +
+                        Math.max(0, Number(selectedOrder.tax) || 0)
+                      ).toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div>
                     <Label className={compactLabelClass}>Payment Status</Label>
                     <div className="mt-1">
                       <Badge
@@ -1929,19 +1978,47 @@ export default function EPartOrderManagement() {
                       <TableHead className={compactTableHeadClass}>Supplier</TableHead>
                       <TableHead className={compactTableHeadClass}>Ordered</TableHead>
                       <TableHead className={compactTableHeadClass}>Received</TableHead>
+                      <TableHead className={compactTableHeadClass}>Price Type</TableHead>
                       <TableHead className={compactTableHeadClass}>Unit Price</TableHead>
-                      <TableHead className={compactTableHeadClass}>Total</TableHead>
+                      <TableHead className={compactTableHeadClass}>Shipping Cost</TableHead>
+                      <TableHead className={compactTableHeadClass}>Additional Cost</TableHead>
+                      <TableHead className={compactTableHeadClass}>Line Net</TableHead>
+                      <TableHead className={compactTableHeadClass}>Line Gross</TableHead>
                       <TableHead className={compactTableHeadClass}>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {selectedOrder.items.map((item) => {
+                      const taxRate = getOrderTaxRate(selectedOrder);
+                      const priceType = item.priceType === 'gross' ? 'gross' : 'net';
                       let supplierName = '-';
                       if (item.supplier && Array.isArray(suppliers)) {
                         const supplierObj = suppliers.find((s) => s._id === item.supplier);
                         if (supplierObj) supplierName = supplierObj.name;
                         else supplierName = item.supplier;
                       }
+
+                      const quantity = Math.max(1, Number(item.quantity) || 1);
+                      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+                      const shippingCost = Math.max(
+                        0,
+                        Number(item.shippingShare ?? item.shippingCost) || 0
+                      );
+                      const additionalCost = Math.max(0, Number(item.additionalCost) || 0);
+
+                      const unitConverted = convertByPriceType(unitPrice, priceType, taxRate);
+                      const shippingConverted = convertByPriceType(shippingCost, priceType, taxRate);
+                      const additionalConverted = convertByPriceType(additionalCost, priceType, taxRate);
+
+                      const lineNet =
+                        unitConverted.net * quantity +
+                        shippingConverted.net +
+                        additionalConverted.net;
+                      const lineGross =
+                        unitConverted.gross * quantity +
+                        shippingConverted.gross +
+                        additionalConverted.gross;
+
                       return (
                         <TableRow key={item._id}>
                           <TableCell className={compactTableCellClass}>{item.partName}</TableCell>
@@ -1949,8 +2026,12 @@ export default function EPartOrderManagement() {
                           <TableCell className={compactTableCellClass}>{supplierName}</TableCell>
                           <TableCell className={compactTableCellClass}>{item.quantity}</TableCell>
                           <TableCell className={compactTableCellClass}>{item.receivedQuantity}</TableCell>
-                          <TableCell className={compactTableCellClass}>${item.unitPrice.toFixed(2)}</TableCell>
-                          <TableCell className={compactTableCellClass}>${item.totalPrice.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>{priceType.toUpperCase()}</TableCell>
+                          <TableCell className={compactTableCellClass}>${unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>${shippingCost.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>${additionalCost.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>${lineNet.toFixed(2)}</TableCell>
+                          <TableCell className={compactTableCellClass}>${lineGross.toFixed(2)}</TableCell>
                           <TableCell className={compactTableCellClass}>{getStatusBadge(item.status)}</TableCell>
                         </TableRow>
                       );
