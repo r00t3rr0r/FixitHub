@@ -1,6 +1,8 @@
 const { DeviceBrand, DeviceModel, DeviceType } = require('../models/Device');
 const Service = require('../models/Service');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 const slugifyDeviceType = (value = '') =>
   String(value)
@@ -18,6 +20,47 @@ const toDisplayName = (key = '') =>
     .join(' ');
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const slugForFilesystem = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'unknown';
+
+async function downloadAndSaveModelImage(imageUrl, imageB64, brandName, modelName) {
+  const brandSlug = slugForFilesystem(brandName);
+  const modelSlug = slugForFilesystem(modelName);
+  const dir = path.join(__dirname, '../uploads/device-images', brandSlug);
+  const filePath = path.join(dir, `${modelSlug}.jpg`);
+  const relativePath = `/uploads/device-images/${brandSlug}/${modelSlug}.jpg`;
+
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (_) {
+    // ignore mkdirSync errors
+  }
+
+  if (imageUrl) {
+    try {
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 15000 });
+      fs.writeFileSync(filePath, Buffer.from(response.data));
+      return relativePath;
+    } catch (_) {
+      // fall through to b64
+    }
+  }
+
+  if (imageB64) {
+    try {
+      fs.writeFileSync(filePath, Buffer.from(imageB64, 'base64'));
+      return relativePath;
+    } catch (_) {
+      // fall through
+    }
+  }
+
+  return null;
+}
 
 const parseListValue = (value) => {
   if (Array.isArray(value)) {
@@ -61,17 +104,36 @@ const parseModelNumbersValue = (value) => {
     return Array.from(new Set(splitByPrimaryDelimiters));
   }
 
+  // Keep Apple-style identifiers intact (e.g. iPhone11,8 / iPhone15,2 / iPad13,4).
+  if (/^[a-z][a-z0-9]*\d+,\d+$/i.test(input)) {
+    return [input];
+  }
+
   const commaParts = input
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
 
+  // In mixed lists like "A2890, A2650, iphone15,2" a plain comma split breaks
+  // Apple internal identifiers; merge "<prefix+digits>,<digits>" back together.
+  const mergedCommaParts = [];
+  for (let i = 0; i < commaParts.length; i += 1) {
+    const current = commaParts[i];
+    const next = commaParts[i + 1];
+    if (/^[a-z][a-z0-9]*\d+$/i.test(current) && /^\d+$/.test(next || '')) {
+      mergedCommaParts.push(`${current},${next}`);
+      i += 1;
+      continue;
+    }
+    mergedCommaParts.push(current);
+  }
+
   const shouldSplitByComma =
-    commaParts.length > 1 &&
-    commaParts.every((part) => /^[a-z0-9._\-+/]+$/i.test(part) && /\d/.test(part));
+    mergedCommaParts.length > 1 &&
+    mergedCommaParts.every((part) => /^[a-z0-9._\-+/,]+$/i.test(part) && /\d/.test(part));
 
   if (shouldSplitByComma) {
-    return Array.from(new Set(commaParts));
+    return Array.from(new Set(mergedCommaParts));
   }
 
   return [input];
@@ -814,15 +876,28 @@ class DeviceService {
     return scored[0]?.candidate || null;
   }
 
-  static buildMobileApiModelUpdate(model, mobileApiDevice, resolvedBrandId, resolvedDeviceType) {
+  static async buildMobileApiModelUpdate(model, mobileApiDevice, resolvedBrandId, resolvedDeviceType) {
+    const modelPlain = typeof model.toObject === 'function' ? model.toObject() : model;
+
     const nextModelNumbers = parseModelNumbersValue(mobileApiDevice.model_numbers);
     const nextColors = parseListValue(mobileApiDevice.colors);
     const commonProblems = splitCommaList(mobileApiDevice.common_problems);
 
-    const imageFromApi =
-      toNonEmptyString(mobileApiDevice.image_b64)
-        ? `data:image/jpeg;base64,${toNonEmptyString(mobileApiDevice.image_b64)}`
-        : toNonEmptyString(mobileApiDevice.image_url) || toNonEmptyString(model.image);
+    const brandName =
+      (typeof modelPlain.brandId === 'object' && modelPlain.brandId?.name)
+        ? String(modelPlain.brandId.name)
+        : '';
+    const modelName = toNonEmptyString(mobileApiDevice.name) || toNonEmptyString(modelPlain.name) || 'device';
+    const imageB64 = toNonEmptyString(mobileApiDevice.image_b64);
+    const imageUrl = toNonEmptyString(mobileApiDevice.image_url);
+
+    let imageFromApi = toNonEmptyString(modelPlain.image);
+    if (imageB64 || imageUrl) {
+      const downloaded = await downloadAndSaveModelImage(imageUrl, imageB64, brandName, modelName);
+      if (downloaded) {
+        imageFromApi = downloaded;
+      }
+    }
 
     const memoryInternalFromApi = [
       ...splitCommaList(mobileApiDevice.memory_internal).map((item) => {
@@ -839,115 +914,120 @@ class DeviceService {
       mobileApiUpdatedAt: new Date(),
       mobileApiMatchId: Number(mobileApiDevice.id) || undefined,
       mobileApiLastStatus: 'updated',
-      name: toNonEmptyString(mobileApiDevice.name) || toNonEmptyString(model.name),
-      brandId: resolvedBrandId || model.brandId,
-      deviceType: resolvedDeviceType || model.deviceType,
+      name: toNonEmptyString(mobileApiDevice.name) || toNonEmptyString(modelPlain.name),
+      brandId: resolvedBrandId || modelPlain.brandId,
+      deviceType: resolvedDeviceType || modelPlain.deviceType,
       image: imageFromApi,
-      images: imageFromApi ? [{ base64: imageFromApi, url: toNonEmptyString(mobileApiDevice.image_url) }] : model.images || [],
-      modelNumbers: nextModelNumbers.length > 0 ? nextModelNumbers : model.modelNumbers || [],
-      commonProblems: commonProblems.length > 0 ? commonProblems : model.commonProblems || [],
+      images: imageFromApi
+        ? [{
+          url: imageFromApi,
+          caption: toNonEmptyString(mobileApiDevice.image_url) || '',
+        }]
+        : modelPlain.images || [],
+      modelNumbers: nextModelNumbers.length > 0 ? nextModelNumbers : modelPlain.modelNumbers || [],
+      commonProblems: commonProblems.length > 0 ? commonProblems : modelPlain.commonProblems || [],
       specifications: {
-        ...(model.specifications || {}),
+        ...(modelPlain.specifications || {}),
         ...(toNonEmptyString(mobileApiDevice.description)
           ? { description: toNonEmptyString(mobileApiDevice.description) }
           : {}),
       },
       network: {
-        ...(model.network || {}),
-        technology2G: toNonEmptyString(mobileApiDevice.technology_2g) || toNonEmptyString((model.network || {}).technology2G),
-        bands2G: toNonEmptyString(mobileApiDevice.bands_2g) || toNonEmptyString((model.network || {}).bands2G),
-        technology3G: toNonEmptyString(mobileApiDevice.technology_3g) || toNonEmptyString((model.network || {}).technology3G),
-        bands3G: toNonEmptyString(mobileApiDevice.bands_3g) || toNonEmptyString((model.network || {}).bands3G),
-        technology4G: toNonEmptyString(mobileApiDevice.technology_4g) || toNonEmptyString((model.network || {}).technology4G),
-        bands4G: toNonEmptyString(mobileApiDevice.bands_4g) || toNonEmptyString((model.network || {}).bands4G),
-        technology5G: toNonEmptyString(mobileApiDevice.technology_5g) || toNonEmptyString((model.network || {}).technology5G),
-        bands5G: toNonEmptyString(mobileApiDevice.bands_5g) || toNonEmptyString((model.network || {}).bands5G),
-        speed: toNonEmptyString(mobileApiDevice.network_speed) || toNonEmptyString((model.network || {}).speed),
+        ...(modelPlain.network || {}),
+        technology2G: toNonEmptyString(mobileApiDevice.technology_2g) || toNonEmptyString((modelPlain.network || {}).technology2G),
+        bands2G: toNonEmptyString(mobileApiDevice.bands_2g) || toNonEmptyString((modelPlain.network || {}).bands2G),
+        technology3G: toNonEmptyString(mobileApiDevice.technology_3g) || toNonEmptyString((modelPlain.network || {}).technology3G),
+        bands3G: toNonEmptyString(mobileApiDevice.bands_3g) || toNonEmptyString((modelPlain.network || {}).bands3G),
+        technology4G: toNonEmptyString(mobileApiDevice.technology_4g) || toNonEmptyString((modelPlain.network || {}).technology4G),
+        bands4G: toNonEmptyString(mobileApiDevice.bands_4g) || toNonEmptyString((modelPlain.network || {}).bands4G),
+        technology5G: toNonEmptyString(mobileApiDevice.technology_5g) || toNonEmptyString((modelPlain.network || {}).technology5G),
+        bands5G: toNonEmptyString(mobileApiDevice.bands_5g) || toNonEmptyString((modelPlain.network || {}).bands5G),
+        speed: toNonEmptyString(mobileApiDevice.network_speed) || toNonEmptyString((modelPlain.network || {}).speed),
       },
       physical: {
-        ...(model.physical || {}),
-        dimensions: toNonEmptyString(mobileApiDevice.thickness) || toNonEmptyString((model.physical || {}).dimensions),
-        weight: toNonEmptyString(mobileApiDevice.weight) || toNonEmptyString((model.physical || {}).weight),
-        build: toNonEmptyString(mobileApiDevice.body_material) || toNonEmptyString((model.physical || {}).build),
-        simType: toNonEmptyString(mobileApiDevice.sim_type) || toNonEmptyString((model.physical || {}).simType),
-        simCount: toNonEmptyString(mobileApiDevice.sim_count) || toNonEmptyString((model.physical || {}).simCount),
+        ...(modelPlain.physical || {}),
+        dimensions: toNonEmptyString(mobileApiDevice.thickness) || toNonEmptyString((modelPlain.physical || {}).dimensions),
+        weight: toNonEmptyString(mobileApiDevice.weight) || toNonEmptyString((modelPlain.physical || {}).weight),
+        build: toNonEmptyString(mobileApiDevice.body_material) || toNonEmptyString((modelPlain.physical || {}).build),
+        simType: toNonEmptyString(mobileApiDevice.sim_type) || toNonEmptyString((modelPlain.physical || {}).simType),
+        simCount: toNonEmptyString(mobileApiDevice.sim_count) || toNonEmptyString((modelPlain.physical || {}).simCount),
       },
       display: {
-        ...(model.display || {}),
-        type: toNonEmptyString(mobileApiDevice.display_type) || toNonEmptyString((model.display || {}).type),
-        size: toNonEmptyString(mobileApiDevice.screen_size) || toNonEmptyString((model.display || {}).size),
-        resolution: toNonEmptyString(mobileApiDevice.screen_resolution) || toNonEmptyString((model.display || {}).resolution),
-        protection: toNonEmptyString(mobileApiDevice.display_protection) || toNonEmptyString((model.display || {}).protection),
-        features: toNonEmptyString(mobileApiDevice.display_features) || toNonEmptyString((model.display || {}).features),
+        ...(modelPlain.display || {}),
+        type: toNonEmptyString(mobileApiDevice.display_type) || toNonEmptyString((modelPlain.display || {}).type),
+        size: toNonEmptyString(mobileApiDevice.screen_size) || toNonEmptyString((modelPlain.display || {}).size),
+        resolution: toNonEmptyString(mobileApiDevice.screen_resolution) || toNonEmptyString((modelPlain.display || {}).resolution),
+        protection: toNonEmptyString(mobileApiDevice.display_protection) || toNonEmptyString((modelPlain.display || {}).protection),
+        features: toNonEmptyString(mobileApiDevice.display_features) || toNonEmptyString((modelPlain.display || {}).features),
       },
       platform: {
-        ...(model.platform || {}),
-        os: toNonEmptyString(mobileApiDevice.os) || toNonEmptyString((model.platform || {}).os),
-        chipset: toNonEmptyString(mobileApiDevice.hardware) || toNonEmptyString((model.platform || {}).chipset),
-        cpu: toNonEmptyString(mobileApiDevice.cpu) || toNonEmptyString((model.platform || {}).cpu),
-        gpu: toNonEmptyString(mobileApiDevice.gpu) || toNonEmptyString((model.platform || {}).gpu),
+        ...(modelPlain.platform || {}),
+        os: toNonEmptyString(mobileApiDevice.os) || toNonEmptyString((modelPlain.platform || {}).os),
+        chipset: toNonEmptyString(mobileApiDevice.hardware) || toNonEmptyString((modelPlain.platform || {}).chipset),
+        cpu: toNonEmptyString(mobileApiDevice.cpu) || toNonEmptyString((modelPlain.platform || {}).cpu),
+        gpu: toNonEmptyString(mobileApiDevice.gpu) || toNonEmptyString((modelPlain.platform || {}).gpu),
       },
       memory: {
-        ...(model.memory || {}),
-        internal: memoryInternalFromApi.length > 0 ? memoryInternalFromApi : (model.memory || {}).internal || [],
-        cardSlot: toNonEmptyString(mobileApiDevice.memory_card_slot) || toNonEmptyString((model.memory || {}).cardSlot),
+        ...(modelPlain.memory || {}),
+        internal: memoryInternalFromApi.length > 0 ? memoryInternalFromApi : (modelPlain.memory || {}).internal || [],
+        cardSlot: toNonEmptyString(mobileApiDevice.memory_card_slot) || toNonEmptyString((modelPlain.memory || {}).cardSlot),
       },
       rearCamera: {
-        ...(model.rearCamera || {}),
-        modules: toNonEmptyString(mobileApiDevice.main_camera) || toNonEmptyString((model.rearCamera || {}).modules),
-        features: toNonEmptyString(mobileApiDevice.main_camera_features) || toNonEmptyString((model.rearCamera || {}).features),
-        video: toNonEmptyString(mobileApiDevice.main_camera_video) || toNonEmptyString((model.rearCamera || {}).video),
+        ...(modelPlain.rearCamera || {}),
+        modules: toNonEmptyString(mobileApiDevice.main_camera) || toNonEmptyString((modelPlain.rearCamera || {}).modules),
+        features: toNonEmptyString(mobileApiDevice.main_camera_features) || toNonEmptyString((modelPlain.rearCamera || {}).features),
+        video: toNonEmptyString(mobileApiDevice.main_camera_video) || toNonEmptyString((modelPlain.rearCamera || {}).video),
       },
       frontCamera: {
-        ...(model.frontCamera || {}),
-        modules: toNonEmptyString(mobileApiDevice.selfie_camera) || toNonEmptyString((model.frontCamera || {}).modules),
-        features: toNonEmptyString(mobileApiDevice.selfie_camera_features) || toNonEmptyString((model.frontCamera || {}).features),
-        video: toNonEmptyString(mobileApiDevice.selfie_camera_video) || toNonEmptyString((model.frontCamera || {}).video),
+        ...(modelPlain.frontCamera || {}),
+        modules: toNonEmptyString(mobileApiDevice.selfie_camera) || toNonEmptyString((modelPlain.frontCamera || {}).modules),
+        features: toNonEmptyString(mobileApiDevice.selfie_camera_features) || toNonEmptyString((modelPlain.frontCamera || {}).features),
+        video: toNonEmptyString(mobileApiDevice.selfie_camera_video) || toNonEmptyString((modelPlain.frontCamera || {}).video),
       },
       audio: {
-        ...(model.audio || {}),
-        loudspeaker: toNonEmptyString(mobileApiDevice.loudspeaker) || toNonEmptyString((model.audio || {}).loudspeaker),
-        jack3_5mm: toNonEmptyString(mobileApiDevice.jack) || toNonEmptyString((model.audio || {}).jack3_5mm),
+        ...(modelPlain.audio || {}),
+        loudspeaker: toNonEmptyString(mobileApiDevice.loudspeaker) || toNonEmptyString((modelPlain.audio || {}).loudspeaker),
+        jack3_5mm: toNonEmptyString(mobileApiDevice.jack) || toNonEmptyString((modelPlain.audio || {}).jack3_5mm),
       },
       connectivity: {
-        ...(model.connectivity || {}),
-        wlan: toNonEmptyString(mobileApiDevice.wlan) || toNonEmptyString((model.connectivity || {}).wlan),
-        bluetooth: toNonEmptyString(mobileApiDevice.bluetooth) || toNonEmptyString((model.connectivity || {}).bluetooth),
-        positioning: toNonEmptyString(mobileApiDevice.gps) || toNonEmptyString((model.connectivity || {}).positioning),
-        nfc: toNonEmptyString(mobileApiDevice.nfc) || toNonEmptyString((model.connectivity || {}).nfc),
-        radio: toNonEmptyString(mobileApiDevice.radio) || toNonEmptyString((model.connectivity || {}).radio),
-        usb: toNonEmptyString(mobileApiDevice.usb) || toNonEmptyString((model.connectivity || {}).usb),
-        infrared: toNonEmptyString(mobileApiDevice.infrared) || toNonEmptyString((model.connectivity || {}).infrared),
-        other: toNonEmptyString(mobileApiDevice.connectivity_other) || toNonEmptyString((model.connectivity || {}).other),
+        ...(modelPlain.connectivity || {}),
+        wlan: toNonEmptyString(mobileApiDevice.wlan) || toNonEmptyString((modelPlain.connectivity || {}).wlan),
+        bluetooth: toNonEmptyString(mobileApiDevice.bluetooth) || toNonEmptyString((modelPlain.connectivity || {}).bluetooth),
+        positioning: toNonEmptyString(mobileApiDevice.gps) || toNonEmptyString((modelPlain.connectivity || {}).positioning),
+        nfc: toNonEmptyString(mobileApiDevice.nfc) || toNonEmptyString((modelPlain.connectivity || {}).nfc),
+        radio: toNonEmptyString(mobileApiDevice.radio) || toNonEmptyString((modelPlain.connectivity || {}).radio),
+        usb: toNonEmptyString(mobileApiDevice.usb) || toNonEmptyString((modelPlain.connectivity || {}).usb),
+        infrared: toNonEmptyString(mobileApiDevice.infrared) || toNonEmptyString((modelPlain.connectivity || {}).infrared),
+        other: toNonEmptyString(mobileApiDevice.connectivity_other) || toNonEmptyString((modelPlain.connectivity || {}).other),
       },
       features: {
-        ...(model.features || {}),
-        sensors: toNonEmptyString(mobileApiDevice.sensors) || toNonEmptyString((model.features || {}).sensors),
+        ...(modelPlain.features || {}),
+        sensors: toNonEmptyString(mobileApiDevice.sensors) || toNonEmptyString((modelPlain.features || {}).sensors),
         special: splitCommaList(mobileApiDevice.special_features).length > 0
           ? splitCommaList(mobileApiDevice.special_features)
-          : (model.features || {}).special || [],
+          : (modelPlain.features || {}).special || [],
       },
       battery: {
-        ...(model.battery || {}),
-        type: toNonEmptyString(mobileApiDevice.battery_type) || toNonEmptyString((model.battery || {}).type),
-        charging: toNonEmptyString(mobileApiDevice.charging) || toNonEmptyString((model.battery || {}).charging),
-        standbyTime: toNonEmptyString(mobileApiDevice.stand_by) || toNonEmptyString((model.battery || {}).standbyTime),
-        talkTime: toNonEmptyString(mobileApiDevice.talk_time) || toNonEmptyString((model.battery || {}).talkTime),
-        musicPlay: toNonEmptyString(mobileApiDevice.music_play) || toNonEmptyString((model.battery || {}).musicPlay),
+        ...(modelPlain.battery || {}),
+        type: toNonEmptyString(mobileApiDevice.battery_type) || toNonEmptyString((modelPlain.battery || {}).type),
+        charging: toNonEmptyString(mobileApiDevice.charging) || toNonEmptyString((modelPlain.battery || {}).charging),
+        standbyTime: toNonEmptyString(mobileApiDevice.stand_by) || toNonEmptyString((modelPlain.battery || {}).standbyTime),
+        talkTime: toNonEmptyString(mobileApiDevice.talk_time) || toNonEmptyString((modelPlain.battery || {}).talkTime),
+        musicPlay: toNonEmptyString(mobileApiDevice.music_play) || toNonEmptyString((modelPlain.battery || {}).musicPlay),
       },
       other: {
-        ...(model.other || {}),
+        ...(modelPlain.other || {}),
         models: splitCommaList(mobileApiDevice.model_names).length > 0
           ? splitCommaList(mobileApiDevice.model_names)
-          : (model.other || {}).models || [],
+          : (modelPlain.other || {}).models || [],
         sarValues: {
-          ...((model.other || {}).sarValues || {}),
-          head: toNonEmptyString(mobileApiDevice.sar_head) || toNonEmptyString(((model.other || {}).sarValues || {}).head),
-          body: toNonEmptyString(mobileApiDevice.sar_body) || toNonEmptyString(((model.other || {}).sarValues || {}).body),
+          ...((modelPlain.other || {}).sarValues || {}),
+          head: toNonEmptyString(mobileApiDevice.sar_head) || toNonEmptyString(((modelPlain.other || {}).sarValues || {}).head),
+          body: toNonEmptyString(mobileApiDevice.sar_body) || toNonEmptyString(((modelPlain.other || {}).sarValues || {}).body),
         },
-        price: toNonEmptyString(mobileApiDevice.price) || toNonEmptyString((model.other || {}).price),
-        releaseDate: toNonEmptyString(mobileApiDevice.release_date) || toNonEmptyString((model.other || {}).releaseDate),
-        colors: nextColors.length > 0 ? nextColors : (model.other || {}).colors || [],
+        price: toNonEmptyString(mobileApiDevice.price) || toNonEmptyString((modelPlain.other || {}).price),
+        releaseDate: toNonEmptyString(mobileApiDevice.release_date) || toNonEmptyString((modelPlain.other || {}).releaseDate),
+        colors: nextColors.length > 0 ? nextColors : (modelPlain.other || {}).colors || [],
       },
     };
 
@@ -1056,7 +1136,7 @@ class DeviceService {
               }
             }
 
-            const updateData = DeviceService.buildMobileApiModelUpdate(model, bestMatch, resolvedBrandId, resolvedType);
+            const updateData = await DeviceService.buildMobileApiModelUpdate(model, bestMatch, resolvedBrandId, resolvedType);
 
             const previousModelName = String(model.name || '').trim();
             const previousBrandName = currentBrandName;
@@ -1195,11 +1275,9 @@ class DeviceService {
       return uniqueResults
         .filter((model) => model.name && model.deviceType)
         .map((model) => {
-          let imageUrl = null;
-          if (model.images && Array.isArray(model.images) && model.images.length > 0) {
+          let imageUrl = model.image || null;
+          if (!imageUrl && model.images && Array.isArray(model.images) && model.images.length > 0) {
             imageUrl = model.images[0].url || model.images[0].base64 || null;
-          } else if (model.image) {
-            imageUrl = model.image;
           }
 
           return {

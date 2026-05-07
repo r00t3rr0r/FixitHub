@@ -718,8 +718,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   // Handle model selection
   // Erweiterte Model-Auswahl mit Bild- und Specs-Check
   const handleModelSelect = async (model: DeviceModel) => {
-    // Nur wenn kein Bild und keine Images vorhanden sind, hole Daten von mobileapi.dev
-    if (model.image && model.image.trim() !== '' && Array.isArray(model.images) && model.images.length > 0) {
+    // Nur wenn wirklich kein nutzbares Bild vorhanden ist, hole Daten von mobileapi.dev
+    if (getModelImage(model)) {
       setSelectedModel(model);
       setModelSearchQuery(model.name);
       setShowModelDropdown(false);
@@ -756,8 +756,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         manufacturer: best.brand && best.brand.trim() ? best.brand : model.manufacturer,
         deviceType: best.device_type && best.device_type.trim() ? best.device_type : model.deviceType,
         // Bild
-        image: best.image_b64 ? `data:image/jpeg;base64,${best.image_b64}` : model.image,
-        images: best.image_b64 ? [{ base64: `data:image/jpeg;base64,${best.image_b64}` }] : model.images || [],
+        image: (best.image_url && best.image_url.trim()) ? best.image_url : model.image,
+        images: (best.image_url && best.image_url.trim()) ? [{ url: best.image_url.trim() }] : model.images || [],
         // Common Problems
         commonProblems: best.common_problems ? best.common_problems.split(',').map((s:string) => s.trim()) : model.commonProblems || [],
         // Legacy
@@ -1449,9 +1449,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               onClick={() => handleModelSelect(model)}
                             >
                               <div className="flex items-center gap-2">
-                                {model.image && (
+                                {getModelImage(model) && (
                                   <img 
-                                    src={model.image}
+                                    src={getModelImage(model)}
                                     alt={model.name} 
                                     className="w-6 h-6 object-contain"
                                     onError={(e) => e.currentTarget.style.display = 'none'}
@@ -2779,9 +2779,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     onClick={() => handleModelSelect(model)}
                   >
                     <div className="mobile-model-item-content">
-                      {model.image && (
+                        {getModelImage(model) && (
                         <img 
-                          src={model.image}
+                            src={getModelImage(model)}
                           alt={model.name} 
                           className="mobile-model-image"
                           onError={(e) => e.currentTarget.style.display = 'none'}
