@@ -171,6 +171,40 @@ router.put('/types/:id', requireUser, requireRole(['admin']), async (req, res) =
   }
 });
 
+// Delete device type/category (admin only)
+router.delete('/types/:id', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await DeviceService.deleteDeviceType(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Device type deleted successfully',
+      result
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error deleting device type:', error);
+
+    if (error.message === 'Device type not found') {
+      return res.status(404).json({
+        success: false,
+        error: error.message
+      });
+    }
+
+    if (error.message === 'Cannot delete device type while models still use this category') {
+      return res.status(409).json({
+        success: false,
+        error: error.message
+      });
+    }
+
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get manufacturers by device type
 router.get('/manufacturers', async (req, res) => {
   try {

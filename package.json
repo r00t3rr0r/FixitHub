@@ -12,7 +12,11 @@
     "server": "npm --prefix server run dev:clean",
     "server-install": "cd server && npm install",
     "start": "concurrently -n \"client,server\" \"npm run client\" \"npm run server\"",
-    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm --prefix server run dev:clean\""
+    "debug": "concurrently -n \"client,server\" \"npm run client\" \"cross-env NODE_OPTIONS=--inspect-brk=9229 npm --prefix server run dev:clean\"",
+    "build:handbook-pdf": "node tools/generate-handbook-pdf.js",
+    "build:admin-training-handbook-pdf": "node tools/generate-handbook-pdf.js --source ADMIN_NUTZERHANDBUCH_SCHULUNG.md --output ADMIN_NUTZERHANDBUCH_SCHULUNG.pdf --title \"FixitHub Admin Nutzerhandbuch Schulungsversion\" --kicker \"FixitHub · Admin Schulung\" --subtitle \"Admin-Schulungsversion fuer FixitHub\" --footer \"FixitHub - Admin Nutzerhandbuch Schulung\"",
+    "build:staff-handbook-pdf": "node tools/generate-handbook-pdf.js --source STAFF_NUTZERHANDBUCH.md --output STAFF_NUTZERHANDBUCH.pdf --title \"FixitHub Staff Nutzerhandbuch\" --kicker \"FixitHub · Staff Doku\" --subtitle \"Staff-Dokumentation fuer FixitHub\" --footer \"FixitHub - Staff Nutzerhandbuch\"",
+    "capture:admin-detail-dialogs": "node tools/capture-admin-detail-dialogs.js"
   },
   "author": "",
   "license": "ISC",
@@ -29,6 +33,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "marked": "^18.0.3",
+    "puppeteer-core": "^24.42.0"
   }
 }

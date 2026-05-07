@@ -1360,7 +1360,16 @@
       "searchModel": "Modell suchen",
       "modelSearchPlaceholder": "z.B. iPhone 15 Pro...",
       "browseOrSearch": "Durchsuchen oder tippen zum Suchen",
-      "typeToSearch": "Tippen zum Suchen"
+      "typeToSearch": "Tippen zum Suchen",
+      "serviceInfoLabel": "Informationen zu {{name}}",
+      "serviceInfo": {
+        "priceFrom": "Preis ab",
+        "estimatedTime": "Bearbeitungszeit",
+        "select": "Diesen Service wählen",
+        "deselect": "Service abwählen",
+        "close": "Schließen",
+        "clickForMore": "Klicken für Details"
+      }
     },
     "nav": {
       "smartphone": "Smartphone",

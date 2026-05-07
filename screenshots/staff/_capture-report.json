@@ -1,0 +1,140 @@
+[
+  {
+    "type": "page",
+    "route": "/staff",
+    "file": "01-dashboard.png",
+    "waitMs": 2200,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/orders",
+    "file": "02-orders.png",
+    "waitMs": 2400,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/repair-requests",
+    "file": "03-repair-requests.png",
+    "waitMs": 2400,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/bookings",
+    "file": "04-bookings.png",
+    "waitMs": 2400,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/time-tracking",
+    "file": "05-time-tracking.png",
+    "waitMs": 2200,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/schedule",
+    "file": "06-schedule.png",
+    "waitMs": 1800,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/knowledge-base",
+    "file": "07-knowledge-base.png",
+    "waitMs": 2200,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/chat",
+    "file": "08-team-chat.png",
+    "waitMs": 2200,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/staff/performance",
+    "file": "09-performance.png",
+    "waitMs": 1800,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/messages",
+    "file": "10-messages.png",
+    "waitMs": 2000,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/notifications",
+    "file": "11-notifications.png",
+    "waitMs": 2000,
+    "ok": true
+  },
+  {
+    "type": "page",
+    "route": "/profile",
+    "file": "12-profile.png",
+    "waitMs": 2200,
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-overview.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-device-section.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-inspection-section.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-repair-services.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-addon-dialog.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-shop-product-dialog.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-epart-dialog.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-workflow-assign-dialog.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  },
+  {
+    "type": "order-details",
+    "file": "order-detail-staff-dialog.png",
+    "route": "/orders/69f9c4a2c83b1c83ce14f5ea",
+    "ok": true
+  }
+]

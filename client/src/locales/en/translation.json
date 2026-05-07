@@ -1850,6 +1850,15 @@
         "all": "All"
       },
       "repairFrom": "from {{price}} €",
+      "serviceInfoLabel": "Information about {{name}}",
+      "serviceInfo": {
+        "priceFrom": "Price from",
+        "estimatedTime": "Estimated time",
+        "select": "Select this service",
+        "deselect": "Deselect service",
+        "close": "Close",
+        "clickForMore": "Click for details"
+      },
       "noRepairs": "No repairs available for this device",
       "diagnosisHint": "Not sure what is broken?",
       "startDiagnosis": "Start preliminary diagnosis",

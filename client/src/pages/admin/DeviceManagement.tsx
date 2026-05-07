@@ -22,6 +22,7 @@ import {
   getDeviceTypes,
   createDeviceType,
   updateDeviceType,
+  deleteDeviceType,
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
   DeviceType,
@@ -126,6 +127,7 @@ export function DeviceManagement() {
   const [showViewModel, setShowViewModel] = useState(false)
   const [showViewDeviceType, setShowViewDeviceType] = useState(false)
   const [showCreateDeviceType, setShowCreateDeviceType] = useState(false)
+  const [showDeleteDeviceType, setShowDeleteDeviceType] = useState(false)
   const [showDeleteBrand, setShowDeleteBrand] = useState(false)
   const [showDeleteModel, setShowDeleteModel] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -140,6 +142,7 @@ export function DeviceManagement() {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null)
   const [selectedDeviceTypeDetails, setSelectedDeviceTypeDetails] = useState<DeviceType | null>(null)
+  const [deviceTypePendingDelete, setDeviceTypePendingDelete] = useState<DeviceType | null>(null)
   const [editingDeviceTypeId, setEditingDeviceTypeId] = useState<string | null>(null)
 
   // Form states
@@ -190,6 +193,7 @@ export function DeviceManagement() {
 
   const [specTab, setSpecTab] = useState("basic")
   const [commonProblemInput, setCommonProblemInput] = useState("")
+  const [isDeletingDeviceType, setIsDeletingDeviceType] = useState(false)
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const [bulkAction, setBulkAction] = useState<"appendProblems" | "replaceProblems" | "setReleaseDate" | "setPrice">("appendProblems")
   const [bulkValue, setBulkValue] = useState("")
@@ -403,6 +407,51 @@ export function DeviceManagement() {
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleOpenDeleteDeviceType = (deviceType: DeviceType) => {
+    setDeviceTypePendingDelete(deviceType)
+    setShowDeleteDeviceType(true)
+  }
+
+  const handleConfirmDeleteDeviceType = async () => {
+    if (!deviceTypePendingDelete) {
+      return
+    }
+
+    try {
+      setIsDeletingDeviceType(true)
+      await deleteDeviceType(deviceTypePendingDelete._id)
+      await refreshDeviceTypes()
+
+      if (selectedDeviceType === deviceTypePendingDelete._id) {
+        setSelectedDeviceType('all')
+        setSelectedManufacturer('all')
+        setManufacturers([])
+        setModels([])
+      }
+
+      if (selectedDeviceTypeDetails?._id === deviceTypePendingDelete._id) {
+        setShowViewDeviceType(false)
+        setSelectedDeviceTypeDetails(null)
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Device category deleted successfully'
+      })
+
+      setShowDeleteDeviceType(false)
+      setDeviceTypePendingDelete(null)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete device category',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDeletingDeviceType(false)
     }
   }
 
@@ -1221,6 +1270,15 @@ export function DeviceManagement() {
                               title="Edit category"
                             >
                               <Edit className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-red-100 dark:hover:bg-red-900"
+                              onClick={() => handleOpenDeleteDeviceType(type)}
+                              title="Delete category"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
                             </Button>
                           </div>
                         </div>
@@ -2261,9 +2319,59 @@ export function DeviceManagement() {
                   Edit Category
                 </Button>
               )}
+              {selectedDeviceTypeDetails && (
+                <Button
+                  variant="destructive"
+                  onClick={() => handleOpenDeleteDeviceType(selectedDeviceTypeDetails)}
+                >
+                  Delete Category
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog
+          open={showDeleteDeviceType}
+          onOpenChange={(open) => {
+            setShowDeleteDeviceType(open)
+            if (!open && !isDeletingDeviceType) {
+              setDeviceTypePendingDelete(null)
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete device category?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deviceTypePendingDelete
+                  ? `The category "${deviceTypePendingDelete.name}" will be permanently removed.`
+                  : 'This category will be permanently removed.'}
+                {' '}Categories with assigned models cannot be deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setShowDeleteDeviceType(false)
+                  setDeviceTypePendingDelete(null)
+                }}
+                disabled={isDeletingDeviceType}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault()
+                  handleConfirmDeleteDeviceType()
+                }}
+                disabled={isDeletingDeviceType}
+              >
+                {isDeletingDeviceType ? 'Deleting...' : 'Delete Category'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* View Model Dialog - Enhanced with Color Coding and Card-Based Layout */}
         <Dialog open={showViewModel} onOpenChange={setShowViewModel}>

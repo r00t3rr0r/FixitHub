@@ -1854,6 +1854,15 @@
         "all": "Alle"
       },
       "repairFrom": "ab {{price}} €",
+      "serviceInfoLabel": "Informationen zu {{name}}",
+      "serviceInfo": {
+        "priceFrom": "Preis ab",
+        "estimatedTime": "Bearbeitungszeit",
+        "select": "Diesen Service wählen",
+        "deselect": "Service abwählen",
+        "close": "Schließen",
+        "clickForMore": "Klicken für Details"
+      },
       "noRepairs": "Keine Reparaturen für dieses Gerät verfügbar",
       "diagnosisHint": "Nicht sicher, was kaputt ist?",
       "startDiagnosis": "Vorabdiagnose starten",
