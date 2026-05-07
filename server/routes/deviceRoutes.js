@@ -99,6 +99,25 @@ router.post('/models/information-update', requireUser, requireRole(['admin']), a
   }
 });
 
+// Backfill linked repair services from current device model data (admin only)
+router.post('/models/backfill-service-links', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await DeviceService.backfillServiceLinksForModels(req.body || {});
+
+    res.json({
+      success: true,
+      message: 'Service-link backfill completed',
+      result,
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error running service-link backfill:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Get model by ID
 router.get('/models/:id', async (req, res) => {
   try {

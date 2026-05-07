@@ -660,6 +660,8 @@ class DeviceService {
       }
 
       const previousModelName = String(model.name || '').trim();
+      const previousBrandName = String(model.brandId?.name || '').trim();
+      const previousDeviceType = String(model.deviceType || '').trim();
 
       Object.keys(updateData).forEach((key) => {
         if (
@@ -691,39 +693,25 @@ class DeviceService {
       });
 
       const savedModel = await model.save();
+      await savedModel.populate('brandId', 'name');
 
       const nextModelName = String(savedModel.name || '').trim();
-      const brandName = String(savedModel.brandId?.name || '').trim();
+      const nextBrandName = String(savedModel.brandId?.name || '').trim();
+      const nextDeviceType = String(savedModel.deviceType || '').trim();
 
-      if (previousModelName && nextModelName && previousModelName !== nextModelName) {
-        const escapedOldName = previousModelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const oldNameRegex = new RegExp(`^${escapedOldName}$`, 'i');
+      const cascadeResult = await DeviceService.cascadeServiceModelInfoUpdate({
+        previousModelName,
+        nextModelName,
+        previousBrandName,
+        nextBrandName,
+        previousDeviceType,
+        nextDeviceType,
+      });
 
-        const serviceFilter = {
-          isActive: true,
-          $or: [{ modelPrecise: oldNameRegex }, { model: oldNameRegex }],
-        };
-
-        if (brandName) {
-          const escapedBrand = brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const brandRegex = new RegExp(`^${escapedBrand}$`, 'i');
-          serviceFilter.$and = [{ $or: [{ manufacturerPrecise: brandRegex }, { manufacturer: brandRegex }] }];
-        }
-
-        const [preciseUpdateResult, modelUpdateResult] = await Promise.all([
-          Service.updateMany(
-            { ...serviceFilter, modelPrecise: oldNameRegex },
-            { $set: { modelPrecise: nextModelName } }
-          ),
-          Service.updateMany(
-            { ...serviceFilter, model: oldNameRegex },
-            { $set: { model: nextModelName } }
-          ),
-        ]);
-
+      if (Number(cascadeResult.modifiedCount || 0) > 0) {
         console.log(
-          `DeviceService: Cascaded model rename in services from "${previousModelName}" to "${nextModelName}" ` +
-          `(modelPrecise: ${preciseUpdateResult.modifiedCount || 0}, model: ${modelUpdateResult.modifiedCount || 0})`
+          `DeviceService: Cascaded service links for model "${previousModelName}" ` +
+          `(modified: ${cascadeResult.modifiedCount || 0})`
         );
       }
 
@@ -781,8 +769,10 @@ class DeviceService {
     if (nextDeviceType && String(nextDeviceType).trim() !== String(previousDeviceType || '').trim()) {
       update.$set.deviceType = String(nextDeviceType).trim();
       update.$addToSet.deviceTypes = String(nextDeviceType).trim();
+      update.$addToSet.supportedDeviceTypes = String(nextDeviceType).trim();
       if (previousDeviceType) {
         update.$pull.deviceTypes = String(previousDeviceType).trim();
+        update.$pull.supportedDeviceTypes = String(previousDeviceType).trim();
       }
     }
 
@@ -790,15 +780,21 @@ class DeviceService {
       return { matchedCount: 0, modifiedCount: 0 };
     }
 
-    if (Object.keys(update.$addToSet).length === 0) {
-      delete update.$addToSet;
+    const hasPull = Object.keys(update.$pull).length > 0;
+    const hasAddToSet = Object.keys(update.$addToSet).length > 0;
+
+    // MongoDB does not allow $addToSet and $pull on the same path in one operation.
+    // Apply $set + $addToSet first, then $pull in a separate operation.
+    const firstOp = { $set: update.$set };
+    if (hasAddToSet) {
+      firstOp.$addToSet = update.$addToSet;
     }
 
-    if (Object.keys(update.$pull).length === 0) {
-      delete update.$pull;
-    }
+    const result = await Service.updateMany(serviceFilter, firstOp);
 
-    const result = await Service.updateMany(serviceFilter, update);
+    if (hasPull) {
+      await Service.updateMany(serviceFilter, { $pull: update.$pull });
+    }
 
     return {
       matchedCount: Number(result?.matchedCount || 0),
@@ -821,6 +817,7 @@ class DeviceService {
       tablet: 'tablet',
       laptop: 'laptop',
       notebook: 'notebook',
+      wearable: 'wearable',
       smartwatch: 'smartwatch',
       watch: 'smartwatch',
       game_console: 'game-console',
@@ -846,7 +843,11 @@ class DeviceService {
 
     const slugged = slugifyDeviceType(aliasedRaw);
     const bySlug = availableTypes.find((type) => String(type._id || '') === slugged);
-    return bySlug ? String(bySlug._id) : '';
+    if (bySlug) {
+      return String(bySlug._id);
+    }
+
+    return slugged || aliasedRaw;
   }
 
   static pickBestMobileApiDevice(candidates = [], currentName = '', currentBrand = '') {
@@ -1206,6 +1207,121 @@ class DeviceService {
       };
     } catch (error) {
       console.error('DeviceService: Error updating model information from mobile API:', error);
+      throw error;
+    }
+  }
+
+  static async backfillServiceLinksForModels(options = {}) {
+    try {
+      const limit = Math.max(0, Number(options.limit) || 0);
+      const selectedDeviceTypes = Array.isArray(options.deviceTypes) ? options.deviceTypes.filter(Boolean) : [];
+      const selectedBrandIds = Array.isArray(options.brandIds) ? options.brandIds.filter(Boolean) : [];
+      const selectedModelIds = Array.isArray(options.modelIds) ? options.modelIds.filter(Boolean) : [];
+
+      const query = { isActive: true };
+      if (selectedDeviceTypes.length > 0) {
+        query.deviceType = { $in: selectedDeviceTypes };
+      }
+      if (selectedBrandIds.length > 0) {
+        query.brandId = { $in: selectedBrandIds };
+      }
+      if (selectedModelIds.length > 0) {
+        query._id = { $in: selectedModelIds };
+      }
+
+      let modelQuery = DeviceModel.find(query)
+        .populate('brandId', 'name')
+        .sort({ updatedAt: -1, name: 1 });
+
+      if (limit > 0) {
+        modelQuery = modelQuery.limit(limit);
+      }
+
+      const models = await modelQuery;
+      const results = [];
+      let modelsProcessed = 0;
+      let modelsSkipped = 0;
+      let servicesMatched = 0;
+      let servicesModified = 0;
+
+      for (const model of models) {
+        const modelName = String(model?.name || '').trim();
+        const brandName = String(model?.brandId?.name || '').trim();
+        const modelDeviceType = String(model?.deviceType || '').trim();
+
+        if (!modelName || !brandName || !modelDeviceType) {
+          modelsSkipped += 1;
+          results.push({
+            modelId: String(model?._id || ''),
+            modelName: modelName || '(leer)',
+            status: 'skipped',
+            reason: 'Missing model, brand or device type',
+          });
+          continue;
+        }
+
+        const normalizedType = modelDeviceType.toLowerCase();
+        const compatibleTypes = [modelDeviceType];
+        if (normalizedType === 'wearable' && !compatibleTypes.includes('smartwatch')) {
+          compatibleTypes.push('smartwatch');
+        }
+        if (normalizedType === 'smartwatch' && !compatibleTypes.includes('wearable')) {
+          compatibleTypes.push('wearable');
+        }
+
+        const modelRegex = DeviceService.buildExactRegex(modelName);
+        const brandRegex = DeviceService.buildExactRegex(brandName);
+        const serviceFilter = {
+          isActive: true,
+          $or: [{ modelPrecise: modelRegex }, { model: modelRegex }],
+          $and: [{ $or: [{ manufacturerPrecise: brandRegex }, { manufacturer: brandRegex }] }],
+        };
+
+        const update = {
+          $set: {
+            model: modelName,
+            modelPrecise: modelName,
+            manufacturer: brandName,
+            manufacturerPrecise: brandName,
+            deviceType: modelDeviceType,
+          },
+          $addToSet: {
+            deviceTypes: { $each: compatibleTypes },
+            supportedDeviceTypes: { $each: compatibleTypes },
+          },
+        };
+
+        const result = await Service.updateMany(serviceFilter, update);
+
+        const matchedCount = Number(result?.matchedCount || 0);
+        const modifiedCount = Number(result?.modifiedCount || 0);
+
+        servicesMatched += matchedCount;
+        servicesModified += modifiedCount;
+        modelsProcessed += 1;
+
+        results.push({
+          modelId: String(model._id),
+          modelName,
+          brandName,
+          deviceType: modelDeviceType,
+          compatibleTypes,
+          matchedCount,
+          modifiedCount,
+          status: modifiedCount > 0 ? 'updated' : 'no_changes',
+        });
+      }
+
+      return {
+        totalModels: models.length,
+        modelsProcessed,
+        modelsSkipped,
+        servicesMatched,
+        servicesModified,
+        results,
+      };
+    } catch (error) {
+      console.error('DeviceService: Error during service-link backfill:', error);
       throw error;
     }
   }
