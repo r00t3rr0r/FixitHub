@@ -267,3 +267,21 @@ export const getModelById = async (modelId: string) => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+export interface ModelInformationUpdatePayload {
+  requestsPerSecond: number;
+  limit?: number;
+  deviceTypes?: string[];
+  brandIds?: string[];
+  modelIds?: string[];
+  onlyNotUpdated?: boolean;
+}
+
+export const updateModelInformation = async (payload: ModelInformationUpdatePayload) => {
+  try {
+    const response = await api.post('/api/devices/models/information-update', payload);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

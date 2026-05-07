@@ -1,5 +1,6 @@
 const { DeviceBrand, DeviceModel, DeviceType } = require('../models/Device');
 const Service = require('../models/Service');
+const axios = require('axios');
 
 const slugifyDeviceType = (value = '') =>
   String(value)
@@ -16,7 +17,129 @@ const toDisplayName = (key = '') =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseListValue = (value) => {
+  if (Array.isArray(value)) {
+    return Array.from(new Set(value.map((item) => String(item || '').trim()).filter(Boolean)));
+  }
+
+  if (typeof value === 'string') {
+    return Array.from(
+      new Set(
+        value
+          .split(/[,;\n|]/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  return [];
+};
+
+const parseModelNumbersValue = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return Array.from(new Set(value.map((item) => String(item || '').trim()).filter(Boolean)));
+  }
+
+  const input = String(value).trim();
+  if (!input) {
+    return [];
+  }
+
+  const splitByPrimaryDelimiters = input
+    .split(/[;\n|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (splitByPrimaryDelimiters.length > 1) {
+    return Array.from(new Set(splitByPrimaryDelimiters));
+  }
+
+  const commaParts = input
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const shouldSplitByComma =
+    commaParts.length > 1 &&
+    commaParts.every((part) => /^[a-z0-9._\-+/]+$/i.test(part) && /\d/.test(part));
+
+  if (shouldSplitByComma) {
+    return Array.from(new Set(commaParts));
+  }
+
+  return [input];
+};
+
+const toComparable = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const toNonEmptyString = (value) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const normalized = String(value).trim();
+  return normalized;
+};
+
+const splitCommaList = (value) =>
+  String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 class DeviceService {
+  static formatMobileApiRequestError(error) {
+    const responseData = error?.response?.data;
+    const statusCode = Number(error?.response?.status || 0) || null;
+    const errorCode = String(error?.code || '').trim() || null;
+
+    let message = '';
+    if (typeof responseData?.error === 'string' && responseData.error.trim()) {
+      message = responseData.error.trim();
+    } else if (typeof responseData?.message === 'string' && responseData.message.trim()) {
+      message = responseData.message.trim();
+    } else if (typeof responseData === 'string' && responseData.trim()) {
+      message = responseData.trim();
+    } else {
+      message = String(error?.message || 'Unknown MobileAPI request error').trim();
+    }
+
+    return {
+      statusCode,
+      errorCode,
+      message,
+    };
+  }
+
+  static async fetchMobileApiCandidates(modelName, apiKey) {
+    const response = await axios.get('https://api.mobileapi.dev/devices/search/', {
+      params: {
+        name: modelName,
+        page: 1,
+        key: apiKey,
+      },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+
+    if (response?.data?.error) {
+      const apiError = new Error(String(response.data.error));
+      apiError.response = {
+        status: Number(response?.status || 0) || null,
+        data: response.data,
+      };
+      throw apiError;
+    }
+
+    return Array.isArray(response?.data?.devices) ? response.data.devices : [];
+  }
+
   // Get all brands
   static async getBrands() {
     try {
@@ -545,6 +668,464 @@ class DeviceService {
       return savedModel;
     } catch (error) {
       console.error('DeviceService: Error updating model:', error);
+      throw error;
+    }
+  }
+
+  static buildExactRegex(value = '') {
+    const escaped = String(value || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escaped ? new RegExp(`^${escaped}$`, 'i') : null;
+  }
+
+  static async cascadeServiceModelInfoUpdate({
+    previousModelName,
+    nextModelName,
+    previousBrandName,
+    nextBrandName,
+    previousDeviceType,
+    nextDeviceType,
+  }) {
+    const modelRegex = DeviceService.buildExactRegex(previousModelName);
+    if (!modelRegex) {
+      return { matchedCount: 0, modifiedCount: 0 };
+    }
+
+    const brandRegex = DeviceService.buildExactRegex(previousBrandName);
+    const serviceFilter = {
+      isActive: true,
+      $or: [{ modelPrecise: modelRegex }, { model: modelRegex }],
+    };
+
+    if (brandRegex) {
+      serviceFilter.$and = [{ $or: [{ manufacturerPrecise: brandRegex }, { manufacturer: brandRegex }] }];
+    }
+
+    const update = {
+      $set: {},
+      $addToSet: {},
+      $pull: {},
+    };
+
+    if (nextModelName && String(nextModelName).trim() !== String(previousModelName || '').trim()) {
+      update.$set.model = String(nextModelName).trim();
+      update.$set.modelPrecise = String(nextModelName).trim();
+    }
+
+    if (nextBrandName && String(nextBrandName).trim() !== String(previousBrandName || '').trim()) {
+      update.$set.manufacturer = String(nextBrandName).trim();
+      update.$set.manufacturerPrecise = String(nextBrandName).trim();
+    }
+
+    if (nextDeviceType && String(nextDeviceType).trim() !== String(previousDeviceType || '').trim()) {
+      update.$set.deviceType = String(nextDeviceType).trim();
+      update.$addToSet.deviceTypes = String(nextDeviceType).trim();
+      if (previousDeviceType) {
+        update.$pull.deviceTypes = String(previousDeviceType).trim();
+      }
+    }
+
+    if (Object.keys(update.$set).length === 0) {
+      return { matchedCount: 0, modifiedCount: 0 };
+    }
+
+    if (Object.keys(update.$addToSet).length === 0) {
+      delete update.$addToSet;
+    }
+
+    if (Object.keys(update.$pull).length === 0) {
+      delete update.$pull;
+    }
+
+    const result = await Service.updateMany(serviceFilter, update);
+
+    return {
+      matchedCount: Number(result?.matchedCount || 0),
+      modifiedCount: Number(result?.modifiedCount || 0),
+    };
+  }
+
+  static resolveDeviceTypeKey(rawType, availableTypes = []) {
+    const normalizedRaw = String(rawType || '').trim().toLowerCase();
+    if (!normalizedRaw) {
+      return '';
+    }
+
+    const aliasMap = {
+      phone: 'smartphone',
+      smartphone: 'smartphone',
+      mobile: 'smartphone',
+      cell: 'smartphone',
+      cell_phone: 'smartphone',
+      tablet: 'tablet',
+      laptop: 'laptop',
+      notebook: 'notebook',
+      smartwatch: 'smartwatch',
+      watch: 'smartwatch',
+      game_console: 'game-console',
+      console: 'game-console',
+      earbuds: 'earbuds',
+      headphones: 'headphones',
+    };
+
+    const aliasedRaw = aliasMap[normalizedRaw] || normalizedRaw;
+
+    const direct = availableTypes.find((type) => String(type._id || '').toLowerCase() === aliasedRaw);
+    if (direct) {
+      return String(direct._id);
+    }
+
+    const byName = availableTypes.find((type) => {
+      const typeName = String(type.name || '').trim().toLowerCase();
+      return typeName === normalizedRaw || typeName === aliasedRaw;
+    });
+    if (byName) {
+      return String(byName._id);
+    }
+
+    const slugged = slugifyDeviceType(aliasedRaw);
+    const bySlug = availableTypes.find((type) => String(type._id || '') === slugged);
+    return bySlug ? String(bySlug._id) : '';
+  }
+
+  static pickBestMobileApiDevice(candidates = [], currentName = '', currentBrand = '') {
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return null;
+    }
+
+    const targetName = toComparable(currentName);
+    const targetBrand = toComparable(currentBrand);
+
+    const scored = candidates.map((candidate) => {
+      const certainty = Number.parseFloat(String(candidate.match_certainty || '0').replace('%', '')) || 0;
+      const candidateName = toComparable(candidate.name || '');
+      const candidateBrand = toComparable(candidate.manufacturer_name || '');
+
+      const exactNameBonus = candidateName && candidateName === targetName ? 30 : 0;
+      const brandBonus = targetBrand && candidateBrand === targetBrand ? 20 : 0;
+      const startsWithBonus = candidateName.startsWith(targetName) || targetName.startsWith(candidateName) ? 5 : 0;
+
+      return {
+        candidate,
+        score: certainty + exactNameBonus + brandBonus + startsWithBonus,
+      };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0]?.candidate || null;
+  }
+
+  static buildMobileApiModelUpdate(model, mobileApiDevice, resolvedBrandId, resolvedDeviceType) {
+    const nextModelNumbers = parseModelNumbersValue(mobileApiDevice.model_numbers);
+    const nextColors = parseListValue(mobileApiDevice.colors);
+    const commonProblems = splitCommaList(mobileApiDevice.common_problems);
+
+    const imageFromApi =
+      toNonEmptyString(mobileApiDevice.image_b64)
+        ? `data:image/jpeg;base64,${toNonEmptyString(mobileApiDevice.image_b64)}`
+        : toNonEmptyString(mobileApiDevice.image_url) || toNonEmptyString(model.image);
+
+    const memoryInternalFromApi = [
+      ...splitCommaList(mobileApiDevice.memory_internal).map((item) => {
+        const parts = item.split('/').map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          return { ram: parts[0], storage: parts.slice(1).join('/') };
+        }
+        return { ram: '', storage: parts[0] || '' };
+      }),
+      ...splitCommaList(mobileApiDevice.storage).map((storage) => ({ storage })),
+    ].filter((entry) => entry.ram || entry.storage);
+
+    const updateData = {
+      mobileApiUpdatedAt: new Date(),
+      mobileApiMatchId: Number(mobileApiDevice.id) || undefined,
+      mobileApiLastStatus: 'updated',
+      name: toNonEmptyString(mobileApiDevice.name) || toNonEmptyString(model.name),
+      brandId: resolvedBrandId || model.brandId,
+      deviceType: resolvedDeviceType || model.deviceType,
+      image: imageFromApi,
+      images: imageFromApi ? [{ base64: imageFromApi, url: toNonEmptyString(mobileApiDevice.image_url) }] : model.images || [],
+      modelNumbers: nextModelNumbers.length > 0 ? nextModelNumbers : model.modelNumbers || [],
+      commonProblems: commonProblems.length > 0 ? commonProblems : model.commonProblems || [],
+      specifications: {
+        ...(model.specifications || {}),
+        ...(toNonEmptyString(mobileApiDevice.description)
+          ? { description: toNonEmptyString(mobileApiDevice.description) }
+          : {}),
+      },
+      network: {
+        ...(model.network || {}),
+        technology2G: toNonEmptyString(mobileApiDevice.technology_2g) || toNonEmptyString((model.network || {}).technology2G),
+        bands2G: toNonEmptyString(mobileApiDevice.bands_2g) || toNonEmptyString((model.network || {}).bands2G),
+        technology3G: toNonEmptyString(mobileApiDevice.technology_3g) || toNonEmptyString((model.network || {}).technology3G),
+        bands3G: toNonEmptyString(mobileApiDevice.bands_3g) || toNonEmptyString((model.network || {}).bands3G),
+        technology4G: toNonEmptyString(mobileApiDevice.technology_4g) || toNonEmptyString((model.network || {}).technology4G),
+        bands4G: toNonEmptyString(mobileApiDevice.bands_4g) || toNonEmptyString((model.network || {}).bands4G),
+        technology5G: toNonEmptyString(mobileApiDevice.technology_5g) || toNonEmptyString((model.network || {}).technology5G),
+        bands5G: toNonEmptyString(mobileApiDevice.bands_5g) || toNonEmptyString((model.network || {}).bands5G),
+        speed: toNonEmptyString(mobileApiDevice.network_speed) || toNonEmptyString((model.network || {}).speed),
+      },
+      physical: {
+        ...(model.physical || {}),
+        dimensions: toNonEmptyString(mobileApiDevice.thickness) || toNonEmptyString((model.physical || {}).dimensions),
+        weight: toNonEmptyString(mobileApiDevice.weight) || toNonEmptyString((model.physical || {}).weight),
+        build: toNonEmptyString(mobileApiDevice.body_material) || toNonEmptyString((model.physical || {}).build),
+        simType: toNonEmptyString(mobileApiDevice.sim_type) || toNonEmptyString((model.physical || {}).simType),
+        simCount: toNonEmptyString(mobileApiDevice.sim_count) || toNonEmptyString((model.physical || {}).simCount),
+      },
+      display: {
+        ...(model.display || {}),
+        type: toNonEmptyString(mobileApiDevice.display_type) || toNonEmptyString((model.display || {}).type),
+        size: toNonEmptyString(mobileApiDevice.screen_size) || toNonEmptyString((model.display || {}).size),
+        resolution: toNonEmptyString(mobileApiDevice.screen_resolution) || toNonEmptyString((model.display || {}).resolution),
+        protection: toNonEmptyString(mobileApiDevice.display_protection) || toNonEmptyString((model.display || {}).protection),
+        features: toNonEmptyString(mobileApiDevice.display_features) || toNonEmptyString((model.display || {}).features),
+      },
+      platform: {
+        ...(model.platform || {}),
+        os: toNonEmptyString(mobileApiDevice.os) || toNonEmptyString((model.platform || {}).os),
+        chipset: toNonEmptyString(mobileApiDevice.hardware) || toNonEmptyString((model.platform || {}).chipset),
+        cpu: toNonEmptyString(mobileApiDevice.cpu) || toNonEmptyString((model.platform || {}).cpu),
+        gpu: toNonEmptyString(mobileApiDevice.gpu) || toNonEmptyString((model.platform || {}).gpu),
+      },
+      memory: {
+        ...(model.memory || {}),
+        internal: memoryInternalFromApi.length > 0 ? memoryInternalFromApi : (model.memory || {}).internal || [],
+        cardSlot: toNonEmptyString(mobileApiDevice.memory_card_slot) || toNonEmptyString((model.memory || {}).cardSlot),
+      },
+      rearCamera: {
+        ...(model.rearCamera || {}),
+        modules: toNonEmptyString(mobileApiDevice.main_camera) || toNonEmptyString((model.rearCamera || {}).modules),
+        features: toNonEmptyString(mobileApiDevice.main_camera_features) || toNonEmptyString((model.rearCamera || {}).features),
+        video: toNonEmptyString(mobileApiDevice.main_camera_video) || toNonEmptyString((model.rearCamera || {}).video),
+      },
+      frontCamera: {
+        ...(model.frontCamera || {}),
+        modules: toNonEmptyString(mobileApiDevice.selfie_camera) || toNonEmptyString((model.frontCamera || {}).modules),
+        features: toNonEmptyString(mobileApiDevice.selfie_camera_features) || toNonEmptyString((model.frontCamera || {}).features),
+        video: toNonEmptyString(mobileApiDevice.selfie_camera_video) || toNonEmptyString((model.frontCamera || {}).video),
+      },
+      audio: {
+        ...(model.audio || {}),
+        loudspeaker: toNonEmptyString(mobileApiDevice.loudspeaker) || toNonEmptyString((model.audio || {}).loudspeaker),
+        jack3_5mm: toNonEmptyString(mobileApiDevice.jack) || toNonEmptyString((model.audio || {}).jack3_5mm),
+      },
+      connectivity: {
+        ...(model.connectivity || {}),
+        wlan: toNonEmptyString(mobileApiDevice.wlan) || toNonEmptyString((model.connectivity || {}).wlan),
+        bluetooth: toNonEmptyString(mobileApiDevice.bluetooth) || toNonEmptyString((model.connectivity || {}).bluetooth),
+        positioning: toNonEmptyString(mobileApiDevice.gps) || toNonEmptyString((model.connectivity || {}).positioning),
+        nfc: toNonEmptyString(mobileApiDevice.nfc) || toNonEmptyString((model.connectivity || {}).nfc),
+        radio: toNonEmptyString(mobileApiDevice.radio) || toNonEmptyString((model.connectivity || {}).radio),
+        usb: toNonEmptyString(mobileApiDevice.usb) || toNonEmptyString((model.connectivity || {}).usb),
+        infrared: toNonEmptyString(mobileApiDevice.infrared) || toNonEmptyString((model.connectivity || {}).infrared),
+        other: toNonEmptyString(mobileApiDevice.connectivity_other) || toNonEmptyString((model.connectivity || {}).other),
+      },
+      features: {
+        ...(model.features || {}),
+        sensors: toNonEmptyString(mobileApiDevice.sensors) || toNonEmptyString((model.features || {}).sensors),
+        special: splitCommaList(mobileApiDevice.special_features).length > 0
+          ? splitCommaList(mobileApiDevice.special_features)
+          : (model.features || {}).special || [],
+      },
+      battery: {
+        ...(model.battery || {}),
+        type: toNonEmptyString(mobileApiDevice.battery_type) || toNonEmptyString((model.battery || {}).type),
+        charging: toNonEmptyString(mobileApiDevice.charging) || toNonEmptyString((model.battery || {}).charging),
+        standbyTime: toNonEmptyString(mobileApiDevice.stand_by) || toNonEmptyString((model.battery || {}).standbyTime),
+        talkTime: toNonEmptyString(mobileApiDevice.talk_time) || toNonEmptyString((model.battery || {}).talkTime),
+        musicPlay: toNonEmptyString(mobileApiDevice.music_play) || toNonEmptyString((model.battery || {}).musicPlay),
+      },
+      other: {
+        ...(model.other || {}),
+        models: splitCommaList(mobileApiDevice.model_names).length > 0
+          ? splitCommaList(mobileApiDevice.model_names)
+          : (model.other || {}).models || [],
+        sarValues: {
+          ...((model.other || {}).sarValues || {}),
+          head: toNonEmptyString(mobileApiDevice.sar_head) || toNonEmptyString(((model.other || {}).sarValues || {}).head),
+          body: toNonEmptyString(mobileApiDevice.sar_body) || toNonEmptyString(((model.other || {}).sarValues || {}).body),
+        },
+        price: toNonEmptyString(mobileApiDevice.price) || toNonEmptyString((model.other || {}).price),
+        releaseDate: toNonEmptyString(mobileApiDevice.release_date) || toNonEmptyString((model.other || {}).releaseDate),
+        colors: nextColors.length > 0 ? nextColors : (model.other || {}).colors || [],
+      },
+    };
+
+    if (!updateData.mobileApiMatchId) {
+      delete updateData.mobileApiMatchId;
+    }
+
+    return updateData;
+  }
+
+  static async updateModelInformationFromMobileApi(options = {}) {
+    try {
+      const requestsPerSecond = Math.min(20, Math.max(1, Number(options.requestsPerSecond) || 2));
+      const limit = Math.max(0, Number(options.limit) || 0);
+      const onlyNotUpdated = Boolean(options.onlyNotUpdated);
+      const selectedDeviceTypes = Array.isArray(options.deviceTypes) ? options.deviceTypes.filter(Boolean) : [];
+      const selectedBrandIds = Array.isArray(options.brandIds) ? options.brandIds.filter(Boolean) : [];
+      const selectedModelIds = Array.isArray(options.modelIds) ? options.modelIds.filter(Boolean) : [];
+
+      const query = { isActive: true };
+      if (selectedDeviceTypes.length > 0) {
+        query.deviceType = { $in: selectedDeviceTypes };
+      }
+      if (selectedBrandIds.length > 0) {
+        query.brandId = { $in: selectedBrandIds };
+      }
+      if (selectedModelIds.length > 0) {
+        query._id = { $in: selectedModelIds };
+      }
+      if (onlyNotUpdated) {
+        query.$or = [
+          { mobileApiLastStatus: { $exists: false } },
+          { mobileApiLastStatus: { $ne: 'updated' } },
+        ];
+      }
+
+      let modelQuery = DeviceModel.find(query)
+        .populate('brandId', 'name')
+        .sort({ updatedAt: 1, name: 1 });
+
+      if (limit > 0) {
+        modelQuery = modelQuery.limit(limit);
+      }
+
+      const models = await modelQuery;
+      const availableTypes = await DeviceType.find({ isActive: true }).lean();
+      const apiKey = String(process.env.MOBILEAPI_KEY || '').trim();
+      if (!apiKey) {
+        throw new Error('MOBILEAPI_KEY is not configured. Please set it in your server environment.');
+      }
+
+      // Fast fail if the external API is unreachable or key is invalid.
+      try {
+        await DeviceService.fetchMobileApiCandidates('iphone', apiKey);
+      } catch (connectionError) {
+        const formattedConnectionError = DeviceService.formatMobileApiRequestError(connectionError);
+        const statusText = formattedConnectionError.statusCode ? ` (HTTP ${formattedConnectionError.statusCode})` : '';
+        throw new Error(`MobileAPI connection failed${statusText}: ${formattedConnectionError.message}`);
+      }
+
+      const delayMs = Math.ceil(1000 / requestsPerSecond);
+
+      const results = [];
+      let updated = 0;
+      let noMatch = 0;
+      let failed = 0;
+      let servicesModified = 0;
+
+      for (let index = 0; index < models.length; index += 1) {
+        const model = models[index];
+        const modelName = String(model.name || '').trim();
+        const currentBrandName = String(model?.brandId?.name || '').trim();
+
+        if (!modelName) {
+          failed += 1;
+          results.push({ modelId: String(model._id), modelName: '(leer)', status: 'failed', reason: 'Model name missing' });
+          continue;
+        }
+
+        try {
+          const candidates = await DeviceService.fetchMobileApiCandidates(modelName, apiKey);
+          const bestMatch = DeviceService.pickBestMobileApiDevice(candidates, modelName, currentBrandName);
+
+          if (!bestMatch) {
+            noMatch += 1;
+            await DeviceModel.updateOne(
+              { _id: model._id },
+              { $set: { mobileApiLastStatus: 'no_match', mobileApiUpdatedAt: new Date() } }
+            );
+            results.push({ modelId: String(model._id), modelName, status: 'no_match' });
+          } else {
+            const resolvedType = DeviceService.resolveDeviceTypeKey(bestMatch.device_type, availableTypes) || model.deviceType;
+
+            let resolvedBrandId = model.brandId?._id || model.brandId;
+            const targetBrandName = String(bestMatch.manufacturer_name || '').trim();
+            if (targetBrandName && (!currentBrandName || toComparable(targetBrandName) !== toComparable(currentBrandName))) {
+              const matchedBrand = await DeviceBrand.findOne({
+                name: { $regex: `^${targetBrandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+                isActive: true,
+              })
+                .select('_id name')
+                .lean();
+
+              if (matchedBrand?._id) {
+                resolvedBrandId = matchedBrand._id;
+              }
+            }
+
+            const updateData = DeviceService.buildMobileApiModelUpdate(model, bestMatch, resolvedBrandId, resolvedType);
+
+            const previousModelName = String(model.name || '').trim();
+            const previousBrandName = currentBrandName;
+            const previousDeviceType = String(model.deviceType || '').trim();
+
+            const updatedModel = await DeviceModel.findByIdAndUpdate(
+              model._id,
+              { $set: updateData },
+              { new: true, runValidators: true }
+            ).populate('brandId', 'name');
+
+            const nextModelName = String(updatedModel?.name || '').trim();
+            const nextBrandName = String(updatedModel?.brandId?.name || previousBrandName || '').trim();
+            const nextDeviceType = String(updatedModel?.deviceType || previousDeviceType || '').trim();
+
+            const cascadeResult = await DeviceService.cascadeServiceModelInfoUpdate({
+              previousModelName,
+              nextModelName,
+              previousBrandName,
+              nextBrandName,
+              previousDeviceType,
+              nextDeviceType,
+            });
+
+            servicesModified += Number(cascadeResult.modifiedCount || 0);
+            updated += 1;
+
+            results.push({
+              modelId: String(model._id),
+              modelName,
+              status: 'updated',
+              matchedMobileApiId: Number(bestMatch.id) || null,
+              servicesUpdated: Number(cascadeResult.modifiedCount || 0),
+            });
+          }
+        } catch (error) {
+          const requestError = DeviceService.formatMobileApiRequestError(error);
+          failed += 1;
+          await DeviceModel.updateOne(
+            { _id: model._id },
+            { $set: { mobileApiLastStatus: 'failed', mobileApiUpdatedAt: new Date() } }
+          );
+          results.push({
+            modelId: String(model._id),
+            modelName,
+            status: 'failed',
+            reason: requestError.message,
+            statusCode: requestError.statusCode,
+            errorCode: requestError.errorCode,
+          });
+        }
+
+        if (index < models.length - 1 && delayMs > 0) {
+          await wait(delayMs);
+        }
+      }
+
+      return {
+        total: models.length,
+        updated,
+        noMatch,
+        failed,
+        servicesModified,
+        requestsPerSecond,
+        errors: results.filter((item) => item.status === 'failed'),
+        results,
+      };
+    } catch (error) {
+      console.error('DeviceService: Error updating model information from mobile API:', error);
       throw error;
     }
   }

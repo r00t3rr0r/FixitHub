@@ -25,6 +25,7 @@ import {
   deleteDeviceType,
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
+  updateModelInformation,
   DeviceType,
   Manufacturer,
   DeviceModel
@@ -47,7 +48,8 @@ import {
   Activity,
   Info,
   HelpCircle,
-  X
+  X,
+  RefreshCw
 } from "lucide-react"
 import { CSVImportDevicesDialog } from '@/components/admin/CSVImportDevicesDialog';
 import {
@@ -131,6 +133,7 @@ export function DeviceManagement() {
   const [showDeleteBrand, setShowDeleteBrand] = useState(false)
   const [showDeleteModel, setShowDeleteModel] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showModelInformationUpdate, setShowModelInformationUpdate] = useState(false)
 
   // Edit mode states
   const [isEditMode, setIsEditMode] = useState(false)
@@ -144,6 +147,14 @@ export function DeviceManagement() {
   const [selectedDeviceTypeDetails, setSelectedDeviceTypeDetails] = useState<DeviceType | null>(null)
   const [deviceTypePendingDelete, setDeviceTypePendingDelete] = useState<DeviceType | null>(null)
   const [editingDeviceTypeId, setEditingDeviceTypeId] = useState<string | null>(null)
+  const [selectedUpdateDeviceTypes, setSelectedUpdateDeviceTypes] = useState<string[]>([])
+  const [selectedUpdateBrandIds, setSelectedUpdateBrandIds] = useState<string[]>([])
+  const [selectedUpdateModelIds, setSelectedUpdateModelIds] = useState<string[]>([])
+
+  const [updateRequestsPerSecond, setUpdateRequestsPerSecond] = useState<number>(2)
+  const [updateLimit, setUpdateLimit] = useState<number>(0)
+  const [updateOnlyNotUpdated, setUpdateOnlyNotUpdated] = useState<boolean>(true)
+  const [updateResult, setUpdateResult] = useState<any | null>(null)
 
   // Form states
   const [brandForm, setBrandForm] = useState({
@@ -896,6 +907,56 @@ export function DeviceManagement() {
     }
   }
 
+  const toggleSelection = (value: string, current: string[], setter: (next: string[]) => void) => {
+    if (current.includes(value)) {
+      setter(current.filter((item) => item !== value))
+      return
+    }
+    setter([...current, value])
+  }
+
+  const handleModelInformationUpdate = async () => {
+    setIsSubmitting(true)
+    setUpdateResult(null)
+
+    try {
+      const payload = {
+        requestsPerSecond: Math.max(1, updateRequestsPerSecond),
+        limit: updateLimit > 0 ? updateLimit : undefined,
+        deviceTypes: selectedUpdateDeviceTypes,
+        brandIds: selectedUpdateBrandIds,
+        modelIds: selectedUpdateModelIds,
+        onlyNotUpdated: updateOnlyNotUpdated,
+      }
+
+      const response = await updateModelInformation(payload)
+      setUpdateResult(response?.result || null)
+
+      if (selectedDeviceType !== "all" && selectedManufacturer !== "all") {
+        const refreshedModels = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
+        setModels((refreshedModels as any).models || [])
+      }
+
+      const failedCount = response?.result?.failed || 0
+      const firstRequestError = response?.result?.errors?.[0]
+      toast({
+        title: "Informationsupdate abgeschlossen",
+        description:
+          failedCount > 0 && firstRequestError?.reason
+            ? `Aktualisiert: ${response?.result?.updated || 0}, ohne Treffer: ${response?.result?.noMatch || 0}, Fehler: ${failedCount}. Erster API-Fehler: ${firstRequestError.reason}`
+            : `Aktualisiert: ${response?.result?.updated || 0}, ohne Treffer: ${response?.result?.noMatch || 0}, Fehler: ${failedCount}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Informationsupdate fehlgeschlagen",
+        description: error?.message || "Das Modell-Informationsupdate konnte nicht gestartet werden.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -1310,6 +1371,10 @@ export function DeviceManagement() {
                 <Button onClick={handleCreateModel} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Add Model
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => setShowModelInformationUpdate(true)}>
+                  <RefreshCw className="h-4 w-4" />
+                  Modell Informations Update
                 </Button>
               </div>
 
@@ -2372,6 +2437,173 @@ export function DeviceManagement() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={showModelInformationUpdate} onOpenChange={setShowModelInformationUpdate}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-[#1a2a5e]" />
+                Modell Informations Update
+              </DialogTitle>
+              <DialogDescription>
+                Aktualisiert Modellinformationen aus der MobileAPI inkl. Verknüpfungen zu Repair Services (Marke, Modell, DeviceType).
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-5">
+              <Card className="border-gray-200 bg-white shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Update-Parameter</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="requestsPerSecond">Requests pro Sekunde</Label>
+                    <Input
+                      id="requestsPerSecond"
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={updateRequestsPerSecond}
+                      onChange={(e) => setUpdateRequestsPerSecond(Number(e.target.value || 1))}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="updateLimit">Max. Anzahl Modelle (0 = alle Treffer)</Label>
+                    <Input
+                      id="updateLimit"
+                      type="number"
+                      min={0}
+                      value={updateLimit}
+                      onChange={(e) => setUpdateLimit(Number(e.target.value || 0))}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="md:col-span-2 flex items-center gap-3 rounded-md border p-3 bg-slate-50">
+                    <Checkbox
+                      id="onlyNotUpdated"
+                      checked={updateOnlyNotUpdated}
+                      onCheckedChange={(checked) => setUpdateOnlyNotUpdated(checked === true)}
+                      disabled={isSubmitting}
+                    />
+                    <Label htmlFor="onlyNotUpdated" className="cursor-pointer">
+                      Nur noch nicht aktualisierte Modellinformationen updaten
+                    </Label>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-gray-200 bg-white shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Filter: Device Types</CardTitle>
+                  <CardDescription>Leer = alle Device Types</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2 max-h-44 overflow-y-auto">
+                  {deviceTypes.map((type) => (
+                    <label key={type._id} className="flex items-center gap-2 text-sm p-2 rounded border hover:bg-slate-50">
+                      <Checkbox
+                        checked={selectedUpdateDeviceTypes.includes(type._id)}
+                        onCheckedChange={() => toggleSelection(type._id, selectedUpdateDeviceTypes, setSelectedUpdateDeviceTypes)}
+                        disabled={isSubmitting}
+                      />
+                      <span className="capitalize">{type.name}</span>
+                    </label>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-gray-200 bg-white shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Filter: Hersteller</CardTitle>
+                  <CardDescription>Leer = alle Hersteller</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2 max-h-44 overflow-y-auto">
+                  {brands.map((brand) => (
+                    <label key={brand._id} className="flex items-center gap-2 text-sm p-2 rounded border hover:bg-slate-50">
+                      <Checkbox
+                        checked={selectedUpdateBrandIds.includes(brand._id)}
+                        onCheckedChange={() => toggleSelection(brand._id, selectedUpdateBrandIds, setSelectedUpdateBrandIds)}
+                        disabled={isSubmitting}
+                      />
+                      <span>{brand.name}</span>
+                    </label>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-gray-200 bg-white shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Filter: Modelle</CardTitle>
+                  <CardDescription>
+                    Optional aus der aktuell geladenen Modellliste auswählen. Leer = alle Modelle gemäß Filter.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2 max-h-52 overflow-y-auto">
+                  {filteredModels.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Keine Modelle geladen. Nutze ggf. Device Type + Hersteller Filter oben in der Seite.</p>
+                  ) : (
+                    filteredModels.map((model) => (
+                      <label key={model._id} className="flex items-center gap-2 text-sm p-2 rounded border hover:bg-slate-50">
+                        <Checkbox
+                          checked={selectedUpdateModelIds.includes(model._id)}
+                          onCheckedChange={() => toggleSelection(model._id, selectedUpdateModelIds, setSelectedUpdateModelIds)}
+                          disabled={isSubmitting}
+                        />
+                        <span>{model.name}</span>
+                      </label>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              {updateResult && (
+                <Card className="border-[#f5d677] bg-[#fff9e6]">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-[#1a2a5e]">Ergebnis</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
+                    <p>Verarbeitet: <strong>{updateResult.total || 0}</strong></p>
+                    <p>Aktualisiert: <strong>{updateResult.updated || 0}</strong></p>
+                    <p>Ohne Treffer: <strong>{updateResult.noMatch || 0}</strong></p>
+                    <p>Fehler: <strong>{updateResult.failed || 0}</strong></p>
+                    <p className="sm:col-span-2">Verknüpfte Repair Services aktualisiert: <strong>{updateResult.servicesModified || 0}</strong></p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {updateResult?.errors?.length > 0 && (
+                <Card className="border-red-200 bg-red-50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-red-800">API-Request-Fehler</CardTitle>
+                    <CardDescription>
+                      Detaillierte Fehler der MobileAPI-Requests (Modell, HTTP-Status, Message)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="max-h-56 overflow-y-auto space-y-2">
+                    {updateResult.errors.map((item: any, index: number) => (
+                      <div key={`${item.modelId || item.modelName}-${index}`} className="rounded border border-red-200 bg-white p-2 text-xs">
+                        <p><strong>Modell:</strong> {item.modelName || '-'}</p>
+                        <p><strong>Status:</strong> {item.statusCode || '-'}</p>
+                        <p><strong>Code:</strong> {item.errorCode || '-'}</p>
+                        <p><strong>Fehler:</strong> {item.reason || 'Unbekannter Fehler'}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowModelInformationUpdate(false)} disabled={isSubmitting}>
+                Schließen
+              </Button>
+              <Button onClick={handleModelInformationUpdate} disabled={isSubmitting} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${isSubmitting ? 'animate-spin' : ''}`} />
+                {isSubmitting ? 'Update läuft...' : 'Informationsupdate starten'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* View Model Dialog - Enhanced with Color Coding and Card-Based Layout */}
         <Dialog open={showViewModel} onOpenChange={setShowViewModel}>
