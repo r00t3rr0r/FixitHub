@@ -781,7 +781,11 @@ export default function EPartOrderManagement() {
                 </TableRow>
               ) : (
                 orders.map((order) => (
-                  <TableRow key={order._id}>
+                  <TableRow
+                    key={order._id}
+                    onClick={() => handleViewOrder(order._id)}
+                    className="cursor-pointer transition-colors hover:bg-slate-50"
+                  >
                     <TableCell className={cn(compactTableCellClass, 'font-semibold text-slate-900')}>{order.orderNumber}</TableCell>
                     <TableCell className={compactTableCellClass}>{getSupplierName(order.supplierId)}</TableCell>
                     <TableCell className={compactTableCellClass}>{order.items.length}</TableCell>
@@ -798,7 +802,7 @@ export default function EPartOrderManagement() {
                         ? format(new Date(order.expectedDeliveryDate), 'MMM dd, yyyy')
                         : '-'}
                     </TableCell>
-                    <TableCell className={cn(compactTableCellClass, 'text-right')}>
+                    <TableCell className={cn(compactTableCellClass, 'text-right')} onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1695,276 +1699,270 @@ export default function EPartOrderManagement() {
               </TabsList>
 
               <TabsContent value="details" className="space-y-4">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div>
-                    <Label className={compactLabelClass}>Supplier</Label>
-                    <p className="text-sm">{getSupplierName(selectedOrder.supplierId)}</p>
-                  </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  <Card className={pageSectionCardClass}>
+                    <CardHeader className={cn(compactCardHeaderClass, 'pb-2')}>
+                      <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Subtotal</CardTitle>
+                    </CardHeader>
+                    <CardContent className={compactCardContentClass}>
+                      <p className="text-lg font-bold text-slate-900">${selectedOrder.subtotal.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className={pageSectionCardClass}>
+                    <CardHeader className={cn(compactCardHeaderClass, 'pb-2')}>
+                      <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shipping</CardTitle>
+                    </CardHeader>
+                    <CardContent className={compactCardContentClass}>
+                      <p className="text-lg font-bold text-slate-900">${selectedOrder.shippingCost.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className={pageSectionCardClass}>
+                    <CardHeader className={cn(compactCardHeaderClass, 'pb-2')}>
+                      <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Tax</CardTitle>
+                    </CardHeader>
+                    <CardContent className={compactCardContentClass}>
+                      <p className="text-lg font-bold text-slate-900">${selectedOrder.tax.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className={pageSectionCardClass}>
+                    <CardHeader className={cn(compactCardHeaderClass, 'pb-2')}>
+                      <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Total Net</CardTitle>
+                    </CardHeader>
+                    <CardContent className={compactCardContentClass}>
+                      <p className="text-lg font-bold text-slate-900">
+                        ${(
+                          Math.max(0, Number(selectedOrder.subtotal) || 0) +
+                          Math.max(0, Number(selectedOrder.shippingCost) || 0)
+                        ).toFixed(2)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className={cn(pageSectionCardClass, 'col-span-2 lg:col-span-1 border-slate-900 bg-[#1a2a5e]')}>
+                    <CardHeader className={cn(compactCardHeaderClass, 'pb-2')}>
+                      <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-200">Total Gross</CardTitle>
+                    </CardHeader>
+                    <CardContent className={compactCardContentClass}>
+                      <p className="text-lg font-bold text-yellow-300">${selectedOrder.totalCost.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                  <div>
-                    <Label className={compactLabelClass}>Status</Label>
-                    <div className="mt-1">
-                      {getStatusBadge(selectedOrder.status)}
-                      {selectedOrder.status !== 'cancelled' &&
-                        selectedOrder.status !== 'received' && (
-                          <Select
-                            value={selectedOrder.status}
-                            onValueChange={(value) =>
-                              handleUpdateOrderStatus(selectedOrder._id, value)
-                            }
-                          >
-                            <SelectTrigger className={cn(compactSelectClass, 'mt-2')}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="draft">Draft</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="confirmed">Confirmed</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Order Date</Label>
-                    <p className="text-sm">
-                      {format(new Date(selectedOrder.orderDate), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Expected Delivery</Label>
-                    <p className="text-sm">
-                      {selectedOrder.expectedDeliveryDate
-                        ? format(new Date(selectedOrder.expectedDeliveryDate), 'MMM dd, yyyy')
-                        : '-'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Subtotal</Label>
-                    <p className="text-sm">${selectedOrder.subtotal.toFixed(2)}</p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Tax</Label>
-                    <p className="text-sm">${selectedOrder.tax.toFixed(2)}</p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Shipping</Label>
-                    <p className="text-sm">${selectedOrder.shippingCost.toFixed(2)}</p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Total</Label>
-                    <p className="text-sm font-bold">${selectedOrder.totalCost.toFixed(2)}</p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Total Net</Label>
-                    <p className="text-sm font-semibold">
-                      ${(
-                        Math.max(0, Number(selectedOrder.subtotal) || 0) +
-                        Math.max(0, Number(selectedOrder.shippingCost) || 0)
-                      ).toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Total Gross</Label>
-                    <p className="text-sm font-semibold">
-                      ${(
-                        Math.max(0, Number(selectedOrder.subtotal) || 0) +
-                        Math.max(0, Number(selectedOrder.shippingCost) || 0) +
-                        Math.max(0, Number(selectedOrder.tax) || 0)
-                      ).toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Payment Status</Label>
-                    <div className="mt-1">
-                      <Badge
-                        variant={selectedOrder.paymentStatus === 'paid' ? 'default' : 'outline'}
-                      >
-                        {selectedOrder.paymentStatus}
-                      </Badge>
-                      {selectedOrder.status !== 'cancelled' && (
-                        <Select
-                          value={selectedOrder.paymentStatus}
-                          onValueChange={(value) =>
-                            updateEPartOrder(selectedOrder._id, { paymentStatus: value }).then(() => {
-                              toast({ title: 'Success', description: 'Payment status updated' });
-                              getEPartOrderById(selectedOrder._id).then(({ order }) => setSelectedOrder(order));
-                            })
-                          }
-                        >
-                          <SelectTrigger className={cn(compactSelectClass, 'mt-2')}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unpaid">Unpaid</SelectItem>
-                            <SelectItem value="partial">Partial</SelectItem>
-                            <SelectItem value="paid">Paid</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Tracking Number</Label>
-                    <p className="text-sm">{selectedOrder.trackingNumber || '-'}</p>
-                  </div>
-
-                  <div>
-                    <Label className={compactLabelClass}>Invoice</Label>
-                    <div className="flex gap-2 mt-1">
-                      {selectedOrder.invoiceFile ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={compactButtonClass}
-                            onClick={() => handleDownloadInvoice(selectedOrder._id)}
-                          >
-                            <Download className="mr-1.5 h-3.5 w-3.5" />
-                            Download
-                          </Button>
-                          <p className="text-xs text-muted-foreground self-center">
-                            {selectedOrder.invoiceFile.originalName}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <Card className={cn(pageSectionCardClass, 'lg:col-span-2')}>
+                    <CardHeader className={compactCardHeaderClass}>
+                      <CardTitle className="text-sm">Order Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className={cn(compactCardContentClass, 'space-y-3')}>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                          <Label className={compactLabelClass}>Supplier</Label>
+                          <p className="text-sm">{getSupplierName(selectedOrder.supplierId)}</p>
+                        </div>
+                        <div>
+                          <Label className={compactLabelClass}>Order Date</Label>
+                          <p className="text-sm">{format(new Date(selectedOrder.orderDate), 'MMM dd, yyyy')}</p>
+                        </div>
+                        <div>
+                          <Label className={compactLabelClass}>Expected Delivery</Label>
+                          <p className="text-sm">
+                            {selectedOrder.expectedDeliveryDate
+                              ? format(new Date(selectedOrder.expectedDeliveryDate), 'MMM dd, yyyy')
+                              : '-'}
                           </p>
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={compactButtonClass}
-                          onClick={() => setShowInvoiceUploadDialog(true)}
-                        >
-                          <Upload className="mr-1.5 h-3.5 w-3.5" />
-                          Upload Invoice
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                        </div>
+                        <div>
+                          <Label className={compactLabelClass}>Tracking Number</Label>
+                          <p className="text-sm">{selectedOrder.trackingNumber || '-'}</p>
+                        </div>
+                      </div>
 
-                  <div>
-                    <Label className={compactLabelClass}>Return/Exchange</Label>
-                    <div className="mt-1">
-                      {selectedOrder.returnExchange && selectedOrder.returnExchange.status !== 'none' ? (
-                        <div className="space-y-2">
-                          <Badge variant={
-                            selectedOrder.returnExchange.status === 'completed' ? 'default' :
-                            selectedOrder.returnExchange.status === 'rejected' ? 'destructive' : 'secondary'
-                          }>
-                            {selectedOrder.returnExchange.status.toUpperCase()}
-                          </Badge>
-                          <p className="text-xs">Type: {selectedOrder.returnExchange.type}</p>
-                          <p className="text-xs">Reason: {selectedOrder.returnExchange.reason}</p>
-                          {selectedOrder.returnExchange.status === 'requested' && (
-                            <div className="flex gap-2 mt-2">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                          <Label className={compactLabelClass}>Status</Label>
+                          <div className="mt-1">
+                            {getStatusBadge(selectedOrder.status)}
+                            {selectedOrder.status !== 'cancelled' &&
+                              selectedOrder.status !== 'received' && (
+                                <Select
+                                  value={selectedOrder.status}
+                                  onValueChange={(value) => handleUpdateOrderStatus(selectedOrder._id, value)}
+                                >
+                                  <SelectTrigger className={cn(compactSelectClass, 'mt-2')}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="draft">Draft</SelectItem>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="shipped">Shipped</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className={compactLabelClass}>Payment Status</Label>
+                          <div className="mt-1">
+                            <Badge variant={selectedOrder.paymentStatus === 'paid' ? 'default' : 'outline'}>
+                              {selectedOrder.paymentStatus}
+                            </Badge>
+                            {selectedOrder.status !== 'cancelled' && (
+                              <Select
+                                value={selectedOrder.paymentStatus}
+                                onValueChange={(value) =>
+                                  updateEPartOrder(selectedOrder._id, { paymentStatus: value }).then(() => {
+                                    toast({ title: 'Success', description: 'Payment status updated' });
+                                    getEPartOrderById(selectedOrder._id).then(({ order }) => setSelectedOrder(order));
+                                  })
+                                }
+                              >
+                                <SelectTrigger className={cn(compactSelectClass, 'mt-2')}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                                  <SelectItem value="partial">Partial</SelectItem>
+                                  <SelectItem value="paid">Paid</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {selectedOrder.notes && (
+                        <div>
+                          <Label className={compactLabelClass}>Notes</Label>
+                          <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className={pageSectionCardClass}>
+                    <CardHeader className={compactCardHeaderClass}>
+                      <CardTitle className="text-sm">Actions & Documents</CardTitle>
+                    </CardHeader>
+                    <CardContent className={cn(compactCardContentClass, 'space-y-3')}>
+                      <div>
+                        <Label className={compactLabelClass}>Invoice</Label>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {selectedOrder.invoiceFile ? (
+                            <>
                               <Button
-                                size="sm"
                                 variant="outline"
-                                className={compactButtonClass}
-                                onClick={() => handleUpdateReturnExchange('approved')}
-                              >
-                                Approve
-                              </Button>
-                              <Button
                                 size="sm"
-                                variant="destructive"
                                 className={compactButtonClass}
-                                onClick={() => handleUpdateReturnExchange('rejected', 'Rejected by admin')}
+                                onClick={() => handleDownloadInvoice(selectedOrder._id)}
                               >
-                                Reject
+                                <Download className="mr-1.5 h-3.5 w-3.5" />
+                                Download
                               </Button>
-                            </div>
-                          )}
-                          {selectedOrder.returnExchange.status === 'approved' && (
+                              <p className="self-center text-xs text-muted-foreground">{selectedOrder.invoiceFile.originalName}</p>
+                            </>
+                          ) : (
                             <Button
-                              size="sm"
                               variant="outline"
-                              className={compactButtonClass}
-                              onClick={() => handleUpdateReturnExchange('in_transit')}
-                            >
-                              Mark In Transit
-                            </Button>
-                          )}
-                          {selectedOrder.returnExchange.status === 'in_transit' && (
-                            <Button
                               size="sm"
                               className={compactButtonClass}
-                              onClick={() => handleUpdateReturnExchange('completed')}
+                              onClick={() => setShowInvoiceUploadDialog(true)}
                             >
-                              Mark Completed
+                              <Upload className="mr-1.5 h-3.5 w-3.5" />
+                              Upload Invoice
                             </Button>
                           )}
                         </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={compactButtonClass}
-                          onClick={() => {
-                            setReturnExchangeForm({
-                              type: 'return',
-                              reason: '',
-                              description: '',
-                              affectedItems: [],
-                            });
-                            setShowReturnExchangeDialog(true);
-                          }}
-                          disabled={!selectedOrder.items.some(item => item.receivedQuantity > 0)}
-                        >
-                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                          Request Return/Exchange
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                      </div>
 
-                {selectedOrder.notes && (
-                  <div>
-                    <Label className={compactLabelClass}>Notes</Label>
-                    <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
-                  </div>
-                )}
+                      <div>
+                        <Label className={compactLabelClass}>Return/Exchange</Label>
+                        <div className="mt-1">
+                          {selectedOrder.returnExchange && selectedOrder.returnExchange.status !== 'none' ? (
+                            <div className="space-y-2">
+                              <Badge
+                                variant={
+                                  selectedOrder.returnExchange.status === 'completed'
+                                    ? 'default'
+                                    : selectedOrder.returnExchange.status === 'rejected'
+                                      ? 'destructive'
+                                      : 'secondary'
+                                }
+                              >
+                                {selectedOrder.returnExchange.status.toUpperCase()}
+                              </Badge>
+                              <p className="text-xs">Type: {selectedOrder.returnExchange.type}</p>
+                              <p className="text-xs">Reason: {selectedOrder.returnExchange.reason}</p>
+                              {selectedOrder.returnExchange.status === 'requested' && (
+                                <div className="mt-2 flex gap-2">
+                                  <Button size="sm" variant="outline" className={compactButtonClass} onClick={() => handleUpdateReturnExchange('approved')}>
+                                    Approve
+                                  </Button>
+                                  <Button size="sm" variant="destructive" className={compactButtonClass} onClick={() => handleUpdateReturnExchange('rejected', 'Rejected by admin')}>
+                                    Reject
+                                  </Button>
+                                </div>
+                              )}
+                              {selectedOrder.returnExchange.status === 'approved' && (
+                                <Button size="sm" variant="outline" className={compactButtonClass} onClick={() => handleUpdateReturnExchange('in_transit')}>
+                                  Mark In Transit
+                                </Button>
+                              )}
+                              {selectedOrder.returnExchange.status === 'in_transit' && (
+                                <Button size="sm" className={compactButtonClass} onClick={() => handleUpdateReturnExchange('completed')}>
+                                  Mark Completed
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={compactButtonClass}
+                              onClick={() => {
+                                setReturnExchangeForm({ type: 'return', reason: '', description: '', affectedItems: [] });
+                                setShowReturnExchangeDialog(true);
+                              }}
+                              disabled={!selectedOrder.items.some((item) => item.receivedQuantity > 0)}
+                            >
+                              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                              Request Return/Exchange
+                            </Button>
+                          )}
+                        </div>
+                      </div>
 
-                <div className="flex gap-2">
-                  {selectedOrder.status === 'shipped' && (
-                    <Button
-                      className={compactButtonClass}
-                      onClick={() => {
-                        setShowReceiveDialog(true);
-                        setReceiveData(
-                          selectedOrder.items.map((item) => ({
-                            itemId: item._id!,
-                            quantity: item.quantity - item.receivedQuantity,
-                          }))
-                        );
-                      }}
-                    >
-                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                      Receive Items
-                    </Button>
-                  )}
-                  {selectedOrder.status !== 'cancelled' &&
-                    selectedOrder.status !== 'received' && (
-                      <Button
-                        variant="destructive"
-                        className={compactButtonClass}
-                        onClick={() => handleCancelOrder(selectedOrder._id)}
-                      >
-                        <X className="mr-1.5 h-3.5 w-3.5" />
-                        Cancel Order
-                      </Button>
-                    )}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {selectedOrder.status === 'shipped' && (
+                          <Button
+                            className={compactButtonClass}
+                            onClick={() => {
+                              setShowReceiveDialog(true);
+                              setReceiveData(
+                                selectedOrder.items.map((item) => ({
+                                  itemId: item._id!,
+                                  quantity: item.quantity - item.receivedQuantity,
+                                }))
+                              );
+                            }}
+                          >
+                            <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                            Receive Items
+                          </Button>
+                        )}
+                        {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'received' && (
+                          <Button
+                            variant="destructive"
+                            className={compactButtonClass}
+                            onClick={() => handleCancelOrder(selectedOrder._id)}
+                          >
+                            <X className="mr-1.5 h-3.5 w-3.5" />
+                            Cancel Order
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
 
