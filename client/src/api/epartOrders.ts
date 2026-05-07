@@ -39,9 +39,16 @@ export interface OrderItem {
   sku: string;
   quantity: number;
   unitPrice: number;
+  priceType?: 'net' | 'gross';
+  shippingCost?: number;
+  additionalCost?: number;
+  shippingShare?: number;
+  adjustedLineTotal?: number;
+  adjustedUnitPrice?: number;
   totalPrice: number;
   receivedQuantity: number;
   status: 'pending' | 'partial' | 'received' | 'cancelled';
+  supplier?: string;
 }
 
 export interface TimelineEntry {

@@ -1,7 +1,239 @@
 const { Supplier, EPartOrder } = require('../models/EPartOrder');
 const Inventory = require('../models/Inventory');
+const NeedList = require('../models/NeedList');
+const Order = require('../models/Order');
+const NotificationService = require('./notificationService');
 
 class EPartOrderService {
+  static getSafeVersionForAllocation(part, requestedQuantity = 1) {
+    if (!part || !Array.isArray(part.versions) || part.versions.length === 0) {
+      return null;
+    }
+
+    const normalizedRequested = Math.max(1, Number(requestedQuantity) || 1);
+    const versions = part.versions.filter((version) => Number(version.quantity || 0) > 0);
+    if (versions.length === 0) {
+      return null;
+    }
+
+    const fittingVersion = versions.find((version) => Number(version.quantity || 0) >= normalizedRequested);
+    if (fittingVersion) {
+      return fittingVersion;
+    }
+
+    return versions.sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0))[0];
+  }
+
+  static async autoAssignConvertedNeedListOrderItems(epartOrder, userId) {
+    const needList = await NeedList.findOne({ convertedToOrder: epartOrder._id });
+    if (!needList) {
+      return;
+    }
+
+    const linkedOrders = await Order.find({
+      'ePartNeedListEntries.needListId': needList._id,
+    }).setOptions({ skipAutoPopulate: true });
+
+    if (!linkedOrders.length) {
+      return;
+    }
+
+    for (const linkedOrder of linkedOrders) {
+      let orderChanged = false;
+      let autoAssignedLines = 0;
+
+      for (const entry of [...linkedOrder.ePartNeedListEntries]) {
+        const matchesNeedList = String(entry.needListId || '') === String(needList._id);
+        const pendingQuantity = Math.max(0, Number(entry.quantity) || 0);
+        if (!matchesNeedList || pendingQuantity === 0) {
+          continue;
+        }
+
+        const part = await Inventory.findById(entry.partId);
+        if (!part) {
+          continue;
+        }
+
+        const chosenVersion = this.getSafeVersionForAllocation(part, pendingQuantity);
+        if (!chosenVersion) {
+          continue;
+        }
+
+        const assignableQuantity = Math.min(
+          pendingQuantity,
+          Math.max(0, Number(chosenVersion.quantity) || 0)
+        );
+
+        if (assignableQuantity <= 0) {
+          continue;
+        }
+
+        chosenVersion.quantity -= assignableQuantity;
+        await part.save();
+
+        const existingEPart = linkedOrder.eParts.find(
+          (ep) => String(ep.partId) === String(entry.partId)
+            && String(ep.versionId) === String(chosenVersion._id)
+        );
+
+        if (existingEPart) {
+          existingEPart.quantity += assignableQuantity;
+          existingEPart.status = 'allocated';
+          existingEPart.assignedAt = new Date();
+          existingEPart.assignedBy = userId;
+        } else {
+          linkedOrder.eParts.push({
+            partId: entry.partId,
+            versionId: String(chosenVersion._id),
+            quantity: assignableQuantity,
+            status: 'allocated',
+            assignedAt: new Date(),
+            assignedBy: userId,
+          });
+        }
+
+        if (assignableQuantity >= pendingQuantity) {
+          linkedOrder.ePartNeedListEntries.pull(entry._id);
+        } else {
+          entry.quantity = pendingQuantity - assignableQuantity;
+          entry.needListStatus = 'ordered';
+        }
+
+        linkedOrder.timeline.push({
+          status: 'EPart Assigned',
+          description: `${part.itemName} x${assignableQuantity} automatically assigned from received need list \"${needList.name}\"`,
+          completedAt: new Date(),
+          staffId: userId || 'system',
+          staffName: 'System',
+        });
+
+        autoAssignedLines += 1;
+        orderChanged = true;
+      }
+
+      if (orderChanged) {
+        await linkedOrder.save({ validateModifiedOnly: true });
+
+        const assignedStaffIds = Array.isArray(linkedOrder.assignedStaff)
+          ? [...new Set(
+            linkedOrder.assignedStaff
+              .map((assignment) => String(assignment?.staffId || ''))
+              .filter((staffId) => staffId)
+          )]
+          : [];
+
+        await Promise.all(
+          assignedStaffIds.map(async (staffId) => {
+            try {
+              await NotificationService.createNotification({
+                userId: staffId,
+                title: 'Ersatzteil fuer Reparatur verfuegbar',
+                message: `Fuer Auftrag ${linkedOrder.orderNumber || linkedOrder._id} wurde ein angefordertes Ersatzteil empfangen und der Reparatur zugewiesen.`,
+                type: 'assignment',
+                orderId: linkedOrder._id,
+                actionUrl: `/admin/orders/${linkedOrder._id}`,
+              }, { sendEmail: false });
+            } catch (notificationError) {
+              console.error('EPartOrderService: Failed to notify assigned staff:', notificationError.message || notificationError);
+            }
+          })
+        );
+
+        if (autoAssignedLines > 0) {
+          linkedOrder.timeline.push({
+            status: 'Staff Notified',
+            description: `Assigned staff notified that ${autoAssignedLines} replacement part position(s) are now available for repair`,
+            completedAt: new Date(),
+            staffId: userId || 'system',
+            staffName: 'System',
+          });
+          await linkedOrder.save({ validateModifiedOnly: true });
+        }
+      }
+    }
+  }
+
+  static roundTo(value, decimals = 4) {
+    const factor = 10 ** decimals;
+    return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+  }
+
+  static allocateShippingProportionally(items, shippingTotal) {
+    const normalizedItems = items.map((item) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+      const additionalCost = Math.max(0, Number(item.additionalCost) || 0);
+      const lineTotal = this.roundTo(quantity * unitPrice, 4);
+
+      return {
+        ...item,
+        quantity,
+        unitPrice,
+        additionalCost,
+        lineTotal,
+      };
+    });
+
+    const orderSubtotal = this.roundTo(
+      normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0),
+      4
+    );
+    const roundedShippingTotal = this.roundTo(Math.max(0, Number(shippingTotal) || 0), 2);
+
+    const shares = normalizedItems.map(() => 0);
+    if (orderSubtotal > 0 && roundedShippingTotal > 0) {
+      let allocatedShipping = 0;
+
+      normalizedItems.forEach((item, index) => {
+        const rawShare = (item.lineTotal / orderSubtotal) * roundedShippingTotal;
+        const roundedShare = this.roundTo(rawShare, 2);
+        shares[index] = roundedShare;
+        allocatedShipping += roundedShare;
+      });
+
+      const roundingDelta = this.roundTo(roundedShippingTotal - allocatedShipping, 2);
+      if (roundingDelta !== 0 && normalizedItems.length > 0) {
+        const targetIndex = normalizedItems.reduce((bestIndex, item, index, arr) => {
+          if (item.lineTotal > arr[bestIndex].lineTotal) {
+            return index;
+          }
+          return bestIndex;
+        }, 0);
+        shares[targetIndex] = this.roundTo(shares[targetIndex] + roundingDelta, 2);
+      }
+    }
+
+    const pricedItems = normalizedItems.map((item, index) => {
+      const shippingShare = Math.max(0, this.roundTo(shares[index], 2));
+      const adjustedLineTotal = this.roundTo(item.lineTotal + shippingShare, 4);
+      const adjustedUnitPrice = this.roundTo(adjustedLineTotal / item.quantity, 4);
+      const totalPrice = this.roundTo(item.lineTotal + item.additionalCost + shippingShare, 4);
+
+      return {
+        ...item,
+        shippingShare,
+        adjustedLineTotal,
+        adjustedUnitPrice,
+        totalPrice,
+      };
+    });
+
+    const subtotal = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.lineTotal + item.additionalCost, 0),
+      4
+    );
+    const distributedShippingCost = this.roundTo(
+      pricedItems.reduce((sum, item) => sum + item.shippingShare, 0),
+      2
+    );
+
+    return {
+      items: pricedItems,
+      subtotal,
+      shippingCost: distributedShippingCost,
+    };
+  }
+
   // ============ SUPPLIER OPERATIONS ============
 
   /**
@@ -167,9 +399,7 @@ class EPartOrderService {
    * Create new epart order
    */
   static async createEPartOrder(orderData, userId) {
-    // Calculate subtotal and total
-    let subtotal = 0;
-    const items = [];
+    const preparedItems = [];
 
     for (const item of orderData.items) {
       // Get part details from inventory
@@ -178,34 +408,36 @@ class EPartOrderService {
         throw new Error(`Part not found: ${item.partId}`);
       }
 
-      const totalPrice = item.quantity * item.unitPrice;
-      subtotal += totalPrice;
-
-      items.push({
+      preparedItems.push({
         partId: item.partId,
         partName: part.name,
         sku: part.sku,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: totalPrice,
+        unitPrice: Math.max(0, Number(item.unitPrice) || 0),
+        additionalCost: Math.max(0, Number(item.additionalCost) || 0),
+        priceType: item.priceType === 'gross' ? 'gross' : 'net',
         receivedQuantity: 0,
         status: 'pending'
       });
     }
 
-    const tax = orderData.tax || 0;
-    const shippingCost = orderData.shippingCost || 0;
-    const totalCost = subtotal + tax + shippingCost;
+    const allocation = this.allocateShippingProportionally(
+      preparedItems,
+      orderData.shippingCost || 0
+    );
+
+    const tax = Math.max(0, Number(orderData.tax) || 0);
+    const totalCost = this.roundTo(allocation.subtotal + tax + allocation.shippingCost, 4);
 
     const order = new EPartOrder({
       supplierId: orderData.supplierId,
-      items: items,
+      items: allocation.items,
       status: orderData.status || 'draft',
       orderDate: orderData.orderDate || new Date(),
       expectedDeliveryDate: orderData.expectedDeliveryDate,
-      subtotal: subtotal,
+      subtotal: allocation.subtotal,
       tax: tax,
-      shippingCost: shippingCost,
+      shippingCost: allocation.shippingCost,
       totalCost: totalCost,
       paymentMethod: orderData.paymentMethod || 'account',
       notes: orderData.notes,
@@ -273,15 +505,39 @@ class EPartOrderService {
 
     if (updateData.tax !== undefined) {
       order.tax = updateData.tax;
-      order.totalCost = order.subtotal + order.tax + order.shippingCost;
+      order.totalCost = this.roundTo(order.subtotal + order.tax + order.shippingCost, 4);
     }
 
     if (updateData.shippingCost !== undefined) {
-      order.shippingCost = updateData.shippingCost;
-      order.totalCost = order.subtotal + order.tax + order.shippingCost;
+      const allocation = this.allocateShippingProportionally(
+        order.items.map((item) => ({
+          ...item.toObject(),
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          additionalCost: item.additionalCost || 0,
+        })),
+        updateData.shippingCost
+      );
+
+      order.items.forEach((item, index) => {
+        const allocated = allocation.items[index];
+        item.shippingShare = allocated.shippingShare;
+        item.adjustedLineTotal = allocated.adjustedLineTotal;
+        item.adjustedUnitPrice = allocated.adjustedUnitPrice;
+        item.totalPrice = allocated.totalPrice;
+      });
+
+      order.shippingCost = allocation.shippingCost;
+      order.subtotal = allocation.subtotal;
+      order.totalCost = this.roundTo(order.subtotal + order.tax + order.shippingCost, 4);
     }
 
     await order.save();
+
+    if (updateData.status === 'received') {
+      await this.autoAssignConvertedNeedListOrderItems(order, userId);
+    }
+
     return await this.getEPartOrderById(orderId);
   }
 
@@ -319,10 +575,17 @@ class EPartOrderService {
         allItemsReceived = false;
       }
 
-      // Update inventory stock
-      await Inventory.findByIdAndUpdate(orderItem.partId, {
-        $inc: { quantityInStock: receivedItem.quantity }
-      });
+      // Add received quantity to the most appropriate inventory version.
+      const inventoryPart = await Inventory.findById(orderItem.partId);
+      if (inventoryPart) {
+        const targetVersion = this.getSafeVersionForAllocation(inventoryPart, receivedItem.quantity)
+          || inventoryPart.versions[0];
+
+        if (targetVersion) {
+          targetVersion.quantity = Math.max(0, Number(targetVersion.quantity) || 0) + receivedItem.quantity;
+          await inventoryPart.save();
+        }
+      }
 
       // Add timeline entry
       order.timeline.push({
@@ -343,6 +606,11 @@ class EPartOrderService {
     }
 
     await order.save();
+
+    if (allItemsReceived) {
+      await this.autoAssignConvertedNeedListOrderItems(order, userId);
+    }
+
     return await this.getEPartOrderById(orderId);
   }
 

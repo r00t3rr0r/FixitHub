@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Papa from 'papaparse';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,52 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  const sanitizeColumns = (columns: unknown[]): string[] => {
+    return Array.from(
+      new Set(
+        (Array.isArray(columns) ? columns : [])
+          .map((col) =>
+            String(col ?? '')
+              .replace(/^\uFEFF/, '')
+              .replace(/[\x00-\x1F\x7F]/g, ' ')
+              .trim()
+          )
+          .filter((col) => col !== '' && col !== '__parsed_extra')
+      )
+    );
+  };
+
+  const extractHeadersFromFile = async (file: File): Promise<string[]> => {
+    return new Promise((resolve) => {
+      Papa.parse(file, {
+        header: false,
+        skipEmptyLines: 'greedy',
+        preview: 20,
+        complete: (results) => {
+          const rows = Array.isArray(results.data) ? (results.data as unknown[]) : [];
+
+          const headerRow = rows.find((row) => {
+            if (!Array.isArray(row)) return false;
+            const normalized = row.map((cell) => String(cell ?? '').trim());
+            if (!normalized.some((cell) => cell !== '')) return false;
+
+            // Ignore Excel-style delimiter hints like "sep=;".
+            if (normalized.length === 1 && /^sep\s*=\s*[,;|\t]$/i.test(normalized[0])) {
+              return false;
+            }
+
+            return true;
+          }) as unknown[] | undefined;
+
+          resolve(sanitizeColumns(Array.isArray(headerRow) ? headerRow : []));
+        },
+        error: () => {
+          resolve([]);
+        },
+      });
+    });
+  };
+
   // Reset state when dialog closes
   const handleClose = () => {
     setStep('upload');
@@ -93,11 +140,22 @@ const ServiceCSVImportDialog: React.FC<ServiceCSVImportDialogProps> = ({
       setProgress(60);
 
       if (result.needsMapping) {
-        // First pass: get columns for mapping
-        // Filter out empty strings to prevent Radix UI Select errors
-        const filteredColumns = (result.columns || []).filter((col) => col && col.trim() !== '');
+        // First pass: get columns for mapping.
+        // Some CSV sources can return empty `columns`; derive a fallback from preview row keys.
+        const apiColumns = Array.isArray(result.columns) ? result.columns : [];
+        const previewRows = Array.isArray(result.previewData) ? result.previewData : [];
+        const firstPreviewRow = previewRows.find((row) => row && typeof row === 'object') || {};
+        const previewColumns = Object.keys(firstPreviewRow);
+
+        const fileHeaderColumns = await extractHeadersFromFile(selectedFile);
+        const filteredColumns = sanitizeColumns([...apiColumns, ...previewColumns, ...fileHeaderColumns]);
+
+        if (filteredColumns.length === 0) {
+          throw new Error('No CSV columns could be detected. Please verify the file contains a valid header row.');
+        }
+
         setCsvColumns(filteredColumns);
-        setPreviewData(result.previewData || []);
+        setPreviewData(previewRows);
         setProgress(100);
         setStep('mapping');
 

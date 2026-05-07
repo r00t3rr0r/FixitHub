@@ -17,13 +17,41 @@ interface ServiceColumnAssignmentPanelProps {
   onColumnMappingChange: (field: string, column: string) => void;
 }
 
+const NOT_MAPPED_VALUE = '__UNMAPPED__';
+const COLUMN_OPTION_PREFIX = '__CSV_COL__';
+
 const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> = ({
   csvColumns,
   columnMapping,
   onColumnMappingChange,
 }) => {
-  // Filter out any empty strings from CSV columns to prevent Radix UI Select errors
-  const filteredCsvColumns = csvColumns.filter((col) => col && col.trim() !== '');
+  const normalizeDisplayColumn = (value: string) => {
+    return String(value)
+      .replace(/^\uFEFF/, '')
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
+      .trim();
+  };
+
+  // Build stable option IDs for Radix Select and avoid duplicate/invalid raw values.
+  const columnOptions = Array.from(
+    csvColumns.reduce((acc, rawColumn, index) => {
+      const raw = String(rawColumn ?? '');
+      const label = normalizeDisplayColumn(raw);
+      if (!label || raw === '__parsed_extra' || acc.seen.has(raw)) {
+        return acc;
+      }
+      acc.seen.add(raw);
+      acc.items.push({
+        id: `${COLUMN_OPTION_PREFIX}${index}`,
+        raw,
+        label,
+      });
+      return acc;
+    }, {
+      seen: new Set<string>(),
+      items: [] as Array<{ id: string; raw: string; label: string }>,
+    }).items
+  );
 
   // Service fields that need to be mapped
   const serviceFields = [
@@ -71,7 +99,22 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
 
   // Get unmapped columns
   const mappedColumns = new Set(Object.values(columnMapping).filter((col) => col));
-  const unmappedColumns = filteredCsvColumns.filter((col) => !mappedColumns.has(col));
+  const unmappedColumns = columnOptions.filter((col) => !mappedColumns.has(col.raw));
+
+  const getSelectValue = (field: string) => {
+    const mappedColumn = columnMapping[field];
+    const option = columnOptions.find((col) => col.raw === mappedColumn);
+    return option?.id || NOT_MAPPED_VALUE;
+  };
+
+  const handleSelectValueChange = (field: string, value: string) => {
+    if (value === NOT_MAPPED_VALUE) {
+      onColumnMappingChange(field, '');
+      return;
+    }
+    const option = columnOptions.find((col) => col.id === value);
+    onColumnMappingChange(field, option?.raw || '');
+  };
 
   return (
     <div className="space-y-6">
@@ -106,17 +149,17 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
               )}
             </div>
             <Select
-              value={columnMapping[serviceField.field] || '__UNMAPPED__'}
-              onValueChange={(value) => onColumnMappingChange(serviceField.field, value === '__UNMAPPED__' ? '' : value)}
+              value={getSelectValue(serviceField.field)}
+              onValueChange={(value) => handleSelectValueChange(serviceField.field, value)}
             >
               <SelectTrigger id={`field-${serviceField.field}`}>
                 <SelectValue placeholder="Select CSV column" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__UNMAPPED__">-- Not mapped --</SelectItem>
-                {filteredCsvColumns.map((column) => (
-                  <SelectItem key={column} value={column}>
-                    {column}
+                <SelectItem value={NOT_MAPPED_VALUE}>-- Not mapped --</SelectItem>
+                {columnOptions.map((column) => (
+                  <SelectItem key={column.id} value={column.id}>
+                    {column.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -134,8 +177,8 @@ const ServiceColumnAssignmentPanel: React.FC<ServiceColumnAssignmentPanelProps> 
               <p className="font-semibold">Unmapped CSV columns:</p>
               <div className="flex flex-wrap gap-2">
                 {unmappedColumns.map((col) => (
-                  <Badge key={col} variant="secondary">
-                    {col}
+                  <Badge key={col.id} variant="secondary">
+                    {col.label}
                   </Badge>
                 ))}
               </div>

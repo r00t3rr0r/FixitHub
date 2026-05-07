@@ -91,6 +91,36 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  priceType: {
+    type: String,
+    enum: ['net', 'gross'],
+    default: 'net'
+  },
+  shippingCost: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  additionalCost: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  shippingShare: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  adjustedLineTotal: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  adjustedUnitPrice: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   totalPrice: {
     type: Number,
     required: true,

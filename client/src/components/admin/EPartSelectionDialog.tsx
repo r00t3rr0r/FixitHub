@@ -65,6 +65,17 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
   const [quantity, setQuantity] = useState<number>(1);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [missingPartPricing, setMissingPartPricing] = useState<{
+    priceType: 'net' | 'gross';
+    unitPrice: number;
+    shippingCost: number;
+    additionalCost: number;
+  }>({
+    priceType: 'net',
+    unitPrice: 0,
+    shippingCost: 0,
+    additionalCost: 0,
+  });
 
   // Load parts on mount
   useEffect(() => {
@@ -209,6 +220,12 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
       setSelectedNeedListId(openNeedLists[0]?._id || '');
       setNeedListTargetOption(openNeedLists.length > 0 ? 'existing' : 'new');
       setNewNeedListName(`Auftrag ${orderIdentifier} - Ersatzteil Bedarfsliste`);
+      setMissingPartPricing({
+        priceType: 'net',
+        unitPrice: Math.max(0, Number(selectedVersion?.sellingPrice) || 0),
+        shippingCost: 0,
+        additionalCost: 0,
+      });
       setNeedListDialogOpen(true);
     } catch (error: any) {
       toast({
@@ -278,6 +295,10 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
           quantity,
           notes: itemNote,
           supplier: selectedSupplierId,
+          priceType: missingPartPricing.priceType,
+          unitPrice: missingPartPricing.unitPrice,
+          shippingCost: missingPartPricing.shippingCost,
+          additionalCost: missingPartPricing.additionalCost,
         });
 
         successDescription = `Teil wurde zur Bedarfsliste "${recordedNeedList.name}" hinzugefuegt`;
@@ -304,6 +325,10 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
               quantity,
               notes: itemNote,
               supplier: selectedSupplierId,
+              priceType: missingPartPricing.priceType,
+              unitPrice: missingPartPricing.unitPrice,
+              shippingCost: missingPartPricing.shippingCost,
+              additionalCost: missingPartPricing.additionalCost,
             },
           ],
         });
@@ -322,6 +347,10 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
             quantity,
             notes: itemNote,
             supplier: selectedSupplierId,
+            priceType: missingPartPricing.priceType,
+            unitPrice: missingPartPricing.unitPrice,
+            shippingCost: missingPartPricing.shippingCost,
+            additionalCost: missingPartPricing.additionalCost,
           });
 
           successDescription = `Teil wurde zur heutigen Bedarfsliste "${recordedNeedList.name}" hinzugefuegt`;
@@ -337,6 +366,10 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
                 quantity,
                 notes: itemNote,
                 supplier: selectedSupplierId,
+                priceType: missingPartPricing.priceType,
+                unitPrice: missingPartPricing.unitPrice,
+                shippingCost: missingPartPricing.shippingCost,
+                additionalCost: missingPartPricing.additionalCost,
               },
             ],
           });
@@ -366,6 +399,13 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
       setSelectedPart(null);
       setSelectedVersion(null);
       setQuantity(1);
+      setSelectedSupplierId('');
+      setMissingPartPricing({
+        priceType: 'net',
+        unitPrice: 0,
+        shippingCost: 0,
+        additionalCost: 0,
+      });
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -684,23 +724,24 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
       </DialogContent>
 
       <Dialog open={needListDialogOpen} onOpenChange={setNeedListDialogOpen}>
-        <DialogContent className="order-dialog-content order-e-part-need-list-dialog w-[94vw] sm:max-w-[560px]">
-          <DialogHeader className="order-dialog-header">
-            <DialogTitle>Fehlendes Teil zur Bedarfsliste hinzufuegen</DialogTitle>
-            <DialogDescription>
-              Waehle aus, in welche Bedarfsliste dieses fehlende Teil eingetragen wird.
+        <DialogContent className="max-h-[88vh] w-[96vw] max-w-3xl overflow-hidden gap-0 border-slate-200 p-0 shadow-xl">
+          <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
+            <DialogTitle className="text-base font-semibold !text-yellow-300">Fehlendes Teil zur Bedarfsliste hinzufuegen</DialogTitle>
+            <DialogDescription className="text-xs text-slate-200">
+              Waehle Bedarfsliste und erfasse Lieferanten- sowie Kostendaten.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="supplier-select">Lieferant</Label>
+          <div className="space-y-4 overflow-y-auto p-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label htmlFor="supplier-select" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Lieferant</Label>
               <Select
                 id="supplier-select"
                 value={selectedSupplierId}
                 onValueChange={setSelectedSupplierId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Lieferant auswählen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -717,14 +758,14 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
                   )}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="need-list-target">Ziel</Label>
+              </div>
+              <div>
+                <Label htmlFor="need-list-target" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Ziel</Label>
               <Select
                 value={needListTargetOption}
                 onValueChange={(value: NeedListTargetOption) => setNeedListTargetOption(value)}
               >
-                <SelectTrigger id="need-list-target">
+                <SelectTrigger id="need-list-target" className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -733,13 +774,14 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
                   <SelectItem value="today">Heutige Bedarfsliste verwenden</SelectItem>
                 </SelectContent>
               </Select>
+              </div>
             </div>
 
             {needListTargetOption === 'existing' && (
               <div>
-                <Label htmlFor="existing-need-list">Bedarfsliste auswaehlen</Label>
+                <Label htmlFor="existing-need-list" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Bedarfsliste auswaehlen</Label>
                 <Select value={selectedNeedListId} onValueChange={setSelectedNeedListId}>
-                  <SelectTrigger id="existing-need-list">
+                  <SelectTrigger id="existing-need-list" className="h-8 text-xs">
                     <SelectValue placeholder="Bedarfsliste auswaehlen" />
                   </SelectTrigger>
                   <SelectContent>
@@ -766,12 +808,13 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
 
             {needListTargetOption === 'new' && (
               <div>
-                <Label htmlFor="new-need-list-name">Name der Bedarfsliste</Label>
+                <Label htmlFor="new-need-list-name" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Name der Bedarfsliste</Label>
                 <Input
                   id="new-need-list-name"
                   value={newNeedListName}
                   onChange={(e) => setNewNeedListName(e.target.value)}
                   placeholder="Namen fuer neue Bedarfsliste eingeben"
+                  className="h-8 text-xs"
                 />
               </div>
             )}
@@ -781,17 +824,113 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
                 Das Teil wird zur heutigen Bedarfsliste hinzugefuegt. Falls noch keine existiert, wird sie automatisch erstellt.
               </div>
             )}
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Price Type</Label>
+                <Select
+                  value={missingPartPricing.priceType}
+                  onValueChange={(value: 'net' | 'gross') =>
+                    setMissingPartPricing((prev) => ({ ...prev, priceType: value }))
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="net">Net</SelectItem>
+                    <SelectItem value="gross">Gross</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Unit Price</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="h-8 text-xs"
+                  value={missingPartPricing.unitPrice === 0 ? '' : missingPartPricing.unitPrice}
+                  onChange={(e) =>
+                    setMissingPartPricing((prev) => ({
+                      ...prev,
+                      unitPrice: Math.max(0, parseFloat(e.target.value) || 0),
+                    }))
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Shipping Cost</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="h-8 text-xs"
+                  value={missingPartPricing.shippingCost === 0 ? '' : missingPartPricing.shippingCost}
+                  onChange={(e) =>
+                    setMissingPartPricing((prev) => ({
+                      ...prev,
+                      shippingCost: Math.max(0, parseFloat(e.target.value) || 0),
+                    }))
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Additional Cost</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="h-8 text-xs"
+                  value={missingPartPricing.additionalCost === 0 ? '' : missingPartPricing.additionalCost}
+                  onChange={(e) =>
+                    setMissingPartPricing((prev) => ({
+                      ...prev,
+                      additionalCost: Math.max(0, parseFloat(e.target.value) || 0),
+                    }))
+                  }
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Estimated Line Total</p>
+              <p className="text-base font-semibold text-slate-900">
+                {(
+                  (missingPartPricing.unitPrice * quantity) +
+                  missingPartPricing.shippingCost +
+                  missingPartPricing.additionalCost
+                ).toFixed(2)}
+              </p>
+            </div>
           </div>
 
-          <DialogFooter className="order-e-part-footer">
+          <DialogFooter className="border-t border-slate-200 bg-slate-50 px-4 py-3">
             <Button
               variant="outline"
-              onClick={() => setNeedListDialogOpen(false)}
+              className="h-8 text-xs"
+              onClick={() => {
+                setNeedListDialogOpen(false);
+                setSelectedSupplierId('');
+                setMissingPartPricing({
+                  priceType: 'net',
+                  unitPrice: 0,
+                  shippingCost: 0,
+                  additionalCost: 0,
+                });
+              }}
               disabled={addingToNeedList}
             >
               Abbrechen
             </Button>
             <Button
+              className="h-8 text-xs"
               onClick={handleAddMissingPartToNeedList}
               disabled={addingToNeedList || (needListTargetOption === 'existing' && !selectedNeedListId)}
             >

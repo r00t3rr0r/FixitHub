@@ -429,6 +429,64 @@
   white-space: nowrap;
 }
 
+.compact-nested-contact {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+  border-radius: 8px;
+  padding: 0.42rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.compact-nested-contact-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+.compact-nested-contact-head p {
+  margin: 0;
+  font-size: 0.66rem;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.compact-nested-contact-count {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.compact-nested-contact-list {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.compact-nested-contact-item {
+  width: 100%;
+  border: 1px solid #dbeafe;
+  border-radius: 7px;
+  padding: 0.32rem 0.4rem;
+  background: #fff;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.compact-nested-contact-item:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.compact-nested-empty {
+  padding: 0.25rem 0;
+  text-align: left;
+}
+
 @media (max-width: 1160px) {
   .compact-main-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
