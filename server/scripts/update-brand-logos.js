@@ -4,7 +4,8 @@
  * Update Device Brand Logos
  *
  * Sets the `logo` field on each DeviceBrand document to the
- * matching logo.dev URL. Matches by case-insensitive name.
+ * matching LOCAL logo path. Local logos are served from /assets/brand-logos/
+ * with fallback to logo.dev if local file not available.
  *
  * Usage:
  *   node server/scripts/update-brand-logos.js
