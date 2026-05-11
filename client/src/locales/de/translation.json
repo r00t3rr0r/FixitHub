@@ -1874,7 +1874,7 @@
       "requestRepairTitle": "Reparatur anfragen",
       "requestRepairDescription": "Nicht sicher, welche Reparatur Sie benötigen? Beschreiben Sie das Problem und erhalten Sie eine kostenlose Diagnose.",
       "requestRepairButton": "Jetzt Reparatur anfragen",
-      "extrasDescription": "Erweitern Sie Ihre Reparatur mit optionalen Zusatzleistungen:",
+      "extrasDescription": "Vorgeschlagene Zusatzdienste",
       "loadingAddOns": "Lade Zusatzleistungen...",
       "noAddOnsTitle": "Keine Zusatzleistungen verfügbar",
       "noAddOnsDescription": "Aktuell sind keine Add-On-Services in der Datenbank vorhanden.",

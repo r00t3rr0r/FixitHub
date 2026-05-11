@@ -1981,7 +1981,7 @@ ul, ol {
 .extras-price {
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--accent-yellow);
+  color: var(--primary-blue);
   white-space: nowrap;
 }
 

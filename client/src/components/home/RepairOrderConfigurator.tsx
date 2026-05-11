@@ -88,6 +88,12 @@ const parseServiceDescription = (description: string) => {
   return { paragraphs, bullets };
 };
 
+const formatPrice = (value: number) =>
+  new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
 const normalizeSearchText = (value: string | undefined | null) =>
   String(value || '')
     .toLowerCase()
@@ -1828,7 +1834,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           <div className="extras-name">{addon.name}</div>
                           <div className="extras-desc">{addon.description}</div>
                         </div>
-                        <div className="extras-price">+{addon.price.toFixed(2)} €</div>
+                        <div className="extras-price">+{formatPrice(addon.price)} €</div>
                       </div>
                     </label>
                   ))
