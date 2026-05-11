@@ -4423,10 +4423,12 @@ ul, ol {
    ============================================ */
 
 .section-customers {
-  background:
-    radial-gradient(circle at 15% 20%, rgba(26, 42, 94, 0.06) 0%, rgba(26, 42, 94, 0) 40%),
-    radial-gradient(circle at 85% 80%, rgba(245, 184, 0, 0.08) 0%, rgba(245, 184, 0, 0) 45%),
-    linear-gradient(180deg, #ffffff 0%, #f8f9fc 100%);
+  background: #ffffff;
+  padding: 44px 0;
+}
+
+.section-customers .section-title {
+  margin-bottom: 24px;
 }
 
 .customers-logo-wall {
@@ -4436,7 +4438,7 @@ ul, ol {
 }
 
 .customers-logo-row {
-  min-height: 110px;
+  min-height: 92px;
   border-radius: 16px;
   border: 1px solid var(--gray-200);
   background: rgba(255, 255, 255, 0.92);
@@ -4470,7 +4472,7 @@ ul, ol {
   display: flex;
   flex-direction: row;
   gap: 12px;
-  padding: 12px;
+  padding: 10px;
   width: max-content;
   will-change: transform;
 }
@@ -4480,7 +4482,7 @@ ul, ol {
 }
 
 .customers-logo-card {
-  min-height: 82px;
+  min-height: 72px;
   min-width: 180px;
   border-radius: 12px;
   border: 1px solid var(--gray-100);
@@ -4519,19 +4521,27 @@ ul, ol {
 }
 
 @media (max-width: 480px) {
+  .section-customers {
+    padding: 36px 0;
+  }
+
+  .section-customers .section-title {
+    margin-bottom: 18px;
+  }
+
   .customers-logo-wall {
     max-width: 100%;
   }
 
   .customers-logo-row {
-    min-height: 94px;
+    min-height: 82px;
     border-radius: 12px;
   }
 
   .customers-logo-card {
-    min-height: 70px;
+    min-height: 62px;
     min-width: 132px;
-    padding: 10px;
+    padding: 8px;
   }
 
   .customers-logo-card img {
@@ -4541,18 +4551,18 @@ ul, ol {
 
 @media (max-width: 360px) {
   .customers-logo-row {
-    min-height: 86px;
+    min-height: 76px;
   }
 
   .customers-logo-track {
     gap: 8px;
-    padding: 8px;
+    padding: 7px;
   }
 
   .customers-logo-card {
-    min-height: 62px;
+    min-height: 56px;
     min-width: 116px;
-    padding: 8px;
+    padding: 7px;
   }
 
   .customers-logo-card img {

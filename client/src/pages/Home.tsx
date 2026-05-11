@@ -58,7 +58,7 @@ export function Home() {
       </section>
 
       {/* Blog Section */}
-      <section id="blog" className="section">
+      <section id="blog" className="section section-alt">
         <BlogSection />
       </section>
 
