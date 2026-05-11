@@ -1602,8 +1602,8 @@
       "specialFeatures": "Besondere Funktionen"
     },
     "shop": {
-      "title": "Passendes Zubehör zu deinem Gerät",
-      "subtitle": "Schütze dein Gerät nach der Reparatur",
+      "title": "McRepair.de-Webshop",
+      "subtitle": "Passendes Zubehör für dein Gerät",
       "allProducts": "Alle Produkte",
       "featured": "Empfohlen",
       "inStock": "Auf Lager",
@@ -1633,8 +1633,8 @@
       "features": "Hauptmerkmale"
     },
     "blog": {
-      "title": "Neueste Blogartikel",
-      "subtitle": "Tipps & Wissenswertes rund um Ihr Gerät",
+      "title": "McRepair.de-Blog",
+      "subtitle": "Wissenswertes über Smartphones, Tablets und Reparatur",
       "readMore": "Weiterlesen",
       "viewAll": "Alle Artikel ansehen",
       "minRead": "Min. Lesezeit",
