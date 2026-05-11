@@ -4287,11 +4287,11 @@ ul, ol {
   bottom: 0;
   background: rgba(0,0,0,0.5);
   backdrop-filter: blur(4px);
-  z-index: 2000;
+  z-index: 2147483000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -4304,11 +4304,11 @@ ul, ol {
 
 .diagnose-modal {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.15);
-  max-width: 600px;
+  max-width: 540px;
   width: 100%;
-  max-height: 85vh;
+  max-height: 82vh;
   overflow-y: auto;
   position: relative;
   transform: translateY(20px) scale(0.97);
@@ -4323,20 +4323,20 @@ ul, ol {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 14px 16px;
   border-bottom: 1px solid #eceef3;
   position: sticky;
   top: 0;
   background: #ffffff;
   z-index: 1;
-  border-radius: 16px 16px 0 0;
+  border-radius: 14px 14px 0 0;
 }
 
 .diagnose-modal-header h3 {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1rem;
+  gap: 8px;
+  font-size: 0.94rem;
   font-weight: 700;
   color: var(--primary-blue);
 }
@@ -4349,8 +4349,8 @@ ul, ol {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   background: #f5f6f8;
   border: none;
   border-radius: 50%;
@@ -4374,20 +4374,100 @@ ul, ol {
   border-radius: 0;
 }
 
+.diagnose-modal-body .diagnose-progress {
+  height: 3px;
+}
+
 .diagnose-modal-body .diagnose-wizard-header {
-  padding: 24px 24px 0;
+  padding: 16px 16px 0;
 }
 
 .diagnose-modal-body .diagnose-wizard-body {
-  padding: 16px 24px 24px;
+  padding: 10px 16px 14px;
+  gap: 8px;
 }
 
 .diagnose-modal-body .diagnose-wizard-footer {
-  padding: 0 24px 20px;
+  padding: 0 16px 14px;
 }
 
 .diagnose-modal-body .diagnose-result {
-  padding: 24px;
+  padding: 14px 16px;
+}
+
+.diagnose-modal-body .diagnose-step-badge {
+  font-size: 0.66rem;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+
+.diagnose-modal-body .diagnose-wizard-header h2 {
+  font-size: 1.02rem;
+  line-height: 1.32;
+}
+
+.diagnose-modal-body .diagnose-answer-btn {
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  line-height: 1.32;
+}
+
+.diagnose-modal-body .diagnose-answer-btn:hover {
+  transform: translateX(2px);
+}
+
+.diagnose-modal-body .diagnose-result-card {
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.diagnose-modal-body .diagnose-result-card .diagnose-result-icon {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 10px;
+}
+
+.diagnose-modal-body .diagnose-result-card h3 {
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.diagnose-modal-body .diagnose-result-card p {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.diagnose-modal-body .diagnose-contact-box {
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.diagnose-modal-body .diagnose-contact-box h4 {
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+}
+
+.diagnose-modal-body .diagnose-contact-box p {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.diagnose-modal-body .diagnose-cta-row {
+  gap: 8px;
+}
+
+.diagnose-modal-body .diagnose-cta-primary,
+.diagnose-modal-body .diagnose-cta-secondary {
+  padding: 9px 12px;
+  font-size: 0.8rem;
+  border-radius: 5px;
+}
+
+.diagnose-modal-body .diagnose-back-btn {
+  padding: 6px 11px;
+  font-size: 0.76rem;
 }
 
 /* Configurator helper link (hint inside configurator) */
@@ -4474,12 +4554,36 @@ ul, ol {
     margin: 12px;
   }
 
+  .diagnose-modal-overlay {
+    padding: 10px;
+  }
+
   .diagnose-modal-body .diagnose-wizard-header {
-    padding: 20px 16px 0;
+    padding: 14px 12px 0;
   }
 
   .diagnose-modal-body .diagnose-wizard-body {
-    padding: 12px 16px 20px;
+    padding: 8px 12px 12px;
+    gap: 6px;
+  }
+
+  .diagnose-modal-body .diagnose-wizard-header h2 {
+    font-size: 0.94rem;
+  }
+
+  .diagnose-modal-body .diagnose-answer-btn {
+    padding: 9px 10px;
+    font-size: 0.8rem;
+  }
+
+  .diagnose-modal-body .diagnose-result {
+    padding: 12px;
+  }
+
+  .diagnose-modal-body .diagnose-cta-primary,
+  .diagnose-modal-body .diagnose-cta-secondary {
+    font-size: 0.76rem;
+    padding: 8px 10px;
   }
 
   .diagnose-info-row-inside {
