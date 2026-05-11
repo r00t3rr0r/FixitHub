@@ -1519,14 +1519,15 @@
       "trackingButton": "Track order"
     },
     "trust": {
-      "warranty": "12-month warranty",
-      "warrantyDesc": "On all repairs",
-      "fastService": "Express service",
-      "fastServiceDesc": "Repair in 60 min.",
+      "warranty": "Quality guarantee:",
+      "warrantyDesc": "12 months on our repairs*",
+      "warrantyNote": "*Exceptions marked",
+      "fastService": "Fast & professional:",
+      "fastServiceDesc": "Same-day processing with express booking",
       "quality": "Top quality",
-      "qualityDesc": "Original spare parts",
-      "certified": "Certified",
-      "certifiedDesc": "Verified technicians"
+      "qualityDesc": "Thanks to certified spare parts",
+      "certified": "Expertise & skills",
+      "certifiedDesc": "Our skilled technicians have 20 years of repair experience"
     },
     "specialOffers": {
       "title": "Our special offers",

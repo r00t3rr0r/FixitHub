@@ -1465,6 +1465,12 @@ ul, ol {
   color: var(--gray-400);
 }
 
+.trust-text .trust-note {
+  font-size: 0.62rem;
+  line-height: 1.25;
+  margin-top: 2px;
+}
+
 /* ============================================
    4. SPECIAL OFFERS
    ============================================ */

@@ -7,23 +7,24 @@ export function TrustRow() {
   const trustItems = [
     {
       icon: <Shield width={22} height={22} />,
-      title: t('home.trust.warranty', '12 Monate Garantie'),
-      description: t('home.trust.warrantyDesc', 'Auf alle Reparaturen')
+      title: t('home.trust.warranty', 'Qualitaetsgarantie:'),
+      description: t('home.trust.warrantyDesc', '12 Monate auf unsere Reparaturen*'),
+      note: t('home.trust.warrantyNote', '*Ausnahmen gekennzeichnet')
     },
     {
       icon: <Clock width={22} height={22} />,
-      title: t('home.trust.fastService', 'Express-Service'),
-      description: t('home.trust.fastServiceDesc', 'Reparatur in 60 Min.')
+      title: t('home.trust.fastService', 'Schnell & professionell:'),
+      description: t('home.trust.fastServiceDesc', 'Taggleiche Bearbeitung bei Express-Buchung')
     },
     {
       icon: <ThumbsUp width={22} height={22} />,
-      title: t('home.trust.quality', 'Top Qualität'),
-      description: t('home.trust.qualityDesc', 'Original-Ersatzteile')
+      title: t('home.trust.quality', 'Top-Qualitaet'),
+      description: t('home.trust.qualityDesc', 'Dank zertifizierter Ersatzteile')
     },
     {
       icon: <Award width={22} height={22} />,
-      title: t('home.trust.certified', 'Zertifiziert'),
-      description: t('home.trust.certifiedDesc', 'Geprüfte Techniker')
+      title: t('home.trust.certified', 'Kompetenz & Faehigkeiten'),
+      description: t('home.trust.certifiedDesc', 'Unsere fachkundigen Techniker haben 20 Jahre Reparatur-Erfahrung')
     }
   ];
 
@@ -39,6 +40,7 @@ export function TrustRow() {
               <div className="trust-text">
                 <h4>{item.title}</h4>
                 <p>{item.description}</p>
+                {item.note ? <p className="trust-note">{item.note}</p> : null}
               </div>
             </div>
           ))}

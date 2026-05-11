@@ -1519,14 +1519,15 @@
       "trackingButton": "Auftrag verfolgen"
     },
     "trust": {
-      "warranty": "12 Monate Garantie",
-      "warrantyDesc": "Auf alle Reparaturen",
-      "fastService": "Express-Service",
-      "fastServiceDesc": "Reparatur in 60 Min.",
-      "quality": "Top Qualität",
-      "qualityDesc": "Original-Ersatzteile",
-      "certified": "Zertifiziert",
-      "certifiedDesc": "Geprüfte Techniker"
+      "warranty": "Qualitätsgarantie:",
+      "warrantyDesc": "12 Monate auf unsere Reparaturen*",
+      "warrantyNote": "*Ausnahmen gekennzeichnet",
+      "fastService": "Schnell & professionell:",
+      "fastServiceDesc": "Taggleiche Bearbeitung bei Express-Buchung",
+      "quality": "Top-Qualität",
+      "qualityDesc": "Dank zertifizierter Ersatzteile",
+      "certified": "Kompetenz & Fähigkeiten",
+      "certifiedDesc": "Unsere fachkundigen Techniker haben 20 Jahre Reparatur-Erfahrung"
     },
     "specialOffers": {
       "title": "Unsere Spezialangebote",
