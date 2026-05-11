@@ -1397,8 +1397,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             type="button"
             className="configurator-exit-btn"
             onClick={handleExitConfigurator}
+            data-tooltip={t('home.configurator.leave', 'Konfigurator verlassen')}
+            aria-label={t('home.configurator.leave', 'Konfigurator verlassen')}
           >
-            {t('home.configurator.leave', 'Konfigurator verlassen')}
+            <X className="configurator-exit-icon" aria-hidden="true" />
           </button>
         </div>
 

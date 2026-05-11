@@ -766,20 +766,85 @@ ul, ol {
 
 .configurator-exit-btn {
   margin-left: auto;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--white);
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1;
+  border: 0;
+  background: transparent;
+  color: var(--accent-yellow);
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: var(--transition);
 }
 
 .configurator-exit-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(245, 184, 0, 0.14);
+}
+
+.configurator-exit-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(26, 42, 94, 0.96);
+  color: var(--white);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.configurator-exit-btn::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% - 6px);
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  background: rgba(26, 42, 94, 0.96);
+  transform: rotate(45deg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
+  pointer-events: none;
+  z-index: 19;
+}
+
+.configurator-exit-btn:hover::after,
+.configurator-exit-btn:hover::before,
+.configurator-exit-btn:focus-visible::after,
+.configurator-exit-btn:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.configurator-exit-btn:hover::after,
+.configurator-exit-btn:focus-visible::after {
+  transform: translateY(0);
+}
+
+.configurator-exit-btn:focus-visible {
+  outline: 2px solid rgba(245, 184, 0, 0.65);
+  outline-offset: 2px;
+}
+
+.configurator-exit-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
 }
 
 .configurator-body {
