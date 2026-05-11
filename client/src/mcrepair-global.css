@@ -1731,18 +1731,37 @@ ul, ol {
   color: var(--primary-blue);
 }
 
-.step-number {
-  display: inline-flex;
+.step-icon-image {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--accent-yellow);
-  color: var(--primary-blue);
-  font-size: 0.75rem;
+  overflow: hidden;
+  background: var(--white);
+  border: 2px solid var(--gray-200);
+  transition: var(--transition);
+}
+
+.step-icon-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.step-card:hover .step-icon-image {
+  border-color: var(--accent-yellow);
+  transform: scale(1.05);
+}
+
+.step-number {
+  display: block;
+  font-size: 1.1rem;
   font-weight: 800;
-  border-radius: 50%;
-  margin-bottom: 10px;
+  color: var(--primary-blue);
+  margin-bottom: 8px;
 }
 
 .step-card h4 {
