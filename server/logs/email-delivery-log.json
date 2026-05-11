@@ -4981,5 +4981,171 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1778503731078-z7f5oqg09",
+    "timestamp": "2026-05-11T12:48:51.078Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<decd9f6c-7fa8-e7a7-c9cf-56d055084c8f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1321,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778504189886-divon4uew",
+    "timestamp": "2026-05-11T12:56:29.886Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<2110ea05-de41-ceee-86fb-b6a455ec629c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1261,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778504381031-qu4owigfx",
+    "timestamp": "2026-05-11T12:59:41.031Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0006 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<9eb52afc-7d04-2d86-71e4-bdf9f92f5972@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1534,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778504568361-4d767eid9",
+    "timestamp": "2026-05-11T13:02:48.361Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<94b8f464-0720-8cc0-e1d9-f8c57d07aa78@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1333,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778504882109-xg3tva96x",
+    "timestamp": "2026-05-11T13:08:02.109Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<b7991c8a-857d-3c48-8f9d-f988dde6568b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1094,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778504943553-1keoe767a",
+    "timestamp": "2026-05-11T13:09:03.553Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0007 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<d142aad7-80c8-fefd-cc28-bef5c399090a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1651,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

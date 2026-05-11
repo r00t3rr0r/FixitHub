@@ -1597,6 +1597,24 @@
     "proceedingToPayment": "Weiter zur Zahlung...",
     "proceedingToPaymentDesc": "Ihre Bestellinformationen wurden vorbereitet. Weiterleitung zur Zahlung..."
   },
+  "orderSuccess": {
+    "title": "Bestellung erfolgreich!",
+    "subtitle": "Vielen Dank für deine Bestellung bei McRepair.de",
+    "thankYouMessage": "Deine Bestellung wurde erfolgreich aufgegeben und verarbeitet. Ein Bestätigungslink wurde an deine E-Mail-Adresse gesendet.",
+    "trackingMessage": "Du kannst den Status deiner Bestellung jederzeit unter \"Meine Bestellungen\" verfolgen.",
+    "orderDetails": "Bestelldetails",
+    "bookingNumber": "Buchungsnummer",
+    "orderNumbers": "Bestellnummern",
+    "total": "Gesamtbetrag",
+    "nextSteps": "Nächste Schritte",
+    "step1": "Bestätigungsmail erhalten",
+    "step2": "Bestellung in Bearbeitung",
+    "step3": "Versand mit Tracking-Link",
+    "backToHome": "Zur Homepage",
+    "continueShopping": "Weiter einkaufen",
+    "needHelp": "Benötigst du Hilfe?",
+    "contactUs": "Kontaktiere uns"
+  },
   "shop": {
     "title": "Produkte Durchsuchen",
     "searchPlaceholder": "Produkte durchsuchen...",

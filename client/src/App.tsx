@@ -88,6 +88,7 @@ import Newsletter from "./pages/Newsletter"
 import { Sitemap } from "./pages/Sitemap"
 import { ShippingAndPayment } from "./pages/ShippingAndPayment"
 import { BatteryDisposal } from "./pages/BatteryDisposal"
+import { OrderSuccessPage } from "./pages/OrderSuccess"
 import { PageTracker } from "./components/PageTracker"
 import { GlobalScrollToTopButton } from "./components/GlobalScrollToTopButton"
 
@@ -163,6 +164,7 @@ function App() {
             <Route path="/cart" element={<CustomerLayout />}>
               <Route index element={<ShoppingCartPage />} />
             </Route>
+            <Route path="/order-success" element={<OrderSuccessPage />} />
             <Route path="/blog" element={<CustomerLayout />}>
               <Route index element={<Blog />} />
             </Route>

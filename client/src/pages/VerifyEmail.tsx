@@ -31,6 +31,25 @@ export function VerifyEmail() {
       const token = searchParams.get('token')
       const redirectParam = searchParams.get('redirect')
       const source = searchParams.get('source')
+      const decodeRedirect = (value: string | null): string | null => {
+        if (!value) return null
+
+        // Accept plain and URL-encoded redirects and normalize to a safe local path.
+        const candidates = [value]
+        try {
+          candidates.push(decodeURIComponent(value))
+        } catch {
+          // Ignore malformed URI and continue with original value.
+        }
+
+        for (const candidate of candidates) {
+          if (candidate.startsWith('/')) {
+            return candidate
+          }
+        }
+
+        return null
+      }
 
       if (!token) {
         setError('Kein Verifizierungstoken gefunden. Der Link ist möglicherweise ungültig.')
@@ -65,7 +84,11 @@ export function VerifyEmail() {
           // Without this, services chosen before registration are lost after verification.
           if (!cartMergeDoneRef.current) {
             try {
-              await mergeGuestCartWithUserCart({ addToCart, addRepairOrderToCart })
+              await mergeGuestCartWithUserCart({
+                addToCart: (productId: string, quantity: number) =>
+                  addToCart({ productId, quantity }),
+                addRepairOrderToCart,
+              })
               cartMergeDoneRef.current = true
               console.log('VerifyEmail: Guest cart merged into user cart')
             } catch (mergeError) {
@@ -78,7 +101,8 @@ export function VerifyEmail() {
           toast({ title: 'Erfolg', description: data.message || 'E-Mail-Adresse erfolgreich verifiziert!' })
 
           const hasCheckoutSource = source === 'checkout'
-          const safeRedirectTarget = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/login'
+          const safeRedirectTarget = decodeRedirect(redirectParam)
+            || (hasCheckoutSource ? '/cart?checkout=1' : '/login')
 
           setTimeout(() => {
             if (hasCheckoutSource) {

@@ -1601,6 +1601,24 @@
     "proceedingToPayment": "Proceeding to payment...",
     "proceedingToPaymentDesc": "Your order information has been prepared. Redirecting to payment..."
   },
+  "orderSuccess": {
+    "title": "Order Successful!",
+    "subtitle": "Thank you for your order at McRepair.de",
+    "thankYouMessage": "Your order has been successfully placed and processed. A confirmation email has been sent to your email address.",
+    "trackingMessage": "You can track the status of your order anytime under \"My Orders\".",
+    "orderDetails": "Order Details",
+    "bookingNumber": "Booking Number",
+    "orderNumbers": "Order Numbers",
+    "total": "Total Amount",
+    "nextSteps": "Next Steps",
+    "step1": "Confirmation email received",
+    "step2": "Order being processed",
+    "step3": "Shipped with tracking link",
+    "backToHome": "Back to Home",
+    "continueShopping": "Continue Shopping",
+    "needHelp": "Need help?",
+    "contactUs": "Contact us"
+  },
   "shop": {
     "title": "Browse Products",
     "searchPlaceholder": "Search products...",

@@ -43,7 +43,7 @@ const buildCheckoutVerificationUrl = async (user) => {
   );
 
   const verificationBaseUrl = await EmailService.buildSystemUrl('/verify-email');
-  const redirectPath = encodeURIComponent('/cart');
+  const redirectPath = encodeURIComponent('/cart?checkout=1');
   return `${verificationBaseUrl}?token=${verificationToken}&redirect=${redirectPath}&source=checkout`;
 };
 
