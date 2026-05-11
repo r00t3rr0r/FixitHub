@@ -4417,3 +4417,145 @@ ul, ol {
     max-height: 90vh;
   }
 }
+
+/* ============================================
+   Satisfied Customers Section
+   ============================================ */
+
+.section-customers {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(26, 42, 94, 0.06) 0%, rgba(26, 42, 94, 0) 40%),
+    radial-gradient(circle at 85% 80%, rgba(245, 184, 0, 0.08) 0%, rgba(245, 184, 0, 0) 45%),
+    linear-gradient(180deg, #ffffff 0%, #f8f9fc 100%);
+}
+
+.customers-logo-wall {
+  display: block;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.customers-logo-row {
+  min-height: 110px;
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.customers-logo-row::before,
+.customers-logo-row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.customers-logo-row::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0));
+}
+
+.customers-logo-row::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0));
+}
+
+.customers-logo-track {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  padding: 12px;
+  width: max-content;
+  will-change: transform;
+}
+
+.customers-logo-track-left {
+  animation: customersSlideLeft 36s linear infinite;
+}
+
+.customers-logo-card {
+  min-height: 82px;
+  min-width: 180px;
+  border-radius: 12px;
+  border: 1px solid var(--gray-100);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+
+.customers-logo-card img {
+  max-height: 34px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  filter: saturate(0.95) contrast(1.02);
+}
+
+@keyframes customersSlideLeft {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 768px) {
+  .customers-logo-track-left {
+    animation-duration: 30s;
+  }
+
+  .customers-logo-card {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .customers-logo-wall {
+    max-width: 100%;
+  }
+
+  .customers-logo-row {
+    min-height: 94px;
+    border-radius: 12px;
+  }
+
+  .customers-logo-card {
+    min-height: 70px;
+    min-width: 132px;
+    padding: 10px;
+  }
+
+  .customers-logo-card img {
+    max-height: 24px;
+  }
+}
+
+@media (max-width: 360px) {
+  .customers-logo-row {
+    min-height: 86px;
+  }
+
+  .customers-logo-track {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .customers-logo-card {
+    min-height: 62px;
+    min-width: 116px;
+    padding: 8px;
+  }
+
+  .customers-logo-card img {
+    max-height: 20px;
+  }
+}
