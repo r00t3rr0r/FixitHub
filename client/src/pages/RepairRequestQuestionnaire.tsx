@@ -1,6 +1,5 @@
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { useTranslation } from "react-i18next"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { LoginDialog } from "@/components/home/LoginDialog"
@@ -39,17 +38,15 @@ import {
   CheckCircle,
   ArrowLeft,
   AlertCircle,
-  FileText,
-  Calendar,
   Wrench,
-  Info,
   Loader2,
   Package,
   X,
-  ChevronDown,
-  ChevronUp,
   Droplets,
-  Edit2
+  Edit2,
+  Database,
+  Laptop,
+  Tablet,
 } from "lucide-react"
 
 interface SelectedDevice {
@@ -61,774 +58,751 @@ interface SelectedDevice {
   image?: string
 }
 
+const DEVICE_TYPES = ["Smartphone", "Tablet", "Laptop", "Anderes"]
+
 export function RepairRequestQuestionnaire() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
   const { isAuthenticated } = useAuth()
   const [showLoginDialog, setShowLoginDialog] = useState(false)
-  const submitButtonRef = useRef<HTMLButtonElement>(null)
 
-  // Get device information from navigation state
-  const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(location.state?.device as SelectedDevice | null)
+  // Device from configurator nav state (DB device)
+  const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(
+    location.state?.device as SelectedDevice | null
+  )
 
-  const navigateBackToConfigurator = () => {
-    if (selectedDevice?.deviceType && selectedDevice?.manufacturer && selectedDevice?.name) {
-      sessionStorage.setItem('navDeviceSelection', JSON.stringify({
-        deviceType: selectedDevice.deviceType,
-        manufacturer: selectedDevice.manufacturer,
-        modelName: selectedDevice.name,
-        searchQuery: selectedDevice.name
-      }))
-      sessionStorage.setItem('navConfiguratorStep', '3')
-    }
+  // Manual device entry
+  const [manualDeviceType, setManualDeviceType] = useState("Smartphone")
+  const [manualDeviceName, setManualDeviceName] = useState("")
+  const [manualModelNumber, setManualModelNumber] = useState("")
 
-    navigate('/')
-  }
+  // Is the device card in edit / entry mode?
+  const [editingDevice, setEditingDevice] = useState(!location.state?.device)
 
-  // Device Change Dialog State
+  // DB selection dialog
   const [showDeviceDialog, setShowDeviceDialog] = useState(false)
   const [deviceTypes, setDeviceTypes] = useState<ApiDeviceType[]>([])
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [models, setModels] = useState<DeviceModel[]>([])
-  const [selectedDeviceType, setSelectedDeviceType] = useState<string>("")
-  const [selectedManufacturer, setSelectedManufacturer] = useState<string>("")
-  const [selectedModel, setSelectedModel] = useState<string>("")
+  const [selectedDeviceType, setSelectedDeviceType] = useState("")
+  const [selectedManufacturer, setSelectedManufacturer] = useState("")
+  const [selectedModel, setSelectedModel] = useState("")
   const [loadingManufacturers, setLoadingManufacturers] = useState(false)
   const [loadingModels, setLoadingModels] = useState(false)
 
-  const [formData, setFormData] = useState({
-    issueDescription: "",
-    issueOccurredDate: "",
-    modelNumber: ""
-  })
-
+  // Request form
+  const [issueDescription, setIssueDescription] = useState("")
+  const [issueOccurredDate, setIssueOccurredDate] = useState("")
   const [images, setImages] = useState<File[]>([])
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Extended Information State
-  const [showExtendedInfo, setShowExtendedInfo] = useState(false)
-  const [waterDamage, setWaterDamage] = useState<'no' | 'yes' | 'unsure'>('no')
+  // Quick toggles
+  const [waterDamage, setWaterDamage] = useState<"no" | "yes" | "unsure">("no")
+  const [previousRepairAttempts, setPreviousRepairAttempts] = useState<"no" | "yes" | "unsure">("no")
   const [previousRepairDetails, setPreviousRepairDetails] = useState("")
-  const [itemCondition, setItemCondition] = useState<'original' | 'refurbished' | 'unsure'>('unsure')
+  const [itemCondition, setItemCondition] = useState<"original" | "refurbished" | "unsure">("unsure")
 
-  // Load device types when dialog opens
-  const handleOpenDeviceDialog = async () => {
+  // Navigation back
+  const navigateBack = () => {
+    if (selectedDevice?.deviceType && selectedDevice?.manufacturer && selectedDevice?.name) {
+      sessionStorage.setItem(
+        "navDeviceSelection",
+        JSON.stringify({
+          deviceType: selectedDevice.deviceType,
+          manufacturer: selectedDevice.manufacturer,
+          modelName: selectedDevice.name,
+          searchQuery: selectedDevice.name,
+        })
+      )
+      sessionStorage.setItem("navConfiguratorStep", "3")
+    }
+    navigate("/")
+  }
+
+  // Device icon helper
+  const getDeviceTypeIcon = (deviceType: string) => {
+    switch (deviceType?.toLowerCase()) {
+      case "smartphone": return <Smartphone className="h-5 w-5" />
+      case "tablet": return <Tablet className="h-5 w-5" />
+      case "laptop": return <Laptop className="h-5 w-5" />
+      default: return <Package className="h-5 w-5" />
+    }
+  }
+
+  // Toggle button style
+  const toggleStyle = (active: boolean, variant: "blue" | "yellow" = "blue"): React.CSSProperties => ({
+    borderColor: active ? "transparent" : "rgba(26,42,94,0.14)",
+    background: active
+      ? variant === "blue"
+        ? "linear-gradient(135deg, #1a2a5e 0%, #2f57b0 100%)"
+        : "linear-gradient(135deg, #f5c518 0%, rgba(245,197,24,0.85) 100%)"
+      : "white",
+    color: active ? (variant === "blue" ? "white" : "#1a2a5e") : "#1a2a5e",
+    boxShadow: active
+      ? variant === "blue"
+        ? "0 6px 18px rgba(26,42,94,0.18)"
+        : "0 6px 18px rgba(245,197,24,0.22)"
+      : "none",
+  })
+
+  // Confirm manual device entry
+  const confirmManualDevice = () => {
+    if (!manualDeviceName.trim()) {
+      setErrors((prev) => ({ ...prev, manualDeviceName: "Bitte Gerätebezeichnung eingeben" }))
+      return
+    }
+    setSelectedDevice(null)
+    setEditingDevice(false)
+    setErrors((prev) => {
+      const next = { ...prev }
+      delete next.manualDeviceName
+      delete next.device
+      return next
+    })
+  }
+
+  // Open DB dialog
+  const openDbDialog = async () => {
     setShowDeviceDialog(true)
     setSelectedDeviceType("")
     setSelectedManufacturer("")
     setSelectedModel("")
     setManufacturers([])
     setModels([])
-    
     try {
-      const response = await getDeviceTypes()
-      setDeviceTypes((response as any).deviceTypes || [])
-    } catch (error) {
-      console.error("Error loading device types:", error)
-      toast({
-        title: t('repairRequest.errorTitle'),
-        description: t('repairRequest.errorLoadingDeviceTypes'),
-        variant: "destructive"
-      })
+      const res = await getDeviceTypes()
+      setDeviceTypes((res as any).deviceTypes || [])
+    } catch {
+      toast({ title: "Fehler", description: "Gerätetypen konnten nicht geladen werden", variant: "destructive" })
     }
   }
 
-  // Load manufacturers when device type changes
-  const handleDeviceTypeChange = async (deviceTypeId: string) => {
-    setSelectedDeviceType(deviceTypeId)
+  const handleDbDeviceTypeChange = async (id: string) => {
+    setSelectedDeviceType(id)
     setSelectedManufacturer("")
     setSelectedModel("")
     setManufacturers([])
     setModels([])
-
-    if (!deviceTypeId) return
-
+    if (!id) return
     try {
       setLoadingManufacturers(true)
-      const response = await getManufacturersByDeviceType(deviceTypeId)
-      setManufacturers((response as any).manufacturers || [])
-    } catch (error) {
-      console.error("Error loading manufacturers:", error)
-      toast({
-        title: t('repairRequest.errorTitle'),
-        description: t('repairRequest.errorLoadingBrands'),
-        variant: "destructive"
-      })
+      const res = await getManufacturersByDeviceType(id)
+      setManufacturers((res as any).manufacturers || [])
+    } catch {
+      toast({ title: "Fehler", description: "Marken konnten nicht geladen werden", variant: "destructive" })
     } finally {
       setLoadingManufacturers(false)
     }
   }
 
-  // Load models when manufacturer changes
-  const handleManufacturerChange = async (manufacturerId: string) => {
-    setSelectedManufacturer(manufacturerId)
+  const handleDbManufacturerChange = async (id: string) => {
+    setSelectedManufacturer(id)
     setSelectedModel("")
     setModels([])
-
-    if (!manufacturerId || !selectedDeviceType) return
-
+    if (!id || !selectedDeviceType) return
     try {
       setLoadingModels(true)
-      const response = await getModelsByTypeAndManufacturer(selectedDeviceType, manufacturerId)
-      setModels((response as any).models || [])
-    } catch (error) {
-      console.error("Error loading models:", error)
-      toast({
-        title: t('repairRequest.errorTitle'),
-        description: t('repairRequest.errorLoadingModels'),
-        variant: "destructive"
-      })
+      const res = await getModelsByTypeAndManufacturer(selectedDeviceType, id)
+      setModels((res as any).models || [])
+    } catch {
+      toast({ title: "Fehler", description: "Modelle konnten nicht geladen werden", variant: "destructive" })
     } finally {
       setLoadingModels(false)
     }
   }
 
-  // Confirm device selection
-  const handleConfirmDeviceChange = () => {
-    if (!selectedModel) {
-      toast({
-        title: t('repairRequest.errorTitle'),
-        description: t('repairRequest.selectModel'),
-        variant: "destructive"
-      })
-      return
-    }
-
-    const selectedModelData = models.find(m => m._id === selectedModel)
-    const selectedManufacturerData = manufacturers.find(m => m._id === selectedManufacturer)
-    const selectedDeviceTypeData = deviceTypes.find(dt => dt._id === selectedDeviceType)
-
-    if (selectedModelData && selectedManufacturerData && selectedDeviceTypeData) {
+  const confirmDbDevice = () => {
+    if (!selectedModel) return
+    const modelData = models.find((m) => m._id === selectedModel)
+    const mfrData = manufacturers.find((m) => m._id === selectedManufacturer)
+    const typeData = deviceTypes.find((dt) => dt._id === selectedDeviceType)
+    if (modelData && mfrData && typeData) {
       setSelectedDevice({
-        _id: selectedModelData._id,
-        name: selectedModelData.name,
-        deviceType: selectedDeviceTypeData.name,
-        manufacturer: selectedManufacturerData.name,
-        manufacturerId: selectedManufacturerData._id,
-        image: selectedModelData.image
+        _id: modelData._id,
+        name: modelData.name,
+        deviceType: typeData.name,
+        manufacturer: mfrData.name,
+        manufacturerId: mfrData._id,
+        image: modelData.image,
       })
-
-      toast({
-        title: t('repairRequest.successTitle'),
-        description: t('repairRequest.deviceChangedSuccess', { name: selectedModelData.name })
-      })
-
+      setEditingDevice(false)
       setShowDeviceDialog(false)
+      setErrors((prev) => { const next = { ...prev }; delete next.device; return next })
     }
   }
 
-  // Redirect if no device selected
-  if (!selectedDevice) {
-    return (
-      <section className="container px-4 pb-10 pt-8 md:pb-14 md:pt-10">
-        <Card className="overflow-hidden border-0 shadow-xl">
-          <CardContent className="p-0">
-            <div className="bg-[linear-gradient(135deg,_var(--primary-blue,_#1a2a5e)_0%,_var(--primary-blue-light,_#2f57b0)_100%)] px-8 py-10 text-white md:px-10">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
-                <AlertCircle className="h-4 w-4" />
-                {t('repairRequest.noDeviceSelected')}
-              </div>
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-blue-50 md:text-base">
-                {t('repairRequest.noDeviceSelectedDesc')}
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 p-6 sm:flex-row md:p-8">
-              <Button
-                onClick={navigateBackToConfigurator}
-                className="rounded-full bg-[var(--primary-blue,_#1a2a5e)] text-white hover:bg-[var(--primary-blue-dark,_#14224d)]"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {t('repairRequest.backToConfig')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-    )
-  }
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }))
-    }
-  }
-
+  // Image upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-
     if (files.length + images.length > 5) {
-      toast({
-        title: t('repairRequest.tooManyImages'),
-        description: t('repairRequest.tooManyImagesDesc'),
-        variant: "destructive"
-      })
+      toast({ title: "Zu viele Bilder", description: "Maximal 5 Bilder erlaubt", variant: "destructive" })
       return
     }
-
-    // Validate file types and sizes
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: t('repairRequest.invalidFileType'),
-          description: t('repairRequest.invalidFileTypeDesc', { name: file.name }),
-          variant: "destructive"
-        })
+    const valid = files.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Ungültiger Dateityp", description: `${file.name} ist keine Bilddatei`, variant: "destructive" })
         return false
       }
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-          title: t('repairRequest.fileTooLarge'),
-          description: t('repairRequest.fileTooLargeDesc', { name: file.name }),
-          variant: "destructive"
-        })
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Datei zu groß", description: `${file.name} überschreitet 5 MB`, variant: "destructive" })
         return false
       }
       return true
     })
-
-    setImages(prev => [...prev, ...validFiles])
-
-    // Create preview URLs
-    validFiles.forEach(file => {
+    setImages((prev) => [...prev, ...valid])
+    valid.forEach((file) => {
       const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreviewUrls(prev => [...prev, reader.result as string])
-      }
+      reader.onloadend = () => setImagePreviewUrls((prev) => [...prev, reader.result as string])
       reader.readAsDataURL(file)
     })
   }
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index))
-    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index))
+    setImages((prev) => prev.filter((_, i) => i !== index))
+    setImagePreviewUrls((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // Validation & submit
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
-
-    if (!formData.issueDescription.trim()) {
-      newErrors.issueDescription = t('repairRequest.issueDescriptionRequired')
-    } else if (formData.issueDescription.trim().length < 20) {
-      newErrors.issueDescription = t('repairRequest.issueDescriptionMinLength')
+    if (editingDevice || (!selectedDevice && !manualDeviceName.trim())) {
+      newErrors.device = "Bitte Geräteinformationen angeben"
     }
-
-    if (!formData.issueOccurredDate) {
-      newErrors.issueOccurredDate = t('repairRequest.whenRequired')
+    if (!issueDescription.trim()) {
+      newErrors.issueDescription = "Fehlerbeschreibung ist erforderlich"
+    } else if (issueDescription.trim().length < 20) {
+      newErrors.issueDescription = "Bitte geben Sie eine detailliertere Beschreibung an (mindestens 20 Zeichen)"
     }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Check if user is authenticated
     if (!isAuthenticated) {
-      toast({
-        title: t('repairRequest.loginRequired'),
-        description: t('repairRequest.loginRequiredDesc'),
-        variant: "default"
-      })
+      toast({ title: "Anmeldung erforderlich", description: "Bitte melden Sie sich an, um eine Reparaturanfrage zu stellen" })
       setShowLoginDialog(true)
       return
     }
+    if (!validateForm()) return
 
-    if (!validateForm()) {
-      toast({
-        title: t('repairRequest.validationError'),
-        description: t('repairRequest.validationErrorDesc'),
-        variant: "destructive"
-      })
-      return
-    }
+    const isDbDevice = !editingDevice && selectedDevice !== null
+    const deviceTypeFinal = isDbDevice ? selectedDevice!.deviceType : manualDeviceType
+    const deviceBrandFinal = isDbDevice ? selectedDevice!.manufacturer : manualDeviceName.split(" ")[0]
+    const deviceModelFinal = isDbDevice ? selectedDevice!.name : manualDeviceName
+    const deviceModelIdFinal = isDbDevice ? selectedDevice!._id : ""
+    const modelNumberFinal = isDbDevice ? "" : manualModelNumber
 
     try {
       setSubmitting(true)
-
-      // Use the base64 data URLs that were already created for preview
-      // These will be stored in the database and displayed in the admin panel
-      // Note: For production with many images, consider uploading to AWS S3 or Cloudinary
-      const imageUrls = imagePreviewUrls
-
-      const requestData = {
-        deviceType: selectedDevice.deviceType,
-        deviceBrand: selectedDevice.manufacturer,
-        deviceModel: selectedDevice.name,
-        deviceModelId: selectedDevice._id,
-        issueDescription: formData.issueDescription,
-        issueOccurredDate: formData.issueOccurredDate,
-        repairAttempts: "",
-        modelNumber: formData.modelNumber || "",
-        waterDamage: waterDamage,
-        previousRepairDetails: previousRepairDetails || "",
-        itemCondition: itemCondition,
-        images: imageUrls
-      }
-
-      console.log("Submitting repair request:", requestData)
-
-      await createRepairRequest(requestData)
-
-      toast({
-        title: t('repairRequest.successTitle'),
-        description: t('repairRequest.successMessage'),
+      await createRepairRequest({
+        deviceType: deviceTypeFinal,
+        deviceBrand: deviceBrandFinal,
+        deviceModel: deviceModelFinal,
+        deviceModelId: deviceModelIdFinal,
+        issueDescription,
+        issueOccurredDate: issueOccurredDate || "",
+        repairAttempts: previousRepairAttempts,
+        modelNumber: modelNumberFinal,
+        waterDamage,
+        previousRepairDetails: previousRepairAttempts === "yes" ? previousRepairDetails : "",
+        itemCondition,
+        images: imagePreviewUrls,
       })
-
-      // Navigate to customer repair requests page
+      toast({
+        title: "Erfolg!",
+        description: "Ihre Reparaturanfrage wurde erfolgreich übermittelt. Unser Team meldet sich innerhalb von 24 Stunden* bei Ihnen.",
+      })
       navigate("/my-repair-requests")
     } catch (error: any) {
-      console.error("Error submitting repair request:", error)
-      toast({
-        title: t('repairRequest.errorTitle'),
-        description: error.message || t('repairRequest.errorMessage'),
-        variant: "destructive"
-      })
+      toast({ title: "Fehler", description: error.message || "Reparaturanfrage konnte nicht übermittelt werden.", variant: "destructive" })
     } finally {
       setSubmitting(false)
     }
   }
 
-  const getDeviceTypeIcon = (deviceType: string) => {
-    switch (deviceType.toLowerCase()) {
-      case 'smartphone':
-        return <Smartphone className="h-5 w-5" />
-      case 'tablet':
-        return <Package className="h-5 w-5" />
-      case 'laptop':
-        return <Package className="h-5 w-5" />
-      default:
-        return <Package className="h-5 w-5" />
-    }
-  }
-
-  const supportPoints = [
-    t('repairRequest.infoAlert'),
-    t('repairRequest.uploadImagesDesc'),
-    t('repairRequest.submitInfo')
-  ]
-
   return (
     <>
-      <section className="container px-4 pb-10 pt-8 md:pb-14 md:pt-10">
-        <section className="overflow-hidden rounded-3xl border-0 shadow-xl">
-          <div className="relative overflow-hidden bg-[linear-gradient(135deg,_var(--primary-blue,_#1a2a5e)_0%,_var(--primary-blue-light,_#2f57b0)_100%)] px-8 py-10 text-white md:px-12 md:py-12">
-            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-12 left-8 h-36 w-36 rounded-full bg-yellow-300/20 blur-2xl" />
+      {/* Hero Banner */}
+      <section className="relative overflow-hidden bg-[linear-gradient(135deg,_#1a2a5e_0%,_#2f57b0_100%)] px-6 py-14 text-white md:px-12 md:py-20">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-12 h-56 w-56 rounded-full bg-yellow-300/15 blur-3xl" />
 
-            <div className="relative z-10 max-w-4xl">
-              <button
-                type="button"
-                onClick={navigateBackToConfigurator}
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+        <div className="relative z-10 text-center">
+          <button
+            type="button"
+            onClick={navigateBack}
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Zurück
+          </button>
+
+          <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">
+            Reparaturanfrage
+          </h1>
+          <p className="mt-5 text-base leading-7 text-blue-100 md:text-lg">
+            Manche Defekte erfordern individuelle Begutachtung. Bei McRepair.de ist das kein Problem:
+            schildern Sie uns Ihr Problem, und Sie erhalten innerhalb von 24 Stunden* eine Rückmeldung.
+          </p>
+          <p className="mt-3 text-sm text-blue-200/70">* werktags</p>
+        </div>
+      </section>
+
+      <form onSubmit={handleSubmit} className="space-y-6 px-6 py-10 md:px-12 md:py-14">
+
+        {/* Card 1: Device */}
+        <Card className="border-0 shadow-xl">
+          <CardHeader className="border-b border-slate-100 pb-4">
+            <CardTitle
+              className="flex items-center gap-2.5 text-xl"
+              style={{ color: "var(--primary-blue, #1a2a5e)" }}
+            >
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl"
+                style={{ background: "rgba(26,42,94,0.08)", color: "var(--primary-blue, #1a2a5e)" }}
               >
-                <ArrowLeft className="h-4 w-4" />
-                {t('repairRequest.backToConfig')}
-              </button>
+                <Smartphone className="h-5 w-5" />
+              </span>
+              Ihr Gerät
+            </CardTitle>
+          </CardHeader>
 
-              <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
-                <FileText className="h-4 w-4" />
-                {t('repairRequest.title')}
-              </div>
-
-              <h1 className="mt-4 text-3xl font-bold leading-tight md:text-5xl">
-                {t('repairRequest.subtitle')}
-              </h1>
-              <p className="mt-5 max-w-3xl text-sm leading-7 text-blue-50 md:text-base">
-                {t('repairRequest.infoAlert')}
-              </p>
-
-              <div className="mt-7 flex flex-wrap gap-3 text-sm text-blue-50">
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
-                  {getDeviceTypeIcon(selectedDevice.deviceType)}
-                  {selectedDevice.deviceType}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
-                  <CheckCircle className="h-4 w-4" />
-                  {selectedDevice.manufacturer}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
-                  <Wrench className="h-4 w-4" />
-                  {selectedDevice.name}
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <form onSubmit={handleSubmit} className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-6">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-4 md:p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                      {selectedDevice.image ? (
-                        <img
-                          src={selectedDevice.image}
-                          alt={selectedDevice.name}
-                          className="h-full w-full object-contain p-2"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                            const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                            if (fallback) fallback.style.display = 'flex'
-                          }}
-                        />
-                      ) : null}
-                      <div className="h-full w-full items-center justify-center text-[var(--primary-blue,_#1a2a5e)]" style={{ display: selectedDevice.image ? 'none' : 'flex' }}>
-                        {getDeviceTypeIcon(selectedDevice.deviceType)}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        {t('repairRequest.selectedDevice')}
-                      </p>
-                      <h2 className="truncate text-lg font-semibold leading-tight" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                        {selectedDevice.name}
-                      </h2>
-                      <p className="truncate text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                        {selectedDevice.manufacturer} · {selectedDevice.deviceType}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    onClick={handleOpenDeviceDialog}
-                    variant="outline"
-                    className="rounded-full border-[rgba(26,42,94,0.14)] bg-white font-semibold text-[var(--primary-blue,_#1a2a5e)] hover:bg-slate-50"
+          <CardContent className="space-y-5 pt-6">
+            {/* Confirmed DB device display */}
+            {!editingDevice && selectedDevice && (
+              <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                  style={{ color: "var(--primary-blue, #1a2a5e)" }}
+                >
+                  {selectedDevice.image ? (
+                    <img
+                      src={selectedDevice.image}
+                      alt={selectedDevice.name}
+                      className="h-full w-full object-contain p-1"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none"
+                        const next = e.currentTarget.nextElementSibling as HTMLElement
+                        if (next) next.style.display = "flex"
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="h-full w-full items-center justify-center"
+                    style={{ display: selectedDevice.image ? "none" : "flex" }}
                   >
-                    <Edit2 className="mr-2 h-4 w-4" />
-                    {t('repairRequest.changeDevice')}
-                  </Button>
+                    {getDeviceTypeIcon(selectedDevice.deviceType)}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ausgewähltes Gerät</p>
+                  <p className="truncate text-base font-bold" style={{ color: "var(--primary-blue, #1a2a5e)" }}>
+                    {selectedDevice.name}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {selectedDevice.manufacturer} · {selectedDevice.deviceType}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingDevice(true)}
+                  className="shrink-0 rounded-full border-slate-200 text-sm font-semibold"
+                  style={{ color: "var(--primary-blue, #1a2a5e)" }}
+                >
+                  <Edit2 className="mr-1.5 h-4 w-4" /> Ändern
+                </Button>
+              </div>
+            )}
 
-            <Card className="border-0 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-2xl" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                  <AlertCircle className="h-5 w-5" />
-                  {t('repairRequest.issueDetailsTitle')}
-                </CardTitle>
-                <p className="text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                  {t('repairRequest.subtitle')}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
+            {/* Confirmed manual device display */}
+            {!editingDevice && !selectedDevice && manualDeviceName && (
+              <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
+                  style={{ color: "var(--primary-blue, #1a2a5e)" }}
+                >
+                  {getDeviceTypeIcon(manualDeviceType)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{manualDeviceType}</p>
+                  <p className="truncate text-base font-bold" style={{ color: "var(--primary-blue, #1a2a5e)" }}>
+                    {manualDeviceName}
+                  </p>
+                  {manualModelNumber && (
+                    <p className="text-sm text-slate-500">Modellnr.: {manualModelNumber}</p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingDevice(true)}
+                  className="shrink-0 rounded-full border-slate-200 text-sm font-semibold"
+                  style={{ color: "var(--primary-blue, #1a2a5e)" }}
+                >
+                  <Edit2 className="mr-1.5 h-4 w-4" /> Ändern
+                </Button>
+              </div>
+            )}
+
+            {/* Entry / edit form */}
+            {editingDevice && (
+              <div className="space-y-5">
+                {/* Device type */}
                 <div className="space-y-2">
-                  <Label htmlFor="issueDescription">
-                    {t('repairRequest.issueDescriptionLabel')} <span className="text-red-600">*</span>
+                  <Label className="text-sm font-semibold">
+                    Gerätetyp <span className="text-red-500">*</span>
                   </Label>
-                  <Textarea
-                    id="issueDescription"
-                    placeholder={t('repairRequest.issueDescriptionPlaceholder')}
-                    value={formData.issueDescription}
-                    onChange={(e) => handleInputChange("issueDescription", e.target.value)}
-                    className={`min-h-[180px] ${errors.issueDescription ? 'border-red-500 focus-visible:ring-red-200' : ''}`}
+                  <div className="flex flex-wrap gap-2">
+                    {DEVICE_TYPES.map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setManualDeviceType(type)}
+                        className="rounded-full border px-4 py-2 text-sm font-semibold transition"
+                        style={toggleStyle(manualDeviceType === type)}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Device name incl. manufacturer */}
+                <div className="space-y-2">
+                  <Label htmlFor="manualDeviceName" className="text-sm font-semibold">
+                    Gerätebezeichnung inkl. Hersteller <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="manualDeviceName"
+                    type="text"
+                    placeholder='z. B. „Microsoft Lumia 650 Dual SIM" oder „Apple iPhone 14 Pro"'
+                    value={manualDeviceName}
+                    onChange={(e) => {
+                      setManualDeviceName(e.target.value)
+                      if (errors.manualDeviceName)
+                        setErrors((prev) => { const next = { ...prev }; delete next.manualDeviceName; return next })
+                    }}
+                    className={errors.manualDeviceName ? "border-red-500 focus-visible:ring-red-200" : ""}
                   />
-                  {errors.issueDescription && (
-                    <p className="flex items-center gap-2 text-sm text-red-600">
-                      <AlertCircle className="h-4 w-4" />
-                      {errors.issueDescription}
+                  {errors.manualDeviceName && (
+                    <p className="flex items-center gap-1.5 text-sm text-red-600">
+                      <AlertCircle className="h-4 w-4" /> {errors.manualDeviceName}
                     </p>
                   )}
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="issueOccurredDate">
-                      {t('repairRequest.whenDidItHappen')} <span className="text-red-600">*</span>
-                    </Label>
-                    <Input
-                      id="issueOccurredDate"
-                      type="text"
-                      placeholder={t('repairRequest.whenPlaceholder')}
-                      value={formData.issueOccurredDate}
-                      onChange={(e) => handleInputChange("issueOccurredDate", e.target.value)}
-                      className={errors.issueOccurredDate ? 'border-red-500 focus-visible:ring-red-200' : ''}
-                    />
-                    {errors.issueOccurredDate ? (
-                      <p className="flex items-center gap-2 text-sm text-red-600">
-                        <AlertCircle className="h-4 w-4" />
-                        {errors.issueOccurredDate}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-slate-500">{t('repairRequest.approximateDate')}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="modelNumber">{t('repairRequest.modelNumber')}</Label>
-                    <Input
-                      id="modelNumber"
-                      type="text"
-                      placeholder={t('repairRequest.modelNumberPlaceholder')}
-                      value={formData.modelNumber}
-                      onChange={(e) => handleInputChange("modelNumber", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <button
-                  type="button"
-                  onClick={() => setShowExtendedInfo(!showExtendedInfo)}
-                  className="flex w-full items-center justify-between gap-4 rounded-2xl border px-5 py-4 text-left transition hover:bg-slate-50"
-                  style={{ borderColor: 'rgba(26,42,94,0.1)' }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: 'rgba(245, 197, 24, 0.18)', color: 'var(--primary-blue, #1a2a5e)' }}>
-                      <Info className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                        {t('repairRequest.extendedInfoTitle')}
-                      </h2>
-                      <p className="mt-1 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                        {t('repairRequest.extendedInfoSubtitle')}
-                      </p>
-                    </div>
-                  </div>
-                  {showExtendedInfo ? (
-                    <ChevronUp className="h-5 w-5 shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
-                  )}
-                </button>
-              </CardHeader>
-              {showExtendedInfo && (
-                <CardContent className="space-y-6 pt-0">
-                  <div className="space-y-3">
-                    <Label className="flex items-center gap-2">
-                      <Droplets className="h-4 w-4" />
-                      {t('repairRequest.waterDamage')}
-                    </Label>
-                    <div className="flex flex-wrap gap-3">
-                      {['no', 'yes', 'unsure'].map((option) => {
-                        const isSelected = waterDamage === option
-
-                        return (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setWaterDamage(option as 'no' | 'yes' | 'unsure')}
-                            className="rounded-full border px-4 py-2 text-sm font-semibold transition"
-                            style={{
-                              borderColor: isSelected ? 'transparent' : 'rgba(26,42,94,0.14)',
-                              background: isSelected
-                                ? 'linear-gradient(135deg, var(--primary-blue, #1a2a5e) 0%, var(--primary-blue-light, #2f57b0) 100%)'
-                                : 'white',
-                              color: isSelected ? 'white' : 'var(--primary-blue, #1a2a5e)',
-                              boxShadow: isSelected ? '0 12px 30px rgba(26, 42, 94, 0.18)' : 'none'
-                            }}
-                          >
-                            {option === 'no' ? t('repairRequest.waterDamageNo') : option === 'yes' ? t('repairRequest.waterDamageYes') : t('repairRequest.waterDamageUnsure')}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="previousRepairDetails" className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4" />
-                      {t('repairRequest.previousRepairDetails')}
-                    </Label>
-                    <Textarea
-                      id="previousRepairDetails"
-                      placeholder={t('repairRequest.previousRepairPlaceholder')}
-                      value={previousRepairDetails}
-                      onChange={(e) => setPreviousRepairDetails(e.target.value)}
-                      className="min-h-[120px]"
-                    />
-                    <p className="text-sm text-slate-500">{t('repairRequest.previousRepairHint')}</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="flex items-center gap-2">
-                      <Package className="h-4 w-4" />
-                      {t('repairRequest.itemCondition')}
-                    </Label>
-                    <div className="flex flex-wrap gap-3">
-                      {['original', 'refurbished', 'unsure'].map((option) => {
-                        const isSelected = itemCondition === option
-
-                        return (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setItemCondition(option as 'original' | 'refurbished' | 'unsure')}
-                            className="rounded-full border px-4 py-2 text-sm font-semibold transition"
-                            style={{
-                              borderColor: isSelected ? 'transparent' : 'rgba(26,42,94,0.14)',
-                              background: isSelected
-                                ? 'linear-gradient(135deg, rgba(245,197,24,1) 0%, rgba(245,197,24,0.84) 100%)'
-                                : 'white',
-                              color: 'var(--primary-blue, #1a2a5e)',
-                              boxShadow: isSelected ? '0 12px 24px rgba(245, 197, 24, 0.22)' : 'none'
-                            }}
-                          >
-                            {option === 'original' ? t('repairRequest.conditionOriginal') : option === 'refurbished' ? t('repairRequest.conditionRefurbished') : t('repairRequest.conditionUnsure')}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          </div>
-          <div className="space-y-6">
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-xl" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                  {t('repairRequest.uploadImages')}
-                </CardTitle>
-                <p className="text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                  {t('repairRequest.uploadImagesDesc')}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <input
-                  id="images"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  disabled={images.length >= 5}
-                />
-                <label
-                  htmlFor="images"
-                  className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-10 text-center transition ${images.length >= 5 ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-50'}`}
-                  style={{ borderColor: 'rgba(26,42,94,0.16)', background: 'rgba(248,250,252,0.9)' }}
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'rgba(245, 197, 24, 0.18)', color: 'var(--primary-blue, #1a2a5e)' }}>
-                    <Upload className="h-5 w-5" />
-                  </div>
-                  <p className="mt-4 text-sm font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                    {t('repairRequest.addPhotos')}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {t('repairRequest.imageHint', { count: images.length })}
-                  </p>
-                </label>
-
-                {imagePreviewUrls.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    {imagePreviewUrls.map((url, index) => (
-                      <div key={index} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <img
-                          src={url}
-                          alt={t('repairRequest.previewAlt', { index: index + 1 })}
-                          className="aspect-[4/3] h-full w-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white opacity-100 shadow-md transition hover:scale-105 sm:opacity-0 sm:group-hover:opacity-100"
-                          aria-label={t('repairRequest.removeImage')}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-xl" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                  {t('repairRequest.submitButton')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="rounded-2xl border px-4 py-4 text-sm leading-6" style={{ borderColor: 'rgba(16,185,129,0.24)', background: 'rgba(236,253,245,0.9)', color: '#065f46' }}>
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
-                    <span>{t('repairRequest.submitInfo')}</span>
-                  </div>
+                {/* Model number */}
+                <div className="space-y-2">
+                  <Label htmlFor="manualModelNumber" className="text-sm font-semibold">
+                    Modellnummer
+                    <span className="ml-2 text-xs font-normal text-slate-500">
+                      (besonders wichtig bei Laptops)
+                    </span>
+                  </Label>
+                  <Input
+                    id="manualModelNumber"
+                    type="text"
+                    placeholder="z. B. A2215, SM-G998B, HP 255 G8, ThinkPad T14s …"
+                    value={manualModelNumber}
+                    onChange={(e) => setManualModelNumber(e.target.value)}
+                  />
                 </div>
 
-                <ul className="space-y-3 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                  {supportPoints.map((point) => (
-                    <li key={point} className="flex items-start gap-3">
-                      <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--accent-yellow, #f5c518)' }} />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="flex flex-col gap-3">
-                  <Button
-                    type="submit"
-                    ref={submitButtonRef}
-                    disabled={submitting}
-                    className="h-12 w-full rounded-full text-base font-semibold text-white"
-                    style={{ background: 'var(--primary-blue, #1a2a5e)' }}
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t('repairRequest.submitting')}
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        {t('repairRequest.submitButton')}
-                      </>
-                    )}
-                  </Button>
-
+                {/* Action buttons */}
+                <div className="flex flex-wrap items-center gap-3">
                   <Button
                     type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    onClick={navigateBackToConfigurator}
-                    className="h-12 w-full rounded-full border-[rgba(26,42,94,0.16)] font-semibold text-[var(--primary-blue,_#1a2a5e)]"
+                    onClick={confirmManualDevice}
+                    className="rounded-full font-semibold text-white"
+                    style={{ background: "var(--primary-blue, #1a2a5e)" }}
                   >
-                    {t('repairRequest.backToConfig')}
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Gerät übernehmen
                   </Button>
+                  <button
+                    type="button"
+                    onClick={openDbDialog}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold transition hover:bg-slate-50"
+                    style={{ color: "var(--primary-blue, #1a2a5e)" }}
+                  >
+                    <Database className="h-4 w-4" />
+                    Aus Datenbank wählen
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </form>
-      </section>
+              </div>
+            )}
 
+            {errors.device && (
+              <p className="flex items-center gap-1.5 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" /> {errors.device}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Repair Request */}
+        <Card className="border-0 shadow-xl">
+          <CardHeader className="border-b border-slate-100 pb-4">
+            <CardTitle
+              className="flex items-center gap-2.5 text-xl"
+              style={{ color: "var(--primary-blue, #1a2a5e)" }}
+            >
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl"
+                style={{ background: "rgba(26,42,94,0.08)", color: "var(--primary-blue, #1a2a5e)" }}
+              >
+                <Wrench className="h-5 w-5" />
+              </span>
+              Ihre Anfrage
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="space-y-6 pt-6">
+
+            {/* Issue description */}
+            <div className="space-y-2">
+              <Label htmlFor="issueDescription" className="text-sm font-semibold">
+                Fehlerbeschreibung <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="issueDescription"
+                placeholder="Beschreiben Sie das Problem so genau wie möglich: Was passiert genau? Wann tritt es auf? Was haben Sie bereits versucht?"
+                value={issueDescription}
+                onChange={(e) => {
+                  setIssueDescription(e.target.value)
+                  if (errors.issueDescription)
+                    setErrors((prev) => { const next = { ...prev }; delete next.issueDescription; return next })
+                }}
+                className={`min-h-[140px] ${errors.issueDescription ? "border-red-500 focus-visible:ring-red-200" : ""}`}
+              />
+              {errors.issueDescription && (
+                <p className="flex items-center gap-1.5 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" /> {errors.issueDescription}
+                </p>
+              )}
+            </div>
+
+            {/* Image upload */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">
+                Bilder hochladen
+                <span className="ml-2 text-xs font-normal text-slate-500">(optional, max. 5 Bilder)</span>
+              </Label>
+              <input
+                id="images"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                disabled={images.length >= 5}
+              />
+              <label
+                htmlFor="images"
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition ${images.length >= 5 ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50"}`}
+                style={{ borderColor: "rgba(26,42,94,0.16)", background: "rgba(248,250,252,0.9)" }}
+              >
+                <span
+                  className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                  style={{ background: "rgba(245,197,24,0.18)", color: "var(--primary-blue, #1a2a5e)" }}
+                >
+                  <Upload className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-sm font-semibold" style={{ color: "var(--primary-blue, #1a2a5e)" }}>
+                  Fotos hinzufügen
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {images.length}/5 Bilder · JPG, PNG oder GIF · max. 5 MB
+                </p>
+              </label>
+              {imagePreviewUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                  {imagePreviewUrls.map((url, index) => (
+                    <div
+                      key={index}
+                      className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                    >
+                      <img
+                        src={url}
+                        alt={`Vorschau ${index + 1}`}
+                        className="aspect-square h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow transition hover:scale-110 sm:opacity-0 sm:group-hover:opacity-100"
+                        aria-label="Bild entfernen"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* When did it happen — optional */}
+            <div className="space-y-2">
+              <Label htmlFor="issueOccurredDate" className="text-sm font-semibold">
+                Wann ist das passiert?
+                <span className="ml-2 text-xs font-normal text-slate-500">(optional)</span>
+              </Label>
+              <Input
+                id="issueOccurredDate"
+                type="text"
+                placeholder="z. B. Gestern, letzte Woche, vor 3 Monaten …"
+                value={issueOccurredDate}
+                onChange={(e) => setIssueOccurredDate(e.target.value)}
+              />
+            </div>
+
+            {/* Water damage */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Droplets className="h-4 w-4" /> Flüssigkeitsschaden?
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["no", "Nein"],
+                    ["yes", "Ja"],
+                    ["unsure", "Nicht sicher"],
+                  ] as const
+                ).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setWaterDamage(val)}
+                    className="rounded-full border px-4 py-2 text-sm font-semibold transition"
+                    style={toggleStyle(waterDamage === val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Previous repair attempts */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Wrench className="h-4 w-4" /> Frühere Reparaturversuche?
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["no", "Nein"],
+                    ["yes", "Ja"],
+                    ["unsure", "Nicht sicher"],
+                  ] as const
+                ).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setPreviousRepairAttempts(val)}
+                    className="rounded-full border px-4 py-2 text-sm font-semibold transition"
+                    style={toggleStyle(previousRepairAttempts === val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {previousRepairAttempts === "yes" && (
+                <Textarea
+                  placeholder="Beschreiben Sie kurz, was bereits versucht wurde …"
+                  value={previousRepairDetails}
+                  onChange={(e) => setPreviousRepairDetails(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              )}
+            </div>
+
+            {/* Device condition */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Package className="h-4 w-4" /> Gerätezustand?
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["original", "Original"],
+                    ["refurbished", "Gebraucht"],
+                    ["unsure", "Nicht sicher"],
+                  ] as const
+                ).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setItemCondition(val)}
+                    className="rounded-full border px-4 py-2 text-sm font-semibold transition"
+                    style={toggleStyle(itemCondition === val, "yellow")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit area */}
+            <div className="space-y-3 border-t border-slate-100 pt-5">
+              <div
+                className="rounded-xl border px-4 py-3 text-sm leading-6"
+                style={{ borderColor: "rgba(16,185,129,0.24)", background: "rgba(236,253,245,0.9)", color: "#065f46" }}
+              >
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <span>
+                    Nach Einreichung prüft unser Team Ihre Anfrage und meldet sich innerhalb von 24 Stunden* bei Ihnen.
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="h-12 w-full rounded-full text-base font-bold text-white"
+                style={{ background: "var(--primary-blue, #1a2a5e)" }}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Wird gesendet…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" /> Reparaturanfrage absenden
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+
+      {/* DB Selection Dialog */}
       <Dialog open={showDeviceDialog} onOpenChange={setShowDeviceDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[580px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
-              <Edit2 className="h-5 w-5" />
-              {t('repairRequest.changeDeviceTitle')}
+              <Database className="h-5 w-5" />
+              Gerät aus Datenbank wählen
             </DialogTitle>
             <DialogDescription>
-              {t('repairRequest.changeDeviceDesc')}
+              Suchen Sie Ihr Gerät in unserer Gerätedatenbank
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-5 py-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">
-                1. {t('repairRequest.selectDeviceType')} <span className="text-red-500">*</span>
+                1. Gerätetyp <span className="text-red-500">*</span>
               </label>
-              <Select value={selectedDeviceType} onValueChange={handleDeviceTypeChange}>
+              <Select value={selectedDeviceType} onValueChange={handleDbDeviceTypeChange}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('repairRequest.selectDeviceTypePlaceholder')} />
+                  <SelectValue placeholder="Gerätetyp wählen …" />
                 </SelectTrigger>
                 <SelectContent>
                   {deviceTypes.map((type) => (
@@ -843,25 +817,25 @@ export function RepairRequestQuestionnaire() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">
-                2. {t('repairRequest.selectBrand')} <span className="text-red-500">*</span>
+                2. Marke <span className="text-red-500">*</span>
               </label>
               <Select
                 value={selectedManufacturer}
-                onValueChange={handleManufacturerChange}
+                onValueChange={handleDbManufacturerChange}
                 disabled={!selectedDeviceType || loadingManufacturers}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={
-                    loadingManufacturers ? t('repairRequest.loading') :
-                    !selectedDeviceType ? t('repairRequest.selectBrandFirst') :
-                    t('repairRequest.selectBrandPlaceholder')
-                  } />
+                  <SelectValue
+                    placeholder={
+                      loadingManufacturers ? "Lädt …" : !selectedDeviceType ? "Zuerst Gerätetyp wählen" : "Marke wählen …"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {manufacturers.map((manufacturer) => (
-                    <SelectItem key={manufacturer._id} value={manufacturer._id}>
-                      {manufacturer.name}
-                      <span className="ml-2 text-xs text-gray-500">({manufacturer.count} {t('repairRequest.models')})</span>
+                  {manufacturers.map((m) => (
+                    <SelectItem key={m._id} value={m._id}>
+                      {m.name}
+                      <span className="ml-2 text-xs text-gray-500">({m.count} Modelle)</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -870,7 +844,7 @@ export function RepairRequestQuestionnaire() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">
-                3. {t('repairRequest.selectModelLabel')} <span className="text-red-500">*</span>
+                3. Modell <span className="text-red-500">*</span>
               </label>
               <Select
                 value={selectedModel}
@@ -878,25 +852,25 @@ export function RepairRequestQuestionnaire() {
                 disabled={!selectedManufacturer || loadingModels}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={
-                    loadingModels ? t('repairRequest.loading') :
-                    !selectedManufacturer ? t('repairRequest.selectManufacturerFirst') :
-                    t('repairRequest.selectModelPlaceholder')
-                  } />
+                  <SelectValue
+                    placeholder={
+                      loadingModels ? "Lädt …" : !selectedManufacturer ? "Zuerst Marke wählen" : "Modell wählen …"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {models.map((model) => (
-                    <SelectItem key={model._id} value={model._id}>
+                  {models.map((m) => (
+                    <SelectItem key={m._id} value={m._id}>
                       <div className="flex items-center gap-2">
-                        {model.image && (
+                        {m.image && (
                           <img
-                            src={model.image}
-                            alt={model.name}
+                            src={m.image}
+                            alt={m.name}
                             className="h-6 w-6 object-contain"
-                            onError={(e) => e.currentTarget.style.display = 'none'}
+                            onError={(e) => (e.currentTarget.style.display = "none")}
                           />
                         )}
-                        <span>{model.name}</span>
+                        <span>{m.name}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -904,22 +878,23 @@ export function RepairRequestQuestionnaire() {
               </Select>
             </div>
 
-            {selectedModel && models.find(m => m._id === selectedModel) && (
+            {selectedModel && models.find((m) => m._id === selectedModel) && (
               <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
                 <div className="flex items-center gap-3">
-                  {models.find(m => m._id === selectedModel)?.image && (
+                  {models.find((m) => m._id === selectedModel)?.image && (
                     <img
-                      src={models.find(m => m._id === selectedModel)?.image}
-                      alt="Selected device"
-                      className="h-16 w-16 object-contain"
+                      src={models.find((m) => m._id === selectedModel)?.image}
+                      alt="Ausgewähltes Gerät"
+                      className="h-14 w-14 object-contain"
                     />
                   )}
                   <div>
                     <p className="font-semibold text-gray-900">
-                      {models.find(m => m._id === selectedModel)?.name}
+                      {models.find((m) => m._id === selectedModel)?.name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {manufacturers.find(m => m._id === selectedManufacturer)?.name} · {deviceTypes.find(dt => dt._id === selectedDeviceType)?.name}
+                      {manufacturers.find((m) => m._id === selectedManufacturer)?.name} ·{" "}
+                      {deviceTypes.find((dt) => dt._id === selectedDeviceType)?.name}
                     </p>
                   </div>
                 </div>
@@ -929,44 +904,38 @@ export function RepairRequestQuestionnaire() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeviceDialog(false)}>
-              {t('repairRequest.cancel')}
+              Abbrechen
             </Button>
             <Button
-              onClick={handleConfirmDeviceChange}
+              onClick={confirmDbDevice}
               disabled={!selectedModel}
               className="bg-[#1a2a5e] hover:bg-[#0f1d45]"
             >
               <CheckCircle className="mr-2 h-4 w-4" />
-              {t('repairRequest.confirmDevice')}
+              Gerät übernehmen
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Login Dialog */}
       {showLoginDialog && (
         <>
           <div
             style={{
-              position: 'fixed',
+              position: "fixed",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              zIndex: 9998
+              backgroundColor: "rgba(0,0,0,0.3)",
+              zIndex: 9998,
             }}
             onClick={() => setShowLoginDialog(false)}
           />
           <LoginDialog
             isOpen={showLoginDialog}
             onClose={() => setShowLoginDialog(false)}
-            anchorElement={submitButtonRef.current}
-            onLoginSuccess={() => {
-              const form = document.querySelector('form') as HTMLFormElement
-              if (form) {
-                form.requestSubmit()
-              }
-            }}
           />
         </>
       )}

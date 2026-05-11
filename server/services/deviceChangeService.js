@@ -226,11 +226,23 @@ class DeviceChangeService {
    */
   static async getCompatibleServices(deviceType) {
     try {
+      const normalizedType = String(deviceType || '').trim().toLowerCase();
+      const compatibleTypes = [String(deviceType || '').trim()].filter(Boolean);
+
+      if (normalizedType === 'wearable' && !compatibleTypes.includes('smartwatch')) {
+        compatibleTypes.push('smartwatch');
+      }
+      if (normalizedType === 'smartwatch' && !compatibleTypes.includes('wearable')) {
+        compatibleTypes.push('wearable');
+      }
+
       const services = await Service.find({
         $or: [
           { supportedDeviceTypes: { $size: 0 } },
-          { supportedDeviceTypes: { $in: [deviceType] } },
+          { supportedDeviceTypes: { $in: compatibleTypes } },
           { supportedDeviceTypes: { $exists: false } },
+          { deviceTypes: { $in: compatibleTypes } },
+          { deviceType: { $in: compatibleTypes } },
         ],
         isActive: true,
       });

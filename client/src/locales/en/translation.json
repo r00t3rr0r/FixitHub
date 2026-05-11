@@ -1519,14 +1519,15 @@
       "trackingButton": "Track order"
     },
     "trust": {
-      "warranty": "12-month warranty",
-      "warrantyDesc": "On all repairs",
-      "fastService": "Express service",
-      "fastServiceDesc": "Repair in 60 min.",
+      "warranty": "Quality guarantee:",
+      "warrantyDesc": "12 months on our repairs*",
+      "warrantyNote": "*Exceptions marked",
+      "fastService": "Fast & professional:",
+      "fastServiceDesc": "Same-day processing with express booking",
       "quality": "Top quality",
-      "qualityDesc": "Original spare parts",
-      "certified": "Certified",
-      "certifiedDesc": "Verified technicians"
+      "qualityDesc": "Thanks to certified spare parts",
+      "certified": "Expertise & skills",
+      "certifiedDesc": "Our skilled technicians have 20 years of repair experience"
     },
     "specialOffers": {
       "title": "Our special offers",
@@ -1538,14 +1539,14 @@
     "servicesOverview": {
       "title": "It really is that simple",
       "subtitle": "Your repaired device in 4 steps",
-      "step1Title": "Book repair",
-      "step1Description": "Choose device and repair online",
-      "step2Title": "Receive label",
-      "step2Description": "Shipping label by email at no extra cost",
-      "step3Title": "Send it in",
-      "step3Description": "Pack your device securely and send it off",
-      "step4Title": "Get it back repaired",
-      "step4Description": "Receive your repaired and insured device"
+      "step1Title": "Select device and repair",
+      "step1Description": "",
+      "step2Title": "Send device for free or bring it in",
+      "step2Description": "",
+      "step3Title": "We repair it quickly and reliably",
+      "step3Description": "24h with Express",
+      "step4Title": "You receive your device repaired back",
+      "step4Description": "1 year quality guarantee"
     },
     "deviceSelection": {
       "quickSearch": "Quick Search",

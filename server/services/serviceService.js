@@ -6,6 +6,7 @@ class ServiceService {
       console.log('ServiceService: Listing services with filters:', filters, 'pagination:', pagination, 'sorting:', sorting);
 
       const query = { isActive: true };
+      const andConditions = [];
 
       // Add category filter if provided
       if (filters.category) {
@@ -14,7 +15,22 @@ class ServiceService {
 
       // Add device type filter if provided
       if (filters.deviceType) {
-        query.deviceTypes = { $in: [filters.deviceType] };
+        const normalizedType = String(filters.deviceType).trim().toLowerCase();
+        const compatibleTypes = [String(filters.deviceType).trim()];
+
+        if (normalizedType === 'wearable' && !compatibleTypes.includes('smartwatch')) {
+          compatibleTypes.push('smartwatch');
+        }
+        if (normalizedType === 'smartwatch' && !compatibleTypes.includes('wearable')) {
+          compatibleTypes.push('wearable');
+        }
+
+        andConditions.push({
+          $or: [
+            { deviceTypes: { $in: compatibleTypes } },
+            { deviceType: { $in: compatibleTypes } },
+          ],
+        });
       }
 
       // Filter by precise manufacturer (case-insensitive exact match)
@@ -29,10 +45,16 @@ class ServiceService {
       // OR generic services with no model assigned (so a generic "Diagnose" still shows up).
       if (filters.modelPrecise) {
         const escaped = String(filters.modelPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        query.$or = [
+        andConditions.push({
+          $or: [
           { modelPrecise: new RegExp(`^${escaped}$`, 'i') },
           { modelPrecise: { $in: ['', null] } }
-        ];
+          ],
+        });
+      }
+
+      if (andConditions.length > 0) {
+        query.$and = andConditions;
       }
 
       // Pagination setup

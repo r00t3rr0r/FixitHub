@@ -181,6 +181,9 @@ app.use(requireCsrfProtection);
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Serve public assets (including brand logos)
+app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
+
 // Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
   // Get the content-length header to track request payload size

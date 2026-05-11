@@ -221,7 +221,22 @@ class EmailService {
   }
 
   static async resolveDeviceModelImageUrl({ deviceBrand = '', deviceModel = '', fallbackUrl = '' } = {}) {
-    const trimmedFallback = String(fallbackUrl || '').trim();
+    const toPublicImageUrl = (value = '') => {
+      const normalized = String(value || '').trim();
+      if (!normalized) {
+        return '';
+      }
+      if (/^https?:\/\//i.test(normalized) || normalized.startsWith('data:')) {
+        return normalized;
+      }
+      const serverBase = String(process.env.SERVER_URL || process.env.CLIENT_URL || '').trim().replace(/\/$/, '');
+      if (normalized.startsWith('/') && serverBase) {
+        return `${serverBase}${normalized}`;
+      }
+      return normalized;
+    };
+
+    const trimmedFallback = toPublicImageUrl(fallbackUrl);
     if (trimmedFallback) {
       return trimmedFallback;
     }
@@ -256,12 +271,12 @@ class EmailService {
 
       const pickImage = (candidate) => {
         if (!candidate) return '';
-        return String(
+        return toPublicImageUrl(String(
           candidate.image ||
           candidate.images?.[0]?.url ||
           candidate.images?.[0]?.base64 ||
           ''
-        ).trim();
+        ).trim());
       };
 
       const exact = modelCandidates.find((candidate) => {

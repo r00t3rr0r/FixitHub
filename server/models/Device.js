@@ -326,6 +326,17 @@ const deviceModelSchema = new mongoose.Schema({
       trim: true
     }]
   },
+  mobileApiUpdatedAt: {
+    type: Date
+  },
+  mobileApiMatchId: {
+    type: Number
+  },
+  mobileApiLastStatus: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   isActive: {
     type: Boolean,
     default: true

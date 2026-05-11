@@ -21,7 +21,6 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
-  Check,
   Clock,
   Shield,
   Upload,
@@ -718,8 +717,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   // Handle model selection
   // Erweiterte Model-Auswahl mit Bild- und Specs-Check
   const handleModelSelect = async (model: DeviceModel) => {
-    // Nur wenn kein Bild und keine Images vorhanden sind, hole Daten von mobileapi.dev
-    if (model.image && model.image.trim() !== '' && Array.isArray(model.images) && model.images.length > 0) {
+    // Nur wenn wirklich kein nutzbares Bild vorhanden ist, hole Daten von mobileapi.dev
+    if (getModelImage(model)) {
       setSelectedModel(model);
       setModelSearchQuery(model.name);
       setShowModelDropdown(false);
@@ -756,8 +755,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         manufacturer: best.brand && best.brand.trim() ? best.brand : model.manufacturer,
         deviceType: best.device_type && best.device_type.trim() ? best.device_type : model.deviceType,
         // Bild
-        image: best.image_b64 ? `data:image/jpeg;base64,${best.image_b64}` : model.image,
-        images: best.image_b64 ? [{ base64: `data:image/jpeg;base64,${best.image_b64}` }] : model.images || [],
+        image: (best.image_url && best.image_url.trim()) ? best.image_url : model.image,
+        images: (best.image_url && best.image_url.trim()) ? [{ url: best.image_url.trim() }] : model.images || [],
         // Common Problems
         commonProblems: best.common_problems ? best.common_problems.split(',').map((s:string) => s.trim()) : model.commonProblems || [],
         // Legacy
@@ -1449,9 +1448,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               onClick={() => handleModelSelect(model)}
                             >
                               <div className="flex items-center gap-2">
-                                {model.image && (
+                                {getModelImage(model) && (
                                   <img 
-                                    src={model.image}
+                                    src={getModelImage(model)}
                                     alt={model.name} 
                                     className="w-6 h-6 object-contain"
                                     onError={(e) => e.currentTarget.style.display = 'none'}
@@ -1591,11 +1590,6 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <div className="repair-name">{service.name}</div>
                         <div className="repair-price">{t('home.configurator.repairFrom', { price: service.price.toFixed(2) })}</div>
                       </div>
-                      {selectedRepairs.find(s => s._id === service._id) && (
-                        <div className="absolute top-2 right-2">
-                          <Check className="w-5 h-5 text-green-600" />
-                        </div>
-                      )}
                       {(service.shortDescription || service.description) && (
                         <div className="repair-card-info-wrap">
                           <button
@@ -1626,7 +1620,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                               setServiceInfoDialog(service);
                             }}
                           >
-                            <Info className="w-3.5 h-3.5" aria-hidden="true" />
+                            <Info className="repair-card-info-icon" aria-hidden="true" />
                           </button>
                         </div>
                       )}
@@ -2590,7 +2584,13 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     <Dialog open={!!serviceInfoDialog} onOpenChange={(open) => { if (!open) setServiceInfoDialog(null); }}>
       <DialogContent
         className="repair-service-info-dialog sm:max-w-lg"
-        aria-describedby={serviceInfoDialog?.description ? 'service-dialog-description' : undefined}
+        aria-describedby={[
+          serviceInfoDialog?.shortDescription &&
+          serviceInfoDialog.shortDescription.trim() !== String(serviceInfoDialog.description || '').trim()
+            ? 'service-dialog-short-description'
+            : '',
+          serviceInfoDialog?.description ? 'service-dialog-description' : '',
+        ].filter(Boolean).join(' ') || undefined}
       >
         {serviceInfoDialog && (
           <>
@@ -2624,6 +2624,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               {serviceInfoDialog.seoMetaKeywords && (
                 <meta itemProp="keywords" content={serviceInfoDialog.seoMetaKeywords} />
               )}
+
+              {/* Always show short description directly in dialog when available */}
+              {serviceInfoDialog.shortDescription &&
+                serviceInfoDialog.shortDescription.trim() !== String(serviceInfoDialog.description || '').trim() && (
+                  <div id="service-dialog-short-description" className="repair-service-info-dialog-lead">
+                    {serviceInfoDialog.shortDescription}
+                  </div>
+                )}
 
               {/* Main description */}
               {serviceInfoDialog.description && (() => {
@@ -2779,9 +2787,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     onClick={() => handleModelSelect(model)}
                   >
                     <div className="mobile-model-item-content">
-                      {model.image && (
+                        {getModelImage(model) && (
                         <img 
-                          src={model.image}
+                            src={getModelImage(model)}
                           alt={model.name} 
                           className="mobile-model-image"
                           onError={(e) => e.currentTarget.style.display = 'none'}
