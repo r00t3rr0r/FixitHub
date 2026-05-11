@@ -16,13 +16,40 @@ export function VorabdiagnoseModal({ isOpen, onClose }: VorabdiagnoseModalProps)
   }, [onClose])
 
   useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'hidden'
-    }
+    if (!isOpen) return
+
+    const scrollY = window.scrollY
+    const bodyStyle = document.body.style
+    const htmlStyle = document.documentElement.style
+
+    const prevBodyOverflow = bodyStyle.overflow
+    const prevBodyPosition = bodyStyle.position
+    const prevBodyTop = bodyStyle.top
+    const prevBodyWidth = bodyStyle.width
+    const prevBodyTouchAction = bodyStyle.touchAction
+    const prevHtmlOverflow = htmlStyle.overflow
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    // Freeze background scroll on all major browsers, including iOS Safari.
+    bodyStyle.overflow = 'hidden'
+    bodyStyle.position = 'fixed'
+    bodyStyle.top = `-${scrollY}px`
+    bodyStyle.width = '100%'
+    bodyStyle.touchAction = 'none'
+    htmlStyle.overflow = 'hidden'
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = ''
+
+      bodyStyle.overflow = prevBodyOverflow
+      bodyStyle.position = prevBodyPosition
+      bodyStyle.top = prevBodyTop
+      bodyStyle.width = prevBodyWidth
+      bodyStyle.touchAction = prevBodyTouchAction
+      htmlStyle.overflow = prevHtmlOverflow
+
+      window.scrollTo(0, scrollY)
     }
   }, [isOpen, handleKeyDown])
 

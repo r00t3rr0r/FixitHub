@@ -738,7 +738,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
             clearGuestCart()
 
-            setGuestCheckoutResult({
+            const guestOrderData = {
               success: true,
               bookingNumber: response.booking?.bookingNumber,
               orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
@@ -747,14 +747,21 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
               orderTrackingToken: response.trackingToken,
               bookingTrackingToken: response.bookingTrackingToken,
               orderCount: response.orderIds?.length || 0,
-            })
+            }
+
+            setGuestCheckoutResult(guestOrderData)
 
             toast({
               title: t("common.success"),
               description: t("checkout.guestCheckoutSuccessful"),
             })
 
-            await onSuccess()
+            // Store order data and navigate to success page
+            sessionStorage.setItem('lastOrderData', JSON.stringify(guestOrderData))
+            onOpenChange(false)
+            // Fire cleanup in background without blocking navigation
+            onSuccess().catch((err) => console.error('Cleanup error:', err))
+            navigate('/order-success')
             return
           }
 
@@ -773,7 +780,12 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
             description: checkoutResult.message || t("checkout.checkoutDone"),
           })
 
-          await onSuccess()
+          // Store order data and navigate to success page
+          sessionStorage.setItem('lastOrderData', JSON.stringify(checkoutResult))
+          onOpenChange(false)
+          // Fire cleanup in background without blocking navigation
+          onSuccess().catch((err) => console.error('Cleanup error:', err))
+          navigate('/order-success')
         } catch (error: any) {
           toast({
             title: t("common.error"),
@@ -1109,7 +1121,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
         clearGuestCart()
 
-        setGuestCheckoutResult({
+        const guestOrderData = {
           success: true,
           bookingNumber: response.booking?.bookingNumber,
           orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
@@ -1118,14 +1130,21 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
           orderTrackingToken: response.trackingToken,
           bookingTrackingToken: response.bookingTrackingToken,
           orderCount: response.orderIds?.length || 0,
-        })
+        }
+
+        setGuestCheckoutResult(guestOrderData)
 
         toast({
           title: t("common.success"),
           description: t("checkout.guestCheckoutSuccessful"),
         })
 
-        await onSuccess()
+        // Store order data and navigate to success page
+        sessionStorage.setItem('lastOrderData', JSON.stringify(guestOrderData))
+        onOpenChange(false)
+        // Fire cleanup in background without blocking navigation
+        onSuccess().catch((err) => console.error('Cleanup error:', err))
+        navigate('/order-success')
         return
       }
 
@@ -1137,7 +1156,12 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         description: checkoutResult.message || t("checkout.checkoutDone"),
       })
 
-      await onSuccess()
+      // Store order data and navigate to success page
+      sessionStorage.setItem('lastOrderData', JSON.stringify(checkoutResult))
+      onOpenChange(false)
+      // Fire cleanup in background without blocking navigation
+      onSuccess().catch((err) => console.error('Cleanup error:', err))
+      navigate('/order-success')
     } catch (error: any) {
       const checkoutError = error as CheckoutApiError
       if (

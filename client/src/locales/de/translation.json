@@ -1849,7 +1849,10 @@
       "modelSearchPlaceholder": "z.B. iPhone 15 Pro...",
       "back": "Zurück",
       "next": "Weiter",
+      "leave": "Konfigurator verlassen",
+      "jumpToStep": "Zu Schritt {{step}} wechseln",
       "loadingRepairs": "Lade Reparaturen...",
+      "howCanWeHelp": "Wie können wir Ihnen helfen?",
       "categoryFilter": {
         "label": "Nach Kategorie filtern",
         "all": "Alle"
@@ -1871,7 +1874,7 @@
       "requestRepairTitle": "Reparatur anfragen",
       "requestRepairDescription": "Nicht sicher, welche Reparatur Sie benötigen? Beschreiben Sie das Problem und erhalten Sie eine kostenlose Diagnose.",
       "requestRepairButton": "Jetzt Reparatur anfragen",
-      "extrasDescription": "Erweitern Sie Ihre Reparatur mit optionalen Zusatzleistungen:",
+      "extrasDescription": "Vorgeschlagene Zusatzdienste",
       "loadingAddOns": "Lade Zusatzleistungen...",
       "noAddOnsTitle": "Keine Zusatzleistungen verfügbar",
       "noAddOnsDescription": "Aktuell sind keine Add-On-Services in der Datenbank vorhanden.",
@@ -1936,6 +1939,8 @@
         "loadAddOnsError": "Fehler beim Laden der Zusatzleistungen",
         "chooseModelTitle": "Modell wählen",
         "chooseModelDescription": "Bitte wählen Sie ein Modell aus.",
+        "chooseDeviceTypeTitle": "Gerätetyp wählen",
+        "chooseDeviceTypeDescription": "Bitte wählen Sie zuerst einen Gerätetyp aus.",
         "chooseRepairTitle": "Reparatur wählen",
         "chooseRepairDescription": "Bitte wählen Sie mindestens eine Reparatur aus oder nutzen Sie \"Reparatur anfragen\".",
         "tooManyImagesTitle": "Zu viele Bilder",

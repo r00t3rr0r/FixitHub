@@ -88,6 +88,12 @@ const parseServiceDescription = (description: string) => {
   return { paragraphs, bullets };
 };
 
+const formatPrice = (value: number) =>
+  new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
 const normalizeSearchText = (value: string | undefined | null) =>
   String(value || '')
     .toLowerCase()
@@ -214,6 +220,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const navigate = useNavigate();
   const configuratorHeaderRef = useRef<HTMLDivElement | null>(null);
   const previousStepRef = useRef(1);
+  const stepDefinitions = [
+    { step: 1, labelKey: 'home.configurator.steps.deviceType' },
+    { step: 2, labelKey: 'home.configurator.steps.model' },
+    { step: 3, labelKey: 'home.configurator.steps.repair' },
+    { step: 4, labelKey: 'home.configurator.steps.extras' },
+    { step: 5, labelKey: 'home.configurator.steps.info' },
+    { step: 6, labelKey: 'home.configurator.steps.total' },
+  ];
 
   // Configurator state
   const [currentStep, setCurrentStep] = useState(1);
@@ -236,7 +250,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
   const [selectedRepairs, setSelectedRepairs] = useState<RepairService[]>([]);
   const [selectedAddOns, setSelectedAddOns] = useState<AddOnService[]>([]);
-  const [selectedRepairCategory, setSelectedRepairCategory] = useState<string>('all');
+  const [selectedRepairCategory, setSelectedRepairCategory] = useState<string | null>(null);
 
   // Unlock code/pattern state (NEW)
   const [unlockPattern, setUnlockPattern] = useState<string[]>([]);
@@ -901,8 +915,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             params.modelPrecise = selectedModel.name;
           }
           const response = await getServices(params);
-          setRepairServices((response as any).services || []);
-          setSelectedRepairCategory('all');
+          const services = (response as any).services || [];
+          setRepairServices(services);
+          // If there's 0 or 1 category no chips will be shown; auto-select 'all' so the grid is visible
+          const uniqueCategories = Array.from(new Set(services.map((s: any) => (s.category || '').trim()).filter((c: any) => c.length > 0)));
+          setSelectedRepairCategory(uniqueCategories.length <= 1 ? 'all' : null);
         } catch (error) {
           console.error('Error fetching repair services:', error);
           toast({
@@ -1024,6 +1041,65 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
+  const canJumpToStep = (targetStep: number) => {
+    if (targetStep <= currentStep) {
+      return true;
+    }
+
+    if (targetStep === 2) {
+      return !!selectedDeviceType;
+    }
+
+    if (targetStep === 3) {
+      return !!selectedModel;
+    }
+
+    if (targetStep >= 4) {
+      return !!selectedModel && selectedRepairs.length > 0;
+    }
+
+    return true;
+  };
+
+  const showStepNavigationToast = (targetStep: number) => {
+    if (targetStep === 2) {
+      toast({
+        title: t('home.configurator.toasts.chooseDeviceTypeTitle', 'Geraetetyp waehlen'),
+        description: t('home.configurator.toasts.chooseDeviceTypeDescription', 'Bitte waehlen Sie zuerst einen Geraetetyp aus.'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (targetStep === 3) {
+      toast({
+        title: t('home.configurator.toasts.chooseModelTitle'),
+        description: t('home.configurator.toasts.chooseModelDescription'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: t('home.configurator.toasts.chooseRepairTitle'),
+      description: t('home.configurator.toasts.chooseRepairDescription'),
+      variant: 'destructive',
+    });
+  };
+
+  const jumpToStep = (targetStep: number) => {
+    if (targetStep === currentStep) {
+      return;
+    }
+
+    if (!canJumpToStep(targetStep)) {
+      showStepNavigationToast(targetStep);
+      return;
+    }
+
+    setCurrentStep(targetStep);
+  };
+
   // Reset configurator
   const resetConfigurator = () => {
     setCurrentStep(1);
@@ -1052,6 +1128,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setDevices([]);
     setCurrentDeviceIndex(0);
     setCurrentDeviceQuantity(1);
+  };
+
+  const handleExitConfigurator = () => {
+    resetConfigurator();
+    navigate('/');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Handle photo upload (NEW)
@@ -1318,35 +1402,47 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
           </svg>
           <h3>{t('home.configurator.title')}</h3>
+          <button
+            type="button"
+            className="configurator-exit-btn"
+            onClick={handleExitConfigurator}
+            data-tooltip={t('home.configurator.leave', 'Konfigurator verlassen')}
+            aria-label={t('home.configurator.leave', 'Konfigurator verlassen')}
+          >
+            <X className="configurator-exit-icon" aria-hidden="true" />
+          </button>
         </div>
 
         <div className="configurator-body">
           {/* Step Indicators */}
           <div className="config-steps">
-            <div className={`config-step-indicator ${currentStep >= 1 ? 'active' : ''}`} data-step="1">
-              <span className="step-num">1</span>
-              <span className="step-label">{t('home.configurator.steps.deviceType')}</span>
-            </div>
-            <div className={`config-step-indicator ${currentStep >= 2 ? 'active' : ''}`} data-step="2">
-              <span className="step-num">2</span>
-              <span className="step-label">{t('home.configurator.steps.model')}</span>
-            </div>
-            <div className={`config-step-indicator ${currentStep >= 3 ? 'active' : ''}`} data-step="3">
-              <span className="step-num">3</span>
-              <span className="step-label">{t('home.configurator.steps.repair')}</span>
-            </div>
-            <div className={`config-step-indicator ${currentStep >= 4 ? 'active' : ''}`} data-step="4">
-              <span className="step-num">4</span>
-              <span className="step-label">{t('home.configurator.steps.extras')}</span>
-            </div>
-            <div className={`config-step-indicator ${currentStep >= 5 ? 'active' : ''}`} data-step="5">
-              <span className="step-num">5</span>
-              <span className="step-label">{t('home.configurator.steps.info')}</span>
-            </div>
-            <div className={`config-step-indicator ${currentStep >= 6 ? 'active' : ''}`} data-step="6">
-              <span className="step-num">6</span>
-              <span className="step-label">{t('home.configurator.steps.total')}</span>
-            </div>
+            {stepDefinitions.map(({ step, labelKey }) => {
+              const isActive = currentStep >= step;
+              const isCompleted = currentStep > step;
+              const isJumpAllowed = canJumpToStep(step);
+
+              return (
+                <div
+                  key={step}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t('home.configurator.jumpToStep', { step })}
+                  aria-disabled={!isJumpAllowed}
+                  className={`config-step-indicator ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''} ${isJumpAllowed ? 'is-clickable' : 'is-disabled'}`}
+                  data-step={String(step)}
+                  onClick={() => jumpToStep(step)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      jumpToStep(step);
+                    }
+                  }}
+                >
+                  <span className="step-num">{step}</span>
+                  <span className="step-label">{t(labelKey)}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* STEP 1: Device Type */}
@@ -1492,7 +1588,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           {/* STEP 3: Repair Type */}
           {currentStep === 3 && (
             <div className="config-step-content active" data-step="3">
-              {/* Category filter chips - shown right below the step indicators */}
+              {/* "Wie können wir Ihnen helfen?" heading */}
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                {t('home.configurator.howCanWeHelp')}
+              </h3>
+
+              {/* Category filter chips - shown right below the heading */}
               {(() => {
                 const categories = Array.from(
                   new Set(
@@ -1541,10 +1642,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       <select
                         id="repairCategorySelect"
                         className="repair-category-select"
-                        value={selectedRepairCategory}
-                        onChange={(e) => setSelectedRepairCategory(e.target.value)}
+                        value={selectedRepairCategory ?? ''}
+                        onChange={(e) => setSelectedRepairCategory(e.target.value || null)}
                         aria-label={t('home.configurator.categoryFilter.label')}
                       >
+                        <option value="">{t('home.configurator.categoryFilter.label')}</option>
                         <option value="all">{t('home.configurator.categoryFilter.all')}</option>
                         {categories.map((cat) => (
                           <option key={cat} value={cat}>
@@ -1557,8 +1659,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 );
               })()}
 
-              {/* Repair Selection Grid - Now displayed first */}
-              <div className="repair-grid">
+              {/* Repair Selection Grid - only shown after a category is selected */}
+              {selectedRepairCategory !== null && <div className="repair-grid">
                 {loadingRepairs ? (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
                     {t('home.configurator.loadingRepairs')}
@@ -1627,7 +1729,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     </div>
                   ));
                 })()}
-              </div>
+              </div>}
 
               {/* Vorabdiagnose hint */}
               <div className="config-diagnose-hint" onClick={() => setShowDiagnoseModal(true)}>
@@ -1732,7 +1834,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           <div className="extras-name">{addon.name}</div>
                           <div className="extras-desc">{addon.description}</div>
                         </div>
-                        <div className="extras-price">+{addon.price.toFixed(2)} €</div>
+                        <div className="extras-price">+{formatPrice(addon.price)} €</div>
                       </div>
                     </label>
                   ))

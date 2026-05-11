@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -128,42 +128,132 @@ export function ShoppingCartPage() {
   const [promoCode, setPromoCode] = useState("")
   const [applyingPromo, setApplyingPromo] = useState(false)
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false)
+  const [cartFetchVersion, setCartFetchVersion] = useState(0)
   const [selectedProductItem, setSelectedProductItem] = useState<{ product: Product; quantity: number } | null>(null)
   const [selectedRepairOrderGroup, setSelectedRepairOrderGroup] = useState<{ order: any; quantity: number } | null>(null)
   const [confirmRepairDeleteOpen, setConfirmRepairDeleteOpen] = useState(false)
   const [pendingRepairOrderIds, setPendingRepairOrderIds] = useState<string[]>([])
   const { toast } = useToast()
+  const checkoutFlowRef = useRef(
+    searchParams.get('checkout') === '1' || sessionStorage.getItem('checkoutFlowPending') === '1'
+  )
 
   const notifyCartUpdated = () => {
     window.dispatchEvent(new Event('cartUpdated'))
     window.dispatchEvent(new Event('guestCartUpdate'))
   }
 
+  const hasCartContent = (nextCart: Cart | null | undefined) => {
+    if (!nextCart) return false
+    const itemCount = Array.isArray(nextCart.items) ? nextCart.items.length : 0
+    const repairCount = Array.isArray(nextCart.repairOrders) ? nextCart.repairOrders.length : 0
+    return itemCount > 0 || repairCount > 0
+  }
+
+  const fetchServerCartWithSession = async (): Promise<Cart | null> => {
+    try {
+      const response = await fetch('/api/cart', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) {
+        return null
+      }
+
+      const data = await response.json()
+      return (data as any)?.cart || null
+    } catch (error) {
+      console.warn('Session cart fetch failed:', error)
+      return null
+    }
+  }
+
   useEffect(() => {
+    let cancelled = false
+
     const fetchCart = async () => {
       try {
         console.log("Fetching cart...")
-        const response = await getCart()
-        setCart((response as any).cart)
+        let currentCart: Cart | null = null
+
+        const shouldRetryForCheckoutFlow = checkoutFlowRef.current
+        if (shouldRetryForCheckoutFlow) {
+          currentCart = await fetchServerCartWithSession()
+        }
+
+        if (!currentCart) {
+          const response = await getCart()
+          currentCart = (response as any).cart || null
+        }
+
+        if (!cancelled) {
+          setCart(currentCart)
+        }
+
+        // After email verification we can hit a short race where cart updates are not
+        // immediately visible on the first request. Retry briefly so users don't need reload.
+        if (shouldRetryForCheckoutFlow && !hasCartContent(currentCart)) {
+          const retryDelaysMs = [300, 800, 1500, 2500, 4000]
+
+          for (const delay of retryDelaysMs) {
+            await new Promise((resolve) => window.setTimeout(resolve, delay))
+            if (cancelled) return
+
+            try {
+              const cookieCart = await fetchServerCartWithSession()
+              let nextCart: Cart | null = cookieCart
+              if (!nextCart) {
+                const retryResponse = await getCart()
+                nextCart = (retryResponse as any).cart || null
+              }
+
+              if (cancelled) return
+              setCart(nextCart)
+
+              if (hasCartContent(nextCart)) {
+                checkoutFlowRef.current = false
+                sessionStorage.removeItem('checkoutFlowPending')
+                break
+              }
+            } catch (retryError) {
+              console.warn('Retry cart fetch failed after verification flow:', retryError)
+            }
+          }
+        }
       } catch (error) {
         console.error("Error fetching cart:", error)
-        toast({
-          title: t('common.error'),
-          description: t('cart.failedToLoad'),
-          variant: "destructive"
-        })
+        if (!cancelled) {
+          toast({
+            title: t('common.error'),
+            description: t('cart.failedToLoad'),
+            variant: "destructive"
+          })
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     fetchCart()
-  }, [toast, t])
+
+    return () => {
+      cancelled = true
+    }
+  }, [toast, t, cartFetchVersion])
 
   useEffect(() => {
     if (searchParams.get('checkout') !== '1') {
       return
     }
+
+    checkoutFlowRef.current = true
+    sessionStorage.setItem('checkoutFlowPending', '1')
+    setLoading(true)
+    setCartFetchVersion((prev) => prev + 1)
 
     setCheckoutDialogOpen(true)
 

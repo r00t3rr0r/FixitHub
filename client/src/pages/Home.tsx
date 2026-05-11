@@ -8,6 +8,7 @@ import { TrustRow } from '@/components/home/TrustRow';
 import { SpecialOffers } from '@/components/home/SpecialOffers';
 import { ServicesOverview } from '@/components/home/ServicesOverview';
 import { ShopSection } from '@/components/home/ShopSectionSimple';
+import { SatisfiedCustomersSection } from '@/components/home/SatisfiedCustomersSection';
 import { BlogSection } from '@/components/home/BlogSection';
 import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
@@ -51,8 +52,13 @@ export function Home() {
         <ShopSection />
       </section>
 
+      {/* Satisfied Customers Section */}
+      <section id="customers" className="section section-customers">
+        <SatisfiedCustomersSection />
+      </section>
+
       {/* Blog Section */}
-      <section id="blog" className="section">
+      <section id="blog" className="section section-alt">
         <BlogSection />
       </section>
 

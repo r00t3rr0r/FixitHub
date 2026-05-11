@@ -836,6 +836,89 @@ ul, ol {
   font-weight: 700;
 }
 
+.configurator-exit-btn {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--accent-yellow);
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.configurator-exit-btn:hover {
+  background: rgba(245, 184, 0, 0.14);
+}
+
+.configurator-exit-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(26, 42, 94, 0.96);
+  color: var(--white);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.configurator-exit-btn::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% - 6px);
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  background: rgba(26, 42, 94, 0.96);
+  transform: rotate(45deg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.16s ease, visibility 0.16s ease;
+  pointer-events: none;
+  z-index: 19;
+}
+
+.configurator-exit-btn:hover::after,
+.configurator-exit-btn:hover::before,
+.configurator-exit-btn:focus-visible::after,
+.configurator-exit-btn:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.configurator-exit-btn:hover::after,
+.configurator-exit-btn:focus-visible::after {
+  transform: translateY(0);
+}
+
+.configurator-exit-btn:focus-visible {
+  outline: 2px solid rgba(245, 184, 0, 0.65);
+  outline-offset: 2px;
+}
+
+.configurator-exit-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
+}
+
 .configurator-body {
   padding: 32px 48px;
   overflow: visible;
@@ -859,11 +942,31 @@ ul, ol {
   position: relative;
 }
 
+.config-step-indicator.is-clickable {
+  cursor: pointer;
+}
+
+.config-step-indicator.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.config-step-indicator.is-clickable .step-num,
+.config-step-indicator.is-clickable .step-label {
+  transition: var(--transition);
+}
+
+.config-step-indicator.is-clickable:hover .step-num {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 3px rgba(245, 184, 0, 0.12);
+}
+
 .config-step-indicator .step-num {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   background: var(--gray-100);
+  border: 1px solid transparent;
   color: var(--gray-400);
   display: inline-flex;
   align-items: center;
@@ -880,6 +983,12 @@ ul, ol {
   color: var(--gray-400);
   font-weight: 500;
   transition: var(--transition);
+}
+
+.config-step-indicator:focus-visible {
+  outline: 2px solid var(--accent-yellow);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .config-step-indicator.active .step-num {
@@ -4178,11 +4287,11 @@ ul, ol {
   bottom: 0;
   background: rgba(0,0,0,0.5);
   backdrop-filter: blur(4px);
-  z-index: 2000;
+  z-index: 2147483000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -4195,11 +4304,11 @@ ul, ol {
 
 .diagnose-modal {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.15);
-  max-width: 600px;
+  max-width: 540px;
   width: 100%;
-  max-height: 85vh;
+  max-height: 82vh;
   overflow-y: auto;
   position: relative;
   transform: translateY(20px) scale(0.97);
@@ -4214,20 +4323,20 @@ ul, ol {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 14px 16px;
   border-bottom: 1px solid #eceef3;
   position: sticky;
   top: 0;
   background: #ffffff;
   z-index: 1;
-  border-radius: 16px 16px 0 0;
+  border-radius: 14px 14px 0 0;
 }
 
 .diagnose-modal-header h3 {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1rem;
+  gap: 8px;
+  font-size: 0.94rem;
   font-weight: 700;
   color: var(--primary-blue);
 }
@@ -4240,8 +4349,8 @@ ul, ol {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   background: #f5f6f8;
   border: none;
   border-radius: 50%;
@@ -4265,20 +4374,100 @@ ul, ol {
   border-radius: 0;
 }
 
+.diagnose-modal-body .diagnose-progress {
+  height: 3px;
+}
+
 .diagnose-modal-body .diagnose-wizard-header {
-  padding: 24px 24px 0;
+  padding: 16px 16px 0;
 }
 
 .diagnose-modal-body .diagnose-wizard-body {
-  padding: 16px 24px 24px;
+  padding: 10px 16px 14px;
+  gap: 8px;
 }
 
 .diagnose-modal-body .diagnose-wizard-footer {
-  padding: 0 24px 20px;
+  padding: 0 16px 14px;
 }
 
 .diagnose-modal-body .diagnose-result {
-  padding: 24px;
+  padding: 14px 16px;
+}
+
+.diagnose-modal-body .diagnose-step-badge {
+  font-size: 0.66rem;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+
+.diagnose-modal-body .diagnose-wizard-header h2 {
+  font-size: 1.02rem;
+  line-height: 1.32;
+}
+
+.diagnose-modal-body .diagnose-answer-btn {
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  line-height: 1.32;
+}
+
+.diagnose-modal-body .diagnose-answer-btn:hover {
+  transform: translateX(2px);
+}
+
+.diagnose-modal-body .diagnose-result-card {
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.diagnose-modal-body .diagnose-result-card .diagnose-result-icon {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 10px;
+}
+
+.diagnose-modal-body .diagnose-result-card h3 {
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.diagnose-modal-body .diagnose-result-card p {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.diagnose-modal-body .diagnose-contact-box {
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.diagnose-modal-body .diagnose-contact-box h4 {
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+}
+
+.diagnose-modal-body .diagnose-contact-box p {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.diagnose-modal-body .diagnose-cta-row {
+  gap: 8px;
+}
+
+.diagnose-modal-body .diagnose-cta-primary,
+.diagnose-modal-body .diagnose-cta-secondary {
+  padding: 9px 12px;
+  font-size: 0.8rem;
+  border-radius: 5px;
+}
+
+.diagnose-modal-body .diagnose-back-btn {
+  padding: 6px 11px;
+  font-size: 0.76rem;
 }
 
 /* Configurator helper link (hint inside configurator) */
@@ -4365,12 +4554,36 @@ ul, ol {
     margin: 12px;
   }
 
+  .diagnose-modal-overlay {
+    padding: 10px;
+  }
+
   .diagnose-modal-body .diagnose-wizard-header {
-    padding: 20px 16px 0;
+    padding: 14px 12px 0;
   }
 
   .diagnose-modal-body .diagnose-wizard-body {
-    padding: 12px 16px 20px;
+    padding: 8px 12px 12px;
+    gap: 6px;
+  }
+
+  .diagnose-modal-body .diagnose-wizard-header h2 {
+    font-size: 0.94rem;
+  }
+
+  .diagnose-modal-body .diagnose-answer-btn {
+    padding: 9px 10px;
+    font-size: 0.8rem;
+  }
+
+  .diagnose-modal-body .diagnose-result {
+    padding: 12px;
+  }
+
+  .diagnose-modal-body .diagnose-cta-primary,
+  .diagnose-modal-body .diagnose-cta-secondary {
+    font-size: 0.76rem;
+    padding: 8px 10px;
   }
 
   .diagnose-info-row-inside {
