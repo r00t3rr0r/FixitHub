@@ -244,7 +244,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
   const [selectedRepairs, setSelectedRepairs] = useState<RepairService[]>([]);
   const [selectedAddOns, setSelectedAddOns] = useState<AddOnService[]>([]);
-  const [selectedRepairCategory, setSelectedRepairCategory] = useState<string>('all');
+  const [selectedRepairCategory, setSelectedRepairCategory] = useState<string | null>(null);
 
   // Unlock code/pattern state (NEW)
   const [unlockPattern, setUnlockPattern] = useState<string[]>([]);
@@ -909,8 +909,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             params.modelPrecise = selectedModel.name;
           }
           const response = await getServices(params);
-          setRepairServices((response as any).services || []);
-          setSelectedRepairCategory('all');
+          const services = (response as any).services || [];
+          setRepairServices(services);
+          // If there's 0 or 1 category no chips will be shown; auto-select 'all' so the grid is visible
+          const uniqueCategories = Array.from(new Set(services.map((s: any) => (s.category || '').trim()).filter((c: any) => c.length > 0)));
+          setSelectedRepairCategory(uniqueCategories.length <= 1 ? 'all' : null);
         } catch (error) {
           console.error('Error fetching repair services:', error);
           toast({
@@ -1579,7 +1582,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           {/* STEP 3: Repair Type */}
           {currentStep === 3 && (
             <div className="config-step-content active" data-step="3">
-              {/* Category filter chips - shown right below the step indicators */}
+              {/* "Wie können wir Ihnen helfen?" heading */}
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                {t('home.configurator.howCanWeHelp')}
+              </h3>
+
+              {/* Category filter chips - shown right below the heading */}
               {(() => {
                 const categories = Array.from(
                   new Set(
@@ -1628,10 +1636,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       <select
                         id="repairCategorySelect"
                         className="repair-category-select"
-                        value={selectedRepairCategory}
-                        onChange={(e) => setSelectedRepairCategory(e.target.value)}
+                        value={selectedRepairCategory ?? ''}
+                        onChange={(e) => setSelectedRepairCategory(e.target.value || null)}
                         aria-label={t('home.configurator.categoryFilter.label')}
                       >
+                        <option value="">{t('home.configurator.categoryFilter.label')}</option>
                         <option value="all">{t('home.configurator.categoryFilter.all')}</option>
                         {categories.map((cat) => (
                           <option key={cat} value={cat}>
@@ -1644,8 +1653,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 );
               })()}
 
-              {/* Repair Selection Grid - Now displayed first */}
-              <div className="repair-grid">
+              {/* Repair Selection Grid - only shown after a category is selected */}
+              {selectedRepairCategory !== null && <div className="repair-grid">
                 {loadingRepairs ? (
                   <div className="col-span-full text-center py-8 text-muted-foreground">
                     {t('home.configurator.loadingRepairs')}
@@ -1714,7 +1723,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     </div>
                   ));
                 })()}
-              </div>
+              </div>}
 
               {/* Vorabdiagnose hint */}
               <div className="config-diagnose-hint" onClick={() => setShowDiagnoseModal(true)}>

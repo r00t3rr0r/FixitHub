@@ -1846,6 +1846,7 @@
       "back": "Back",
       "next": "Next",
       "loadingRepairs": "Loading repairs...",
+      "howCanWeHelp": "How can we help you?",
       "categoryFilter": {
         "label": "Filter by category",
         "all": "All"

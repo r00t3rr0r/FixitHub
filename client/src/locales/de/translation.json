@@ -1852,6 +1852,7 @@
       "leave": "Konfigurator verlassen",
       "jumpToStep": "Zu Schritt {{step}} wechseln",
       "loadingRepairs": "Lade Reparaturen...",
+      "howCanWeHelp": "Wie können wir Ihnen helfen?",
       "categoryFilter": {
         "label": "Nach Kategorie filtern",
         "all": "Alle"
