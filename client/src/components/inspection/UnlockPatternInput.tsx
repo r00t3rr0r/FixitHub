@@ -38,13 +38,17 @@ export function UnlockPatternInput({
     [7, 8, 9]
   ]
 
+  const DOT_CENTERS: Record<string, { x: number; y: number }> = {
+    "1": { x: 16.5, y: 16.5 }, "2": { x: 50, y: 16.5 }, "3": { x: 83.5, y: 16.5 },
+    "4": { x: 16.5, y: 50 },   "5": { x: 50, y: 50 },   "6": { x: 83.5, y: 50 },
+    "7": { x: 16.5, y: 83.5 }, "8": { x: 50, y: 83.5 }, "9": { x: 83.5, y: 83.5 },
+  }
+
   const handleDotClick = (dot: number) => {
     if (unlockMethod !== "pattern" || noLock) return
 
     const dotStr = dot.toString()
-    const newPattern = selectedPattern.includes(dotStr)
-      ? selectedPattern.filter(d => d !== dotStr)
-      : [...selectedPattern, dotStr]
+    const newPattern = [...selectedPattern, dotStr]
 
     setSelectedPattern(newPattern)
     onPatternChange(newPattern)
@@ -144,36 +148,74 @@ export function UnlockPatternInput({
 
             {/* 3x3 Pattern Grid */}
             <div className="w-full max-w-[220px] mx-auto">
-              <div
-                className="grid gap-1.5 sm:gap-2 w-fit mx-auto"
-                style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
-              >
-                {patternDots.flat().map((dot) => (
-                  <button
-                    key={dot}
-                    type="button"
-                    onClick={() => handleDotClick(dot)}
-                    disabled={noLock}
-                    className={`
-                      rounded-full border-2 font-semibold text-sm transition-all
-                      ${
-                        selectedPattern.includes(dot.toString())
-                          ? "shadow-md scale-95"
-                          : "bg-white hover:shadow-sm"
-                      }
-                      ${noLock ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                    `}
-                    style={{
-                      width: "clamp(2.4rem, 14vw, 3.5rem)",
-                      height: "clamp(2.4rem, 14vw, 3.5rem)",
-                      borderColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#d8dce6',
-                      backgroundColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#ffffff',
-                      color: selectedPattern.includes(dot.toString()) ? '#ffffff' : '#1a2a5e'
-                    }}
+              <div className="relative w-fit mx-auto">
+                <div
+                  className="grid gap-1.5 sm:gap-2"
+                  style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+                >
+                  {patternDots.flat().map((dot) => (
+                    <button
+                      key={dot}
+                      type="button"
+                      onClick={() => handleDotClick(dot)}
+                      disabled={noLock}
+                      className={`
+                        rounded-full border-2 font-semibold text-sm transition-all
+                        ${
+                          selectedPattern.includes(dot.toString())
+                            ? "shadow-md scale-95"
+                            : "bg-white hover:shadow-sm"
+                        }
+                        ${noLock ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                      `}
+                      style={{
+                        width: "clamp(2.4rem, 14vw, 3.5rem)",
+                        height: "clamp(2.4rem, 14vw, 3.5rem)",
+                        borderColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#d8dce6',
+                        backgroundColor: selectedPattern.includes(dot.toString()) ? '#1a2a5e' : '#ffffff',
+                        color: selectedPattern.includes(dot.toString()) ? '#ffffff' : '#1a2a5e'
+                      }}
+                    >
+                      {dot}
+                    </button>
+                  ))}
+                </div>
+
+                {/* SVG Arrow Overlay */}
+                {selectedPattern.length > 1 && (
+                  <svg
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                    viewBox="0 0 100 100"
+                    aria-hidden="true"
                   >
-                    {dot}
-                  </button>
-                ))}
+                    {selectedPattern.slice(0, -1).map((from, i) => {
+                      const to = selectedPattern[i + 1]
+                      const a = DOT_CENTERS[from]
+                      const b = DOT_CENTERS[to]
+                      if (!a || !b) return null
+                      const dx = b.x - a.x
+                      const dy = b.y - a.y
+                      const len = Math.sqrt(dx * dx + dy * dy)
+                      if (len === 0) return null
+                      const ux = dx / len
+                      const uy = dy / len
+                      const r = 14
+                      return (
+                        <line
+                          key={`line-${i}-${from}-${to}`}
+                          x1={a.x + ux * r}
+                          y1={a.y + uy * r}
+                          x2={b.x - ux * r}
+                          y2={b.y - uy * r}
+                          stroke="#1a2a5e"
+                          strokeWidth="3"
+                          strokeOpacity="0.45"
+                          strokeLinecap="round"
+                        />
+                      )
+                    })}
+                  </svg>
+                )}
               </div>
             </div>
 
