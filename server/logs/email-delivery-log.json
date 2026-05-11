@@ -4833,5 +4833,153 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1778219347404-auxa9fxtl",
+    "timestamp": "2026-05-08T05:49:07.404Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0003 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<fff83bda-c557-5c30-b36e-21a8281041db@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3502,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "trackingUrl",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778220293956-wg8xlmyue",
+    "timestamp": "2026-05-08T06:04:53.956Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<85b4fae5-8ae4-f069-a18e-4a37fa8f8a88@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1638,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778220843972-ebmuwzt21",
+    "timestamp": "2026-05-08T06:14:03.972Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0004 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<9b283eca-722f-3645-7bc9-43c4ac324c22@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1539,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778220883902-tom7qiblh",
+    "timestamp": "2026-05-08T06:14:43.902Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0005 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<030e4865-e611-b6b9-1319-133f96ed5765@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1019,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778224639946-m48ju3324",
+    "timestamp": "2026-05-08T07:17:19.946Z",
+    "to": "raphaelbiehl1981@gmail.com",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1778224638229-00001 ist bei uns eingegangen",
+    "messageId": "<d60f7cf2-efd6-b3c0-fec2-418ff90648ea@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1658,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

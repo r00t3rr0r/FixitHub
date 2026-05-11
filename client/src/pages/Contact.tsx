@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  AlertCircle,
   ArrowRight,
   Building2,
   CheckCircle2,
@@ -12,7 +13,6 @@ import {
   MapPin,
   MessageSquare,
   Phone,
-  ShieldCheck,
   Wrench,
 } from 'lucide-react';
 import { TopBar } from '@/components/home/TopBar';
@@ -58,6 +58,7 @@ export function Contact() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [formStartedAt] = useState(() => new Date().toISOString());
+  const privacyError = Boolean(errors.privacyAccepted);
 
   const contactTopics: Array<{ value: ContactSubject; label: string; icon: typeof Wrench }> = [
     { value: 'repair', label: t('home.contact.topicRepair'), icon: Wrench },
@@ -65,46 +66,6 @@ export function Contact() {
     { value: 'business', label: t('home.contact.topicBusiness'), icon: Building2 },
     { value: 'complaint', label: t('home.contact.topicComplaint'), icon: MessageSquare },
     { value: 'other', label: t('home.contact.topicOther'), icon: HelpCircle },
-  ];
-
-  const infoCards = [
-    {
-      icon: Phone,
-      label: t('home.contact.phone'),
-      value: t('home.contact.phoneValue'),
-      href: 'tel:+4930403688951',
-    },
-    {
-      icon: Mail,
-      label: t('home.contact.email'),
-      value: t('home.contact.emailValue'),
-      href: 'mailto:kontakt@mcrepair.de',
-    },
-    {
-      icon: MapPin,
-      label: t('home.contact.address'),
-      value: `${t('home.contact.addressValueLine1')}, ${t('home.contact.addressValueLine2')}`,
-      href: 'https://maps.google.com/?q=Kurfürstenstraße+106,+10787+Berlin',
-    },
-    {
-      icon: Clock3,
-      label: t('home.contact.hours'),
-      value: t('home.contact.hoursValue'),
-      href: undefined,
-    },
-  ];
-
-  const highlightCards = [
-    {
-      icon: CheckCircle2,
-      title: t('home.contact.responseTime'),
-      description: t('home.contact.responseTimeDesc'),
-    },
-    {
-      icon: ShieldCheck,
-      title: t('home.contact.secureHandling'),
-      description: t('home.contact.secureHandlingDesc'),
-    },
   ];
 
   const updateField = <T extends keyof ContactFormState>(field: T, value: ContactFormState[T]) => {
@@ -184,12 +145,12 @@ export function Contact() {
       <TopBar />
       <McRepairNav />
 
-      <section className="container px-4 pb-10 md:pb-14">
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] md:mt-10">
+      <section className="container px-4 pb-8 md:pb-14">
+        <div className="mt-6 grid gap-5 md:mt-8 md:gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <Card className="border-0 shadow-xl overflow-hidden">
             <CardContent className="p-0">
               <div
-                className="p-8 md:p-10"
+                className="p-6 sm:p-8 md:p-10"
                 style={{
                   background: 'linear-gradient(135deg, var(--primary-blue, #1a2a5e) 0%, var(--primary-blue-light, #2f57b0) 100%)',
                   color: 'white',
@@ -199,17 +160,17 @@ export function Contact() {
                   <MessageSquare className="h-4 w-4" />
                   {t('home.contact.title')}
                 </div>
-                <h1 className="max-w-2xl text-3xl font-bold leading-tight md:text-5xl">
-                  {t('home.contact.subtitle')}
+                <h1 className="max-w-2xl text-2xl font-bold leading-tight sm:text-3xl md:text-5xl">
+                  Sie haben Fragen? Das McRepair.de-Support-Team hilft gerne!
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-blue-50 md:text-base">
-                  {t('home.contact.pageDescription')}
+                  {`${t('home.contact.responseTimeDesc')} ${t('home.contact.secureHandlingDesc')}`}
                 </p>
 
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <div className="mt-6 grid gap-2.5 sm:mt-8 sm:grid-cols-3 sm:gap-3">
                   <a
                     href="tel:+4930403688951"
-                    className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition"
+                    className="inline-flex h-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition"
                     style={{
                       background: 'var(--accent-yellow, #f5c518)',
                       color: 'var(--primary-blue, #1a2a5e)',
@@ -220,39 +181,31 @@ export function Contact() {
                   </a>
                   <a
                     href="mailto:kontakt@mcrepair.de"
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                    className="inline-flex h-full items-center justify-center gap-2 rounded-2xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                   >
                     <Mail className="h-4 w-4" />
                     {t('home.contact.emailValue')}
                   </a>
-                </div>
-              </div>
 
-              <div className="grid gap-4 p-6 md:grid-cols-2 md:p-8">
-                {highlightCards.map((item) => (
-                  <div
-                    key={item.title}
-                    className="rounded-2xl border p-5"
-                    style={{
-                      borderColor: 'rgba(26, 42, 94, 0.08)',
-                      background: 'rgba(248, 250, 252, 0.85)',
-                    }}
+                  <a
+                    href="https://maps.google.com/?q=Kurfürstenstraße+106,+10787+Berlin"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-full items-start gap-2 rounded-2xl border border-white/20 px-4 py-3 text-sm leading-6 text-blue-50 transition hover:bg-white/10"
                   >
-                    <item.icon className="mb-3 h-6 w-6" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
-                    <h2 className="text-lg font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                      {item.title}
-                    </h2>
-                    <p className="mt-2 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                      {item.description}
-                    </p>
-                  </div>
-                ))}
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {t('home.contact.addressValueLine1')}<br />
+                      {t('home.contact.addressValueLine2')}
+                    </span>
+                  </a>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <div className="grid gap-6">
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
                   {t('home.contact.faqHintTitle')}
@@ -260,7 +213,7 @@ export function Contact() {
               </CardHeader>
               <CardContent className="space-y-4 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
                 <p>{t('home.contact.faqHintDesc')}</p>
-                <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <div className="flex flex-col gap-3">
                   <Link to="/faq" className="inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white" style={{ background: 'var(--primary-blue, #1a2a5e)' }}>
                     <HelpCircle className="h-4 w-4" />
                     {t('home.contact.faqButton')}
@@ -272,34 +225,12 @@ export function Contact() {
                 </div>
               </CardContent>
             </Card>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              {infoCards.map((item) => (
-                <Card key={item.label} className="border-0 shadow-md">
-                  <CardContent className="flex items-start gap-4 p-5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: 'rgba(245, 197, 24, 0.18)', color: 'var(--primary-blue, #1a2a5e)' }}>
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>{item.label}</p>
-                      {item.href ? (
-                        <a href={item.href} target={item.href.startsWith('https') ? '_blank' : undefined} rel={item.href.startsWith('https') ? 'noopener noreferrer' : undefined} className="mt-1 block text-sm leading-6 hover:underline" style={{ color: 'var(--gray-600, #475569)' }}>
-                          {item.value}
-                        </a>
-                      ) : (
-                        <p className="mt-1 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>{item.value}</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </div>
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-          <Card className="border-0 shadow-xl">
-            <CardHeader>
+        <div className="mt-6 md:mt-8">
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="px-6 pb-4 pt-6 sm:px-8 sm:pt-8 md:px-10 md:pt-10">
               <CardTitle className="text-2xl" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
                 {t('home.contact.formTitle')}
               </CardTitle>
@@ -307,7 +238,7 @@ export function Contact() {
                 {t('home.contact.formDescription')}
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8 md:px-10 md:pb-10">
               {hasSubmitted && (
                 <div className="mb-6 rounded-2xl border px-4 py-4 text-sm" style={{ borderColor: 'rgba(16,185,129,0.24)', background: 'rgba(236,253,245,0.9)', color: '#065f46' }}>
                   <div className="flex items-start gap-3">
@@ -417,18 +348,47 @@ export function Contact() {
                   {errors.message && <p className="text-sm text-red-600">{errors.message}</p>}
                 </div>
 
-                <div className="space-y-3 rounded-2xl border p-4" style={{ borderColor: 'rgba(26,42,94,0.1)', background: 'rgba(248,250,252,0.9)' }}>
+                <div
+                  className="space-y-3 rounded-2xl border p-4 transition-all"
+                  style={privacyError
+                    ? {
+                      borderColor: 'rgba(220,38,38,0.35)',
+                      background: 'rgba(254,242,242,0.92)',
+                      boxShadow: '0 0 0 3px rgba(248,113,113,0.25)',
+                    }
+                    : {
+                      borderColor: 'rgba(26,42,94,0.1)',
+                      background: 'rgba(248,250,252,0.9)',
+                    }}
+                >
                   <div className="flex items-start gap-3">
                     <Checkbox
                       id="contact-privacy"
                       checked={formData.privacyAccepted}
                       onCheckedChange={(checked) => updateField('privacyAccepted', checked === true)}
+                      aria-invalid={privacyError}
+                      className={[
+                        'mt-0.5 h-5 w-5 shrink-0 border-2 bg-white shadow-sm',
+                        'data-[state=checked]:bg-[var(--primary-blue,#1a2a5e)] data-[state=checked]:text-white',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-blue,#1a2a5e)] focus-visible:ring-offset-1',
+                        privacyError
+                          ? 'border-red-500 data-[state=checked]:border-red-600'
+                          : 'border-[var(--primary-blue,#1a2a5e)] data-[state=checked]:border-[var(--primary-blue,#1a2a5e)]',
+                      ].join(' ')}
                     />
-                    <div className="space-y-1">
-                      <Label htmlFor="contact-privacy" className="leading-6">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="contact-privacy" className="cursor-pointer text-sm leading-6">
                         {t('home.contact.privacyConsent')}
                       </Label>
-                      {errors.privacyAccepted && <p className="text-sm text-red-600">{errors.privacyAccepted}</p>}
+                      <p className="text-xs leading-5" style={{ color: 'var(--gray-600, #475569)' }}>
+                        {t('home.contact.privacyConsentHint', 'Pflichtfeld fuer den Versand Ihrer Anfrage.')}
+                      </p>
+                      {errors.privacyAccepted && (
+                        <p className="flex items-center gap-2 text-sm font-medium text-red-700">
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                          {errors.privacyAccepted}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -454,53 +414,6 @@ export function Contact() {
               </form>
             </CardContent>
           </Card>
-
-          <div className="grid gap-6">
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-xl" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                  {t('home.contact.sendMessage')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                <p>{t('home.contact.sendMessageDesc')}</p>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--accent-yellow, #f5c518)' }} />
-                    <span>{t('home.contact.responseTimeDesc')}</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--accent-yellow, #f5c518)' }} />
-                    <span>{t('home.contact.secureHandlingDesc')}</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--accent-yellow, #f5c518)' }} />
-                    <span>{t('home.contact.hoursValue')}</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg overflow-hidden">
-              <CardContent className="p-0">
-                <div className="p-6 text-white" style={{ background: 'linear-gradient(135deg, var(--primary-blue, #1a2a5e) 0%, #28448f 100%)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">McRepair.de</p>
-                  <h2 className="mt-2 text-2xl font-semibold">{t('home.contact.address')}</h2>
-                  <p className="mt-3 text-sm leading-7 text-blue-50">
-                    {t('home.contact.addressValueLine1')}<br />
-                    {t('home.contact.addressValueLine2')}
-                  </p>
-                </div>
-                <div className="space-y-3 p-6 text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
-                  <a href="https://maps.google.com/?q=Kurfürstenstraße+106,+10787+Berlin" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-semibold hover:underline" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
-                    <MapPin className="h-4 w-4" />
-                    Route anzeigen
-                  </a>
-                  <p>{t('home.contact.hoursValue')}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </section>
 
