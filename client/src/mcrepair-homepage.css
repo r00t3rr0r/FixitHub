@@ -764,6 +764,24 @@ ul, ol {
   font-weight: 700;
 }
 
+.configurator-exit-btn {
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.configurator-exit-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .configurator-body {
   padding: 32px;
   overflow: visible;
@@ -787,11 +805,31 @@ ul, ol {
   position: relative;
 }
 
+.config-step-indicator.is-clickable {
+  cursor: pointer;
+}
+
+.config-step-indicator.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.config-step-indicator.is-clickable .step-num,
+.config-step-indicator.is-clickable .step-label {
+  transition: var(--transition);
+}
+
+.config-step-indicator.is-clickable:hover .step-num {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 3px rgba(245, 184, 0, 0.12);
+}
+
 .config-step-indicator .step-num {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   background: var(--gray-100);
+  border: 1px solid transparent;
   color: var(--gray-400);
   display: inline-flex;
   align-items: center;
@@ -808,6 +846,12 @@ ul, ol {
   color: var(--gray-400);
   font-weight: 500;
   transition: var(--transition);
+}
+
+.config-step-indicator:focus-visible {
+  outline: 2px solid var(--accent-yellow);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .config-step-indicator.active .step-num {

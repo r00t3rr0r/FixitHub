@@ -1849,6 +1849,8 @@
       "modelSearchPlaceholder": "z.B. iPhone 15 Pro...",
       "back": "Zurück",
       "next": "Weiter",
+      "leave": "Konfigurator verlassen",
+      "jumpToStep": "Zu Schritt {{step}} wechseln",
       "loadingRepairs": "Lade Reparaturen...",
       "categoryFilter": {
         "label": "Nach Kategorie filtern",
@@ -1936,6 +1938,8 @@
         "loadAddOnsError": "Fehler beim Laden der Zusatzleistungen",
         "chooseModelTitle": "Modell wählen",
         "chooseModelDescription": "Bitte wählen Sie ein Modell aus.",
+        "chooseDeviceTypeTitle": "Gerätetyp wählen",
+        "chooseDeviceTypeDescription": "Bitte wählen Sie zuerst einen Gerätetyp aus.",
         "chooseRepairTitle": "Reparatur wählen",
         "chooseRepairDescription": "Bitte wählen Sie mindestens eine Reparatur aus oder nutzen Sie \"Reparatur anfragen\".",
         "tooManyImagesTitle": "Zu viele Bilder",
