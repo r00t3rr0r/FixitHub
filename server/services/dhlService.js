@@ -698,6 +698,150 @@ class DHLService {
     }
   }
 
+  static normalizePickupLocation(location = {}) {
+    const address = location.address || location.locationAddress || {};
+
+    const street =
+      address.street ||
+      address.addressStreet ||
+      address.streetName ||
+      location.street ||
+      '';
+
+    const houseNumber =
+      address.houseNumber ||
+      address.addressHouse ||
+      location.houseNumber ||
+      '';
+
+    const postalCode =
+      address.postalCode ||
+      address.zip ||
+      address.zipCode ||
+      location.postalCode ||
+      '';
+
+    const city =
+      address.city ||
+      address.addressLocality ||
+      location.city ||
+      '';
+
+    const countryCode =
+      address.countryCode ||
+      address.country ||
+      location.countryCode ||
+      'DE';
+
+    const resolvedId =
+      location.id ||
+      location.uuid ||
+      location.locationId ||
+      location.branchCode ||
+      location.retailID ||
+      `${postalCode}-${city}-${street}-${houseNumber}`.replace(/\s+/g, '-').toLowerCase();
+
+    return {
+      id: resolvedId,
+      name:
+        location.name ||
+        location.description ||
+        location.shopName ||
+        location.label ||
+        'DHL Pickup Point',
+      type:
+        location.type ||
+        location.locationType ||
+        location.category ||
+        'pickup',
+      distance:
+        typeof location.distance === 'number'
+          ? location.distance
+          : Number(location.distance || 0),
+      branchCode: location.branchCode || '',
+      retailID: location.retailID || '',
+      address: {
+        street,
+        houseNumber,
+        postalCode,
+        city,
+        countryCode
+      },
+      raw: location
+    };
+  }
+
+  static async getPickupLocations(search = {}) {
+    console.log('DHLService: Looking up DHL pickup locations');
+
+    const dhlConfig = await this.getDHLConfig();
+    const parcelDeConfig = this.getParcelDEConfig(dhlConfig);
+
+    if (!parcelDeConfig.enabledApis.parcelDePickup) {
+      throw new Error('DHL Parcel DE Pickup API is disabled in integration settings');
+    }
+
+    const accessToken = await this.getAccessToken(parcelDeConfig);
+    const pickupPath = this.normalizeApiPath(parcelDeConfig.pickup?.probePath || '/parcel/de/shipping/v2/pickup');
+    const url = this.buildApiUrl(parcelDeConfig.baseUrl, pickupPath);
+
+    const params = {
+      countryCode: String(search.countryCode || parcelDeConfig.pickup?.countryCode || 'DE').toUpperCase(),
+      postalCode: search.postalCode || '',
+      city: search.city || '',
+      street: search.street || '',
+      houseNumber: search.houseNumber || '',
+      radius: Number(search.radius || 15),
+      limit: Number(search.limit || parcelDeConfig.pickup?.maxResults || 10),
+      locationType: search.locationType || parcelDeConfig.pickup?.locationType || 'branch',
+      branchCode: search.branchCode || parcelDeConfig.pickup?.branchCode || '',
+      retailID: search.retailID || parcelDeConfig.pickup?.retailID || '',
+      preferNearest:
+        typeof search.preferNearest === 'boolean'
+          ? search.preferNearest
+          : parcelDeConfig.pickup?.preferNearest !== false
+    };
+
+    const queryParams = Object.fromEntries(
+      Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
+    );
+
+    try {
+      const response = await axios.get(url, {
+        params: queryParams,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json'
+        },
+        timeout: 15000
+      });
+
+      const responseData = response.data || {};
+      const locationsSource =
+        responseData.locations ||
+        responseData.pickupLocations ||
+        responseData.pickupPoints ||
+        responseData.items ||
+        responseData.results ||
+        (Array.isArray(responseData) ? responseData : []);
+
+      const locations = (Array.isArray(locationsSource) ? locationsSource : [locationsSource])
+        .filter(Boolean)
+        .map((location) => this.normalizePickupLocation(location));
+
+      return {
+        success: true,
+        count: locations.length,
+        locations,
+        query: queryParams,
+        endpoint: url,
+      };
+    } catch (error) {
+      const dhlError = this.getDhlErrorDetails(error);
+      throw new Error(`DHL pickup lookup failed: ${dhlError.message}`);
+    }
+  }
+
   /**
    * Update order with latest tracking information
    * @param {string} orderId - Order ID
