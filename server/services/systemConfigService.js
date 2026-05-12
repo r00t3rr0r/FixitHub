@@ -904,6 +904,15 @@ class SystemConfigService {
           {
             username,
             password
+          },
+          {
+            enabledApis: {
+              parcelDeShipping: normalizedConfig?.enabledApis?.parcelDeShipping !== false,
+              parcelDeTracking: normalizedConfig?.enabledApis?.parcelDeTracking !== false,
+              parcelDeReturns: normalizedConfig?.enabledApis?.parcelDeReturns === true,
+              parcelDePickup: normalizedConfig?.enabledApis?.parcelDePickup === true,
+            },
+            pickup: normalizedConfig?.pickup || {}
           }
         );
 

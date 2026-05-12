@@ -129,12 +129,68 @@ class DHLService {
       profile: settings.profile || metadata.profile || 'STANDARD_GRUPPENPROFIL',
       product: settings.product || metadata.product || 'V01PAK',
       accountNumber: settings.accountNumber || settings.accountId || credentials.accountId || '',
+      pickup: {
+        locationType: settings?.pickup?.locationType || metadata?.pickup?.locationType || 'branch',
+        branchCode: settings?.pickup?.branchCode || metadata?.pickup?.branchCode || '',
+        retailID: settings?.pickup?.retailID || metadata?.pickup?.retailID || '',
+        preferNearest: settings?.pickup?.preferNearest !== false,
+        maxResults: Number(settings?.pickup?.maxResults || metadata?.pickup?.maxResults || 10),
+        countryCode: settings?.pickup?.countryCode || metadata?.pickup?.countryCode || 'DE',
+        probePath: settings?.pickup?.probePath || metadata?.pickup?.probePath || '/parcel/de/shipping/v2/pickup'
+      },
       enabledApis: {
         parcelDeShipping: settings?.dhlApis?.parcelDeShipping !== false,
         parcelDeTracking: settings?.dhlApis?.parcelDeTracking !== false,
-        parcelDeReturns: settings?.dhlApis?.parcelDeReturns === true
+        parcelDeReturns: settings?.dhlApis?.parcelDeReturns === true,
+        parcelDePickup: settings?.dhlApis?.parcelDePickup === true
       }
     };
+  }
+
+  static normalizeApiPath(path = '') {
+    const normalized = String(path || '').trim();
+    if (!normalized) return '';
+    return normalized.startsWith('/') ? normalized : `/${normalized}`;
+  }
+
+  static buildApiUrl(baseUrl, path) {
+    const normalizedBase = String(baseUrl || '').replace(/\/+$/, '');
+    const normalizedPath = this.normalizeApiPath(path);
+    return `${normalizedBase}${normalizedPath}`;
+  }
+
+  static async probeApiEndpoint({ baseUrl, apiPath, accessToken }) {
+    const url = this.buildApiUrl(baseUrl, apiPath);
+
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json'
+        },
+        timeout: 10000,
+        validateStatus: () => true
+      });
+
+      const reachableStatuses = new Set([200, 204, 400, 401, 403, 405]);
+      const success = reachableStatuses.has(response.status);
+
+      return {
+        success,
+        status: response.status,
+        url,
+        message: success
+          ? `Endpoint reachable (${response.status})`
+          : `Endpoint check failed (${response.status})`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        status: error?.response?.status || null,
+        url,
+        message: error?.message || 'Endpoint probe failed'
+      };
+    }
   }
 
   static getDhlErrorDetails(error) {
@@ -442,6 +498,15 @@ class DHLService {
         shipments: [singleShipment]
       };
 
+      if (parcelDeConfig.enabledApis.parcelDePickup) {
+        const pickupPayload = shipmentData?.parcelDePickupPayload || shipmentData?.pickup;
+
+        if (pickupPayload && typeof pickupPayload === 'object') {
+          // Forward explicit pickup payload to DHL when provided by caller.
+          shipmentPayload.pickup = pickupPayload;
+        }
+      }
+
       console.log('DHLService: Sending shipment request to DHL Parcel DE Shipping API');
       console.log('DHLService: Endpoint:', `${parcelDeConfig.baseUrl}/parcel/de/shipping/v2/orders`);
       console.log('DHLService: Shipment payload:', JSON.stringify(shipmentPayload, null, 2));
@@ -720,7 +785,7 @@ class DHLService {
    * @param {string} endpoint - API endpoint
    * @returns {Promise<Object>} Test result
    */
-  static async testConnection(apiKey, apiSecret, endpoint = 'https://api-sandbox.dhl.com', auth = {}) {
+  static async testConnection(apiKey, apiSecret, endpoint = 'https://api-sandbox.dhl.com', auth = {}, options = {}) {
     console.log('DHLService: Testing DHL Parcel DE Shipping API connection');
     console.log('DHLService: Endpoint:', endpoint);
 
@@ -747,6 +812,7 @@ class DHLService {
         tokenEndpoint: `${endpoint}/parcel/de/account/auth/ropc/v1/token`,
         probeEndpoint: `${endpoint}/parcel/de/shipping/v2`,
         authFlow: 'oauth2-password-ropc',
+        pickupEnabled: Boolean(options?.enabledApis?.parcelDePickup),
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
         hasUsername: Boolean(tokenConfig.username),
@@ -759,22 +825,66 @@ class DHLService {
 
       const accessToken = await this.getAccessToken(tokenConfig);
 
-      const response = await axios.get(`${endpoint}/parcel/de/shipping/v2`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json'
-        },
-        timeout: 10000
+      const shippingProbe = await this.probeApiEndpoint({
+        baseUrl: endpoint,
+        apiPath: '/parcel/de/shipping/v2',
+        accessToken
       });
 
+      if (!shippingProbe.success) {
+        return {
+          success: false,
+          message: `DHL Shipping endpoint probe failed (${shippingProbe.status || 'n/a'})`,
+          errorCode: 'DHL_SHIPPING_PROBE_FAILED',
+          debug: {
+            ...debug,
+            shippingProbe
+          }
+        };
+      }
+
+      const pickupEnabled = Boolean(options?.enabledApis?.parcelDePickup);
+      let pickupProbe = null;
+
+      if (pickupEnabled) {
+        const pickupProbePath =
+          options?.pickup?.probePath ||
+          '/parcel/de/shipping/v2/pickup';
+
+        pickupProbe = await this.probeApiEndpoint({
+          baseUrl: endpoint,
+          apiPath: pickupProbePath,
+          accessToken
+        });
+
+        if (!pickupProbe.success) {
+          return {
+            success: false,
+            message: `DHL Parcel DE Pickup API probe failed (${pickupProbe.status || 'n/a'}). Please verify the configured Pickup Probe Path.`,
+            errorCode: 'DHL_PICKUP_PROBE_FAILED',
+            debug: {
+              ...debug,
+              shippingProbe,
+              pickupProbe
+            }
+          };
+        }
+      }
+
       console.log('DHLService: Connection test successful');
-      console.log('DHLService: Response status:', response.status);
+      console.log('DHLService: Shipping probe status:', shippingProbe.status);
 
       return {
         success: true,
-        message: 'Successfully connected to DHL Parcel DE Shipping API',
-        responseTime: response.headers['x-response-time'] || 'N/A',
-        debug
+        message: pickupEnabled
+          ? 'Successfully connected to DHL Parcel DE Shipping + Pickup APIs'
+          : 'Successfully connected to DHL Parcel DE Shipping API',
+        responseTime: 'N/A',
+        debug: {
+          ...debug,
+          shippingProbe,
+          pickupProbe
+        }
       };
 
     } catch (error) {
@@ -794,6 +904,7 @@ class DHLService {
         tokenEndpoint: `${endpoint}/parcel/de/account/auth/ropc/v1/token`,
         probeEndpoint: `${endpoint}/parcel/de/shipping/v2`,
         authFlow: 'oauth2-password-ropc',
+        pickupEnabled: Boolean(options?.enabledApis?.parcelDePickup),
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
         hasUsername: Boolean(username),
