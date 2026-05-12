@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RepairOrderConfigurator } from './RepairOrderConfigurator';
 
@@ -69,6 +69,17 @@ export function DeviceSelectionHero({
                 <h4>{t('home.hero.helperRepairTitle')}</h4>
                 <p>{t('home.hero.helperRepairDesc')}</p>
               </a>
+            </div>
+
+            <div className="hero-helpers" style={{ justifyContent: 'center', marginTop: '10px' }}>
+              <Link
+                to="/repair-request"
+                className="hero-helper-card"
+                style={{ textDecoration: 'none', color: 'inherit', flex: '1 1 100%', width: '100%' }}
+              >
+                <h4>Gerät nicht dabei? Reparatur nicht gefunden?</h4>
+                <p style={{ whiteSpace: 'nowrap' }}>Stellen Sie uns eine individuelle Reparaturanfrage über unser Reparaturanfrageformular.</p>
+              </Link>
             </div>
 
             {/* Booking Tracker Bar */}
