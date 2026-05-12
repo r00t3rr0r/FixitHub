@@ -754,4 +754,90 @@ router.get('/test-dhl-returns', requireAdmin, async (req, res) => {
   }
 });
 
+// Description: Create shipping label for a booking
+// Endpoint: POST /api/bookings/:id/shipping/create-label
+// Request: { shipmentData: { weight, length, width, height, serviceType, receiverName, receiverAddress, etc. } }
+// Response: { success: boolean, trackingNumber: string, labelUrl: string, estimatedDelivery: Date }
+router.post('/:id/shipping/create-label', requireStaff, async (req, res) => {
+  console.log('BookingRoutes: Create shipping label request received for booking:', req.params.id);
+  console.log('BookingRoutes: Shipment data:', req.body);
+
+  try {
+    const DHLService = require('../services/dhlService');
+    const result = await DHLService.createBookingShipment(req.params.id, req.body.shipmentData || req.body);
+
+    console.log('BookingRoutes: Shipping label created successfully for booking');
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('BookingRoutes: Error creating shipping label for booking:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create shipping label'
+    });
+  }
+});
+
+// Description: Lookup DHL pickup locations
+// Endpoint: POST /api/bookings/:id/shipping/pickup-locations
+// Request: { postalCode?: string, city?: string, street?: string, houseNumber?: string, countryCode?: string, radius?: number, limit?: number, locationType?: string }
+// Response: { success: boolean, count: number, locations: Array, query: object }
+router.post('/:id/shipping/pickup-locations', requireStaff, async (req, res) => {
+  console.log('BookingRoutes: Pickup location lookup request received for booking:', req.params.id);
+
+  try {
+    const DHLService = require('../services/dhlService');
+    const result = await DHLService.lookupPickupLocations(req.body || {});
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('BookingRoutes: Error looking up pickup locations:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to lookup pickup locations'
+    });
+  }
+});
+
+// Description: Download shipping label PDF for a booking
+// Endpoint: GET /api/bookings/:id/shipping-label
+// Request: {}
+// Response: PDF file download
+router.get('/:id/shipping-label', requireUser, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Downloading shipping label for booking:', req.params.id);
+    
+    const booking = await BookingService.getById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    // Check access permissions
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.();
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (!booking.shippingLabelUrl) {
+      return res.status(404).json({ success: false, error: 'No shipping label available for this booking' });
+    }
+
+    const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
+    if (!base64Match) {
+      return res.redirect(booking.shippingLabelUrl);
+    }
+
+    const pdfBuffer = Buffer.from(base64Match[1], 'base64');
+    const filename = `versandlabel-${booking.bookingNumber || booking._id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error('BookingRoutes: Error downloading shipping label:', error);
+    return res.status(500).json({ success: false, error: 'Failed to download shipping label' });
+  }
+});
+
 module.exports = router;

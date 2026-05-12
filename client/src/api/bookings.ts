@@ -357,6 +357,34 @@ export const updateBookingShippingStatus = async (bookingId: string) => {
   }
 }
 
+// Description: Create shipping label for a booking (admin/staff only)
+// Endpoint: POST /api/bookings/:id/shipping/create-label
+// Request: { shipmentData: { weight, length, width, height, serviceType, receiverName, receiverAddress, etc. } }
+// Response: { success: boolean, trackingNumber: string, labelUrl: string, estimatedDelivery: Date }
+export const createBookingShippingLabel = async (bookingId: string, shipmentData: any) => {
+  try {
+    const response = await api.post(`/api/bookings/${bookingId}/shipping/create-label`, {
+      shipmentData
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Lookup DHL pickup locations for booking shipping flow
+// Endpoint: POST /api/bookings/:id/shipping/pickup-locations
+// Request: { postalCode?: string, city?: string, street?: string, houseNumber?: string, countryCode?: string, radius?: number, limit?: number, locationType?: string }
+// Response: { success: boolean, count: number, locations: Array, query: object }
+export const lookupPickupLocationsForBooking = async (bookingId: string, query: any) => {
+  try {
+    const response = await api.post(`/api/bookings/${bookingId}/shipping/pickup-locations`, query);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Update return shipment status from DHL API (admin/staff only)
 // Endpoint: PUT /api/bookings/:id/return-status/update
 // Request: {}

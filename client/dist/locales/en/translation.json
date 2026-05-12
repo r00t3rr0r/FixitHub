@@ -16,7 +16,8 @@
     "unsubscribing": "Unsubscribing...",
     "unsubscribeSuccess": "Unsubscribed successfully",
     "unsubscribeSuccessDesc": "You have been unsubscribed from the newsletter."
-  ,
+  },
+  "common": {
     "welcome": "Welcome",
     "loading": "Loading",
     "error": "Error",
@@ -29,6 +30,7 @@
     "update": "Update",
     "search": "Search",
     "filter": "Filter",
+    "filters": "Filters",
     "reset": "Reset",
     "close": "Close",
     "back": "Back",
@@ -48,6 +50,11 @@
     "refresh": "Refresh",
     "actions": "Actions",
     "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "all": "All",
+    "page": "Page",
+    "of": "of",
     "hide": "Hide",
     "selectStatus": "Select status",
     "select": "Select",
@@ -803,7 +810,106 @@
     "sitemapGeneratedSuccess": "Sitemap generated successfully",
     "failedToGenerateSitemap": "Failed to generate sitemap",
     "openGraphSettings": "Open Graph Settings",
-    "twitterCardSettings": "Twitter Card Settings"
+    "twitterCardSettings": "Twitter Card Settings",
+    "addSettings": "Create New SEO Settings",
+    "editSettings": "Edit SEO Settings",
+    "addDescription": "Create new SEO settings for a page to improve your visibility in search engines.",
+    "editDescription": "Edit SEO settings for this page to optimize your visibility in search engines.",
+    "totalPages": "Total Pages",
+    "totalPagesDesc": "Total SEO settings configured",
+    "indexablePages": "Indexable Pages",
+    "allowedByRobots": "Allowed by robots",
+    "nonIndexablePages": "Non-indexable Pages",
+    "blockedByRobots": "Blocked by robots",
+    "pageTypes": "Page Types",
+    "differentTypes": "Different types",
+    "sitemapData": "Sitemap Data",
+    "sitemapDescription": "Overview of all pages in the sitemap",
+    "allSettings": "All Settings",
+    "manageAllSeoSettings": "Manage all SEO settings for your website",
+    "noSettings": "No SEO settings found",
+    "noSitemapData": "No sitemap data available",
+    "pageType": "Page Type",
+    "pageTypeHelp": "Select the type of page. 'Global' applies to the entire website.",
+    "pageId": "Page ID",
+    "pageIdHelp": "Optional unique identifier for the page. Leave empty for global or type-wide settings.",
+    "pageIdPlaceholder": "e.g. about-us, contact, blog-post-123",
+    "robots": "Robots",
+    "basicSettings": "Basic Settings",
+    "basicSettingsHelp": "These settings are the foundation of your search engine optimization.",
+    "titlePlaceholder": "e.g. FixitHub - Professional Phone & Tablet Repair",
+    "titleHelp": "This title appears in search results and browser tabs. Optimal length is 50-60 characters.",
+    "descriptionPlaceholder": "A short, compelling description that encourages clicks",
+    "descriptionHelp": "This description appears below the title in search results. Optimal length is 150-160 characters.",
+    "keywordsPlaceholder": "Phone Repair, Screen Repair, iPhone Repair",
+    "keywordsHelp": "Relevant search terms separated by commas. Focus on 3-5 main keywords.",
+    "canonicalUrl": "Canonical URL",
+    "canonicalUrlHelp": "The preferred URL for this page. Prevents duplicate content issues with multiple URLs.",
+    "canonicalUrlPlaceholder": "https://fixithub.com/repair/screen",
+    "openGraph": "Open Graph (Social Media)",
+    "openGraphHelp": "These settings control how your page appears when shared on Facebook, LinkedIn, and other platforms.",
+    "ogTitle": "Social Media Title",
+    "ogTitlePlaceholder": "Leave empty to use page title",
+    "ogDescription": "Social Media Description",
+    "ogDescriptionPlaceholder": "Leave empty to use meta description",
+    "ogImage": "Social Media Preview Image",
+    "ogImageHelp": "Recommended size: 1200×630 pixels. Format: JPG or PNG.",
+    "ogImagePlaceholder": "https://fixithub.com/images/og-image.jpg",
+    "twitterCard": "Twitter (X) Card",
+    "twitterCardHelp": "Controls how your page appears when shared on Twitter/X.",
+    "twitterCardType": "Card Type",
+    "twitterCardTypeHelp": "'Summary Large Image' is recommended for most content.",
+    "twitterTitle": "Twitter Title",
+    "twitterTitlePlaceholder": "Leave empty to use page title",
+    "twitterDescription": "Twitter Description",
+    "twitterDescriptionPlaceholder": "Leave empty to use meta description",
+    "twitterImage": "Twitter Preview Image",
+    "twitterImageHelp": "Recommended size: 1200×675 pixels for large images, 120×120 for small.",
+    "twitterImagePlaceholder": "https://fixithub.com/images/twitter-image.jpg",
+    "robotsAndSitemap": "Search Engines & Sitemap",
+    "robotsHelp": "Controls how search engines interact with this page.",
+    "allowIndex": "Show in search results",
+    "allowIndexHelp": "Enabled: Page can appear in search results. Disabled: Page won't be indexed.",
+    "allowFollow": "Follow links",
+    "allowFollowHelp": "Enabled: Search engines will follow links on this page.",
+    "noArchive": "No archive",
+    "noArchiveHelp": "Prevents search engines from storing a cached version.",
+    "noSnippet": "No text snippet",
+    "noSnippetHelp": "Prevents display of text excerpts in search results.",
+    "priority": "Sitemap Priority",
+    "priorityHelp": "Relative importance (0.0 - 1.0). Higher values = more important pages.",
+    "changeFrequency": "Update Frequency",
+    "changeFreqHelp": "How often is this page expected to be updated?",
+    "url": "URL",
+    "lastModified": "Last Modified",
+    "global": "Global",
+    "homepage": "Homepage",
+    "blogPost": "Blog Post",
+    "product": "Product",
+    "service": "Service",
+    "page": "Page",
+    "searchPlaceholder": "Search by title, description or page type...",
+    "settingsSaved": "SEO settings saved successfully",
+    "settingsDeleted": "SEO settings deleted successfully",
+    "confirmDelete": "Are you sure you want to delete these SEO settings?",
+    "errorLoadingData": "Error loading SEO data",
+    "errorSaving": "Error saving SEO settings",
+    "errorDeleting": "Error deleting SEO settings",
+    "changeFreq": {
+      "always": "Always",
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "never": "Never"
+    },
+    "twitterCardTypes": {
+      "summary": "Summary",
+      "summaryLargeImage": "Summary Large Image",
+      "app": "App",
+      "player": "Player"
+    }
   },
   "financialManagement": {
     "title": "Financial Management",
@@ -1252,6 +1358,21 @@
       "sensors": "Sensors",
       "specialFeatures": "Special Features"
     },
+    "configurator": {
+      "searchModel": "Search Model",
+      "modelSearchPlaceholder": "e.g. iPhone 15 Pro...",
+      "browseOrSearch": "Browse or tap to search",
+      "typeToSearch": "Tap to Search",
+      "serviceInfoLabel": "Information about {{name}}",
+      "serviceInfo": {
+        "priceFrom": "Price from",
+        "estimatedTime": "Estimated time",
+        "select": "Select this service",
+        "deselect": "Deselect service",
+        "close": "Close",
+        "clickForMore": "Click for details"
+      }
+    },
     "shop": {
       "title": "Featured Products",
       "subtitle": "Quality repair parts and accessories for your devices",
@@ -1479,6 +1600,24 @@
     "checkoutFailed": "Failed to initialize checkout",
     "proceedingToPayment": "Proceeding to payment...",
     "proceedingToPaymentDesc": "Your order information has been prepared. Redirecting to payment..."
+  },
+  "orderSuccess": {
+    "title": "Order Successful!",
+    "subtitle": "Thank you for your order at McRepair.de",
+    "thankYouMessage": "Your order has been successfully placed and processed. A confirmation email has been sent to your email address.",
+    "trackingMessage": "You can track the status of your order anytime under \"My Orders\".",
+    "orderDetails": "Order Details",
+    "bookingNumber": "Booking Number",
+    "orderNumbers": "Order Numbers",
+    "total": "Total Amount",
+    "nextSteps": "Next Steps",
+    "step1": "Confirmation email received",
+    "step2": "Order being processed",
+    "step3": "Shipped with tracking link",
+    "backToHome": "Back to Home",
+    "continueShopping": "Continue Shopping",
+    "needHelp": "Need help?",
+    "contactUs": "Contact us"
   },
   "shop": {
     "title": "Browse Products",
@@ -2061,5 +2200,110 @@
       "description": "With our bookable McRepair Express repair, we guarantee that your phone will be 100% repaired and returned on the same day (upon device receipt)! (No express shipping)"
     },
     "shippingCostNote": "Shipping cost calculation is only available if you have items in your shopping cart."
+  },
+  "aboutPage": {
+    "header": {
+      "title": "About McRepair.de",
+      "intro": "McRepair is one of the leading service providers for the professional repair of smartphones, tablets and notebooks. Our central workshop based in Berlin works with over 350 drop-off locations nationwide and helps you restore your broken device with absolutely reliable and professional specialists."
+    },
+    "steps": {
+      "title": "How It Works",
+      "step1Title": "Select Device & Repair",
+      "step1Desc": "Choose your device and the required repair from our extensive range",
+      "step2Title": "Send or Drop Off Your Device",
+      "step2Desc": "Use our free shipping service or one of our 350 drop-off locations",
+      "step3Title": "We repair it quickly and reliably",
+      "step3Desc": "Our experienced technicians repair your device in just 1–3 business days",
+      "step4Title": "You receive your repaired device back",
+      "step4Desc": "Your device will be safely returned to you or can be picked up"
+    },
+    "whatWeDo": {
+      "title": "What does McRepair do?",
+      "subtitle": "Simply put: We repair your smartphone, tablet or notebook",
+      "text": "If your smartphone is defective or your tablet is damaged, it is in the best hands with our highly qualified technicians. We are one of the largest repair workshops for smartphones, tablets and notebooks in Germany and can draw on many years of experience. We handle diagnostics and repair – naturally with data preservation. Regardless of whether your Apple iPhone has been dropped or your Samsung Galaxy has charging issues – in many cases it is only minor faults or damage that our specialists can fix quickly and cost-effectively."
+    },
+    "whyUs": {
+      "title": "What sets us apart",
+      "highlightTitle": "Over 350 drop-off locations nationwide and a central main workshop with long-experienced technicians.",
+      "highlightText": "For short response times, we always keep high-quality spare parts for all major manufacturers such as Apple or Samsung in large quantities. Thanks to over 350 drop-off locations nationwide, you can also use our convenient and secure service near you. We are constantly expanding our network. If you cannot find a partner in your region, we are always happy to receive new recommendations. The outward and return shipping of your mobile device with our partner DHL is of course free of charge."
+    },
+    "gallery": {
+      "title": "Gallery",
+      "altWorkshop": "McRepair Workshop",
+      "altLaptop": "McRepair Laptop Repair",
+      "altLaptop2": "McRepair Laptop Repair 2",
+      "altPhone3": "McRepair Smartphone Repair 3",
+      "altPhone2": "McRepair Smartphone Repair 2",
+      "altPhone": "McRepair Smartphone Repair",
+      "altBattery": "McRepair Battery Replacement",
+      "altBattery2": "McRepair Battery Replacement 2"
+    },
+    "locations": {
+      "title": "Our Drop-off Locations",
+      "subtitle": "Drop-off locations across Germany",
+      "text1": "Use one of our 350 drop-off locations across Germany to hand over your device conveniently.",
+      "text2": "Thanks to short turnaround times of just one to three business days, you don't have to go without your smartphone or tablet any longer than absolutely necessary. Put our consistent quality awareness to the test – we will exceed your expectations and quickly make you fully reachable again in your private and professional environment.",
+      "text3Bold": "Where is the nearest drop-off location?",
+      "text3Rest": " Simply check our location search.",
+      "mapAlt": "Germany Drop-off Locations Map"
+    },
+    "manufacturers": {
+      "title": "Manufacturers",
+      "intro": "We carry out repairs for all well-known manufacturers of smartphones, tablets and notebooks. If you have not found your desired manufacturer with us, you are welcome to request an individual price quote for the repair of your device via Contact.",
+      "sonyRepair": "Sony Repair",
+      "googleRepair": "Google Repair",
+      "appleRepair": "Apple Repair",
+      "asusRepair": "Asus Repair",
+      "lgRepair": "LG Repair",
+      "oneplusRepair": "OnePlus Repair",
+      "motorolaRepair": "Motorola Repair",
+      "htcRepair": "HTC Repair"
+    }
+  },
+  "imprint": {
+    "title": "Imprint",
+    "legalProvider": {
+      "heading": "Legal Provider Information",
+      "companyName": "Online Point GmbH",
+      "representative": "represented by Managing Director Julian Szymansky",
+      "address": "Kurfürstenstr. 106",
+      "city": "10787 Berlin",
+      "country": "Germany"
+    },
+    "contact": {
+      "heading": "Contact",
+      "phoneService": "Phone Service",
+      "phoneAdmin": "Phone Administration",
+      "email": "E-Mail",
+      "vatId": "VAT ID"
+    },
+    "companyReg": {
+      "heading": "Company Registration",
+      "intro": "Registered in the Commercial Register of the District Court of Charlottenburg",
+      "regNumber": "Commercial Register Number",
+      "regNumberValue": "HRB 136735 B",
+      "companySeat": "Registered Office",
+      "companySeatValue": "Berlin",
+      "lucidNumber": "LUCID Registration Number",
+      "lucidNumberValue": "DE1709904514391"
+    },
+    "design": {
+      "heading": "Conception, Design & Development"
+    },
+    "disputeResolution": {
+      "heading": "Alternative Dispute Resolution",
+      "text1before": "Alternative dispute resolution pursuant to Art. 14 para. 1 ODR-VO and § 36 VSBG: The European Commission provides a platform for online dispute resolution (ODR) which you can find at ",
+      "text1after": ".",
+      "text2": "We are neither obligated nor willing to participate in dispute resolution proceedings before a consumer arbitration board."
+    },
+    "trademarks": {
+      "heading": "Trademark Notices",
+      "iphone": "The brands iPhone and iPad are registered trademarks of Apple Inc., Cupertino, Calif., US.",
+      "htc": "The brand HTC is a registered trademark of High Tech Computer Corporation, Taoyuan, TW.",
+      "lg": "The brand LG is a registered trademark of LG Corp., Seoul, KR.",
+      "nokia": "The brand Nokia is a registered trademark of Nokia Corporation, Helsinki, FI.",
+      "samsung": "The brand Samsung is a registered trademark of Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
+      "sonyEricsson": "The brand Sony Ericsson is a registered trademark of Sony Ericsson Mobile Communications AB, London, UK."
+    }
   }
 }
