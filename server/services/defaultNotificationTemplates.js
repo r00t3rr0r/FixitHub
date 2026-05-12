@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 15;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 16;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -633,9 +633,6 @@ function getDefaultNotificationTemplates() {
         ctaLabel: 'Buchung online einsehen',
         ctaUrl: '{{bookingUrl}}',
         ctaTone: 'accent',
-        secondaryCtaLabel: 'Versandlabel (PDF)',
-        secondaryCtaUrl: '{{shippingLabelUrl}}',
-        secondaryCtaTone: 'primary',
         closing: 'Vielen Dank für Ihr Vertrauen. Wir halten Sie während des gesamten Prozesses auf dem Laufenden.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Buchungsbestätigung bezieht sich auf Ihre aktuell angelegte Buchung.'
       }),
@@ -648,7 +645,6 @@ function getDefaultNotificationTemplates() {
         createVariable('totalAmount', 'Gesamtbetrag der Buchung'),
         createVariable('bookingStatus', 'Aktueller Buchungsstatus'),
         createVariable('bookingUrl', 'Link zur Buchungsdetailseite', true),
-        createVariable('shippingLabelUrl', 'Direkter Download-Link zum Versandlabel als PDF'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
@@ -678,9 +674,6 @@ function getDefaultNotificationTemplates() {
         ctaLabel: 'Gastbuchung jetzt verfolgen',
         ctaUrl: '{{trackingUrl}}',
         ctaTone: 'accent',
-        secondaryCtaLabel: 'Versandlabel (PDF)',
-        secondaryCtaUrl: '{{shippingLabelUrl}}',
-        secondaryCtaTone: 'primary',
         closing: 'Vielen Dank für Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
         footerNote: 'Diese Nachricht wurde automatisch nach erfolgreicher Gastbestellung versendet.'
       }),
@@ -693,7 +686,6 @@ function getDefaultNotificationTemplates() {
         createVariable('totalAmount', 'Gesamtbetrag der Buchung', true),
         createVariable('bookingStatus', 'Aktueller Buchungsstatus', true),
         createVariable('trackingUrl', 'Direkter Gast-Tracking-Link zur Buchung', true),
-        createVariable('shippingLabelUrl', 'Direkter Download-Link zum Versandlabel als PDF'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
