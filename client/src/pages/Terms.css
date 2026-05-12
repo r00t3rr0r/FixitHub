@@ -1,51 +1,57 @@
 /* ============================================
-   Terms / AGB Page – McRepair Design
+   Terms / AGB Page - McRepair Design
    ============================================ */
 
 .terms-page {
-  background: var(--off-white, #f8f9fc);
+  background: #f0f2f7;
   min-height: calc(100vh - 120px);
-  padding: clamp(32px, 6vw, 80px) 0 clamp(28px, 5vw, 60px);
+  padding: clamp(32px, 5vw, 72px) 0 clamp(28px, 4vw, 60px);
+}
+
+.terms-page .container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 .terms-content {
-  max-width: 1000px;
-  margin: 0 auto;
-  background: var(--white, #ffffff);
-  border-radius: var(--radius-lg, 16px);
-  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.1));
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
   padding: 56px 64px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Header */
 .terms-header {
   text-align: center;
-  margin-bottom: 56px;
-  padding-bottom: 32px;
-  border-bottom: 3px solid var(--accent-yellow, #f5b800);
+  margin-bottom: 52px;
+  padding-bottom: 36px;
+  border-bottom: 3px solid #f5b800;
 }
 
 .terms-header h1 {
-  font-size: 2.2rem;
+  font-size: 2rem;
   font-weight: 800;
-  color: var(--primary-blue-dark, #0f1d45);
-  margin-bottom: 12px;
-  line-height: 1.2;
+  color: #0f1d45;
+  margin: 0 0 12px 0;
+  line-height: 1.25;
 }
 
 .terms-subtitle {
-  font-size: 1.1rem;
-  color: var(--gray-600, #4a5568);
+  font-size: 1rem;
+  color: #556080;
   font-weight: 500;
   margin: 0;
+  line-height: 1.5;
 }
 
-/* Part Sections (I. & II.) */
+/* Part Sections (I. / II.) */
 .terms-part {
   margin-bottom: 56px;
   padding-bottom: 40px;
-  border-bottom: 2px solid var(--gray-200, #d8dce6);
+  border-bottom: 2px solid #e2e6f0;
 }
 
 .terms-part:last-child {
@@ -55,18 +61,17 @@
 }
 
 .part-title {
-  font-size: 1.75rem;
+  font-size: 1.55rem;
   font-weight: 800;
-  color: var(--primary-blue-dark, #0f1d45);
-  margin-bottom: 36px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--accent-yellow, #f5b800);
-  text-align: left;
+  color: #0f1d45;
+  margin: 0 0 36px 0;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #f5b800;
 }
 
-/* Sections (§ paragraphs) */
+/* Individual Sections */
 .terms-section {
-  margin-bottom: 48px;
+  margin-bottom: 40px;
 }
 
 .terms-section:last-child {
@@ -74,70 +79,95 @@
 }
 
 .terms-section h3 {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--primary-blue, #1a2a5e);
-  margin-bottom: 24px;
-  line-height: 1.3;
-  padding-top: 8px;
+  color: #1a2a5e;
+  margin: 0 0 20px 0;
+  padding: 10px 16px;
+  background: #f4f5fb;
+  border-left: 4px solid #1a2a5e;
+  border-radius: 0 8px 8px 0;
+  line-height: 1.35;
 }
 
 .terms-section h4 {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: var(--primary-blue-light, #2a3f7e);
-  margin-top: 20px;
-  margin-bottom: 12px;
-  line-height: 1.3;
+  color: #1a2a5e;
+  margin: 20px 0 10px 0;
+  line-height: 1.4;
 }
 
 .terms-section > p {
   font-size: 0.95rem;
-  line-height: 1.8;
-  color: var(--gray-700, #2d3748);
-  margin-bottom: 16px;
+  line-height: 1.85;
+  color: #2d3748;
+  margin: 0 0 14px 0;
 }
 
-/* Paragraphs with Numbers */
-.paragraph {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  align-items: flex-start;
-}
-
-.paragraph-number {
-  font-weight: 700;
-  color: var(--primary-blue, #1a2a5e);
-  min-width: 32px;
-  flex-shrink: 0;
-  margin: 0;
-  line-height: 1.8;
-}
-
-.paragraph p {
-  flex: 1;
-  font-size: 0.95rem;
-  line-height: 1.8;
-  color: var(--gray-700, #2d3748);
-  margin: 0 0 12px 0;
-}
-
-.paragraph p:last-child {
+.terms-section > p:last-child {
   margin-bottom: 0;
 }
 
-/* Sub-paragraphs (a, b, c, d) */
+/* Numbered Paragraphs */
+.paragraph {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+.paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.paragraph-number {
+  grid-column: 1;
+  font-weight: 700;
+  color: #1a2a5e;
+  margin: 0;
+  padding-top: 2px;
+  font-size: 0.9rem;
+  line-height: 1.85;
+}
+
+.paragraph > p:not(.paragraph-number),
+.paragraph > ul,
+.paragraph > div {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.paragraph p:not(.paragraph-number) {
+  font-size: 0.95rem;
+  line-height: 1.85;
+  color: #2d3748;
+  margin: 0 0 10px 0;
+}
+
+.paragraph p:not(.paragraph-number):last-child,
+.paragraph > div:last-child {
+  margin-bottom: 0;
+}
+
+.paragraph > ul {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+/* Sub-paragraphs */
 .sub-paragraph {
-  margin-left: 44px;
-  margin-top: 16px;
+  margin-top: 14px;
+  padding-left: 12px;
+  border-left: 2px solid #dde1ed;
 }
 
 .sub-paragraph p {
-  font-size: 0.95rem;
+  font-size: 0.93rem;
   line-height: 1.8;
-  color: var(--gray-700, #2d3748);
-  margin-bottom: 16px;
+  color: #2d3748;
+  margin: 0 0 14px 0;
+  padding-left: 6px;
 }
 
 .sub-paragraph p:last-child {
@@ -146,7 +176,7 @@
 
 /* Lists */
 .terms-list {
-  margin: 16px 0 16px 20px;
+  margin: 12px 0;
   padding-left: 20px;
   list-style-type: disc;
 }
@@ -154,8 +184,8 @@
 .terms-list li {
   font-size: 0.95rem;
   line-height: 1.8;
-  color: var(--gray-700, #2d3748);
-  margin-bottom: 10px;
+  color: #2d3748;
+  margin-bottom: 8px;
 }
 
 .terms-list li:last-child {
@@ -164,18 +194,18 @@
 
 /* Contact Info Box */
 .contact-info {
-  background: var(--off-white, #f8f9fc);
-  padding: 24px;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--gray-200, #d8dce6);
-  margin-bottom: 24px;
+  background: #f8f9fc;
+  padding: 24px 28px;
+  border-radius: 10px;
+  border: 1px solid #dde1ed;
+  margin-bottom: 20px;
 }
 
 .contact-info p {
-  margin-bottom: 12px;
-  line-height: 1.7;
+  margin: 0 0 12px 0;
+  line-height: 1.75;
   font-size: 0.95rem;
-  color: var(--gray-700, #2d3748);
+  color: #2d3748;
 }
 
 .contact-info p:last-child {
@@ -183,300 +213,248 @@
 }
 
 .contact-info strong {
-  color: var(--primary-blue-dark, #0f1d45);
+  color: #0f1d45;
   font-weight: 600;
 }
 
 /* Info Box */
 .info-box {
-  background: var(--yellow-50, #fffbeb);
-  padding: 24px;
-  border-radius: var(--radius-md, 10px);
-  border-left: 4px solid var(--accent-yellow, #f5b800);
-  margin: 24px 0;
+  background: #fffbeb;
+  padding: 22px 26px;
+  border-radius: 10px;
+  border-left: 4px solid #f5b800;
+  margin: 20px 0;
 }
 
 .info-box h4 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--primary-blue-dark, #0f1d45);
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f1d45;
 }
 
 .info-box p {
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.7;
-  color: var(--gray-700, #2d3748);
-}
-
-.info-box a {
-  color: var(--primary-blue, #1a2a5e);
-  text-decoration: underline;
-  transition: color 0.2s ease;
-}
-
-.info-box a:hover {
-  color: var(--accent-yellow, #f5b800);
+  font-size: 0.93rem;
+  line-height: 1.75;
+  color: #2d3748;
 }
 
 /* Links */
 .terms-content a {
-  color: var(--primary-blue, #1a2a5e);
+  color: #1a2a5e;
   text-decoration: underline;
-  transition: color 0.2s ease;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
 }
 
 .terms-content a:hover {
-  color: var(--accent-yellow, #f5b800);
+  color: #f5b800;
+}
+
+/* Strong */
+.terms-content strong {
+  font-weight: 600;
+  color: #0f1d45;
 }
 
 /* Footer Note */
 .terms-footer {
-  margin-top: 48px;
-  padding-top: 32px;
-  border-top: 2px solid var(--gray-200, #d8dce6);
+  margin-top: 44px;
+  padding-top: 28px;
+  border-top: 2px solid #e2e6f0;
 }
 
 .terms-footer p {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   line-height: 1.7;
-  color: var(--gray-600, #4a5568);
+  color: #6b7280;
   font-style: italic;
   margin: 0;
 }
 
 .terms-footer a {
-  color: var(--primary-blue, #1a2a5e);
+  color: #1a2a5e;
   text-decoration: underline;
 }
 
 .terms-footer a:hover {
-  color: var(--accent-yellow, #f5b800);
+  color: #f5b800;
 }
 
-/* Text Emphasis */
-.terms-content strong {
-  font-weight: 600;
-  color: var(--primary-blue-dark, #0f1d45);
-}
+/* RESPONSIVE */
 
-/* ── RESPONSIVE ── */
-
-/* Tablet */
 @media (max-width: 1024px) {
-  .terms-page {
-    padding: 60px 0 40px;
-  }
-
   .terms-content {
-    padding: 48px 48px;
-    max-width: 90%;
+    padding: 44px 48px;
   }
 
   .terms-header h1 {
-    font-size: 1.9rem;
-  }
-
-  .terms-subtitle {
-    font-size: 1rem;
-  }
-
-  .part-title {
-    font-size: 1.6rem;
-  }
-
-  .terms-section h3 {
-    font-size: 1.15rem;
-  }
-
-  .terms-section h4 {
-    font-size: 1rem;
-  }
-}
-
-/* Mobile */
-@media (max-width: 768px) {
-  .terms-page {
-    padding: 40px 0 32px;
-  }
-
-  .terms-content {
-    padding: 28px 20px;
-    border-radius: var(--radius-md, 10px);
-    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
-    max-width: 96%;
-  }
-
-  .terms-header {
-    margin-bottom: 40px;
-    padding-bottom: 24px;
-  }
-
-  .terms-header h1 {
-    font-size: 1.6rem;
-  }
-
-  .terms-subtitle {
-    font-size: 0.9rem;
-  }
-
-  .terms-part {
-    margin-bottom: 40px;
-    padding-bottom: 32px;
+    font-size: 1.75rem;
   }
 
   .part-title {
     font-size: 1.4rem;
-    margin-bottom: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .terms-page {
+    padding: 24px 0 28px;
+  }
+
+  .terms-page .container {
+    padding: 0 12px;
+  }
+
+  .terms-content {
+    padding: 28px 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+  }
+
+  .terms-header {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+  }
+
+  .terms-header h1 {
+    font-size: 1.4rem;
+    line-height: 1.2;
+  }
+
+  .terms-subtitle {
+    font-size: 0.87rem;
+  }
+
+  .terms-part {
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+  }
+
+  .part-title {
+    font-size: 1.2rem;
+    margin-bottom: 24px;
     padding-bottom: 12px;
   }
 
   .terms-section {
-    margin-bottom: 36px;
+    margin-bottom: 28px;
   }
 
   .terms-section h3 {
-    font-size: 1.05rem;
-    margin-bottom: 20px;
+    font-size: 0.92rem;
+    margin-bottom: 14px;
+    padding: 8px 12px;
   }
 
   .terms-section h4 {
-    font-size: 0.95rem;
-    margin-top: 16px;
-    margin-bottom: 10px;
+    font-size: 0.88rem;
   }
 
   .terms-section > p,
   .paragraph p {
-    font-size: 0.9rem;
-    line-height: 1.7;
+    font-size: 0.89rem;
+    line-height: 1.75;
   }
 
   .paragraph {
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-direction: column;
+    grid-template-columns: 38px 1fr;
+    margin-bottom: 16px;
   }
 
   .paragraph-number {
-    min-width: 28px;
-    font-size: 0.9rem;
-    line-height: 1.4;
+    font-size: 0.85rem;
+    line-height: 1.75;
   }
 
   .sub-paragraph {
-    margin-left: 32px;
-    margin-top: 12px;
+    margin-top: 10px;
+    padding-left: 8px;
   }
 
   .sub-paragraph p {
-    font-size: 0.9rem;
-    margin-bottom: 14px;
+    font-size: 0.87rem;
+    line-height: 1.7;
+    margin-bottom: 12px;
+    padding-left: 4px;
   }
 
   .terms-list {
-    margin: 12px 0 12px 12px;
-    padding-left: 14px;
+    padding-left: 16px;
+    margin: 10px 0;
   }
 
   .terms-list li {
-    font-size: 0.9rem;
+    font-size: 0.87rem;
     line-height: 1.7;
-    margin-bottom: 8px;
+    margin-bottom: 7px;
   }
 
-  .contact-info,
+  .contact-info {
+    padding: 16px 14px;
+    margin-bottom: 14px;
+  }
+
+  .contact-info p {
+    font-size: 0.87rem;
+  }
+
   .info-box {
-    padding: 20px;
-    margin: 20px 0;
+    padding: 16px 14px;
+    margin: 14px 0;
   }
 
   .info-box h4 {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
   }
 
-  .info-box p,
-  .contact-info p {
-    font-size: 0.9rem;
+  .info-box p {
+    font-size: 0.87rem;
   }
 
   .terms-footer {
-    margin-top: 36px;
-    padding-top: 24px;
+    margin-top: 28px;
+    padding-top: 20px;
   }
 
   .terms-footer p {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
 }
 
-/* Extra Small Mobile */
 @media (max-width: 480px) {
   .terms-content {
     padding: 20px 14px;
   }
 
   .terms-header h1 {
-    font-size: 1.4rem;
-  }
-
-  .terms-subtitle {
-    font-size: 0.85rem;
+    font-size: 1.2rem;
   }
 
   .part-title {
-    font-size: 1.25rem;
-  }
-
-  .terms-section h3 {
-    font-size: 1rem;
-  }
-
-  .terms-section > p,
-  .paragraph p,
-  .contact-info p,
-  .info-box p,
-  .terms-list li {
-    font-size: 0.86rem;
-    line-height: 1.62;
+    font-size: 1.05rem;
   }
 
   .paragraph {
-    gap: 8px;
-  }
-
-  .paragraph-number {
-    min-width: 24px;
-  }
-
-  .sub-paragraph {
-    margin-left: 14px;
-  }
-
-  .contact-info,
-  .info-box {
-    padding: 14px;
-    border-radius: var(--radius-sm, 8px);
+    grid-template-columns: 32px 1fr;
   }
 }
 
 @media (max-width: 360px) {
   .terms-content {
     padding: 16px 12px;
-    max-width: 98%;
   }
 
   .terms-header h1 {
-    font-size: 1.2rem;
-  }
-
-  .terms-subtitle {
-    font-size: 0.8rem;
+    font-size: 1.05rem;
   }
 
   .part-title {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
+  }
+
+  .paragraph {
+    grid-template-columns: 28px 1fr;
   }
 }

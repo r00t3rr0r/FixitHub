@@ -193,6 +193,7 @@ ul, ol {
   position: sticky;
   top: 0;
   z-index: 9999; /* High z-index to ensure it's above page content */
+  overflow: visible;
   transition: var(--transition);
 }
 
@@ -208,6 +209,7 @@ ul, ol {
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 0 24px;
+  overflow: visible;
 }
 
 .nav-logo {
@@ -234,6 +236,8 @@ ul, ol {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: 14px;
+  overflow: visible;
 }
 
 .nav-links a,
@@ -261,6 +265,84 @@ ul, ol {
   width: 16px;
   height: 16px;
   opacity: 0.7;
+}
+
+/* Shimmer sweep overlay for Shop button */
+.nav-shop-link {
+  position: relative;
+  overflow: visible;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: var(--white) !important;
+  font-weight: 600;
+  padding-inline: 16px;
+}
+
+.nav-shop-link svg {
+  opacity: 1;
+  color: rgba(255,255,255,0.95);
+}
+
+.nav-shop-link:hover {
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(255,255,255,0.34);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.16);
+}
+
+/* Shimmer pseudo-element — uses clip-path so it doesn't affect layout */
+.nav-shop-spotlight::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 220, 80, 0.45) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  border-radius: inherit;
+  clip-path: inset(0 0 0 0 round inherit);
+  animation: navShopShimmer 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.nav-shop-spotlight {
+  border-color: rgba(245, 184, 0, 0.72);
+  will-change: transform, box-shadow;
+  animation: navShopBounce 2.8s ease-in-out infinite;
+}
+
+.nav-shop-mobile-top {
+  display: none;
+}
+
+/* Fun jelly bounce — max 4px up so nav bar never clips it */
+@keyframes navShopBounce {
+  0%        { transform: translateY(0)    scale(1,    1);    box-shadow: 0 2px  8px rgba(245,184,0,0.15); }
+  12%       { transform: translateY(-2px) scale(1.04,0.97);  box-shadow: 0 6px 14px rgba(245,184,0,0.28); }
+  24%       { transform: translateY(-4px) scale(0.97,1.03);  box-shadow: 0 9px 20px rgba(245,184,0,0.34); }
+  36%       { transform: translateY(-2px) scale(1.02,0.98);  box-shadow: 0 6px 14px rgba(245,184,0,0.26); }
+  48%       { transform: translateY(0)    scale(1,    1);    box-shadow: 0 2px  8px rgba(245,184,0,0.15); }
+  56%       { transform: translateY(-1px) scale(1.01,0.99);  box-shadow: 0 3px 10px rgba(245,184,0,0.18); }
+  64%       { transform: translateY(0)    scale(1,    1);    box-shadow: 0 2px  8px rgba(245,184,0,0.15); }
+  100%      { transform: translateY(0)    scale(1,    1);    box-shadow: 0 2px  8px rgba(245,184,0,0.15); }
+}
+
+/* Shimmer sweep */
+@keyframes navShopShimmer {
+  0%   { background-position: 200% 0; opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { background-position: -40% 0; opacity: 1; }
+  65%  { opacity: 0; }
+  100% { background-position: -40% 0; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-shop-spotlight,
+  .nav-shop-spotlight::before {
+    animation: none;
+  }
 }
 
 /* Nav Item with Dropdown */
@@ -2568,6 +2650,29 @@ ul, ol {
     overflow: clip;
   }
 
+  /* Show compact Shop button on tablet (isDropdownNav = true here) */
+  .nav-shop-mobile-top {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    gap: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .nav-shop-mobile-top svg {
+    width: 17px;
+    height: 17px;
+    opacity: 1 !important;
+    flex-shrink: 0;
+  }
+
   /* Tablet: compact search bar */
   .nav-search input {
     width: 140px;
@@ -2798,6 +2903,36 @@ ul, ol {
     gap: 8px;
   }
 
+  .nav-shop-mobile-top {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    min-width: 36px;
+    padding: 0;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .nav-shop-mobile-top svg {
+    width: 18px;
+    height: 18px;
+    opacity: 1 !important;
+    flex-shrink: 0;
+  }
+
+  /* Disable bounce animation on compact nav — avoids scale clipping */
+  .nav-shop-mobile-top.nav-shop-spotlight {
+    animation: none;
+  }
+
+  .nav-links.mobile-open .nav-shop-menu-link {
+    display: none !important;
+  }
+
   .nav-inner {
     height: 56px;
     position: relative;
@@ -2995,6 +3130,15 @@ ul, ol {
     color: var(--white);
     visibility: visible;
     opacity: 1;
+  }
+
+  .nav-links.mobile-open .nav-shop-link {
+    margin-left: 0;
+    margin: 8px 0 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.24);
+    background: rgba(255,255,255,0.1);
   }
 
   .nav-links.mobile-open a svg,
@@ -3258,6 +3402,22 @@ ul, ol {
 
   .nav-right {
     gap: 4px;
+  }
+
+  .nav-shop-mobile-top {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    min-width: 34px;
+    padding: 0;
+    border-radius: 50%;
+    overflow: visible;
+  }
+
+  .nav-shop-mobile-top svg {
+    width: 16px;
+    height: 16px;
+    opacity: 1 !important;
   }
 
   .nav-profile-trigger,
