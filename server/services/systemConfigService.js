@@ -384,6 +384,24 @@ class SystemConfigService {
       config.markModified('notificationTemplates');
     }
 
+    if (previousVersion < 16) {
+      // Version 16: enforce German-only email defaults and remove shipping label CTA from email templates.
+      for (const defaultTemplate of defaultTemplates.filter((template) => template.type === 'email')) {
+        const key = normalizeTemplateKey(defaultTemplate);
+        const existing = (config.notificationTemplates || []).find(
+          (template) => normalizeTemplateKey(template) === key
+        );
+
+        if (existing) {
+          existing.subject = defaultTemplate.subject;
+          existing.content = defaultTemplate.content;
+          existing.variables = defaultTemplate.variables;
+        }
+      }
+
+      config.markModified('notificationTemplates');
+    }
+
     if (previousVersion < 12) {
       // Version 12: show device model image (with placeholder fallback) in order-related and booking pickup templates.
       const managedTemplateNames = [
@@ -886,6 +904,15 @@ class SystemConfigService {
           {
             username,
             password
+          },
+          {
+            enabledApis: {
+              parcelDeShipping: normalizedConfig?.enabledApis?.parcelDeShipping !== false,
+              parcelDeTracking: normalizedConfig?.enabledApis?.parcelDeTracking !== false,
+              parcelDeReturns: normalizedConfig?.enabledApis?.parcelDeReturns === true,
+              parcelDePickup: normalizedConfig?.enabledApis?.parcelDePickup === true,
+            },
+            pickup: normalizedConfig?.pickup || {}
           }
         );
 

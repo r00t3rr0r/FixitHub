@@ -169,7 +169,107 @@ class EmailService {
       }
     }
 
+    this.localizeTemplateDisplayVariables(normalizedVariables);
+
     return normalizedVariables;
+  }
+
+  static getGermanStatusLabel(statusValue) {
+    const normalizedStatus = String(statusValue || '').trim().toLowerCase();
+    if (!normalizedStatus) {
+      return '';
+    }
+
+    const statusMap = {
+      pending: 'Ausstehend',
+      in_progress: 'In Bearbeitung',
+      'in-progress': 'In Bearbeitung',
+      processing: 'In Bearbeitung',
+      awaiting_parts: 'Wartet auf Ersatzteile',
+      quality_check: 'Qualitaetspruefung',
+      'quality-check': 'Qualitaetspruefung',
+      diagnosis_completed: 'Diagnose abgeschlossen',
+      ready_for_pickup: 'Bereit zur Abholung',
+      completed: 'Abgeschlossen',
+      cancelled: 'Storniert',
+      canceled: 'Storniert',
+      dispatched: 'Versendet',
+      shipped: 'Versendet',
+      in_transit: 'In Zustellung',
+      delivered: 'Zugestellt',
+      paid: 'Bezahlt',
+      unpaid: 'Unbezahlt',
+      approved: 'Freigegeben',
+      rejected: 'Abgelehnt',
+      declined: 'Abgelehnt',
+      failed: 'Fehlgeschlagen',
+      open: 'Offen',
+      closed: 'Geschlossen'
+    };
+
+    return statusMap[normalizedStatus] || String(statusValue);
+  }
+
+  static parseNumericCurrencyValue(rawValue) {
+    if (typeof rawValue === 'number') {
+      return Number.isFinite(rawValue) ? rawValue : NaN;
+    }
+
+    const value = String(rawValue ?? '').trim();
+    if (!value) {
+      return NaN;
+    }
+
+    const cleaned = value
+      .replace(/\s/g, '')
+      .replace(/€/g, '')
+      .replace(/eur/gi, '');
+
+    let normalized = cleaned;
+    if (cleaned.includes('.') && cleaned.includes(',')) {
+      normalized = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if (cleaned.includes(',')) {
+      normalized = cleaned.replace(',', '.');
+    } else if ((cleaned.match(/\./g) || []).length > 1) {
+      normalized = cleaned.replace(/\./g, '');
+    }
+
+    return Number(normalized);
+  }
+
+  static formatCurrencyEUR(value) {
+    const numericValue = this.parseNumericCurrencyValue(value);
+    if (!Number.isFinite(numericValue)) {
+      return String(value ?? '');
+    }
+
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(numericValue);
+  }
+
+  static localizeTemplateDisplayVariables(variables = {}) {
+    const statusKeys = ['orderStatus', 'bookingStatus', 'returnShipmentStatus', 'paymentStatus', 'status'];
+    for (const key of statusKeys) {
+      if (variables[key] !== undefined && variables[key] !== null && String(variables[key]).trim()) {
+        variables[key] = this.getGermanStatusLabel(variables[key]);
+      }
+    }
+
+    const amountKeys = [
+      'quoteAmount',
+      'amountPaid',
+      'totalAmount',
+      'invoiceAmount',
+      'refundAmount',
+      'offerAmount'
+    ];
+    for (const key of amountKeys) {
+      if (variables[key] !== undefined && variables[key] !== null && String(variables[key]).trim()) {
+        variables[key] = this.formatCurrencyEUR(variables[key]);
+      }
+    }
   }
 
   static escapeHtml(value) {
@@ -513,7 +613,7 @@ class EmailService {
       const mailOptions = {
         from: process.env.SMTP_FROM || 'noreply@fixithub.com',
         to: orderData.guestEmail,
-        subject: `Order Confirmation - ${orderData.orderNumbers.join(', ')}`,
+        subject: `Buchungsbestaetigung - ${orderData.orderNumbers.join(', ')}`,
         html: emailHtml,
         text: this.buildGuestOrderConfirmationText(orderData, trackingUrl)
       };
@@ -523,8 +623,8 @@ class EmailService {
 
     const emailInfo = {
       to: orderData.guestEmail,
-      templateName: 'Guest Order Confirmation',
-      subject: `Order Confirmation - ${orderData.orderNumbers.join(', ')}`
+      templateName: 'Gast Buchungsbestaetigung',
+      subject: `Buchungsbestaetigung - ${orderData.orderNumbers.join(', ')}`
     };
 
     try {
@@ -597,7 +697,8 @@ class EmailService {
    * Build HTML email for guest order confirmation
    */
   static buildGuestOrderConfirmationEmail(orderData, trackingUrl) {
-    const { guestName, guestEmail, orderNumbers, totalAmount, bookingNumber, trackingToken } = orderData;
+    const { guestName, guestEmail, orderNumbers, totalAmount, bookingNumber } = orderData;
+    const formattedTotalAmount = this.formatCurrencyEUR(totalAmount);
 
     return `
 <!DOCTYPE html>
@@ -605,7 +706,7 @@ class EmailService {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Confirmation</title>
+  <title>Buchungsbestaetigung</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -620,50 +721,50 @@ class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Order Confirmation</h1>
+      <h1>Buchungsbestaetigung</h1>
     </div>
     <div class="content">
-      <p>Dear ${guestName},</p>
-      <p>Thank you for your order! We've received your request and will begin processing it shortly.</p>
+      <p>Hallo ${guestName},</p>
+      <p>vielen Dank fuer Ihre Bestellung. Wir haben Ihre Anfrage erhalten und beginnen in Kuerze mit der Bearbeitung.</p>
       
       <div class="order-details">
-        <h2>Order Details</h2>
-        ${bookingNumber ? `<div class="info-row"><strong>Booking Number:</strong><span>${bookingNumber}</span></div>` : ''}
+        <h2>Bestelldetails</h2>
+        ${bookingNumber ? `<div class="info-row"><strong>Buchungsnummer:</strong><span>${bookingNumber}</span></div>` : ''}
         <div class="info-row">
-          <strong>Order Number(s):</strong>
+          <strong>Auftragsnummer(n):</strong>
           <span>${orderNumbers.join(', ')}</span>
         </div>
         <div class="info-row">
-          <strong>Email:</strong>
+          <strong>E-Mail:</strong>
           <span>${guestEmail}</span>
         </div>
-        ${totalAmount ? `<div class="info-row"><strong>Total Amount:</strong><span>€${totalAmount.toFixed(2)}</span></div>` : ''}
+        ${totalAmount ? `<div class="info-row"><strong>Gesamtbetrag:</strong><span>${formattedTotalAmount}</span></div>` : ''}
       </div>
 
-      <h3>Track Your Order</h3>
-      <p>You can track the status of your order at any time using the link below:</p>
+      <h3>Bestellung verfolgen</h3>
+      <p>Sie koennen den Status Ihrer Bestellung jederzeit ueber den folgenden Link verfolgen:</p>
       
       <div style="text-align: center;">
-        <a href="${trackingUrl}" class="button">Track Your Order</a>
+        <a href="${trackingUrl}" class="button">Bestellung verfolgen</a>
       </div>
 
       <p style="font-size: 12px; color: #666; margin-top: 20px;">
-        Or copy and paste this link into your browser:<br>
+        Alternativ koennen Sie diesen Link in Ihren Browser kopieren:<br>
         <a href="${trackingUrl}" style="color: #1a2a5e; word-break: break-all;">${trackingUrl}</a>
       </p>
 
       <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
-        <strong>Important:</strong> Please save this email for your records. You'll need the tracking link above to check your order status.
+        <strong>Wichtig:</strong> Bitte bewahren Sie diese E-Mail auf. Sie benoetigen den Tracking-Link, um den Bestellstatus einzusehen.
       </div>
 
-      <p>If you have any questions, please don't hesitate to contact our support team.</p>
+      <p>Wenn Sie Fragen haben, kontaktieren Sie bitte jederzeit unser Support-Team.</p>
 
-      <p>Best regards,<br>
-      The FixitHub Team</p>
+      <p>Freundliche Gruesse,<br>
+      Ihr FixitHub Team</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} FixitHub. All rights reserved.</p>
-      <p>This is an automated email. Please do not reply to this message.</p>
+      <p>&copy; ${new Date().getFullYear()} FixitHub. Alle Rechte vorbehalten.</p>
+      <p>Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese Nachricht.</p>
     </div>
   </div>
 </body>
@@ -676,33 +777,34 @@ class EmailService {
    */
   static buildGuestOrderConfirmationText(orderData, trackingUrl) {
     const { guestName, guestEmail, orderNumbers, totalAmount, bookingNumber } = orderData;
+    const formattedTotalAmount = this.formatCurrencyEUR(totalAmount);
 
     return `
-Order Confirmation
+Buchungsbestaetigung
 
-Dear ${guestName},
+Hallo ${guestName},
 
-Thank you for your order! We've received your request and will begin processing it shortly.
+vielen Dank fuer Ihre Bestellung. Wir haben Ihre Anfrage erhalten und beginnen in Kuerze mit der Bearbeitung.
 
-ORDER DETAILS
-${bookingNumber ? `Booking Number: ${bookingNumber}\n` : ''}Order Number(s): ${orderNumbers.join(', ')}
-Email: ${guestEmail}
-${totalAmount ? `Total Amount: €${totalAmount.toFixed(2)}\n` : ''}
+BESTELLDETAILS
+${bookingNumber ? `Buchungsnummer: ${bookingNumber}\n` : ''}Auftragsnummer(n): ${orderNumbers.join(', ')}
+E-Mail: ${guestEmail}
+${totalAmount ? `Gesamtbetrag: ${formattedTotalAmount}\n` : ''}
 
-TRACK YOUR ORDER
-You can track the status of your order at any time using this link:
+BESTELLUNG VERFOLGEN
+Sie koennen den Status Ihrer Bestellung jederzeit ueber diesen Link verfolgen:
 ${trackingUrl}
 
-Important: Please save this email for your records!
+Wichtig: Bitte bewahren Sie diese E-Mail auf!
 
-If you have any questions, please contact our support team.
+Wenn Sie Fragen haben, kontaktieren Sie bitte unser Support-Team.
 
-Best regards,
-The FixitHub Team
+Freundliche Gruesse,
+Ihr FixitHub Team
 
 ---
-© ${new Date().getFullYear()} FixitHub. All rights reserved.
-This is an automated email. Please do not reply to this message.
+© ${new Date().getFullYear()} FixitHub. Alle Rechte vorbehalten.
+Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese Nachricht.
     `;
   }
 
@@ -936,7 +1038,7 @@ This is an automated email. Please do not reply to this message.
     const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('order_created', toEmail, {
       companyName,
-      customerName: orderData.customerName || 'Valued Customer',
+      customerName: orderData.customerName || 'Geehrter Kunde',
       customerEmail: toEmail,
       orderNumber: orderData.orderNumber,
       deviceBrand: orderData.deviceBrand,
@@ -977,7 +1079,7 @@ This is an automated email. Please do not reply to this message.
     const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('order_status_updated', toEmail, {
       companyName,
-      customerName: orderData.customerName || 'Valued Customer',
+      customerName: orderData.customerName || 'Geehrter Kunde',
       orderNumber: orderData.orderNumber,
       orderStatus: orderData.orderStatus,
       statusMessage: orderData.statusMessage,
@@ -995,7 +1097,7 @@ This is an automated email. Please do not reply to this message.
     const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('device_received', toEmail, {
       companyName,
-      customerName: orderData.customerName || 'Valued Customer',
+      customerName: orderData.customerName || 'Geehrter Kunde',
       orderNumber: orderData.orderNumber,
       deviceBrand: orderData.deviceBrand,
       deviceModel: orderData.deviceModel,
@@ -1013,13 +1115,13 @@ This is an automated email. Please do not reply to this message.
     const defaultApprovalUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}/approve`);
     return this.sendTriggerEmail('quote_approval_requested', toEmail, {
       companyName,
-      customerName: orderData.customerName || 'Valued Customer',
+      customerName: orderData.customerName || 'Geehrter Kunde',
       orderNumber: orderData.orderNumber,
       deviceBrand: orderData.deviceBrand,
       deviceModel: orderData.deviceModel,
       serviceName: orderData.serviceName,
-      quoteAmount: `€${(orderData.quoteAmount || 0).toFixed(2)}`,
-      approvalDeadline: orderData.approvalDeadline || 'within 5 business days',
+      quoteAmount: this.formatCurrencyEUR(orderData.quoteAmount || 0),
+      approvalDeadline: orderData.approvalDeadline || 'innerhalb von 5 Werktagen',
       approvalUrl: orderData.approvalUrl || defaultApprovalUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
@@ -1033,12 +1135,12 @@ This is an automated email. Please do not reply to this message.
     const defaultTrackingUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
     return this.sendTriggerEmail('order_completed', toEmail, {
       companyName,
-      customerName: orderData.customerName || 'Valued Customer',
+      customerName: orderData.customerName || 'Geehrter Kunde',
       orderNumber: orderData.orderNumber,
       deviceBrand: orderData.deviceBrand,
       deviceModel: orderData.deviceModel,
-      returnShipmentStatus: orderData.returnShipmentStatus || 'dispatched',
-      returnTrackingNumber: orderData.returnTrackingNumber || 'Tracking info will be updated soon',
+      returnShipmentStatus: orderData.returnShipmentStatus || 'versendet',
+      returnTrackingNumber: orderData.returnTrackingNumber || 'Sendungsdaten werden in Kuerze aktualisiert',
       trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
@@ -1054,10 +1156,10 @@ This is an automated email. Please do not reply to this message.
       : await this.buildSystemUrl('/invoices');
     return this.sendTriggerEmail('payment_confirmed', toEmail, {
       companyName,
-      customerName: paymentData.customerName || 'Valued Customer',
+      customerName: paymentData.customerName || 'Geehrter Kunde',
       orderNumber: paymentData.orderNumber,
-      amountPaid: `€${(paymentData.amountPaid || 0).toFixed(2)}`,
-      paymentMethod: paymentData.paymentMethod || 'Card',
+      amountPaid: this.formatCurrencyEUR(paymentData.amountPaid || 0),
+      paymentMethod: paymentData.paymentMethod || 'Karte',
       paidAt: new Date(paymentData.paidAt || Date.now()).toLocaleDateString('de-DE', { 
         year: 'numeric', 
         month: '2-digit', 

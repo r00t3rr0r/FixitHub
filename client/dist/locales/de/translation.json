@@ -16,7 +16,7 @@
     "unsubscribing": "Melde ab...",
     "unsubscribeSuccess": "Abmeldung erfolgreich",
     "unsubscribeSuccessDesc": "Sie wurden vom Newsletter abgemeldet."
-    }
+  },
   "common": {
     "welcome": "Willkommen",
     "loading": "Lädt",
@@ -30,6 +30,7 @@
     "update": "Aktualisieren",
     "search": "Suchen",
     "filter": "Filtern",
+    "filters": "Filter",
     "reset": "Zurücksetzen",
     "close": "Schließen",
     "back": "Zurück",
@@ -49,6 +50,11 @@
     "refresh": "Aktualisieren",
     "actions": "Aktionen",
     "status": "Status",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "all": "Alle",
+    "page": "Seite",
+    "of": "von",
     "hide": "Ausblenden",
     "selectStatus": "Status auswählen",
     "select": "Auswählen",
@@ -805,7 +811,106 @@
     "sitemapGeneratedSuccess": "Sitemap erfolgreich generiert",
     "failedToGenerateSitemap": "Fehler beim Generieren der Sitemap",
     "openGraphSettings": "Open Graph-Einstellungen",
-    "twitterCardSettings": "Twitter Card-Einstellungen"
+    "twitterCardSettings": "Twitter Card-Einstellungen",
+    "addSettings": "Neue SEO-Einstellungen erstellen",
+    "editSettings": "SEO-Einstellungen bearbeiten",
+    "addDescription": "Erstellen Sie neue SEO-Einstellungen für eine Seite, um Ihre Sichtbarkeit in Suchmaschinen zu verbessern.",
+    "editDescription": "Bearbeiten Sie die SEO-Einstellungen für diese Seite, um Ihre Sichtbarkeit in Suchmaschinen zu optimieren.",
+    "totalPages": "Seiten insgesamt",
+    "totalPagesDesc": "SEO-Einstellungen gesamt",
+    "indexablePages": "Indexierbare Seiten",
+    "allowedByRobots": "Von Robots erlaubt",
+    "nonIndexablePages": "Nicht indexierbare Seiten",
+    "blockedByRobots": "Von Robots blockiert",
+    "pageTypes": "Seitentypen",
+    "differentTypes": "Verschiedene Typen",
+    "sitemapData": "Sitemap-Daten",
+    "sitemapDescription": "Übersicht über alle Seiten in der Sitemap",
+    "allSettings": "Alle Einstellungen",
+    "manageAllSeoSettings": "Verwalten Sie alle SEO-Einstellungen für Ihre Website",
+    "noSettings": "Keine SEO-Einstellungen gefunden",
+    "noSitemapData": "Keine Sitemap-Daten verfügbar",
+    "pageType": "Seitentyp",
+    "pageTypeHelp": "Wählen Sie den Typ der Seite aus. 'Global' gilt für die gesamte Website.",
+    "pageId": "Seiten-ID",
+    "pageIdHelp": "Optionale eindeutige ID der Seite. Leer lassen für globale oder typweite Einstellungen.",
+    "pageIdPlaceholder": "z.B. about-us, contact, blog-post-123",
+    "robots": "Robots",
+    "basicSettings": "Grundeinstellungen",
+    "basicSettingsHelp": "Diese Einstellungen sind die Basis für Ihre Suchmaschinenoptimierung.",
+    "titlePlaceholder": "z.B. FixitHub - Professionelle Handy & Tablet Reparatur",
+    "titleHelp": "Der Titel erscheint in Suchergebnissen und Browser-Tabs. Optimal sind 50-60 Zeichen.",
+    "descriptionPlaceholder": "Eine kurze, prägnante Beschreibung die zum Klicken einlädt",
+    "descriptionHelp": "Diese Beschreibung erscheint unter dem Titel in Suchergebnissen. Optimal sind 150-160 Zeichen.",
+    "keywordsPlaceholder": "Handy Reparatur, Display Reparatur, iPhone Reparatur",
+    "keywordsHelp": "Relevante Suchbegriffe durch Komma getrennt. Konzentrieren Sie sich auf 3-5 Hauptbegriffe.",
+    "canonicalUrl": "Canonical URL",
+    "canonicalUrlHelp": "Die bevorzugte URL für diese Seite. Verhindert doppelte Inhalte bei mehreren URLs.",
+    "canonicalUrlPlaceholder": "https://fixithub.de/reparatur/display",
+    "openGraph": "Open Graph (Social Media)",
+    "openGraphHelp": "Diese Einstellungen steuern, wie Ihre Seite auf Facebook, LinkedIn und anderen Plattformen geteilt wird.",
+    "ogTitle": "Social Media Titel",
+    "ogTitlePlaceholder": "Leer lassen um den Seitentitel zu verwenden",
+    "ogDescription": "Social Media Beschreibung",
+    "ogDescriptionPlaceholder": "Leer lassen um die Meta-Beschreibung zu verwenden",
+    "ogImage": "Social Media Vorschaubild",
+    "ogImageHelp": "Empfohlene Größe: 1200×630 Pixel. Format: JPG oder PNG.",
+    "ogImagePlaceholder": "https://fixithub.de/images/og-image.jpg",
+    "twitterCard": "Twitter (X) Karte",
+    "twitterCardHelp": "Steuert die Darstellung Ihrer Seite wenn sie auf Twitter/X geteilt wird.",
+    "twitterCardType": "Karten-Typ",
+    "twitterCardTypeHelp": "'Zusammenfassung mit großem Bild' wird für die meisten Inhalte empfohlen.",
+    "twitterTitle": "Twitter Titel",
+    "twitterTitlePlaceholder": "Leer lassen um den Seitentitel zu verwenden",
+    "twitterDescription": "Twitter Beschreibung",
+    "twitterDescriptionPlaceholder": "Leer lassen um die Meta-Beschreibung zu verwenden",
+    "twitterImage": "Twitter Vorschaubild",
+    "twitterImageHelp": "Empfohlene Größe: 1200×675 Pixel für große Bilder, 120×120 für kleine.",
+    "twitterImagePlaceholder": "https://fixithub.de/images/twitter-image.jpg",
+    "robotsAndSitemap": "Suchmaschinen & Sitemap",
+    "robotsHelp": "Steuert, wie Suchmaschinen mit dieser Seite umgehen.",
+    "allowIndex": "In Suchergebnissen anzeigen",
+    "allowIndexHelp": "Aktiviert: Seite kann in Suchergebnissen erscheinen. Deaktiviert: Seite wird nicht indexiert.",
+    "allowFollow": "Links folgen",
+    "allowFollowHelp": "Aktiviert: Suchmaschinen folgen Links auf dieser Seite.",
+    "noArchive": "Keine Archivierung",
+    "noArchiveHelp": "Verhindert, dass Suchmaschinen eine gecachte Version speichern.",
+    "noSnippet": "Kein Text-Auszug",
+    "noSnippetHelp": "Verhindert die Anzeige von Text-Auszügen in Suchergebnissen.",
+    "priority": "Sitemap-Priorität",
+    "priorityHelp": "Relative Wichtigkeit (0.0 - 1.0). Höhere Werte = wichtigere Seiten.",
+    "changeFrequency": "Aktualisierungs-Frequenz",
+    "changeFreqHelp": "Wie oft wird diese Seite voraussichtlich aktualisiert?",
+    "url": "URL",
+    "lastModified": "Zuletzt geändert",
+    "global": "Global",
+    "homepage": "Startseite",
+    "blogPost": "Blog-Beitrag",
+    "product": "Produkt",
+    "service": "Service",
+    "page": "Seite",
+    "searchPlaceholder": "Suche nach Titel, Beschreibung oder Seitentyp...",
+    "settingsSaved": "SEO-Einstellungen erfolgreich gespeichert",
+    "settingsDeleted": "SEO-Einstellungen erfolgreich gelöscht",
+    "confirmDelete": "Sind Sie sicher, dass Sie diese SEO-Einstellungen löschen möchten?",
+    "errorLoadingData": "Fehler beim Laden der SEO-Daten",
+    "errorSaving": "Fehler beim Speichern der SEO-Einstellungen",
+    "errorDeleting": "Fehler beim Löschen der SEO-Einstellungen",
+    "changeFreq": {
+      "always": "Immer",
+      "hourly": "Stündlich",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "never": "Nie"
+    },
+    "twitterCardTypes": {
+      "summary": "Zusammenfassung",
+      "summaryLargeImage": "Zusammenfassung mit großem Bild",
+      "app": "App",
+      "player": "Player"
+    }
   },
   "financialManagement": {
     "title": "Finanzverwaltung",
@@ -1251,6 +1356,21 @@
       "sensors": "Sensoren",
       "specialFeatures": "Spezielle Funktionen"
     },
+    "configurator": {
+      "searchModel": "Modell suchen",
+      "modelSearchPlaceholder": "z.B. iPhone 15 Pro...",
+      "browseOrSearch": "Durchsuchen oder tippen zum Suchen",
+      "typeToSearch": "Tippen zum Suchen",
+      "serviceInfoLabel": "Informationen zu {{name}}",
+      "serviceInfo": {
+        "priceFrom": "Preis ab",
+        "estimatedTime": "Bearbeitungszeit",
+        "select": "Diesen Service wählen",
+        "deselect": "Service abwählen",
+        "close": "Schließen",
+        "clickForMore": "Klicken für Details"
+      }
+    },
     "nav": {
       "smartphone": "Smartphone",
       "tablet": "Tablet",
@@ -1476,6 +1596,24 @@
     "checkoutFailed": "Fehler beim Initialisieren der Kasse",
     "proceedingToPayment": "Weiter zur Zahlung...",
     "proceedingToPaymentDesc": "Ihre Bestellinformationen wurden vorbereitet. Weiterleitung zur Zahlung..."
+  },
+  "orderSuccess": {
+    "title": "Bestellung erfolgreich!",
+    "subtitle": "Vielen Dank für deine Bestellung bei McRepair.de",
+    "thankYouMessage": "Deine Bestellung wurde erfolgreich aufgegeben und verarbeitet. Ein Bestätigungslink wurde an deine E-Mail-Adresse gesendet.",
+    "trackingMessage": "Du kannst den Status deiner Bestellung jederzeit unter \"Meine Bestellungen\" verfolgen.",
+    "orderDetails": "Bestelldetails",
+    "bookingNumber": "Buchungsnummer",
+    "orderNumbers": "Bestellnummern",
+    "total": "Gesamtbetrag",
+    "nextSteps": "Nächste Schritte",
+    "step1": "Bestätigungsmail erhalten",
+    "step2": "Bestellung in Bearbeitung",
+    "step3": "Versand mit Tracking-Link",
+    "backToHome": "Zur Homepage",
+    "continueShopping": "Weiter einkaufen",
+    "needHelp": "Benötigst du Hilfe?",
+    "contactUs": "Kontaktiere uns"
   },
   "shop": {
     "title": "Produkte Durchsuchen",
@@ -2062,5 +2200,110 @@
       "description": "Bei der hinzubuchbaren McRepair Express-Reparatur garantieren wir, dass Ihr Handy 100% am gleichen Tag (Geräte-Eingang) noch repariert und wieder verschickt wird! (Kein Express Versand)"
     },
     "shippingCostNote": "Die Versandkostenermittlung steht Ihnen nur zur Verfügung, wenn Sie etwas im Warenkorb haben."
+  },
+  "aboutPage": {
+    "header": {
+      "title": "Über McRepair.de",
+      "intro": "McRepair ist einer der führenden Dienstleister für die professionelle Reparatur von Smartphones, Tablets und Notebooks. Unsere Zentralwerkstatt mit Sitz in Berlin arbeitet bundesweit mit über 350 Annahmestellen zusammen und hilft Ihnen mit absolut zuverlässigen und professionellen Fachkräften Ihr kaputtes Gerät wieder instand zu setzen."
+    },
+    "steps": {
+      "title": "So einfach geht's",
+      "step1Title": "Gerät und Reparatur auswählen",
+      "step1Desc": "Wählen Sie Ihr Gerät und die benötigte Reparatur aus unserem umfangreichen Angebot",
+      "step2Title": "Gerät einsenden oder vorbeibringen",
+      "step2Desc": "Nutzen Sie unseren kostenlosen Versandservice oder eine unserer 350 Annahmestellen",
+      "step3Title": "Wir reparieren es schnell und zuverlässig",
+      "step3Desc": "Unsere erfahrenen Techniker reparieren Ihr Gerät in nur 1-3 Werktagen",
+      "step4Title": "Sie erhalten Ihr Gerät repariert zurück",
+      "step4Desc": "Ihr Gerät wird sicher zu Ihnen zurückgeschickt oder kann abgeholt werden"
+    },
+    "whatWeDo": {
+      "title": "Was macht McRepair?",
+      "subtitle": "Ganz einfach: Wir reparieren Ihr Smartphone, Tablet oder Notebook",
+      "text": "Ist Ihr Smartphone defekt oder Ihr Tablet beschädigt, befindet es sich bei unseren hochqualifizierten Technikern in besten Händen. Wir sind deutschlandweit einer der größten Reparaturwerkstätten für Smartphones, Tablet und Notebooks und können auf langjährige Erfahrung verweisen. Wir übernehmen Diagnose und Reparatur – selbstverständlich mit Datenerhalt. Unabhängig davon, ob Ihr Apple iPhone heruntergefallen ist oder Ihr Samsung Galaxy Ladeprobleme aufweist – häufig handelt es sich lediglich um kleine Fehler oder Schäden, die unsere Fachkräfte schnell und kostengünstig beheben können."
+    },
+    "whyUs": {
+      "title": "Was uns auszeichnet",
+      "highlightTitle": "Über 350 Annahmestellen bundesweit und einer zentralen Hauptwerkstatt mit langjährig-erfahrenen Technikern.",
+      "highlightText": "Für kurze Reaktionszeiten haben wir qualitativ hochwertige Ersatzteile für alle namhaften Hersteller wie Apple oder Samsung stets in großer Stückzahl vorrätig. Dank bundesweit über 350 Annahmestellen können Sie unseren komfortablen und sicheren Service auch in Ihrer Nähe in Anspruch nehmen. Wir bauen unser Netzwerk beständig aus. Sollten Sie keinen Partner in Ihrer Region finden, freuen wir uns immer über neue Empfehlungen. Der Hin- und Rückversand Ihres mobilen Endgeräts mit unserem Partner DHL ist natürlich kostenlos."
+    },
+    "gallery": {
+      "title": "Galerie",
+      "altWorkshop": "McRepair Werkstatt",
+      "altLaptop": "McRepair Laptop Reparatur",
+      "altLaptop2": "McRepair Laptop Reparatur 2",
+      "altPhone3": "McRepair Smartphone Reparatur 3",
+      "altPhone2": "McRepair Smartphone Reparatur 2",
+      "altPhone": "McRepair Smartphone Reparatur",
+      "altBattery": "McRepair Akkutausch",
+      "altBattery2": "McRepair Akkutausch 2"
+    },
+    "locations": {
+      "title": "Unsere Annahmestellen",
+      "subtitle": "Annahmestellen in ganz Deutschland",
+      "text1": "Nutzen Sie eine unserer 350 Annahmestellen in ganz Deutschland, um Ihr Gerät ganz bequem in unsere Obhut zu geben.",
+      "text2": "Dank kurzer Durchlaufzeiten von nur ein bis drei Werktagen müssen Sie bei uns nicht länger als absolut nötig auf Ihr Smartphone oder Tablet verzichten. Stellen Sie unser konsequentes Qualitätsbewusstsein auf die Probe – wir werden Ihre Erwartungen übertreffen und machen Sie schnell für Ihr privates und berufliches Umfeld wieder uneingeschränkt erreichbar.",
+      "text3Bold": "Wo Sie sich die nächste Annahmestelle befindet?",
+      "text3Rest": " Schauen Sie einfach auf unserer Umgebungssuche nach.",
+      "mapAlt": "Deutschland Annahmestellen Karte"
+    },
+    "manufacturers": {
+      "title": "Hersteller",
+      "intro": "Wir führen Reparaturen aller namhaften Hersteller von Smartphones, Tablets und Notebooks aus. Falls Sie Ihren gewünschten Hersteller bei uns nicht gefunden haben, dann können Sie gerne eine individuelle Preisanfrage für die Reparatur Ihres Gerätes unter Kontakt anfragen.",
+      "sonyRepair": "Sony Reparatur",
+      "googleRepair": "Google Reparatur",
+      "appleRepair": "Apple Reparatur",
+      "asusRepair": "Asus Reparatur",
+      "lgRepair": "LG Reparatur",
+      "oneplusRepair": "OnePlus Reparatur",
+      "motorolaRepair": "Motorola Reparatur",
+      "htcRepair": "HTC Reparatur"
+    }
+  },
+  "imprint": {
+    "title": "Impressum",
+    "legalProvider": {
+      "heading": "Gesetzliche Anbieterkennung",
+      "companyName": "Online Point GmbH",
+      "representative": "diese vertreten durch den Geschäftsführer Julian Szymansky",
+      "address": "Kurfürstenstr. 106",
+      "city": "10787 Berlin",
+      "country": "Deutschland"
+    },
+    "contact": {
+      "heading": "Kontakt",
+      "phoneService": "Telefon Service",
+      "phoneAdmin": "Telefon Verwaltung",
+      "email": "E-Mail",
+      "vatId": "Ust-ID."
+    },
+    "companyReg": {
+      "heading": "Handelsregister",
+      "intro": "eingetragen im Handelsregister des Amtsgerichtes Charlottenburg",
+      "regNumber": "Handelsregisternummer",
+      "regNumberValue": "HRB 136735 B",
+      "companySeat": "Sitz der Gesellschaft",
+      "companySeatValue": "Berlin",
+      "lucidNumber": "LUCID-Registrierungsnummer",
+      "lucidNumberValue": "DE1709904514391"
+    },
+    "design": {
+      "heading": "Konzeption, Design & Umsetzung"
+    },
+    "disputeResolution": {
+      "heading": "Alternative Streitbeilegung",
+      "text1before": "Alternative Streitbeilegung gemäß Art. 14 Abs. 1 ODR-VO und § 36 VSBG: Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit, die Sie unter ",
+      "text1after": " finden.",
+      "text2": "Zur Teilnahme an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle sind wir nicht verpflichtet und nicht bereit."
+    },
+    "trademarks": {
+      "heading": "Markenhinweise",
+      "iphone": "Die Marken iPhone, iPad sind eingetragene Warenzeichen von Apple Inc., Cupertino Calif., US.",
+      "htc": "Die Marke HTC ist ein eingetragenes Warenzeichen von High Tech Computer Corporation, Taoyuan, TW.",
+      "lg": "Die Marke LG ist ein eingetragenes Warenzeichen von LG Corp., Seoul/Soul, KR.",
+      "nokia": "Die Marke Nokia ist ein eingetragenes Warenzeichen von Nokia Corporation, Helsinki, FI.",
+      "samsung": "Die Marke Samsung ist ein eingetragenes Warenzeichen von Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
+      "sonyEricsson": "Die Marke Sony Ericsson ist ein eingetragenes Warenzeichen von Sony Ericsson Mobile Communications AB, London, UK."
+    }
   }
 }

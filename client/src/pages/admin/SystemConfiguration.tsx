@@ -1333,6 +1333,24 @@ export function SystemConfiguration() {
                           {integration.type === 'shipping' && integration.provider === 'DHL' && (
                             <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
                               <div>
+                                <p className="text-sm font-medium">Aktive DHL APIs</p>
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  <Badge variant={(integration.settings?.dhlApis?.parcelDeShipping ?? true) ? 'default' : 'secondary'}>
+                                    Shipping
+                                  </Badge>
+                                  <Badge variant={(integration.settings?.dhlApis?.parcelDeTracking ?? true) ? 'default' : 'secondary'}>
+                                    Tracking
+                                  </Badge>
+                                  <Badge variant={(integration.settings?.dhlApis?.parcelDeReturns ?? false) ? 'default' : 'secondary'}>
+                                    Returns
+                                  </Badge>
+                                  <Badge variant={(integration.settings?.dhlApis?.parcelDePickup ?? false) ? 'default' : 'secondary'}>
+                                    Pickup
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              <div>
                                 <p className="text-sm font-medium">Booking Label Mode</p>
                                 <p className="text-xs text-muted-foreground">
                                   Choose whether booking creation prepares a dummy PDF label or calls the live DHL API.

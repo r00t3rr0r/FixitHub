@@ -24,6 +24,46 @@ export interface ShipmentData {
   receiverNumber?: string;
   shippingCost?: number;
   isCustomsDeclarable?: boolean;
+  parcelDePickupPayload?: Record<string, unknown>;
+}
+
+export interface PickupSearchQuery {
+  postalCode?: string;
+  city?: string;
+  street?: string;
+  houseNumber?: string;
+  countryCode?: string;
+  radius?: number;
+  limit?: number;
+  locationType?: 'branch' | 'locker' | 'retail' | string;
+  branchCode?: string;
+  retailID?: string;
+  preferNearest?: boolean;
+}
+
+export interface PickupLocation {
+  id: string;
+  name: string;
+  type: string;
+  distance: number;
+  branchCode?: string;
+  retailID?: string;
+  address: {
+    street: string;
+    houseNumber: string;
+    postalCode: string;
+    city: string;
+    countryCode: string;
+  };
+  raw?: Record<string, unknown>;
+}
+
+export interface PickupLocationsResult {
+  success: boolean;
+  count: number;
+  locations: PickupLocation[];
+  query?: Record<string, unknown>;
+  endpoint?: string;
 }
 
 export interface TrackingEvent {
@@ -96,6 +136,23 @@ export const updateOrderTracking = async (orderId: string) => {
     return response.data;
   } catch (error: any) {
     console.error('Update tracking error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Lookup DHL pickup locations for an order shipping flow
+// Endpoint: POST /api/orders/:id/shipping/pickup-locations
+// Request: PickupSearchQuery
+// Response: PickupLocationsResult
+export const lookupPickupLocations = async (
+  orderId: string,
+  query: PickupSearchQuery
+): Promise<PickupLocationsResult> => {
+  try {
+    const response = await api.post(`/api/orders/${orderId}/shipping/pickup-locations`, query);
+    return response.data;
+  } catch (error: any) {
+    console.error('Lookup pickup locations error:', error);
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

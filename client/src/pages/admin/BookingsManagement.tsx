@@ -36,6 +36,7 @@ import {
   getUnreadMessageCounts
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
+import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import {
   Search,
@@ -264,6 +265,7 @@ export function BookingsManagement() {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
+  const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -1197,6 +1199,13 @@ export function BookingsManagement() {
                               <MessageSquare className="h-4 w-4 mr-2" />
                               Reklamation erfassen
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowCreateShippingLabelDialog(true)
+                            }}>
+                              <Truck className="h-4 w-4 mr-2" />
+                              Versandlabel erstellen
+                            </DropdownMenuItem>
                             {(booking.orderIds?.length || 0) > 0 && (
                               <DropdownMenuItem onClick={() => {
                                 window.location.href = `/admin/orders?bookingId=${booking._id}`
@@ -1627,6 +1636,35 @@ export function BookingsManagement() {
             })
             setShowComplaintDialog(false)
             setSelectedBooking(null)
+          }}
+        />
+      )}
+
+      {/* Create Shipping Label Dialog */}
+      {selectedBooking && (
+        <CreateBookingShippingLabelDialog
+          bookingId={selectedBooking._id}
+          open={showCreateShippingLabelDialog}
+          onOpenChange={(open) => {
+            setShowCreateShippingLabelDialog(open)
+            if (!open) {
+              setSelectedBooking(null)
+            }
+          }}
+          onSuccess={() => {
+            toast({
+              title: "Erfolg",
+              description: "Versandlabel erfolgreich erstellt"
+            })
+            setShowCreateShippingLabelDialog(false)
+            // Refresh booking details
+            if (selectedBooking) {
+              getBooking(selectedBooking._id).then(response => {
+                setSelectedBooking(response.booking)
+              }).catch(error => {
+                console.error('Error refreshing booking:', error)
+              })
+            }
           }}
         />
       )}

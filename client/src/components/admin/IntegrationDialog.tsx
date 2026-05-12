@@ -41,10 +41,20 @@ export function IntegrationDialog({
     shipperCountry: 'DE',
     shipperEmail: '',
     shipperPhone: '',
+    pickup: {
+      locationType: 'branch',
+      branchCode: '',
+      retailID: '',
+      preferNearest: true,
+      maxResults: 10,
+      countryCode: 'DE',
+      probePath: '/parcel/de/shipping/v2/pickup',
+    },
     dhlApis: {
       parcelDeShipping: true,
       parcelDeTracking: true,
-      parcelDeReturns: false
+      parcelDeReturns: false,
+      parcelDePickup: false,
     }
   }
 
@@ -111,6 +121,14 @@ export function IntegrationDialog({
         settings: {
           ...defaultDhlSettings,
           ...(integration.settings || {}),
+          pickup: {
+            ...defaultDhlSettings.pickup,
+            ...(integration.settings?.pickup || {}),
+          },
+          dhlApis: {
+            ...defaultDhlSettings.dhlApis,
+            ...(integration.settings?.dhlApis || {}),
+          },
           bookingLabelMode: integration.settings?.bookingLabelMode || 'dummy',
           accountNumber: integration.settings?.accountNumber || ''
         },
@@ -371,7 +389,8 @@ export function IntegrationDialog({
                           dhlApis: {
                             parcelDeShipping: checked,
                             parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
-                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false)
+                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
+                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false)
                           }
                         }
                       }))}
@@ -392,7 +411,8 @@ export function IntegrationDialog({
                           dhlApis: {
                             parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
                             parcelDeTracking: checked,
-                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false)
+                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
+                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false)
                           }
                         }
                       }))}
@@ -413,13 +433,196 @@ export function IntegrationDialog({
                           dhlApis: {
                             parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
                             parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
-                            parcelDeReturns: checked
+                            parcelDeReturns: checked,
+                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false)
+                          }
+                        }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm">Parcel DE Pickup</p>
+                      <p className="text-xs text-muted-foreground">Pickup-Standorte und Abholoptionen via Pickup API</p>
+                    </div>
+                    <Switch
+                      checked={Boolean(formData.settings?.dhlApis?.parcelDePickup ?? false)}
+                      onCheckedChange={(checked) => setFormData(prev => ({
+                        ...prev,
+                        settings: {
+                          ...(prev.settings || {}),
+                          dhlApis: {
+                            parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
+                            parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
+                            parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
+                            parcelDePickup: checked
                           }
                         }
                       }))}
                     />
                   </div>
                 </div>
+
+                {Boolean(formData.settings?.dhlApis?.parcelDePickup ?? false) && (
+                  <div className="rounded-md border bg-white p-3 space-y-3">
+                    <p className="text-sm font-medium">DHL Parcel DE Pickup Settings</p>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="dhlPickupLocationType" className="text-sm">Location Type</Label>
+                        <Select
+                          value={String(formData.settings?.pickup?.locationType || 'branch')}
+                          onValueChange={(value: 'branch' | 'locker' | 'retail') => setFormData(prev => ({
+                            ...prev,
+                            settings: {
+                              ...(prev.settings || {}),
+                              pickup: {
+                                ...(prev.settings?.pickup || {}),
+                                locationType: value
+                              }
+                            }
+                          }))}
+                        >
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="branch">Branch</SelectItem>
+                            <SelectItem value="locker">Locker</SelectItem>
+                            <SelectItem value="retail">Retail</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="dhlPickupCountryCode" className="text-sm">Country Code (ISO2)</Label>
+                        <Input
+                          id="dhlPickupCountryCode"
+                          value={String(formData.settings?.pickup?.countryCode || 'DE')}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            settings: {
+                              ...(prev.settings || {}),
+                              pickup: {
+                                ...(prev.settings?.pickup || {}),
+                                countryCode: e.target.value.toUpperCase()
+                              }
+                            }
+                          }))}
+                          placeholder="DE"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="dhlPickupBranchCode" className="text-sm">Branch Code (optional)</Label>
+                        <Input
+                          id="dhlPickupBranchCode"
+                          value={String(formData.settings?.pickup?.branchCode || '')}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            settings: {
+                              ...(prev.settings || {}),
+                              pickup: {
+                                ...(prev.settings?.pickup || {}),
+                                branchCode: e.target.value
+                              }
+                            }
+                          }))}
+                          placeholder="z. B. 123456789"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="dhlPickupRetailId" className="text-sm">Retail ID (optional)</Label>
+                        <Input
+                          id="dhlPickupRetailId"
+                          value={String(formData.settings?.pickup?.retailID || '')}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            settings: {
+                              ...(prev.settings || {}),
+                              pickup: {
+                                ...(prev.settings?.pickup || {}),
+                                retailID: e.target.value
+                              }
+                            }
+                          }))}
+                          placeholder="Retail ID"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="dhlPickupMaxResults" className="text-sm">Max Results</Label>
+                        <Input
+                          id="dhlPickupMaxResults"
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={String(formData.settings?.pickup?.maxResults || 10)}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            settings: {
+                              ...(prev.settings || {}),
+                              pickup: {
+                                ...(prev.settings?.pickup || {}),
+                                maxResults: Math.max(1, Math.min(100, Number(e.target.value || 10)))
+                              }
+                            }
+                          }))}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="dhlPickupProbePath" className="text-sm">Pickup Probe Path</Label>
+                        <Input
+                          id="dhlPickupProbePath"
+                          value={String(formData.settings?.pickup?.probePath || '/parcel/de/shipping/v2/pickup')}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            settings: {
+                              ...(prev.settings || {}),
+                              pickup: {
+                                ...(prev.settings?.pickup || {}),
+                                probePath: e.target.value
+                              }
+                            }
+                          }))}
+                          placeholder="/parcel/de/shipping/v2/pickup"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm">Prefer Nearest Pickup Point</p>
+                        <p className="text-xs text-muted-foreground">Bevorzugt den naechstgelegenen Standort, falls mehrere verfuegbar sind</p>
+                      </div>
+                      <Switch
+                        checked={Boolean(formData.settings?.pickup?.preferNearest ?? true)}
+                        onCheckedChange={(checked) => setFormData(prev => ({
+                          ...prev,
+                          settings: {
+                            ...(prev.settings || {}),
+                            pickup: {
+                              ...(prev.settings?.pickup || {}),
+                              preferNearest: checked
+                            }
+                          }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
