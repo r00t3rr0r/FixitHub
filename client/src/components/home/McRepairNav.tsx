@@ -58,6 +58,24 @@ interface DeviceBrandIconData {
   notebook: { [manufacturer: string]: string | undefined };
 }
 
+// Priority order for brand columns — well-known brands first, rest alphabetically after
+const BRAND_PRIORITY_ORDER = [
+  'apple', 'samsung', 'google', 'huawei', 'xiaomi', 'oneplus',
+  'sony', 'motorola', 'oppo', 'realme', 'honor',
+  'lenovo', 'asus', 'microsoft', 'dell', 'hp', 'acer', 'lg',
+];
+
+function sortManufacturers(entries: [string, DeviceMenuModel[]][]): [string, DeviceMenuModel[]][] {
+  return [...entries].sort(([a], [b]) => {
+    const ai = BRAND_PRIORITY_ORDER.indexOf(a.toLowerCase());
+    const bi = BRAND_PRIORITY_ORDER.indexOf(b.toLowerCase());
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
+
 export function McRepairNav() {
   const { t } = useTranslation();
   const { isAuthenticated, logout } = useAuth();
@@ -69,6 +87,7 @@ export function McRepairNav() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState<keyof DeviceMenuData | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const loginButtonRef = useRef<HTMLButtonElement>(null);
@@ -229,8 +248,23 @@ export function McRepairNav() {
     }
   }, [navMode]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const updateViewportState = () => {
+      setIsMobileViewport(mediaQuery.matches);
+    };
+
+    updateViewportState();
+    mediaQuery.addEventListener('change', updateViewportState);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateViewportState);
+    };
+  }, []);
+
   const isDropdownNav = navMode !== 'full';
   const isCompactNav = navMode === 'compact';
+  const isHomePage = location.pathname === '/';
 
   // Load device menu data from API
   useEffect(() => {
@@ -278,8 +312,15 @@ export function McRepairNav() {
                 );
                 const models = (modelsResponse as any).models || [];
 
+                // Sort models by year descending (newest first), then take top 3
+                const sortedModels = [...models].sort((a: DeviceModel, b: DeviceModel) => {
+                  const ya = parseInt(a.year || '0', 10);
+                  const yb = parseInt(b.year || '0', 10);
+                  return yb - ya;
+                });
+
                 // Only take first 3 models for the dropdown menu
-                const menuModels = models.slice(0, 3).map((m: DeviceModel) => ({
+                const menuModels = sortedModels.slice(0, 3).map((m: DeviceModel) => ({
                   name: m.name,
                   image: resolveModelImage(m)
                 }));
@@ -585,7 +626,7 @@ export function McRepairNav() {
   };
 
   const renderMobileDeviceDropdown = (category: keyof DeviceMenuData) => {
-    const manufacturers = Object.entries(deviceMenuData[category]);
+    const manufacturers = sortManufacturers(Object.entries(deviceMenuData[category]));
 
     if (loadingDevices) {
       return <div className="nav-mobile-dropdown-empty">{t('home.nav.loadingDevices')}</div>;
@@ -650,7 +691,7 @@ export function McRepairNav() {
   };
 
   const renderDeviceDropdown = (category: keyof DeviceMenuData) => {
-    const manufacturers = Object.entries(deviceMenuData[category]);
+    const manufacturers = sortManufacturers(Object.entries(deviceMenuData[category]));
 
     if (loadingDevices) {
       return (
@@ -841,6 +882,16 @@ export function McRepairNav() {
             </div>
           )}
 
+          {/* Shop - moved to first position */}
+          <a
+            href="#shop"
+            className={`nav-link nav-priority-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
+            onClick={closeMobileMenu}
+          >
+            <ShoppingBag width={16} height={16} />
+            {t('home.nav.shop', 'Shop')}
+          </a>
+
           {/* Smartphone */}
           <div 
             className="nav-item-with-dropdown nav-category-item nav-priority-link"
@@ -904,12 +955,6 @@ export function McRepairNav() {
             {mobileMenuOpen && mobileCategoryOpen === 'notebook' && renderMobileDeviceDropdown('notebook')}
           </div>
 
-          {/* Shop */}
-          <a href="#shop" className="nav-link nav-category-item nav-priority-link" onClick={closeMobileMenu}>
-            <ShoppingBag width={16} height={16} />
-            {t('home.nav.shop', 'Shop')}
-          </a>
-
           <Link to="/contact" className="nav-link nav-category-item nav-partial-hidden" onClick={() => closeMobileMenu()}>
             <Mail width={16} height={16} />
             {t('home.nav.contact', 'Kontakt')}
@@ -956,6 +1001,18 @@ export function McRepairNav() {
           >
             <Search width={18} height={18} />
           </button>
+
+          {/* Mobile/Tablet Top Shop Button — shown only when nav-links collapse into hamburger */}
+          {isCompactNav && (
+            <a
+              href="#shop"
+              aria-label={t('home.nav.shop', 'Shop')}
+              className={`nav-link nav-shop-link nav-shop-mobile-top ${isHomePage ? 'nav-shop-spotlight' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              <ShoppingBag width={18} height={18} />
+            </a>
+          )}
 
           {/* Language Selector */}
           <div className="language-selector-component">
