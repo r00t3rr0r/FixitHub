@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/useToast"
 import { Integration } from "@/api/systemConfig"
-import { Save } from "lucide-react"
+import { Save, Eye, EyeOff } from "lucide-react"
 
 interface IntegrationDialogProps {
   open: boolean
@@ -26,6 +26,8 @@ export function IntegrationDialog({
 }: IntegrationDialogProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [showApiSecret, setShowApiSecret] = useState(false)
   const dhlSandboxEndpoint = 'https://api-sandbox.dhl.com'
   const dhlProductionEndpoint = 'https://api.dhl.com'
   const defaultDhlSettings = {
@@ -346,26 +348,48 @@ export function IntegrationDialog({
 
           <div className="space-y-1">
             <Label htmlFor="apiKey" className="text-sm">{showsDhlBusinessCustomerFields ? 'API Key (client_id) *' : 'API Key *'}</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              value={formData.apiKey}
-              onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
-              placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_id' : 'Enter API key'}
-              className="h-9 text-sm"
-            />
+            <div className="relative">
+              <Input
+                id="apiKey"
+                type={showApiKey ? 'text' : 'password'}
+                value={formData.apiKey}
+                onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
+                placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_id' : 'Enter API key'}
+                className="h-9 text-sm pr-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+                aria-label={showApiKey ? 'API Key verbergen' : 'API Key anzeigen'}
+              >
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="apiSecret" className="text-sm">{showsDhlBusinessCustomerFields ? 'API Secret (client_secret) *' : 'API Secret'}</Label>
-            <Input
-              id="apiSecret"
-              type="password"
-              value={formData.apiSecret}
-              onChange={(e) => setFormData(prev => ({ ...prev, apiSecret: e.target.value }))}
-              placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_secret' : 'Enter API secret (if required)'}
-              className="h-9 text-sm"
-            />
+            <div className="relative">
+              <Input
+                id="apiSecret"
+                type={showApiSecret ? 'text' : 'password'}
+                value={formData.apiSecret}
+                onChange={(e) => setFormData(prev => ({ ...prev, apiSecret: e.target.value }))}
+                placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_secret' : 'Enter API secret (if required)'}
+                className="h-9 text-sm pr-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiSecret(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+                aria-label={showApiSecret ? 'API Secret verbergen' : 'API Secret anzeigen'}
+              >
+                {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           {showsDhlBusinessCustomerFields && (
