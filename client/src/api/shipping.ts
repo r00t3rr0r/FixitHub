@@ -136,7 +136,7 @@ export const searchDhlLocations = async (
   countryCode = 'DE',
   locationType?: string,
 ): Promise<DhlLocation[]> => {
-  const response = await api.get('/dhl/locations', {
+  const response = await api.get('/api/dhl/locations', {
     params: { query, countryCode, ...(locationType ? { locationType } : {}) },
   });
   if (response.status !== 200) {
