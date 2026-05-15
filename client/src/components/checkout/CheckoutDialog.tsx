@@ -25,6 +25,7 @@ import {
   type CheckoutPaypalConfig,
 } from "@/api/checkout"
 import { updateUserProfile } from "@/api/user"
+import { searchDhlLocations, type DhlLocation } from "@/api/shipping"
 import { useToast } from "@/hooks/useToast"
 import { useTranslation } from "react-i18next"
 import {
@@ -49,6 +50,13 @@ import {
   Check,
   Wrench,
   Tag,
+  Home,
+  PackageSearch,
+  Pencil,
+  Search,
+  MapPinned,
+  Clock,
+  X,
 } from "lucide-react"
 import { addToCart, addRepairOrderToCart, Cart } from "@/api/shop"
 import { getGuestCart, clearGuestCart } from "@/utils/guestCart"
@@ -188,6 +196,24 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const [billingAddressZipDraft, setBillingAddressZipDraft] = useState("")
   const [billingAddressCountryDraft, setBillingAddressCountryDraft] = useState("")
 
+  // Shipping address / Packstation state (authenticated checkout)
+  const [shippingDeliveryType, setShippingDeliveryType] = useState<"same" | "address" | "packstation">("same")
+  const [shippingEditorOpen, setShippingEditorOpen] = useState(false)
+  const [savingShippingAddress, setSavingShippingAddress] = useState(false)
+  const [shippingStreetDraft, setShippingStreetDraft] = useState("")
+  const [shippingCityDraft, setShippingCityDraft] = useState("")
+  const [shippingStateDraft, setShippingStateDraft] = useState("")
+  const [shippingZipDraft, setShippingZipDraft] = useState("")
+  const [shippingCountryDraft, setShippingCountryDraft] = useState(DEFAULT_COUNTRY_CODE)
+  const [shippingPackstationNumberDraft, setShippingPackstationNumberDraft] = useState("")
+  const [shippingPostNumberDraft, setShippingPostNumberDraft] = useState("")
+  // DHL Location Finder dialog
+  const [dhlFinderOpen, setDhlFinderOpen] = useState(false)
+  const [dhlFinderQuery, setDhlFinderQuery] = useState("")
+  const [dhlFinderLoading, setDhlFinderLoading] = useState(false)
+  const [dhlFinderResults, setDhlFinderResults] = useState<DhlLocation[]>([])
+  const [dhlFinderError, setDhlFinderError] = useState("")
+
   // Payment-method-specific field states
   const [cardholderName, setCardholderName] = useState("")
   const [cardNumber, setCardNumber] = useState("")
@@ -280,6 +306,16 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     setBillingAddressCityDraft("")
     setBillingAddressZipDraft("")
     setBillingAddressCountryDraft("")
+    setShippingDeliveryType("same")
+    setShippingEditorOpen(false)
+    setSavingShippingAddress(false)
+    setShippingStreetDraft("")
+    setShippingCityDraft("")
+    setShippingStateDraft("")
+    setShippingZipDraft("")
+    setShippingCountryDraft(DEFAULT_COUNTRY_CODE)
+    setShippingPackstationNumberDraft("")
+    setShippingPostNumberDraft("")
     setVerificationEmailSent(false)
     setVerificationEmailDialogOpen(false)
     setVerificationEmailAddress("")
@@ -349,6 +385,119 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     } finally {
       setSavingBillingAddress(false)
     }
+  }
+
+  const handleSaveShippingAddress = async () => {
+    try {
+      setSavingShippingAddress(true)
+
+      let paymentAddress: Record<string, any>
+
+      if (shippingDeliveryType === "same") {
+        paymentAddress = { sameAsInvoice: true, deliveryType: "address" }
+      } else if (shippingDeliveryType === "packstation") {
+        if (!shippingPackstationNumberDraft.trim() || !shippingZipDraft.trim() || !shippingCityDraft.trim() || !shippingPostNumberDraft.trim()) {
+          toast({
+            title: t("common.error"),
+            description: "Bitte Packstation-Nr., Postnummer, PLZ und Stadt ausfüllen.",
+            variant: "destructive",
+          })
+          return
+        }
+        paymentAddress = {
+          sameAsInvoice: false,
+          deliveryType: "packstation",
+          packstationNumber: shippingPackstationNumberDraft.trim(),
+          postNumber: shippingPostNumberDraft.trim(),
+          zipCode: shippingZipDraft.trim(),
+          city: shippingCityDraft.trim(),
+          country: shippingCountryDraft.trim() || "DE",
+          street: "",
+          state: "",
+        }
+      } else {
+        if (!shippingStreetDraft.trim() || !shippingZipDraft.trim() || !shippingCityDraft.trim()) {
+          toast({
+            title: t("common.error"),
+            description: "Bitte Straße, PLZ und Stadt ausfüllen.",
+            variant: "destructive",
+          })
+          return
+        }
+        paymentAddress = {
+          sameAsInvoice: false,
+          deliveryType: "address",
+          street: shippingStreetDraft.trim(),
+          city: shippingCityDraft.trim(),
+          state: shippingStateDraft.trim(),
+          zipCode: shippingZipDraft.trim(),
+          country: shippingCountryDraft.trim() || "DE",
+          packstationNumber: "",
+          postNumber: "",
+        }
+      }
+
+      await updateUserProfile({ paymentAddress })
+
+      setUserInfo((prev: any) => ({
+        ...(prev || {}),
+        shippingAddress: {
+          ...(prev?.shippingAddress || {}),
+          ...paymentAddress,
+        },
+      }))
+
+      setShippingEditorOpen(false)
+      toast({
+        title: t("common.success"),
+        description: "Lieferadresse wurde gespeichert.",
+      })
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error?.message || "Speichern der Lieferadresse fehlgeschlagen.",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingShippingAddress(false)
+    }
+  }
+
+  const handleDhlFinderSearch = async () => {
+    const q = dhlFinderQuery.trim()
+    if (q.length < 3) return
+    try {
+      setDhlFinderLoading(true)
+      setDhlFinderError("")
+      const results = await searchDhlLocations(q, shippingCountryDraft || "DE")
+      setDhlFinderResults(results)
+      if (results.length === 0) setDhlFinderError("Keine DHL-Standorte gefunden. Bitte eine andere Suche versuchen.")
+    } catch (err: any) {
+      setDhlFinderError(err?.message || "Fehler beim Laden der Standorte.")
+      setDhlFinderResults([])
+    } finally {
+      setDhlFinderLoading(false)
+    }
+  }
+
+  const handleDhlLocationSelect = (loc: DhlLocation) => {
+    const isLocker = loc.type === "locker"
+    if (isLocker) {
+      setShippingDeliveryType("packstation")
+      setShippingPackstationNumberDraft(loc.keywordId || "")
+      setShippingZipDraft(loc.address.postalCode || "")
+      setShippingCityDraft(loc.address.city || "")
+      setShippingCountryDraft(loc.address.countryCode || "DE")
+    } else {
+      setShippingDeliveryType("address")
+      setShippingStreetDraft(loc.address.street || "")
+      setShippingZipDraft(loc.address.postalCode || "")
+      setShippingCityDraft(loc.address.city || "")
+      setShippingCountryDraft(loc.address.countryCode || "DE")
+    }
+    setDhlFinderOpen(false)
+    setDhlFinderResults([])
+    setDhlFinderQuery("")
   }
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -504,6 +653,17 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       const checkoutUserInfo = (response as any).userInfo || null
       const billingAddress = checkoutUserInfo?.billingAddress || {}
       const missingBillingAddress = hasMissingBillingAddress(billingAddress)
+      const shippingAddr = checkoutUserInfo?.shippingAddress || {}
+
+      // Determine initial shipping delivery type from profile
+      const initDeliveryType: "same" | "address" | "packstation" =
+        shippingAddr.deliveryType === "packstation" && shippingAddr.packstationNumber
+          ? "packstation"
+          : shippingAddr.sameAsInvoice !== false && !shippingAddr.street
+          ? "same"
+          : shippingAddr.street
+          ? "address"
+          : "same"
 
       setMode("authenticated")
       setUserInfo(checkoutUserInfo)
@@ -513,6 +673,14 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       setBillingAddressCountryDraft(billingAddress?.country || checkoutUserInfo?.country || "DE")
       setBillingAddressNeedsAttention(missingBillingAddress)
       setBillingAddressEditorOpen(missingBillingAddress)
+      setShippingDeliveryType(initDeliveryType)
+      setShippingStreetDraft(shippingAddr.street || "")
+      setShippingCityDraft(shippingAddr.city || "")
+      setShippingStateDraft(shippingAddr.state || "")
+      setShippingZipDraft(shippingAddr.zipCode || "")
+      setShippingCountryDraft(shippingAddr.country || checkoutUserInfo?.country || DEFAULT_COUNTRY_CODE)
+      setShippingPackstationNumberDraft(shippingAddr.packstationNumber || "")
+      setShippingPostNumberDraft(shippingAddr.postNumber || "")
       setReviewCart((response as any).cart || cart)
       setStep("review")
     } catch (error: any) {
@@ -1414,6 +1582,173 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
               </Button>
             </div>
           )}
+
+          {/* ── Lieferadresse Section (authenticated only) ── */}
+          {authenticatedCheckout && (
+            <div className="mt-3 border-t border-[#e7eaf1] pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-xs font-bold text-[#1a2a5e]">
+                  <Truck className="h-3.5 w-3.5" />
+                  Lieferadresse
+                </p>
+                {!shippingEditorOpen && (
+                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-[#5f6d86] hover:text-[#1a2a5e]" onClick={() => setShippingEditorOpen(true)}>
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Bearbeiten
+                  </Button>
+                )}
+              </div>
+
+              {/* Current shipping summary (when editor closed) */}
+              {!shippingEditorOpen && (
+                <div className="rounded-lg bg-[#f6f8fc] px-3 py-2 text-xs text-[#5f6d86]">
+                  {shippingDeliveryType === "same" && (
+                    <p className="flex items-center gap-1.5">
+                      <Home className="h-3 w-3 shrink-0 text-[#1a2a5e]" />
+                      <span>Gleich wie Rechnungsadresse</span>
+                    </p>
+                  )}
+                  {shippingDeliveryType === "address" && (
+                    <div className="flex items-start gap-1.5">
+                      <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-[#1a2a5e]" />
+                      <div>
+                        <p>{shippingStreetDraft}</p>
+                        <p>{[shippingZipDraft, shippingCityDraft].filter(Boolean).join(" ")}{shippingStateDraft ? `, ${shippingStateDraft}` : ""}</p>
+                        {shippingCountryDraft && <p>{shippingCountryDraft}</p>}
+                      </div>
+                    </div>
+                  )}
+                  {shippingDeliveryType === "packstation" && (
+                    <div className="flex items-start gap-1.5">
+                      <PackageSearch className="mt-0.5 h-3 w-3 shrink-0 text-[#1a2a5e]" />
+                      <div>
+                        <p className="font-semibold text-[#1a2a5e]">DHL Packstation {shippingPackstationNumberDraft}</p>
+                        <p>{[shippingZipDraft, shippingCityDraft].filter(Boolean).join(" ")}</p>
+                        <p className="text-[10px]">Postnummer: {shippingPostNumberDraft}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Shipping editor */}
+              {shippingEditorOpen && (
+                <div className="space-y-3 rounded-lg border border-[#c9d9f5] bg-[#f4f8ff] p-3">
+                  {/* Delivery type selector */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-[#1a2a5e]">Versandart wählen</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        [
+                          { value: "same", label: "Wie Rechnung", Icon: Home },
+                          { value: "address", label: "Lieferadresse", Icon: MapPin },
+                          { value: "packstation", label: "Packstation", Icon: PackageSearch },
+                        ] as { value: "same" | "address" | "packstation"; label: string; Icon: React.ElementType }[]
+                      ).map(({ value, label, Icon }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setShippingDeliveryType(value)}
+                          className={`flex min-w-0 shrink items-center gap-1 rounded border px-2 py-1 text-[10px] font-medium leading-tight transition-colors ${
+                            shippingDeliveryType === value
+                              ? "border-[#1a2a5e] bg-[#1a2a5e] text-white"
+                              : "border-[#d8dce6] bg-white text-[#1a2a5e] hover:border-[#1a2a5e]"
+                          }`}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Address form */}
+                  {shippingDeliveryType === "address" && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="shipping-street-draft" className="text-xs font-semibold">Straße und Hausnummer *</Label>
+                          <Input id="shipping-street-draft" value={shippingStreetDraft} onChange={(e) => setShippingStreetDraft(e.target.value)} className="h-8 text-sm" placeholder="Musterstraße 12" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="shipping-city-draft" className="text-xs font-semibold">Stadt *</Label>
+                          <Input id="shipping-city-draft" value={shippingCityDraft} onChange={(e) => setShippingCityDraft(e.target.value)} className="h-8 text-sm" placeholder="Berlin" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="shipping-zip-draft" className="text-xs font-semibold">PLZ *</Label>
+                          <Input id="shipping-zip-draft" value={shippingZipDraft} onChange={(e) => setShippingZipDraft(e.target.value)} className="h-8 text-sm" placeholder="12345" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="shipping-state-draft" className="text-xs font-semibold">Bundesland</Label>
+                          <Input id="shipping-state-draft" value={shippingStateDraft} onChange={(e) => setShippingStateDraft(e.target.value)} className="h-8 text-sm" placeholder="Bayern" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="shipping-country-draft" className="text-xs font-semibold">Land</Label>
+                          <CountrySelect id="shipping-country-draft" value={shippingCountryDraft} onChange={setShippingCountryDraft} className="h-8 text-sm" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Packstation form */}
+                  {shippingDeliveryType === "packstation" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 rounded-lg border border-[#dbe8ff] bg-[#eef4ff] px-2.5 py-1.5 text-[10px] text-[#3b5298]">
+                          Die <span className="font-semibold">Packstation-Nr.</span> steht auf dem gelben Schild. Die <span className="font-semibold">Postnummer</span> ist Ihre persönliche DHL-Kundennummer (8-stellig).
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="ml-2 h-auto shrink-0 border-[#f5b800] px-2 py-1 text-[10px] font-semibold text-[#1a2a5e] hover:bg-[#fff9e6]"
+                          onClick={() => { setDhlFinderOpen(true); setDhlFinderResults([]); setDhlFinderError("") }}
+                        >
+                          <Search className="mr-1 h-3 w-3" />
+                          Standort suchen
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="packstation-number-draft" className="text-xs font-semibold">Packstation-Nr. *</Label>
+                          <Input id="packstation-number-draft" value={shippingPackstationNumberDraft} onChange={(e) => setShippingPackstationNumberDraft(e.target.value)} className="h-8 text-sm" placeholder="z.B. 123" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="post-number-draft" className="text-xs font-semibold">Postnummer (DHL) *</Label>
+                          <Input id="post-number-draft" value={shippingPostNumberDraft} onChange={(e) => setShippingPostNumberDraft(e.target.value)} className="h-8 text-sm" placeholder="12345678" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="packstation-zip-draft" className="text-xs font-semibold">PLZ der Packstation *</Label>
+                          <Input id="packstation-zip-draft" value={shippingZipDraft} onChange={(e) => setShippingZipDraft(e.target.value)} className="h-8 text-sm" placeholder="12345" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="packstation-city-draft" className="text-xs font-semibold">Stadt *</Label>
+                          <Input id="packstation-city-draft" value={shippingCityDraft} onChange={(e) => setShippingCityDraft(e.target.value)} className="h-8 text-sm" placeholder="Berlin" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="packstation-country-draft" className="text-xs font-semibold">Land</Label>
+                        <CountrySelect id="packstation-country-draft" value={shippingCountryDraft} onChange={setShippingCountryDraft} className="h-8 text-sm" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <Button type="button" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setShippingEditorOpen(false)} disabled={savingShippingAddress}>
+                      Abbrechen
+                    </Button>
+                    <Button type="button" className="h-8 bg-[#f5b800] px-2.5 text-xs font-bold text-[#1a2a5e] hover:bg-[#e5ab00]" onClick={handleSaveShippingAddress} disabled={savingShippingAddress}>
+                      {savingShippingAddress ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Speichert...</> : "Lieferadresse speichern"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     )
@@ -1421,6 +1756,103 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   return (
     <>
+      {/* ── DHL Location Finder Dialog ── */}
+      <Dialog open={dhlFinderOpen} onOpenChange={(v) => { setDhlFinderOpen(v); if (!v) { setDhlFinderResults([]); setDhlFinderError("") } }}>
+        <DialogContent className="max-h-[80vh] w-[96vw] max-w-md overflow-hidden rounded-xl border border-[#d8dce6] p-0 [&>button]:text-[#5f6d86]">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[#e7eaf1] bg-[#1a2a5e] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <PackageSearch className="h-4 w-4 text-[#f5b800]" />
+              <span className="text-sm font-bold text-white">DHL Standort suchen</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-white hover:bg-white/10"
+              onClick={() => setDhlFinderOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Search bar */}
+          <div className="border-b border-[#e7eaf1] px-4 py-3">
+            <div className="flex gap-2">
+              <Input
+                value={dhlFinderQuery}
+                onChange={(e) => setDhlFinderQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleDhlFinderSearch()}
+                placeholder="PLZ oder Ort eingeben …"
+                className="h-9 flex-1 text-sm"
+                autoFocus
+              />
+              <Button
+                type="button"
+                className="h-9 bg-[#f5b800] px-3 font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
+                onClick={handleDhlFinderSearch}
+                disabled={dhlFinderLoading || dhlFinderQuery.trim().length < 3}
+              >
+                {dhlFinderLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="mt-1.5 text-[10px] text-[#5f6d86]">Zeigt Packstations, Postfilialen und Paketshops in der Nähe.</p>
+          </div>
+
+          {/* Results */}
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 150px)" }}>
+            {dhlFinderError && (
+              <div className="px-4 py-6 text-center text-xs text-[#b91c1c]">{dhlFinderError}</div>
+            )}
+            {!dhlFinderError && dhlFinderResults.length === 0 && !dhlFinderLoading && (
+              <div className="px-4 py-8 text-center text-xs text-[#5f6d86]">
+                PLZ oder Ort eingeben und auf Suchen tippen.
+              </div>
+            )}
+            {dhlFinderResults.length > 0 && (
+              <ul className="divide-y divide-[#f0f2f7]">
+                {dhlFinderResults.map((loc) => {
+                  const isLocker = loc.type === "locker"
+                  return (
+                    <li key={loc.locationId}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f6f8fc] active:bg-[#eef1f8]"
+                        onClick={() => handleDhlLocationSelect(loc)}
+                      >
+                        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isLocker ? "bg-[#fff3b0]" : "bg-[#e8f0fe]"}`}>
+                          {isLocker
+                            ? <PackageSearch className="h-3.5 w-3.5 text-[#b45309]" />
+                            : <MapPinned className="h-3.5 w-3.5 text-[#1a2a5e]" />
+                          }
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="truncate text-xs font-semibold text-[#1a2a5e]">{loc.name}</p>
+                            <span className="shrink-0 text-[10px] text-[#5f6d86]">{loc.distance < 1000 ? `${loc.distance} m` : `${(loc.distance / 1000).toFixed(1)} km`}</span>
+                          </div>
+                          <p className="text-[11px] text-[#5f6d86]">{loc.address.street}</p>
+                          <p className="text-[11px] text-[#5f6d86]">{[loc.address.postalCode, loc.address.city].filter(Boolean).join(" ")}</p>
+                          {loc.openingHours.length > 0 && (
+                            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#6b7280]">
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              {loc.openingHours[0].opens}–{loc.openingHours[0].closes}
+                            </p>
+                          )}
+                          <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-medium ${isLocker ? "bg-[#fef3c7] text-[#92400e]" : "bg-[#dbeafe] text-[#1e40af]"}`}>
+                            {isLocker ? "Packstation" : loc.type === "postoffice" ? "Postfiliale" : "Paketshop"}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[92vh] max-w-[95vw] overflow-y-auto rounded-xl border border-[#d8dce6] p-0 sm:max-w-4xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
         {guestCheckoutResult ? (

@@ -28,6 +28,7 @@ export function IntegrationDialog({
   const [loading, setLoading] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
   const [showApiSecret, setShowApiSecret] = useState(false)
+  const [showLocationApiKey, setShowLocationApiKey] = useState(false)
   const dhlSandboxEndpoint = 'https://api-sandbox.dhl.com'
   const dhlProductionEndpoint = 'https://api.dhl.com'
   const defaultDhlSettings = {
@@ -57,6 +58,7 @@ export function IntegrationDialog({
       parcelDeTracking: true,
       parcelDeReturns: false,
       parcelDePickup: false,
+      locationFinder: false,
     }
   }
 
@@ -120,7 +122,8 @@ export function IntegrationDialog({
           trackingBaseUrl: integration.credentials?.trackingBaseUrl || 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung',
           trackingUsername: integration.credentials?.trackingUsername || '',
           trackingPassword: integration.credentials?.trackingPassword || '',
-          trackingAuthType: integration.credentials?.trackingAuthType || 'basic'
+          trackingAuthType: integration.credentials?.trackingAuthType || 'basic',
+          locationApiKey: integration.credentials?.locationApiKey || ''
         },
         metadata: {
           ...(integration.metadata || {}),
@@ -167,7 +170,8 @@ export function IntegrationDialog({
           trackingBaseUrl: 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung',
           trackingUsername: 'zt12345',
           trackingPassword: 'geheim',
-          trackingAuthType: 'basic'
+          trackingAuthType: 'basic',
+          locationApiKey: ''
         },
         metadata: {
           environment: 'sandbox',
@@ -223,7 +227,8 @@ export function IntegrationDialog({
           clientSecret: formData.apiSecret || '',
           username: formData.credentials?.username || '',
           password: formData.credentials?.password || '',
-          accountId: formData.settings?.accountNumber || ''
+          accountId: formData.settings?.accountNumber || '',
+          locationApiKey: formData.credentials?.locationApiKey || ''
         }
       }
 
@@ -435,7 +440,8 @@ export function IntegrationDialog({
                             parcelDeShipping: checked,
                             parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
                             parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
-                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false)
+                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false),
+                            locationFinder: Boolean(prev.settings?.dhlApis?.locationFinder ?? false)
                           }
                         }
                       }))}
@@ -457,7 +463,8 @@ export function IntegrationDialog({
                             parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
                             parcelDeTracking: checked,
                             parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
-                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false)
+                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false),
+                            locationFinder: Boolean(prev.settings?.dhlApis?.locationFinder ?? false)
                           }
                         }
                       }))}
@@ -479,7 +486,8 @@ export function IntegrationDialog({
                             parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
                             parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
                             parcelDeReturns: checked,
-                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false)
+                            parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false),
+                            locationFinder: Boolean(prev.settings?.dhlApis?.locationFinder ?? false)
                           }
                         }
                       }))}
@@ -501,7 +509,8 @@ export function IntegrationDialog({
                             parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
                             parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
                             parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
-                            parcelDePickup: checked
+                            parcelDePickup: checked,
+                            locationFinder: Boolean(prev.settings?.dhlApis?.locationFinder ?? false)
                           }
                         }
                       }))}
@@ -1074,6 +1083,71 @@ export function IntegrationDialog({
                 </div>
               </div>
             </>
+          )}
+
+          {showsDhlBusinessCustomerFields && (
+            <div className="rounded-md border p-3 space-y-3 bg-slate-50/60">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">DHL Location Finder API</p>
+                  <p className="text-xs text-muted-foreground">
+                    Suche nach Packstations, Postfilialen und Paketshops für Kunden. Nutzt standardmäßig den client_id-Schlüssel.
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean(formData.settings?.dhlApis?.locationFinder ?? false)}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    settings: {
+                      ...(prev.settings || {}),
+                      dhlApis: {
+                        parcelDeShipping: Boolean(prev.settings?.dhlApis?.parcelDeShipping ?? true),
+                        parcelDeTracking: Boolean(prev.settings?.dhlApis?.parcelDeTracking ?? true),
+                        parcelDeReturns: Boolean(prev.settings?.dhlApis?.parcelDeReturns ?? false),
+                        parcelDePickup: Boolean(prev.settings?.dhlApis?.parcelDePickup ?? false),
+                        locationFinder: checked,
+                      }
+                    }
+                  }))}
+                />
+              </div>
+
+              {Boolean(formData.settings?.dhlApis?.locationFinder ?? false) && (
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlLocationApiKey" className="text-sm">Separater Location Finder API Key (optional)</Label>
+                    <div className="relative">
+                      <Input
+                        id="dhlLocationApiKey"
+                        type={showLocationApiKey ? 'text' : 'password'}
+                        value={formData.credentials?.locationApiKey || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          credentials: {
+                            ...(prev.credentials || {}),
+                            locationApiKey: e.target.value
+                          }
+                        }))}
+                        placeholder="Leer lassen → client_id wird verwendet"
+                        className="h-9 text-sm pr-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationApiKey(v => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        tabIndex={-1}
+                        aria-label={showLocationApiKey ? 'Key verbergen' : 'Key anzeigen'}
+                      >
+                        {showLocationApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      DHL Developer Portal → App → Subscription Key für „Location Finder – Unified". Leer lassen um client_id zu verwenden.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {showsBookingLabelMode && (

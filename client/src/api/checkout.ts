@@ -30,6 +30,10 @@ export interface ShippingAddress {
   state: string;
   zipCode: string;
   country: string;
+  sameAsInvoice?: boolean;
+  deliveryType?: 'address' | 'packstation';
+  packstationNumber?: string;
+  postNumber?: string;
 }
 
 export interface UserInfo {

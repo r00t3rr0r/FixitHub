@@ -492,16 +492,46 @@ class DHLService {
           email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@fixithub.com',
           phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
         },
-        consignee: {
-          name1: receiverName,
-          addressStreet: receiverStreet,
-          addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
-          postalCode: receiverPostalCode,
-          city: receiverCity,
-          country: this.countryCodeToIso3(receiverCountry),
-          email: shipmentData.receiverEmail || customer?.email || '',
-          phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20) // DHL requires 1-20 chars
-        },
+        consignee: (() => {
+          const isPackstation =
+            order.shippingAddress?.deliveryType === 'packstation' ||
+            shipmentData.deliveryType === 'packstation';
+          const packstationNo =
+            order.shippingAddress?.packstationNumber ||
+            shipmentData.packstationNumber ||
+            shipmentData.lockerID ||
+            '';
+          const postNo =
+            order.shippingAddress?.postNumber ||
+            shipmentData.postNumber ||
+            '';
+
+          if (isPackstation && packstationNo) {
+            // DHL Parcel DE Shipping v2 – Packstation delivery
+            return {
+              name1: receiverName,
+              lockerID: packstationNo,
+              postNumber: postNo,
+              postalCode: receiverPostalCode,
+              city: receiverCity,
+              country: this.countryCodeToIso3(receiverCountry),
+              email: shipmentData.receiverEmail || customer?.email || '',
+              phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20)
+            };
+          }
+
+          // Regular address delivery
+          return {
+            name1: receiverName,
+            addressStreet: receiverStreet,
+            addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
+            postalCode: receiverPostalCode,
+            city: receiverCity,
+            country: this.countryCodeToIso3(receiverCountry),
+            email: shipmentData.receiverEmail || customer?.email || '',
+            phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20) // DHL requires 1-20 chars
+          };
+        })(),
         details: {
           weight: {
             uom: 'kg',
