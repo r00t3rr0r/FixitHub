@@ -113,19 +113,33 @@ class DHLService {
         dhlIntegration?.apiSecret ||
         '',
       username:
-        metadata.username ||
         credentials.username ||
+        metadata.username ||
         settings.username ||
         process.env.DHL_BC_USERNAME ||
         process.env.DHL_BUSINESS_CUSTOMER_USERNAME ||
         '',
       password:
-        metadata.password ||
         credentials.password ||
+        metadata.password ||
         settings.password ||
         process.env.DHL_BC_PASSWORD ||
         process.env.DHL_BUSINESS_CUSTOMER_PASSWORD ||
         '',
+      shippingAuthUrl:
+        credentials.shippingAuthUrl ||
+        metadata.shippingAuthUrl ||
+        '',
+      shippingGrantType:
+        credentials.shippingGrantType ||
+        metadata.shippingGrantType ||
+        'password',
+      tracking: {
+        baseUrl: credentials.trackingBaseUrl || metadata.trackingBaseUrl || '',
+        username: credentials.trackingUsername || metadata.trackingUsername || '',
+        password: credentials.trackingPassword || metadata.trackingPassword || '',
+        authType: credentials.trackingAuthType || metadata.trackingAuthType || 'basic'
+      },
       profile: settings.profile || metadata.profile || 'STANDARD_GRUPPENPROFIL',
       product: settings.product || metadata.product || 'V01PAK',
       accountNumber: settings.accountNumber || settings.accountId || credentials.accountId || '',
@@ -302,16 +316,20 @@ class DHLService {
       return cachedToken.token;
     }
 
+    const grantType = config.shippingGrantType || 'password';
     const form = new URLSearchParams();
-    form.append('grant_type', 'password');
+    form.append('grant_type', grantType);
     form.append('username', config.username);
     form.append('password', config.password);
     form.append('client_id', config.clientId);
     form.append('client_secret', config.clientSecret);
 
+    const tokenUrl = config.shippingAuthUrl ||
+      `${config.baseUrl}/parcel/de/account/auth/ropc/v1/token`;
+
     try {
       const response = await axios.post(
-        `${config.baseUrl}/parcel/de/account/auth/ropc/v1/token`,
+        tokenUrl,
         form,
         {
           headers: {
@@ -631,6 +649,46 @@ class DHLService {
         throw new Error('DHL Parcel DE Tracking API is disabled in integration settings');
       }
 
+      const trackingCreds = parcelDeConfig.tracking || {};
+      const trackingBaseUrl = trackingCreds.baseUrl || '';
+      const trackingUsername = trackingCreds.username || '';
+      const trackingPassword = trackingCreds.password || '';
+      const trackingAuthType = (trackingCreds.authType || 'basic').toLowerCase();
+
+      if (trackingBaseUrl && trackingUsername) {
+        // cig.dhl.de – Basic Authentication
+        const authHeader = trackingAuthType === 'basic'
+          ? 'Basic ' + Buffer.from(`${trackingUsername}:${trackingPassword}`).toString('base64')
+          : `Bearer ${trackingUsername}`;
+
+        const response = await axios.get(trackingBaseUrl, {
+          params: { xml: `<data appname="zt12345" password="${trackingPassword}" request="get-status-for-public-user" language-code="de"><data piece-code="${trackingNumber}"/></data>` },
+          headers: { Authorization: authHeader },
+          timeout: 15000,
+          validateStatus: () => true
+        });
+
+        const rawXml = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+
+        return {
+          success: response.status < 400,
+          trackingNumber,
+          status: response.status < 400 ? 'transit' : 'unknown',
+          statusCodeRaw: String(response.status),
+          description: rawXml.substring(0, 500),
+          estimatedDelivery: null,
+          events: [],
+          carrier: 'DHL',
+          liveApi: {
+            provider: 'DHL',
+            source: 'cig.dhl.de/sendungsverfolgung',
+            status: response.status,
+            raw: rawXml.substring(0, 2000)
+          }
+        };
+      }
+
+      // Fallback: Unified DHL Tracking API with API key header
       const response = await axios.get(
         `${dhlConfig.endpoint || 'https://api-eu.dhl.com'}/track/shipments`,
         {
@@ -792,26 +850,32 @@ class DHLService {
     try {
       const isSandbox = String(endpoint).includes('sandbox');
       const usernameSource = auth.username
-        ? 'integration-metadata'
+        ? 'credentials'
         : ((process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
       const passwordSource = auth.password
-        ? 'integration-metadata'
+        ? 'credentials'
         : ((process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
+
+      const shippingAuthUrl = auth.shippingAuthUrl ||
+        `${endpoint}/parcel/de/account/auth/ropc/v1/token`;
+      const shippingGrantType = auth.shippingGrantType || 'password';
 
       const tokenConfig = {
         baseUrl: endpoint,
         clientId: apiKey,
         clientSecret: apiSecret,
         username: auth.username || process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME || (isSandbox ? 'user-valid' : ''),
-        password: auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')
+        password: auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : ''),
+        shippingAuthUrl,
+        shippingGrantType
       };
 
       const debug = {
         environment: isSandbox ? 'sandbox' : 'production',
         endpoint,
-        tokenEndpoint: `${endpoint}/parcel/de/account/auth/ropc/v1/token`,
+        tokenEndpoint: shippingAuthUrl,
         probeEndpoint: `${endpoint}/parcel/de/shipping/v2`,
-        authFlow: 'oauth2-password-ropc',
+        authFlow: `oauth2-ropc (grant_type=${shippingGrantType})`,
         pickupEnabled: Boolean(options?.enabledApis?.parcelDePickup),
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
@@ -897,20 +961,25 @@ class DHLService {
       const oauthErrorDescription = error?.response?.data?.error_description || '';
       const isSandbox = String(endpoint).includes('sandbox');
       const username = auth.username || process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME || (isSandbox ? 'user-valid' : '');
+      const password = auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '');
+      const resolvedShippingAuthUrl = auth.shippingAuthUrl || `${endpoint}/parcel/de/account/auth/ropc/v1/token`;
+      const resolvedGrantType = auth.shippingGrantType || 'password';
 
       const debug = {
         environment: isSandbox ? 'sandbox' : 'production',
         endpoint,
-        tokenEndpoint: `${endpoint}/parcel/de/account/auth/ropc/v1/token`,
+        tokenEndpoint: resolvedShippingAuthUrl,
         probeEndpoint: `${endpoint}/parcel/de/shipping/v2`,
-        authFlow: 'oauth2-password-ropc',
+        authFlow: `oauth2-ropc (grant_type=${resolvedGrantType})`,
         pickupEnabled: Boolean(options?.enabledApis?.parcelDePickup),
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
         hasUsername: Boolean(username),
-        hasPassword: Boolean(auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')),
+        hasPassword: Boolean(password),
         clientIdMasked: this.maskValue(apiKey),
         usernameMasked: this.maskValue(username),
+        usernameSource: auth.username ? 'credentials' : ((process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing')),
+        passwordSource: auth.password ? 'credentials' : ((process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing')),
         oauthError,
         oauthErrorDescription
       };

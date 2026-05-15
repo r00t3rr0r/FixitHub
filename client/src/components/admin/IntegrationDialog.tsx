@@ -108,17 +108,25 @@ export function IntegrationDialog({
           apiEndpoint: integration.credentials?.apiEndpoint || integration.endpoint || '',
           clientId: integration.credentials?.clientId || integration.apiKey,
           clientSecret: integration.credentials?.clientSecret || integration.apiSecret || '',
-          username: integration.credentials?.username || '',
-          password: integration.credentials?.password || '',
-          accountId: integration.credentials?.accountId || ''
+          username: integration.credentials?.username || integration.metadata?.username || '',
+          password: integration.credentials?.password || integration.metadata?.password || '',
+          accountId: integration.credentials?.accountId || '',
+          shippingAuthUrl: integration.credentials?.shippingAuthUrl || (
+            (integration.metadata?.environment || integration.credentials?.apiEndpoint || integration.endpoint || '').includes('sandbox')
+              ? 'https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token'
+              : 'https://api.dhl.com/parcel/de/account/auth/ropc/v1/token'
+          ),
+          shippingGrantType: integration.credentials?.shippingGrantType || 'password',
+          trackingBaseUrl: integration.credentials?.trackingBaseUrl || 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung',
+          trackingUsername: integration.credentials?.trackingUsername || '',
+          trackingPassword: integration.credentials?.trackingPassword || '',
+          trackingAuthType: integration.credentials?.trackingAuthType || 'basic'
         },
         metadata: {
           ...(integration.metadata || {}),
           environment: integration.metadata?.environment || 'sandbox',
           clientId: integration.metadata?.clientId || integration.apiKey,
           clientSecret: integration.metadata?.clientSecret || integration.apiSecret || '',
-          username: integration.metadata?.username || '',
-          password: integration.metadata?.password || ''
         },
         settings: {
           ...defaultDhlSettings,
@@ -151,16 +159,20 @@ export function IntegrationDialog({
           apiEndpoint: '',
           clientId: '',
           clientSecret: '',
-          username: '',
-          password: '',
-          accountId: ''
+          username: 'user-valid',
+          password: 'SandboxPasswort2023!',
+          accountId: '',
+          shippingAuthUrl: 'https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token',
+          shippingGrantType: 'password',
+          trackingBaseUrl: 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung',
+          trackingUsername: 'zt12345',
+          trackingPassword: 'geheim',
+          trackingAuthType: 'basic'
         },
         metadata: {
           environment: 'sandbox',
           clientId: '',
           clientSecret: '',
-          username: '',
-          password: ''
         },
         settings: { ...defaultDhlSettings },
         isActive: true,
@@ -179,10 +191,10 @@ export function IntegrationDialog({
       return
     }
 
-    if (showsDhlBusinessCustomerFields && (!formData.apiSecret || !formData.metadata?.username || !formData.metadata?.password)) {
+    if (showsDhlBusinessCustomerFields && (!formData.apiSecret || !formData.credentials?.username || !formData.credentials?.password)) {
       toast({
         title: "Error",
-        description: "For DHL Shipping, API secret plus Business Customer username/password are required",
+        description: "For DHL Shipping, API secret plus Shipping API username/password are required",
         variant: "destructive"
       })
       return
@@ -209,21 +221,19 @@ export function IntegrationDialog({
           apiEndpoint: formData.endpoint || '',
           clientId: formData.apiKey,
           clientSecret: formData.apiSecret || '',
-          username: formData.metadata?.username || '',
-          password: formData.metadata?.password || '',
+          username: formData.credentials?.username || '',
+          password: formData.credentials?.password || '',
           accountId: formData.settings?.accountNumber || ''
         }
       }
 
-      // Also synchronize metadata with current values for DHL
+      // Also synchronize metadata with current values for DHL (keep environment only)
       if (formData.provider === 'DHL' && formData.type === 'shipping') {
         dataToSave.metadata = {
           ...(formData.metadata || {}),
           clientId: formData.apiKey,
           clientSecret: formData.apiSecret || '',
-          environment: formData.metadata?.environment || 'sandbox',
-          username: formData.metadata?.username || '',
-          password: formData.metadata?.password || ''
+          environment: formData.metadata?.environment || 'sandbox'
         }
       }
 
@@ -307,12 +317,23 @@ export function IntegrationDialog({
                         bookingLabelMode: prev.settings?.bookingLabelMode || 'dummy'
                       }
                     : prev.settings,
+                  credentials: value === 'DHL' && prev.type === 'shipping'
+                    ? {
+                        ...(prev.credentials || {}),
+                        username: prev.credentials?.username || 'user-valid',
+                        password: prev.credentials?.password || 'SandboxPasswort2023!',
+                        shippingAuthUrl: prev.credentials?.shippingAuthUrl || 'https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token',
+                        shippingGrantType: prev.credentials?.shippingGrantType || 'password',
+                        trackingBaseUrl: prev.credentials?.trackingBaseUrl || 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung',
+                        trackingUsername: prev.credentials?.trackingUsername || 'zt12345',
+                        trackingPassword: prev.credentials?.trackingPassword || 'geheim',
+                        trackingAuthType: prev.credentials?.trackingAuthType || 'basic'
+                      }
+                    : prev.credentials,
                   metadata: value === 'DHL' && prev.type === 'shipping'
                     ? {
                         ...(prev.metadata || {}),
                         environment: prev.metadata?.environment || 'sandbox',
-                        username: prev.metadata?.username || '',
-                        password: prev.metadata?.password || ''
                       }
                     : prev.metadata
                 }))}
@@ -656,6 +677,15 @@ export function IntegrationDialog({
                       onValueChange={(value: 'sandbox' | 'production') => setFormData(prev => ({
                         ...prev,
                         endpoint: value === 'production' ? dhlProductionEndpoint : dhlSandboxEndpoint,
+                        credentials: {
+                          ...(prev.credentials || {}),
+                          shippingAuthUrl: value === 'production'
+                            ? 'https://api.dhl.com/parcel/de/account/auth/ropc/v1/token'
+                            : 'https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token',
+                          trackingBaseUrl: value === 'production'
+                            ? (prev.credentials?.trackingBaseUrl || 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung')
+                            : 'https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung'
+                        },
                         metadata: {
                           ...(prev.metadata || {}),
                           environment: value
@@ -883,39 +913,165 @@ export function IntegrationDialog({
 
           {showsDhlBusinessCustomerFields && (
             <>
-              <div className="space-y-1">
-                <Label htmlFor="dhlUsername" className="text-sm">DHL Business Customer Username *</Label>
-                <Input
-                  id="dhlUsername"
-                  value={formData.metadata?.username || ''}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: {
-                      ...(prev.metadata || {}),
-                      username: e.target.value
-                    }
-                  }))}
-                  placeholder="z.B. user-valid (Sandbox)"
-                  className="h-9 text-sm"
-                />
+              <div className="rounded-md border p-3 space-y-3 bg-slate-50/60">
+                <p className="text-sm font-medium">DHL Parcel DE Shipping API – Zugangsdaten</p>
+                <p className="text-xs text-muted-foreground">
+                  ROPC-Token-Anfrage: username/password werden an den Auth-Endpunkt gesendet, zusammen mit client_id/client_secret.
+                </p>
+
+                <div className="space-y-1">
+                  <Label htmlFor="dhlShippingAuthUrl" className="text-sm">Auth URL *</Label>
+                  <Input
+                    id="dhlShippingAuthUrl"
+                    value={formData.credentials?.shippingAuthUrl || ''}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      credentials: {
+                        ...(prev.credentials || {}),
+                        shippingAuthUrl: e.target.value
+                      }
+                    }))}
+                    placeholder="https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token"
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlShippingUsername" className="text-sm">Username *</Label>
+                    <Input
+                      id="dhlShippingUsername"
+                      value={formData.credentials?.username || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        credentials: {
+                          ...(prev.credentials || {}),
+                          username: e.target.value
+                        }
+                      }))}
+                      placeholder="user-valid"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlShippingPassword" className="text-sm">Password *</Label>
+                    <Input
+                      id="dhlShippingPassword"
+                      type="password"
+                      value={formData.credentials?.password || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        credentials: {
+                          ...(prev.credentials || {}),
+                          password: e.target.value
+                        }
+                      }))}
+                      placeholder="SandboxPasswort2023!"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="dhlShippingGrantType" className="text-sm">Grant Type</Label>
+                  <Input
+                    id="dhlShippingGrantType"
+                    value={formData.credentials?.shippingGrantType || 'password'}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      credentials: {
+                        ...(prev.credentials || {}),
+                        shippingGrantType: e.target.value
+                      }
+                    }))}
+                    placeholder="password"
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="dhlPassword" className="text-sm">DHL Business Customer Password *</Label>
-                <Input
-                  id="dhlPassword"
-                  type="password"
-                  value={formData.metadata?.password || ''}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: {
-                      ...(prev.metadata || {}),
-                      password: e.target.value
-                    }
-                  }))}
-                  placeholder="Business Customer Passwort"
-                  className="h-9 text-sm"
-                />
+              <div className="rounded-md border p-3 space-y-3 bg-slate-50/60">
+                <p className="text-sm font-medium">DHL Parcel DE Tracking API – Zugangsdaten</p>
+                <p className="text-xs text-muted-foreground">
+                  Sendungsverfolgung über cig.dhl.de mit Basic Authentication.
+                </p>
+
+                <div className="space-y-1">
+                  <Label htmlFor="dhlTrackingBaseUrl" className="text-sm">Base URL</Label>
+                  <Input
+                    id="dhlTrackingBaseUrl"
+                    value={formData.credentials?.trackingBaseUrl || ''}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      credentials: {
+                        ...(prev.credentials || {}),
+                        trackingBaseUrl: e.target.value
+                      }
+                    }))}
+                    placeholder="https://cig.dhl.de/services/sandbox/rest/sendungsverfolgung"
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlTrackingUsername" className="text-sm">Username</Label>
+                    <Input
+                      id="dhlTrackingUsername"
+                      value={formData.credentials?.trackingUsername || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        credentials: {
+                          ...(prev.credentials || {}),
+                          trackingUsername: e.target.value
+                        }
+                      }))}
+                      placeholder="zt12345"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="dhlTrackingPassword" className="text-sm">Password</Label>
+                    <Input
+                      id="dhlTrackingPassword"
+                      type="password"
+                      value={formData.credentials?.trackingPassword || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        credentials: {
+                          ...(prev.credentials || {}),
+                          trackingPassword: e.target.value
+                        }
+                      }))}
+                      placeholder="geheim"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="dhlTrackingAuthType" className="text-sm">Auth Type</Label>
+                  <Select
+                    value={formData.credentials?.trackingAuthType || 'basic'}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      credentials: {
+                        ...(prev.credentials || {}),
+                        trackingAuthType: value
+                      }
+                    }))}
+                  >
+                    <SelectTrigger id="dhlTrackingAuthType" className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Basic Authentication</SelectItem>
+                      <SelectItem value="bearer">Bearer Token</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </>
           )}
