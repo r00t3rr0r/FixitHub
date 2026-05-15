@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { LoginDialog } from "@/components/home/LoginDialog"
+import { AuthRequiredDialog } from "@/components/auth/AuthRequiredDialog"
 import { createRepairRequest } from "@/api/repairRequests"
 import {
   getDeviceTypes,
@@ -68,7 +68,8 @@ export function RepairRequestQuestionnaire() {
   const location = useLocation()
   const { toast } = useToast()
   const { isAuthenticated } = useAuth()
-  const [showLoginDialog, setShowLoginDialog] = useState(false)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const [pendingSubmit, setPendingSubmit] = useState(false)
 
   // Device from configurator nav state (DB device)
   const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(
@@ -283,15 +284,7 @@ export function RepairRequestQuestionnaire() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!isAuthenticated) {
-      toast({ title: "Anmeldung erforderlich", description: "Bitte melden Sie sich an, um eine Reparaturanfrage zu stellen" })
-      setShowLoginDialog(true)
-      return
-    }
-    if (!validateForm()) return
-
+  const doSubmitRequest = async () => {
     const isDbDevice = !editingDevice && selectedDevice !== null
     const deviceTypeFinal = isDbDevice ? selectedDevice!.deviceType : manualDeviceType
     const deviceBrandFinal = isDbDevice ? selectedDevice!.manufacturer : manualDeviceName.split(" ")[0]
@@ -325,6 +318,24 @@ export function RepairRequestQuestionnaire() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleAuthSuccess = () => {
+    if (pendingSubmit) {
+      setPendingSubmit(false)
+      doSubmitRequest()
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validateForm()) return
+    if (!isAuthenticated) {
+      setPendingSubmit(true)
+      setShowAuthDialog(true)
+      return
+    }
+    doSubmitRequest()
   }
 
   const cardShellClass = "border border-slate-200/90 bg-white/95 shadow-[0_14px_42px_-24px_rgba(15,23,42,0.55)]"
@@ -975,26 +986,16 @@ export function RepairRequestQuestionnaire() {
       </Dialog>
 
       {/* Login Dialog */}
-      {showLoginDialog && (
-        <>
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.3)",
-              zIndex: 9998,
-            }}
-            onClick={() => setShowLoginDialog(false)}
-          />
-          <LoginDialog
-            isOpen={showLoginDialog}
-            onClose={() => setShowLoginDialog(false)}
-          />
-        </>
-      )}
+      <AuthRequiredDialog
+        open={showAuthDialog}
+        onOpenChange={(open) => {
+          setShowAuthDialog(open)
+          if (!open) setPendingSubmit(false)
+        }}
+        onSuccess={handleAuthSuccess}
+        title="Authentifizierung erforderlich"
+        description="Bitte melden Sie sich an oder erstellen Sie ein Konto, um eine Reparaturanfrage zu stellen."
+      />
     </div>
   )
 }
