@@ -165,6 +165,9 @@ const schema = new mongoose.Schema({
     zipCode: { type: String, default: '' },
     country: { type: String, default: '' },
     sameAsInvoice: { type: Boolean, default: true },
+    deliveryType: { type: String, enum: ['address', 'packstation'], default: 'address' },
+    packstationNumber: { type: String, default: '' },
+    postNumber: { type: String, default: '' },
   },
   avatar: {
     type: String,

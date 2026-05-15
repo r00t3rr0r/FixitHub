@@ -22,6 +22,9 @@ export interface UserProfile {
     zipCode: string;
     country: string;
     sameAsInvoice: boolean;
+    deliveryType?: 'address' | 'packstation';
+    packstationNumber?: string;
+    postNumber?: string;
   };
   avatar: string;
   preferences: {

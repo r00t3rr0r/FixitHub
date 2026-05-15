@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/useToast"
-import { createShippingLabel, ShipmentData, lookupPickupLocations, PickupLocation } from "@/api/shipping"
+import { createShippingLabel, ShipmentData } from "@/api/shipping"
 import { getOrderById } from "@/api/orders"
 import { Package, Loader2, User, Building2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
@@ -26,19 +26,6 @@ export function CreateShippingLabelDialog({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
-  const [loadingPickupLocations, setLoadingPickupLocations] = useState(false)
-  const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([])
-  const [selectedPickupLocationId, setSelectedPickupLocationId] = useState('')
-  const [pickupSearch, setPickupSearch] = useState({
-    postalCode: '',
-    city: '',
-    street: '',
-    houseNumber: '',
-    countryCode: 'DE',
-    radius: 15,
-    limit: 10,
-    locationType: 'branch' as 'branch' | 'locker' | 'retail',
-  })
 
   const [formData, setFormData] = useState<ShipmentData>({
     weight: 1.0,
@@ -72,8 +59,6 @@ export function CreateShippingLabelDialog({
   useEffect(() => {
     if (open && orderId) {
       loadOrderDetails()
-      setPickupLocations([])
-      setSelectedPickupLocationId('')
     }
   }, [open, orderId])
 
@@ -105,14 +90,6 @@ export function CreateShippingLabelDialog({
         receiverNumber: '1' // Default house number
       }))
 
-      setPickupSearch(prev => ({
-        ...prev,
-        postalCode: address?.zipCode || prev.postalCode,
-        city: address?.city || prev.city,
-        street: address?.street || prev.street,
-        countryCode: (address?.country || prev.countryCode || 'DE').toUpperCase(),
-      }))
-
       console.log('Pre-filled receiver information:', {
         name: customer?.name,
         email: customer?.email,
@@ -132,81 +109,6 @@ export function CreateShippingLabelDialog({
     } finally {
       setLoadingOrder(false)
     }
-  }
-
-  const handleSearchPickupLocations = async () => {
-    if (!pickupSearch.postalCode && !pickupSearch.city) {
-      toast({
-        title: 'Error',
-        description: 'Please provide at least postal code or city for pickup search',
-        variant: 'destructive'
-      })
-      return
-    }
-
-    setLoadingPickupLocations(true)
-    try {
-      const result = await lookupPickupLocations(orderId, {
-        postalCode: pickupSearch.postalCode,
-        city: pickupSearch.city,
-        street: pickupSearch.street,
-        houseNumber: pickupSearch.houseNumber,
-        countryCode: pickupSearch.countryCode,
-        radius: pickupSearch.radius,
-        limit: pickupSearch.limit,
-        locationType: pickupSearch.locationType,
-      })
-
-      setPickupLocations(result.locations || [])
-
-      if ((result.locations || []).length === 0) {
-        setSelectedPickupLocationId('')
-        toast({
-          title: 'No pickup locations found',
-          description: 'Try broadening search radius or using another postal code/city.',
-        })
-      } else {
-        toast({
-          title: 'Pickup locations loaded',
-          description: `${result.locations.length} pickup locations found.`,
-        })
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to search pickup locations',
-        variant: 'destructive'
-      })
-    } finally {
-      setLoadingPickupLocations(false)
-    }
-  }
-
-  const handleApplyPickupLocation = () => {
-    const selected = pickupLocations.find((location) => location.id === selectedPickupLocationId)
-    if (!selected) {
-      toast({
-        title: 'Error',
-        description: 'Please select a pickup location first',
-        variant: 'destructive'
-      })
-      return
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      receiverName: selected.name || prev.receiverName,
-      receiverAddress: selected.address?.street || prev.receiverAddress,
-      receiverNumber: selected.address?.houseNumber || prev.receiverNumber,
-      receiverPostalCode: selected.address?.postalCode || prev.receiverPostalCode,
-      receiverCity: selected.address?.city || prev.receiverCity,
-      receiverCountry: selected.address?.countryCode || prev.receiverCountry,
-    }))
-
-    toast({
-      title: 'Pickup location applied',
-      description: 'Receiver address has been updated to selected DHL pickup point.',
-    })
   }
 
   const handleCreate = async () => {
@@ -259,29 +161,7 @@ export function CreateShippingLabelDialog({
 
     setLoading(true)
     try {
-      const selectedPickupLocation = pickupLocations.find((location) => location.id === selectedPickupLocationId)
-      const shipmentPayload: ShipmentData = {
-        ...formData,
-      }
-
-      if (selectedPickupLocation) {
-        shipmentPayload.parcelDePickupPayload = {
-          location: {
-            id: selectedPickupLocation.id,
-            type: selectedPickupLocation.type,
-            name: selectedPickupLocation.name,
-            branchCode: selectedPickupLocation.branchCode,
-            retailID: selectedPickupLocation.retailID,
-            addressStreet: selectedPickupLocation.address?.street,
-            addressHouse: selectedPickupLocation.address?.houseNumber,
-            postalCode: selectedPickupLocation.address?.postalCode,
-            city: selectedPickupLocation.address?.city,
-            countryCode: selectedPickupLocation.address?.countryCode,
-          },
-        }
-      }
-
-      const result = await createShippingLabel(orderId, shipmentPayload)
+      const result = await createShippingLabel(orderId, formData)
 
       toast({
         title: "Success",
@@ -466,131 +346,6 @@ export function CreateShippingLabelDialog({
                   />
                 </div>
               </div>
-            </div>
-
-            {/* DHL Pickup Location Search */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold">DHL Parcel DE Pickup</h3>
-              </div>
-              <Separator />
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pickupPostalCode">Postal Code</Label>
-                  <Input
-                    id="pickupPostalCode"
-                    value={pickupSearch.postalCode}
-                    onChange={(e) => setPickupSearch(prev => ({ ...prev, postalCode: e.target.value }))}
-                    placeholder="10115"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pickupCity">City</Label>
-                  <Input
-                    id="pickupCity"
-                    value={pickupSearch.city}
-                    onChange={(e) => setPickupSearch(prev => ({ ...prev, city: e.target.value }))}
-                    placeholder="Berlin"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pickupCountry">Country</Label>
-                  <Input
-                    id="pickupCountry"
-                    value={pickupSearch.countryCode}
-                    onChange={(e) => setPickupSearch(prev => ({ ...prev, countryCode: e.target.value.toUpperCase() }))}
-                    maxLength={2}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="pickupStreet">Street</Label>
-                  <Input
-                    id="pickupStreet"
-                    value={pickupSearch.street}
-                    onChange={(e) => setPickupSearch(prev => ({ ...prev, street: e.target.value }))}
-                    placeholder="Musterstrasse"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pickupHouseNumber">No.</Label>
-                  <Input
-                    id="pickupHouseNumber"
-                    value={pickupSearch.houseNumber}
-                    onChange={(e) => setPickupSearch(prev => ({ ...prev, houseNumber: e.target.value }))}
-                    placeholder="1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pickupLocationType">Location Type</Label>
-                  <Select
-                    value={pickupSearch.locationType}
-                    onValueChange={(value: 'branch' | 'locker' | 'retail') => setPickupSearch(prev => ({ ...prev, locationType: value }))}
-                  >
-                    <SelectTrigger id="pickupLocationType">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="branch">Branch</SelectItem>
-                      <SelectItem value="locker">Locker</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex justify-between gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSearchPickupLocations}
-                  disabled={loadingPickupLocations || loading || loadingOrder}
-                >
-                  {loadingPickupLocations ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    'Search Pickup Locations'
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleApplyPickupLocation}
-                  disabled={!selectedPickupLocationId || loading || loadingOrder}
-                >
-                  Use Selected Pickup Point
-                </Button>
-              </div>
-
-              {pickupLocations.length > 0 && (
-                <div className="space-y-2">
-                  <Label htmlFor="pickupLocationSelection">Available Pickup Locations</Label>
-                  <Select
-                    value={selectedPickupLocationId}
-                    onValueChange={setSelectedPickupLocationId}
-                  >
-                    <SelectTrigger id="pickupLocationSelection">
-                      <SelectValue placeholder="Select pickup location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pickupLocations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name} - {location.address?.postalCode} {location.address?.city}
-                          {location.distance > 0 ? ` (${location.distance} km)` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
 
             {/* Service Type */}

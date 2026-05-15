@@ -338,26 +338,6 @@ router.post('/:id/shipping/create-label', requireUser, requireRole(['admin', 'st
   }
 });
 
-// Description: Lookup DHL pickup locations
-// Endpoint: POST /api/orders/:id/shipping/pickup-locations
-// Request: { postalCode?: string, city?: string, street?: string, houseNumber?: string, countryCode?: string, radius?: number, limit?: number, locationType?: string }
-// Response: { success: boolean, count: number, locations: Array, query: object }
-router.post('/:id/shipping/pickup-locations', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
-  console.log('Pickup location lookup request received for order:', req.params.id);
-
-  try {
-    const result = await DHLService.getPickupLocations(req.body || {});
-
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error('Error looking up pickup locations:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to lookup pickup locations'
-    });
-  }
-});
-
 // Description: Get tracking information for an order
 // Endpoint: GET /api/orders/:id/tracking
 

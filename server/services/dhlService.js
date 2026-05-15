@@ -113,19 +113,33 @@ class DHLService {
         dhlIntegration?.apiSecret ||
         '',
       username:
-        metadata.username ||
         credentials.username ||
+        metadata.username ||
         settings.username ||
         process.env.DHL_BC_USERNAME ||
         process.env.DHL_BUSINESS_CUSTOMER_USERNAME ||
         '',
       password:
-        metadata.password ||
         credentials.password ||
+        metadata.password ||
         settings.password ||
         process.env.DHL_BC_PASSWORD ||
         process.env.DHL_BUSINESS_CUSTOMER_PASSWORD ||
         '',
+      shippingAuthUrl:
+        credentials.shippingAuthUrl ||
+        metadata.shippingAuthUrl ||
+        '',
+      shippingGrantType:
+        credentials.shippingGrantType ||
+        metadata.shippingGrantType ||
+        'password',
+      tracking: {
+        baseUrl: credentials.trackingBaseUrl || metadata.trackingBaseUrl || '',
+        username: credentials.trackingUsername || metadata.trackingUsername || '',
+        password: credentials.trackingPassword || metadata.trackingPassword || '',
+        authType: credentials.trackingAuthType || metadata.trackingAuthType || 'basic'
+      },
       profile: settings.profile || metadata.profile || 'STANDARD_GRUPPENPROFIL',
       product: settings.product || metadata.product || 'V01PAK',
       accountNumber: settings.accountNumber || settings.accountId || credentials.accountId || '',
@@ -302,16 +316,20 @@ class DHLService {
       return cachedToken.token;
     }
 
+    const grantType = config.shippingGrantType || 'password';
     const form = new URLSearchParams();
-    form.append('grant_type', 'password');
+    form.append('grant_type', grantType);
     form.append('username', config.username);
     form.append('password', config.password);
     form.append('client_id', config.clientId);
     form.append('client_secret', config.clientSecret);
 
+    const tokenUrl = config.shippingAuthUrl ||
+      `${config.baseUrl}/parcel/de/account/auth/ropc/v1/token`;
+
     try {
       const response = await axios.post(
-        `${config.baseUrl}/parcel/de/account/auth/ropc/v1/token`,
+        tokenUrl,
         form,
         {
           headers: {
@@ -474,16 +492,46 @@ class DHLService {
           email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@fixithub.com',
           phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
         },
-        consignee: {
-          name1: receiverName,
-          addressStreet: receiverStreet,
-          addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
-          postalCode: receiverPostalCode,
-          city: receiverCity,
-          country: this.countryCodeToIso3(receiverCountry),
-          email: shipmentData.receiverEmail || customer?.email || '',
-          phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20) // DHL requires 1-20 chars
-        },
+        consignee: (() => {
+          const isPackstation =
+            order.shippingAddress?.deliveryType === 'packstation' ||
+            shipmentData.deliveryType === 'packstation';
+          const packstationNo =
+            order.shippingAddress?.packstationNumber ||
+            shipmentData.packstationNumber ||
+            shipmentData.lockerID ||
+            '';
+          const postNo =
+            order.shippingAddress?.postNumber ||
+            shipmentData.postNumber ||
+            '';
+
+          if (isPackstation && packstationNo) {
+            // DHL Parcel DE Shipping v2 – Packstation delivery
+            return {
+              name1: receiverName,
+              lockerID: packstationNo,
+              postNumber: postNo,
+              postalCode: receiverPostalCode,
+              city: receiverCity,
+              country: this.countryCodeToIso3(receiverCountry),
+              email: shipmentData.receiverEmail || customer?.email || '',
+              phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20)
+            };
+          }
+
+          // Regular address delivery
+          return {
+            name1: receiverName,
+            addressStreet: receiverStreet,
+            addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
+            postalCode: receiverPostalCode,
+            city: receiverCity,
+            country: this.countryCodeToIso3(receiverCountry),
+            email: shipmentData.receiverEmail || customer?.email || '',
+            phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20) // DHL requires 1-20 chars
+          };
+        })(),
         details: {
           weight: {
             uom: 'kg',
@@ -616,226 +664,6 @@ class DHLService {
   }
 
   /**
-   * Create a shipment for a booking (similar to createShipment but for Booking model)
-   * @param {string} bookingId - Booking ID
-   * @param {Object} shipmentData - Shipment data (receiver, shipper, dimensions, etc.)
-   * @returns {Promise<Object>} Result with trackingNumber, labelUrl, estimatedDelivery
-   */
-  static async createBookingShipment(bookingId, shipmentData) {
-    console.log('DHLService: Creating shipment for booking:', bookingId);
-
-    try {
-      // Get DHL configuration
-      const dhlConfig = await this.getDHLConfig();
-
-      // Retrieve booking details
-      const Booking = require('../models/Booking');
-      const booking = await Booking.findById(bookingId).populate('customerId', 'name email phone invoiceAddress paymentAddress');
-
-      if (!booking) {
-        console.error('DHLService: Booking not found:', bookingId);
-        throw new Error('Booking not found');
-      }
-
-      console.log('DHLService: Booking found:', booking.bookingNumber);
-
-      // Use invoice address as fallback if shipping address is not complete
-      const customer = booking.customerId?.toObject ? booking.customerId.toObject() : booking.customerId;
-      const invoiceAddress = customer?.invoiceAddress || {};
-      const paymentAddress = customer?.paymentAddress || {};
-
-      // For bookings, use the customer's address or provided address
-      const receiverStreet = shipmentData.receiverAddress || paymentAddress.street || invoiceAddress.street || customer?.address?.street;
-      const receiverCity = shipmentData.receiverCity || paymentAddress.city || invoiceAddress.city || customer?.address?.city;
-      const receiverPostalCode = shipmentData.receiverPostalCode || paymentAddress.zipCode || invoiceAddress.zipCode || customer?.address?.zipCode;
-      const receiverCountry = shipmentData.receiverCountry || paymentAddress.country || invoiceAddress.country || customer?.address?.country || 'NL';
-
-      // Check if required address fields are present
-      if (!receiverStreet || receiverStreet.trim() === '') {
-        console.error('DHLService: Missing receiver street address for booking');
-        throw new Error('Shipping address is incomplete. Street address is required to create a shipping label.');
-      }
-
-      if (!receiverCity || receiverCity.trim() === '') {
-        console.error('DHLService: Missing receiver city for booking');
-        throw new Error('Shipping address is incomplete. City is required to create a shipping label.');
-      }
-
-      if (!receiverPostalCode || receiverPostalCode.trim() === '') {
-        console.error('DHLService: Missing receiver postal code for booking');
-        throw new Error('Shipping address is incomplete. Postal code is required to create a shipping label.');
-      }
-
-      console.log('DHLService: Booking shipping address validated successfully');
-
-      // Generate unique shipment ID
-      const shipmentId = uuidv4();
-      console.log('DHLService: Generated shipment ID for booking:', shipmentId);
-
-      const parcelDeConfig = this.getParcelDEConfig(dhlConfig);
-
-      if (!parcelDeConfig.enabledApis.parcelDeShipping) {
-        throw new Error('DHL Parcel DE Shipping API is disabled in integration settings');
-      }
-
-      // Get account ID from settings
-      const accountId =
-        shipmentData.accountNumber ||
-        dhlConfig.settings?.accountId ||
-        dhlConfig.settings?.accountNumber ||
-        parcelDeConfig.accountNumber;
-
-      if (!accountId) {
-        console.error('DHLService: Account ID not configured for booking shipment');
-        throw new Error('DHL Account ID not configured in integration settings');
-      }
-
-      // Use receiver name from shipmentData or customer name
-      const receiverName = shipmentData.receiverName || customer?.name || 'Customer';
-      const singleShipment = shipmentData?.parcelDeOrderPayload || {
-        product: shipmentData.product || parcelDeConfig.product,
-        billingNumber: accountId,
-        shipDate: shipmentData.shipmentDate || new Date().toISOString().slice(0, 10),
-        shipper: {
-          name1: shipmentData.shipperName || dhlConfig.settings?.shipperCompany || 'FixitHub GmbH',
-          addressStreet: shipmentData.shipperStreet || dhlConfig.settings?.shipperStreet || 'Company Street',
-          addressHouse: shipmentData.shipperNumber || dhlConfig.settings?.shipperNumber || '1',
-          postalCode: shipmentData.shipperPostalCode || dhlConfig.settings?.shipperPostalCode || '10115',
-          city: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Berlin',
-          country: this.countryCodeToIso3(shipmentData.shipperCountry || dhlConfig.settings?.shipperCountry || 'DE'),
-          email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@fixithub.com',
-          phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
-        },
-        consignee: {
-          name1: receiverName,
-          addressStreet: receiverStreet,
-          addressHouse: shipmentData.receiverNumber || '1',
-          postalCode: receiverPostalCode,
-          city: receiverCity,
-          country: this.countryCodeToIso3(receiverCountry),
-          email: shipmentData.receiverEmail || customer?.email || '',
-          phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20)
-        },
-        details: {
-          weight: {
-            uom: 'kg',
-            value: Number(shipmentData.weight || 1)
-          }
-        }
-      };
-
-      // Wrap in shipments array
-      const shipmentPayload = {
-        profile: shipmentData.profile || parcelDeConfig.profile,
-        shipments: [singleShipment]
-      };
-
-      // Add pickup payload if provided
-      if (parcelDeConfig.enabledApis.parcelDePickup) {
-        const pickupPayload = shipmentData?.parcelDePickupPayload || shipmentData?.pickup;
-
-        if (pickupPayload && typeof pickupPayload === 'object') {
-          shipmentPayload.pickup = pickupPayload;
-        }
-      }
-
-      console.log('DHLService: Sending shipment request to DHL Parcel DE Shipping API for booking');
-      console.log('DHLService: Shipment payload:', JSON.stringify(shipmentPayload, null, 2));
-
-      const accessToken = await this.getAccessToken(parcelDeConfig);
-
-      // Make API request to DHL
-      const response = await axios.post(
-        `${parcelDeConfig.baseUrl}/parcel/de/shipping/v2/orders`,
-        shipmentPayload,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 30000
-        }
-      );
-
-      console.log('DHLService: Shipment created successfully for booking');
-      console.log('DHLService: Response data:', JSON.stringify(response.data, null, 2));
-
-      // Extract tracking information
-      const trackingNumber =
-        response.data.shipmentNo ||
-        response.data.shipmentNumber ||
-        response.data.trackingNumber ||
-        response.data.items?.[0]?.shipmentNo ||
-        response.data.items?.[0]?.shipmentNumber;
-      const returnedShipmentId = response.data.shipmentId || response.data.shipmentNo || response.data.orderNo;
-      const labelId = response.data.labelId || response.data.items?.[0]?.labelId;
-      const pieceTrackerCode = response.data.items?.[0]?.shipmentNo;
-
-      console.log('DHLService: Tracking number for booking:', trackingNumber);
-
-      // Extract label
-      let labelUrl = '';
-      const base64Label =
-        response.data?.label?.b64 ||
-        response.data?.shipmentLabel?.b64 ||
-        response.data?.items?.[0]?.label?.b64;
-
-      if (base64Label) {
-        labelUrl = `data:application/pdf;base64,${base64Label}`;
-      }
-
-      // Update booking with shipping information
-      booking.trackingNumber = trackingNumber || pieceTrackerCode || returnedShipmentId;
-      booking.carrier = 'DHL';
-      booking.shippingStatus = 'label-created';
-      booking.shippingStatusDescription = 'DHL-Versandlabel wurde erstellt';
-      booking.shippingLabelUrl = labelUrl;
-      booking.shippingCost = shipmentData.shippingCost || 0;
-      booking.shippingCreatedAt = new Date();
-      booking.estimatedDelivery = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
-
-      // Add timeline entry
-      booking.timeline.push({
-        status: 'Shipping Label Created',
-        description: `DHL Parcel shipping label created. Tracking number: ${booking.trackingNumber}`,
-        completedAt: new Date(),
-        staffId: 'system',
-        staffName: 'DHL Parcel Integration'
-      });
-
-      await booking.save();
-
-      console.log('DHLService: Booking updated with tracking information');
-
-      return {
-        success: true,
-        trackingNumber: booking.trackingNumber,
-        labelUrl: booking.shippingLabelUrl,
-        estimatedDelivery: booking.estimatedDelivery,
-        shipmentId: returnedShipmentId,
-        labelId: labelId
-      };
-
-    } catch (error) {
-      console.error('DHLService: Error creating booking shipment:', error);
-      console.error('DHLService: Error response data:', error.response?.data);
-      console.error('DHLService: Error response status:', error.response?.status);
-
-      const dhlError = this.getDhlErrorDetails(error);
-      const errorMessage =
-        dhlError.message ||
-        error.response?.data?.message ||
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
-        error.message ||
-        'Failed to create shipment for booking';
-
-      throw new Error(errorMessage);
-    }
-  }
-
-  /**
    * Get tracking information for a shipment
    * @param {string} trackingNumber - DHL tracking number
    * @returns {Promise<Object>} Tracking information
@@ -851,6 +679,46 @@ class DHLService {
         throw new Error('DHL Parcel DE Tracking API is disabled in integration settings');
       }
 
+      const trackingCreds = parcelDeConfig.tracking || {};
+      const trackingBaseUrl = trackingCreds.baseUrl || '';
+      const trackingUsername = trackingCreds.username || '';
+      const trackingPassword = trackingCreds.password || '';
+      const trackingAuthType = (trackingCreds.authType || 'basic').toLowerCase();
+
+      if (trackingBaseUrl && trackingUsername) {
+        // cig.dhl.de – Basic Authentication
+        const authHeader = trackingAuthType === 'basic'
+          ? 'Basic ' + Buffer.from(`${trackingUsername}:${trackingPassword}`).toString('base64')
+          : `Bearer ${trackingUsername}`;
+
+        const response = await axios.get(trackingBaseUrl, {
+          params: { xml: `<data appname="zt12345" password="${trackingPassword}" request="get-status-for-public-user" language-code="de"><data piece-code="${trackingNumber}"/></data>` },
+          headers: { Authorization: authHeader },
+          timeout: 15000,
+          validateStatus: () => true
+        });
+
+        const rawXml = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+
+        return {
+          success: response.status < 400,
+          trackingNumber,
+          status: response.status < 400 ? 'transit' : 'unknown',
+          statusCodeRaw: String(response.status),
+          description: rawXml.substring(0, 500),
+          estimatedDelivery: null,
+          events: [],
+          carrier: 'DHL',
+          liveApi: {
+            provider: 'DHL',
+            source: 'cig.dhl.de/sendungsverfolgung',
+            status: response.status,
+            raw: rawXml.substring(0, 2000)
+          }
+        };
+      }
+
+      // Fallback: Unified DHL Tracking API with API key header
       const response = await axios.get(
         `${dhlConfig.endpoint || 'https://api-eu.dhl.com'}/track/shipments`,
         {
@@ -915,150 +783,6 @@ class DHLService {
     } catch (error) {
       console.error('DHLService: Error getting tracking info:', error.response?.data || error.message);
       throw new Error(error.response?.data?.detail || error.message || 'Failed to retrieve tracking information');
-    }
-  }
-
-  static normalizePickupLocation(location = {}) {
-    const address = location.address || location.locationAddress || {};
-
-    const street =
-      address.street ||
-      address.addressStreet ||
-      address.streetName ||
-      location.street ||
-      '';
-
-    const houseNumber =
-      address.houseNumber ||
-      address.addressHouse ||
-      location.houseNumber ||
-      '';
-
-    const postalCode =
-      address.postalCode ||
-      address.zip ||
-      address.zipCode ||
-      location.postalCode ||
-      '';
-
-    const city =
-      address.city ||
-      address.addressLocality ||
-      location.city ||
-      '';
-
-    const countryCode =
-      address.countryCode ||
-      address.country ||
-      location.countryCode ||
-      'DE';
-
-    const resolvedId =
-      location.id ||
-      location.uuid ||
-      location.locationId ||
-      location.branchCode ||
-      location.retailID ||
-      `${postalCode}-${city}-${street}-${houseNumber}`.replace(/\s+/g, '-').toLowerCase();
-
-    return {
-      id: resolvedId,
-      name:
-        location.name ||
-        location.description ||
-        location.shopName ||
-        location.label ||
-        'DHL Pickup Point',
-      type:
-        location.type ||
-        location.locationType ||
-        location.category ||
-        'pickup',
-      distance:
-        typeof location.distance === 'number'
-          ? location.distance
-          : Number(location.distance || 0),
-      branchCode: location.branchCode || '',
-      retailID: location.retailID || '',
-      address: {
-        street,
-        houseNumber,
-        postalCode,
-        city,
-        countryCode
-      },
-      raw: location
-    };
-  }
-
-  static async getPickupLocations(search = {}) {
-    console.log('DHLService: Looking up DHL pickup locations');
-
-    const dhlConfig = await this.getDHLConfig();
-    const parcelDeConfig = this.getParcelDEConfig(dhlConfig);
-
-    if (!parcelDeConfig.enabledApis.parcelDePickup) {
-      throw new Error('DHL Parcel DE Pickup API is disabled in integration settings');
-    }
-
-    const accessToken = await this.getAccessToken(parcelDeConfig);
-    const pickupPath = this.normalizeApiPath(parcelDeConfig.pickup?.probePath || '/parcel/de/shipping/v2/pickup');
-    const url = this.buildApiUrl(parcelDeConfig.baseUrl, pickupPath);
-
-    const params = {
-      countryCode: String(search.countryCode || parcelDeConfig.pickup?.countryCode || 'DE').toUpperCase(),
-      postalCode: search.postalCode || '',
-      city: search.city || '',
-      street: search.street || '',
-      houseNumber: search.houseNumber || '',
-      radius: Number(search.radius || 15),
-      limit: Number(search.limit || parcelDeConfig.pickup?.maxResults || 10),
-      locationType: search.locationType || parcelDeConfig.pickup?.locationType || 'branch',
-      branchCode: search.branchCode || parcelDeConfig.pickup?.branchCode || '',
-      retailID: search.retailID || parcelDeConfig.pickup?.retailID || '',
-      preferNearest:
-        typeof search.preferNearest === 'boolean'
-          ? search.preferNearest
-          : parcelDeConfig.pickup?.preferNearest !== false
-    };
-
-    const queryParams = Object.fromEntries(
-      Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined)
-    );
-
-    try {
-      const response = await axios.get(url, {
-        params: queryParams,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json'
-        },
-        timeout: 15000
-      });
-
-      const responseData = response.data || {};
-      const locationsSource =
-        responseData.locations ||
-        responseData.pickupLocations ||
-        responseData.pickupPoints ||
-        responseData.items ||
-        responseData.results ||
-        (Array.isArray(responseData) ? responseData : []);
-
-      const locations = (Array.isArray(locationsSource) ? locationsSource : [locationsSource])
-        .filter(Boolean)
-        .map((location) => this.normalizePickupLocation(location));
-
-      return {
-        success: true,
-        count: locations.length,
-        locations,
-        query: queryParams,
-        endpoint: url,
-      };
-    } catch (error) {
-      const dhlError = this.getDhlErrorDetails(error);
-      throw new Error(`DHL pickup lookup failed: ${dhlError.message}`);
     }
   }
 
@@ -1156,26 +880,32 @@ class DHLService {
     try {
       const isSandbox = String(endpoint).includes('sandbox');
       const usernameSource = auth.username
-        ? 'integration-metadata'
+        ? 'credentials'
         : ((process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
       const passwordSource = auth.password
-        ? 'integration-metadata'
+        ? 'credentials'
         : ((process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing'));
+
+      const shippingAuthUrl = auth.shippingAuthUrl ||
+        `${endpoint}/parcel/de/account/auth/ropc/v1/token`;
+      const shippingGrantType = auth.shippingGrantType || 'password';
 
       const tokenConfig = {
         baseUrl: endpoint,
         clientId: apiKey,
         clientSecret: apiSecret,
         username: auth.username || process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME || (isSandbox ? 'user-valid' : ''),
-        password: auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')
+        password: auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : ''),
+        shippingAuthUrl,
+        shippingGrantType
       };
 
       const debug = {
         environment: isSandbox ? 'sandbox' : 'production',
         endpoint,
-        tokenEndpoint: `${endpoint}/parcel/de/account/auth/ropc/v1/token`,
+        tokenEndpoint: shippingAuthUrl,
         probeEndpoint: `${endpoint}/parcel/de/shipping/v2`,
-        authFlow: 'oauth2-password-ropc',
+        authFlow: `oauth2-ropc (grant_type=${shippingGrantType})`,
         pickupEnabled: Boolean(options?.enabledApis?.parcelDePickup),
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
@@ -1261,20 +991,25 @@ class DHLService {
       const oauthErrorDescription = error?.response?.data?.error_description || '';
       const isSandbox = String(endpoint).includes('sandbox');
       const username = auth.username || process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME || (isSandbox ? 'user-valid' : '');
+      const password = auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '');
+      const resolvedShippingAuthUrl = auth.shippingAuthUrl || `${endpoint}/parcel/de/account/auth/ropc/v1/token`;
+      const resolvedGrantType = auth.shippingGrantType || 'password';
 
       const debug = {
         environment: isSandbox ? 'sandbox' : 'production',
         endpoint,
-        tokenEndpoint: `${endpoint}/parcel/de/account/auth/ropc/v1/token`,
+        tokenEndpoint: resolvedShippingAuthUrl,
         probeEndpoint: `${endpoint}/parcel/de/shipping/v2`,
-        authFlow: 'oauth2-password-ropc',
+        authFlow: `oauth2-ropc (grant_type=${resolvedGrantType})`,
         pickupEnabled: Boolean(options?.enabledApis?.parcelDePickup),
         hasClientId: Boolean(apiKey),
         hasClientSecret: Boolean(apiSecret),
         hasUsername: Boolean(username),
-        hasPassword: Boolean(auth.password || process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD || (isSandbox ? 'SandboxPasswort2023!' : '')),
+        hasPassword: Boolean(password),
         clientIdMasked: this.maskValue(apiKey),
         usernameMasked: this.maskValue(username),
+        usernameSource: auth.username ? 'credentials' : ((process.env.DHL_BC_USERNAME || process.env.DHL_BUSINESS_CUSTOMER_USERNAME) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing')),
+        passwordSource: auth.password ? 'credentials' : ((process.env.DHL_BC_PASSWORD || process.env.DHL_BUSINESS_CUSTOMER_PASSWORD) ? 'environment-variable' : (isSandbox ? 'sandbox-default' : 'missing')),
         oauthError,
         oauthErrorDescription
       };

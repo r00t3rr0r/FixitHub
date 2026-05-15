@@ -1,14 +1,13 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/useToast"
-import { createBookingShippingLabel, lookupPickupLocationsForBooking, getBooking } from "@/api/bookings"
-import { ShipmentData, PickupLocation as ShippingPickupLocation } from "@/api/shipping"
-import { Package, Loader2, User, Building2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import { useToast } from "@/hooks/useToast"
+import { createBookingShippingLabel, getBooking } from "@/api/bookings"
+import { Loader2, Package, User } from "lucide-react"
 
 interface CreateBookingShippingLabelDialogProps {
   open: boolean
@@ -17,7 +16,7 @@ interface CreateBookingShippingLabelDialogProps {
   onSuccess: () => void
 }
 
-interface ShipmentFormData {
+interface BookingShipmentData {
   weight: number
   length: number
   width: number
@@ -52,207 +51,104 @@ export function CreateBookingShippingLabelDialog({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingBooking, setLoadingBooking] = useState(false)
-  const [loadingPickupLocations, setLoadingPickupLocations] = useState(false)
-  const [pickupLocations, setPickupLocations] = useState<ShippingPickupLocation[]>([])
-  const [selectedPickupLocationId, setSelectedPickupLocationId] = useState('')
-  const [pickupSearch, setPickupSearch] = useState({
-    postalCode: '',
-    city: '',
-    street: '',
-    houseNumber: '',
-    countryCode: 'DE',
-    radius: 15,
-    limit: 10,
-    locationType: 'branch' as 'branch' | 'locker' | 'retail',
-  })
 
-  const [formData, setFormData] = useState<ShipmentFormData>({
+  const [formData, setFormData] = useState<BookingShipmentData>({
     weight: 1.0,
     length: 20,
     width: 15,
     height: 10,
-    serviceType: 'P',
-    // Shipper defaults
-    shipperAddress: 'Company Street 1',
-    shipperCity: 'Berlin',
-    shipperPostalCode: '10115',
-    shipperCountry: 'DE',
-    shipperEmail: 'info@fixithub.com',
-    shipperPhone: '+49 30 1234567',
-    shipperCompany: 'FixitHub',
-    shipperName: 'FixitHub Logistics',
-    // Receiver fields - will be pre-filled from booking
-    receiverName: '',
-    receiverAddress: '',
-    receiverCity: '',
-    receiverPostalCode: '',
-    receiverCountry: 'NL',
-    receiverEmail: '',
-    receiverPhone: '',
-    receiverNumber: '1',
+    serviceType: "P",
+    shipperAddress: "Company Street 1",
+    shipperCity: "Berlin",
+    shipperPostalCode: "10115",
+    shipperCountry: "DE",
+    shipperEmail: "info@fixithub.com",
+    shipperPhone: "+49 30 1234567",
+    shipperCompany: "FixitHub",
+    shipperName: "FixitHub Logistics",
+    receiverName: "",
+    receiverAddress: "",
+    receiverCity: "",
+    receiverPostalCode: "",
+    receiverCountry: "NL",
+    receiverEmail: "",
+    receiverPhone: "",
+    receiverNumber: "1",
     shippingCost: 0,
-    isCustomsDeclarable: false
+    isCustomsDeclarable: false,
   })
+
+  useEffect(() => {
+    if (open && bookingId) {
+      loadBookingDetails()
+    }
+  }, [open, bookingId])
 
   const loadBookingDetails = async () => {
     setLoadingBooking(true)
     try {
       const response = await getBooking(bookingId)
-      const booking = response.booking
+      const booking = response?.booking || {}
+      const customer = booking?.customerId || {}
+      const shippingAddress = booking?.shippingAddress || booking?.deliveryAddress || null
+      const invoiceAddress = customer?.invoiceAddress || null
+      const address = shippingAddress || invoiceAddress || {}
 
-      console.log('Loaded booking for shipping label:', booking)
-
-      // Pre-fill receiver information from booking data
-      const customer = booking.customerId
-      const customerEmail = customer?.email || booking.guestInfo?.email || ''
-      const customerName = customer?.name || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim() || 'Customer'
-      const customerPhone = customer?.phone || booking.guestInfo?.phone || ''
-
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        receiverName: customerName,
-        receiverEmail: customerEmail,
-        receiverPhone: customerPhone,
-        receiverAddress: customer?.invoiceAddress?.street || booking.guestInfo?.billingAddress?.street || '',
-        receiverCity: customer?.invoiceAddress?.city || booking.guestInfo?.billingAddress?.city || '',
-        receiverPostalCode: customer?.invoiceAddress?.zipCode || booking.guestInfo?.billingAddress?.zipCode || '',
-        receiverCountry: customer?.invoiceAddress?.country || booking.guestInfo?.billingAddress?.country || 'NL',
+        receiverName: customer?.name || `${customer?.firstName || ""} ${customer?.lastName || ""}`.trim(),
+        receiverEmail: customer?.email || "",
+        receiverPhone: customer?.phone || "",
+        receiverAddress: address?.street || "",
+        receiverCity: address?.city || "",
+        receiverPostalCode: address?.zipCode || address?.postalCode || "",
+        receiverCountry: address?.country || "NL",
       }))
-    } catch (error) {
+    } catch (error: any) {
       toast({
-        title: "Error",
-        description: "Booking details could not be loaded",
-        variant: "destructive"
+        title: "Warning",
+        description: "Could not pre-fill receiver information. Please enter manually.",
+        variant: "destructive",
       })
-      console.error('Error loading booking:', error)
     } finally {
       setLoadingBooking(false)
     }
   }
 
-  // Load booking details and pre-fill receiver information when dialog opens
-  useEffect(() => {
-    if (open && bookingId) {
-      loadBookingDetails()
-      setPickupLocations([])
-      setSelectedPickupLocationId('')
-    }
-  }, [open, bookingId, toast])
-
-  const handlePickupSearch = async () => {
-    if (!pickupSearch.postalCode && !pickupSearch.city) {
+  const handleCreate = async () => {
+    if (!formData.weight || !formData.length || !formData.width || !formData.height) {
       toast({
         title: "Error",
-        description: "Please enter postal code or city",
-        variant: "destructive"
+        description: "Please fill in all package dimensions",
+        variant: "destructive",
       })
       return
     }
 
-    setLoadingPickupLocations(true)
-    try {
-      const result = await lookupPickupLocationsForBooking(bookingId, pickupSearch)
-      setPickupLocations(result.locations || [])
-      if ((result.locations || []).length === 0) {
-        toast({
-          title: "Info",
-          description: "No pickup locations found for the specified criteria",
-        })
-      }
-    } catch (error) {
+    if (!formData.receiverAddress?.trim() || !formData.receiverCity?.trim() || !formData.receiverPostalCode?.trim() || !formData.receiverCountry?.trim()) {
       toast({
         title: "Error",
-        description: "Failed to lookup pickup locations",
-        variant: "destructive"
+        description: "Receiver address, city, postal code and country are required",
+        variant: "destructive",
       })
-      console.error('Error looking up pickup locations:', error)
-    } finally {
-      setLoadingPickupLocations(false)
-    }
-  }
-
-  const handleSelectPickupLocation = (locationId: string) => {
-    setSelectedPickupLocationId(locationId)
-  }
-
-  const handleSubmit = async () => {
-    if (!formData.receiverName) {
-      toast({ title: "Error", description: "Receiver name is required", variant: "destructive" })
-      return
-    }
-    if (!formData.receiverAddress) {
-      toast({ title: "Error", description: "Receiver address is required", variant: "destructive" })
-      return
-    }
-    if (!formData.receiverCity) {
-      toast({ title: "Error", description: "Receiver city is required", variant: "destructive" })
-      return
-    }
-    if (!formData.receiverPostalCode) {
-      toast({ title: "Error", description: "Receiver postal code is required", variant: "destructive" })
       return
     }
 
     setLoading(true)
     try {
-      let shipmentPayload: any = {
-        weight: formData.weight,
-        length: formData.length,
-        width: formData.width,
-        height: formData.height,
-        serviceType: formData.serviceType,
-        shipperName: formData.shipperName,
-        shipperAddress: formData.shipperAddress,
-        shipperCity: formData.shipperCity,
-        shipperPostalCode: formData.shipperPostalCode,
-        shipperCountry: formData.shipperCountry,
-        shipperEmail: formData.shipperEmail,
-        shipperPhone: formData.shipperPhone,
-        receiverName: formData.receiverName,
-        receiverAddress: formData.receiverAddress,
-        receiverCity: formData.receiverCity,
-        receiverPostalCode: formData.receiverPostalCode,
-        receiverCountry: formData.receiverCountry,
-        receiverEmail: formData.receiverEmail,
-        receiverPhone: formData.receiverPhone,
-        receiverNumber: formData.receiverNumber,
-        shippingCost: formData.shippingCost,
-        isCustomsDeclarable: formData.isCustomsDeclarable
-      }
-
-      // Add pickup payload if a location was selected
-      if (selectedPickupLocationId && pickupLocations.length > 0) {
-        const selectedLocation = pickupLocations.find(loc => loc.locationId === selectedPickupLocationId)
-        if (selectedLocation) {
-          shipmentPayload.parcelDePickupPayload = {
-            postalCode: selectedLocation.postalCode,
-            city: selectedLocation.city,
-            countryCode: selectedLocation.countryCode || 'DE',
-            street: selectedLocation.street || '',
-            houseNumber: selectedLocation.houseNumber || '',
-            locationId: selectedLocation.locationId,
-            locationName: selectedLocation.name,
-            locationType: pickupSearch.locationType
-          }
-        }
-      }
-
-      const response = await createBookingShippingLabel(bookingId, shipmentPayload)
-
+      const result = await createBookingShippingLabel(bookingId, formData)
       toast({
         title: "Success",
-        description: "Shipping label created successfully"
+        description: `Shipping label created! Tracking: ${result?.trackingNumber || "-"}`,
       })
-
-      onOpenChange(false)
       onSuccess()
+      onOpenChange(false)
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create shipping label",
-        variant: "destructive"
+        description: error?.message || "Failed to create shipping label",
+        variant: "destructive",
       })
-      console.error('Error creating shipping label:', error)
     } finally {
       setLoading(false)
     }
@@ -260,246 +156,168 @@ export function CreateBookingShippingLabelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Shipping Label for Booking</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Create Booking Shipping Label
+          </DialogTitle>
           <DialogDescription>
-            Configure and create a DHL Parcel DE shipping label for this booking
+            Configure shipment details and generate a DHL shipping label for this booking
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Loading State */}
-          {loadingBooking && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Loading booking details...</span>
+        {loadingBooking ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading booking details...</span>
+          </div>
+        ) : (
+          <div className="grid gap-6 py-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Receiver Information</h3>
+              </div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="receiverName">Full Name</Label>
+                  <Input
+                    id="receiverName"
+                    value={formData.receiverName}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiverEmail">Email</Label>
+                  <Input
+                    id="receiverEmail"
+                    type="email"
+                    value={formData.receiverEmail}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverEmail: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="receiverAddress">Street Address</Label>
+                  <Input
+                    id="receiverAddress"
+                    value={formData.receiverAddress}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverAddress: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiverCity">City</Label>
+                  <Input
+                    id="receiverCity"
+                    value={formData.receiverCity}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverCity: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiverPostalCode">Postal Code</Label>
+                  <Input
+                    id="receiverPostalCode"
+                    value={formData.receiverPostalCode}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverPostalCode: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiverCountry">Country</Label>
+                  <Input
+                    id="receiverCountry"
+                    value={formData.receiverCountry}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverCountry: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiverPhone">Phone</Label>
+                  <Input
+                    id="receiverPhone"
+                    value={formData.receiverPhone}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, receiverPhone: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
-          )}
 
-          {!loadingBooking && (
-            <>
-              {/* Receiver Information Section */}
-              <div className="space-y-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Receiver (Booking Customer)
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Receiver Name</Label>
-                    <Input
-                      value={formData.receiverName}
-                      onChange={(e) => setFormData({ ...formData, receiverName: e.target.value })}
-                      placeholder="Receiver name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Email</Label>
-                    <Input
-                      value={formData.receiverEmail}
-                      onChange={(e) => setFormData({ ...formData, receiverEmail: e.target.value })}
-                      placeholder="Email"
-                      type="email"
-                    />
-                  </div>
-                  <div>
-                    <Label>Phone</Label>
-                    <Input
-                      value={formData.receiverPhone}
-                      onChange={(e) => setFormData({ ...formData, receiverPhone: e.target.value })}
-                      placeholder="Phone"
-                    />
-                  </div>
-                  <div>
-                    <Label>Country Code</Label>
-                    <Input
-                      value={formData.receiverCountry}
-                      onChange={(e) => setFormData({ ...formData, receiverCountry: e.target.value })}
-                      placeholder="NL"
-                      maxLength={2}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Street Address</Label>
-                    <Input
-                      value={formData.receiverAddress}
-                      onChange={(e) => setFormData({ ...formData, receiverAddress: e.target.value })}
-                      placeholder="Street address"
-                    />
-                  </div>
-                  <div>
-                    <Label>City</Label>
-                    <Input
-                      value={formData.receiverCity}
-                      onChange={(e) => setFormData({ ...formData, receiverCity: e.target.value })}
-                      placeholder="City"
-                    />
-                  </div>
-                  <div>
-                    <Label>Postal Code</Label>
-                    <Input
-                      value={formData.receiverPostalCode}
-                      onChange={(e) => setFormData({ ...formData, receiverPostalCode: e.target.value })}
-                      placeholder="Postal code"
-                    />
-                  </div>
-                </div>
-              </div>
-
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold">Package Details</h3>
               <Separator />
-
-              {/* Pickup Location Search */}
-              <div className="space-y-3 p-3 rounded-lg bg-green-50 dark:bg-green-950">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  DHL Pickup Location (Optional)
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Postal Code</Label>
-                    <Input
-                      value={pickupSearch.postalCode}
-                      onChange={(e) => setPickupSearch({ ...pickupSearch, postalCode: e.target.value })}
-                      placeholder="Postal code"
-                    />
-                  </div>
-                  <div>
-                    <Label>City</Label>
-                    <Input
-                      value={pickupSearch.city}
-                      onChange={(e) => setPickupSearch({ ...pickupSearch, city: e.target.value })}
-                      placeholder="City"
-                    />
-                  </div>
-                  <div>
-                    <Label>Location Type</Label>
-                    <Select
-                      value={pickupSearch.locationType}
-                      onValueChange={(value) => setPickupSearch({ ...pickupSearch, locationType: value as 'branch' | 'locker' | 'retail' })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="branch">Branch</SelectItem>
-                        <SelectItem value="locker">Locker</SelectItem>
-                        <SelectItem value="retail">Retail</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Radius (km)</Label>
-                    <Input
-                      type="number"
-                      value={pickupSearch.radius}
-                      onChange={(e) => setPickupSearch({ ...pickupSearch, radius: parseInt(e.target.value) || 15 })}
-                      min="1"
-                      max="100"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.weight}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, weight: Number(e.target.value) || 0 }))}
+                  />
                 </div>
-                <Button
-                  onClick={handlePickupSearch}
-                  disabled={loadingPickupLocations}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {loadingPickupLocations ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    'Search Pickup Locations'
-                  )}
-                </Button>
-
-                {/* Pickup Locations List */}
-                {pickupLocations.length > 0 && (
-                  <div className="mt-3 space-y-2 max-h-40 overflow-y-auto">
-                    {pickupLocations.map((location) => (
-                      <div
-                        key={location.locationId}
-                        onClick={() => handleSelectPickupLocation(location.locationId)}
-                        className={`p-2 border rounded-lg cursor-pointer transition-colors ${
-                          selectedPickupLocationId === location.locationId
-                            ? 'bg-blue-100 dark:bg-blue-900 border-blue-500'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                        }`}
-                      >
-                        <p className="font-semibold text-sm">{location.name}</p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {location.street} {location.houseNumber}, {location.postalCode} {location.city}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Shipment Details */}
-              <div className="space-y-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Shipment Details
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Weight (kg)</Label>
-                    <Input
-                      type="number"
-                      value={formData.weight}
-                      onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })}
-                      min="0.1"
-                      step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Service Type</Label>
-                    <Select value={formData.serviceType} onValueChange={(value) => setFormData({ ...formData, serviceType: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="P">Parcel</SelectItem>
-                        <SelectItem value="E">Express</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Shipping Cost (€)</Label>
-                    <Input
-                      type="number"
-                      value={formData.shippingCost}
-                      onChange={(e) => setFormData({ ...formData, shippingCost: parseFloat(e.target.value) || 0 })}
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="serviceType">Service Type</Label>
+                  <Select
+                    value={formData.serviceType}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, serviceType: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select service type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="P">Parcel</SelectItem>
+                      <SelectItem value="V01PAK">DHL Paket</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="length">Length (cm)</Label>
+                  <Input
+                    id="length"
+                    type="number"
+                    min="1"
+                    value={formData.length}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, length: Number(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="width">Width (cm)</Label>
+                  <Input
+                    id="width"
+                    type="number"
+                    min="1"
+                    value={formData.width}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, width: Number(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="height">Height (cm)</Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    min="1"
+                    value={formData.height}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, height: Number(e.target.value) || 0 }))}
+                  />
                 </div>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={loading || loadingBooking}
-          >
+          <Button onClick={handleCreate} disabled={loading || loadingBooking}>
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 Creating...
               </>
             ) : (
-              'Create Shipping Label'
+              "Create Shipping Label"
             )}
           </Button>
         </DialogFooter>
