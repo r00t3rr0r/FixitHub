@@ -1217,7 +1217,11 @@ router.post('/initialize', requireUser, async (req, res) => {
         city: user.paymentAddress?.sameAsInvoice ? user.invoiceAddress?.city : user.paymentAddress?.city || '',
         state: user.paymentAddress?.sameAsInvoice ? user.invoiceAddress?.state : user.paymentAddress?.state || '',
         zipCode: user.paymentAddress?.sameAsInvoice ? user.invoiceAddress?.zipCode : user.paymentAddress?.zipCode || '',
-        country: user.paymentAddress?.sameAsInvoice ? user.invoiceAddress?.country : user.paymentAddress?.country || ''
+        country: user.paymentAddress?.sameAsInvoice ? user.invoiceAddress?.country : user.paymentAddress?.country || '',
+        sameAsInvoice: user.paymentAddress?.sameAsInvoice !== false,
+        deliveryType: user.paymentAddress?.deliveryType || 'address',
+        packstationNumber: user.paymentAddress?.packstationNumber || '',
+        postNumber: user.paymentAddress?.postNumber || ''
       }
     };
 
@@ -1486,14 +1490,18 @@ router.post('/complete', requireUser, async (req, res) => {
     const fallbackAddress = (() => {
       const payment = user.paymentAddress || {};
       const invoice = user.invoiceAddress || {};
-      const useInvoice = payment.sameAsInvoice || !payment.street;
+      const isPackstation = payment.deliveryType === 'packstation' && payment.packstationNumber;
+      const useInvoice = !isPackstation && (payment.sameAsInvoice || !payment.street);
       const source = useInvoice ? invoice : payment;
       return {
-        street: source.street || invoice.street || '',
-        city: source.city || invoice.city || '',
-        state: source.state || invoice.state || '',
-        zipCode: source.zipCode || invoice.zipCode || '',
-        country: source.country || invoice.country || '',
+        street: isPackstation ? '' : (source.street || invoice.street || ''),
+        city: isPackstation ? (payment.city || invoice.city || '') : (source.city || invoice.city || ''),
+        state: isPackstation ? '' : (source.state || invoice.state || ''),
+        zipCode: isPackstation ? (payment.zipCode || invoice.zipCode || '') : (source.zipCode || invoice.zipCode || ''),
+        country: isPackstation ? (payment.country || invoice.country || '') : (source.country || invoice.country || ''),
+        deliveryType: payment.deliveryType || 'address',
+        packstationNumber: payment.packstationNumber || '',
+        postNumber: payment.postNumber || '',
       };
     })();
     console.log('CheckoutRoutes: Resolved shippingAddress for orders:', fallbackAddress);

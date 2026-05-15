@@ -1347,6 +1347,9 @@ export function SystemConfiguration() {
                                   <Badge variant={(integration.settings?.dhlApis?.parcelDePickup ?? false) ? 'default' : 'secondary'}>
                                     Pickup
                                   </Badge>
+                                  <Badge variant={(integration.settings?.dhlApis?.locationFinder ?? false) ? 'default' : 'secondary'}>
+                                    Location Finder
+                                  </Badge>
                                 </div>
                               </div>
 

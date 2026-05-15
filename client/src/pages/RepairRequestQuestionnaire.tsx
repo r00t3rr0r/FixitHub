@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { LoginDialog } from "@/components/home/LoginDialog"
+import { AuthRequiredDialog } from "@/components/auth/AuthRequiredDialog"
 import { createRepairRequest } from "@/api/repairRequests"
 import {
   getDeviceTypes,
@@ -47,6 +47,9 @@ import {
   Database,
   Laptop,
   Tablet,
+  Clock3,
+  ShieldCheck,
+  Eye,
 } from "lucide-react"
 
 interface SelectedDevice {
@@ -65,7 +68,8 @@ export function RepairRequestQuestionnaire() {
   const location = useLocation()
   const { toast } = useToast()
   const { isAuthenticated } = useAuth()
-  const [showLoginDialog, setShowLoginDialog] = useState(false)
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const [pendingSubmit, setPendingSubmit] = useState(false)
 
   // Device from configurator nav state (DB device)
   const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(
@@ -280,15 +284,7 @@ export function RepairRequestQuestionnaire() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!isAuthenticated) {
-      toast({ title: "Anmeldung erforderlich", description: "Bitte melden Sie sich an, um eine Reparaturanfrage zu stellen" })
-      setShowLoginDialog(true)
-      return
-    }
-    if (!validateForm()) return
-
+  const doSubmitRequest = async () => {
     const isDbDevice = !editingDevice && selectedDevice !== null
     const deviceTypeFinal = isDbDevice ? selectedDevice!.deviceType : manualDeviceType
     const deviceBrandFinal = isDbDevice ? selectedDevice!.manufacturer : manualDeviceName.split(" ")[0]
@@ -324,14 +320,46 @@ export function RepairRequestQuestionnaire() {
     }
   }
 
+  const handleAuthSuccess = () => {
+    if (pendingSubmit) {
+      setPendingSubmit(false)
+      doSubmitRequest()
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validateForm()) return
+    if (!isAuthenticated) {
+      setPendingSubmit(true)
+      setShowAuthDialog(true)
+      return
+    }
+    doSubmitRequest()
+  }
+
+  const cardShellClass = "border border-slate-200/90 bg-white/95 shadow-[0_14px_42px_-24px_rgba(15,23,42,0.55)]"
+  const formControlClass = "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
+  const deviceReady = !editingDevice && (!!selectedDevice || !!manualDeviceName.trim())
+  const descriptionReady = issueDescription.trim().length >= 20
+  const uploadReady = images.length > 0
+
   return (
-    <>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_-10%,rgba(245,184,0,0.16),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(26,42,94,0.2),transparent_48%),linear-gradient(180deg,#f8fbff_0%,#eef3fb_42%,#f5f8fe_100%)]">
       {/* Hero Banner */}
-      <section className="relative overflow-hidden bg-[linear-gradient(135deg,_#1a2a5e_0%,_#2f57b0_100%)] px-6 py-14 text-white md:px-12 md:py-20">
+      <section className="relative overflow-hidden border-b border-white/20 bg-[linear-gradient(132deg,#1a2a5e_0%,#21408e_54%,#2e5cc1_100%)] px-6 py-14 text-white md:px-12 md:py-20">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 left-12 h-56 w-56 rounded-full bg-yellow-300/15 blur-3xl" />
 
-        <div className="relative z-10 text-center">
+        <div className="relative z-10 mx-auto max-w-6xl text-center">
+          <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-50">
+              <ShieldCheck className="h-3.5 w-3.5" /> McRepair Service
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-200/40 bg-yellow-300/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-yellow-100">
+              <Clock3 className="h-3.5 w-3.5" /> Antwort in 24h*
+            </span>
+          </div>
           <button
             type="button"
             onClick={navigateBack}
@@ -344,19 +372,20 @@ export function RepairRequestQuestionnaire() {
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">
             Reparaturanfrage
           </h1>
-          <p className="mt-5 text-base leading-7 text-blue-100 md:text-lg">
+          <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-blue-100 md:text-lg">
             Manche Defekte erfordern individuelle Begutachtung. Bei McRepair.de ist das kein Problem:
             schildern Sie uns Ihr Problem, und Sie erhalten innerhalb von 24 Stunden* eine Rückmeldung.
           </p>
-          <p className="mt-3 text-sm text-blue-200/70">* werktags</p>
+          <p className="mt-3 text-sm font-medium text-blue-200/80">* werktags</p>
         </div>
       </section>
 
-      <form onSubmit={handleSubmit} className="space-y-6 px-6 py-10 md:px-12 md:py-14">
+      <form onSubmit={handleSubmit} className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-10 md:px-12 md:py-14 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
 
         {/* Card 1: Device */}
-        <Card className="border-0 shadow-xl">
-          <CardHeader className="border-b border-slate-100 pb-4">
+        <Card className={cardShellClass}>
+          <CardHeader className="border-b border-slate-100/80 pb-4">
             <CardTitle
               className="flex items-center gap-2.5 text-xl"
               style={{ color: "var(--primary-blue, #1a2a5e)" }}
@@ -487,7 +516,7 @@ export function RepairRequestQuestionnaire() {
                       if (errors.manualDeviceName)
                         setErrors((prev) => { const next = { ...prev }; delete next.manualDeviceName; return next })
                     }}
-                    className={errors.manualDeviceName ? "border-red-500 focus-visible:ring-red-200" : ""}
+                    className={`${formControlClass} ${errors.manualDeviceName ? "border-red-500 focus-visible:ring-red-200" : ""}`}
                   />
                   {errors.manualDeviceName && (
                     <p className="flex items-center gap-1.5 text-sm text-red-600">
@@ -510,6 +539,7 @@ export function RepairRequestQuestionnaire() {
                     placeholder="z. B. A2215, SM-G998B, HP 255 G8, ThinkPad T14s …"
                     value={manualModelNumber}
                     onChange={(e) => setManualModelNumber(e.target.value)}
+                    className={formControlClass}
                   />
                 </div>
 
@@ -546,8 +576,8 @@ export function RepairRequestQuestionnaire() {
         </Card>
 
         {/* Card 2: Repair Request */}
-        <Card className="border-0 shadow-xl">
-          <CardHeader className="border-b border-slate-100 pb-4">
+        <Card className={cardShellClass}>
+          <CardHeader className="border-b border-slate-100/80 pb-4">
             <CardTitle
               className="flex items-center gap-2.5 text-xl"
               style={{ color: "var(--primary-blue, #1a2a5e)" }}
@@ -578,7 +608,7 @@ export function RepairRequestQuestionnaire() {
                   if (errors.issueDescription)
                     setErrors((prev) => { const next = { ...prev }; delete next.issueDescription; return next })
                 }}
-                className={`min-h-[140px] ${errors.issueDescription ? "border-red-500 focus-visible:ring-red-200" : ""}`}
+                className={`min-h-[140px] ${formControlClass} ${errors.issueDescription ? "border-red-500 focus-visible:ring-red-200" : ""}`}
               />
               {errors.issueDescription && (
                 <p className="flex items-center gap-1.5 text-sm text-red-600">
@@ -658,6 +688,7 @@ export function RepairRequestQuestionnaire() {
                 placeholder="z. B. Gestern, letzte Woche, vor 3 Monaten …"
                 value={issueOccurredDate}
                 onChange={(e) => setIssueOccurredDate(e.target.value)}
+                className={formControlClass}
               />
             </div>
 
@@ -716,7 +747,7 @@ export function RepairRequestQuestionnaire() {
                   placeholder="Beschreiben Sie kurz, was bereits versucht wurde …"
                   value={previousRepairDetails}
                   onChange={(e) => setPreviousRepairDetails(e.target.value)}
-                  className="min-h-[80px]"
+                  className={`min-h-[80px] ${formControlClass}`}
                 />
               )}
             </div>
@@ -780,17 +811,53 @@ export function RepairRequestQuestionnaire() {
             </div>
           </CardContent>
         </Card>
+        </div>
+
+        <aside className="h-fit xl:sticky xl:top-24">
+          <Card className="border border-[#1a2a5e]/10 bg-white/95 shadow-[0_14px_40px_-24px_rgba(26,42,94,0.45)]">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg font-extrabold text-[#1a2a5e]">
+                <Eye className="h-5 w-5" /> Ihr Anfrage-Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-5">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                Alle wichtigen Informationen sind hier auf einen Blick sichtbar. Unvollständige Punkte werden markiert.
+              </div>
+
+              <div className={`rounded-xl border px-3 py-2.5 text-sm ${deviceReady ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                <p className="font-semibold">Gerät</p>
+                <p>{deviceReady ? "Vollständig" : "Bitte Gerät auswählen oder manuell ergänzen"}</p>
+              </div>
+
+              <div className={`rounded-xl border px-3 py-2.5 text-sm ${descriptionReady ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                <p className="font-semibold">Fehlerbeschreibung</p>
+                <p>{descriptionReady ? "Ausreichend detailliert" : "Mindestens 20 Zeichen für schnellere Bearbeitung"}</p>
+              </div>
+
+              <div className={`rounded-xl border px-3 py-2.5 text-sm ${uploadReady ? "border-blue-200 bg-blue-50 text-blue-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                <p className="font-semibold">Bilder</p>
+                <p>{uploadReady ? `${images.length} Bild(er) hinzugefügt` : "Optional, aber hilfreich für die Vorabprüfung"}</p>
+              </div>
+
+              <div className="rounded-xl border border-[#1a2a5e]/10 bg-[#1a2a5e]/5 px-3 py-3 text-sm text-[#1a2a5e]">
+                <p className="font-semibold">Tipp von McRepair</p>
+                <p>Je genauer die Angaben, desto schneller erhalten Sie eine präzise Ersteinschätzung.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
       </form>
 
       {/* DB Selection Dialog */}
       <Dialog open={showDeviceDialog} onOpenChange={setShowDeviceDialog}>
-        <DialogContent className="sm:max-w-[580px]">
+        <DialogContent className="border-slate-200 bg-white sm:max-w-[580px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
+            <DialogTitle className="flex items-center gap-2 text-xl text-[#1a2a5e]">
               <Database className="h-5 w-5" />
               Gerät aus Datenbank wählen
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-slate-600">
               Suchen Sie Ihr Gerät in unserer Gerätedatenbank
             </DialogDescription>
           </DialogHeader>
@@ -801,7 +868,7 @@ export function RepairRequestQuestionnaire() {
                 1. Gerätetyp <span className="text-red-500">*</span>
               </label>
               <Select value={selectedDeviceType} onValueChange={handleDbDeviceTypeChange}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={`w-full ${formControlClass}`}>
                   <SelectValue placeholder="Gerätetyp wählen …" />
                 </SelectTrigger>
                 <SelectContent>
@@ -824,7 +891,7 @@ export function RepairRequestQuestionnaire() {
                 onValueChange={handleDbManufacturerChange}
                 disabled={!selectedDeviceType || loadingManufacturers}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={`w-full ${formControlClass}`}>
                   <SelectValue
                     placeholder={
                       loadingManufacturers ? "Lädt …" : !selectedDeviceType ? "Zuerst Gerätetyp wählen" : "Marke wählen …"
@@ -851,7 +918,7 @@ export function RepairRequestQuestionnaire() {
                 onValueChange={setSelectedModel}
                 disabled={!selectedManufacturer || loadingModels}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={`w-full ${formControlClass}`}>
                   <SelectValue
                     placeholder={
                       loadingModels ? "Lädt …" : !selectedManufacturer ? "Zuerst Marke wählen" : "Modell wählen …"
@@ -903,7 +970,7 @@ export function RepairRequestQuestionnaire() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeviceDialog(false)}>
+            <Button variant="outline" className="border-slate-300 text-slate-700" onClick={() => setShowDeviceDialog(false)}>
               Abbrechen
             </Button>
             <Button
@@ -919,26 +986,16 @@ export function RepairRequestQuestionnaire() {
       </Dialog>
 
       {/* Login Dialog */}
-      {showLoginDialog && (
-        <>
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.3)",
-              zIndex: 9998,
-            }}
-            onClick={() => setShowLoginDialog(false)}
-          />
-          <LoginDialog
-            isOpen={showLoginDialog}
-            onClose={() => setShowLoginDialog(false)}
-          />
-        </>
-      )}
-    </>
+      <AuthRequiredDialog
+        open={showAuthDialog}
+        onOpenChange={(open) => {
+          setShowAuthDialog(open)
+          if (!open) setPendingSubmit(false)
+        }}
+        onSuccess={handleAuthSuccess}
+        title="Authentifizierung erforderlich"
+        description="Bitte melden Sie sich an oder erstellen Sie ein Konto, um eine Reparaturanfrage zu stellen."
+      />
+    </div>
   )
 }

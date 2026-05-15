@@ -35,6 +35,12 @@ export interface Integration {
     clientSecret?: string;
     username?: string;
     password?: string;
+    shippingAuthUrl?: string;
+    shippingGrantType?: string;
+    trackingBaseUrl?: string;
+    trackingUsername?: string;
+    trackingPassword?: string;
+    trackingAuthType?: string;
   };
   metadata?: {
     environment?: 'sandbox' | 'production' | string;

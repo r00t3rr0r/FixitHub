@@ -381,6 +381,9 @@ app.use('/api/admin/marketing-promo', marketingPromoRoutes);
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);
+// DHL Routes (Location Finder proxy)
+const dhlRoutes = require('./routes/dhlRoutes');
+app.use('/api/dhl', dhlRoutes);
 
 console.log('Routes configured successfully');
 

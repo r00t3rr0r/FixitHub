@@ -5214,15 +5214,46 @@
     }
   },
   {
-    "id": "1778590043378-27odrsqxj",
-    "timestamp": "2026-05-12T12:47:23.378Z",
-    "to": "adarozerr@gmail.com",
+    "id": "1778838502041-6xvo3madt",
+    "timestamp": "2026-05-15T09:48:22.041Z",
+    "to": "dieter.senf@protonmail.com",
     "templateName": "Buchung angelegt",
-    "subject": "Ihre Buchung BKG-2026-0021 wurde erfolgreich angelegt – McRepair.de",
-    "messageId": "<21bac073-d329-f656-2f53-6a3490002b93@fixithub.com>",
+    "subject": "Ihre Buchung BKG-2026-0008 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<e12689e2-782f-1471-fca3-8e3d76455fcf@fixithub.com>",
     "status": "sent",
     "attempts": 1,
-    "duration": 1965,
+    "duration": 1706,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778838800838-ywk0m6avi",
+    "timestamp": "2026-05-15T09:53:20.839Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0009 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<9c34e2e0-a651-1c2f-165f-dabb10b8a671@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 927,
     "metadata": {
       "variables": [
         "companyName",

@@ -641,6 +641,18 @@ const orderSchema = new mongoose.Schema({
       type: String,
       default: '',
     },
+    deliveryType: {
+      type: String,
+      default: '',
+    },
+    packstationNumber: {
+      type: String,
+      default: '',
+    },
+    postNumber: {
+      type: String,
+      default: '',
+    },
   },
   trackingNumber: {
     type: String,

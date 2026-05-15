@@ -24,46 +24,6 @@ export interface ShipmentData {
   receiverNumber?: string;
   shippingCost?: number;
   isCustomsDeclarable?: boolean;
-  parcelDePickupPayload?: Record<string, unknown>;
-}
-
-export interface PickupSearchQuery {
-  postalCode?: string;
-  city?: string;
-  street?: string;
-  houseNumber?: string;
-  countryCode?: string;
-  radius?: number;
-  limit?: number;
-  locationType?: 'branch' | 'locker' | 'retail' | string;
-  branchCode?: string;
-  retailID?: string;
-  preferNearest?: boolean;
-}
-
-export interface PickupLocation {
-  id: string;
-  name: string;
-  type: string;
-  distance: number;
-  branchCode?: string;
-  retailID?: string;
-  address: {
-    street: string;
-    houseNumber: string;
-    postalCode: string;
-    city: string;
-    countryCode: string;
-  };
-  raw?: Record<string, unknown>;
-}
-
-export interface PickupLocationsResult {
-  success: boolean;
-  count: number;
-  locations: PickupLocation[];
-  query?: Record<string, unknown>;
-  endpoint?: string;
 }
 
 export interface TrackingEvent {
@@ -140,19 +100,47 @@ export const updateOrderTracking = async (orderId: string) => {
   }
 };
 
-// Description: Lookup DHL pickup locations for an order shipping flow
-// Endpoint: POST /api/orders/:id/shipping/pickup-locations
-// Request: PickupSearchQuery
-// Response: PickupLocationsResult
-export const lookupPickupLocations = async (
-  orderId: string,
-  query: PickupSearchQuery
-): Promise<PickupLocationsResult> => {
-  try {
-    const response = await api.post(`/api/orders/${orderId}/shipping/pickup-locations`, query);
-    return response.data;
-  } catch (error: any) {
-    console.error('Lookup pickup locations error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+// ── DHL Location Finder ──────────────────────────────────────────────────────
+
+export interface DhlLocationAddress {
+  street: string;
+  city: string;
+  postalCode: string;
+  countryCode: string;
+}
+
+export interface DhlOpeningHours {
+  dayOfWeek: string[];
+  opens: string;
+  closes: string;
+}
+
+export interface DhlLocation {
+  locationId: string;
+  /** "locker" = Packstation, "postoffice" = Postfiliale, "servicepoint" = Paketshop, "postbank" */
+  type: 'locker' | 'postoffice' | 'servicepoint' | 'postbank' | string;
+  keyword: string;
+  keywordId: string;
+  name: string;
+  distance: number;
+  address: DhlLocationAddress;
+  openingHours: DhlOpeningHours[];
+}
+
+// Description: Search for nearby DHL locations (Packstations, Postfilialen, Paketshops)
+// Endpoint: GET /api/dhl/locations
+// Request: { query, countryCode?, locationType? }
+// Response: { locations: DhlLocation[] }
+export const searchDhlLocations = async (
+  query: string,
+  countryCode = 'DE',
+  locationType?: string,
+): Promise<DhlLocation[]> => {
+  const response = await api.get('/api/dhl/locations', {
+    params: { query, countryCode, ...(locationType ? { locationType } : {}) },
+  });
+  if (response.status !== 200) {
+    throw new Error(response.data?.error || 'Fehler beim Laden der DHL-Standorte');
   }
+  return response.data?.locations ?? [];
 };

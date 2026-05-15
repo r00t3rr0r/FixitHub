@@ -850,17 +850,30 @@ class SystemConfigService {
           process.env.DHL_API_SECRET ||
           '';
 
+        // Prefer explicit credentials over normalizedConfig (which may fall back to env vars)
         const username =
+          integration.credentials?.username ||
           normalizedConfig.username ||
           process.env.DHL_BC_USERNAME ||
           process.env.DHL_BUSINESS_CUSTOMER_USERNAME ||
           (isSandbox ? 'user-valid' : '');
 
         const password =
+          integration.credentials?.password ||
           normalizedConfig.password ||
           process.env.DHL_BC_PASSWORD ||
           process.env.DHL_BUSINESS_CUSTOMER_PASSWORD ||
           (isSandbox ? 'SandboxPasswort2023!' : '');
+
+        const shippingAuthUrl =
+          integration.credentials?.shippingAuthUrl ||
+          normalizedConfig.shippingAuthUrl ||
+          `${endpoint}/parcel/de/account/auth/ropc/v1/token`;
+
+        const shippingGrantType =
+          integration.credentials?.shippingGrantType ||
+          normalizedConfig.shippingGrantType ||
+          'password';
 
         const missingFields = [
           ['client_id', clientId],
@@ -880,20 +893,24 @@ class SystemConfigService {
         integration.apiKey = clientId;
         integration.apiSecret = clientSecret;
         integration.endpoint = endpoint;
-        integration.metadata = {
-          ...(integration.metadata || {}),
-          environment: isSandbox ? 'sandbox' : 'production',
-          clientId,
-          clientSecret,
-          username,
-          password
-        };
-
         integration.credentials = {
           ...(integration.credentials || {}),
           apiKey: clientId,
           apiSecret: clientSecret,
-          apiEndpoint: endpoint
+          apiEndpoint: endpoint,
+          clientId,
+          clientSecret,
+          username,
+          password,
+          shippingAuthUrl,
+          shippingGrantType
+        };
+        // Keep environment in metadata for backwards-compatibility
+        integration.metadata = {
+          ...(integration.metadata || {}),
+          environment: isSandbox ? 'sandbox' : 'production',
+          clientId,
+          clientSecret
         };
 
         // Test DHL connection
@@ -903,7 +920,9 @@ class SystemConfigService {
           endpoint,
           {
             username,
-            password
+            password,
+            shippingAuthUrl,
+            shippingGrantType
           },
           {
             enabledApis: {
