@@ -835,7 +835,7 @@ export function CustomerInvoices() {
                     <FileText className="h-3.5 w-3.5 text-white" />
                   </div>
                   <div>
-                    <DialogTitle className="text-white font-bold text-sm leading-tight">
+                    <DialogTitle className="text-[#f5b800] font-bold text-sm leading-tight">
                       {t('invoices.invoiceDetails')}
                     </DialogTitle>
                     <DialogDescription className="text-blue-200/80 text-xs leading-tight mt-0">
@@ -912,44 +912,51 @@ export function CustomerInvoices() {
                   </div>
 
                   {/* Line Items */}
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <div className="bg-[#1a2a5e] px-3 py-1.5">
-                      <h3 className="font-bold text-[10px] text-white uppercase tracking-wider">Positionen</h3>
+                  <div className="rounded-xl border-2 border-[#f5b800]/25 overflow-hidden shadow-sm">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] px-4 py-2.5 flex items-center gap-2.5">
+                      <div className="h-6 w-6 rounded-full bg-[#f5b800] flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-3 w-3 text-[#1a2a5e]" />
+                      </div>
+                      <h3 className="font-extrabold text-sm text-[#f5b800] uppercase tracking-wide">Positionen</h3>
+                      <span className="ml-auto text-[10px] text-blue-200/60 font-medium">{selectedInvoice.items.length} {selectedInvoice.items.length === 1 ? 'Position' : 'Positionen'}</span>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left py-1.5 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Beschreibung</th>
-                            <th className="text-right py-1.5 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Menge</th>
-                            <th className="text-right py-1.5 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Einzelpreis</th>
-                            <th className="text-right py-1.5 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rabatt</th>
-                            <th className="text-right py-1.5 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">MwSt.</th>
-                            <th className="text-right py-1.5 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Zwischensumme</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedInvoice.items.map((item, idx) => (
-                            <tr key={item._id} className={`border-b border-slate-100 last:border-0 ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                              <td className="py-1.5 px-3">
-                                <p className="text-xs font-semibold text-slate-800">{item.description}</p>
-                                <span className="inline-block text-[9px] font-semibold text-amber-700 bg-amber-50 px-1 py-0.5 rounded leading-tight mt-0.5">{item.type}</span>
-                              </td>
-                              <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">{item.quantity}</td>
-                              <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">{formatEUR(item.unitPrice)}</td>
-                              <td className="text-right py-1.5 px-2 text-xs font-medium">
-                                {item.discount != null && item.discount > 0
-                                  ? <span className="text-emerald-600">-{formatEUR(item.discount)}</span>
-                                  : <span className="text-slate-300">—</span>}
-                              </td>
-                              <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">
-                                {item.taxRate != null ? `${item.taxRate}%` : <span className="text-slate-300">—</span>}
-                              </td>
-                              <td className="text-right py-1.5 px-3 text-xs font-bold text-[#1a2a5e]">{formatEUR(item.total)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+
+                    {/* Column headers */}
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-0 bg-slate-100 border-b border-slate-200 px-4 py-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Leistung</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right w-12">Menge</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right w-20">Einzelpr.</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right w-16">Rabatt</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right w-12">MwSt.</span>
+                      <span className="text-[10px] font-bold text-[#1a2a5e] uppercase tracking-wider text-right w-20">Gesamt</span>
+                    </div>
+
+                    {/* Rows */}
+                    <div className="divide-y divide-slate-100 bg-white">
+                      {selectedInvoice.items.map((item, idx) => (
+                        <div key={item._id} className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-0 px-4 py-2.5 items-center ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                          <div className="min-w-0 pr-3">
+                            <p className="text-sm font-semibold text-slate-800 leading-tight truncate">{item.description}</p>
+                            {item.type && (
+                              <span className="inline-block mt-0.5 text-[9px] font-bold text-[#1a2a5e] bg-[#f5b800]/20 border border-[#f5b800]/40 px-1.5 py-0.5 rounded-full leading-tight uppercase tracking-wide">
+                                {item.type}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-600 font-medium text-right w-12">{item.quantity}</span>
+                          <span className="text-xs text-slate-600 font-medium text-right w-20">{formatEUR(item.unitPrice)}</span>
+                          <span className="text-xs font-medium text-right w-16">
+                            {item.discount != null && item.discount > 0
+                              ? <span className="text-emerald-600 font-semibold">-{formatEUR(item.discount)}</span>
+                              : <span className="text-slate-300">—</span>}
+                          </span>
+                          <span className="text-xs text-slate-500 font-medium text-right w-12">
+                            {item.taxRate != null ? `${item.taxRate}%` : <span className="text-slate-300">—</span>}
+                          </span>
+                          <span className="text-sm font-extrabold text-[#1a2a5e] text-right w-20">{formatEUR(item.total)}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -1030,18 +1037,32 @@ export function CustomerInvoices() {
 
                   {/* Payment Gateway Checkout */}
                   {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'cancelled' && selectedInvoice.status !== 'credited' && (
-                    <div className="border border-blue-200 rounded-lg overflow-hidden">
-                      <div className="bg-[#1a2a5e] px-3 py-1.5 flex items-center justify-between">
-                        <h3 className="font-bold text-[10px] text-white uppercase tracking-wider">Rechnung bezahlen</h3>
-                        <span className="text-[10px] text-blue-100">Offen: {formatEUR(outstandingAmount)}</span>
-                      </div>
-                      <div className="p-3 space-y-2 bg-blue-50/40">
-                        <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border-2 border-[#f5b800]/30 overflow-hidden shadow-sm">
+                      {/* Section Header */}
+                      <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-[#f5b800] flex items-center justify-center flex-shrink-0 shadow">
+                            <DollarSign className="h-4 w-4 text-[#1a2a5e]" />
+                          </div>
                           <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Gateway</p>
+                            <h3 className="font-extrabold text-sm text-[#f5b800] uppercase tracking-wide leading-tight">Rechnung bezahlen</h3>
+                            <p className="text-[10px] text-blue-200/70 leading-tight">Wählen Sie Ihre Zahlungsmethode</p>
+                          </div>
+                        </div>
+                        <div className="text-right bg-white/10 rounded-lg px-3 py-1.5">
+                          <p className="text-[9px] text-blue-200/60 uppercase tracking-wider">Offener Betrag</p>
+                          <p className="text-lg font-extrabold text-[#f5b800] leading-tight">{formatEUR(outstandingAmount)}</p>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-3 bg-white">
+                        {/* Row 1: Payment Method + Amount */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-600">Zahlungsmethode</label>
                             <Select value={selectedGatewayId} onValueChange={setSelectedGatewayId}>
-                              <SelectTrigger className="h-8 text-xs bg-white">
-                                <SelectValue placeholder={loadingPaymentGateways ? 'Lade...' : 'Gateway wählen'} />
+                              <SelectTrigger className="h-9 text-sm bg-white border-slate-200">
+                                <SelectValue placeholder={loadingPaymentGateways ? 'Lade…' : 'Methode wählen'} />
                               </SelectTrigger>
                               <SelectContent>
                                 {paymentGateways.map((gateway) => (
@@ -1052,41 +1073,40 @@ export function CustomerInvoices() {
                               </SelectContent>
                             </Select>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Betrag</p>
-                            <Input
-                              value={paymentAmount}
-                              onChange={(e) => setPaymentAmount(e.target.value.replace(',', '.'))}
-                              className="h-8 text-xs bg-white"
-                              placeholder="0.00"
-                              inputMode="decimal"
-                            />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Währung</p>
-                            <Input
-                              value={selectedGateway?.currency || 'EUR'}
-                              readOnly
-                              className="h-8 text-xs bg-slate-50"
-                            />
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-600">
+                              Betrag <span className="text-[10px] font-normal text-slate-400">({selectedGateway?.currency || 'EUR'})</span>
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 pointer-events-none">€</span>
+                              <Input
+                                value={paymentAmount}
+                                onChange={(e) => setPaymentAmount(e.target.value.replace(',', '.'))}
+                                className="h-9 text-sm bg-white border-slate-200 pl-7 font-semibold"
+                                placeholder="0.00"
+                                inputMode="decimal"
+                              />
+                            </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Zahler Name</p>
-                            <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} className="h-8 text-xs bg-white" />
+                        {/* Row 2: Payer Info */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-600">Ihr Name</label>
+                            <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} className="h-9 text-sm bg-white border-slate-200" />
                           </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Zahler E-Mail</p>
-                            <Input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} className="h-8 text-xs bg-white" />
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-600">Ihre E-Mail</label>
+                            <Input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} className="h-9 text-sm bg-white border-slate-200" />
                           </div>
                         </div>
 
+                        {/* Stripe */}
                         {selectedGateway?.provider === 'stripe' && (
-                          <div className="rounded-md border border-blue-200 bg-white p-2 space-y-2">
-                            <p className="text-[10px] font-bold text-[#1a2a5e] uppercase tracking-wider">Stripe Redirect</p>
-                            <p className="text-[10px] text-slate-500">Nach Klick auf Bezahlen werden Sie zur sicheren Stripe-Zahlungsseite weitergeleitet.</p>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                            <p className="text-xs font-semibold text-[#635bff]">Stripe – Rechnungsadresse</p>
+                            <p className="text-[10px] text-slate-400">Sie werden nach dem Klick auf „Jetzt bezahlen" zur sicheren Stripe-Seite weitergeleitet.</p>
                             <div className="grid grid-cols-2 gap-2">
                               <Input value={billingStreet} onChange={(e) => setBillingStreet(e.target.value)} className="h-8 text-xs" placeholder="Straße" />
                               <Input value={billingCity} onChange={(e) => setBillingCity(e.target.value)} className="h-8 text-xs" placeholder="Stadt" />
@@ -1096,9 +1116,10 @@ export function CustomerInvoices() {
                           </div>
                         )}
 
+                        {/* PayPal */}
                         {selectedGateway?.provider === 'paypal' && (
-                          <div className="rounded-md border border-[#f5b800]/60 bg-white p-2 space-y-2">
-                            <p className="text-[10px] font-bold text-[#1a2a5e] uppercase tracking-wider">PayPal</p>
+                          <div className="rounded-lg border border-[#f5b800]/40 bg-[#fffdf0] p-3 space-y-2">
+                            <p className="text-xs font-semibold text-[#003087]">PayPal</p>
                             {paypalInvoiceSdkLoading && (
                               <div className="flex items-center gap-2 py-2">
                                 <div className="animate-spin h-4 w-4 border-2 border-[#1a2a5e] border-t-transparent rounded-full" />
@@ -1114,32 +1135,37 @@ export function CustomerInvoices() {
                           </div>
                         )}
 
+                        {/* Bank Transfer */}
                         {selectedGateway?.provider === 'bank_transfer' && (
-                          <div className="rounded-md border border-blue-200 bg-white p-2 space-y-2">
-                            <p className="text-[10px] font-bold text-[#1a2a5e] uppercase tracking-wider">Überweisungsdaten</p>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                            <p className="text-xs font-semibold text-emerald-700">Banküberweisung – Ihre Daten</p>
                             <div className="grid grid-cols-2 gap-2">
                               <Input value={bankAccountHolder} onChange={(e) => setBankAccountHolder(e.target.value)} className="h-8 text-xs" placeholder="Kontoinhaber" />
                               <Input value={bankIban} onChange={(e) => setBankIban(e.target.value)} className="h-8 text-xs" placeholder="IBAN" />
                               <Input value={bankBic} onChange={(e) => setBankBic(e.target.value)} className="h-8 text-xs" placeholder="BIC (optional)" />
                               <Input value={bankTransferReference} onChange={(e) => setBankTransferReference(e.target.value)} className="h-8 text-xs" placeholder="Verwendungszweck" />
                             </div>
-                            <div className="rounded-md bg-slate-50 border border-slate-200 p-2 text-[10px] text-slate-600 space-y-0.5">
-                              <p><span className="font-semibold">Empfänger:</span> {selectedGateway.configuration.account_holder || '-'}</p>
-                              <p><span className="font-semibold">IBAN:</span> {selectedGateway.configuration.iban || '-'}</p>
-                              <p><span className="font-semibold">BIC:</span> {selectedGateway.configuration.bic || '-'}</p>
-                              <p><span className="font-semibold">Bank:</span> {selectedGateway.configuration.bank_name || '-'}</p>
+                            <div className="rounded-md bg-white border border-slate-200 p-2.5 text-xs text-slate-600 space-y-0.5">
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Empfänger-Bankdaten</p>
+                              <p><span className="text-slate-400">Empfänger:</span> {selectedGateway.configuration.account_holder || '–'}</p>
+                              <p><span className="text-slate-400">IBAN:</span> {selectedGateway.configuration.iban || '–'}</p>
+                              <p><span className="text-slate-400">BIC:</span> {selectedGateway.configuration.bic || '–'}</p>
+                              <p><span className="text-slate-400">Bank:</span> {selectedGateway.configuration.bank_name || '–'}</p>
                             </div>
                           </div>
                         )}
 
-                        <label className="flex items-center gap-2 text-[11px] text-slate-600">
+                        {/* Terms */}
+                        <label className="flex items-start gap-2.5 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={acceptedTerms}
                             onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-300"
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#f5b800] cursor-pointer flex-shrink-0"
                           />
-                          Ich bestätige die Zahlungsbedingungen und die Richtigkeit meiner Angaben.
+                          <span className="text-xs text-slate-600 leading-relaxed">
+                            Ich bestätige die Zahlungsbedingungen und die Richtigkeit meiner Angaben.
+                          </span>
                         </label>
                       </div>
                     </div>
