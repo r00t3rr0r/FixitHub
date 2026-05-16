@@ -43,6 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { formatEUR } from '@/lib/utils'
 
 const PRIMARY_BLUE = 'var(--primary-blue, #1a2a5e)'
 const OFF_WHITE = 'var(--off-white, #f8f9fc)'
@@ -625,11 +626,11 @@ export function WebShop() {
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-lg font-bold text-gray-900">
-                          ${product.price.toFixed(2)}
+                          {formatEUR(product.price)}
                         </span>
                         {product.originalPrice && (
                           <span className="text-xs text-gray-500 line-through">
-                            ${product.originalPrice.toFixed(2)}
+                            {formatEUR(product.originalPrice)}
                           </span>
                         )}
                       </div>
@@ -785,7 +786,7 @@ export function WebShop() {
                           {quickViewSavings > 0 && (
                             <Badge className="border-0 bg-[#fff4cc] px-3 py-1 text-[11px] font-semibold text-[#8b5e00] shadow-none">
                               <Sparkles className="mr-1 h-3.5 w-3.5" />
-                              {quickViewSavings.toFixed(2)} € sparen
+                              {formatEUR(quickViewSavings)} sparen
                             </Badge>
                           )}
                         </div>
@@ -858,11 +859,11 @@ export function WebShop() {
                               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Aktueller Preis</p>
                               <div className="mt-1 flex items-end gap-2">
                                 <span className="text-3xl font-bold tracking-tight text-[#1a2a5e]">
-                                  {selectedProduct.price.toFixed(2)} €
+                                  {formatEUR(selectedProduct.price)}
                                 </span>
                                 {selectedProduct.originalPrice && (
                                   <span className="pb-1 text-sm font-medium text-[#8a94a6] line-through">
-                                    {selectedProduct.originalPrice.toFixed(2)} €
+                                    {formatEUR(selectedProduct.originalPrice)}
                                   </span>
                                 )}
                               </div>

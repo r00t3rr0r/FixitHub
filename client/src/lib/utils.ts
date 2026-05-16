@@ -54,3 +54,16 @@ export function formatPrice(value: any, decimals: number = 2): string {
   return safeToNumber(value).toFixed(decimals)
 }
 
+/**
+ * Formats a numeric value as Euro currency using German locale (e.g. 10,99 €)
+ *
+ * @param value The price value to format
+ * @returns Formatted Euro string, e.g. "10,99 €"
+ */
+export function formatEUR(value: any): string {
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(safeToNumber(value))
+}
+

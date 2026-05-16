@@ -473,14 +473,14 @@ export function CustomerBookings() {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('de-DE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -488,7 +488,7 @@ export function CustomerBookings() {
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    return new Date(dateString).toLocaleString('de-DE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -974,7 +974,7 @@ export function CustomerBookings() {
                                               )}
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-xs py-1" data-label="Kosten">
-                                              ${item.cost?.toFixed(2) || '0.00'}
+                                              {formatCurrency(item.cost || 0)}
                                             </TableCell>
                                           </TableRow>
                                         ))}
@@ -1029,7 +1029,7 @@ export function CustomerBookings() {
 
                                           <div className="orders-sub-card-field">
                                             <span className="orders-sub-card-label">{t('bookings.costShort')}</span>
-                                            <span className="orders-sub-card-value">${item.cost?.toFixed(2) || '0.00'}</span>
+                                            <span className="orders-sub-card-value">{formatCurrency(item.cost || 0)}</span>
                                           </div>
                                         </div>
 

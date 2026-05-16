@@ -1690,7 +1690,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       <Wrench className="w-6 h-6" />
                       <div className="repair-info">
                         <div className="repair-name">{service.name}</div>
-                        <div className="repair-price">{t('home.configurator.repairFrom', { price: service.price.toFixed(2) })}</div>
+                        <div className="repair-price">{t('home.configurator.repairFrom', { price: formatPrice(service.price) })}</div>
                       </div>
                       {(service.shortDescription || service.description) && (
                         <div className="repair-card-info-wrap">
@@ -2380,7 +2380,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                     alignItems: 'center'
                                   }}>
                                     <span>• {repair.name}</span>
-                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{repair.price.toFixed(2)} €</span>
+                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{formatPrice(repair.price)} €</span>
                                   </div>
                                 ))}
                               </div>
@@ -2399,7 +2399,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                     alignItems: 'center'
                                   }}>
                                     <span>• {addon.name}</span>
-                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{addon.price.toFixed(2)} €</span>
+                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{formatPrice(addon.price)} €</span>
                                   </div>
                                 ))}
                               </div>
@@ -2490,11 +2490,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0', marginTop: '0.5rem' }}>
                               {quantity > 1 && (
                                 <p style={{ marginBottom: '0.25rem', color: '#718096' }}>
-                                  {t('home.configurator.pricePerDevice', { price: singleDeviceTotal.toFixed(2) })}
+                                  {t('home.configurator.pricePerDevice', { price: formatPrice(singleDeviceTotal) })}
                                 </p>
                               )}
                               <p style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1a2a5e' }}>
-                                {quantity > 1 ? t('home.configurator.totalPrice', { price: deviceTotal.toFixed(2) }) : t('home.configurator.singlePrice', { price: deviceTotal.toFixed(2) })}
+                                {quantity > 1 ? t('home.configurator.totalPrice', { price: formatPrice(deviceTotal) }) : t('home.configurator.singlePrice', { price: formatPrice(deviceTotal) })}
                               </p>
                             </div>
                           </div>
@@ -2539,7 +2539,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         const deviceTotal = (repairTotal + addonTotal) * (device.quantity || 1);
                         return sum + deviceTotal;
                       }, 0);
-                      return total.toFixed(2);
+                      return formatPrice(total);
                     })()} €</div>
                   </div>
                   <div className="config-result-item">
@@ -2765,7 +2765,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   <dt>{t('home.configurator.serviceInfo.priceFrom')}</dt>
                   <dd itemProp="offers" itemScope itemType="https://schema.org/Offer">
                     <span itemProp="price" content={String(serviceInfoDialog.price)} className="repair-service-info-dialog-price">
-                      {t('home.configurator.repairFrom', { price: serviceInfoDialog.price.toFixed(2) })}
+                      {t('home.configurator.repairFrom', { price: formatPrice(serviceInfoDialog.price) })}
                     </span>
                     <meta itemProp="priceCurrency" content="EUR" />
                   </dd>

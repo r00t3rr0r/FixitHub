@@ -36,6 +36,7 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { useTranslation } from 'react-i18next'
+import { formatEUR } from '@/lib/utils'
 
 const PRIMARY_BLUE = 'var(--primary-blue, #1a2a5e)'
 const ACCENT_YELLOW = 'var(--accent-yellow, #f5b800)'
@@ -693,10 +694,10 @@ export function ShoppingCartPage() {
                       <div className="ml-auto flex items-center gap-2 sm:gap-3">
                         <div className="text-right">
                           <p className="text-base font-bold sm:text-lg" style={{ color: PRIMARY_BLUE }}>
-                            {(item.productId.price * item.quantity).toFixed(2)} €
+                            {formatEUR(item.productId.price * item.quantity)}
                           </p>
                           <p className="text-[11px] font-medium" style={{ color: 'var(--gray-500, #636e85)' }}>
-                            {item.productId.price.toFixed(2)} € pro Stück
+                            {formatEUR(item.productId.price)} pro Stück
                           </p>
                         </div>
                         <Button
@@ -818,11 +819,11 @@ export function ShoppingCartPage() {
                                 <div className="text-right sm:ml-auto">
                                   {quantity > 1 && (
                                     <p className="text-[10px] font-medium text-[#636e85] sm:text-[11px]">
-                                      {(order.totalCost || 0).toFixed(2)} € × {quantity}
+                                      {formatEUR(order.totalCost || 0)} × {quantity}
                                     </p>
                                   )}
                                   <p className="text-sm font-bold text-[#1a2a5e] sm:text-lg">
-                                    {((order.totalCost || 0) * quantity).toFixed(2)} €
+                                    {formatEUR((order.totalCost || 0) * quantity)}
                                   </p>
                                 </div>
                               </div>
@@ -913,7 +914,7 @@ export function ShoppingCartPage() {
                       Code "{cart.promoCode}" angewendet
                     </span>
                     <span className="font-bold text-base" style={{ color: 'var(--success, #38a169)' }}>
-                      -{cart.discount?.toFixed(2)} €
+                      -{formatEUR(cart.discount ?? 0)}
                     </span>
                   </div>
                 )}
@@ -929,7 +930,7 @@ export function ShoppingCartPage() {
                 <div className="space-y-2.5 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="font-medium" style={{ color: 'var(--gray-600, #4a5568)' }}>{t('cart.subtotal')}</span>
-                    <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{cart.subtotal.toFixed(2)} €</span>
+                    <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{formatEUR(cart.subtotal)}</span>
                   </div>
 
                   {cart.discount && cart.discount > 0 && (
@@ -938,20 +939,20 @@ export function ShoppingCartPage() {
                         <TrendingUp className="h-4 w-4 flex-shrink-0" />
                         {t('cart.discount')}
                       </span>
-                      <span className="font-bold">-{cart.discount.toFixed(2)} €</span>
+                      <span className="font-bold">-{formatEUR(cart.discount)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between items-center">
                     <span className="font-medium" style={{ color: 'var(--gray-600, #4a5568)' }}>{t('cart.tax')}</span>
-                    <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{cart.tax.toFixed(2)} €</span>
+                    <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{formatEUR(cart.tax)}</span>
                   </div>
                 </div>
 
                 <div className="pt-4 flex justify-between items-center" style={{ borderTop: '2px solid var(--gray-200, #d8dce6)' }}>
                   <span className="text-sm font-bold sm:text-base" style={{ color: PRIMARY_BLUE }}>{t('cart.grandTotal')}</span>
                   <span className="text-xl font-bold sm:text-2xl" style={{ color: PRIMARY_BLUE }}>
-                    {cart.total.toFixed(2)} €
+                    {formatEUR(cart.total)}
                   </span>
                 </div>
 
