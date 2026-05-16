@@ -29,74 +29,83 @@ import {
   ShieldCheck,
   Smartphone,
   TrendingUp,
+  User,
   Wrench,
   XCircle,
   ChevronDown,
   ChevronUp,
-  User,
 } from "lucide-react"
 
-// ─────────────────────────── helpers ───────────────────────────
+// ─── helpers ────────────────────────────────────────────────────────────────
 
-const STATUS_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending: {
-    label: "Ausstehend",
-    color: "border-amber-200 bg-amber-50 text-amber-800",
-    icon: <Clock className="h-4 w-4 text-amber-600" />,
-  },
-  reviewing: {
-    label: "In Prüfung",
-    color: "border-blue-200 bg-blue-50 text-blue-800",
-    icon: <Search className="h-4 w-4 text-blue-600" />,
-  },
-  approved: {
-    label: "Genehmigt",
-    color: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
-  },
-  rejected: {
-    label: "Abgelehnt",
-    color: "border-red-200 bg-red-50 text-red-800",
-    icon: <XCircle className="h-4 w-4 text-red-500" />,
-  },
-  converted: {
-    label: "In Auftrag umgewandelt",
-    color: "border-purple-200 bg-purple-50 text-purple-800",
-    icon: <Wrench className="h-4 w-4 text-purple-600" />,
-  },
+function statusStyle(status: string) {
+  switch (status) {
+    case "pending":   return "border-amber-200 bg-amber-50 text-amber-800"
+    case "reviewing": return "border-sky-200 bg-sky-50 text-sky-800"
+    case "approved":  return "border-emerald-200 bg-emerald-50 text-emerald-800"
+    case "rejected":  return "border-rose-200 bg-rose-50 text-rose-800"
+    case "converted": return "border-purple-200 bg-purple-50 text-purple-800"
+    default:          return "border-slate-200 bg-slate-50 text-slate-700"
+  }
 }
 
-const STEP_LABELS = ["Ausstehend", "In Prüfung", "Genehmigt / Abgelehnt"]
-const STATUS_TO_STEP: Record<string, number> = {
-  pending: 0,
-  reviewing: 1,
-  approved: 2,
-  rejected: 2,
-  converted: 2,
+function statusLabel(status: string) {
+  return (
+    { pending: "Ausstehend", reviewing: "In Prüfung", approved: "Genehmigt", rejected: "Abgelehnt", converted: "In Auftrag umgewandelt" }[status] ?? status
+  )
 }
+
+function statusIcon(status: string) {
+  switch (status) {
+    case "pending":   return <Clock className="h-3.5 w-3.5" />
+    case "reviewing": return <TrendingUp className="h-3.5 w-3.5" />
+    case "approved":  return <CheckCircle2 className="h-3.5 w-3.5" />
+    case "rejected":  return <XCircle className="h-3.5 w-3.5" />
+    case "converted": return <Wrench className="h-3.5 w-3.5" />
+    default:          return null
+  }
+}
+
+const STEPS = [
+  { label: "Eingegangen" },
+  { label: "In Prüfung" },
+  { label: "Entschieden" },
+]
+const stepIndex = (status: string) =>
+  status === "approved" || status === "rejected" || status === "converted" ? 2
+  : status === "reviewing" ? 1
+  : 0
 
 function StatusStepper({ status }: { status: string }) {
-  const step = STATUS_TO_STEP[status] ?? 0
+  const active   = stepIndex(status)
+  const rejected = status === "rejected"
   return (
-    <div className="flex items-center gap-0">
-      {STEP_LABELS.map((label, i) => {
-        const done = i < step
-        const active = i === step
+    <div className="flex items-center">
+      {STEPS.map((step, i) => {
+        const done    = i < active
+        const current = i === active
+        const isLast  = i === STEPS.length - 1
         return (
-          <div key={label} className="flex min-w-0 flex-1 items-center">
-            <div className="flex flex-col items-center gap-1">
+          <div key={step.label} className="flex min-w-0 flex-1 items-center">
+            <div className="flex flex-col items-center gap-1.5">
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition
-                  ${done ? "border-[#1a2a5e] bg-[#1a2a5e] text-white" : active ? "border-[#f5b800] bg-[#f5b800] text-[#1a2a5e]" : "border-slate-300 bg-white text-slate-400"}`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition
+                  ${done    ? "border-[#1a2a5e] bg-[#1a2a5e] text-white"
+                  : current && rejected ? "border-rose-500 bg-rose-500 text-white"
+                  : current ? "border-[#f5b800] bg-[#f5b800] text-[#1a2a5e]"
+                  : "border-slate-200 bg-white text-slate-400"}`}
               >
                 {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
               </div>
-              <span className={`hidden text-center text-[9px] font-semibold leading-tight sm:block ${active ? "text-[#1a2a5e]" : done ? "text-[#1a2a5e]/70" : "text-slate-400"}`}>
-                {label}
+              <span
+                className={`hidden text-center text-[10px] font-semibold leading-tight sm:block
+                  ${current ? "text-[#1a2a5e]" : done ? "text-slate-500" : "text-slate-400"}`}
+              >
+                {step.label}
               </span>
             </div>
-            {i < STEP_LABELS.length - 1 && (
-              <div className={`mx-1 h-0.5 flex-1 ${i < step ? "bg-[#1a2a5e]" : "bg-slate-200"}`} />
+            {!isLast && (
+              <div className={`mx-1.5 h-0.5 flex-1 rounded-full ${i < active ? "bg-[#1a2a5e]" : "bg-slate-200"}`} />
             )}
           </div>
         )
@@ -106,32 +115,37 @@ function StatusStepper({ status }: { status: string }) {
 }
 
 function MessageBubble({ msg }: { msg: any }) {
-  const isStaff = msg.senderType === "staff" || msg.senderRole === "staff" || msg.senderRole === "admin"
+  const isStaff  = ["staff", "admin"].includes(msg.senderRole) || msg.senderType === "staff"
   const isSystem = msg.senderType === "system"
+
   if (isSystem) {
     return (
-      <div className="mx-auto max-w-xs rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-center text-[10px] text-slate-500">
+      <div className="mx-auto max-w-[85%] rounded-full border border-slate-200 bg-white px-4 py-1.5 text-center text-[11px] text-slate-500 shadow-sm">
         {msg.content}
       </div>
     )
   }
+
+  const time = new Date(msg.createdAt).toLocaleString("de-DE", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  })
+
   return (
-    <div className={`flex gap-2 ${isStaff ? "flex-row" : "flex-row-reverse"}`}>
+    <div className={`flex gap-2.5 ${isStaff ? "" : "flex-row-reverse"}`}>
       <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold
           ${isStaff ? "bg-[#1a2a5e] text-white" : "bg-[#f5b800] text-[#1a2a5e]"}`}
       >
         {isStaff ? "MC" : <User className="h-3.5 w-3.5" />}
       </div>
-      <div className={`max-w-[80%] ${isStaff ? "items-start" : "items-end"} flex flex-col gap-0.5`}>
-        <span className="text-[10px] font-semibold text-slate-500">
-          {isStaff ? "McRepair Team" : "Sie"} · {new Date(msg.createdAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+      <div className={`flex max-w-[78%] flex-col gap-1 ${isStaff ? "items-start" : "items-end"}`}>
+        <span className="text-[10px] font-medium text-slate-400">
+          {isStaff ? "McRepair Team" : "Sie"} · {time}
         </span>
         <div
-          className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
-            ${isStaff
-              ? "rounded-tl-sm bg-[#f0f4ff] text-[#1a2a5e]"
-              : "rounded-tr-sm bg-[#1a2a5e] text-white"}`}
+          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
+            ${isStaff ? "rounded-tl-sm bg-slate-100 text-slate-800" : "rounded-tr-sm bg-[#1a2a5e] text-white"}`}
         >
           {msg.content}
         </div>
@@ -140,53 +154,44 @@ function MessageBubble({ msg }: { msg: any }) {
   )
 }
 
-// ─────────────────────────── main component ───────────────────────────
+// ─── main component ──────────────────────────────────────────────────────────
 
 export function GuestRepairRequestTracking() {
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
 
-  const [token, setToken] = useState(searchParams.get("token") || "")
-  const [email, setEmail] = useState(searchParams.get("email") || "")
+  const [token, setToken]           = useState(searchParams.get("token") || "")
+  const [email, setEmail]           = useState(searchParams.get("email") || "")
   const [tokenInput, setTokenInput] = useState(searchParams.get("token") || "")
   const [emailInput, setEmailInput] = useState(searchParams.get("email") || "")
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]             = useState(false)
   const [repairRequest, setRepairRequest] = useState<any | null>(null)
-  const [notFound, setNotFound] = useState(false)
+  const [notFound, setNotFound]           = useState(false)
 
   const [communication, setCommunication] = useState<any | null>(null)
-  const [commLoading, setCommLoading] = useState(false)
-  const [message, setMessage] = useState("")
-  const [sending, setSending] = useState(false)
-
-  const [showDetails, setShowDetails] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
+  const [commLoading, setCommLoading]     = useState(false)
+  const [message, setMessage]             = useState("")
+  const [sending, setSending]             = useState(false)
+  const [refreshing, setRefreshing]       = useState(false)
+  const [showDetails, setShowDetails]     = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
   const access: GuestTrackAccess = { token, email }
 
-  // Auto-load when URL params are present
   useEffect(() => {
-    if (token && email) {
-      loadRequest(token, email)
-    }
+    if (token && email) loadRequest(token, email)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Scroll to bottom of messages
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [communication?.messages?.length])
 
-  // Periodic communication refresh
   useEffect(() => {
     if (!repairRequest?._id) return
-    const interval = setInterval(() => loadCommunication(repairRequest._id, access, false), 10000)
-    return () => clearInterval(interval)
+    const id = setInterval(() => loadCommunication(repairRequest._id, access, false), 10_000)
+    return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repairRequest?._id, token, email])
 
@@ -199,25 +204,22 @@ export function GuestRepairRequestTracking() {
       setRepairRequest(req)
       setToken(t)
       setEmail(e)
-      // Load communication thread
       await loadCommunication(req._id, { token: t, email: e }, true)
     } catch (err: any) {
       setNotFound(true)
       setRepairRequest(null)
-      toast({ title: "Nicht gefunden", description: err.message || "Anfrage konnte nicht geladen werden.", variant: "destructive" })
+      toast({ title: "Nicht gefunden", description: err.message || "Keine Anfrage mit diesen Daten gefunden.", variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
 
-  const loadCommunication = async (requestId: string, acc: GuestTrackAccess, showLoader = false) => {
+  const loadCommunication = async (id: string, acc: GuestTrackAccess, showLoader = false) => {
+    if (showLoader) setCommLoading(true)
     try {
-      if (showLoader) setCommLoading(true)
-      const comm = await getGuestRepairRequestCommunication(requestId, acc)
+      const comm = await getGuestRepairRequestCommunication(id, acc)
       setCommunication(comm)
-    } catch {
-      // silently ignore
-    } finally {
+    } catch { /* silent */ } finally {
       if (showLoader) setCommLoading(false)
     }
   }
@@ -228,15 +230,13 @@ export function GuestRepairRequestTracking() {
   }
 
   const handleRefresh = async () => {
-    if (!repairRequest?._id) return
+    if (!repairRequest?._id || refreshing) return
     setRefreshing(true)
     try {
       const req = await trackGuestRepairRequest(token, email)
       setRepairRequest(req)
       await loadCommunication(req._id, access, false)
-    } catch {
-      // silently ignore
-    } finally {
+    } catch { /* silent */ } finally {
       setRefreshing(false)
     }
   }
@@ -256,313 +256,346 @@ export function GuestRepairRequestTracking() {
     }
   }
 
-  const statusMeta = repairRequest ? (STATUS_META[repairRequest.status] ?? STATUS_META.pending) : null
-
-  // ─── render ───
+  // ─── render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_-10%,rgba(245,184,0,0.14),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(26,42,94,0.18),transparent_48%),linear-gradient(180deg,#f8fbff_0%,#eef3fb_42%,#f5f8fe_100%)]">
+      <div className="container max-w-3xl py-6 sm:py-10">
 
-      {/* Hero Banner */}
-      <section className="relative overflow-hidden border-b border-white/20 bg-[linear-gradient(132deg,#1a2a5e_0%,#21408e_54%,#2e5cc1_100%)] px-4 py-10 text-white sm:px-6 sm:py-14">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 left-8 h-48 w-48 rounded-full bg-yellow-300/15 blur-3xl" />
-
-        <div className="relative z-10 mx-auto max-w-3xl">
+        {/* ── Hero Card ── */}
+        <div className="mb-6 w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-5 py-7 text-white sm:rounded-2xl sm:px-8 sm:py-10">
           <Link
             to="/"
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20"
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-[#f5b800]"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Zurück zur Startseite
+            <ChevronLeft className="h-4 w-4" />
+            Zurück zur Startseite
           </Link>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-50">
-              <ShieldCheck className="h-3 w-3" /> McRepair Service
-            </span>
+          <div className="flex items-start gap-4 sm:items-center">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f5b800]/20">
+              <Wrench className="h-7 w-7 text-[#f5b800]" />
+            </div>
+            <div>
+              <div className="mb-1.5 flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-100">
+                  <ShieldCheck className="h-2.5 w-2.5" /> McRepair Service
+                </span>
+              </div>
+              <h1 className="text-[1.6rem] font-extrabold leading-tight tracking-tight sm:text-3xl">
+                Reparaturanfrage verfolgen
+              </h1>
+              <p className="mt-1 text-sm leading-snug text-white/75 sm:text-[0.95rem]">
+                Prüfen Sie den Status Ihrer Anfrage und kommunizieren Sie direkt mit unserem Team.
+              </p>
+            </div>
           </div>
-
-          <h1 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-            Reparaturanfrage verfolgen
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">
-            Geben Sie Ihr Tracking-Token und Ihre E-Mail-Adresse ein, um den aktuellen Status Ihrer Anfrage einzusehen und mit unserem Team zu kommunizieren.
-          </p>
         </div>
-      </section>
 
-      <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-8 sm:px-6 sm:py-10">
-
-        {/* Search Card */}
+        {/* ── Search Form ── */}
         {!repairRequest && (
-          <Card className="border border-slate-200/90 bg-white/95 shadow-[0_14px_42px_-24px_rgba(15,23,42,0.4)]">
-            <CardHeader className="border-b border-slate-100/80 pb-3 pt-4">
-              <CardTitle className="flex items-center gap-2 text-base font-bold text-[#1a2a5e] sm:text-lg">
-                <Search className="h-5 w-5" /> Anfrage suchen
+          <Card className="border-none bg-white shadow-lg">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle className="flex items-center gap-2.5 text-lg text-[#1a2a5e]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(26,42,94,0.08)]">
+                  <Search className="h-4 w-4 text-[#1a2a5e]" />
+                </span>
+                Anfrage suchen
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-5">
-              <form onSubmit={handleSearch} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="track-token" className="text-xs font-semibold text-slate-700">
-                    Tracking-Token <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="track-token"
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    placeholder="Ihr persönlicher Tracking-Code aus der E-Mail"
-                    className="h-9 border-slate-300 bg-white font-mono text-sm placeholder:font-sans placeholder:text-slate-400 focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="track-email" className="text-xs font-semibold text-slate-700">
+            <CardContent className="pt-6">
+              <form onSubmit={handleSearch} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
                     E-Mail-Adresse <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="track-email"
-                    type="email"
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                    placeholder="Die bei der Anfrage verwendete E-Mail"
-                    className="h-9 border-slate-300 bg-white text-sm placeholder:text-slate-400 focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
-                    required
-                  />
+                  </label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      type="email"
+                      required
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      placeholder="Die bei der Anfrage verwendete E-Mail"
+                      className="h-11 pl-10"
+                    />
+                  </div>
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Tracking-Token <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <FileText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      type="text"
+                      required
+                      value={tokenInput}
+                      onChange={(e) => setTokenInput(e.target.value)}
+                      placeholder="Ihr persönlicher Tracking-Code aus der E-Mail"
+                      className="h-11 pl-10 font-mono text-sm placeholder:font-sans"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Den Tracking-Code finden Sie in der Bestätigungs-E-Mail nach dem Absenden Ihrer Anfrage.
+                  </p>
+                </div>
+
                 {notFound && (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     Keine Anfrage mit diesen Daten gefunden. Bitte prüfen Sie Token und E-Mail.
                   </div>
                 )}
+
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="h-10 w-full bg-[#1a2a5e] font-bold hover:bg-[#0f1d45]"
+                  className="h-11 w-full bg-[#f5b800] font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
                 >
-                  {loading ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Wird gesucht…</>
-                  ) : (
-                    <><Search className="mr-2 h-4 w-4" /> Anfrage abrufen</>
-                  )}
+                  {loading
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Wird gesucht…</>
+                    : <><Search className="mr-2 h-4 w-4" /> Anfrage abrufen</>}
                 </Button>
               </form>
             </CardContent>
           </Card>
         )}
 
-        {/* Loading skeleton */}
+        {/* ── Loading ── */}
         {loading && !repairRequest && (
-          <div className="flex justify-center py-10">
+          <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-[#1a2a5e]" />
           </div>
         )}
 
-        {/* Repair Request Details */}
+        {/* ── Request Details ── */}
         {repairRequest && (
-          <>
-            {/* Status Card */}
-            <Card className="border border-slate-200/90 bg-white/95 shadow-[0_14px_42px_-24px_rgba(15,23,42,0.4)]">
-              <CardHeader className="border-b border-slate-100/80 pb-3 pt-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-5">
+
+            {/* Status overview */}
+            <Card className="overflow-hidden border-none bg-white shadow-lg">
+              <CardHeader className="border-b border-slate-100 pb-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Anfrage-Nr.</p>
-                    <p className="text-lg font-extrabold text-[#1a2a5e]">{repairRequest.requestNumber}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Anfrage-Nummer</p>
+                    <CardTitle className="mt-0.5 flex items-center gap-2 text-xl text-[#1a2a5e]">
+                      <FileText className="h-5 w-5" />
+                      {repairRequest.requestNumber}
+                    </CardTitle>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusMeta?.color}`}>
-                      {statusMeta?.icon}
-                      {statusMeta?.label}
-                    </div>
+                    <Badge className={`border ${statusStyle(repairRequest.status)} inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold`}>
+                      {statusIcon(repairRequest.status)}
+                      {statusLabel(repairRequest.status)}
+                    </Badge>
                     <button
                       type="button"
                       onClick={handleRefresh}
                       disabled={refreshing}
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
                       title="Aktualisieren"
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
                     </button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-5 pt-5">
-                {/* Stepper */}
-                {repairRequest.status !== "rejected" && (
-                  <StatusStepper status={repairRequest.status} />
-                )}
-                {repairRequest.status === "rejected" && (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    <XCircle className="h-4 w-4 shrink-0" />
-                    Ihre Reparaturanfrage wurde leider abgelehnt. Bei Fragen wenden Sie sich an unser Team.
-                  </div>
-                )}
-                {repairRequest.status === "converted" && (
-                  <div className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-800">
-                    <Wrench className="h-4 w-4 shrink-0" />
-                    Ihre Anfrage wurde in einen Reparaturauftrag umgewandelt.
-                  </div>
-                )}
 
-                {/* Device summary */}
-                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white">
-                    <Smartphone className="h-5 w-5 text-[#1a2a5e]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-[#1a2a5e]">
-                      {repairRequest.deviceBrand} {repairRequest.deviceModel}
+              <CardContent className="space-y-5 pt-5">
+
+                {/* Progress stepper */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Bearbeitungsfortschritt</p>
+                  <StatusStepper status={repairRequest.status} />
+                  {repairRequest.status === "rejected" && (
+                    <p className="mt-3 flex items-center gap-2 text-sm text-rose-700">
+                      <XCircle className="h-4 w-4 shrink-0" />
+                      Ihre Anfrage wurde leider abgelehnt. Bei Fragen können Sie uns per Nachricht kontaktieren.
                     </p>
-                    <p className="text-xs text-slate-500">{repairRequest.deviceType}</p>
-                  </div>
+                  )}
+                  {repairRequest.status === "converted" && (
+                    <p className="mt-3 flex items-center gap-2 text-sm text-purple-700">
+                      <Wrench className="h-4 w-4 shrink-0" />
+                      Ihre Anfrage wurde erfolgreich in einen Reparaturauftrag umgewandelt.
+                    </p>
+                  )}
                 </div>
 
-                {/* Timestamps */}
+                {/* Stats grid */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Eingegangen</p>
-                    <p className="mt-0.5 text-xs font-bold text-[#1a2a5e]">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Eingegangen</p>
+                    <p className="mt-1 font-bold text-[#1a2a5e]">
                       {new Date(repairRequest.createdAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </p>
                   </div>
                   {repairRequest.reviewDeadline && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Frist</p>
-                      <p className="mt-0.5 text-xs font-bold text-[#1a2a5e]">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Antwortfrist</p>
+                      <p className="mt-1 font-bold text-amber-800">
                         {new Date(repairRequest.reviewDeadline).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
                       </p>
                     </div>
                   )}
                   {repairRequest.estimatedCost > 0 && (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Kostenschätzung</p>
-                      <p className="mt-0.5 text-xs font-bold text-emerald-900">
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Kostenschätzung</p>
+                      <p className="mt-1 font-bold text-emerald-800">
                         {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(repairRequest.estimatedCost)}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Details toggle */}
+                {/* Device */}
+                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(26,42,94,0.08)]">
+                    <Smartphone className="h-5 w-5 text-[#1a2a5e]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gerät</p>
+                    <p className="truncate font-bold text-[#1a2a5e]">
+                      {repairRequest.deviceBrand} {repairRequest.deviceModel}
+                    </p>
+                    <p className="text-sm text-slate-500">{repairRequest.deviceType}</p>
+                  </div>
+                </div>
+
+                {/* Expandable details */}
                 <button
                   type="button"
                   onClick={() => setShowDetails((v) => !v)}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold text-[#1a2a5e] transition hover:bg-slate-100"
+                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-[#1a2a5e] transition hover:bg-slate-100"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" /> Anfrage-Details
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Anfrage-Details anzeigen
                   </span>
-                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {showDetails ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                 </button>
 
                 {showDetails && (
-                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                  <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 text-sm">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fehlerbeschreibung</p>
-                      <p className="mt-1 text-slate-800">{repairRequest.issueDescription}</p>
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Fehlerbeschreibung</p>
+                      <p className="leading-relaxed text-slate-800">{repairRequest.issueDescription}</p>
                     </div>
-                    {repairRequest.issueOccurredDate && (
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      {repairRequest.issueOccurredDate && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Defekt aufgetreten</p>
+                          <p className="mt-0.5 font-medium text-slate-700">{repairRequest.issueOccurredDate}</p>
+                        </div>
+                      )}
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Defekt aufgetreten</p>
-                        <p className="mt-0.5 text-slate-800">{repairRequest.issueOccurredDate}</p>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Wasserschaden</p>
-                        <p className="mt-0.5 text-slate-800 capitalize">
+                        <p className="mb-0.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          <Droplets className="h-3 w-3" /> Wasserschaden
+                        </p>
+                        <p className="font-medium text-slate-700">
                           {{ no: "Nein", yes: "Ja", unsure: "Unbekannt" }[repairRequest.waterDamage as string] ?? repairRequest.waterDamage}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Vorherige Reparaturen</p>
-                        <p className="mt-0.5 text-slate-800 capitalize">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Vorh. Reparaturen</p>
+                        <p className="mt-0.5 font-medium text-slate-700">
                           {{ no: "Nein", yes: "Ja", unsure: "Unbekannt" }[repairRequest.repairAttempts as string] ?? (repairRequest.repairAttempts || "Nein")}
                         </p>
                       </div>
                     </div>
                     {repairRequest.images?.length > 0 && (
-                      <div>
-                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                          Bilder ({repairRequest.images.length})
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {repairRequest.images.map((src: string, i: number) => (
-                            <img
-                              key={i}
-                              src={src}
-                              alt={`Bild ${i + 1}`}
-                              className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
-                            />
-                          ))}
+                      <>
+                        <Separator />
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                            Fotos ({repairRequest.images.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {repairRequest.images.map((src: string, i: number) => (
+                              <img
+                                key={i}
+                                src={src}
+                                alt={`Bild ${i + 1}`}
+                                className="h-16 w-16 rounded-xl border border-slate-200 object-cover"
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Communication Card */}
-            <Card className="border border-slate-200/90 bg-white/95 shadow-[0_14px_42px_-24px_rgba(15,23,42,0.4)]">
-              <CardHeader className="border-b border-slate-100/80 pb-3 pt-4">
-                <CardTitle className="flex items-center gap-2 text-base font-bold text-[#1a2a5e] sm:text-lg">
-                  <MessageSquare className="h-5 w-5" /> Nachrichten
+            {/* Communication card */}
+            <Card className="overflow-hidden border-none bg-white shadow-lg">
+              <CardHeader className="border-b border-slate-100 pb-4">
+                <CardTitle className="flex items-center gap-2.5 text-lg text-[#1a2a5e]">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(26,42,94,0.08)]">
+                    <MessageSquare className="h-4 w-4 text-[#1a2a5e]" />
+                  </span>
+                  Nachrichten
+                  {communication?.messages?.length > 0 && (
+                    <span className="ml-auto rounded-full bg-[#1a2a5e] px-2.5 py-0.5 text-xs font-semibold text-white">
+                      {communication.messages.length}
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent className="pt-5">
                 {commLoading ? (
-                  <div className="flex justify-center py-8">
+                  <div className="flex justify-center py-10">
                     <Loader2 className="h-6 w-6 animate-spin text-[#1a2a5e]" />
                   </div>
                 ) : (
                   <>
-                    {/* Message thread */}
-                    <div className="mb-4 max-h-[360px] min-h-[120px] overflow-y-auto rounded-xl border border-slate-100 bg-[#f8fafc] p-3 sm:max-h-[440px]">
+                    {/* Thread */}
+                    <div className="mb-5 max-h-[400px] min-h-[120px] overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-4 sm:max-h-[480px]">
                       {!communication?.messages?.length ? (
-                        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-sm text-slate-400">
-                          <MessageSquare className="h-8 w-8 opacity-40" />
-                          <p>Noch keine Nachrichten. Unser Team meldet sich in Kürze.</p>
+                        <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
+                            <MessageSquare className="h-6 w-6 text-slate-300" />
+                          </div>
+                          <p className="text-sm font-medium text-slate-500">Noch keine Nachrichten</p>
+                          <p className="text-xs text-slate-400">Unser Team meldet sich in Kürze bei Ihnen.</p>
                         </div>
                       ) : (
                         <div className="space-y-4">
                           {communication.messages.map((msg: any) => (
-                            <MessageBubble key={msg._id || msg.createdAt} msg={msg} />
+                            <MessageBubble key={msg._id ?? msg.createdAt} msg={msg} />
                           ))}
                           <div ref={messagesEndRef} />
                         </div>
                       )}
                     </div>
 
-                    <Separator className="mb-4" />
+                    <Separator className="mb-5" />
 
-                    {/* Message input */}
                     {repairRequest.status !== "rejected" ? (
-                      <form onSubmit={handleSendMessage} className="space-y-2">
+                      <form onSubmit={handleSendMessage} className="space-y-3">
                         <Textarea
                           value={message}
                           onChange={(e) => setMessage(e.target.value)}
-                          placeholder="Nachricht an das McRepair-Team…"
+                          placeholder="Nachricht an das McRepair-Team …"
                           rows={3}
-                          className="resize-none border-slate-300 text-sm focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
                           disabled={sending}
+                          className="resize-none border-slate-200 text-sm focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
                         />
                         <Button
                           type="submit"
                           disabled={!message.trim() || sending}
-                          className="h-9 w-full bg-[#1a2a5e] font-semibold hover:bg-[#0f1d45] sm:w-auto"
+                          className="h-10 w-full bg-[#f5b800] font-bold text-[#1a2a5e] hover:bg-[#e5ab00] sm:w-auto"
                         >
-                          {sending ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Wird gesendet…</>
-                          ) : (
-                            <><Send className="mr-2 h-4 w-4" /> Senden</>
-                          )}
+                          {sending
+                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Wird gesendet…</>
+                            : <><Send className="mr-2 h-4 w-4" /> Nachricht senden</>}
                         </Button>
                       </form>
                     ) : (
-                      <p className="text-center text-xs text-slate-400">
-                        Anfragekanal geschlossen. Für Rückfragen wenden Sie sich per E-Mail an uns.
+                      <p className="text-center text-sm text-slate-400">
+                        Dieser Kommunikationskanal ist geschlossen. Bei Fragen kontaktieren Sie uns per E-Mail.
                       </p>
                     )}
                   </>
@@ -570,30 +603,20 @@ export function GuestRepairRequestTracking() {
               </CardContent>
             </Card>
 
-            {/* Track another request */}
-            <div className="text-center">
+            {/* Reset link */}
+            <div className="pb-4 text-center">
               <button
                 type="button"
                 onClick={() => { setRepairRequest(null); setCommunication(null); setNotFound(false) }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-[#1a2a5e]"
               >
-                <Search className="h-3.5 w-3.5" /> Andere Anfrage suchen
+                <Search className="h-4 w-4" /> Andere Anfrage suchen
               </button>
             </div>
-          </>
-        )}
-
-        {/* Help hint */}
-        {!repairRequest && !loading && (
-          <div className="rounded-xl border border-[#1a2a5e]/10 bg-[#1a2a5e]/5 px-4 py-4 text-sm text-[#1a2a5e]">
-            <p className="font-semibold">Wo finde ich mein Tracking-Token?</p>
-            <p className="mt-1 text-[#1a2a5e]/80">
-              Nach dem Absenden Ihrer Gast-Reparaturanfrage haben wir Ihnen eine Bestätigungs-E-Mail gesendet.
-              Diese enthält einen direkten Link sowie das Token zum manuellen Eintragen.
-            </p>
           </div>
         )}
       </div>
     </div>
   )
 }
+
