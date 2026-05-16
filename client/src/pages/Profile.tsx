@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getUserProfile, updateUserProfile, uploadAvatar, UserProfile } from "@/api/user"
+import { searchDhlLocations, type DhlLocation } from "@/api/shipping"
 import { getSavedDeviceInfo, DeviceInfo } from "@/utils/deviceDetection"
 import { CountrySelect } from "@/components/checkout/CountrySelect"
 import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
@@ -36,6 +38,11 @@ import {
   Home,
   PackageSearch,
   Truck,
+  Search,
+  Loader2,
+  Clock,
+  MapPinned,
+  X,
 } from "lucide-react"
 
 export function Profile() {
@@ -44,6 +51,11 @@ export function Profile() {
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [deliveryType, setDeliveryType] = useState<"same" | "address" | "packstation">("same")
+  const [dhlFinderOpen, setDhlFinderOpen] = useState(false)
+  const [dhlFinderQuery, setDhlFinderQuery] = useState("")
+  const [dhlFinderLoading, setDhlFinderLoading] = useState(false)
+  const [dhlFinderResults, setDhlFinderResults] = useState<DhlLocation[]>([])
+  const [dhlFinderError, setDhlFinderError] = useState("")
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const { toast } = useToast()
   const { t } = useTranslation()
@@ -208,6 +220,44 @@ export function Profile() {
     }
   }
 
+  const handleDhlFinderSearch = async () => {
+    const q = dhlFinderQuery.trim()
+    if (q.length < 3) return
+    try {
+      setDhlFinderLoading(true)
+      setDhlFinderError("")
+      const results = await searchDhlLocations(q, watch("paymentAddress.country") || "DE")
+      setDhlFinderResults(results)
+      if (results.length === 0) setDhlFinderError("Keine DHL-Standorte gefunden. Bitte eine andere Suche versuchen.")
+    } catch (err: any) {
+      setDhlFinderError(err?.message || "Fehler beim Laden der Standorte.")
+      setDhlFinderResults([])
+    } finally {
+      setDhlFinderLoading(false)
+    }
+  }
+
+  const handleDhlLocationSelect = (loc: DhlLocation) => {
+    const isLocker = loc.type === "locker"
+    if (isLocker) {
+      setDeliveryType("packstation")
+      setValue("paymentAddress.packstationNumber", loc.keywordId || "")
+      setValue("paymentAddress.zipCode", loc.address.postalCode || "")
+      setValue("paymentAddress.city", loc.address.city || "")
+      setValue("paymentAddress.country", loc.address.countryCode || "DE")
+    } else {
+      setDeliveryType("address")
+      setValue("paymentAddress.street", loc.address.street || "")
+      setValue("paymentAddress.zipCode", loc.address.postalCode || "")
+      setValue("paymentAddress.city", loc.address.city || "")
+      setValue("paymentAddress.country", loc.address.countryCode || "DE")
+    }
+    setDhlFinderOpen(false)
+    setDhlFinderResults([])
+    setDhlFinderQuery("")
+    setDhlFinderError("")
+  }
+
   if (loading) {
     return (
       <div className="profile-container">
@@ -236,6 +286,104 @@ export function Profile() {
   if (!profile) return null
 
   return (
+    <>
+    {/* DHL Location Finder Dialog */}
+    <Dialog open={dhlFinderOpen} onOpenChange={(v) => { setDhlFinderOpen(v); if (!v) { setDhlFinderResults([]); setDhlFinderError("") } }}>
+      <DialogContent className="max-h-[80vh] w-[96vw] max-w-md overflow-hidden rounded-xl border border-[#d8dce6] p-0 [&>button]:text-[#5f6d86]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#e7eaf1] bg-[#1a2a5e] px-4 py-3">
+          <div className="flex items-center gap-2">
+            <PackageSearch className="h-4 w-4 text-[#f5b800]" />
+            <span className="text-sm font-bold text-white">DHL Standort suchen</span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-white hover:bg-white/10"
+            onClick={() => setDhlFinderOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Search bar */}
+        <div className="border-b border-[#e7eaf1] px-4 py-3">
+          <div className="flex gap-2">
+            <Input
+              value={dhlFinderQuery}
+              onChange={(e) => setDhlFinderQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleDhlFinderSearch()}
+              placeholder="PLZ oder Ort eingeben …"
+              className="h-9 flex-1 text-sm"
+              autoFocus
+            />
+            <Button
+              type="button"
+              className="h-9 bg-[#f5b800] px-3 font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
+              onClick={handleDhlFinderSearch}
+              disabled={dhlFinderLoading || dhlFinderQuery.trim().length < 3}
+            >
+              {dhlFinderLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-[#5f6d86]">Zeigt Packstations, Postfilialen und Paketshops in der Nähe.</p>
+        </div>
+
+        {/* Results */}
+        <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 150px)" }}>
+          {dhlFinderError && (
+            <div className="px-4 py-6 text-center text-xs text-[#b91c1c]">{dhlFinderError}</div>
+          )}
+          {!dhlFinderError && dhlFinderResults.length === 0 && !dhlFinderLoading && (
+            <div className="px-4 py-8 text-center text-xs text-[#5f6d86]">
+              PLZ oder Ort eingeben und auf Suchen tippen.
+            </div>
+          )}
+          {dhlFinderResults.length > 0 && (
+            <ul className="divide-y divide-[#f0f2f7]">
+              {dhlFinderResults.map((loc) => {
+                const isLocker = loc.type === "locker"
+                return (
+                  <li key={loc.locationId}>
+                    <button
+                      type="button"
+                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f6f8fc] active:bg-[#eef1f8]"
+                      onClick={() => handleDhlLocationSelect(loc)}
+                    >
+                      <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isLocker ? "bg-[#fff3b0]" : "bg-[#e8f0fe]"}`}>
+                        {isLocker
+                          ? <PackageSearch className="h-3.5 w-3.5 text-[#b45309]" />
+                          : <MapPinned className="h-3.5 w-3.5 text-[#1a2a5e]" />
+                        }
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="truncate text-xs font-semibold text-[#1a2a5e]">{loc.name}</p>
+                          <span className="shrink-0 text-[10px] text-[#5f6d86]">{loc.distance < 1000 ? `${loc.distance} m` : `${(loc.distance / 1000).toFixed(1)} km`}</span>
+                        </div>
+                        <p className="text-[11px] text-[#5f6d86]">{loc.address.street}</p>
+                        <p className="text-[11px] text-[#5f6d86]">{[loc.address.postalCode, loc.address.city].filter(Boolean).join(" ")}</p>
+                        {loc.openingHours.length > 0 && (
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-[#6b7280]">
+                            <Clock className="h-2.5 w-2.5 shrink-0" />
+                            {loc.openingHours[0].opens}–{loc.openingHours[0].closes}
+                          </p>
+                        )}
+                        <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-medium ${isLocker ? "bg-[#fef3c7] text-[#92400e]" : "bg-[#dbeafe] text-[#1e40af]"}`}>
+                          {isLocker ? "Packstation" : loc.type === "postoffice" ? "Postfiliale" : "Paketshop"}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <div className="profile-container">
       {/* Header Section */}
       <div className="profile-header">
@@ -710,8 +858,20 @@ export function Profile() {
               {/* Packstation form */}
               {deliveryType === "packstation" && (
                 <>
-                  <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                    Die <strong>Packstation-Nr.</strong> steht auf dem gelben Schild an der Station. Die <strong>Postnummer</strong> ist Ihre persönliche DHL-Kundennummer (8-stellig).
+                  <div className="mb-3 flex items-start gap-3">
+                    <div className="flex-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                      Die <strong>Packstation-Nr.</strong> steht auf dem gelben Schild an der Station. Die <strong>Postnummer</strong> ist Ihre persönliche DHL-Kundennummer (8-stellig).
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 border-[#f5b800] px-3 py-2 text-sm font-semibold text-[#1a2a5e] hover:bg-[#fff9e6]"
+                      onClick={() => { setDhlFinderOpen(true); setDhlFinderResults([]); setDhlFinderError("") }}
+                    >
+                      <Search className="mr-1.5 h-4 w-4" />
+                      Standort suchen
+                    </Button>
                   </div>
 
                   <div className="profile-form-grid">
@@ -844,6 +1004,7 @@ export function Profile() {
           </div>
         </form>
       </div>
+    </>
     )
 }
 
