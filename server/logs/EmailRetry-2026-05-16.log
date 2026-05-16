@@ -1,0 +1,1 @@
+{"timestamp":"2026-05-16T21:52:59.297Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Repair Requests eingegangen) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"1673ms","messageId":"<53005095-a90f-c9ef-0968-f1bcb806496c@fixithub.com>","to":"dieter.senf@protonmail.com"},"pid":12550}

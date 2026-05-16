@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Service = require('../models/Service');
 const BookingService = require('./bookingService');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const EmailService = require('./emailService');
 
 class RepairRequestService {
@@ -137,6 +138,107 @@ class RepairRequestService {
       console.error('RepairRequestService: Error creating repair request:', error);
       throw error;
     }
+  }
+
+  /**
+   * Create a repair request as a guest (no account required)
+   */
+  static async createGuestRepairRequest(guestInfo, data) {
+    try {
+      console.log('RepairRequestService: Creating guest repair request');
+
+      const firstName = String(guestInfo.firstName || '').trim();
+      const lastName = String(guestInfo.lastName || '').trim();
+      const email = String(guestInfo.email || '').trim().toLowerCase();
+      const phone = String(guestInfo.phone || '').trim();
+
+      if (!firstName || !lastName || !email) {
+        throw new Error('Vorname, Nachname und E-Mail sind für Gäste erforderlich.');
+      }
+
+      const guestTrackingToken = crypto.randomBytes(32).toString('hex');
+
+      const reviewDeadline = new Date();
+      reviewDeadline.setDate(reviewDeadline.getDate() + 3);
+
+      const repairRequest = new RepairRequest({
+        isGuest: true,
+        guestTrackingToken,
+        customerName: `${firstName} ${lastName}`,
+        customerEmail: email,
+        customerPhone: phone || 'Nicht angegeben',
+        deviceType: data.deviceType,
+        deviceBrand: data.deviceBrand,
+        deviceModel: data.deviceModel,
+        deviceModelId: data.deviceModelId || undefined,
+        issueDescription: data.issueDescription,
+        issueOccurredDate: data.issueOccurredDate || undefined,
+        repairAttempts: data.repairAttempts || '',
+        modelNumber: data.modelNumber || '',
+        waterDamage: data.waterDamage || 'no',
+        previousRepairDetails: data.previousRepairDetails || '',
+        itemCondition: data.itemCondition || 'unsure',
+        images: data.images || [],
+        reviewDeadline,
+      });
+
+      await repairRequest.save();
+      console.log(`RepairRequestService: Created guest repair request: ${repairRequest.requestNumber}`);
+
+      const trackingUrl = await EmailService.buildSystemUrl(
+        `/guest-repair-tracking?token=${guestTrackingToken}&email=${encodeURIComponent(email)}`
+      );
+
+      setImmediate(async () => {
+        try {
+          await EmailService.sendTriggerEmail('repair_request_created', email, {
+            companyName: process.env.COMPANY_NAME || 'McRepair.de',
+            customerName: `${firstName} ${lastName}`,
+            requestNumber: repairRequest.requestNumber,
+            deviceBrand: repairRequest.deviceBrand,
+            deviceModel: repairRequest.deviceModel,
+            issueDescription: repairRequest.issueDescription,
+            submittedAt: new Date(repairRequest.createdAt || Date.now()).toLocaleDateString('de-DE'),
+            requestUrl: trackingUrl,
+            trackingUrl,
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
+          });
+        } catch (notificationError) {
+          console.error('RepairRequestService: Error sending guest repair request email:', notificationError.message);
+        }
+      });
+
+      return { repairRequest, guestTrackingToken };
+    } catch (error) {
+      console.error('RepairRequestService: Error creating guest repair request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Track a guest repair request by token and email
+   */
+  static async trackGuestRepairRequest(token, email) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!token || !normalizedEmail) {
+      throw new Error('Token und E-Mail sind erforderlich.');
+    }
+
+    const repairRequest = await RepairRequest.findOne({ guestTrackingToken: token, isGuest: true })
+      .populate('assignedStaffId', 'firstName lastName email')
+      .populate('convertedToOrderId', 'orderNumber status')
+      .lean();
+
+    if (!repairRequest) {
+      throw new Error('Reparaturanfrage nicht gefunden.');
+    }
+
+    if (repairRequest.customerEmail.toLowerCase() !== normalizedEmail) {
+      throw new Error('E-Mail stimmt nicht überein.');
+    }
+
+    return repairRequest;
   }
 
   /**

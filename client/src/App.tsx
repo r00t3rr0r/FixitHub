@@ -80,6 +80,7 @@ import { About } from "./pages/About"
 import { FAQ } from "./pages/FAQ"
 import { GuestOrderTracking } from "./pages/GuestOrderTracking"
 import { GuestBookingTracking } from "./pages/GuestBookingTracking"
+import { GuestRepairRequestTracking } from "./pages/GuestRepairRequestTracking"
 import { Vorabdiagnose } from "./pages/Vorabdiagnose"
 import { Annahmestellen } from "./pages/Annahmestellen"
 import { Contact } from "./pages/Contact"
@@ -148,6 +149,9 @@ function App() {
             </Route>
             <Route path="/track-order/booking" element={<CustomerLayout />}>
               <Route index element={<GuestBookingTracking />} />
+            </Route>
+            <Route path="/guest-repair-tracking" element={<CustomerLayout />}>
+              <Route index element={<GuestRepairRequestTracking />} />
             </Route>
 
             {/* Customer routes */}

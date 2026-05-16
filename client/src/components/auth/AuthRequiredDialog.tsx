@@ -9,15 +9,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/useToast"
 import { useTranslation } from "react-i18next"
-import { Eye, EyeOff, LogIn, Loader2, UserPlus } from "lucide-react"
+import { Eye, EyeOff, LogIn, Loader2, UserPlus, UserCheck } from "lucide-react"
 import { registerDuringCheckout, resendCheckoutVerificationEmail } from "@/api/checkout"
 import { CountrySelect } from "@/components/checkout/CountrySelect"
 import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
+
+export interface GuestInfo {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+}
 
 interface AuthRequiredDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  onGuestProceed?: (guestInfo: GuestInfo) => void
+  showGuestTab?: boolean
   title?: string
   description?: string
 }
@@ -26,6 +35,8 @@ export function AuthRequiredDialog({
   open,
   onOpenChange,
   onSuccess,
+  onGuestProceed,
+  showGuestTab = false,
   title = "Authentifizierung erforderlich",
   description = "Bitte melden Sie sich an oder erstellen Sie ein Konto, um fortzufahren.",
 }: AuthRequiredDialogProps) {
@@ -58,6 +69,12 @@ export function AuthRequiredDialog({
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
 
+  // Guest state
+  const [guestFirstName, setGuestFirstName] = useState("")
+  const [guestLastName, setGuestLastName] = useState("")
+  const [guestEmail, setGuestEmail] = useState("")
+  const [guestPhone, setGuestPhone] = useState("")
+
   // Countdown timer for resend
   useEffect(() => {
     if (resendCountdown <= 0) return
@@ -84,6 +101,10 @@ export function AuthRequiredDialog({
       setVerificationEmailSent(false)
       setVerificationEmailAddress("")
       setResendCountdown(0)
+      setGuestFirstName("")
+      setGuestLastName("")
+      setGuestEmail("")
+      setGuestPhone("")
     }
   }, [open])
 
@@ -153,8 +174,7 @@ export function AuthRequiredDialog({
     }
   }
 
-  const handleResendVerificationEmail = async () => {
-    if (!verificationEmailAddress || resendLoading || resendCountdown > 0) return
+  const handleResendVerificationEmail = async () => {    if (!verificationEmailAddress || resendLoading || resendCountdown > 0) return
     try {
       setResendLoading(true)
       const response = await resendCheckoutVerificationEmail(verificationEmailAddress)
@@ -165,6 +185,20 @@ export function AuthRequiredDialog({
     } finally {
       setResendLoading(false)
     }
+  }
+
+  const handleGuestProceed = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!guestFirstName.trim() || !guestLastName.trim() || !guestEmail.trim()) {
+      toast({ title: t("common.error"), description: "Bitte Vorname, Nachname und E-Mail angeben.", variant: "destructive" })
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
+      toast({ title: t("common.error"), description: "Bitte eine gültige E-Mail-Adresse eingeben.", variant: "destructive" })
+      return
+    }
+    onOpenChange(false)
+    onGuestProceed?.({ firstName: guestFirstName.trim(), lastName: guestLastName.trim(), email: guestEmail.trim(), phone: guestPhone.trim() })
   }
 
   return (
@@ -183,13 +217,18 @@ export function AuthRequiredDialog({
 
         <div className="max-h-[80vh] overflow-y-auto p-4 sm:p-5">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="mb-4 grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-[#d8dce6] bg-[#f6f8fc] p-1">
+            <TabsList className={`mb-4 grid h-auto w-full gap-1 rounded-lg border border-[#d8dce6] bg-[#f6f8fc] p-1 ${showGuestTab ? "grid-cols-3" : "grid-cols-2"}`}>
               <TabsTrigger value="login" className="h-8 text-[11px] font-semibold sm:text-xs">
                 <LogIn className="mr-1 h-3.5 w-3.5" /> {t("checkout.login")}
               </TabsTrigger>
               <TabsTrigger value="register" className="h-8 text-[11px] font-semibold sm:text-xs">
                 <UserPlus className="mr-1 h-3.5 w-3.5" /> {t("checkout.createAccount")}
               </TabsTrigger>
+              {showGuestTab && (
+                <TabsTrigger value="guest" className="h-8 text-[11px] font-semibold sm:text-xs">
+                  <UserCheck className="mr-1 h-3.5 w-3.5" /> Als Gast
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* Login Tab */}
@@ -456,6 +495,83 @@ export function AuthRequiredDialog({
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Guest Tab */}
+            {showGuestTab && (
+              <TabsContent value="guest" className="mt-0">
+                <Card className="border-[#d8dce6]">
+                  <CardHeader className="pb-2 pt-3">
+                    <CardTitle className="text-sm font-bold text-[#1a2a5e]">Als Gast fortfahren</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-1">
+                    <form onSubmit={handleGuestProceed} className="space-y-3">
+                      <div className="rounded-md border border-[#d8e9fa] bg-[#f0f7ff] px-3 py-2 text-[11px] text-[#1a2a5e]">
+                        Sie erhalten nach Absenden eine Bestätigungs-E-Mail mit einem Tracking-Link, über den Sie Ihre Anfrage jederzeit einsehen und mit uns kommunizieren können.
+                      </div>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="guest-firstName" className="text-xs font-semibold">
+                            Vorname <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="guest-firstName"
+                            value={guestFirstName}
+                            onChange={(e) => setGuestFirstName(e.target.value)}
+                            className="h-8 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="guest-lastName" className="text-xs font-semibold">
+                            Nachname <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="guest-lastName"
+                            value={guestLastName}
+                            onChange={(e) => setGuestLastName(e.target.value)}
+                            className="h-8 text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="guest-email" className="text-xs font-semibold">
+                          E-Mail <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="guest-email"
+                          type="email"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          className="h-8 text-sm"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="guest-phone" className="text-xs font-semibold">Telefon</Label>
+                        <Input
+                          id="guest-phone"
+                          type="tel"
+                          value={guestPhone}
+                          onChange={(e) => setGuestPhone(e.target.value)}
+                          className="h-8 text-sm"
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        className="h-9 w-full bg-[#f5b800] text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
+                      >
+                        <UserCheck className="mr-2 h-4 w-4" /> Anfrage als Gast absenden
+                      </Button>
+                      <p className="text-[10px] text-[#8b9dbf]">
+                        <span className="text-red-500">*</span> Pflichtfelder
+                      </p>
+                    </form>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </DialogContent>

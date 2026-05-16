@@ -5274,5 +5274,34 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1778968379298-a4w6f4gpa",
+    "timestamp": "2026-05-16T21:52:59.298Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1778968377553-00002 ist bei uns eingegangen",
+    "messageId": "<53005095-a90f-c9ef-0968-f1bcb806496c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1673,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

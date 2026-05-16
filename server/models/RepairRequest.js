@@ -12,7 +12,7 @@ const repairRequestSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false,
   },
   customerName: {
     type: String,
@@ -25,6 +25,16 @@ const repairRequestSchema = new mongoose.Schema({
   customerPhone: {
     type: String,
     required: true,
+  },
+
+  // Guest fields
+  isGuest: {
+    type: Boolean,
+    default: false,
+  },
+  guestTrackingToken: {
+    type: String,
+    index: { sparse: true, unique: true },
   },
 
   // Device Information
@@ -52,7 +62,8 @@ const repairRequestSchema = new mongoose.Schema({
   },
   issueOccurredDate: {
     type: String,
-    required: true,
+    required: false,
+    default: '',
   },
   repairAttempts: {
     type: String,
