@@ -228,6 +228,7 @@ class RepairRequestService {
     const repairRequest = await RepairRequest.findOne({ guestTrackingToken: token, isGuest: true })
       .populate('assignedStaffId', 'firstName lastName email')
       .populate('convertedToOrderId', 'orderNumber status')
+      .populate('deviceModelId', 'name manufacturer image images')
       .lean();
 
     if (!repairRequest) {

@@ -7,6 +7,7 @@ import {
   sendGuestRepairRequestMessage,
   GuestTrackAccess,
 } from "@/api/guestRepairRequest"
+import { searchDevices } from "@/api/devices"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -80,13 +81,14 @@ function StatusStepper({ status }: { status: string }) {
   const active   = stepIndex(status)
   const rejected = status === "rejected"
   return (
-    <div className="flex items-center">
+    <div className="flex w-full items-start">
       {STEPS.map((step, i) => {
         const done    = i < active
         const current = i === active
         const isLast  = i === STEPS.length - 1
         return (
-          <div key={step.label} className="flex min-w-0 flex-1 items-center">
+          <div key={step.label} className={`flex items-center ${isLast ? "shrink-0" : "flex-1"}`}>
+            {/* Step bubble + label */}
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition
@@ -104,8 +106,9 @@ function StatusStepper({ status }: { status: string }) {
                 {step.label}
               </span>
             </div>
+            {/* Connector line (full remaining width between bubbles) */}
             {!isLast && (
-              <div className={`mx-1.5 h-0.5 flex-1 rounded-full ${i < active ? "bg-[#1a2a5e]" : "bg-slate-200"}`} />
+              <div className={`mx-2 mb-5 h-0.5 flex-1 rounded-full ${i < active ? "bg-[#1a2a5e]" : "bg-slate-200"}`} />
             )}
           </div>
         )
@@ -168,6 +171,7 @@ export function GuestRepairRequestTracking() {
   const [loading, setLoading]             = useState(false)
   const [repairRequest, setRepairRequest] = useState<any | null>(null)
   const [notFound, setNotFound]           = useState(false)
+  const [deviceImage, setDeviceImage]     = useState<string | null>(null)
 
   const [communication, setCommunication] = useState<any | null>(null)
   const [commLoading, setCommLoading]     = useState(false)
@@ -183,6 +187,55 @@ export function GuestRepairRequestTracking() {
     if (token && email) loadRequest(token, email)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Resolve device model image from catalog
+  useEffect(() => {
+    if (!repairRequest) { setDeviceImage(null); return }
+    let cancelled = false
+    const rr = repairRequest as any
+
+    // 1. Check direct fields populated by the server
+    const direct = [
+      rr.deviceModelId?.image,
+      rr.deviceModelId?.images?.[0]?.url,
+      rr.deviceModelId?.images?.[0]?.base64,
+    ].find((v): v is string => typeof v === "string" && v.trim().length > 0)
+
+    if (direct) { setDeviceImage(direct); return }
+
+    // 2. Fall back to device catalog search
+    const brand = rr.deviceBrand || ""
+    const model = rr.deviceModel || ""
+    if (!model) return
+
+    const normalize = (s = "") => s.toLowerCase().replace(/\s+/g, " ").trim()
+    const normalizeCompact = (s = "") => normalize(s).replace(/[^a-z0-9]/g, "")
+    const nb = normalize(brand)
+    const nm = normalize(model)
+    const nc = normalizeCompact(model)
+
+    ;(async () => {
+      const queries = [`${brand} ${model}`.trim(), model]
+        .filter((q, i, a) => q && a.indexOf(q) === i)
+      for (const q of queries) {
+        try {
+          const res = await searchDevices(q)
+          const devices: any[] = res?.devices || []
+          const best =
+            devices.find((d) => d.image && normalize(d.name) === nm && (!nb || normalize(d.manufacturer) === nb)) ||
+            devices.find((d) => d.image && normalize(d.name) === nm) ||
+            devices.find((d) => d.image && normalizeCompact(d.name) === nc) ||
+            devices.find((d) => d.image)
+          if (best?.image) {
+            if (!cancelled) setDeviceImage(best.image)
+            return
+          }
+        } catch { /* silent */ }
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [repairRequest?._id, repairRequest?.deviceBrand, repairRequest?.deviceModel])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -451,8 +504,17 @@ export function GuestRepairRequestTracking() {
 
                 {/* Device */}
                 <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(26,42,94,0.08)]">
-                    <Smartphone className="h-5 w-5 text-[#1a2a5e]" />
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[rgba(26,42,94,0.08)] overflow-hidden">
+                    {deviceImage ? (
+                      <img
+                        src={deviceImage}
+                        alt={`${repairRequest.deviceBrand} ${repairRequest.deviceModel}`}
+                        className="h-full w-full object-contain p-1"
+                        onError={(e) => { e.currentTarget.style.display = "none"; setDeviceImage(null) }}
+                      />
+                    ) : (
+                      <Smartphone className="h-6 w-6 text-[#1a2a5e]" />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gerät</p>
