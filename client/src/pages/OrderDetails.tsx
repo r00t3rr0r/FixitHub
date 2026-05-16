@@ -1616,6 +1616,18 @@ export function OrderDetails() {
     }
   }
 
+  const translatePaymentStatus = (status: string) => {
+    switch (status) {
+      case 'paid': return 'Bezahlt'
+      case 'pending': return 'Ausstehend'
+      case 'refunded': return 'Erstattet'
+      case 'partial': return 'Teilweise bezahlt'
+      case 'unpaid': return 'Nicht bezahlt'
+      case 'overdue': return 'Überfällig'
+      default: return status
+    }
+  }
+
   useEffect(() => {
     let isCancelled = false
 
@@ -3697,7 +3709,7 @@ export function OrderDetails() {
           </div>
           <div className="customer-summary-row">
             <span>Zahlung</span>
-            <strong>{order.paymentStatus}</strong>
+            <strong>{translatePaymentStatus(order.paymentStatus)}</strong>
           </div>
           <div className="customer-summary-row">
             <span>Gesamtbetrag</span>
@@ -3745,18 +3757,7 @@ export function OrderDetails() {
                     </a>
                   </div>
                 )}
-                {linkedBooking?.shippingLabelUrl && (
-                  <div className="customer-summary-shipping-label">
-                    <span>Buchungs-Versandlabel</span>
-                    <button
-                      onClick={() => downloadBookingShippingLabel(linkedBooking._id, `booking-versandlabel-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)}
-                      className="customer-summary-label-download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Buchungs-Versandlabel herunterladen (PDF)
-                    </button>
-                  </div>
-                )}
+
                 {!linkedBooking?.shippingLabelUrl && linkedBooking?.shippingStatus && (
                   <div className={`customer-summary-shipping-note ${bookingShippingStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
                     {bookingShippingStatus === 'failed'
@@ -4242,19 +4243,21 @@ export function OrderDetails() {
             )}
             <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
               <CreditCard className="h-3 w-3 mr-1" />
-              {order.paymentStatus}
+              {translatePaymentStatus(order.paymentStatus)}
             </span>
-            <div className="order-total-cost">
-              <div className="amount">{safeToNumber(order.totalCost).toFixed(2)} €</div>
-              <div className="label">Gesamt</div>
-            </div>
+            {isStaffOrAdmin && (
+              <div className="order-total-cost">
+                <div className="amount">{safeToNumber(order.totalCost).toFixed(2)} €</div>
+                <div className="label">Gesamt</div>
+              </div>
+            )}
             {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && (
               <Button
                 size="sm"
                 onClick={() => setComplaintDialogOpen(true)}
-                className="text-xs"
+                className="text-xs bg-amber-600 hover:bg-amber-700 text-white border-0 shadow-sm gap-1.5 font-medium"
               >
-                <AlertCircle className="h-3.5 w-3.5 mr-1" />
+                <AlertCircle className="h-3.5 w-3.5" />
                 Reklamation anmelden
               </Button>
             )}
