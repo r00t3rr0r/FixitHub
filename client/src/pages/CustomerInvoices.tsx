@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { formatEUR } from '@/lib/utils';
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
@@ -404,7 +405,7 @@ export function CustomerInvoices() {
     if (amount > outstandingAmount + 0.01) {
       toast({
         title: t('common.error'),
-        description: `Der Betrag übersteigt den offenen Restbetrag (${outstandingAmount.toFixed(2)} EUR).`,
+        description: `Der Betrag übersteigt den offenen Restbetrag (${formatEUR(outstandingAmount)}).`,
         variant: 'destructive',
       });
       return;
@@ -794,7 +795,7 @@ export function CustomerInvoices() {
                         </span>
                         <span className="inline-flex items-center gap-1 font-bold text-[#1a2a5e]">
                           <DollarSign className="h-3.5 w-3.5" />
-                          {invoice.total.toFixed(2)} €
+                          {formatEUR(invoice.total)}
                         </span>
                       </div>
                     </div>
@@ -935,16 +936,16 @@ export function CustomerInvoices() {
                                 <span className="inline-block text-[9px] font-semibold text-amber-700 bg-amber-50 px-1 py-0.5 rounded leading-tight mt-0.5">{item.type}</span>
                               </td>
                               <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">{item.quantity}</td>
-                              <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">{item.unitPrice.toFixed(2)} €</td>
+                              <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">{formatEUR(item.unitPrice)}</td>
                               <td className="text-right py-1.5 px-2 text-xs font-medium">
                                 {item.discount != null && item.discount > 0
-                                  ? <span className="text-emerald-600">-{item.discount.toFixed(2)} €</span>
+                                  ? <span className="text-emerald-600">-{formatEUR(item.discount)}</span>
                                   : <span className="text-slate-300">—</span>}
                               </td>
                               <td className="text-right py-1.5 px-2 text-xs text-slate-600 font-medium">
                                 {item.taxRate != null ? `${item.taxRate}%` : <span className="text-slate-300">—</span>}
                               </td>
-                              <td className="text-right py-1.5 px-3 text-xs font-bold text-[#1a2a5e]">{item.total.toFixed(2)} €</td>
+                              <td className="text-right py-1.5 px-3 text-xs font-bold text-[#1a2a5e]">{formatEUR(item.total)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -959,34 +960,34 @@ export function CustomerInvoices() {
                       <h3 className="font-bold text-[10px] text-[#1a2a5e] uppercase tracking-wider mb-2">Finanzübersicht</h3>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Nettobetrag</span>
-                        <span className="font-semibold text-slate-700">{selectedInvoice.subtotal.toFixed(2)} €</span>
+                        <span className="font-semibold text-slate-700">{formatEUR(selectedInvoice.subtotal)}</span>
                       </div>
                       {selectedInvoice.tax > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">MwSt.</span>
-                          <span className="font-semibold text-slate-700">+ {selectedInvoice.tax.toFixed(2)} €</span>
+                          <span className="font-semibold text-slate-700">+ {formatEUR(selectedInvoice.tax)}</span>
                         </div>
                       )}
                       {selectedInvoice.discount > 0 && (
                         <div className="flex justify-between text-xs text-emerald-600">
                           <span>Rabatt</span>
-                          <span className="font-semibold">- {selectedInvoice.discount.toFixed(2)} €</span>
+                          <span className="font-semibold">- {formatEUR(selectedInvoice.discount)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-xs font-bold border-t border-slate-200 pt-1.5">
                         <span className="text-[#1a2a5e]">Bruttobetrag</span>
-                        <span className="text-[#1a2a5e]">{selectedInvoice.total.toFixed(2)} €</span>
+                        <span className="text-[#1a2a5e]">{formatEUR(selectedInvoice.total)}</span>
                       </div>
                       {selectedInvoice.amountPaid != null && selectedInvoice.amountPaid > 0 && (
                         <div className="flex justify-between text-xs text-emerald-600">
                           <span>Bereits bezahlt</span>
-                          <span className="font-semibold">- {selectedInvoice.amountPaid.toFixed(2)} €</span>
+                          <span className="font-semibold">- {formatEUR(selectedInvoice.amountPaid)}</span>
                         </div>
                       )}
                       {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'cancelled' && (
                         <div className="flex justify-between text-xs font-bold border-t border-red-100 pt-1.5 text-red-600">
                           <span>Offener Restbetrag</span>
-                          <span>{(selectedInvoice.total - (selectedInvoice.amountPaid || 0)).toFixed(2)} €</span>
+                          <span>{formatEUR(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</span>
                         </div>
                       )}
                       {selectedInvoice.status === 'paid' && (
@@ -1009,7 +1010,7 @@ export function CustomerInvoices() {
                                 {payment.method && <p className="text-[10px] text-slate-400">{payment.method}</p>}
                                 {payment.note && <p className="text-[10px] text-slate-400 italic">{payment.note}</p>}
                               </div>
-                              <span className="text-xs font-bold text-emerald-600 ml-2 shrink-0">{payment.amount.toFixed(2)} €</span>
+                              <span className="text-xs font-bold text-emerald-600 ml-2 shrink-0">{formatEUR(payment.amount)}</span>
                             </div>
                           ))}
                         </div>
@@ -1019,7 +1020,7 @@ export function CustomerInvoices() {
                             <p className="text-xs font-semibold text-slate-700">{new Date(selectedInvoice.paidAt).toLocaleDateString('de-DE')}</p>
                             <p className="text-[10px] text-slate-400">Vollständige Zahlung</p>
                           </div>
-                          <span className="text-xs font-bold text-emerald-600 ml-2">{selectedInvoice.total.toFixed(2)} €</span>
+                          <span className="text-xs font-bold text-emerald-600 ml-2">{formatEUR(selectedInvoice.total)}</span>
                         </div>
                       ) : (
                         <p className="text-xs text-slate-400 italic">Keine Zahlungen erfasst</p>
@@ -1032,7 +1033,7 @@ export function CustomerInvoices() {
                     <div className="border border-blue-200 rounded-lg overflow-hidden">
                       <div className="bg-[#1a2a5e] px-3 py-1.5 flex items-center justify-between">
                         <h3 className="font-bold text-[10px] text-white uppercase tracking-wider">Rechnung bezahlen</h3>
-                        <span className="text-[10px] text-blue-100">Offen: {outstandingAmount.toFixed(2)} EUR</span>
+                        <span className="text-[10px] text-blue-100">Offen: {formatEUR(outstandingAmount)}</span>
                       </div>
                       <div className="p-3 space-y-2 bg-blue-50/40">
                         <div className="grid grid-cols-3 gap-2">
