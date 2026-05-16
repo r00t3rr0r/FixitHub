@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getUserProfile, updateUserProfile, uploadAvatar, UserProfile } from "@/api/user"
 import { getSavedDeviceInfo, DeviceInfo } from "@/utils/deviceDetection"
+import { CountrySelect } from "@/components/checkout/CountrySelect"
+import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
 import "./profile.css"
 import {
   User,
@@ -23,7 +24,6 @@ import {
   Save,
   CreditCard,
   FileText,
-  Copy,
   TrendingUp,
   Calendar,
   DollarSign,
@@ -32,7 +32,10 @@ import {
   Tablet,
   Wifi,
   Globe,
-  Info
+  Info,
+  Home,
+  PackageSearch,
+  Truck,
 } from "lucide-react"
 
 export function Profile() {
@@ -40,7 +43,7 @@ export function Profile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
-  const [sameAsInvoice, setSameAsInvoice] = useState(true)
+  const [deliveryType, setDeliveryType] = useState<"same" | "address" | "packstation">("same")
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const { toast } = useToast()
   const { t } = useTranslation()
@@ -66,16 +69,27 @@ export function Profile() {
         setValue("invoiceAddress.city", profileData.invoiceAddress?.city || '')
         setValue("invoiceAddress.state", profileData.invoiceAddress?.state || '')
         setValue("invoiceAddress.zipCode", profileData.invoiceAddress?.zipCode || '')
-        setValue("invoiceAddress.country", profileData.invoiceAddress?.country || '')
+        setValue("invoiceAddress.country", profileData.invoiceAddress?.country || DEFAULT_COUNTRY_CODE)
 
-        // Payment address with proper field structure
+        // Payment/shipping address with proper field structure
         setValue("paymentAddress.street", profileData.paymentAddress?.street || '')
         setValue("paymentAddress.city", profileData.paymentAddress?.city || '')
         setValue("paymentAddress.state", profileData.paymentAddress?.state || '')
         setValue("paymentAddress.zipCode", profileData.paymentAddress?.zipCode || '')
-        setValue("paymentAddress.country", profileData.paymentAddress?.country || '')
+        setValue("paymentAddress.country", profileData.paymentAddress?.country || DEFAULT_COUNTRY_CODE)
+        setValue("paymentAddress.packstationNumber", profileData.paymentAddress?.packstationNumber || '')
+        setValue("paymentAddress.postNumber", profileData.paymentAddress?.postNumber || '')
 
-        setSameAsInvoice(profileData.paymentAddress?.sameAsInvoice ?? true)
+        // Determine delivery type from saved data
+        const savedDeliveryType = profileData.paymentAddress?.deliveryType
+        const savedSameAsInvoice = profileData.paymentAddress?.sameAsInvoice !== false
+        if (savedDeliveryType === 'packstation') {
+          setDeliveryType('packstation')
+        } else if (!savedSameAsInvoice || savedDeliveryType === 'address') {
+          setDeliveryType('address')
+        } else {
+          setDeliveryType('same')
+        }
       } catch (error) {
         console.error("Error fetching profile:", error)
         toast({
@@ -108,12 +122,38 @@ export function Profile() {
       setSaving(true)
       console.log("Updating profile:", data)
 
+      let paymentAddress: Record<string, any>
+      if (deliveryType === 'same') {
+        paymentAddress = { sameAsInvoice: true, deliveryType: 'address', street: '', city: '', state: '', zipCode: '', country: '', packstationNumber: '', postNumber: '' }
+      } else if (deliveryType === 'packstation') {
+        paymentAddress = {
+          sameAsInvoice: false,
+          deliveryType: 'packstation',
+          packstationNumber: data.paymentAddress?.packstationNumber || '',
+          postNumber: data.paymentAddress?.postNumber || '',
+          zipCode: data.paymentAddress?.zipCode || '',
+          city: data.paymentAddress?.city || '',
+          country: data.paymentAddress?.country || DEFAULT_COUNTRY_CODE,
+          street: '',
+          state: '',
+        }
+      } else {
+        paymentAddress = {
+          sameAsInvoice: false,
+          deliveryType: 'address',
+          street: data.paymentAddress?.street || '',
+          city: data.paymentAddress?.city || '',
+          state: data.paymentAddress?.state || '',
+          zipCode: data.paymentAddress?.zipCode || '',
+          country: data.paymentAddress?.country || DEFAULT_COUNTRY_CODE,
+          packstationNumber: '',
+          postNumber: '',
+        }
+      }
+
       const profileData = {
         ...data,
-        paymentAddress: {
-          ...data.paymentAddress,
-          sameAsInvoice
-        }
+        paymentAddress,
       }
 
       const response = await updateUserProfile(profileData)
@@ -166,21 +206,6 @@ export function Profile() {
     } finally {
       setUploadingAvatar(false)
     }
-  }
-
-  const copyInvoiceToPayment = () => {
-    if (!profile) return
-
-    setValue("paymentAddress.street", profile.invoiceAddress.street)
-    setValue("paymentAddress.city", profile.invoiceAddress.city)
-    setValue("paymentAddress.state", profile.invoiceAddress.state)
-    setValue("paymentAddress.zipCode", profile.invoiceAddress.zipCode)
-    setValue("paymentAddress.country", profile.invoiceAddress.country)
-
-    toast({
-      title: t('profilePage.addressCopied'),
-      description: t('profilePage.addressCopiedDesc')
-    })
   }
 
   if (loading) {
@@ -576,9 +601,10 @@ export function Profile() {
 
               <div className="profile-form-field">
                 <Label htmlFor="invoiceCountry" className="profile-label">{t('profilePage.country')}</Label>
-                <Input
+                <CountrySelect
                   id="invoiceCountry"
-                  {...register("invoiceAddress.country")}
+                  value={watch("invoiceAddress.country") || DEFAULT_COUNTRY_CODE}
+                  onChange={(val) => setValue("invoiceAddress.country", val)}
                   className="profile-input"
                 />
               </div>
@@ -586,49 +612,48 @@ export function Profile() {
           </CardContent>
         </Card>
 
-          {/* Payment Address */}
+          {/* Delivery / Shipping Address */}
           <Card className="profile-card">
             <CardHeader className="profile-card-header">
               <CardTitle className="profile-card-title">
-                <CreditCard className="h-5 w-5" />
-                {t('profile.paymentAddress')}
+                <Truck className="h-5 w-5" />
+                Lieferadresse
               </CardTitle>
               <CardDescription className="profile-card-description">
-                {t('profilePage.paymentAddressDesc')}
+                Wohin sollen Ihre Bestellungen geliefert werden?
               </CardDescription>
             </CardHeader>
             <CardContent className="profile-card-content">
-              <div className="profile-same-address">
-                <div className="profile-same-address-checkbox">
-                  <Checkbox
-                    id="sameAsInvoice"
-                    checked={sameAsInvoice}
-                    onCheckedChange={(checked) => {
-                      setSameAsInvoice(checked as boolean)
-                      if (checked) {
-                        copyInvoiceToPayment()
-                      }
-                    }}
-                  />
-                  <Label htmlFor="sameAsInvoice" className="profile-same-address-label">
-                    {t('profilePage.sameAsInvoice')}
-                  </Label>
+              {/* Delivery type selector */}
+              <div className="mb-4">
+                <Label className="profile-label mb-2 block">Versandart</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      { value: "same" as const, label: "Wie Rechnungsadresse", Icon: Home },
+                      { value: "address" as const, label: "Abweichende Adresse", Icon: MapPin },
+                      { value: "packstation" as const, label: "Packstation (DHL)", Icon: PackageSearch },
+                    ]
+                  ).map(({ value, label, Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setDeliveryType(value)}
+                      className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        deliveryType === value
+                          ? "border-[#1a2a5e] bg-[#1a2a5e] text-white"
+                          : "border-gray-300 bg-white text-[#1a2a5e] hover:border-[#1a2a5e]"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {label}
+                    </button>
+                  ))}
                 </div>
-                {!sameAsInvoice && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={copyInvoiceToPayment}
-                    className="profile-copy-btn"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    {t('profilePage.copyFromInvoice')}
-                  </Button>
-                )}
               </div>
 
-              {!sameAsInvoice && (
+              {/* Address form */}
+              {deliveryType === "address" && (
                 <>
                   <div className="profile-form-field profile-form-field-full">
                     <Label htmlFor="paymentStreet" className="profile-label">{t('profilePage.streetAddress')}</Label>
@@ -671,14 +696,84 @@ export function Profile() {
 
                     <div className="profile-form-field">
                       <Label htmlFor="paymentCountry" className="profile-label">{t('profilePage.country')}</Label>
-                      <Input
+                      <CountrySelect
                         id="paymentCountry"
-                        {...register("paymentAddress.country")}
+                        value={watch("paymentAddress.country") || DEFAULT_COUNTRY_CODE}
+                        onChange={(val) => setValue("paymentAddress.country", val)}
                         className="profile-input"
                       />
                     </div>
                   </div>
                 </>
+              )}
+
+              {/* Packstation form */}
+              {deliveryType === "packstation" && (
+                <>
+                  <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                    Die <strong>Packstation-Nr.</strong> steht auf dem gelben Schild an der Station. Die <strong>Postnummer</strong> ist Ihre persönliche DHL-Kundennummer (8-stellig).
+                  </div>
+
+                  <div className="profile-form-grid">
+                    <div className="profile-form-field">
+                      <Label htmlFor="packstationNumber" className="profile-label">Packstation-Nr. *</Label>
+                      <Input
+                        id="packstationNumber"
+                        {...register("paymentAddress.packstationNumber")}
+                        placeholder="z.B. 123"
+                        className="profile-input"
+                      />
+                    </div>
+
+                    <div className="profile-form-field">
+                      <Label htmlFor="postNumber" className="profile-label">Postnummer (DHL) *</Label>
+                      <Input
+                        id="postNumber"
+                        {...register("paymentAddress.postNumber")}
+                        placeholder="12345678"
+                        className="profile-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="profile-form-grid">
+                    <div className="profile-form-field">
+                      <Label htmlFor="packstationZip" className="profile-label">PLZ der Packstation *</Label>
+                      <Input
+                        id="packstationZip"
+                        {...register("paymentAddress.zipCode")}
+                        placeholder="12345"
+                        className="profile-input"
+                      />
+                    </div>
+
+                    <div className="profile-form-field">
+                      <Label htmlFor="packstationCity" className="profile-label">{t('profilePage.city')} *</Label>
+                      <Input
+                        id="packstationCity"
+                        {...register("paymentAddress.city")}
+                        placeholder="Berlin"
+                        className="profile-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="profile-form-field">
+                    <Label htmlFor="packstationCountry" className="profile-label">{t('profilePage.country')}</Label>
+                    <CountrySelect
+                      id="packstationCountry"
+                      value={watch("paymentAddress.country") || DEFAULT_COUNTRY_CODE}
+                      onChange={(val) => setValue("paymentAddress.country", val)}
+                      className="profile-input"
+                    />
+                  </div>
+                </>
+              )}
+
+              {deliveryType === "same" && (
+                <p className="text-sm text-muted-foreground">
+                  Ihre Bestellungen werden an die oben eingetragene Rechnungsadresse geliefert.
+                </p>
               )}
             </CardContent>
           </Card>
