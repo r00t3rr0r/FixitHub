@@ -1596,18 +1596,22 @@ function BookingDetailDialog({
                   {/* Billing address */}
                   {(() => {
                     const addr = booking.customerId.invoiceAddress;
-                    if (!addr || (!addr.street && !addr.city)) return null;
+                    const hasAddr = addr && (addr.street || addr.city || addr.zipCode || addr.state);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
                           <CreditCard className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
                           <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Rechnungsadresse</p>
                         </div>
-                        <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                          {addr.street && <p>{addr.street}</p>}
-                          {(addr.zipCode || addr.city) && <p>{[addr.zipCode, addr.city].filter(Boolean).join(' ')}</p>}
-                          {addr.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{addr.country}</p>}
-                        </div>
+                        {hasAddr ? (
+                          <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
+                            {addr!.street && <p>{addr!.street}</p>}
+                            {(addr!.zipCode || addr!.city) && <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>}
+                            {addr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{addr!.country}</p>}
+                          </div>
+                        ) : (
+                          <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
+                        )}
                       </div>
                     );
                   })()}
@@ -1616,32 +1620,39 @@ function BookingDetailDialog({
                   {(() => {
                     const payAddr = booking.customerId.paymentAddress;
                     const billAddr = booking.customerId.invoiceAddress;
-                    if (payAddr?.sameAsInvoice !== false) {
-                      if (billAddr?.street || billAddr?.city) {
-                        return (
-                          <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
-                              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
-                            </div>
-                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Identisch mit Rechnungsadresse</p>
+                    const hasBillAddr = billAddr && (billAddr.street || billAddr.city || billAddr.zipCode || billAddr.state);
+                    const sameAsInvoice = payAddr?.sameAsInvoice !== false;
+                    if (sameAsInvoice) {
+                      return (
+                        <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
+                            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
                           </div>
-                        );
-                      }
-                      return null;
+                          {hasBillAddr ? (
+                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Identisch mit Rechnungsadresse</p>
+                          ) : (
+                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
+                          )}
+                        </div>
+                      );
                     }
-                    if (!payAddr || (!payAddr.street && !payAddr.city)) return null;
+                    const hasPayAddr = payAddr && (payAddr.street || payAddr.city || payAddr.zipCode || payAddr.state);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
                           <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
                           <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
                         </div>
-                        <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                          {payAddr.street && <p>{payAddr.street}</p>}
-                          {(payAddr.zipCode || payAddr.city) && <p>{[payAddr.zipCode, payAddr.city].filter(Boolean).join(' ')}</p>}
-                          {payAddr.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{payAddr.country}</p>}
-                        </div>
+                        {hasPayAddr ? (
+                          <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
+                            {payAddr!.street && <p>{payAddr!.street}</p>}
+                            {(payAddr!.zipCode || payAddr!.city) && <p>{[payAddr!.zipCode, payAddr!.city].filter(Boolean).join(' ')}</p>}
+                            {payAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{payAddr!.country}</p>}
+                          </div>
+                        ) : (
+                          <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
+                        )}
                       </div>
                     );
                   })()}

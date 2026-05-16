@@ -721,7 +721,7 @@
 .booking-detail-dialog-content {
   max-width: min(980px, 95vw) !important;
   max-height: 88vh !important;
-  padding: 12px !important;
+  padding: 0 !important;
   width: min(calc(100vw - 12px), 100%);
   overflow-x: hidden !important;
   background: var(--off-white, #f8f9fc);
@@ -741,6 +741,7 @@
   background: linear-gradient(180deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
   border-bottom: 1px solid rgba(255,255,255,0.22);
   margin-bottom: 14px;
+  border-radius: 16px 16px 0 0;
 }
 
 .booking-detail-dialog-header-content {
@@ -803,7 +804,7 @@
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.5px;
-  color: var(--white, #ffffff) !important;
+  color: var(--accent-yellow, #f5b800) !important;
 }
 
 .booking-detail-dialog-description {
@@ -948,10 +949,8 @@
 
 @media (max-width: 420px) {
   .booking-detail-dialog-header {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    margin-top: 0 !important;
-    border-radius: 0.5rem;
+    margin-bottom: 14px;
+    border-radius: 16px 16px 0 0;
     padding: 1rem;
     padding-right: 2.4rem;
   }
@@ -1043,9 +1042,8 @@
   }
 
   .booking-detail-dialog-header {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    margin-top: 0 !important;
+    margin-bottom: 14px !important;
+    border-radius: 0 !important;
     padding: 0.85rem !important;
     padding-right: 2.1rem !important;
   }
