@@ -411,7 +411,7 @@ export function CartIcon() {
                   asChild
                   className="w-full h-10 bg-[#f5b800] hover:bg-[#e5ab00] text-[#1a2a5e] font-bold text-sm rounded-xl shadow-sm hover:shadow-md transition-all duration-200 group"
                 >
-                  <Link to="/checkout" className="flex items-center justify-center gap-2">
+                  <Link to="/cart?checkout=1" className="flex items-center justify-center gap-2">
                     Zur Kasse
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </Link>
