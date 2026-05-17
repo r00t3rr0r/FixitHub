@@ -105,93 +105,53 @@ export function RepairOrderDetailsDialog({
       <DialogContent className="w-[calc(100vw-16px)] sm:max-w-5xl max-h-[92dvh] overflow-hidden border-0 bg-white p-0 gap-0 rounded-[20px] sm:rounded-[28px] shadow-[0_24px_80px_rgba(26,42,94,0.32)] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white/80 [&>button]:opacity-100 [&>button:hover]:text-white [&>button]:focus:ring-white/50 [&>button]:ring-offset-transparent">
         {order && (
           <>
-            <DialogHeader className="gap-4 bg-gradient-to-r from-[#1a2a5e] via-[#22366f] to-[#2d4a8f] px-4 py-4 text-left sm:px-6 sm:py-5">
-              <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge className="border-0 bg-white/14 px-2.5 py-1 text-[11px] font-semibold text-white shadow-none">
-                      <Wrench className="mr-1 h-3.5 w-3.5" />
-                      Reparaturauftrag
-                    </Badge>
-                    {quantity > 1 && (
-                      <Badge className="border-0 bg-[#f5b800] px-2.5 py-1 text-[11px] font-bold text-[#1a2a5e] shadow-none">
-                        <Package className="mr-1 h-3.5 w-3.5" />
-                        {quantity} Aufträge
-                      </Badge>
-                    )}
-                    <Badge className="border-0 bg-[#38a169] px-2.5 py-1 text-[11px] font-semibold text-white shadow-none">
-                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                      Detaillansicht
-                    </Badge>
-                  </div>
+            <DialogHeader className="gap-3 bg-gradient-to-r from-[#1a2a5e] via-[#22366f] to-[#2d4a8f] px-4 py-3 text-left sm:px-6 sm:py-4">
+              <div className="flex items-start justify-between gap-2 pr-8 w-full">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {primaryImage && (
+                    <div className="flex-shrink-0">
+                      <div className="overflow-hidden rounded-lg border border-white/20 bg-white/10 shadow-sm">
+                        <img
+                          src={primaryImage}
+                          alt={deviceLabel}
+                          className="h-16 w-16 object-contain p-1"
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none"
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <DialogTitle className="text-xl font-bold tracking-tight !text-[#f5b800] sm:text-[1.65rem]">
-                      {deviceLabel}
-                    </DialogTitle>
-                    <DialogDescription className="max-w-2xl text-sm leading-6 text-blue-100/90">
-                      {[order.deviceType, order.deviceBrand, order.deviceModel].filter(Boolean).join(" • ")}
-                    </DialogDescription>
+                  <div className="space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge className="border-0 bg-white/14 px-2 py-0.5 text-[10px] font-semibold text-white shadow-none flex-shrink-0">
+                        <Wrench className="mr-0.5 h-3 w-3" />
+                        Reparaturauftrag
+                      </Badge>
+                      {quantity > 1 && (
+                        <Badge className="border-0 bg-[#f5b800] px-2 py-0.5 text-[10px] font-bold text-[#1a2a5e] shadow-none flex-shrink-0">
+                          {quantity}x
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <DialogTitle className="text-base font-bold tracking-tight !text-[#f5b800] sm:text-lg line-clamp-1">
+                        {deviceLabel}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs leading-5 text-blue-100/90 line-clamp-1">
+                        {[order.deviceType, order.deviceBrand, order.deviceModel].filter(Boolean).join(" • ")}
+                      </DialogDescription>
+                    </div>
                   </div>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="max-h-[calc(92dvh-136px)] overflow-y-auto bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
-              <div className="grid gap-3 p-2 sm:p-4 lg:grid-cols-[180px_minmax(0,1fr)]">
-                {/* Left Column - Device Image and Photos */}
-                <div className="space-y-2">
-                  <section className="overflow-hidden rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
-                    <div className="border-b border-[#e4e8f0] bg-[#f8f9fc] px-2 py-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Gerät</p>
-                    </div>
-
-                    <div className="bg-[radial-gradient(circle_at_top,#eef4ff_0%,#f8f9fc_48%,#ffffff_100%)] p-2">
-                      <div className="overflow-hidden rounded-[12px] border border-[#dfe4ee] bg-white shadow-sm">
-                        {primaryImage ? (
-                          <img
-                            src={primaryImage}
-                            alt={deviceLabel}
-                            className="h-[140px] w-full object-contain p-2 sm:h-[160px]"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none"
-                              const placeholder = event.currentTarget.nextElementSibling as HTMLElement | null
-                              placeholder?.classList.remove("hidden")
-                            }}
-                          />
-                        ) : null}
-                        <div className={`${primaryImage ? "hidden" : "flex"} h-[140px] items-center justify-center sm:h-[160px]`}>
-                          <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#1a2a5e] shadow-sm sm:h-14 sm:w-14">
-                            <Smartphone className="h-6 w-6 text-white sm:h-7 sm:w-7" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {order.photos && order.photos.length > 0 && (
-                    <section className="rounded-[16px] border border-[#d9dfeb] bg-white p-2 shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
-                      <p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#63708a] mb-1">Fotos ({order.photos.length})</p>
-                      <div className="grid grid-cols-3 gap-1">
-                        {order.photos.slice(0, 3).map((photo, index) => (
-                          <button
-                            key={`${photo}-${index}`}
-                            type="button"
-                            className="overflow-hidden rounded-lg border border-[#d9dfeb] bg-[#f8f9fc] hover:border-[#1a2a5e]/30 hover:bg-white transition-all"
-                          >
-                            <img
-                              src={photo}
-                              alt={`${deviceLabel} Bild ${index + 1}`}
-                              className="h-12 w-full object-cover rounded-md"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-                </div>
-
-                {/* Right Column - Information */}
+            <div className="max-h-[calc(92dvh-120px)] overflow-y-auto bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
+              <div className="grid gap-3 p-2 sm:p-4">
+                {/* Information */}
                 <div className="space-y-2">
                   {/* Price and Status */}
                   <section className="rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
