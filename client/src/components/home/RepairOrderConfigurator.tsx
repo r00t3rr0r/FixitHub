@@ -2015,370 +2015,412 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         unlockCode={unlockCode}
                         noLock={noDeviceLock}
                       />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUnlockDetails(false);
+                            setShowAdditionalInfo(true);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '7px 14px',
+                            background: '#1a2a5e',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#2a3f7e'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = '#1a2a5e'; }}
+                        >
+                          {t('home.configurator.next')}
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Additional Information Button */}
-                <button
-                  className="config-step5-additional-toggle"
-                  type="button"
-                  onClick={() => {
-                    setShowAdditionalInfo(!showAdditionalInfo);
-                    if (!showAdditionalInfo) {
-                      setShowUnlockDetails(false);
-                    }
-                  }}
+                {/* Additional Information Section */}
+                <div
                   style={{
-                    width: '100%',
-                    padding: '16px',
-                    background: showAdditionalInfo ? 'rgba(245, 184, 0, 0.1)' : '#f0f7ff',
-                    border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d0e4ff',
+                    border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d8dce6',
                     borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    touchAction: 'manipulation',
-                    WebkitTapHighlightColor: 'transparent'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!showAdditionalInfo) {
-                      e.currentTarget.style.background = '#e0f0ff';
-                      e.currentTarget.style.borderColor = '#b0d4ff';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!showAdditionalInfo) {
-                      e.currentTarget.style.background = '#f0f7ff';
-                      e.currentTarget.style.borderColor = '#d0e4ff';
-                    }
+                    overflow: 'hidden',
+                    transition: 'all 0.3s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Info className="w-5 h-5" style={{ color: '#1a2a5e', flexShrink: 0 }} />
-                    <div style={{ flex: 1, textAlign: 'left' }}>
-                      <h4 className="font-semibold text-sm mb-1" style={{ color: '#1a2a5e' }}>
-                        {t('home.configurator.additionalInfoTitle')}
-                      </h4>
-                      <p className="text-xs" style={{ color: '#4a5568' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdditionalInfo(!showAdditionalInfo);
+                      if (!showAdditionalInfo) {
+                        setShowUnlockDetails(false);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: showAdditionalInfo ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => { if (!showAdditionalInfo) e.currentTarget.style.background = '#e8eaf0'; }}
+                    onMouseLeave={(e) => { if (!showAdditionalInfo) e.currentTarget.style.background = showAdditionalInfo ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8'; }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Info className="w-4 h-4" style={{ color: '#1a2a5e' }} />
+                      <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>{t('home.configurator.additionalInfoTitle')}</h3>
+                    </div>
+                    {showAdditionalInfo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+
+                  {/* Additional Information Content */}
+                  {showAdditionalInfo && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#e8eaf0', WebkitTextSizeAdjust: '100%', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
+                      <p style={{ padding: '12px 16px 10px', fontSize: '0.72rem', color: '#4a5568', background: '#fafbfc' }}>
                         {t('home.configurator.additionalInfoDescription')}
                       </p>
-                    </div>
-                    {showAdditionalInfo ? <ChevronUp className="w-5 h-5" style={{ color: '#1a2a5e' }} /> : <ChevronDown className="w-5 h-5" style={{ color: '#1a2a5e' }} />}
-                  </div>
-                </button>
 
-                {/* Additional Information Content (Previously Step 6) */}
-                {showAdditionalInfo && (
-                  <div className="config-step5-additional-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', background: '#fafbfc', borderRadius: '8px', border: '1px solid #e8eaf0', WebkitTextSizeAdjust: '100%', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
-                    {/* Error Description */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        htmlFor="errorDesc" 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <AlertCircle className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.errorDescription')}
-                      </label>
-                      <textarea
-                        id="errorDesc"
-                        placeholder={t('home.configurator.errorDescriptionPlaceholder')}
-                        value={errorDescription}
-                        onChange={(e) => setErrorDescription(e.target.value)}
-                        rows={4}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          border: '2px solid #d8dce6',
-                          borderRadius: '6px',
-                          fontSize: '16px',
-                          fontFamily: 'var(--font-main, Inter, sans-serif)',
-                          color: '#2d3748',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = '#f5b800';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(245, 184, 0, 0.15)';
-                          e.target.style.outline = 'none';
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = '#d8dce6';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      />
-                    </div>
-
-                    {/* Water Damage */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Droplets className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.waterDamage')}
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
-                        {['no', 'yes', 'unsure'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setWaterDamage(option as any)}
-                            style={{
-                              flex: 1,
-                              padding: '12px 16px',
-                              background: waterDamage === option ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
-                              border: waterDamage === option ? '2px solid #f5b800' : '2px solid transparent',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              color: '#2d3748',
-                              cursor: 'pointer',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center',
-                              minWidth: 0,
-                              overflowWrap: 'anywhere'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (waterDamage !== option) {
-                                e.currentTarget.style.borderColor = '#f5b800';
-                                e.currentTarget.style.background = '#ffffff';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (waterDamage !== option) {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.background = '#f5f6f8';
-                              }
-                            }}
-                          >
-                            {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Previous Repair Attempts */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Wrench className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.previousRepairAttempts')}
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
-                        {['no', 'yes', 'unsure'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setPreviousRepairAttempts(option as any)}
-                            style={{
-                              flex: 1,
-                              padding: '12px 16px',
-                              background: previousRepairAttempts === option ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
-                              border: previousRepairAttempts === option ? '2px solid #f5b800' : '2px solid transparent',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              color: '#2d3748',
-                              cursor: 'pointer',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center',
-                              minWidth: 0,
-                              overflowWrap: 'anywhere'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (previousRepairAttempts !== option) {
-                                e.currentTarget.style.borderColor = '#f5b800';
-                                e.currentTarget.style.background = '#ffffff';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (previousRepairAttempts !== option) {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.background = '#f5f6f8';
-                              }
-                            }}
-                          >
-                            {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
-                          </button>
-                        ))}
-                      </div>
-
-                      {previousRepairAttempts === 'yes' && (
+                      {/* Error Description */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          htmlFor="errorDesc"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <AlertCircle className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.errorDescription')}
+                        </label>
                         <textarea
-                          placeholder={t('home.configurator.previousRepairAttemptsPlaceholder')}
-                          value={previousRepairDetails}
-                          onChange={(e) => setPreviousRepairDetails(e.target.value)}
+                          id="errorDesc"
+                          placeholder={t('home.configurator.errorDescriptionPlaceholder')}
+                          value={errorDescription}
+                          onChange={(e) => setErrorDescription(e.target.value)}
                           rows={3}
                           style={{
                             width: '100%',
-                            padding: '12px 16px',
-                            border: '2px solid #d8dce6',
+                            padding: '9px 12px',
+                            border: '1.5px solid #d8dce6',
                             borderRadius: '6px',
-                            fontSize: '16px',
+                            fontSize: '13px',
                             fontFamily: 'var(--font-main, Inter, sans-serif)',
                             color: '#2d3748',
                             resize: 'none',
-                            marginTop: '8px',
                             boxSizing: 'border-box',
-                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                            background: '#fafbfc'
                           }}
                           onFocus={(e) => {
                             e.target.style.borderColor = '#f5b800';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(245, 184, 0, 0.15)';
+                            e.target.style.boxShadow = '0 0 0 2px rgba(245, 184, 0, 0.15)';
                             e.target.style.outline = 'none';
+                            e.target.style.background = '#ffffff';
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = '#d8dce6';
                             e.target.style.boxShadow = 'none';
+                            e.target.style.background = '#fafbfc';
                           }}
                         />
-                      )}
-                    </div>
-
-                    {/* Item Condition */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Package className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.itemCondition')}
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
-                        {['original', 'refurbished', 'unsure'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setItemCondition(option as any)}
-                            style={{
-                              flex: 1,
-                              padding: '12px 16px',
-                              background: itemCondition === option ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
-                              border: itemCondition === option ? '2px solid #f5b800' : '2px solid transparent',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              color: '#2d3748',
-                              cursor: 'pointer',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center',
-                              minWidth: 0,
-                              overflowWrap: 'anywhere'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (itemCondition !== option) {
-                                e.currentTarget.style.borderColor = '#f5b800';
-                                e.currentTarget.style.background = '#ffffff';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (itemCondition !== option) {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.background = '#f5f6f8';
-                              }
-                            }}
-                          >
-                            {getConditionLabel(option as 'original' | 'refurbished' | 'unsure')}
-                          </button>
-                        ))}
                       </div>
-                    </div>
 
-                    {/* Photo Upload */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        htmlFor="photos" 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Upload className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.uploadPhotos')}
-                      </label>
-                      <Input
-                        id="photos"
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        disabled={photos.length >= 5}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          border: '2px solid #d8dce6',
-                          borderRadius: '6px',
-                          fontSize: '16px',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                      <p style={{ fontSize: '0.75rem', color: '#8892a8' }}>
-                        {t('home.configurator.uploadedPhotos', { count: photos.length })}
-                      </p>
-
-                      {/* Photo Previews */}
-                      {photoPreviewUrls.length > 0 && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
-                          {photoPreviewUrls.map((url, index) => (
-                            <div key={index} className="relative group">
-                              <img
-                                src={url}
-                                alt={t('home.configurator.photoPreviewAlt', { index: index + 1 })}
-                                style={{ 
-                                  width: '100%', 
-                                  height: '96px', 
-                                  objectFit: 'cover', 
-                                  borderRadius: '6px', 
-                                  border: '1px solid #d8dce6' 
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removePhoto(index)}
-                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
+                      {/* Water Damage */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Droplets className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.waterDamage')}
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', width: '100%' }}>
+                          {['no', 'yes', 'unsure'].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setWaterDamage(option as any)}
+                              style={{
+                                padding: '7px 8px',
+                                background: waterDamage === option ? 'rgba(245, 184, 0, 0.08)' : '#f5f6f8',
+                                border: waterDamage === option ? '1.5px solid #f5b800' : '1.5px solid #e8eaf0',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '600',
+                                color: waterDamage === option ? '#1a2a5e' : '#4a5568',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                minWidth: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                if (waterDamage !== option) {
+                                  e.currentTarget.style.borderColor = '#f5b800';
+                                  e.currentTarget.style.background = '#fffbf0';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (waterDamage !== option) {
+                                  e.currentTarget.style.borderColor = '#e8eaf0';
+                                  e.currentTarget.style.background = '#f5f6f8';
+                                }
+                              }}
+                            >
+                              {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
+                            </button>
                           ))}
                         </div>
-                      )}
+                      </div>
+
+                      {/* Previous Repair Attempts */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Wrench className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.previousRepairAttempts')}
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', width: '100%' }}>
+                          {['no', 'yes', 'unsure'].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setPreviousRepairAttempts(option as any)}
+                              style={{
+                                padding: '7px 8px',
+                                background: previousRepairAttempts === option ? 'rgba(245, 184, 0, 0.08)' : '#f5f6f8',
+                                border: previousRepairAttempts === option ? '1.5px solid #f5b800' : '1.5px solid #e8eaf0',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '600',
+                                color: previousRepairAttempts === option ? '#1a2a5e' : '#4a5568',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                minWidth: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                if (previousRepairAttempts !== option) {
+                                  e.currentTarget.style.borderColor = '#f5b800';
+                                  e.currentTarget.style.background = '#fffbf0';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (previousRepairAttempts !== option) {
+                                  e.currentTarget.style.borderColor = '#e8eaf0';
+                                  e.currentTarget.style.background = '#f5f6f8';
+                                }
+                              }}
+                            >
+                              {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
+                            </button>
+                          ))}
+                        </div>
+
+                        {previousRepairAttempts === 'yes' && (
+                          <textarea
+                            placeholder={t('home.configurator.previousRepairAttemptsPlaceholder')}
+                            value={previousRepairDetails}
+                            onChange={(e) => setPreviousRepairDetails(e.target.value)}
+                            rows={2}
+                            style={{
+                              width: '100%',
+                              padding: '9px 12px',
+                              border: '1.5px solid #d8dce6',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              fontFamily: 'var(--font-main, Inter, sans-serif)',
+                              color: '#2d3748',
+                              resize: 'none',
+                              marginTop: '6px',
+                              boxSizing: 'border-box',
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              background: '#fafbfc'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#f5b800';
+                              e.target.style.boxShadow = '0 0 0 2px rgba(245, 184, 0, 0.15)';
+                              e.target.style.outline = 'none';
+                              e.target.style.background = '#ffffff';
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = '#d8dce6';
+                              e.target.style.boxShadow = 'none';
+                              e.target.style.background = '#fafbfc';
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Item Condition */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Package className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.itemCondition')}
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', width: '100%' }}>
+                          {['original', 'refurbished', 'unsure'].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setItemCondition(option as any)}
+                              style={{
+                                padding: '7px 8px',
+                                background: itemCondition === option ? 'rgba(245, 184, 0, 0.08)' : '#f5f6f8',
+                                border: itemCondition === option ? '1.5px solid #f5b800' : '1.5px solid #e8eaf0',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '600',
+                                color: itemCondition === option ? '#1a2a5e' : '#4a5568',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                minWidth: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                if (itemCondition !== option) {
+                                  e.currentTarget.style.borderColor = '#f5b800';
+                                  e.currentTarget.style.background = '#fffbf0';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (itemCondition !== option) {
+                                  e.currentTarget.style.borderColor = '#e8eaf0';
+                                  e.currentTarget.style.background = '#f5f6f8';
+                                }
+                              }}
+                            >
+                              {getConditionLabel(option as 'original' | 'refurbished' | 'unsure')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Photo Upload */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          htmlFor="photos"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Upload className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.uploadPhotos')}
+                        </label>
+                        <label
+                          htmlFor="photos"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 12px',
+                            border: '1.5px dashed #d8dce6',
+                            borderRadius: '6px',
+                            background: photos.length >= 5 ? '#f5f6f8' : '#fafbfc',
+                            cursor: photos.length >= 5 ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s ease',
+                            color: '#4a5568',
+                            fontSize: '0.72rem'
+                          }}
+                          onMouseEnter={(e) => { if (photos.length < 5) { e.currentTarget.style.borderColor = '#f5b800'; e.currentTarget.style.background = '#fffbf0'; } }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#d8dce6'; e.currentTarget.style.background = '#fafbfc'; }}
+                        >
+                          <Upload className="w-3.5 h-3.5" style={{ color: '#1a2a5e', flexShrink: 0 }} />
+                          <span style={{ flex: 1 }}>{t('home.configurator.uploadedPhotos', { count: photos.length })} / 5</span>
+                          <Input
+                            id="photos"
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            disabled={photos.length >= 5}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+
+                        {photoPreviewUrls.length > 0 && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '4px' }}>
+                            {photoPreviewUrls.map((url, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={t('home.configurator.photoPreviewAlt', { index: index + 1 })}
+                                  style={{
+                                    width: '100%',
+                                    height: '60px',
+                                    objectFit: 'cover',
+                                    borderRadius: '4px',
+                                    border: '1px solid #d8dce6'
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removePhoto(index)}
+                                  className="absolute top-0.5 right-0.5 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               <div className="config-nav mt-4">
