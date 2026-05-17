@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UnlockPatternInput } from '@/components/inspection/UnlockPatternInput';
 import { VorabdiagnoseModal } from '@/components/VorabdiagnoseModal';
-import { 
-  Wrench, 
-  Smartphone, 
-  Tablet, 
-  Monitor, 
+import {
+  Wrench,
+  Smartphone,
+  Tablet,
+  Monitor,
   Gamepad2,
   ChevronRight,
   ChevronLeft,
@@ -32,7 +32,20 @@ import {
   Plus,
   X,
   Info,
-  Search
+  Search,
+  BatteryCharging,
+  Camera,
+  Volume2,
+  Settings2,
+  Zap,
+  Cpu,
+  Wifi,
+  SlidersHorizontal,
+  Layers,
+  LayoutGrid,
+  MonitorSmartphone,
+  Power,
+  HardDrive
 } from 'lucide-react';
 import {
   getDeviceTypes,
@@ -93,6 +106,44 @@ const formatPrice = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+
+const getCategoryIcon = (category: string, size: 'sm' | 'md' = 'md') => {
+  const cls = size === 'sm' ? 'w-4 h-4' : 'w-6 h-6';
+  const cat = category.toLowerCase();
+  if (cat.includes('display') || cat.includes('bildschirm') || cat.includes('screen') || cat.includes('glas'))
+    return <MonitorSmartphone className={cls} />;
+  if (cat.includes('akku') || cat.includes('batterie') || cat.includes('battery'))
+    return <BatteryCharging className={cls} />;
+  if (cat.includes('wasser') || cat.includes('feuchtigkeit') || cat.includes('water') || cat.includes('liquid'))
+    return <Droplets className={cls} />;
+  if (cat.includes('kamera') || cat.includes('camera') || cat.includes('foto'))
+    return <Camera className={cls} />;
+  if (cat.includes('lautsprecher') || cat.includes('mikrofon') || cat.includes('audio') || cat.includes('sound') || cat.includes('speaker'))
+    return <Volume2 className={cls} />;
+  if (cat.includes('software') || cat.includes('system') || cat.includes('reset') || cat.includes('update'))
+    return <Settings2 className={cls} />;
+  if (cat.includes('laden') || cat.includes('ladebuchse') || cat.includes('anschluss') || cat.includes('charging') || cat.includes('usb') || cat.includes('port'))
+    return <Zap className={cls} />;
+  if (cat.includes('power') || cat.includes('strom') || cat.includes('ein') && cat.includes('aus'))
+    return <Power className={cls} />;
+  if (cat.includes('platine') || cat.includes('mainboard') || cat.includes('logic') || cat.includes('board') || cat.includes('chip'))
+    return <Cpu className={cls} />;
+  if (cat.includes('hardware') || cat.includes('komponente') || cat.includes('bauteil'))
+    return <HardDrive className={cls} />;
+  if (cat.includes('emergency') || cat.includes('notfall') || cat.includes('dringend') || cat.includes('urgent'))
+    return <AlertCircle className={cls} />;
+  if (cat.includes('netz') || cat.includes('wifi') || cat.includes('wlan') || cat.includes('signal') || cat.includes('antenne'))
+    return <Wifi className={cls} />;
+  if (cat.includes('taste') || cat.includes('button') || cat.includes('schalter') || cat.includes('switch'))
+    return <SlidersHorizontal className={cls} />;
+  if (cat.includes('schutz') || cat.includes('folie') || cat.includes('protection') || cat.includes('cover'))
+    return <Layers className={cls} />;
+  if (cat.includes('gehäuse') || cat.includes('back') || cat.includes('rahmen') || cat.includes('frame'))
+    return <Package className={cls} />;
+  if (cat.includes('lock') || cat.includes('entsperr') || cat.includes('unlock') || cat.includes('pin'))
+    return <Lock className={cls} />;
+  return <Wrench className={cls} />;
+};
 
 const normalizeSearchText = (value: string | undefined | null) =>
   String(value || '')
@@ -1666,6 +1717,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         className={`repair-category-chip ${selectedRepairCategory === 'all' ? 'active' : ''}`}
                         onClick={() => setSelectedRepairCategory('all')}
                       >
+                        <LayoutGrid className="w-4 h-4" />
                         {t('home.configurator.categoryFilter.all')}
                       </button>
                       {categories.map((cat) => (
@@ -1677,6 +1729,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           className={`repair-category-chip ${selectedRepairCategory === cat ? 'active' : ''}`}
                           onClick={() => setSelectedRepairCategory(cat)}
                         >
+                          {getCategoryIcon(cat, 'sm')}
                           {cat}
                         </button>
                       ))}
@@ -1735,7 +1788,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       className={`repair-card ${selectedRepairs.find(s => s._id === service._id) ? 'selected' : ''}`}
                       onClick={() => toggleRepairSelection(service)}
                     >
-                      <Wrench className="w-6 h-6" />
+                      {getCategoryIcon(service.category || '', 'md')}
                       <div className="repair-info">
                         <div className="repair-name">{service.name}</div>
                         <div className="repair-price">{t('home.configurator.repairFrom', { price: formatPrice(service.price) })}</div>
