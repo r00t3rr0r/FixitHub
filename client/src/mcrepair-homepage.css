@@ -1817,30 +1817,11 @@ ul, ol {
   height: 18px;
 }
 
-/* Step 6: Order summary full-width, compact spacing */
+/* Step 6: Order summary — transparent card, compact vertical spacing */
 .config-step-content[data-step="6"] .config-result {
-  margin-left: -32px;
-  margin-right: -32px;
+  background: transparent;
   border-radius: 0;
-  padding: 10px 32px 14px;
-}
-
-@media (max-width: 1024px) {
-  .config-step-content[data-step="6"] .config-result {
-    margin-left: -24px;
-    margin-right: -24px;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-}
-
-@media (max-width: 768px) {
-  .config-step-content[data-step="6"] .config-result {
-    margin-left: -20px;
-    margin-right: -20px;
-    padding-left: 20px;
-    padding-right: 20px;
-  }
+  padding: 8px 0 12px;
 }
 
 /* Nav buttons */
