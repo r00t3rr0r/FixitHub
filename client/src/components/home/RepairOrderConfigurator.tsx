@@ -375,7 +375,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 if (matchedModel) {
                   setSelectedModel(matchedModel);
-                  setModelSearchQuery(matchedModel.name);
+                  setModelSearchQuery(getModelSearchPrefill(matchedModel));
                   if (requestedConfiguratorStep === 3) {
                     setCurrentStep(3);
                   }
@@ -523,7 +523,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 if (matchingModel) {
                   setSelectedModel(matchingModel);
-                  setModelSearchQuery(matchingModel.name);
+                  setModelSearchQuery(getModelSearchPrefill(matchingModel));
                   if (requestedConfiguratorStep === 3) {
                     setCurrentStep(3);
                   }
@@ -728,20 +728,28 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setModelSearchQuery('');
   };
 
+  const getModelSearchPrefill = (model: DeviceModel) => {
+    const modelNumbers = Array.isArray(model.modelNumbers)
+      ? model.modelNumbers.filter((number) => String(number || '').trim().length > 0)
+      : [];
+
+    return modelNumbers.length > 0 ? `${model.name} ${modelNumbers.join(' ')}` : model.name;
+  };
+
   // Handle model selection
   // Erweiterte Model-Auswahl mit Bild- und Specs-Check
   const handleModelSelect = async (model: DeviceModel) => {
     // Nur wenn wirklich kein nutzbares Bild vorhanden ist, hole Daten von mobileapi.dev
     if (getModelImage(model)) {
       setSelectedModel(model);
-      setModelSearchQuery(model.name);
+      setModelSearchQuery(getModelSearchPrefill(model));
       setShowModelDropdown(false);
       setShowMobileModelModal(false);
       setIsMobileSearchActive(false);
       return;
     }
     try {
-      setModelSearchQuery(model.name);
+      setModelSearchQuery(getModelSearchPrefill(model));
       setShowModelDropdown(false);
       setShowMobileModelModal(false);
       setIsMobileSearchActive(false);
@@ -1517,24 +1525,64 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         opacity: !selectedBrand || loadingModels ? 0.6 : 1
                       }}
                     >
-                      {selectedModel ? selectedModel.name : (loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...'))}
+                      {selectedModel ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          {getModelImage(selectedModel) && (
+                            <img
+                              src={getModelImage(selectedModel)}
+                              alt={selectedModel.name}
+                              className="w-6 h-6 object-contain flex-shrink-0"
+                              onError={(e) => e.currentTarget.style.display = 'none'}
+                            />
+                          )}
+                          <span className="truncate">
+                            {selectedModel.name}
+                            {selectedModel.modelNumbers && selectedModel.modelNumbers.length > 0 && (
+                              <span className="text-xs italic text-muted-foreground ml-1">({selectedModel.modelNumbers.join(', ')})</span>
+                            )}
+                          </span>
+                        </div>
+                      ) : (loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...'))}
                       <Search className="mobile-search-icon" style={{ width: 16, height: 16, position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     </div>
                   ) : (
                     <>
-                      <Input
-                        ref={modelInputRef}
-                        type="text"
-                        className="config-input"
-                        id="modelInput"
-                        placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
-                        value={modelSearchQuery}
-                        onChange={(e) => setModelSearchQuery(e.target.value)}
-                        onFocus={() => setShowModelDropdown(true)}
-                        autoComplete="off"
-                        inputMode="search"
-                        disabled={!selectedBrand || loadingModels}
-                      />
+                      <div className="relative">
+                        <Input
+                          ref={modelInputRef}
+                          type="text"
+                          className={`config-input ${selectedModel && !showModelDropdown ? 'text-transparent caret-transparent' : ''}`}
+                          style={selectedModel && !showModelDropdown ? { color: 'transparent', caretColor: 'transparent' } : undefined}
+                          id="modelInput"
+                          placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
+                          value={modelSearchQuery}
+                          onChange={(e) => setModelSearchQuery(e.target.value)}
+                          onFocus={() => setShowModelDropdown(true)}
+                          autoComplete="off"
+                          inputMode="search"
+                          disabled={!selectedBrand || loadingModels}
+                        />
+                        {selectedModel && !showModelDropdown && (
+                          <div className="absolute inset-y-0 left-0 right-0 flex items-center px-3 pointer-events-none">
+                            <div className="flex items-center gap-2 min-w-0 pr-8">
+                              {getModelImage(selectedModel) && (
+                                <img
+                                  src={getModelImage(selectedModel)}
+                                  alt={selectedModel.name}
+                                  className="w-6 h-6 object-contain flex-shrink-0"
+                                  onError={(e) => e.currentTarget.style.display = 'none'}
+                                />
+                              )}
+                              <span className="truncate text-sm text-gray-700">
+                                {selectedModel.name}
+                                {selectedModel.modelNumbers && selectedModel.modelNumbers.length > 0 && (
+                                  <span className="text-xs italic text-muted-foreground ml-1">({selectedModel.modelNumbers.join(', ')})</span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       {showModelDropdown && filteredModels.length > 0 && (
                         <div className="autocomplete-dropdown open">
                           {filteredModels.map((model) => (
