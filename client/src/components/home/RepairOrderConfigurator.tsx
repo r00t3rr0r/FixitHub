@@ -45,7 +45,9 @@ import {
   LayoutGrid,
   MonitorSmartphone,
   Power,
-  HardDrive
+  HardDrive,
+  Tag,
+  Truck
 } from 'lucide-react';
 import {
   getDeviceTypes,
@@ -2446,7 +2448,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 </h3>
 
                 {/* All Devices Summary */}
-                <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ marginBottom: '0.75rem' }}>
                   {(() => {
                     const allDevices = [...devices];
                     const isCurrentDeviceAdded = selectedModel && selectedRepairs.length > 0;
@@ -2479,36 +2481,69 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       const deviceTotal = singleDeviceTotal * quantity;
 
                       return (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           style={{
-                            padding: '1rem',
+                            padding: '0.875rem',
                             backgroundColor: '#ffffff',
                             borderRadius: '10px',
                             border: '1px solid rgba(245, 184, 0, 0.3)',
-                            marginBottom: '0.75rem'
+                            marginBottom: '0.625rem'
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a2a5e' }}>
-                              {t('home.configurator.deviceLabel', { index: idx + 1, model: device.model?.name })}
-                            </h4>
-                            {quantity > 1 && !isCurrentDevice && (
-                              <span style={{
-                                padding: '0.25rem 0.75rem',
-                                backgroundColor: '#f5b800',
-                                color: '#1a2a5e',
-                                fontSize: '0.875rem',
-                                borderRadius: '999px',
-                                fontWeight: 700
-                              }}>
-                                {quantity}x
-                              </span>
-                            )}
+                          {/* Card Header: model image + device info */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.625rem' }}>
+                            <div style={{
+                              flexShrink: 0,
+                              width: '48px',
+                              height: '48px',
+                              borderRadius: '8px',
+                              backgroundColor: '#f0f4ff',
+                              border: '1px solid rgba(26,42,94,0.08)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                              position: 'relative'
+                            }}>
+                              {(() => {
+                                const DevIcon = getDeviceIcon(device.deviceType?.name || '');
+                                return <DevIcon style={{ width: '1.25rem', height: '1.25rem', color: '#1a2a5e', opacity: 0.35 }} />;
+                              })()}
+                              {getModelImage(device.model) && (
+                                <img
+                                  src={getModelImage(device.model)}
+                                  alt={device.model?.name}
+                                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.4rem' }}>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1a2a5e', lineHeight: 1.3 }}>
+                                  {t('home.configurator.deviceLabel', { index: idx + 1, model: device.model?.name })}
+                                </h4>
+                                {quantity > 1 && !isCurrentDevice && (
+                                  <span style={{
+                                    padding: '0.2rem 0.55rem',
+                                    backgroundColor: '#f5b800',
+                                    color: '#1a2a5e',
+                                    fontSize: '0.75rem',
+                                    borderRadius: '999px',
+                                    fontWeight: 700,
+                                    flexShrink: 0
+                                  }}>
+                                    {quantity}×
+                                  </span>
+                                )}
+                              </div>
+                              <p style={{ fontSize: '0.7rem', color: '#718096', marginTop: '0.1rem' }}>
+                                {device.deviceType?.name}{device.brand?.name ? ` · ${device.brand.name}` : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '0.8rem', color: '#4a5568' }}>
-                            <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.type')}:</strong> {device.deviceType?.name}</p>
-                            <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.brand')}:</strong> {device.brand?.name}</p>
+                          <div style={{ fontSize: '0.78rem', color: '#4a5568' }}>
                             
                             {/* Repair Services List */}
                             {device.repairs.length > 0 && (
@@ -2650,6 +2685,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 {/* Total Summary Grid */}
                 <div className="config-result-grid">
                   <div className="config-result-item">
+                    <Smartphone style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.totalDevices')}</div>
                     <div className="value">{(() => {
                       let count = devices.reduce((sum, d) => sum + (d.quantity || 1), 0);
@@ -2658,6 +2694,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()}</div>
                   </div>
                   <div className="config-result-item">
+                    <Layers style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.deviceTypes')}</div>
                     <div className="value small">{(() => {
                       let count = devices.length;
@@ -2666,6 +2703,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()}</div>
                   </div>
                   <div className="config-result-item">
+                    <Tag style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.priceTotal')}</div>
                     <div className="value">{(() => {
                       const allDevices = [...devices];
@@ -2686,6 +2724,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()} €</div>
                   </div>
                   <div className="config-result-item">
+                    <Truck style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.shipping')}</div>
                     <div className="value small">{t('home.configurator.free')}</div>
                   </div>
@@ -2694,8 +2733,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
               {/* Add Another Device Option */}
               <div style={{
-                marginTop: '1rem',
-                padding: '1rem',
+                marginTop: '0.625rem',
+                padding: '0.875rem',
                 background: '#ffffff',
                 borderRadius: '8px',
                 border: '2px solid rgba(245, 184, 0, 0.3)'
@@ -2746,7 +2785,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               </div>
 
               {/* CTA Button */}
-              <button className="config-result-cta" onClick={handleAddToCart} style={{ marginTop: '1.5rem' }}>
+              <button className="config-result-cta" onClick={handleAddToCart} style={{ marginTop: '0.875rem' }}>
                 {t('home.configurator.addToCart')}
                 <ChevronRight className="w-5 h-5 ml-2" />
               </button>
