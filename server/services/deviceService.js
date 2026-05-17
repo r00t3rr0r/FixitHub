@@ -888,7 +888,7 @@ class DeviceService {
       (typeof modelPlain.brandId === 'object' && modelPlain.brandId?.name)
         ? String(modelPlain.brandId.name)
         : '';
-    const modelName = toNonEmptyString(mobileApiDevice.name) || toNonEmptyString(modelPlain.name) || 'device';
+    const modelName = toNonEmptyString(modelPlain.name) || toNonEmptyString(mobileApiDevice.name) || 'device';
     const imageB64 = toNonEmptyString(mobileApiDevice.image_b64);
     const imageUrl = toNonEmptyString(mobileApiDevice.image_url);
 
@@ -915,7 +915,7 @@ class DeviceService {
       mobileApiUpdatedAt: new Date(),
       mobileApiMatchId: Number(mobileApiDevice.id) || undefined,
       mobileApiLastStatus: 'updated',
-      name: toNonEmptyString(mobileApiDevice.name) || toNonEmptyString(modelPlain.name),
+      name: toNonEmptyString(modelPlain.name),
       brandId: resolvedBrandId || modelPlain.brandId,
       deviceType: resolvedDeviceType || modelPlain.deviceType,
       image: imageFromApi,
