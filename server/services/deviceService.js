@@ -1039,8 +1039,9 @@ class DeviceService {
     return updateData;
   }
 
-  static async updateModelInformationFromMobileApi(options = {}) {
+  static async updateModelInformationFromMobileApi(options = {}, callbacks = {}) {
     try {
+      const { onProgress, awaitDecision } = callbacks;
       const requestsPerSecond = Math.min(20, Math.max(1, Number(options.requestsPerSecond) || 2));
       const limit = Math.max(0, Number(options.limit) || 0);
       const onlyNotUpdated = Boolean(options.onlyNotUpdated);
@@ -1102,9 +1103,20 @@ class DeviceService {
         const modelName = String(model.name || '').trim();
         const currentBrandName = String(model?.brandId?.name || '').trim();
 
+        if (onProgress) {
+          onProgress('progress', {
+            current: index + 1,
+            total: models.length,
+            modelName,
+            brandName: currentBrandName,
+          });
+        }
+
         if (!modelName) {
           failed += 1;
-          results.push({ modelId: String(model._id), modelName: '(leer)', status: 'failed', reason: 'Model name missing' });
+          const resultEntry = { modelId: String(model._id), modelName: '(leer)', status: 'failed', reason: 'Model name missing' };
+          results.push(resultEntry);
+          if (onProgress) onProgress('modelResult', resultEntry);
           continue;
         }
 
@@ -1118,8 +1130,38 @@ class DeviceService {
               { _id: model._id },
               { $set: { mobileApiLastStatus: 'no_match', mobileApiUpdatedAt: new Date() } }
             );
-            results.push({ modelId: String(model._id), modelName, status: 'no_match' });
+            const resultEntry = { modelId: String(model._id), modelName, status: 'no_match' };
+            results.push(resultEntry);
+            if (onProgress) onProgress('modelResult', resultEntry);
           } else {
+            const certainty = Number.parseFloat(String(bestMatch.match_certainty || '0').replace('%', '')) || 0;
+            const apiMatchName = String(bestMatch.name || '').trim();
+            const isAmbiguous = certainty < 60;
+
+            if (isAmbiguous && awaitDecision) {
+              const decision = await awaitDecision({
+                modelId: String(model._id),
+                modelName,
+                brandName: currentBrandName,
+                apiMatchName,
+                apiMatchId: String(bestMatch.id || ''),
+                certainty,
+                candidatesCount: Array.isArray(candidates) ? candidates.length : 0,
+              });
+
+              if (decision === 'skip') {
+                noMatch += 1;
+                await DeviceModel.updateOne(
+                  { _id: model._id },
+                  { $set: { mobileApiLastStatus: 'skipped', mobileApiUpdatedAt: new Date() } }
+                );
+                const resultEntry = { modelId: String(model._id), modelName, status: 'skipped', reason: 'Vom Benutzer übersprungen (unsicherer Treffer)' };
+                results.push(resultEntry);
+                if (onProgress) onProgress('modelResult', resultEntry);
+                continue;
+              }
+            }
+
             const resolvedType = DeviceService.resolveDeviceTypeKey(bestMatch.device_type, availableTypes) || model.deviceType;
 
             let resolvedBrandId = model.brandId?._id || model.brandId;
@@ -1165,13 +1207,17 @@ class DeviceService {
             servicesModified += Number(cascadeResult.modifiedCount || 0);
             updated += 1;
 
-            results.push({
+            const resultEntry = {
               modelId: String(model._id),
               modelName,
               status: 'updated',
               matchedMobileApiId: Number(bestMatch.id) || null,
+              apiMatchName: String(bestMatch.name || '').trim(),
+              certainty: Number.parseFloat(String(bestMatch.match_certainty || '0').replace('%', '')) || 0,
               servicesUpdated: Number(cascadeResult.modifiedCount || 0),
-            });
+            };
+            results.push(resultEntry);
+            if (onProgress) onProgress('modelResult', resultEntry);
           }
         } catch (error) {
           const requestError = DeviceService.formatMobileApiRequestError(error);
@@ -1180,14 +1226,16 @@ class DeviceService {
             { _id: model._id },
             { $set: { mobileApiLastStatus: 'failed', mobileApiUpdatedAt: new Date() } }
           );
-          results.push({
+          const resultEntry = {
             modelId: String(model._id),
             modelName,
             status: 'failed',
             reason: requestError.message,
             statusCode: requestError.statusCode,
             errorCode: requestError.errorCode,
-          });
+          };
+          results.push(resultEntry);
+          if (onProgress) onProgress('modelResult', resultEntry);
         }
 
         if (index < models.length - 1 && delayMs > 0) {
@@ -1195,7 +1243,7 @@ class DeviceService {
         }
       }
 
-      return {
+      const summary = {
         total: models.length,
         updated,
         noMatch,
@@ -1205,6 +1253,10 @@ class DeviceService {
         errors: results.filter((item) => item.status === 'failed'),
         results,
       };
+
+      if (onProgress) onProgress('summary', summary);
+
+      return summary;
     } catch (error) {
       console.error('DeviceService: Error updating model information from mobile API:', error);
       throw error;
