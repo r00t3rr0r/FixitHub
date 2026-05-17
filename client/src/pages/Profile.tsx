@@ -9,9 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { getUserProfile, updateUserProfile, uploadAvatar, UserProfile } from "@/api/user"
+import { getUserProfile, updateUserProfile, UserProfile } from "@/api/user"
 import { searchDhlLocations, type DhlLocation } from "@/api/shipping"
-import { getSavedDeviceInfo, DeviceInfo } from "@/utils/deviceDetection"
 import { CountrySelect } from "@/components/checkout/CountrySelect"
 import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
 import "./profile.css"
@@ -22,19 +21,12 @@ import {
   MapPin,
   Bell,
   Shield,
-  Camera,
   Save,
   CreditCard,
   FileText,
   TrendingUp,
   Calendar,
   DollarSign,
-  Smartphone,
-  Monitor,
-  Tablet,
-  Wifi,
-  Globe,
-  Info,
   Home,
   PackageSearch,
   Truck,
@@ -49,14 +41,12 @@ export function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [deliveryType, setDeliveryType] = useState<"same" | "address" | "packstation">("same")
   const [dhlFinderOpen, setDhlFinderOpen] = useState(false)
   const [dhlFinderQuery, setDhlFinderQuery] = useState("")
   const [dhlFinderLoading, setDhlFinderLoading] = useState(false)
   const [dhlFinderResults, setDhlFinderResults] = useState<DhlLocation[]>([])
   const [dhlFinderError, setDhlFinderError] = useState("")
-  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const { toast } = useToast()
   const { t } = useTranslation()
 
@@ -117,18 +107,6 @@ export function Profile() {
     fetchProfile()
   }, [toast, setValue])
 
-  // Load device information from localStorage
-  useEffect(() => {
-    console.log("Loading device information from localStorage...")
-    const savedDeviceInfo = getSavedDeviceInfo()
-    if (savedDeviceInfo) {
-      console.log("Device information loaded:", savedDeviceInfo)
-      setDeviceInfo(savedDeviceInfo)
-    } else {
-      console.log("No device information found in localStorage")
-    }
-  }, [])
-
   const onSubmit = async (data: any) => {
     try {
       setSaving(true)
@@ -184,39 +162,6 @@ export function Profile() {
       })
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    try {
-      setUploadingAvatar(true)
-      console.log("Uploading avatar...")
-      const response = await uploadAvatar(file)
-
-      toast({
-        title: t('common.success'),
-        description: t('profilePage.pictureUpdated')
-      })
-
-      // Update profile with new avatar
-      if (profile) {
-        setProfile({
-          ...profile,
-          avatar: (response as any).avatarUrl
-        })
-      }
-    } catch (error: any) {
-      console.error("Error uploading avatar:", error)
-      toast({
-        title: t('common.error'),
-        description: error.message || t('profilePage.uploadFailed'),
-        variant: "destructive"
-      })
-    } finally {
-      setUploadingAvatar(false)
     }
   }
 
@@ -396,32 +341,13 @@ export function Profile() {
                 {profile.firstName?.[0]}{profile.lastName?.[0]}
               </AvatarFallback>
             </Avatar>
-            <Label htmlFor="avatar" className="profile-avatar-upload">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={uploadingAvatar}
-                className="profile-avatar-btn"
-                asChild
-              >
-                <span>
-                  <Camera className="h-4 w-4 mr-2" />
-                  {uploadingAvatar ? t('profilePage.uploading') : t('profilePage.changePhoto')}
-                </span>
-              </Button>
-            </Label>
-            <Input
-              id="avatar"
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarUpload}
-              className="hidden"
-            />
           </div>
 
           {/* User Info */}
           <div className="profile-user-info">
+            <div className="profile-role-badge">
+              {profile.role === 'admin' ? 'Administrator' : profile.role === 'staff' ? 'Mitarbeiter' : 'Kunde'}
+            </div>
             <h1 className="profile-title">
               {profile.firstName} {profile.lastName}
             </h1>
@@ -487,149 +413,6 @@ export function Profile() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Current Device Information */}
-      {deviceInfo && (
-        <Card className="profile-card">
-          <CardHeader className="profile-card-header">
-            <CardTitle className="profile-card-title">
-              {deviceInfo.isMobile ? <Smartphone className="h-5 w-5" /> :
-               deviceInfo.isTablet ? <Tablet className="h-5 w-5" /> :
-               <Monitor className="h-5 w-5" />}
-              {t('profilePage.currentDeviceInfo')}
-            </CardTitle>
-            <CardDescription className="profile-card-description">
-              {t('profilePage.currentDeviceDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="profile-card-content">
-            <div className="profile-device-grid">
-              {/* Device Type */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  {deviceInfo.isMobile ? <Smartphone className="h-4 w-4" /> :
-                   deviceInfo.isTablet ? <Tablet className="h-4 w-4" /> :
-                   <Monitor className="h-4 w-4" />}
-                  {t('profilePage.deviceType')}
-                </div>
-                <p className="profile-device-value">
-                  {deviceInfo.isMobile ? t('profilePage.mobile') : deviceInfo.isTablet ? t('profilePage.tablet') : t('profilePage.desktop')}
-                </p>
-                <p className="profile-device-detail">{deviceInfo.deviceModel}</p>
-              </div>
-
-              {/* Operating System */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Globe className="h-4 w-4" />
-                  {t('profilePage.operatingSystem')}
-                </div>
-                <p className="profile-device-value">{deviceInfo.os}</p>
-                <p className="profile-device-detail">Version {deviceInfo.osVersion}</p>
-              </div>
-
-              {/* Browser */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Globe className="h-4 w-4" />
-                  {t('profilePage.browser')}
-                </div>
-                <p className="profile-device-value">{deviceInfo.browser}</p>
-                <p className="profile-device-detail">Version {deviceInfo.browserVersion}</p>
-              </div>
-
-              {/* Screen Resolution */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Monitor className="h-4 w-4" />
-                  {t('profilePage.screenResolution')}
-                </div>
-                <p className="profile-device-value">
-                  {deviceInfo.screenWidth} × {deviceInfo.screenHeight}
-                </p>
-                <p className="profile-device-detail">
-                  {deviceInfo.screenOrientation} • {deviceInfo.pixelRatio}x
-                </p>
-              </div>
-
-              {/* Touch Support */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Smartphone className="h-4 w-4" />
-                  {t('profilePage.touchSupport')}
-                </div>
-                <p className="profile-device-value">
-                  {deviceInfo.touchSupport ? 'Yes' : 'No'}
-                </p>
-                {deviceInfo.touchSupport && (
-                  <p className="profile-device-detail">
-                    {deviceInfo.maxTouchPoints} touch points
-                  </p>
-                )}
-              </div>
-
-              {/* Connection */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Wifi className="h-4 w-4" />
-                  {t('profilePage.connection')}
-                </div>
-                <p className="profile-device-value">
-                  {deviceInfo.effectiveType !== 'Unknown' ? deviceInfo.effectiveType.toUpperCase() : 'Unknown'}
-                </p>
-                {deviceInfo.connectionType !== 'Unknown' && (
-                  <p className="profile-device-detail">{deviceInfo.connectionType}</p>
-                )}
-              </div>
-
-              {/* Vendor */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Info className="h-4 w-4" />
-                  {t('profilePage.vendor')}
-                </div>
-                <p className="profile-device-value">{deviceInfo.vendor}</p>
-                <p className="profile-device-detail">{deviceInfo.platform}</p>
-              </div>
-
-              {/* Language & Timezone */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Globe className="h-4 w-4" />
-                  {t('profilePage.languageTimezone')}
-                </div>
-                <p className="profile-device-value">{deviceInfo.language}</p>
-                <p className="profile-device-detail">{deviceInfo.timezone}</p>
-              </div>
-
-              {/* Detection Time */}
-              <div className="profile-device-item">
-                <div className="profile-device-label">
-                  <Calendar className="h-4 w-4" />
-                  {t('profilePage.detected')}
-                </div>
-                <p className="profile-device-value">
-                  {localStorage.getItem('deviceInfoTimestamp')
-                    ? new Date(localStorage.getItem('deviceInfoTimestamp')!).toLocaleString()
-                    : 'Recently'}
-                </p>
-                <p className="profile-device-detail">On homepage visit</p>
-              </div>
-            </div>
-
-            {/* Additional Info - User Agent */}
-            <div className="profile-device-useragent">
-              <div className="profile-device-useragent-header">
-                <Info className="h-4 w-4" />
-                <span>User Agent</span>
-              </div>
-              <p className="profile-device-useragent-text">
-                {deviceInfo.userAgent}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="profile-form">
         {/* Personal Information */}
