@@ -151,7 +151,7 @@ export function NavbarSearch() {
                   onClick={() => setShowResults(false)}
                   className="block hover:bg-blue-50 transition-colors duration-150"
                 >
-                  <div className="px-4 py-3 flex items-center gap-3"
+                  <div className="px-4 py-3 flex items-center gap-3">
                     {/* Product Image */}
                     <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-md overflow-hidden">
                       {product.images && product.images.length > 0 ? (
