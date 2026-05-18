@@ -21,7 +21,7 @@ import {
   Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import './FAQ.css';
 
 const categoryIcons: Record<string, any> = {
@@ -77,13 +77,13 @@ export function FAQ() {
 
   const toggleFAQ = (faqId: string) => {
     setExpandedFAQs(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(faqId)) {
+      if (prev.has(faqId)) {
+        const newSet = new Set(prev);
         newSet.delete(faqId);
-      } else {
-        newSet.add(faqId);
+        return newSet;
       }
-      return newSet;
+      // Only one FAQ open at a time
+      return new Set([faqId]);
     });
   };
 
@@ -210,37 +210,39 @@ export function FAQ() {
                       {categoryFAQs.map((faq) => {
                         const isExpanded = expandedFAQs.has(faq._id);
                         return (
-                          <Card
+                          <div
                             key={faq._id}
-                            className={`border transition-all ${
-                              isExpanded
-                                ? 'border-0 shadow-lg'
-                                : 'border-gray-200 shadow-sm hover:shadow-md'
-                            }`}
+                            className="overflow-hidden rounded-lg border border-gray-200 transition-all duration-300 ease-out hover:border-gray-300 hover:shadow-md"
+                            style={{
+                              boxShadow: isExpanded
+                                ? '0 8px 30px rgba(26, 42, 94, 0.12)'
+                                : '0 1px 3px rgba(0, 0, 0, 0.08)',
+                              borderColor: isExpanded
+                                ? 'var(--primary-blue, #1a2a5e)'
+                                : 'inherit',
+                            }}
                           >
                             <button
-                              className="w-full text-left p-4 md:p-5 flex items-start justify-between gap-4"
+                              className="w-full text-left p-5 md:p-6 flex items-start justify-between gap-4 transition-colors duration-200"
                               onClick={() => toggleFAQ(faq._id)}
                               aria-expanded={isExpanded}
+                              style={{
+                                background: isExpanded
+                                  ? 'linear-gradient(135deg, var(--primary-blue, #1a2a5e) 0%, var(--primary-blue-light, #2f57b0) 100%)'
+                                  : 'transparent',
+                              }}
                             >
                               <span
-                                className={`font-semibold leading-6 transition-colors ${
+                                className={`font-semibold leading-6 transition-colors duration-200 text-sm md:text-base ${
                                   isExpanded
                                     ? 'text-white'
                                     : 'text-gray-900'
                                 }`}
-                                style={
-                                  isExpanded
-                                    ? {
-                                        color: 'white',
-                                      }
-                                    : {}
-                                }
                               >
                                 {faq.question}
                               </span>
                               <ChevronDown
-                                className={`h-5 w-5 flex-shrink-0 transition-transform ${
+                                className={`h-5 w-5 flex-shrink-0 transition-transform duration-300 ${
                                   isExpanded ? 'rotate-180' : ''
                                 }`}
                                 style={{
@@ -251,34 +253,34 @@ export function FAQ() {
 
                             {isExpanded && (
                               <div
-                                className="px-4 md:px-5 pb-4 md:pb-5 pt-0 text-sm leading-7 border-t"
+                                className="faq-answer-container px-5 md:px-6 py-5 md:py-6 border-t animate-in slide-in-from-top-2 duration-300"
                                 style={{
                                   borderColor: 'rgba(26, 42, 94, 0.1)',
-                                  background:
-                                    'linear-gradient(135deg, var(--primary-blue, #1a2a5e) 0%, var(--primary-blue-light, #2f57b0) 100%)',
-                                  color: 'rgba(255, 255, 255, 0.95)',
+                                  background: 'var(--mcrepair-gray-50, #f5f6f8)',
                                 }}
                               >
-                                <p className="mb-4">{faq.answer}</p>
-                                {faq.tags && faq.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 pt-4 border-t border-white/20">
-                                    {faq.tags.map((tag, index) => (
-                                      <span
-                                        key={index}
-                                        className="inline-block px-3 py-1 rounded-full text-xs font-medium"
-                                        style={{
-                                          background: 'rgba(255, 255, 255, 0.15)',
-                                          color: 'rgba(255, 255, 255, 0.9)',
-                                        }}
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                                <div className="text-gray-700 leading-relaxed text-sm md:text-base space-y-4">
+                                  <p>{faq.answer}</p>
+                                  {faq.tags && faq.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
+                                      {faq.tags.map((tag, index) => (
+                                        <span
+                                          key={index}
+                                          className="inline-block px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-200"
+                                          style={{
+                                            background: 'rgba(245, 197, 24, 0.12)',
+                                            color: 'var(--primary-blue, #1a2a5e)',
+                                          }}
+                                        >
+                                          {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
-                          </Card>
+                          </div>
                         );
                       })}
                     </div>
