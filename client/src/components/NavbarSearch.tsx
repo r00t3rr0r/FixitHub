@@ -109,7 +109,7 @@ export function NavbarSearch() {
   };
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-md">
+    <div ref={searchRef} className="w-full">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <Input
@@ -117,7 +117,7 @@ export function NavbarSearch() {
           placeholder="Shopartikel suchen..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 pr-10 w-full"
+          className="pl-10 pr-10 w-full bg-gray-50 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
         />
         {searchTerm && (
           <button
@@ -131,15 +131,16 @@ export function NavbarSearch() {
 
       {/* Search Results Dropdown */}
       {showResults && (
-        <Card className="absolute top-full mt-2 w-full max-h-96 overflow-y-auto z-50 shadow-xl border-2">
+        <Card className="absolute top-full mt-1 w-full max-h-96 overflow-y-auto z-50 shadow-lg border border-gray-200 rounded-lg bg-white"
+        >
           {loading ? (
             <div className="p-4 text-center text-gray-500">
               Suche läuft...
             </div>
           ) : results.length > 0 ? (
-            <div className="divide-y">
-              <div className="p-2 bg-gray-50 border-b">
-                <p className="text-sm font-semibold text-gray-700">
+            <div className="divide-y divide-gray-100">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                   {results.length} {results.length === 1 ? 'Ergebnis' : 'Ergebnisse'} gefunden
                 </p>
               </div>
@@ -148,9 +149,9 @@ export function NavbarSearch() {
                   key={product._id}
                   to={`/shop`}
                   onClick={() => setShowResults(false)}
-                  className="block hover:bg-gray-50 transition-colors"
+                  className="block hover:bg-blue-50 transition-colors duration-150"
                 >
-                  <div className="p-3 flex items-center gap-3">
+                  <div className="px-4 py-3 flex items-center gap-3"
                     {/* Product Image */}
                     <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-md overflow-hidden">
                       {product.images && product.images.length > 0 ? (
@@ -208,28 +209,30 @@ export function NavbarSearch() {
                   </div>
                 </Link>
               ))}
-              <div className="p-3 bg-gray-50">
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
                 <Link
                   to="/shop"
                   onClick={() => setShowResults(false)}
-                  className="text-sm text-yellow-600 hover:text-yellow-700 font-medium hover:underline"
+                  className="text-sm text-yellow-600 hover:text-yellow-700 font-semibold hover:underline inline-flex items-center gap-1"
                 >
-                  Alle Ergebnisse im Shop anzeigen →
+                  Alle Ergebnisse im Shop anzeigen
+                  <span className="text-xs">→</span>
                 </Link>
               </div>
             </div>
           ) : (
-            <div className="p-4 text-center">
-              <Package className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">
+            <div className="px-4 py-8 text-center">
+              <Package className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500 mb-3">
                 Keine Produkte gefunden für "{searchTerm}"
               </p>
               <Link
                 to="/shop"
                 onClick={() => setShowResults(false)}
-                className="text-sm text-yellow-600 hover:text-yellow-700 font-medium hover:underline mt-2 inline-block"
+                className="text-sm text-yellow-600 hover:text-yellow-700 font-semibold hover:underline inline-flex items-center gap-1"
               >
-                Alle Produkte durchsuchen →
+                Alle Produkte durchsuchen
+                <span className="text-xs">→</span>
               </Link>
             </div>
           )}
