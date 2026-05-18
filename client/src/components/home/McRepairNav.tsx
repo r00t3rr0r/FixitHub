@@ -85,6 +85,7 @@ export function McRepairNav() {
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [navMode, setNavMode] = useState<'full' | 'partial' | 'compact'>('full');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showShopSearch, setShowShopSearch] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -104,6 +105,7 @@ export function McRepairNav() {
   const [loadingDevices, setLoadingDevices] = useState(true);
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const mobileMenuCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const shopSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollLockTopRef = useRef(0);
   const skipNextScrollRestoreRef = useRef(false);
   const navInnerRef = useRef<HTMLDivElement | null>(null);
@@ -462,6 +464,19 @@ export function McRepairNav() {
     setSearchOpen(!searchOpen);
   };
 
+  const handleShopMouseEnter = () => {
+    if (shopSearchTimerRef.current) {
+      clearTimeout(shopSearchTimerRef.current);
+    }
+    setShowShopSearch(true);
+  };
+
+  const handleShopMouseLeave = () => {
+    shopSearchTimerRef.current = setTimeout(() => {
+      setShowShopSearch(false);
+    }, 2000);
+  };
+
   // Prevent background scroll when mobile menu is open/closing (mobile-safe, incl. iOS)
   useEffect(() => {
     // On route changes, make sure mobile menu state is reset and do not restore old scroll position.
@@ -536,6 +551,9 @@ export function McRepairNav() {
       }
       if (mobileMenuCloseTimerRef.current) {
         clearTimeout(mobileMenuCloseTimerRef.current);
+      }
+      if (shopSearchTimerRef.current) {
+        clearTimeout(shopSearchTimerRef.current);
       }
     };
   }, []);
@@ -887,6 +905,8 @@ export function McRepairNav() {
             href="#shop"
             className={`nav-link nav-priority-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
             onClick={closeMobileMenu}
+            onMouseEnter={handleShopMouseEnter}
+            onMouseLeave={handleShopMouseLeave}
           >
             <ShoppingBag width={16} height={16} />
             {t('home.nav.shop', 'Shop')}
@@ -984,7 +1004,18 @@ export function McRepairNav() {
 
         {/* Right Side Actions */}
         <div className="nav-right" ref={navRightRef}>
-          {/* Desktop Search - Using NavbarSearch Component (hidden on larger screens, only on mobile) */}
+          {/* Desktop Search - appears on hover over Shop (md+ screens only) */}
+          {showShopSearch && (
+            <div
+              className="nav-search hidden md:block animate-in fade-in slide-in-from-right-2 duration-200"
+              onMouseEnter={handleShopMouseEnter}
+              onMouseLeave={handleShopMouseLeave}
+            >
+              <NavbarSearch />
+            </div>
+          )}
+
+          {/* Mobile Search - hidden on larger screens */}
           <div className="nav-search md:hidden">
             <NavbarSearch />
           </div>
