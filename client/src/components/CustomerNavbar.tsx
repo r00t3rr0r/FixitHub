@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,9 @@ export function CustomerNavbar() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const hideSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Preload logo image for fade-in effect
   useEffect(() => {
@@ -25,6 +28,29 @@ export function CustomerNavbar() {
     img.onerror = () => {
       console.error('CustomerNavbar: Failed to load shop logo');
       setLogoLoaded(true); // Show placeholder if image fails
+    };
+  }, []);
+
+  // Handle mouse leave from search container to hide search field after delay
+  const handleMouseLeaveSearch = () => {
+    hideSearchTimeoutRef.current = setTimeout(() => {
+      setShowSearch(false);
+    }, 2000); // Hide after 2 seconds
+  };
+
+  const handleMouseEnterSearch = () => {
+    if (hideSearchTimeoutRef.current) {
+      clearTimeout(hideSearchTimeoutRef.current);
+    }
+    setShowSearch(true);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hideSearchTimeoutRef.current) {
+        clearTimeout(hideSearchTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -67,10 +93,6 @@ export function CustomerNavbar() {
           </span>
         </Link>
 
-        {/* Search Bar - visible on larger screens */}
-        <div className="hidden lg:flex flex-1 max-w-xl mx-4">
-          <NavbarSearch />
-        </div>
 
         {/* Navigation links - hidden on mobile */}
         <nav className="hidden md:flex items-center gap-6">
@@ -88,19 +110,35 @@ export function CustomerNavbar() {
             {t('home.nav.about')}
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
           </a>
-          <a
-            href="/#contact"
+          <Link
+            to="/shop"
             className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
+            onMouseEnter={handleMouseEnterSearch}
+            onMouseLeave={handleMouseLeaveSearch}
           >
-            {t('home.nav.contact')}
+            {t('home.nav.shop') || 'Shop'}
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
-          </a>
+          </Link>
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2">
+        <div
+          className="flex items-center gap-2"
+          ref={searchContainerRef}
+          onMouseEnter={handleMouseEnterSearch}
+          onMouseLeave={handleMouseLeaveSearch}
+        >
           {/* Language Selector with hover effect */}
           <LanguageSelector />
+
+          {/* Shop Search - appears on hover for md+ screens */}
+          {showSearch && (
+            <div className="hidden md:block animate-in fade-in slide-in-from-right-2 duration-200">
+              <div className="w-64">
+                <NavbarSearch />
+              </div>
+            </div>
+          )}
 
           {/* Shopping Cart with item count and bounce animation */}
           <CartIcon />
@@ -130,9 +168,9 @@ export function CustomerNavbar() {
           )}
         </div>
       </div>
-      
-      {/* Mobile Search Bar - visible on smaller screens */}
-      <div className="lg:hidden container mx-auto px-4 pb-3">
+
+      {/* Mobile Search Bar - visible only on extremely small screens */}
+      <div className="md:hidden container mx-auto px-4 pb-3">
         <NavbarSearch />
       </div>
     </header>
