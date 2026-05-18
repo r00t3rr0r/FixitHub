@@ -287,6 +287,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [showDiagnoseModal, setShowDiagnoseModal] = useState(false);
   const [serviceInfoDialog, setServiceInfoDialog] = useState<RepairService | null>(null);
   const [hoveredTooltip, setHoveredTooltip] = useState<{ service: RepairService; left: number; top: number; arrowLeft: number } | null>(null);
+  const shouldJumpToStep3Ref = useRef(false);
   const TOOLTIP_WIDTH = 220;
   const TOOLTIP_MARGIN = 8;
 
@@ -370,6 +371,34 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     });
   }, [currentStep]);
 
+  // Jump to step 3 when all required selections are made from navigation
+  useEffect(() => {
+    if (shouldJumpToStep3Ref.current && selectedDeviceType && selectedBrand && selectedModel) {
+      console.log('[Configurator] Jumping to step 3 with:', {
+        selectedDeviceType: selectedDeviceType.name,
+        selectedBrand,
+        selectedModel: selectedModel.name
+      });
+      setCurrentStep(3);
+      shouldJumpToStep3Ref.current = false;
+    } else if (shouldJumpToStep3Ref.current) {
+      console.log('[Configurator] Waiting for all selections:', {
+        shouldJumpToStep3Ref: shouldJumpToStep3Ref.current,
+        selectedDeviceType: selectedDeviceType?.name || 'NOT SET',
+        selectedBrand: selectedBrand || 'NOT SET',
+        selectedModel: selectedModel?.name || 'NOT SET'
+      });
+    }
+  }, [selectedDeviceType, selectedBrand, selectedModel]);
+
+  // Alternative: Jump to step 3 when services are loaded (for when model exists but wasn't explicitly selected)
+  useEffect(() => {
+    if (currentStep === 3 && repairServices.length > 0 && shouldJumpToStep3Ref.current) {
+      console.log('[Configurator] Services loaded, finalizing step 3 jump');
+      shouldJumpToStep3Ref.current = false;
+    }
+  }, [currentStep, repairServices]);
+
   // Fetch device types on mount
   useEffect(() => {
     const fetchDeviceTypes = async () => {
@@ -385,14 +414,24 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           try {
             const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
             const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
-            console.log('Device selected from navigation:', navDeviceSelection);
+            console.log('[Configurator] Navigation device selection found:', {
+              navDeviceSelection,
+              requestedConfiguratorStep,
+              deviceTypesLoaded: deviceTypesList.length
+            });
 
             // Find the matching device type
             const matchedDeviceType = deviceTypesList.find(
               (dt: DeviceType) => dt.name.toLowerCase() === navDeviceSelection.deviceType.toLowerCase()
             );
+            
+            console.log('[Configurator] Device type matching:', {
+              searchingFor: navDeviceSelection.deviceType,
+              availableTypes: deviceTypesList.map((dt: DeviceType) => dt.name),
+              matched: matchedDeviceType?.name || 'NOT FOUND'
+            });
 
-            if (matchedDeviceType && navDeviceSelection.searchQuery) {
+            if (matchedDeviceType && navDeviceSelection.manufacturer && navDeviceSelection.modelName) {
               // Set device type
               setSelectedDeviceType(matchedDeviceType);
               setCurrentStep(2); // Move to step 2
@@ -423,23 +462,44 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 // Find the matching model
                 const matchedModel = modelsList.find((m: DeviceModel) =>
-                  m.name.toLowerCase().includes(navDeviceSelection.modelName?.toLowerCase() || '')
+                  m.name.toLowerCase() === navDeviceSelection.modelName?.toLowerCase()
                 );
 
                 if (matchedModel) {
                   setSelectedModel(matchedModel);
                   setModelSearchQuery(getModelSearchPrefill(matchedModel));
-                  if (requestedConfiguratorStep === 3) {
-                    setCurrentStep(3);
-                  }
                   
                   toast({
                     title: t('common.success'),
                     description: `${matchedModel.name} ${t('home.configurator.toasts.deviceSelectedTitle').toLowerCase()}`,
                   });
+                  
+                  // Mark that we should jump to step 3 after state updates
+                  if (requestedConfiguratorStep === 3) {
+                    shouldJumpToStep3Ref.current = true;
+                  }
                 } else {
-                  // If no exact match, at least show the filtered models
-                  setModelSearchQuery(navDeviceSelection.modelName || '');
+                  // If no exact match, try a partial match
+                  const partialMatchModel = modelsList.find((m: DeviceModel) =>
+                    m.name.toLowerCase().includes(navDeviceSelection.modelName?.toLowerCase() || '')
+                  );
+                  
+                  if (partialMatchModel) {
+                    setSelectedModel(partialMatchModel);
+                    setModelSearchQuery(getModelSearchPrefill(partialMatchModel));
+                    
+                    // Mark that we should jump to step 3 after state updates
+                    if (requestedConfiguratorStep === 3) {
+                      shouldJumpToStep3Ref.current = true;
+                    }
+                  } else {
+                    // No match at all - still show filtered models and jump to step 3 if requested
+                    setModelSearchQuery(navDeviceSelection.modelName || '');
+                    if (requestedConfiguratorStep === 3) {
+                      shouldJumpToStep3Ref.current = true;
+                    }
+                  }
+                  
                   toast({
                     title: t('home.configurator.toasts.selectModelTitle'),
                     description: t('home.configurator.toasts.selectModelDescription', {
@@ -520,6 +580,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   useEffect(() => {
     const handleNavDeviceSelected = async () => {
       const navDeviceSelectionJson = sessionStorage.getItem('navDeviceSelection');
+      const navPreselectedServiceJson = sessionStorage.getItem('navPreselectedService');
       if (!navDeviceSelectionJson) return;
 
       try {
@@ -552,7 +613,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           setManufacturers(manufacturersList);
 
           // If we have manufacturer and model name, try to auto-select
-          if (navDeviceSelection.manufacturer && !navDeviceSelection.showAllModels) {
+          if (navDeviceSelection.manufacturer && navDeviceSelection.modelName && !navDeviceSelection.showAllModels) {
             const matchingManufacturer = manufacturersList.find((m: any) => 
               m.name.toLowerCase() === navDeviceSelection.manufacturer.toLowerCase()
             );
@@ -577,14 +638,29 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 if (matchingModel) {
                   setSelectedModel(matchingModel);
                   setModelSearchQuery(getModelSearchPrefill(matchingModel));
-                  if (requestedConfiguratorStep === 3) {
-                    setCurrentStep(3);
-                  }
                   toast({
                     title: t('home.configurator.toasts.deviceSelectedTitle'),
                     description: `${matchingManufacturer.name} ${matchingModel.name}`,
                     variant: 'default'
                   });
+                  
+                  // Mark that we should jump to step 3 if requested
+                  if (requestedConfiguratorStep === 3) {
+                    shouldJumpToStep3Ref.current = true;
+                  }
+                } else {
+                  // Partial match fallback
+                  const partialMatchModel = modelsList.find((m: any) => 
+                    m.name.toLowerCase().includes(navDeviceSelection.modelName?.toLowerCase() || '')
+                  );
+                  
+                  if (partialMatchModel) {
+                    setSelectedModel(partialMatchModel);
+                    setModelSearchQuery(getModelSearchPrefill(partialMatchModel));
+                    if (requestedConfiguratorStep === 3) {
+                      shouldJumpToStep3Ref.current = true;
+                    }
+                  }
                 }
               }
             }
@@ -1038,19 +1114,38 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   useEffect(() => {
     if (currentStep === 3 && repairServices.length > 0) {
       try {
+        let serviceIdToSelect: string | undefined;
+        
+        // Try to get service ID from navDeviceSelection first
         const navDeviceSelectionJson = sessionStorage.getItem('navDeviceSelection');
         if (navDeviceSelectionJson) {
           const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
-          if (navDeviceSelection.selectedServiceId) {
-            const serviceToSelect = repairServices.find(s => s._id === navDeviceSelection.selectedServiceId);
-            if (serviceToSelect) {
-              setSelectedRepairs([serviceToSelect]);
-              console.log('Auto-selected service from search:', serviceToSelect.name);
+          serviceIdToSelect = navDeviceSelection.selectedServiceId;
+        }
+
+        // Fallback to navPreselectedService if available
+        if (!serviceIdToSelect) {
+          const navPreselectedServiceJson = sessionStorage.getItem('navPreselectedService');
+          if (navPreselectedServiceJson) {
+            const navPreselectedService = JSON.parse(navPreselectedServiceJson);
+            serviceIdToSelect = navPreselectedService._id;
+          }
+        }
+
+        if (serviceIdToSelect) {
+          const serviceToSelect = repairServices.find(s => s._id === serviceIdToSelect);
+          if (serviceToSelect) {
+            setSelectedRepairs([serviceToSelect]);
+            console.log('Auto-selected service from search:', serviceToSelect.name);
+            
+            // Clear both session items after using them
+            if (navDeviceSelectionJson) {
+              const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+              navDeviceSelection.selectedServiceId = undefined;
+              navDeviceSelection.selectedServiceName = undefined;
+              sessionStorage.setItem('navDeviceSelection', JSON.stringify(navDeviceSelection));
             }
-            // Clear the selected service ID after using it
-            navDeviceSelection.selectedServiceId = undefined;
-            navDeviceSelection.selectedServiceName = undefined;
-            sessionStorage.setItem('navDeviceSelection', JSON.stringify(navDeviceSelection));
+            sessionStorage.removeItem('navPreselectedService');
           }
         }
       } catch (error) {

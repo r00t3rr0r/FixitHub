@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, ShoppingCart, Package, Wrench } from 'lucide-react';
+import { Search, X, ShoppingCart, Package, Wrench, MonitorSmartphone, BatteryCharging, Droplets, Camera, Volume2, Settings2, Zap, Power, Cpu, HardDrive, AlertCircle, Wifi, SlidersHorizontal, Layers, Lock } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufac
 import { useToast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 
-interface ServiceWithDeviceInfo extends RepairService {
+interface ServiceWithDeviceInfo extends Omit<RepairService, 'manufacturer'> {
   resultType: 'service';
   deviceType?: string;
   manufacturer?: string;
@@ -176,6 +176,81 @@ const getServiceSearchFallbackScore = (service: RepairService, searchLower: stri
   return score;
 };
 
+const getCategoryIcon = (category: string, size: 'sm' | 'md' = 'sm') => {
+  const cls = size === 'sm' ? 'w-4 h-4' : 'w-6 h-6';
+  const cat = String(category || '').toLowerCase();
+  if (cat.includes('display') || cat.includes('bildschirm') || cat.includes('screen') || cat.includes('glas'))
+    return <MonitorSmartphone className={cls} />;
+  if (cat.includes('akku') || cat.includes('batterie') || cat.includes('battery'))
+    return <BatteryCharging className={cls} />;
+  if (cat.includes('wasser') || cat.includes('feuchtigkeit') || cat.includes('water') || cat.includes('liquid'))
+    return <Droplets className={cls} />;
+  if (cat.includes('kamera') || cat.includes('camera') || cat.includes('foto'))
+    return <Camera className={cls} />;
+  if (cat.includes('lautsprecher') || cat.includes('mikrofon') || cat.includes('audio') || cat.includes('sound') || cat.includes('speaker'))
+    return <Volume2 className={cls} />;
+  if (cat.includes('software') || cat.includes('system') || cat.includes('reset') || cat.includes('update'))
+    return <Settings2 className={cls} />;
+  if (cat.includes('laden') || cat.includes('ladebuchse') || cat.includes('anschluss') || cat.includes('charging') || cat.includes('usb') || cat.includes('port'))
+    return <Zap className={cls} />;
+  if (cat.includes('power') || cat.includes('strom') || (cat.includes('ein') && cat.includes('aus')))
+    return <Power className={cls} />;
+  if (cat.includes('platine') || cat.includes('mainboard') || cat.includes('logic') || cat.includes('board') || cat.includes('chip'))
+    return <Cpu className={cls} />;
+  if (cat.includes('hardware') || cat.includes('komponente') || cat.includes('bauteil'))
+    return <HardDrive className={cls} />;
+  if (cat.includes('emergency') || cat.includes('notfall') || cat.includes('dringend') || cat.includes('urgent'))
+    return <AlertCircle className={cls} />;
+  if (cat.includes('netz') || cat.includes('wifi') || cat.includes('wlan') || cat.includes('signal') || cat.includes('antenne'))
+    return <Wifi className={cls} />;
+  if (cat.includes('taste') || cat.includes('button') || cat.includes('schalter') || cat.includes('switch'))
+    return <SlidersHorizontal className={cls} />;
+  if (cat.includes('schutz') || cat.includes('folie') || cat.includes('protection') || cat.includes('cover'))
+    return <Layers className={cls} />;
+  if (cat.includes('gehäuse') || cat.includes('back') || cat.includes('rahmen') || cat.includes('frame'))
+    return <Package className={cls} />;
+  if (cat.includes('lock') || cat.includes('entsperr') || cat.includes('unlock') || cat.includes('pin'))
+    return <Lock className={cls} />;
+  return <Wrench className={cls} />;
+};
+
+const getCategoryColor = (category: string): { border: string; text: string; bg: string } => {
+  const cat = String(category || '').toLowerCase();
+  if (cat.includes('display') || cat.includes('bildschirm') || cat.includes('screen') || cat.includes('glas'))
+    return { border: 'border-blue-300', text: 'text-blue-700', bg: 'bg-blue-50' };
+  if (cat.includes('akku') || cat.includes('batterie') || cat.includes('battery'))
+    return { border: 'border-green-300', text: 'text-green-700', bg: 'bg-green-50' };
+  if (cat.includes('wasser') || cat.includes('feuchtigkeit') || cat.includes('water') || cat.includes('liquid'))
+    return { border: 'border-cyan-300', text: 'text-cyan-700', bg: 'bg-cyan-50' };
+  if (cat.includes('kamera') || cat.includes('camera') || cat.includes('foto'))
+    return { border: 'border-purple-300', text: 'text-purple-700', bg: 'bg-purple-50' };
+  if (cat.includes('lautsprecher') || cat.includes('mikrofon') || cat.includes('audio') || cat.includes('sound') || cat.includes('speaker'))
+    return { border: 'border-rose-300', text: 'text-rose-700', bg: 'bg-rose-50' };
+  if (cat.includes('software') || cat.includes('system') || cat.includes('reset') || cat.includes('update'))
+    return { border: 'border-indigo-300', text: 'text-indigo-700', bg: 'bg-indigo-50' };
+  if (cat.includes('laden') || cat.includes('ladebuchse') || cat.includes('anschluss') || cat.includes('charging') || cat.includes('usb') || cat.includes('port'))
+    return { border: 'border-yellow-300', text: 'text-yellow-700', bg: 'bg-yellow-50' };
+  if (cat.includes('power') || cat.includes('strom'))
+    return { border: 'border-amber-300', text: 'text-amber-700', bg: 'bg-amber-50' };
+  if (cat.includes('platine') || cat.includes('mainboard') || cat.includes('logic') || cat.includes('board') || cat.includes('chip'))
+    return { border: 'border-red-300', text: 'text-red-700', bg: 'bg-red-50' };
+  if (cat.includes('hardware') || cat.includes('komponente') || cat.includes('bauteil'))
+    return { border: 'border-slate-300', text: 'text-slate-700', bg: 'bg-slate-50' };
+  if (cat.includes('emergency') || cat.includes('notfall') || cat.includes('dringend') || cat.includes('urgent'))
+    return { border: 'border-red-400', text: 'text-red-800', bg: 'bg-red-100' };
+  if (cat.includes('netz') || cat.includes('wifi') || cat.includes('wlan') || cat.includes('signal'))
+    return { border: 'border-teal-300', text: 'text-teal-700', bg: 'bg-teal-50' };
+  if (cat.includes('taste') || cat.includes('button') || cat.includes('schalter') || cat.includes('switch'))
+    return { border: 'border-fuchsia-300', text: 'text-fuchsia-700', bg: 'bg-fuchsia-50' };
+  if (cat.includes('schutz') || cat.includes('folie') || cat.includes('protection'))
+    return { border: 'border-lime-300', text: 'text-lime-700', bg: 'bg-lime-50' };
+  if (cat.includes('gehäuse') || cat.includes('back') || cat.includes('rahmen') || cat.includes('frame'))
+    return { border: 'border-orange-300', text: 'text-orange-700', bg: 'bg-orange-50' };
+  if (cat.includes('lock') || cat.includes('entsperr') || cat.includes('unlock'))
+    return { border: 'border-violet-300', text: 'text-violet-700', bg: 'bg-violet-50' };
+  return { border: 'border-orange-300', text: 'text-orange-700', bg: 'bg-orange-50' };
+};
+
 const findTokenSequenceIndex = (haystack: string[], needle: string[]): number => {
   if (needle.length === 0 || haystack.length < needle.length) {
     return -1;
@@ -316,7 +391,7 @@ export function NavbarSearch() {
   const [showResults, setShowResults] = useState(false);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
 
@@ -539,11 +614,12 @@ export function NavbarSearch() {
 
             if (!serviceMatches) continue;
 
+            // Use service fields from backend, which should contain deviceTypes, manufacturer, model
             scoredServiceMatches.push({
               service: {
                 ...service,
                 resultType: 'service' as const,
-                deviceType: '',
+                deviceType: (service.deviceTypes && service.deviceTypes[0]) || service.category || '',
                 manufacturer: service.manufacturer || '',
                 modelName: service.model || '',
               },
@@ -688,26 +764,75 @@ export function NavbarSearch() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (service.deviceType && service.manufacturer && service.modelName) {
+    // Use deviceType, manufacturer, modelName from service props, with fallback to service fields
+    const deviceType = service.deviceType || '';
+    const manufacturer = service.manufacturer || '';
+    const modelName = service.modelName || '';
+
+    console.log('[NavbarSearch] Service clicked:', {
+      service: {
+        id: service._id,
+        name: service.name,
+        deviceType,
+        manufacturer,
+        modelName,
+      }
+    });
+
+    if (deviceType && manufacturer && modelName) {
       // Set session storage with device info for configurator
       const navDeviceSelection = {
-        deviceType: service.deviceType,
-        manufacturer: service.manufacturer,
-        modelName: service.modelName,
-        searchQuery: `${service.manufacturer} ${service.modelName}`,
+        deviceType,
+        manufacturer,
+        modelName,
+        searchQuery: `${manufacturer} ${modelName}`,
         selectedServiceId: service._id,
         selectedServiceName: service.name
       };
 
+      // Store selected service for automatic selection in step 3
+      const selectedService = {
+        _id: service._id,
+        name: service.name,
+        category: service.category,
+        price: service.price,
+        estimatedTime: service.estimatedTime,
+        shortDescription: service.shortDescription
+      };
+
+      console.log('[NavbarSearch] Storing navigation data:', {
+        navDeviceSelection,
+        selectedService,
+        step: '3'
+      });
+
       sessionStorage.setItem('navDeviceSelection', JSON.stringify(navDeviceSelection));
       sessionStorage.setItem('navConfiguratorStep', '3');
+      sessionStorage.setItem('navPreselectedService', JSON.stringify(selectedService));
 
-      // Navigate to home and dispatch event
+      // Dispatch event first, then navigate with a small delay to ensure sessionStorage is written
       window.dispatchEvent(new CustomEvent('navDeviceSelected'));
-      navigate('/');
-
-      // Close search
-      setShowResults(false);
+      
+      // Use a small delay to ensure sessionStorage is fully written before navigation
+      setTimeout(() => {
+        navigate('/');
+        setShowResults(false);
+      }, 50);
+    } else {
+      console.error('[NavbarSearch] Service missing required fields:', {
+        deviceType,
+        manufacturer,
+        modelName,
+        hasDeviceType: !!service.deviceType,
+        hasManufacturer: !!service.manufacturer,
+        hasModelName: !!service.modelName
+      });
+      
+      toast({
+        variant: 'destructive',
+        title: t('common.error'),
+        description: 'Service-Daten unvollständig - bitte versuchen Sie es später'
+      });
     }
   };
 
@@ -835,11 +960,15 @@ export function NavbarSearch() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                              {service.category && (
-                                <Badge variant="outline" className="text-xs border-orange-300 text-orange-700 bg-orange-50 py-0 px-1.5">
-                                  {service.category}
-                                </Badge>
-                              )}
+                              {service.category && (() => {
+                                const colors = getCategoryColor(service.category);
+                                return (
+                                  <Badge variant="outline" className={`text-xs border-2 ${colors.border} ${colors.text} ${colors.bg} py-0 px-1.5 flex items-center gap-1`}>
+                                    {getCategoryIcon(service.category, 'sm')}
+                                    {service.category}
+                                  </Badge>
+                                );
+                              })()}
                             </div>
                             <h4 className="font-semibold text-sm text-gray-900 group-hover:text-orange-600 break-words">
                               {service.name}
