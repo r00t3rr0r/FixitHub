@@ -955,10 +955,6 @@ export function McRepairNav() {
             {mobileMenuOpen && mobileCategoryOpen === 'notebook' && renderMobileDeviceDropdown('notebook')}
           </div>
 
-          <Link to="/contact" className="nav-link nav-category-item nav-partial-hidden" onClick={() => closeMobileMenu()}>
-            <Mail width={16} height={16} />
-            {t('home.nav.contact', 'Kontakt')}
-          </Link>
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
@@ -988,8 +984,8 @@ export function McRepairNav() {
 
         {/* Right Side Actions */}
         <div className="nav-right" ref={navRightRef}>
-          {/* Desktop Search - Using NavbarSearch Component */}
-          <div className="nav-search hidden lg:block">
+          {/* Desktop Search - Using NavbarSearch Component (hidden on larger screens, only on mobile) */}
+          <div className="nav-search md:hidden">
             <NavbarSearch />
           </div>
 
