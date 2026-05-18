@@ -900,17 +900,30 @@ export function McRepairNav() {
             </div>
           )}
 
-          {/* Shop - moved to first position */}
-          <a
-            href="#shop"
-            className={`nav-link nav-priority-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
-            onClick={closeMobileMenu}
+          {/* Shop with Hover Search Dropdown */}
+          <div
+            className="nav-item-with-dropdown nav-priority-link nav-shop-dropdown"
             onMouseEnter={handleShopMouseEnter}
             onMouseLeave={handleShopMouseLeave}
           >
-            <ShoppingBag width={16} height={16} />
-            {t('home.nav.shop', 'Shop')}
-          </a>
+            <a
+              href="#shop"
+              className={`nav-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              <ShoppingBag width={16} height={16} />
+              {t('home.nav.shop', 'Shop')}
+            </a>
+
+            {/* Shop Search Dropdown */}
+            {showShopSearch && (
+              <div className="nav-shop-search-dropdown">
+                <div className="nav-shop-search-container">
+                  <NavbarSearch />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Smartphone */}
           <div 
@@ -1004,17 +1017,6 @@ export function McRepairNav() {
 
         {/* Right Side Actions */}
         <div className="nav-right" ref={navRightRef}>
-          {/* Desktop Search - appears on hover over Shop (md+ screens only) */}
-          {showShopSearch && (
-            <div
-              className="nav-search hidden md:block animate-in fade-in slide-in-from-right-2 duration-200"
-              onMouseEnter={handleShopMouseEnter}
-              onMouseLeave={handleShopMouseLeave}
-            >
-              <NavbarSearch />
-            </div>
-          )}
-
           {/* Mobile Search - hidden on larger screens */}
           <div className="nav-search md:hidden">
             <NavbarSearch />

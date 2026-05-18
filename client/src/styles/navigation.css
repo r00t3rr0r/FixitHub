@@ -1623,3 +1623,58 @@
     font-size: 0.75rem;
   }
 }
+
+/* ── SHOP SEARCH DROPDOWN ── */
+
+.nav-shop-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-shop-search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--gray-100);
+  z-index: 10000;
+  animation: slideDownFade 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 380px;
+  max-width: 500px;
+}
+
+.nav-shop-search-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--white);
+  filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, 0.06));
+}
+
+.nav-shop-search-container {
+  padding: 12px;
+}
+
+.nav-shop-search-container input {
+  border: 1px solid var(--gray-200) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  background: var(--white) !important;
+  transition: all 0.2s ease !important;
+}
+
+.nav-shop-search-container input:focus {
+  border-color: var(--primary-blue) !important;
+  box-shadow: 0 0 0 3px rgba(0, 114, 206, 0.1) !important;
+}
