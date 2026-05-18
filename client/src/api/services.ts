@@ -59,6 +59,13 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+export interface ServiceListParams extends PaginationParams {
+  category?: string;
+  deviceType?: string;
+  manufacturerPrecise?: string;
+  modelPrecise?: string;
+}
+
 export interface PaginationResponse {
   total: number;
   page: number;
@@ -72,7 +79,7 @@ export interface PaginationResponse {
 // Endpoint: GET /api/services
 // Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
 // Response: { success: boolean, services: RepairService[], pagination: PaginationResponse }
-export const getRepairServices = async (params?: PaginationParams & { category?: string, deviceType?: string }) => {
+export const getRepairServices = async (params?: ServiceListParams) => {
   console.log('getRepairServices called with params:', params);
   try {
     const response = await api.get('/api/services', { params });
@@ -88,7 +95,7 @@ export const getRepairServices = async (params?: PaginationParams & { category?:
 // Endpoint: GET /api/services
 // Request: { category?: string, deviceType?: string, page?: number, limit?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' }
 // Response: { success: boolean, services: RepairService[], pagination?: PaginationResponse }
-export const getServices = async (params?: PaginationParams & { category?: string, deviceType?: string }) => {
+export const getServices = async (params?: ServiceListParams) => {
   console.log('getServices called with params:', params);
   try {
     const response = await api.get('/api/services', { params });

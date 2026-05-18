@@ -1034,6 +1034,31 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     }
   }, [currentStep, toast, t]);
 
+  // Auto-select service from navigation search
+  useEffect(() => {
+    if (currentStep === 3 && repairServices.length > 0) {
+      try {
+        const navDeviceSelectionJson = sessionStorage.getItem('navDeviceSelection');
+        if (navDeviceSelectionJson) {
+          const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+          if (navDeviceSelection.selectedServiceId) {
+            const serviceToSelect = repairServices.find(s => s._id === navDeviceSelection.selectedServiceId);
+            if (serviceToSelect) {
+              setSelectedRepairs([serviceToSelect]);
+              console.log('Auto-selected service from search:', serviceToSelect.name);
+            }
+            // Clear the selected service ID after using it
+            navDeviceSelection.selectedServiceId = undefined;
+            navDeviceSelection.selectedServiceName = undefined;
+            sessionStorage.setItem('navDeviceSelection', JSON.stringify(navDeviceSelection));
+          }
+        }
+      } catch (error) {
+        console.error('Error auto-selecting service:', error);
+      }
+    }
+  }, [currentStep, repairServices]);
+
   // Handle repair selection
   const toggleRepairSelection = (service: RepairService) => {
     setSelectedRepairs(prev => {
