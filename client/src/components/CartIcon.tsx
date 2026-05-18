@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { formatEUR } from '@/lib/utils';
 
 const getRepairOrderDeviceImage = (order: Cart['repairOrders'] extends Array<infer T> ? T : never) => {
   if (order?.deviceImage) {
@@ -311,10 +312,15 @@ export function CartIcon() {
                             </p>
                             <p className="text-[10.5px] text-[#8491a8] mt-0.5 leading-snug">
                               {order.deviceType}
-                              {order.services.length > 0 && (
-                                <span className="mx-1">·</span>
+                              {(order.serviceNames && order.serviceNames.length > 0) && (
+                                <>
+                                  <span className="mx-1">·</span>
+                                  {order.serviceNames.slice(0, 2).join(', ')}
+                                  {order.serviceNames.length > 2 && (
+                                    <span className="text-[#1a2a5e] font-medium"> +{order.serviceNames.length - 2}</span>
+                                  )}
+                                </>
                               )}
-                              {order.services.length} Reparatur{order.services.length !== 1 ? 'en' : ''}
                               {order.addOns && order.addOns.length > 0 && (
                                 <span className="ml-1 text-[#f5b800]">+{order.addOns.length} Extra</span>
                               )}
@@ -322,7 +328,7 @@ export function CartIcon() {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-sm font-bold text-[#1a2a5e]">
-                              {order.totalCost.toFixed(2)} €
+                              {formatEUR(order.totalCost)}
                             </p>
                           </div>
                         </div>
@@ -368,12 +374,12 @@ export function CartIcon() {
                                 {item.quantity}×
                               </span>
                               <span className="text-[10.5px] text-[#8491a8]">
-                                {product.price.toFixed(2)} €
+                                {formatEUR(product.price)}
                               </span>
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold text-[#1a2a5e]">{lineTotal} €</p>
+                            <p className="text-sm font-bold text-[#1a2a5e]">{formatEUR(lineTotal)}</p>
                           </div>
                         </div>
                       );
@@ -392,7 +398,7 @@ export function CartIcon() {
                         <Tag className="h-3 w-3" />
                         Rabatt
                       </span>
-                      <span className="font-medium text-green-600">−{cart!.discount.toFixed(2)} €</span>
+                      <span className="font-medium text-green-600">−{formatEUR(cart!.discount)}</span>
                     </div>
                   ) : null}
                   <div className="flex items-center justify-between">
@@ -400,7 +406,7 @@ export function CartIcon() {
                     <div className="flex items-baseline gap-1">
                       <span className="text-xs font-medium text-[#8491a8]">Gesamt</span>
                       <span className="text-xl font-extrabold text-[#1a2a5e] leading-none">
-                        {cart!.total.toFixed(2)} €
+                        {formatEUR(cart!.total)}
                       </span>
                     </div>
                   </div>
