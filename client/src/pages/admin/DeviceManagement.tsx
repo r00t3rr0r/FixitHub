@@ -2535,16 +2535,45 @@ export function DeviceManagement() {
                       disabled={isSubmitting}
                     />
                   </div>
-                  <div className="md:col-span-2 flex items-center gap-3 rounded-md border p-3 bg-slate-50">
-                    <Checkbox
-                      id="onlyNotUpdated"
-                      checked={updateOnlyNotUpdated}
-                      onCheckedChange={(checked) => setUpdateOnlyNotUpdated(checked === true)}
-                      disabled={isSubmitting}
-                    />
-                    <Label htmlFor="onlyNotUpdated" className="cursor-pointer">
-                      Nur noch nicht aktualisierte Modellinformationen updaten
-                    </Label>
+                  <div className="md:col-span-2 rounded-md border p-3 bg-slate-50 space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium">Aktualisierungsmodus</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Wähle, ob nur neue Modelle verarbeitet werden oder bereits aktualisierte Modelle erneut aktualisiert werden sollen.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        type="button"
+                        variant={updateOnlyNotUpdated ? 'default' : 'outline'}
+                        className="justify-start text-left h-auto py-2"
+                        onClick={() => setUpdateOnlyNotUpdated(true)}
+                        disabled={isSubmitting}
+                      >
+                        <div>
+                          <p className="font-medium">Nur noch nicht aktualisierte</p>
+                          <p className="text-xs opacity-80">Schneller Lauf, bereits aktualisierte Modelle werden übersprungen.</p>
+                        </div>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant={!updateOnlyNotUpdated ? 'default' : 'outline'}
+                        className="justify-start text-left h-auto py-2"
+                        onClick={() => setUpdateOnlyNotUpdated(false)}
+                        disabled={isSubmitting}
+                      >
+                        <div>
+                          <p className="font-medium">Alle erneut aktualisieren</p>
+                          <p className="text-xs opacity-80">Auch bereits aktualisierte Modelle werden neu aus der API geladen.</p>
+                        </div>
+                      </Button>
+                    </div>
+
+                    <p className="text-xs">
+                      Aktuell: <strong>{updateOnlyNotUpdated ? 'Nur noch nicht aktualisierte Modelle' : 'Alle Modelle inkl. bereits aktualisierter'}</strong>
+                    </p>
                   </div>
                 </CardContent>
               </Card>
