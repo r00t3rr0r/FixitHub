@@ -173,6 +173,25 @@ router.post('/models/backfill-service-links', requireUser, requireRole(['admin']
   }
 });
 
+// Merge existing duplicate models and relink repair services (admin only)
+router.post('/models/merge-duplicates', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await DeviceService.mergeDuplicateModels(req.body || {});
+
+    res.json({
+      success: true,
+      message: 'Duplicate model merge completed',
+      result,
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error merging duplicate models:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Get model by ID
 router.get('/models/:id', async (req, res) => {
   try {

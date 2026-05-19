@@ -2727,6 +2727,9 @@ export function DeviceManagement() {
                           {item.status === 'updated' && item.apiMatchName && item.apiMatchName !== item.modelName && (
                             <span className="text-muted-foreground ml-1">→ API: {item.apiMatchName} ({item.certainty?.toFixed(0)}%)</span>
                           )}
+                          {item.status === 'updated' && item.mergedIntoExisting && (
+                            <span className="text-blue-600 ml-1">→ zusammengeführt: {item.mergedIntoModelName || item.apiMatchName || 'bestehendes Modell'}</span>
+                          )}
                           {item.status === 'updated' && (item.servicesUpdated > 0) && (
                             <span className="text-green-600 ml-1">+{item.servicesUpdated} Services</span>
                           )}
@@ -2750,6 +2753,7 @@ export function DeviceManagement() {
                   <CardContent className="grid gap-2 sm:grid-cols-3 text-sm">
                     <p>Verarbeitet: <strong>{updateResult.total || 0}</strong></p>
                     <p>Aktualisiert: <strong>{updateResult.updated || 0}</strong></p>
+                    <p>Zusammengeführt: <strong>{(updateResult.results || []).filter((r: any) => r.mergedIntoExisting).length}</strong></p>
                     <p>Ohne Treffer: <strong>{updateResult.noMatch || 0}</strong></p>
                     <p>Fehler: <strong>{updateResult.failed || 0}</strong></p>
                     <p>Übersprungen: <strong>{(updateResult.results || []).filter((r: any) => r.status === 'skipped').length}</strong></p>

@@ -149,6 +149,40 @@ const toNonEmptyString = (value) => {
   return normalized;
 };
 
+const TRAILING_COLOR_TOKENS = new Set([
+  'black', 'white', 'blue', 'green', 'red', 'yellow', 'gold', 'silver', 'gray', 'grey',
+  'pink', 'purple', 'violet', 'orange', 'beige', 'brown', 'midnight', 'starlight', 'natural',
+  'schwarz', 'weiss', 'weiß', 'blau', 'gruen', 'grün', 'rot', 'gelb', 'gold', 'silber',
+  'grau', 'rosa', 'lila', 'orange', 'beige', 'braun', 'mitternacht', 'polarstern', 'natur',
+]);
+
+const normalizeMobileApiModelName = (apiName, fallbackName = '') => {
+  const source = toNonEmptyString(apiName) || toNonEmptyString(fallbackName);
+  if (!source) {
+    return '';
+  }
+
+  const parts = source
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+
+  if (parts.length <= 2) {
+    return source;
+  }
+
+  const trailing = String(parts[parts.length - 1] || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9äöüß]/g, '');
+
+  if (TRAILING_COLOR_TOKENS.has(trailing)) {
+    return parts.slice(0, -1).join(' ');
+  }
+
+  return source;
+};
+
 const splitCommaList = (value) =>
   String(value || '')
     .split(',')
@@ -955,6 +989,24 @@ class DeviceService {
     return scored[0]?.candidate || null;
   }
 
+  static async findExistingModelByIdentity({ excludeModelId, name, brandId, deviceType }) {
+    const normalizedName = String(name || '').trim();
+    const normalizedType = String(deviceType || '').trim();
+    const modelRegex = DeviceService.buildExactRegex(normalizedName);
+
+    if (!modelRegex || !brandId || !normalizedType) {
+      return null;
+    }
+
+    return DeviceModel.findOne({
+      _id: { $ne: excludeModelId },
+      isActive: true,
+      brandId,
+      deviceType: normalizedType,
+      name: modelRegex,
+    }).populate('brandId', 'name');
+  }
+
   static async buildMobileApiModelUpdate(model, mobileApiDevice, resolvedBrandId, resolvedDeviceType) {
     const modelPlain = typeof model.toObject === 'function' ? model.toObject() : model;
 
@@ -966,7 +1018,7 @@ class DeviceService {
       (typeof modelPlain.brandId === 'object' && modelPlain.brandId?.name)
         ? String(modelPlain.brandId.name)
         : '';
-    const modelName = toNonEmptyString(modelPlain.name) || toNonEmptyString(mobileApiDevice.name) || 'device';
+    const modelName = normalizeMobileApiModelName(mobileApiDevice.name, modelPlain.name) || 'device';
     const imageB64 = toNonEmptyString(mobileApiDevice.image_b64);
     const imageUrl = toNonEmptyString(mobileApiDevice.image_url);
 
@@ -993,7 +1045,7 @@ class DeviceService {
       mobileApiUpdatedAt: new Date(),
       mobileApiMatchId: Number(mobileApiDevice.id) || undefined,
       mobileApiLastStatus: 'updated',
-      name: toNonEmptyString(modelPlain.name),
+      name: normalizeMobileApiModelName(mobileApiDevice.name, modelPlain.name),
       brandId: resolvedBrandId || modelPlain.brandId,
       deviceType: resolvedDeviceType || modelPlain.deviceType,
       image: imageFromApi,
@@ -1263,6 +1315,77 @@ class DeviceService {
             const previousBrandName = currentBrandName;
             const previousDeviceType = String(model.deviceType || '').trim();
 
+            const duplicateModel = await DeviceService.findExistingModelByIdentity({
+              excludeModelId: model._id,
+              name: updateData.name,
+              brandId: updateData.brandId,
+              deviceType: updateData.deviceType,
+            });
+
+            // If the Mobile API name points to a model that already exists, merge into that
+            // existing model to avoid duplicate devices and relink service associations.
+            if (duplicateModel) {
+              const mergedTarget = await DeviceModel.findByIdAndUpdate(
+                duplicateModel._id,
+                {
+                  $set: {
+                    ...updateData,
+                    // Keep canonical identity from the existing model document.
+                    name: String(duplicateModel.name || updateData.name || '').trim(),
+                    brandId: duplicateModel.brandId?._id || duplicateModel.brandId || updateData.brandId,
+                    deviceType: String(duplicateModel.deviceType || updateData.deviceType || '').trim(),
+                    mobileApiLastStatus: 'updated',
+                    mobileApiUpdatedAt: new Date(),
+                  },
+                },
+                { new: true, runValidators: true }
+              ).populate('brandId', 'name');
+
+              await DeviceModel.updateOne(
+                { _id: model._id },
+                {
+                  $set: {
+                    mobileApiLastStatus: 'merged_into_existing',
+                    mobileApiUpdatedAt: new Date(),
+                    isActive: false,
+                  },
+                }
+              );
+
+              const nextModelNameMerged = String(mergedTarget?.name || updateData.name || '').trim();
+              const nextBrandNameMerged = String(mergedTarget?.brandId?.name || previousBrandName || '').trim();
+              const nextDeviceTypeMerged = String(mergedTarget?.deviceType || previousDeviceType || '').trim();
+
+              const cascadeResultMerged = await DeviceService.cascadeServiceModelInfoUpdate({
+                previousModelName,
+                nextModelName: nextModelNameMerged,
+                previousBrandName,
+                nextBrandName: nextBrandNameMerged,
+                previousDeviceType,
+                nextDeviceType: nextDeviceTypeMerged,
+                forcePreciseFields: true,
+              });
+
+              servicesModified += Number(cascadeResultMerged.modifiedCount || 0);
+              updated += 1;
+
+              const resultEntry = {
+                modelId: String(model._id),
+                modelName,
+                status: 'updated',
+                mergedIntoExisting: true,
+                mergedIntoModelId: String(duplicateModel._id),
+                mergedIntoModelName: nextModelNameMerged,
+                matchedMobileApiId: Number(bestMatch.id) || null,
+                apiMatchName: String(bestMatch.name || '').trim(),
+                certainty: Number.parseFloat(String(bestMatch.match_certainty || '0').replace('%', '')) || 0,
+                servicesUpdated: Number(cascadeResultMerged.modifiedCount || 0),
+              };
+              results.push(resultEntry);
+              if (onProgress) onProgress('modelResult', resultEntry);
+              continue;
+            }
+
             const updatedModel = await DeviceModel.findByIdAndUpdate(
               model._id,
               { $set: updateData },
@@ -1453,6 +1576,143 @@ class DeviceService {
       };
     } catch (error) {
       console.error('DeviceService: Error during service-link backfill:', error);
+      throw error;
+    }
+  }
+
+  static async mergeDuplicateModels(options = {}) {
+    try {
+      const limitGroups = Math.max(0, Number(options.limitGroups) || 0);
+      const selectedDeviceTypes = Array.isArray(options.deviceTypes) ? options.deviceTypes.filter(Boolean) : [];
+      const selectedBrandIds = Array.isArray(options.brandIds) ? options.brandIds.filter(Boolean) : [];
+      const dryRun = Boolean(options.dryRun);
+
+      const query = { isActive: true };
+      if (selectedDeviceTypes.length > 0) {
+        query.deviceType = { $in: selectedDeviceTypes };
+      }
+      if (selectedBrandIds.length > 0) {
+        query.brandId = { $in: selectedBrandIds };
+      }
+
+      const models = await DeviceModel.find(query)
+        .populate('brandId', 'name')
+        .sort({ createdAt: 1, updatedAt: 1, name: 1 });
+
+      const grouped = new Map();
+      for (const model of models) {
+        const brandId = String(model?.brandId?._id || model?.brandId || '').trim();
+        const normalizedType = String(model?.deviceType || '').trim().toLowerCase();
+        const normalizedName = toComparable(normalizeMobileApiModelName(model?.name || ''));
+        if (!brandId || !normalizedType || !normalizedName) {
+          continue;
+        }
+
+        const key = `${brandId}|${normalizedType}|${normalizedName}`;
+        if (!grouped.has(key)) {
+          grouped.set(key, []);
+        }
+        grouped.get(key).push(model);
+      }
+
+      const duplicateGroups = Array.from(grouped.values()).filter((group) => group.length > 1);
+      const targetGroups = limitGroups > 0 ? duplicateGroups.slice(0, limitGroups) : duplicateGroups;
+
+      const summary = {
+        scannedModels: models.length,
+        duplicateGroupsFound: duplicateGroups.length,
+        groupsProcessed: 0,
+        duplicatesMerged: 0,
+        servicesModified: 0,
+        dryRun,
+        results: [],
+      };
+
+      for (const group of targetGroups) {
+        const canonical = group[0];
+        const duplicates = group.slice(1);
+
+        const canonicalName = String(canonical?.name || '').trim();
+        const canonicalBrandName = String(canonical?.brandId?.name || '').trim();
+        const canonicalType = String(canonical?.deviceType || '').trim();
+
+        let groupServicesModified = 0;
+        const mergedModelIds = [];
+
+        for (const duplicate of duplicates) {
+          const duplicateId = String(duplicate._id);
+          const duplicateName = String(duplicate?.name || '').trim();
+          const duplicateBrandName = String(duplicate?.brandId?.name || '').trim();
+          const duplicateType = String(duplicate?.deviceType || '').trim();
+
+          if (!dryRun) {
+            const cascadeResult = await DeviceService.cascadeServiceModelInfoUpdate({
+              previousModelName: duplicateName,
+              nextModelName: canonicalName,
+              previousBrandName: duplicateBrandName,
+              nextBrandName: canonicalBrandName,
+              previousDeviceType: duplicateType,
+              nextDeviceType: canonicalType,
+              forcePreciseFields: true,
+            });
+
+            groupServicesModified += Number(cascadeResult.modifiedCount || 0);
+
+            const mergedModelNumbers = Array.from(
+              new Set([...(canonical.modelNumbers || []), ...(duplicate.modelNumbers || [])].filter(Boolean))
+            );
+            const mergedSynonyms = Array.from(
+              new Set([...(canonical.synonyms || []), ...(duplicate.synonyms || [])].filter(Boolean))
+            );
+            const mergedProblems = Array.from(
+              new Set([...(canonical.commonProblems || []), ...(duplicate.commonProblems || [])].filter(Boolean))
+            );
+
+            await DeviceModel.updateOne(
+              { _id: canonical._id },
+              {
+                $set: {
+                  modelNumbers: mergedModelNumbers,
+                  synonyms: mergedSynonyms,
+                  commonProblems: mergedProblems,
+                  mobileApiUpdatedAt: new Date(),
+                },
+              }
+            );
+
+            await DeviceModel.updateOne(
+              { _id: duplicate._id },
+              {
+                $set: {
+                  isActive: false,
+                  mobileApiLastStatus: 'merged_duplicate_cleanup',
+                  mobileApiUpdatedAt: new Date(),
+                  mergedIntoModelId: canonical._id,
+                },
+              }
+            );
+          }
+
+          mergedModelIds.push(duplicateId);
+          summary.duplicatesMerged += 1;
+        }
+
+        summary.servicesModified += groupServicesModified;
+        summary.groupsProcessed += 1;
+        summary.results.push({
+          canonicalModelId: String(canonical._id),
+          canonicalModelName: canonicalName,
+          brandName: canonicalBrandName,
+          deviceType: canonicalType,
+          mergedModelIds,
+          mergedCount: duplicates.length,
+          servicesUpdated: groupServicesModified,
+        });
+      }
+
+      return summary;
+    } catch (error) {
+      console.error('DeviceService: Error merging duplicate models:', error);
       throw error;
     }
   }

@@ -865,6 +865,27 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     return modelNumbers.length > 0 ? `${model.name} ${modelNumbers.join(' ')}` : model.name;
   };
 
+  const prepareModelSearchForEditing = () => {
+    if (!selectedModel) {
+      return;
+    }
+
+    const selectedPrefill = getModelSearchPrefill(selectedModel);
+    if (normalizeSearchText(modelSearchQuery) === normalizeSearchText(selectedPrefill)) {
+      setModelSearchQuery(selectedModel.name);
+    }
+  };
+
+  const handleModelInputFocus = () => {
+    prepareModelSearchForEditing();
+    setShowModelDropdown(true);
+  };
+
+  const handleActivateMobileSearch = () => {
+    prepareModelSearchForEditing();
+    setIsMobileSearchActive(true);
+  };
+
   // Handle model selection
   // Erweiterte Model-Auswahl mit Bild- und Specs-Check
   const handleModelSelect = async (model: DeviceModel) => {
@@ -1730,7 +1751,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
                           value={modelSearchQuery}
                           onChange={(e) => setModelSearchQuery(e.target.value)}
-                          onFocus={() => setShowModelDropdown(true)}
+                          onFocus={handleModelInputFocus}
                           autoComplete="off"
                           inputMode="search"
                           disabled={!selectedBrand || loadingModels}
@@ -3173,7 +3194,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             {/* Toggle Search Button */}
             {!isMobileSearchActive && (
               <button 
-                onClick={() => setIsMobileSearchActive(true)}
+                onClick={handleActivateMobileSearch}
                 className="mobile-search-toggle-btn"
               >
                 <Search className="w-4 h-4" />

@@ -14,6 +14,7 @@
     "seed:marketing-promo": "node scripts/seed-marketing-promo.js",
     "seed:german:workflows": "node scripts/seed-german-workflows.js",
     "reset-db": "node scripts/reset-database.js",
+    "merge-duplicate-models": "node scripts/merge-duplicate-device-models.js",
     "verify-admin": "node scripts/verify-admin.js",
     "test-login": "node scripts/test-login.js"
   },
