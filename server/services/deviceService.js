@@ -734,6 +734,7 @@ class DeviceService {
     nextBrandName,
     previousDeviceType,
     nextDeviceType,
+    forcePreciseFields = false,
   }) {
     const modelRegex = DeviceService.buildExactRegex(previousModelName);
     if (!modelRegex) {
@@ -756,23 +757,39 @@ class DeviceService {
       $pull: {},
     };
 
-    if (nextModelName && String(nextModelName).trim() !== String(previousModelName || '').trim()) {
-      update.$set.model = String(nextModelName).trim();
-      update.$set.modelPrecise = String(nextModelName).trim();
+    const normalizedNextModelName = String(nextModelName || '').trim();
+    const normalizedPreviousModelName = String(previousModelName || '').trim();
+    const normalizedNextBrandName = String(nextBrandName || '').trim();
+    const normalizedPreviousBrandName = String(previousBrandName || '').trim();
+    const normalizedNextDeviceType = String(nextDeviceType || '').trim();
+    const normalizedPreviousDeviceType = String(previousDeviceType || '').trim();
+
+    if (
+      normalizedNextModelName &&
+      (forcePreciseFields || normalizedNextModelName !== normalizedPreviousModelName)
+    ) {
+      update.$set.model = normalizedNextModelName;
+      update.$set.modelPrecise = normalizedNextModelName;
     }
 
-    if (nextBrandName && String(nextBrandName).trim() !== String(previousBrandName || '').trim()) {
-      update.$set.manufacturer = String(nextBrandName).trim();
-      update.$set.manufacturerPrecise = String(nextBrandName).trim();
+    if (
+      normalizedNextBrandName &&
+      (forcePreciseFields || normalizedNextBrandName !== normalizedPreviousBrandName)
+    ) {
+      update.$set.manufacturer = normalizedNextBrandName;
+      update.$set.manufacturerPrecise = normalizedNextBrandName;
     }
 
-    if (nextDeviceType && String(nextDeviceType).trim() !== String(previousDeviceType || '').trim()) {
-      update.$set.deviceType = String(nextDeviceType).trim();
-      update.$addToSet.deviceTypes = String(nextDeviceType).trim();
-      update.$addToSet.supportedDeviceTypes = String(nextDeviceType).trim();
-      if (previousDeviceType) {
-        update.$pull.deviceTypes = String(previousDeviceType).trim();
-        update.$pull.supportedDeviceTypes = String(previousDeviceType).trim();
+    if (
+      normalizedNextDeviceType &&
+      (forcePreciseFields || normalizedNextDeviceType !== normalizedPreviousDeviceType)
+    ) {
+      update.$set.deviceType = normalizedNextDeviceType;
+      update.$addToSet.deviceTypes = normalizedNextDeviceType;
+      update.$addToSet.supportedDeviceTypes = normalizedNextDeviceType;
+      if (normalizedPreviousDeviceType && normalizedPreviousDeviceType !== normalizedNextDeviceType) {
+        update.$pull.deviceTypes = normalizedPreviousDeviceType;
+        update.$pull.supportedDeviceTypes = normalizedPreviousDeviceType;
       }
     }
 
@@ -1202,6 +1219,7 @@ class DeviceService {
               nextBrandName,
               previousDeviceType,
               nextDeviceType,
+              forcePreciseFields: true,
             });
 
             servicesModified += Number(cascadeResult.modifiedCount || 0);
