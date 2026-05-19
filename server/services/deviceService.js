@@ -751,18 +751,64 @@ class DeviceService {
       serviceFilter.$and = [{ $or: [{ manufacturerPrecise: brandRegex }, { manufacturer: brandRegex }] }];
     }
 
-    const update = {
-      $set: {},
-      $addToSet: {},
-      $pull: {},
-    };
-
     const normalizedNextModelName = String(nextModelName || '').trim();
     const normalizedPreviousModelName = String(previousModelName || '').trim();
     const normalizedNextBrandName = String(nextBrandName || '').trim();
     const normalizedPreviousBrandName = String(previousBrandName || '').trim();
     const normalizedNextDeviceType = String(nextDeviceType || '').trim();
     const normalizedPreviousDeviceType = String(previousDeviceType || '').trim();
+
+    // Load DeviceType records so we can resolve display names.
+    // Services are queried by the repair configurator using DeviceType.name (display name,
+    // e.g. "Wearables"), NOT the slug key (e.g. "wearable"). Storing the display name in
+    // Service.deviceType / deviceTypes ensures the configurator can still find the service
+    // after the cascade runs.
+    let typeRecords = [];
+    try {
+      typeRecords = await DeviceType.find({ isActive: true }).lean();
+    } catch (_) { /* non-fatal – fall back to raw key values */ }
+
+    // Returns the display name stored in DeviceType for a given key or name.
+    // Falls back to the raw input if no record is found.
+    const resolveDisplayName = (typeKey) => {
+      const lower = String(typeKey || '').toLowerCase();
+      if (!lower) return typeKey;
+      const found = typeRecords.find(
+        (t) =>
+          String(t._id || '').toLowerCase() === lower ||
+          String(t.name || '').toLowerCase() === lower
+      );
+      return found ? String(found.name || found._id).trim() : String(typeKey).trim();
+    };
+
+    // Returns all known string variants (key + name, original + lowercase) for a given
+    // deviceType so $pull can remove whichever variant was previously stored.
+    const resolveTypeVariants = (typeKey) => {
+      const lower = String(typeKey || '').toLowerCase();
+      const variants = new Set();
+      if (!lower) return [];
+      variants.add(lower);
+      variants.add(String(typeKey || '').trim());
+      const found = typeRecords.find(
+        (t) =>
+          String(t._id || '').toLowerCase() === lower ||
+          String(t.name || '').toLowerCase() === lower
+      );
+      if (found) {
+        variants.add(String(found._id || '').trim());
+        variants.add(String(found.name || '').trim());
+        variants.add(String(found._id || '').toLowerCase());
+        variants.add(String(found.name || '').toLowerCase());
+      }
+      return [...variants].filter(Boolean);
+    };
+
+    const update = {
+      $set: {},
+      $addToSet: {},
+    };
+    // Pull conditions are arrays of variants; applied in a second updateMany call.
+    const pullVariants = { deviceTypes: [], supportedDeviceTypes: [] };
 
     if (
       normalizedNextModelName &&
@@ -784,12 +830,19 @@ class DeviceService {
       normalizedNextDeviceType &&
       (forcePreciseFields || normalizedNextDeviceType !== normalizedPreviousDeviceType)
     ) {
-      update.$set.deviceType = normalizedNextDeviceType;
-      update.$addToSet.deviceTypes = normalizedNextDeviceType;
-      update.$addToSet.supportedDeviceTypes = normalizedNextDeviceType;
+      // Store the display name so the repair configurator query (which sends the
+      // DeviceType display name) can find the service after the cascade.
+      const nextDisplayName = resolveDisplayName(normalizedNextDeviceType);
+      update.$set.deviceType = nextDisplayName;
+      update.$addToSet.deviceTypes = nextDisplayName;
+      update.$addToSet.supportedDeviceTypes = nextDisplayName;
+
       if (normalizedPreviousDeviceType && normalizedPreviousDeviceType !== normalizedNextDeviceType) {
-        update.$pull.deviceTypes = normalizedPreviousDeviceType;
-        update.$pull.supportedDeviceTypes = normalizedPreviousDeviceType;
+        // Pull ALL known variants of the previous type (key, display name, lowercase, …)
+        // so stale entries are removed regardless of how they were originally stored.
+        const prevVariants = resolveTypeVariants(normalizedPreviousDeviceType);
+        pullVariants.deviceTypes.push(...prevVariants);
+        pullVariants.supportedDeviceTypes.push(...prevVariants);
       }
     }
 
@@ -797,8 +850,9 @@ class DeviceService {
       return { matchedCount: 0, modifiedCount: 0 };
     }
 
-    const hasPull = Object.keys(update.$pull).length > 0;
     const hasAddToSet = Object.keys(update.$addToSet).length > 0;
+    const hasPull =
+      pullVariants.deviceTypes.length > 0 || pullVariants.supportedDeviceTypes.length > 0;
 
     // MongoDB does not allow $addToSet and $pull on the same path in one operation.
     // Apply $set + $addToSet first, then $pull in a separate operation.
@@ -810,7 +864,14 @@ class DeviceService {
     const result = await Service.updateMany(serviceFilter, firstOp);
 
     if (hasPull) {
-      await Service.updateMany(serviceFilter, { $pull: update.$pull });
+      const pullOp = {};
+      if (pullVariants.deviceTypes.length > 0) {
+        pullOp.deviceTypes = { $in: pullVariants.deviceTypes };
+      }
+      if (pullVariants.supportedDeviceTypes.length > 0) {
+        pullOp.supportedDeviceTypes = { $in: pullVariants.supportedDeviceTypes };
+      }
+      await Service.updateMany(serviceFilter, { $pull: pullOp });
     }
 
     return {
