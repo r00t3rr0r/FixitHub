@@ -7,15 +7,11 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { NavbarSearch } from '@/components/NavbarSearch';
 
 export function CustomerNavbar() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [logoLoaded, setLogoLoaded] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const hideSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Preload logo image for fade-in effect
   useEffect(() => {
@@ -28,29 +24,6 @@ export function CustomerNavbar() {
     img.onerror = () => {
       console.error('CustomerNavbar: Failed to load shop logo');
       setLogoLoaded(true); // Show placeholder if image fails
-    };
-  }, []);
-
-  // Handle mouse leave from search container to hide search field after delay
-  const handleMouseLeaveSearch = () => {
-    hideSearchTimeoutRef.current = setTimeout(() => {
-      setShowSearch(false);
-    }, 2000); // Hide after 2 seconds
-  };
-
-  const handleMouseEnterSearch = () => {
-    if (hideSearchTimeoutRef.current) {
-      clearTimeout(hideSearchTimeoutRef.current);
-    }
-    setShowSearch(true);
-  };
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hideSearchTimeoutRef.current) {
-        clearTimeout(hideSearchTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -113,8 +86,6 @@ export function CustomerNavbar() {
           <Link
             to="/shop"
             className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
-            onMouseEnter={handleMouseEnterSearch}
-            onMouseLeave={handleMouseLeaveSearch}
           >
             {t('home.nav.shop') || 'Shop'}
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
@@ -122,23 +93,9 @@ export function CustomerNavbar() {
         </nav>
 
         {/* Right side actions */}
-        <div
-          className="flex items-center gap-2"
-          ref={searchContainerRef}
-          onMouseEnter={handleMouseEnterSearch}
-          onMouseLeave={handleMouseLeaveSearch}
-        >
+        <div className="flex items-center gap-2">
           {/* Language Selector with hover effect */}
           <LanguageSelector />
-
-          {/* Shop Search - appears on hover for md+ screens */}
-          {showSearch && (
-            <div className="hidden md:block animate-in fade-in slide-in-from-right-2 duration-200">
-              <div className="w-64">
-                <NavbarSearch />
-              </div>
-            </div>
-          )}
 
           {/* Shopping Cart with item count and bounce animation */}
           <CartIcon />
@@ -167,11 +124,6 @@ export function CustomerNavbar() {
             </>
           )}
         </div>
-      </div>
-
-      {/* Mobile Search Bar - visible only on extremely small screens */}
-      <div className="md:hidden container mx-auto px-4 pb-3">
-        <NavbarSearch />
       </div>
     </header>
   );

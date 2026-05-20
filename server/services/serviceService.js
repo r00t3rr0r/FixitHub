@@ -69,12 +69,18 @@ class ServiceService {
         });
       }
 
-      // Filter by precise manufacturer (case-insensitive exact match)
+      // Filter by precise manufacturer (case-insensitive exact match).
+      // Also includes legacy services that only have `manufacturer` set (manufacturerPrecise is empty)
+      // so that services created before the manufacturerPrecise field was introduced still appear.
       if (filters.manufacturerPrecise) {
-        query.manufacturerPrecise = new RegExp(
-          `^${String(filters.manufacturerPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-          'i'
-        );
+        const escapedMfr = String(filters.manufacturerPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const manufacturerRegex = new RegExp(`^${escapedMfr}$`, 'i');
+        andConditions.push({
+          $or: [
+            { manufacturerPrecise: manufacturerRegex },
+            { manufacturerPrecise: { $in: ['', null] }, manufacturer: manufacturerRegex },
+          ],
+        });
       }
 
       // Filter by precise model. When set, return services that match this model
