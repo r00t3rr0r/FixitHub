@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RepairOrderConfigurator } from './RepairOrderConfigurator';
 
@@ -15,16 +14,6 @@ export function DeviceSelectionHero({
   subtitle
 }: DeviceSelectionHeroProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [bookingNumber, setBookingNumber] = useState('');
-  const [trackEmail, setTrackEmail] = useState('');
-
-  const handleTrackBooking = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (bookingNumber.trim() && trackEmail.trim()) {
-      navigate(`/track-order/booking?bookingNumber=${encodeURIComponent(bookingNumber.trim())}&email=${encodeURIComponent(trackEmail.trim())}`);
-    }
-  };
 
   return (
     <section className="hero" id="hero">
@@ -82,31 +71,6 @@ export function DeviceSelectionHero({
               </Link>
             </div>
 
-            {/* Booking Tracker Bar */}
-            <form className="hero-tracking-bar" onSubmit={handleTrackBooking}>
-              <div className="hero-tracking-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                className="hero-tracking-input"
-                placeholder={t('home.hero.trackingBookingPlaceholder')}
-                value={bookingNumber}
-                onChange={(e) => setBookingNumber(e.target.value)}
-              />
-              <input
-                type="email"
-                className="hero-tracking-input"
-                placeholder={t('home.hero.trackingEmailPlaceholder')}
-                value={trackEmail}
-                onChange={(e) => setTrackEmail(e.target.value)}
-              />
-              <button type="submit" className="hero-tracking-btn" disabled={!bookingNumber.trim() || !trackEmail.trim()}>
-                {t('home.hero.trackingButton')}
-              </button>
-            </form>
           </div>
 
           {/* Right Column: Repair Order Configurator with all 5 steps */}
