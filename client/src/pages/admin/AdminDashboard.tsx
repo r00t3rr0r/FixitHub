@@ -8,24 +8,40 @@ import { useToast } from "@/hooks/useToast"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
+  getAllComplaints,
+  type Complaint,
+} from "@/api/complaints"
+import {
+  getFinancialReports,
+  getInvoices,
+  getPayments,
+} from "@/api/financial"
+import {
+  getEPartOrders,
+} from "@/api/epartOrders"
+import {
   Activity,
   AlertCircle,
+  BadgeDollarSign,
   ArrowRight,
   BarChart3,
   Bell,
   Calendar,
   CheckCircle2,
+  ClipboardList,
   Download,
   FileText,
   HardDrive,
   MessageCircle,
   Package,
   RefreshCw,
+  ShoppingCart,
   Settings,
   Timer,
   TrendingUp,
   UserCheck,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react"
 import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
@@ -46,6 +62,27 @@ type SectionCounts = {
   assignedOrders: number
 }
 
+type DashboardOperations = {
+  complaints: {
+    openCount: number
+    approvalQueueCount: number
+    urgentCount: number
+    items: Complaint[]
+  }
+  financial: {
+    openInvoices: number
+    overdueInvoices: number
+    pendingPayments: number
+    periodRevenue: number
+  }
+  epartOrders: {
+    openCount: number
+    pendingCount: number
+    delayedCount: number
+    items: any[]
+  }
+}
+
 interface DashboardData {
   bookings: any[]
   repairRequests: any[]
@@ -56,6 +93,27 @@ interface DashboardData {
   systemOverview: Record<string, any>
   notificationMeta: NotificationMeta
   sectionCounts: SectionCounts
+}
+
+const FALLBACK_OPERATIONS: DashboardOperations = {
+  complaints: {
+    openCount: 0,
+    approvalQueueCount: 0,
+    urgentCount: 0,
+    items: [],
+  },
+  financial: {
+    openInvoices: 0,
+    overdueInvoices: 0,
+    pendingPayments: 0,
+    periodRevenue: 0,
+  },
+  epartOrders: {
+    openCount: 0,
+    pendingCount: 0,
+    delayedCount: 0,
+    items: [],
+  },
 }
 
 const FALLBACK_DATA: DashboardData = {
@@ -127,20 +185,31 @@ export function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData>(FALLBACK_DATA)
+  const [operationsData, setOperationsData] = useState<DashboardOperations>(FALLBACK_OPERATIONS)
   const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([])
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0)
   const [openContactRequests, setOpenContactRequests] = useState<ContactMessage[]>([])
   const [unansweredContactCount, setUnansweredContactCount] = useState(0)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
   const fetchDashboardData = async (showToast = false) => {
     try {
       if (showToast) {
         setRefreshing(true)
-      } else {
+      } else if (!hasLoadedOnce) {
         setLoading(true)
       }
 
-      const [data, msgData, contactData] = await Promise.all([
+      const [
+        data,
+        msgData,
+        contactData,
+        complaintsData,
+        invoicesData,
+        paymentsData,
+        reportData,
+        epartData,
+      ] = await Promise.all([
         getDashboardSummary(),
         getCustomerMessages(15),
         getContactMessages({
@@ -148,6 +217,23 @@ export function AdminDashboard() {
           page: 1,
           sortBy: "createdAt",
           sortOrder: "desc",
+        }),
+        getAllComplaints({
+          limit: 20,
+          skip: 0,
+        }),
+        getInvoices({
+          limit: 50,
+          page: 1,
+        }),
+        getPayments({
+          limit: 50,
+          page: 1,
+        }),
+        getFinancialReports({ period: "month" }),
+        getEPartOrders({
+          limit: 20,
+          page: 1,
         }),
       ])
       setCustomerMessages(msgData.messages)
@@ -183,7 +269,43 @@ export function AdminDashboard() {
       }
 
       setDashboardData(processedData)
+
+      const complaintItems = Array.isArray(complaintsData?.complaints) ? complaintsData.complaints : []
+      const invoiceItems = Array.isArray(invoicesData?.invoices) ? invoicesData.invoices : []
+      const paymentItems = Array.isArray(paymentsData?.payments) ? paymentsData.payments : []
+      const epartItems = Array.isArray(epartData?.orders) ? epartData.orders : []
+
+      const openComplaintStatuses = new Set(["pending_approval", "approved", "acknowledged", "new_repair", "open", "in-progress", "pending-customer"])
+      const complaintUrgencySet = new Set(["high", "urgent"])
+      const now = Date.now()
+
+      setOperationsData({
+        complaints: {
+          openCount: complaintItems.filter((item: Complaint) => openComplaintStatuses.has(String(item?.status || "").toLowerCase())).length,
+          approvalQueueCount: complaintItems.filter((item: Complaint) => String(item?.status || "").toLowerCase() === "pending_approval").length,
+          urgentCount: complaintItems.filter((item: Complaint) => complaintUrgencySet.has(String(item?.priority || "").toLowerCase())).length,
+          items: complaintItems.slice(0, 5),
+        },
+        financial: {
+          openInvoices: invoiceItems.filter((item: any) => ["draft", "pending_approval", "sent", "viewed", "partially_paid", "overdue"].includes(String(item?.status || "").toLowerCase())).length,
+          overdueInvoices: invoiceItems.filter((item: any) => String(item?.status || "").toLowerCase() === "overdue").length,
+          pendingPayments: paymentItems.filter((item: any) => ["pending", "processing", "disputed"].includes(String(item?.status || "").toLowerCase())).length,
+          periodRevenue: Number(reportData?.report?.totalRevenue || 0),
+        },
+        epartOrders: {
+          openCount: epartItems.filter((item: any) => !["received", "cancelled"].includes(String(item?.status || "").toLowerCase())).length,
+          pendingCount: epartItems.filter((item: any) => ["draft", "pending", "confirmed"].includes(String(item?.status || "").toLowerCase())).length,
+          delayedCount: epartItems.filter((item: any) => {
+            const status = String(item?.status || "").toLowerCase()
+            const expectedTime = item?.expectedDeliveryDate ? new Date(item.expectedDeliveryDate).getTime() : NaN
+            return !["received", "cancelled"].includes(status) && Number.isFinite(expectedTime) && expectedTime < now
+          }).length,
+          items: epartItems.slice(0, 5),
+        },
+      })
+
       setLastUpdatedAt(new Date())
+      setHasLoadedOnce(true)
 
       if (showToast) {
         toast({
@@ -207,10 +329,27 @@ export function AdminDashboard() {
     fetchDashboardData()
 
     const interval = setInterval(() => {
-      fetchDashboardData()
-    }, 15000)
+      if (document.visibilityState === "visible") {
+        fetchDashboardData()
+      }
+    }, 5000)
 
-    return () => clearInterval(interval)
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        fetchDashboardData()
+      }
+    }
+
+    window.addEventListener("focus", refreshOnFocus)
+    window.addEventListener("online", refreshOnFocus)
+    document.addEventListener("visibilitychange", refreshOnFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("focus", refreshOnFocus)
+      window.removeEventListener("online", refreshOnFocus)
+      document.removeEventListener("visibilitychange", refreshOnFocus)
+    }
   }, [])
 
   const systemOverview = dashboardData.systemOverview
@@ -441,7 +580,12 @@ export function AdminDashboard() {
                     : request.deviceType || "Unknown device"
 
                   return (
-                    <div key={request._id || request.requestNumber} className="compact-list-item">
+                    <button
+                      key={request._id || request.requestNumber}
+                      type="button"
+                      className="compact-list-item compact-list-item-button"
+                      onClick={() => navigate(`/admin/repair-requests?tab=repair-requests&requestId=${request._id}`)}
+                    >
                       <div>
                         <p className="compact-title">{customerName}</p>
                         <p className="compact-sub">{device}</p>
@@ -450,7 +594,7 @@ export function AdminDashboard() {
                         <Badge variant="outline" className="compact-badge">{String(request.status || "pending")}</Badge>
                         <small>{timeAgo(request.createdAt)}</small>
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -679,6 +823,98 @@ export function AdminDashboard() {
         </Card>
       </div>
 
+      <div className="compact-ops-grid">
+        <Card className="compact-panel">
+          <CardHeader className="compact-panel-header">
+            <CardTitle>
+              <ClipboardList className="h-4 w-4" />
+              Reklamationen
+            </CardTitle>
+            <CardDescription>{operationsData.complaints.openCount} offen</CardDescription>
+          </CardHeader>
+          <CardContent className="compact-panel-content">
+            <div className="compact-kpi-grid compact-kpi-grid--3">
+              <div>
+                <p>Freigaben</p>
+                <h4>{operationsData.complaints.approvalQueueCount}</h4>
+              </div>
+              <div>
+                <p>Dringend</p>
+                <h4>{operationsData.complaints.urgentCount}</h4>
+              </div>
+              <div>
+                <p>Offen gesamt</p>
+                <h4>{operationsData.complaints.openCount}</h4>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/complaints")}>
+              Zur Reklamationsverwaltung
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="compact-panel">
+          <CardHeader className="compact-panel-header">
+            <CardTitle>
+              <Wallet className="h-4 w-4" />
+              Finanzverwaltung
+            </CardTitle>
+            <CardDescription>{toCurrency(operationsData.financial.periodRevenue)} Umsatz</CardDescription>
+          </CardHeader>
+          <CardContent className="compact-panel-content">
+            <div className="compact-kpi-grid compact-kpi-grid--3">
+              <div>
+                <p>Offene Rechnungen</p>
+                <h4>{operationsData.financial.openInvoices}</h4>
+              </div>
+              <div>
+                <p>Ueberfaellig</p>
+                <h4>{operationsData.financial.overdueInvoices}</h4>
+              </div>
+              <div>
+                <p>Zahlungen offen</p>
+                <h4>{operationsData.financial.pendingPayments}</h4>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/financial")}>
+              Zur Finanzverwaltung
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="compact-panel">
+          <CardHeader className="compact-panel-header">
+            <CardTitle>
+              <ShoppingCart className="h-4 w-4" />
+              Epart Bestellungen
+            </CardTitle>
+            <CardDescription>{operationsData.epartOrders.openCount} aktiv</CardDescription>
+          </CardHeader>
+          <CardContent className="compact-panel-content">
+            <div className="compact-kpi-grid compact-kpi-grid--3">
+              <div>
+                <p>Ausstehend</p>
+                <h4>{operationsData.epartOrders.pendingCount}</h4>
+              </div>
+              <div>
+                <p>Verspaetet</p>
+                <h4>{operationsData.epartOrders.delayedCount}</h4>
+              </div>
+              <div>
+                <p>Offen gesamt</p>
+                <h4>{operationsData.epartOrders.openCount}</h4>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/epart-orders")}>
+              Zu Epart Bestellungen
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="compact-summary-grid">
         <Card className="compact-panel">
           <CardHeader className="compact-panel-header">
@@ -738,15 +974,22 @@ export function AdminDashboard() {
           <CardHeader className="compact-panel-header">
             <CardTitle>
               <Settings className="h-4 w-4" />
-              {t('adminDashboard.quickActions')}
+              Zentrale Schnellnavigation
             </CardTitle>
           </CardHeader>
           <CardContent className="compact-action-grid">
             <Button size="sm" variant="outline" onClick={() => navigate("/admin/bookings")}><Calendar className="h-3.5 w-3.5" /> {t('navigation.bookings')}</Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/admin/orders")}><Package className="h-3.5 w-3.5" /> {t('navigation.orders')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/repair-requests")}><Wrench className="h-3.5 w-3.5" /> Reparaturanfragen</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/complaints")}><ClipboardList className="h-3.5 w-3.5" /> Reklamationen</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/financial")}><BadgeDollarSign className="h-3.5 w-3.5" /> Finanzen</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/epart-orders")}><ShoppingCart className="h-3.5 w-3.5" /> Epart Orders</Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/admin/users")}><Users className="h-3.5 w-3.5" /> {t('adminDashboard.users')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/customer-groups")}><Users className="h-3.5 w-3.5" /> Kundengruppen</Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/admin/analytics")}><BarChart3 className="h-3.5 w-3.5" /> {t('analyticsPage.title')}</Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/admin/staff")}><FileText className="h-3.5 w-3.5" /> {t('adminDashboard.team')}</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/live-tracking")}><Activity className="h-3.5 w-3.5" /> Live Tracking</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/admin/workflow")}><Timer className="h-3.5 w-3.5" /> Workflow</Button>
             <Button size="sm" variant="outline" onClick={() => navigate("/notifications")}><CheckCircle2 className="h-3.5 w-3.5" /> {t('adminDashboard.notices')}</Button>
           </CardContent>
         </Card>
