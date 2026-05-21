@@ -714,10 +714,9 @@
   text-align: left !important;
 }
 
-.mcrepair-dialog-header > *,
 .mcrepair-dialog-title,
 .mcrepair-dialog-header [class*="title"] {
-  color: var(--white) !important;
+  color: var(--accent-yellow) !important;
   font-size: 0.88rem !important;
   font-weight: 700 !important;
   margin-bottom: 1px;
