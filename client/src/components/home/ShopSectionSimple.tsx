@@ -281,7 +281,7 @@ export function ShopSection() {
                         {quickViewSavings > 0 && (
                           <Badge className="border-0 bg-[#fff4cc] px-3 py-1 text-[11px] font-semibold text-[#8b5e00] shadow-none">
                             <Sparkles className="mr-1 h-3.5 w-3.5" />
-                            {quickViewSavings.toFixed(2)} € sparen
+                            {formatPrice(quickViewSavings)} sparen
                           </Badge>
                         )}
                       </div>
@@ -354,11 +354,11 @@ export function ShopSection() {
                             <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Aktueller Preis</p>
                             <div className="mt-1 flex items-end gap-2">
                               <span className="text-3xl font-bold tracking-tight text-[#1a2a5e]">
-                                {selectedPrice.toFixed(2)} €
+                                {formatPrice(selectedPrice)}
                               </span>
                               {typeof selectedOriginalPrice === 'number' && (
                                 <span className="pb-1 text-sm font-medium text-[#8a94a6] line-through">
-                                  {selectedOriginalPrice.toFixed(2)} €
+                                  {formatPrice(selectedOriginalPrice)}
                                 </span>
                               )}
                             </div>

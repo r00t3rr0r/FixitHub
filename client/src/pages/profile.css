@@ -21,6 +21,7 @@
   padding: 32px;
   margin-bottom: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-top: 4px solid #f5b800;
 }
 
 .profile-header-content {
@@ -101,7 +102,7 @@
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 12px;
-  color: #ffffff;
+  color: #f5b800;
   letter-spacing: -0.025em;
 }
 
@@ -147,6 +148,22 @@
   .profile-member-since {
     justify-content: flex-start;
   }
+}
+
+/* Role Badge */
+.profile-role-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(245, 184, 0, 0.15);
+  color: #f5b800;
+  border: 1px solid rgba(245, 184, 0, 0.4);
+  border-radius: 100px;
+  padding: 3px 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
 }
 
 /* Statistics Cards */

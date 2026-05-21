@@ -102,216 +102,213 @@ export function RepairOrderDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-12px)] sm:max-w-3xl max-h-[92dvh] gap-0 overflow-hidden border-0 bg-white p-0 shadow-2xl [&>button]:text-[#f5b800] [&>button]:opacity-100 [&>button:hover]:text-[#f5b800]">
-        <DialogHeader className="gap-2 bg-[#1a2a5e] px-3 py-3 text-left sm:px-6 sm:py-5">
-          <div className="flex items-start justify-between gap-3 pr-7 sm:gap-4 sm:pr-8">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="border-0 bg-white/14 px-2 py-0.5 text-[11px] font-semibold text-white shadow-none">
-                  <Wrench className="mr-1 h-3 w-3" />
-                  Reparaturauftrag
-                </Badge>
-                {quantity > 1 && (
-                  <Badge className="border-0 bg-[#f5b800] px-2 py-0.5 text-[11px] font-bold text-[#1a2a5e] shadow-none">
-                    <Package className="mr-1 h-3 w-3" />
-                    {quantity} identische Aufträge
-                  </Badge>
-                )}
-              </div>
-              <DialogTitle className="text-sm font-bold tracking-tight sm:text-[1.35rem]" style={{ color: "#f5b800" }}>
-                {deviceLabel}
-              </DialogTitle>
-              <DialogDescription className="text-xs leading-5 text-blue-100 sm:text-sm">
-                Alle Angaben zum Reparaturauftrag in kompakter Übersicht.
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-
+      <DialogContent className="w-[calc(100vw-16px)] sm:max-w-5xl max-h-[92dvh] overflow-hidden border-0 bg-white p-0 gap-0 rounded-[20px] sm:rounded-[28px] shadow-[0_24px_80px_rgba(26,42,94,0.32)] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white/80 [&>button]:opacity-100 [&>button:hover]:text-white [&>button]:focus:ring-white/50 [&>button]:ring-offset-transparent">
         {order && (
-          <div className="max-h-[82dvh] overflow-y-auto px-2.5 py-2.5 sm:px-6 sm:py-5">
-            <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-              <div className="space-y-3">
-                <div className="overflow-hidden rounded-xl border border-[#d8dce6] bg-[#eef3fb]">
-                  {primaryImage ? (
-                    <img
-                      src={primaryImage}
-                      alt={deviceLabel}
-                      className="h-36 w-full bg-[#eef3fb] p-2.5 object-contain sm:h-44 sm:p-3"
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none"
-                        const placeholder = event.currentTarget.nextElementSibling as HTMLElement | null
-                        placeholder?.classList.remove("hidden")
-                      }}
-                    />
-                  ) : null}
-                  <div className={`${primaryImage ? "hidden" : "flex"} h-36 items-center justify-center sm:h-44`}>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1a2a5e] shadow-sm sm:h-20 sm:w-20">
-                      <Smartphone className="h-8 w-8 text-white sm:h-10 sm:w-10" />
+          <>
+            <DialogHeader className="gap-3 bg-gradient-to-r from-[#1a2a5e] via-[#22366f] to-[#2d4a8f] px-4 py-3 text-left sm:px-6 sm:py-4">
+              <div className="flex items-start justify-between gap-2 pr-8 w-full">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {primaryImage && (
+                    <div className="flex-shrink-0">
+                      <div className="overflow-hidden rounded-lg border border-white/20 bg-white/10 shadow-sm">
+                        <img
+                          src={primaryImage}
+                          alt={deviceLabel}
+                          className="h-16 w-16 object-contain p-1"
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none"
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge className="border-0 bg-white/14 px-2 py-0.5 text-[10px] font-semibold text-white shadow-none flex-shrink-0">
+                        <Wrench className="mr-0.5 h-3 w-3" />
+                        Reparaturauftrag
+                      </Badge>
+                      {quantity > 1 && (
+                        <Badge className="border-0 bg-[#f5b800] px-2 py-0.5 text-[10px] font-bold text-[#1a2a5e] shadow-none flex-shrink-0">
+                          {quantity}x
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <DialogTitle className="text-base font-bold tracking-tight !text-[#f5b800] sm:text-lg line-clamp-1">
+                        {deviceLabel}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs leading-5 text-blue-100/90 line-clamp-1">
+                        {[order.deviceType, order.deviceBrand, order.deviceModel].filter(Boolean).join(" • ")}
+                      </DialogDescription>
                     </div>
                   </div>
-                </div>
-
-                <div className="rounded-xl border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#636e85]">
-                      <CircleDollarSign className="h-3.5 w-3.5 text-[#1a2a5e]" />
-                      Gesamtpreis
-                    </span>
-                    <span className="text-lg font-bold text-[#1a2a5e]">
-                      {((order.totalCost || 0) * quantity).toFixed(2)} €
-                    </span>
-                  </div>
-                  {quantity > 1 && (
-                    <p className="mt-1 text-[11px] text-[#636e85]">
-                      {(order.totalCost || 0).toFixed(2)} € pro Auftrag
-                    </p>
-                  )}
                 </div>
               </div>
+            </DialogHeader>
 
-              <div className="space-y-4">
-                <section className="rounded-xl border border-[#d8dce6] bg-white">
-                  <div className="border-b border-[#d8dce6] bg-[#1a2a5e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-                    Gerätedaten
-                  </div>
-                  <div className="grid gap-2 px-3 py-3 sm:grid-cols-3">
-                    <div className="rounded-lg bg-[#f8f9fc] px-3 py-2">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#636e85]">Gerätetyp</p>
-                      <p className="mt-1 text-sm font-semibold text-[#1a2a5e]">{order.deviceType || "-"}</p>
+            <div className="max-h-[calc(92dvh-120px)] overflow-y-auto bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
+              <div className="grid gap-3 p-2 sm:p-4">
+                {/* Information */}
+                <div className="space-y-2">
+                  {/* Price and Status */}
+                  <section className="rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
+                    <div className="border-b border-[#e4e8f0] bg-[#f8f9fc] px-2 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Preis</p>
                     </div>
-                    <div className="rounded-lg bg-[#f8f9fc] px-3 py-2">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#636e85]">Marke</p>
-                      <p className="mt-1 text-sm font-semibold text-[#1a2a5e]">{order.deviceBrand || "-"}</p>
-                    </div>
-                    <div className="rounded-lg bg-[#f8f9fc] px-3 py-2">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#636e85]">Modell</p>
-                      <p className="mt-1 text-sm font-semibold text-[#1a2a5e]">{order.deviceModel || "-"}</p>
-                    </div>
-                  </div>
-                </section>
 
-                <section className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl border border-[#d8dce6] bg-white">
-                    <div className="border-b border-[#d8dce6] bg-[#1a2a5e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-                      Serviceleistungen
-                    </div>
-                    <div className="space-y-2 px-3 py-3">
-                      {serviceLabels.length > 0 ? (
-                        serviceLabels.map((service, index) => (
-                          <div key={`${service}-${index}`} className="flex items-start gap-2 rounded-lg bg-[#f8f9fc] px-3 py-2">
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#38a169]" />
-                            <span className="text-sm leading-5 text-[#1a2a5e]">{service}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-[#636e85]">Keine Services hinterlegt.</p>
+                    <div className="space-y-2 px-2 py-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[#63708a]">Gesamt</p>
+                          <span className="text-lg font-bold text-[#1a2a5e]">
+                            {((order.totalCost || 0) * quantity).toFixed(2)} €
+                          </span>
+                        </div>
+                        <Badge className="border-0 px-2 py-0.5 text-[8px] font-semibold shadow-none bg-[#e8f6ee] text-[#2f855a]">
+                          <CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />
+                          OK
+                        </Badge>
+                      </div>
+
+                      {quantity > 1 && (
+                        <div className="text-[11px] text-[#636e85] border-t border-[#e4e8f0] pt-1">
+                          <p>{(order.totalCost || 0).toFixed(2)} € × {quantity}</p>
+                        </div>
                       )}
-                    </div>
-                  </div>
 
-                  <div className="rounded-xl border border-[#d8dce6] bg-white">
-                    <div className="border-b border-[#d8dce6] bg-[#1a2a5e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-                      Extras
-                    </div>
-                    <div className="space-y-2 px-3 py-3">
-                      {addOnEntries.length > 0 ? (
-                        addOnEntries.map((addOn, index) => (
-                          <div key={`${addOn.name}-${index}`} className="rounded-lg bg-[#f8f9fc] px-3 py-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-                              <span className="flex items-center gap-2 text-xs font-semibold text-[#1a2a5e] sm:text-sm">
-                                <Zap className="h-4 w-4 text-[#f5b800]" />
-                                {addOn.name}
-                              </span>
-                              {addOn.price !== null && (
-                                <span className="text-xs font-semibold text-[#636e85]">+{addOn.price.toFixed(2)} €</span>
-                              )}
-                            </div>
-                            {addOn.description && (
-                              <p className="mt-1 text-xs leading-5 text-[#636e85]">{addOn.description}</p>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-[#636e85]">Keine Extras ausgewählt.</p>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                <section className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl border border-[#d8dce6] bg-white">
-                    <div className="border-b border-[#d8dce6] bg-[#1a2a5e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-                      Hinweise
-                    </div>
-                    <div className="space-y-3 px-3 py-3">
-                      <div className="rounded-lg bg-[#f8f9fc] px-3 py-2.5">
-                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#636e85]">
-                          <MessageSquareText className="h-3.5 w-3.5 text-[#1a2a5e]" />
-                          Kundennotiz
-                        </p>
-                        <p className="text-sm leading-5 text-[#1a2a5e]">
-                          {order.customerNotes?.trim() || "Keine zusätzlichen Hinweise angegeben."}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-[#f8f9fc] px-3 py-2.5">
-                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#636e85]">
-                          <Shield className="h-3.5 w-3.5 text-[#1a2a5e]" />
-                          Zusammenfassung
-                        </p>
-                        <p className="text-sm leading-5 text-[#1a2a5e]">
-                          {serviceLabels.length} Service{serviceLabels.length === 1 ? "" : "s"}
-                          {addOnEntries.length > 0 ? `, ${addOnEntries.length} Extra${addOnEntries.length === 1 ? "" : "s"}` : ""}
-                          {quantity > 1 ? `, ${quantity} Aufträge` : ""}
-                        </p>
+                      <div className="grid grid-cols-3 gap-1 text-[10px] border-t border-[#e4e8f0] pt-1">
+                        <div className="rounded-lg bg-[#f8f9fc] px-1.5 py-1">
+                          <p className="text-[8px] font-semibold text-[#63708a] uppercase">Typ</p>
+                          <p className="font-semibold text-[#1a2a5e] line-clamp-1">{order.deviceType || "-"}</p>
+                        </div>
+                        <div className="rounded-lg bg-[#f8f9fc] px-1.5 py-1">
+                          <p className="text-[8px] font-semibold text-[#63708a] uppercase">Marke</p>
+                          <p className="font-semibold text-[#1a2a5e] line-clamp-1">{order.deviceBrand || "-"}</p>
+                        </div>
+                        <div className="rounded-lg bg-[#f8f9fc] px-1.5 py-1">
+                          <p className="text-[8px] font-semibold text-[#63708a] uppercase">Modell</p>
+                          <p className="font-semibold text-[#1a2a5e] line-clamp-1">{order.deviceModel || "-"}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </section>
 
-                  <div className="rounded-xl border border-[#d8dce6] bg-white">
-                    <div className="border-b border-[#d8dce6] bg-[#1a2a5e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-                      Sperrbildschirm
-                    </div>
-                    <div className="px-3 py-3">
-                      <div className="rounded-lg bg-[#f8f9fc] px-3 py-2.5">
-                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#636e85]">
-                          <Lock className="h-3.5 w-3.5 text-[#1a2a5e]" />
-                          Entsperrinformation
-                        </p>
-                        <p className="break-all text-sm leading-5 text-[#1a2a5e]">{getUnlockValue(order)}</p>
+                  {/* Services */}
+                  {serviceLabels.length > 0 && (
+                    <section className="rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
+                      <div className="border-b border-[#e4e8f0] bg-[#f8f9fc] px-2 py-1.5">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Services ({serviceLabels.length})</p>
                       </div>
-                    </div>
-                  </div>
-                </section>
 
-                <section className="rounded-xl border border-[#d8dce6] bg-white">
-                  <div className="border-b border-[#d8dce6] bg-[#1a2a5e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
-                    Bilder
-                  </div>
-                  <div className="px-3 py-3">
-                    {order.photos && order.photos.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {order.photos.map((photo, index) => (
-                          <div key={`${photo}-${index}`} className="overflow-hidden rounded-lg border border-[#d8dce6] bg-[#eef3fb]">
-                            <img
-                              src={photo}
-                              alt={`${deviceLabel} Foto ${index + 1}`}
-                              className="h-24 w-full object-cover"
-                            />
+                      <div className="space-y-1 px-2 py-2">
+                        {serviceLabels.map((service, index) => (
+                          <div
+                            key={`${service}-${index}`}
+                            className="flex items-start gap-1.5 rounded-lg bg-[#f8f9fc] px-2 py-1"
+                          >
+                            <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-[#38a169]" />
+                            <span className="text-[11px] leading-4 text-[#1a2a5e]">{service}</span>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 rounded-lg bg-[#f8f9fc] px-3 py-3 text-sm text-[#636e85]">
-                        <Camera className="h-4 w-4 text-[#1a2a5e]" />
-                        Keine Bilder hinterlegt.
+                    </section>
+                  )}
+
+                  {/* Extras */}
+                  {addOnEntries.length > 0 && (
+                    <section className="rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
+                      <div className="border-b border-[#e4e8f0] bg-[#f8f9fc] px-2 py-1.5">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Extras ({addOnEntries.length})</p>
                       </div>
-                    )}
-                  </div>
-                </section>
+
+                      <div className="space-y-1 px-2 py-2">
+                        {addOnEntries.map((addOn, index) => (
+                          <div key={`${addOn.name}-${index}`} className="rounded-lg bg-[#f8f9fc] px-2 py-1">
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="flex items-start gap-1 flex-1 min-w-0">
+                                <Zap className="mt-0.5 h-3 w-3 shrink-0 text-[#f5b800]" />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-semibold text-[#1a2a5e] line-clamp-1">{addOn.name}</p>
+                                  {addOn.description && (
+                                    <p className="text-[9px] leading-3 text-[#636e85] line-clamp-1">{addOn.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {addOn.price !== null && (
+                                <span className="text-[10px] font-semibold text-[#636e85] flex-shrink-0">+{addOn.price.toFixed(2)} €</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Notes & Lock Info */}
+                  {(order.customerNotes?.trim() || getUnlockValue(order) !== "Keine Angabe") && (
+                    <section className="rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
+                      <div className="border-b border-[#e4e8f0] bg-[#f8f9fc] px-2 py-1.5">
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Hinweise</p>
+                      </div>
+
+                      <div className="space-y-1 px-2 py-2">
+                        {order.customerNotes?.trim() && (
+                          <div className="rounded-lg bg-[#f8f9fc] px-2 py-1">
+                            <p className="text-[9px] font-semibold text-[#63708a] uppercase flex items-center gap-1 mb-0.5">
+                              <MessageSquareText className="h-3 w-3 text-[#1a2a5e]" />
+                              Notiz
+                            </p>
+                            <p className="text-[10px] leading-4 text-[#1a2a5e] line-clamp-2">{order.customerNotes}</p>
+                          </div>
+                        )}
+
+                        {getUnlockValue(order) !== "Keine Angabe" && (
+                          <div className="rounded-lg bg-[#f8f9fc] px-2 py-1">
+                            <p className="text-[9px] font-semibold text-[#63708a] uppercase flex items-center gap-1 mb-0.5">
+                              <Lock className="h-3 w-3 text-[#1a2a5e]" />
+                              Lock
+                            </p>
+                            <p className="break-all text-[10px] leading-4 text-[#1a2a5e]">{getUnlockValue(order)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Summary */}
+                  <section className="rounded-[16px] border border-[#d9dfeb] bg-white shadow-[0_8px_16px_rgba(26,42,94,0.06)]">
+                    <div className="border-b border-[#e4e8f0] bg-[#f8f9fc] px-2 py-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Übersicht</p>
+                    </div>
+
+                    <div className="space-y-1 px-2 py-2 text-[10px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#636e85]">Services:</span>
+                        <span className="font-semibold text-[#1a2a5e]">{serviceLabels.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-[#e4e8f0] pt-1">
+                        <span className="text-[#636e85]">Extras:</span>
+                        <span className="font-semibold text-[#1a2a5e]">{addOnEntries.length}</span>
+                      </div>
+                      {quantity > 1 && (
+                        <div className="flex items-center justify-between border-t border-[#e4e8f0] pt-1">
+                          <span className="text-[#636e85]">Aufträge:</span>
+                          <span className="font-semibold text-[#1a2a5e]">{quantity}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-xs border-t border-[#e4e8f0] pt-1 mt-1">
+                        <span className="font-semibold text-[#1a2a5e]">Gesamt:</span>
+                        <span className="font-bold text-[#f5b800]">{((order.totalCost || 0) * quantity).toFixed(2)} €</span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

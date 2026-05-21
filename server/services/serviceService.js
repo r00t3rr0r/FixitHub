@@ -1,4 +1,5 @@
 const Service = require('../models/Service.js');
+const { DeviceType } = require('../models/Device.js');
 
 class ServiceService {
   static async list(filters = {}, pagination = {}, sorting = {}) {
@@ -13,17 +14,52 @@ class ServiceService {
         query.category = filters.category;
       }
 
-      // Add device type filter if provided
+      // Add device type filter if provided.
+      // Build a comprehensive set of string variants (key + display name + lowercase) so
+      // that services are found regardless of whether they store the DeviceType slug key
+      // ("wearable") or the display name ("Wearables") – both forms exist in practice.
       if (filters.deviceType) {
-        const normalizedType = String(filters.deviceType).trim().toLowerCase();
-        const compatibleTypes = [String(filters.deviceType).trim()];
+        const rawType = String(filters.deviceType).trim();
+        const lowerType = rawType.toLowerCase();
 
-        if (normalizedType === 'wearable' && !compatibleTypes.includes('smartwatch')) {
-          compatibleTypes.push('smartwatch');
+        const typeVariants = new Set([rawType, lowerType]);
+
+        try {
+          const allDT = await DeviceType.find({ isActive: true }).lean();
+          for (const dt of allDT) {
+            const key = String(dt._id || '').trim();
+            const name = String(dt.name || '').trim();
+            const keyLower = key.toLowerCase();
+            const nameLower = name.toLowerCase();
+            // Match if either the key or the display name corresponds to the filter value.
+            if (keyLower === lowerType || nameLower === lowerType) {
+              typeVariants.add(key);
+              typeVariants.add(name);
+              typeVariants.add(keyLower);
+              typeVariants.add(nameLower);
+            }
+          }
+
+          // Cross-compatibility: wearable ↔ smartwatch family.
+          const wearableSlugs = new Set(['wearable', 'wearables', 'smartwatch', 'smartwatches']);
+          const hasWearableRelated = [...typeVariants].some((v) => wearableSlugs.has(v.toLowerCase()));
+          if (hasWearableRelated) {
+            for (const dt of allDT) {
+              const keyLower = String(dt._id || '').toLowerCase();
+              const nameLower = String(dt.name || '').toLowerCase();
+              if (wearableSlugs.has(keyLower) || wearableSlugs.has(nameLower)) {
+                typeVariants.add(String(dt._id).trim());
+                typeVariants.add(String(dt.name || '').trim());
+                typeVariants.add(keyLower);
+                typeVariants.add(nameLower);
+              }
+            }
+          }
+        } catch (_) {
+          // Non-fatal: if the DeviceType lookup fails, fall through with the raw values.
         }
-        if (normalizedType === 'smartwatch' && !compatibleTypes.includes('wearable')) {
-          compatibleTypes.push('wearable');
-        }
+
+        const compatibleTypes = [...typeVariants].filter(Boolean);
 
         andConditions.push({
           $or: [
@@ -33,12 +69,18 @@ class ServiceService {
         });
       }
 
-      // Filter by precise manufacturer (case-insensitive exact match)
+      // Filter by precise manufacturer (case-insensitive exact match).
+      // Also includes legacy services that only have `manufacturer` set (manufacturerPrecise is empty)
+      // so that services created before the manufacturerPrecise field was introduced still appear.
       if (filters.manufacturerPrecise) {
-        query.manufacturerPrecise = new RegExp(
-          `^${String(filters.manufacturerPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-          'i'
-        );
+        const escapedMfr = String(filters.manufacturerPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const manufacturerRegex = new RegExp(`^${escapedMfr}$`, 'i');
+        andConditions.push({
+          $or: [
+            { manufacturerPrecise: manufacturerRegex },
+            { manufacturerPrecise: { $in: ['', null] }, manufacturer: manufacturerRegex },
+          ],
+        });
       }
 
       // Filter by precise model. When set, return services that match this model

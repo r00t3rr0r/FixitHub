@@ -6,7 +6,6 @@ import {
   BookOpen,
   Mail,
   Phone,
-  Search,
   Menu,
   X,
   MapPin,
@@ -30,7 +29,6 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { NavbarSearch } from '@/components/NavbarSearch';
 import { LoginDialog } from './LoginDialog';
 import {
   getDeviceTypes,
@@ -84,7 +82,6 @@ export function McRepairNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [navMode, setNavMode] = useState<'full' | 'partial' | 'compact'>('full');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -244,7 +241,6 @@ export function McRepairNav() {
       setMobileMenuOpen(false);
       setMobileMenuClosing(false);
       setMobileCategoryOpen(null);
-      setSearchOpen(false);
     }
   }, [navMode]);
 
@@ -458,10 +454,6 @@ export function McRepairNav() {
     setMobileMenuOpen(true);
   };
 
-  const toggleSearch = () => {
-    setSearchOpen(!searchOpen);
-  };
-
   // Prevent background scroll when mobile menu is open/closing (mobile-safe, incl. iOS)
   useEffect(() => {
     // On route changes, make sure mobile menu state is reset and do not restore old scroll position.
@@ -603,11 +595,6 @@ export function McRepairNav() {
     e.preventDefault();
     e.stopPropagation();
     closeMobileMenu(() => setShowLoginDialog(true));
-  };
-
-  const handleMobileSearchClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    closeMobileMenu(() => setSearchOpen(true));
   };
 
   const handleMobileLogout = (e: React.MouseEvent) => {
@@ -882,15 +869,19 @@ export function McRepairNav() {
             </div>
           )}
 
-          {/* Shop - moved to first position */}
-          <a
-            href="#shop"
-            className={`nav-link nav-priority-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
-            onClick={closeMobileMenu}
+          {/* Shop with Hover Search Dropdown */}
+          <div
+            className="nav-item-with-dropdown nav-priority-link nav-shop-dropdown"
           >
-            <ShoppingBag width={16} height={16} />
-            {t('home.nav.shop', 'Shop')}
-          </a>
+            <a
+              href="#shop"
+              className={`nav-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              <ShoppingBag width={16} height={16} />
+              {t('home.nav.shop', 'Shop')}
+            </a>
+          </div>
 
           {/* Smartphone */}
           <div 
@@ -955,10 +946,6 @@ export function McRepairNav() {
             {mobileMenuOpen && mobileCategoryOpen === 'notebook' && renderMobileDeviceDropdown('notebook')}
           </div>
 
-          <Link to="/contact" className="nav-link nav-category-item nav-partial-hidden" onClick={() => closeMobileMenu()}>
-            <Mail width={16} height={16} />
-            {t('home.nav.contact', 'Kontakt')}
-          </Link>
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
@@ -966,10 +953,6 @@ export function McRepairNav() {
               <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
                 {t('home.nav.moreOptions')}
               </div>
-              <button className="nav-mobile-secondary-link" onClick={handleMobileSearchClick}>
-                <Search width={16} height={16} />
-                {t('common.search', 'Suche')}
-              </button>
               <a className="nav-mobile-secondary-link" href="tel:+4917012345678">
                 <Phone width={16} height={16} />
                 {t('home.topBar.hotline', '0170 123 4567')}
@@ -988,20 +971,6 @@ export function McRepairNav() {
 
         {/* Right Side Actions */}
         <div className="nav-right" ref={navRightRef}>
-          {/* Desktop Search - Using NavbarSearch Component */}
-          <div className="nav-search hidden lg:block">
-            <NavbarSearch />
-          </div>
-
-          {/* Mobile Search Toggle */}
-          <button
-            className={`nav-search-toggle ${searchOpen ? 'active' : ''}`}
-            onClick={toggleSearch}
-            aria-label={t('home.nav.toggleSearch')}
-          >
-            <Search width={18} height={18} />
-          </button>
-
           {/* Mobile/Tablet Top Shop Button — shown only when nav-links collapse into hamburger */}
           {isCompactNav && (
             <a
@@ -1051,13 +1020,6 @@ export function McRepairNav() {
               <Menu width={24} height={24} />
             )}
           </button>
-        </div>
-      </div>
-
-      {/* Mobile Search Overlay */}
-      <div className={`nav-search-overlay ${searchOpen ? 'open' : ''}`}>
-        <div className="container mx-auto px-4 py-4">
-          <NavbarSearch />
         </div>
       </div>
 

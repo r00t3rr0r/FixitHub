@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { formatEUR } from '@/lib/utils'
 import "./CustomerRepairRequests.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -506,7 +507,7 @@ export function CustomerRepairRequests() {
                   </div>
                   <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
                     <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Schätzung</p>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f5b800' }}>{selectedRequest.estimatedCost.toFixed(2)} €</p>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f5b800' }}>{formatEUR(selectedRequest.estimatedCost)}</p>
                   </div>
                 </div>
               )}

@@ -1,4 +1,5 @@
  import { useState, useEffect } from "react"
+import { formatEUR } from '@/lib/utils'
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import "./CustomerComplaints.css"
@@ -638,7 +639,7 @@ export function CustomerComplaints() {
                       Reparaturangebot
                     </p>
                     <p className="cc-offer-amount">
-                      {selected.repairOffer.amount.toFixed(2)} €
+                      {formatEUR(selected.repairOffer.amount)}
                     </p>
                     <p className="cc-offer-description">
                       {selected.repairOffer.description}

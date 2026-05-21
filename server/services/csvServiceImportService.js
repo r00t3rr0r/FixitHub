@@ -443,6 +443,7 @@ class CSVServiceImportService {
     const validatedData = [];
     const errors = [];
     const warnings = [];
+    const errorRows = [];
 
     for (let i = 0; i < csvRows.length; i++) {
       const row = csvRows[i];
@@ -454,6 +455,7 @@ class CSVServiceImportService {
       const v = this.validateServiceData(cleaned, i);
       if (v.errors.length) {
         errors.push(...v.errors);
+        errorRows.push({ rowIndex: i + 1, data: cleaned, errors: v.errors });
       } else {
         validatedData.push({ rowIndex: i + 1, data: cleaned });
       }
@@ -476,6 +478,7 @@ class CSVServiceImportService {
     return {
       success: errors.length === 0,
       validatedData,
+      errorRows,
       errors,
       errorDetails,
       warnings,
@@ -483,7 +486,7 @@ class CSVServiceImportService {
       stats: {
         totalRows: csvRows.length,
         validRows: validatedData.length,
-        errorRows: errors.length,
+        errorRows: errorRows.length,
         duplicateRows: duplicateCheck.duplicateCount,
       },
     };

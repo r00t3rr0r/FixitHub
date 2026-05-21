@@ -285,3 +285,63 @@ export const updateModelInformation = async (payload: ModelInformationUpdatePayl
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+const readCsrfCookie = (): string | null => {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+export const updateModelInformationStream = async (
+  payload: ModelInformationUpdatePayload,
+  onEvent: (type: string, data: Record<string, unknown>) => void,
+  signal?: AbortSignal,
+): Promise<void> => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const csrf = readCsrfCookie();
+  if (csrf) headers['X-CSRF-Token'] = csrf;
+
+  const response = await fetch('/api/devices/models/information-update-stream', {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentEvent = 'message';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          onEvent(currentEvent, data);
+        } catch (_) { /* malformed event */ }
+        currentEvent = 'message';
+      }
+    }
+  }
+};
+
+export const sendUpdateDecision = async (params: { sessionId: string; questionId: string; decision: 'accept' | 'skip' }) => {
+  try {
+    const response = await api.post('/api/devices/models/update-decision', params);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

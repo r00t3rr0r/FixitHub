@@ -68,7 +68,13 @@ import {
   Truck,
   Download,
   QrCode,
-  RefreshCw
+  RefreshCw,
+  MapPin,
+  TrendingUp,
+  Activity,
+  Hash,
+  CreditCard,
+  Home
 } from "lucide-react"
 import {
   Select,
@@ -105,7 +111,16 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { Progress } from "@/components/ui/progress"
 import { useAuth } from "@/contexts/AuthContext"
+
+interface AddressFields {
+  street?: string
+  city?: string
+  state?: string
+  zipCode?: string
+  country?: string
+}
 
 interface Booking {
   _id: string
@@ -118,6 +133,8 @@ interface Booking {
     email: string
     phone: string
     avatar?: string
+    invoiceAddress?: AddressFields
+    paymentAddress?: AddressFields & { sameAsInvoice?: boolean }
   } | null
   guestInfo?: {
     email?: string
@@ -125,6 +142,8 @@ interface Booking {
     lastName?: string
     phone?: string
     isGuest?: boolean
+    billingAddress?: AddressFields
+    shippingAddress?: AddressFields
   }
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
@@ -1899,6 +1918,40 @@ function BookingDetailDialog({
     }
   }
 
+  const getOrderStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Ausstehend'
+      case 'diagnostic-assessment': return 'Diagnosebewertung'
+      case 'diagnosed': return 'Diagnose abgeschlossen'
+      case 'awaiting-parts': return 'Wartet auf Teile'
+      case 'in-progress': return 'Reparatur läuft'
+      case 'paused': return 'Pausiert'
+      case 'on-hold': return 'Angehalten'
+      case 'quality-check': return 'Qualitätsprüfung'
+      case 'ready-for-pickup': return 'Abholbereit'
+      case 'completed': return 'Abgeschlossen'
+      case 'cancelled': return 'Storniert'
+      default: return status
+    }
+  }
+
+  const getOrderStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+      case 'diagnostic-assessment': return 'bg-purple-100 text-purple-800 border border-purple-300'
+      case 'diagnosed': return 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+      case 'awaiting-parts': return 'bg-orange-100 text-orange-800 border border-orange-300'
+      case 'in-progress': return 'bg-blue-100 text-blue-800 border border-blue-300'
+      case 'paused': return 'bg-gray-100 text-gray-700 border border-gray-300'
+      case 'on-hold': return 'bg-gray-100 text-gray-700 border border-gray-300'
+      case 'quality-check': return 'bg-cyan-100 text-cyan-800 border border-cyan-300'
+      case 'ready-for-pickup': return 'bg-teal-100 text-teal-800 border border-teal-300'
+      case 'completed': return 'bg-green-100 text-green-800 border border-green-300'
+      case 'cancelled': return 'bg-red-100 text-red-800 border border-red-300'
+      default: return 'bg-gray-100 text-gray-700 border border-gray-300'
+    }
+  }
+
   const hasOutboundShippingInfo = Boolean(
     booking.trackingNumber ||
     booking.shippingLabelUrl ||
@@ -2033,84 +2086,237 @@ function BookingDetailDialog({
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div 
-              style={{
-                background: 'var(--white, #ffffff)',
-                border: '1px solid var(--gray-200, #d8dce6)',
-                borderRadius: 'var(--radius-lg, 16px)',
-                padding: '24px',
-                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
-                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
-              }}
-              className="hover:shadow-md"
-            >
-              <h3 
-                className="font-semibold text-sm mb-3" 
-                style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem', fontWeight: '700' }}
-              >
+          {/* Customer Info – full width card with billing + shipping address */}
+          <div
+            style={{
+              background: 'var(--white, #ffffff)',
+              border: '1px solid var(--gray-200, #d8dce6)',
+              borderRadius: 'var(--radius-lg, 16px)',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+            }}
+          >
+            {/* Header row */}
+            <div className="flex items-center gap-2 mb-4">
+              <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
+                <User className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+              </div>
+              <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
                 Kundeninformationen
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={customer.avatar} />
-                    <AvatarFallback style={{ background: 'var(--primary-blue, #1a2a5e)', color: 'var(--white, #ffffff)' }}>
-                      {(customerDisplayName || customer.email || '?').charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-sm" style={{ color: 'var(--gray-800, #1a202c)', fontWeight: '600' }}>
-                      {customerDisplayName}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)' }}>
-                      {customer.email}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
-                  <span style={{ color: 'var(--gray-500, #636e85)' }}>Telefon: </span>
-                  <span style={{ fontWeight: '500' }}>{customer.phone || 'Nicht verfuegbar'}</span>
-                </div>
-              </div>
+              {booking.guestInfo?.isGuest && (
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
+                  Gast
+                </span>
+              )}
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Identity + contact */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-11 w-11 flex-shrink-0" style={{ border: '2px solid var(--accent-yellow, #f5b800)' }}>
+                    <AvatarImage src={customer.avatar} />
+                    <AvatarFallback style={{ background: 'var(--primary-blue, #1a2a5e)', color: 'var(--white, #ffffff)', fontWeight: '700' }}>
+                      {(customerDisplayName || customer.email || '?').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate" style={{ color: 'var(--gray-900, #111827)' }}>
+                      {customerDisplayName}
+                    </p>
+                    {customer._id && (
+                      <p className="text-xs truncate" style={{ color: 'var(--gray-400, #8892a8)' }}>
+                        ID: {customer._id.slice(-8).toUpperCase()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                    <span className="truncate" style={{ color: 'var(--gray-700, #2d3748)' }}>{customer.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                    <span style={{ color: customer.phone ? 'var(--gray-700, #2d3748)' : 'var(--gray-400, #8892a8)' }}>
+                      {customer.phone || 'Nicht verfügbar'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing address */}
+              {(() => {
+                const addr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
+                const hasAddr = addr && (addr.street || addr.city || addr.zipCode)
+                return (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <CreditCard className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                        Rechnungsadresse
+                      </p>
+                    </div>
+                    {hasAddr ? (
+                      <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
+                        {addr!.street && <p>{addr!.street}</p>}
+                        {(addr!.zipCode || addr!.city) && (
+                          <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>
+                        )}
+                        {addr!.state && <p>{addr!.state}</p>}
+                        {addr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{addr!.country}</p>}
+                      </div>
+                    ) : (
+                      <p className="text-sm" style={{ color: 'var(--gray-400, #8892a8)' }}>Nicht angegeben</p>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Shipping/delivery address */}
+              {(() => {
+                const billingAddr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
+                const deliveryAddr = booking.customerId?.paymentAddress?.sameAsInvoice === false
+                  ? booking.customerId.paymentAddress
+                  : booking.guestInfo?.shippingAddress
+                const hasAddr = deliveryAddr && (deliveryAddr.street || deliveryAddr.city || deliveryAddr.zipCode)
+                const sameAsBilling = booking.customerId?.paymentAddress?.sameAsInvoice !== false && !booking.guestInfo?.shippingAddress
+
+                return (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Home className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                        Lieferadresse
+                      </p>
+                    </div>
+                    {sameAsBilling && (billingAddr?.street || billingAddr?.city) ? (
+                      <p className="text-sm italic" style={{ color: 'var(--gray-400, #8892a8)' }}>Identisch mit Rechnungsadresse</p>
+                    ) : hasAddr ? (
+                      <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
+                        {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
+                        {(deliveryAddr!.zipCode || deliveryAddr!.city) && (
+                          <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
+                        )}
+                        {deliveryAddr!.state && <p>{deliveryAddr!.state}</p>}
+                        {deliveryAddr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{deliveryAddr!.country}</p>}
+                      </div>
+                    ) : (
+                      <p className="text-sm" style={{ color: 'var(--gray-400, #8892a8)' }}>Nicht angegeben</p>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+
+          {/* Status + Financial summary row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
               style={{
                 background: 'var(--white, #ffffff)',
                 border: '1px solid var(--gray-200, #d8dce6)',
                 borderRadius: 'var(--radius-lg, 16px)',
-                padding: '24px',
+                padding: '20px',
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
-                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
               }}
-              className="hover:shadow-md"
             >
-              <h3 
-                className="font-semibold text-sm mb-3"
-                style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem', fontWeight: '700' }}
-              >
-                Buchungsstatus
-              </h3>
+              <div className="flex items-center gap-2 mb-4">
+                <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
+                  <Activity className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+                </div>
+                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                  Buchungsstatus
+                </h3>
+              </div>
               <div className="space-y-3">
-                <div>
-                  <p className="text-xs mb-1" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
-                    Aktueller Status
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                    Auftragsstatus
                   </p>
                   <Badge className={getStatusColor(booking.status)}>{getBookingStatusLabel(booking.status)}</Badge>
                 </div>
-                <div>
-                  <p className="text-xs mb-1" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
                     Zahlungsstatus
                   </p>
                   <Badge className={getBillingStatusColor(booking.billingStatus)}>{getBillingStatusLabel(booking.billingStatus)}</Badge>
                 </div>
+                <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--gray-100, #eceef3)' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                    Positionen
+                  </p>
+                  <span className="font-bold text-sm" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>{booking.items.length}</span>
+                </div>
+                {booking.overallProgress !== undefined && (
+                  <div className="pt-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                        Gesamtfortschritt
+                      </p>
+                      <span className="text-xs font-bold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>{booking.overallProgress}%</span>
+                    </div>
+                    <Progress value={booking.overallProgress} className="h-2" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Financial summary */}
+            <div
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '1px solid var(--gray-200, #d8dce6)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '20px',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+              }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <div style={{ background: 'var(--accent-yellow, #f5b800)', borderRadius: '8px', padding: '6px' }}>
+                  <DollarSign className="h-4 w-4" style={{ color: 'var(--gray-900, #111827)' }} />
+                </div>
+                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                  Finanzen
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {booking.subtotal !== undefined && booking.subtotal !== booking.totalCost && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span style={{ color: 'var(--gray-500, #636e85)' }}>Zwischensumme</span>
+                    <span style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '500' }}>{formatCurrency(booking.subtotal || 0)}</span>
+                  </div>
+                )}
+                {booking.discount !== undefined && booking.discount > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span style={{ color: 'var(--gray-500, #636e85)' }}>Rabatt</span>
+                    <span style={{ color: '#e53e3e', fontWeight: '500' }}>-{formatCurrency(booking.discount)}</span>
+                  </div>
+                )}
+                {booking.tax !== undefined && booking.tax > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span style={{ color: 'var(--gray-500, #636e85)' }}>MwSt.</span>
+                    <span style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '500' }}>{formatCurrency(booking.tax)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2" style={{ borderTop: '2px solid var(--gray-200, #d8dce6)' }}>
+                  <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>Gesamtbetrag</span>
+                  <span className="font-bold text-lg" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>{formatCurrency(booking.totalCost)}</span>
+                </div>
+                {booking.finalCost !== undefined && booking.finalCost !== booking.totalCost && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>Endbetrag</span>
+                    <span className="font-bold text-lg" style={{ color: 'var(--success, #38a169)' }}>{formatCurrency(booking.finalCost)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           <Separator style={{ background: 'var(--gray-200, #d8dce6)', height: '1px' }} />
 
+          {/* Status update controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
               style={{
@@ -2121,8 +2327,8 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
               }}
             >
-              <label 
-                className="text-sm font-medium" 
+              <label
+                className="text-sm font-medium"
                 style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '600', fontSize: '0.9rem' }}
               >
                 Buchungsstatus aktualisieren
@@ -2237,62 +2443,7 @@ function BookingDetailDialog({
 
           <Separator style={{ background: 'var(--gray-200, #d8dce6)', height: '1px' }} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div 
-              className="p-4 rounded hover:shadow-md"
-              style={{
-                background: 'var(--white, #ffffff)',
-                border: '2px solid var(--primary-blue, #1a2a5e)',
-                borderRadius: 'var(--radius-lg, 16px)',
-                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
-                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
-              }}
-            >
-              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                Gesamtkosten
-              </p>
-              <p className="text-lg font-bold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.5rem' }}>
-                {formatCurrency(booking.totalCost)}
-              </p>
-            </div>
-            <div 
-              className="p-4 rounded hover:shadow-md"
-              style={{
-                background: 'var(--white, #ffffff)',
-                border: '2px solid var(--success, #38a169)',
-                borderRadius: 'var(--radius-lg, 16px)',
-                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
-                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
-              }}
-            >
-              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                Endbetrag
-              </p>
-              <p className="text-lg font-bold" style={{ color: 'var(--success, #38a169)', fontSize: '1.5rem' }}>
-                {formatCurrency(booking.finalCost || booking.totalCost)}
-              </p>
-            </div>
-            <div 
-              className="p-4 rounded hover:shadow-md"
-              style={{
-                background: 'var(--white, #ffffff)',
-                border: '2px solid var(--accent-yellow, #f5b800)',
-                borderRadius: 'var(--radius-lg, 16px)',
-                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
-                transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
-              }}
-            >
-              <p className="text-xs" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                Anzahl Positionen
-              </p>
-              <p className="text-lg font-bold" style={{ color: 'var(--accent-yellow-hover, #e5ab00)', fontSize: '1.5rem' }}>
-                {booking.items.length}
-              </p>
-            </div>
-          </div>
-
-          <Separator style={{ background: 'var(--gray-200, #d8dce6)', height: '1px' }} />
-
+          {/* Dates */}
           <div
             style={{
               background: 'var(--white, #ffffff)',
@@ -2302,9 +2453,12 @@ function BookingDetailDialog({
               boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
             }}
           >
-            <p className="text-xs mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Daten
-            </p>
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                Zeitstempel
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
               <div>
                 <span style={{ color: 'var(--gray-500, #636e85)' }}>Erstellt: </span>
@@ -2318,102 +2472,157 @@ function BookingDetailDialog({
           </div>
         </TabsContent>
 
-        <TabsContent value="repairs" className="space-y-4 mt-4">
+        <TabsContent value="repairs" className="space-y-3 mt-4">
           {loadingRepairJobs ? (
             <div
-              className="text-center py-8"
+              className="text-center py-12"
               style={{
                 background: 'var(--white, #ffffff)',
                 border: '1px solid var(--gray-200, #d8dce6)',
                 borderRadius: 'var(--radius-lg, 16px)',
-                padding: '40px'
               }}
             >
-              <p style={{ color: 'var(--gray-400, #8892a8)' }}>Reparaturauftraege werden geladen...</p>
+              <RefreshCw className="h-6 w-6 mx-auto mb-2 animate-spin" style={{ color: 'var(--gray-400, #8892a8)' }} />
+              <p style={{ color: 'var(--gray-400, #8892a8)' }}>Reparaturaufträge werden geladen...</p>
             </div>
           ) : repairJobs.length > 0 ? (
             <div className="space-y-3">
-              {repairJobs.map((item: any) => (
-                <div
-                  key={item._id || item.orderId}
-                  className="hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => item.orderId && handleViewOrder(item.orderId)}
-                  style={{
-                    border: '2px solid var(--gray-200, #d8dce6)',
-                    borderLeft: '4px solid var(--accent-yellow, #f5b800)',
-                    padding: '20px',
-                    borderRadius: 'var(--radius-lg, 16px)',
-                    background: 'var(--white, #ffffff)',
-                    boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
-                    transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem', fontWeight: '700' }}>
-                          {item.device || 'Geraetereparatur'}
-                        </h4>
-                        <Badge className={getStatusColor(item.status || 'pending')}>
-                          {getBookingStatusLabel(item.status || 'pending')}
-                        </Badge>
-                        {item.isComplaintFollowup && (
-                          <Badge className="bg-rose-100 text-rose-800 border border-rose-300">
-                            Reklamationsreparatur
+              {repairJobs.map((item: any) => {
+                const progress = item.progress ?? 0
+                const statusLabel = getOrderStatusLabel(item.status || 'pending')
+                const badgeClass = getOrderStatusBadgeClass(item.status || 'pending')
+
+                return (
+                  <div
+                    key={item._id || item.orderId}
+                    onClick={() => item.orderId && handleViewOrder(item.orderId)}
+                    style={{
+                      border: '1px solid var(--gray-200, #d8dce6)',
+                      borderLeft: '4px solid var(--primary-blue, #1a2a5e)',
+                      borderRadius: 'var(--radius-lg, 16px)',
+                      background: 'var(--white, #ffffff)',
+                      boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                      cursor: item.orderId ? 'pointer' : 'default',
+                      overflow: 'hidden',
+                    }}
+                    className="transition-shadow hover:shadow-md"
+                  >
+                    {/* Card Header */}
+                    <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <div style={{ background: '#eef2ff', borderRadius: '6px', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Wrench className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                          </div>
+                          <h4 className="font-bold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem' }}>
+                            {item.device || 'Gerät unbekannt'}
+                          </h4>
+                          <Badge className={badgeClass} style={{ fontSize: '0.75rem', fontWeight: '600' }}>
+                            {statusLabel}
                           </Badge>
-                        )}
-                        {item.orderId && (
-                          <span className="text-xs flex items-center gap-1" style={{ color: 'var(--gray-500, #636e85)' }}>
-                            <ExternalLink className="h-3 w-3" />
-                            Auftrag: {item.orderId?.slice(-8)}
-                          </span>
+                          {item.isComplaintFollowup && (
+                            <Badge className="bg-rose-100 text-rose-800 border border-rose-300" style={{ fontSize: '0.75rem' }}>
+                              Reklamation
+                            </Badge>
+                          )}
+                        </div>
+                        {item.orderNumber && (
+                          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
+                            <Hash className="h-3 w-3" />
+                            Auftrag #{item.orderNumber}
+                          </p>
                         )}
                       </div>
-                      {item.services && item.services.length > 0 && (
-                        <p className="text-sm mt-1" style={{ color: 'var(--gray-600, #4a5568)' }}>
-                          {item.services.map(s => s.name).join(', ')}
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-lg" style={{ color: 'var(--primary-blue, #1a2a5e)', lineHeight: 1.2 }}>
+                          {formatCurrency(item.cost)}
                         </p>
-                      )}
+                        <p className="text-xs" style={{ color: 'var(--gray-400, #8892a8)' }}>Kosten</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
-                    <div>
-                      <span style={{ color: 'var(--gray-500, #636e85)' }}>Positionskosten: </span>
-                      <span style={{ fontWeight: '600', color: 'var(--primary-blue, #1a2a5e)' }}>
-                        {formatCurrency(item.cost)}
-                      </span>
+
+                    {/* Services */}
+                    {item.services && item.services.length > 0 && (
+                      <div className="px-5 pb-3">
+                        <div className="flex flex-wrap gap-1">
+                          {item.services.map((s: any, idx: number) => (
+                            <span
+                              key={idx}
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{ background: '#eef2ff', color: 'var(--primary-blue, #1a2a5e)', border: '1px solid #c7d2fe', fontWeight: '500' }}
+                            >
+                              {s.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Progress bar section */}
+                    <div
+                      className="px-5 py-3"
+                      style={{ background: '#f8faff', borderTop: '1px solid var(--gray-100, #eceef3)' }}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <TrendingUp className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                            Fortschritt
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: 'var(--gray-600, #4a5568)' }}>{statusLabel}</span>
+                          <span className="text-sm font-bold" style={{ color: progress === 100 ? '#38a169' : 'var(--primary-blue, #1a2a5e)', minWidth: '36px', textAlign: 'right' }}>
+                            {progress}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--gray-200, #d8dce6)' }}>
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${progress}%`,
+                              background: progress === 100
+                                ? '#38a169'
+                                : progress >= 75
+                                ? 'var(--primary-blue, #1a2a5e)'
+                                : progress >= 40
+                                ? 'var(--accent-yellow, #f5b800)'
+                                : '#e53e3e',
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    {item.services && item.services[0]?.estimatedTime && (
-                      <div className="text-right">
-                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Geschaetzte Zeit: </span>
-                        <span style={{ fontWeight: '600' }}>{item.services[0].estimatedTime} min</span>
+
+                    {/* Footer */}
+                    {item.orderId && (
+                      <div
+                        className="px-5 py-2 flex items-center justify-end gap-1"
+                        style={{ borderTop: '1px solid var(--gray-100, #eceef3)' }}
+                      >
+                        <ExternalLink className="h-3 w-3" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                        <span className="text-xs font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+                          Auftragsdetails öffnen
+                        </span>
                       </div>
                     )}
                   </div>
-                  {item.orderId && (
-                    <div 
-                      className="text-xs mt-2 flex items-center gap-1"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '600' }}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Klicken, um Auftragsdetails zu sehen
-                    </div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
-            <div 
-              className="text-center py-8"
+            <div
+              className="text-center py-12"
               style={{
                 background: 'var(--white, #ffffff)',
                 border: '1px solid var(--gray-200, #d8dce6)',
                 borderRadius: 'var(--radius-lg, 16px)',
-                padding: '40px'
               }}
             >
-              <p style={{ color: 'var(--gray-400, #8892a8)' }}>Keine Reparaturen in dieser Buchung</p>
+              <Wrench className="h-8 w-8 mx-auto mb-3" style={{ color: 'var(--gray-300, #c5cad8)' }} />
+              <p className="font-medium" style={{ color: 'var(--gray-400, #8892a8)' }}>Keine Reparaturen in dieser Buchung</p>
             </div>
           )}
         </TabsContent>

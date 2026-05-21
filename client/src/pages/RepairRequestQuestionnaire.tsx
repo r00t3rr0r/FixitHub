@@ -2,8 +2,9 @@ import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { AuthRequiredDialog } from "@/components/auth/AuthRequiredDialog"
+import { AuthRequiredDialog, GuestInfo } from "@/components/auth/AuthRequiredDialog"
 import { createRepairRequest } from "@/api/repairRequests"
+import { createGuestRepairRequest } from "@/api/guestRepairRequest"
 import {
   getDeviceTypes,
   getManufacturersByDeviceType,
@@ -313,6 +314,42 @@ export function RepairRequestQuestionnaire() {
         description: "Ihre Reparaturanfrage wurde erfolgreich übermittelt. Unser Team meldet sich innerhalb von 24 Stunden* bei Ihnen.",
       })
       navigate("/my-repair-requests")
+    } catch (error: any) {
+      toast({ title: "Fehler", description: error.message || "Reparaturanfrage konnte nicht übermittelt werden.", variant: "destructive" })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const doSubmitGuestRequest = async (guestInfo: GuestInfo) => {
+    const isDbDevice = !editingDevice && selectedDevice !== null
+    const deviceTypeFinal = isDbDevice ? selectedDevice!.deviceType : manualDeviceType
+    const deviceBrandFinal = isDbDevice ? selectedDevice!.manufacturer : manualDeviceName.split(" ")[0]
+    const deviceModelFinal = isDbDevice ? selectedDevice!.name : manualDeviceName
+    const deviceModelIdFinal = isDbDevice ? selectedDevice!._id : ""
+    const modelNumberFinal = isDbDevice ? "" : manualModelNumber
+
+    try {
+      setSubmitting(true)
+      const result = await createGuestRepairRequest(guestInfo, {
+        deviceType: deviceTypeFinal,
+        deviceBrand: deviceBrandFinal,
+        deviceModel: deviceModelFinal,
+        deviceModelId: deviceModelIdFinal,
+        issueDescription,
+        issueOccurredDate: issueOccurredDate || "",
+        repairAttempts: previousRepairAttempts,
+        modelNumber: modelNumberFinal,
+        waterDamage,
+        previousRepairDetails: previousRepairAttempts === "yes" ? previousRepairDetails : "",
+        itemCondition,
+        images: imagePreviewUrls,
+      })
+      toast({
+        title: "Reparaturanfrage eingegangen!",
+        description: "Wir haben Ihre Anfrage erhalten. Ein Tracking-Link wurde an Ihre E-Mail gesendet.",
+      })
+      navigate(`/guest-repair-tracking?token=${result.guestTrackingToken}&email=${encodeURIComponent(guestInfo.email)}`)
     } catch (error: any) {
       toast({ title: "Fehler", description: error.message || "Reparaturanfrage konnte nicht übermittelt werden.", variant: "destructive" })
     } finally {
@@ -993,8 +1030,13 @@ export function RepairRequestQuestionnaire() {
           if (!open) setPendingSubmit(false)
         }}
         onSuccess={handleAuthSuccess}
+        onGuestProceed={(guestInfo) => {
+          setPendingSubmit(false)
+          doSubmitGuestRequest(guestInfo)
+        }}
+        showGuestTab
         title="Authentifizierung erforderlich"
-        description="Bitte melden Sie sich an oder erstellen Sie ein Konto, um eine Reparaturanfrage zu stellen."
+        description="Melden Sie sich an, erstellen Sie ein Konto oder fahren Sie als Gast fort, um Ihre Reparaturanfrage abzusenden."
       />
     </div>
   )

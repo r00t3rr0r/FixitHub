@@ -5274,5 +5274,162 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1778968379298-a4w6f4gpa",
+    "timestamp": "2026-05-16T21:52:59.298Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1778968377553-00002 ist bei uns eingegangen",
+    "messageId": "<53005095-a90f-c9ef-0968-f1bcb806496c@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1673,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778969122714-xg3masny2",
+    "timestamp": "2026-05-16T22:05:22.714Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1778969121528-00003 ist bei uns eingegangen",
+    "messageId": "<644d297e-2206-471d-646b-8cbf4de186d2@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1126,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1778973005578-euibxnn4o",
+    "timestamp": "2026-05-16T23:10:05.578Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<b13a2ff0-bd87-5ff6-e664-bcf3f0e7011b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2918,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1778973005657-f9fi94op8",
+    "timestamp": "2026-05-16T23:10:05.657Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<531a8481-a3ee-f7f4-38bf-562244b4606d@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3009,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1778982457794-21d1gke9q",
+    "timestamp": "2026-05-17T01:47:37.794Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0010 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<05ac7926-8139-1c16-040f-13aa1d01cd21@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1615,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

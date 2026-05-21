@@ -28,6 +28,7 @@ import { updateUserProfile } from "@/api/user"
 import { searchDhlLocations, type DhlLocation } from "@/api/shipping"
 import { useToast } from "@/hooks/useToast"
 import { useTranslation } from "react-i18next"
+import { formatEUR } from '@/lib/utils'
 import {
   UserPlus,
   LogIn,
@@ -1370,7 +1371,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
         {reviewCart.items.map((item) => {
           const product = item.productId as any
-          const lineTotal = (Number(product?.price || item.price || 0) * Number(item.quantity || 1)).toFixed(2)
+          const lineTotal = Number(product?.price || item.price || 0) * Number(item.quantity || 1)
           const productImage = getProductImage(product)
           return (
             <div key={`product-${item._id}`} className="flex items-start gap-2.5 rounded-lg border border-[#e5eaf4] bg-white p-2.5">
@@ -1394,7 +1395,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="truncate text-[13px] font-semibold leading-tight text-[#1a2a5e]">{product?.name || t("checkout.article")}</p>
-                  <p className="shrink-0 text-[13px] font-bold text-[#1a2a5e]">{lineTotal} €</p>
+                  <p className="shrink-0 text-[13px] font-bold text-[#1a2a5e]">{formatEUR(lineTotal)}</p>
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                   {product?.category && (
@@ -1403,7 +1404,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                     </span>
                   )}
                   <span className="text-xs text-[#5f6d86]">
-                    {item.quantity} × {Number(product?.price || item.price || 0).toFixed(2)} €
+                    {item.quantity} × {formatEUR(Number(product?.price || item.price || 0))}
                   </span>
                 </div>
                 {product?.variant && (
@@ -1442,7 +1443,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                   <p className="text-[13px] font-semibold leading-tight text-[#1a2a5e]">
                     {order.deviceBrand || ""} {order.deviceModel || ""}
                   </p>
-                  <p className="shrink-0 text-[13px] font-bold text-[#1a2a5e]">{Number(order.totalCost || 0).toFixed(2)} €</p>
+                  <p className="shrink-0 text-[13px] font-bold text-[#1a2a5e]">{formatEUR(order.totalCost || 0)}</p>
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5">
                   <span className="rounded bg-[#dbe8ff] px-1.5 py-0.5 text-[10px] font-medium text-[#1a2a5e]">{order.deviceType || t("checkout.repairOrder")}</span>
@@ -1457,7 +1458,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                 {addOns.length > 0 && (
                   <div className="mt-1 space-y-0.5">
                     {addOns.map((a) => (
-                      <p key={a.name} className="text-[10px] text-[#5f6d86]">+ {a.name} ({Number(a.price || 0).toFixed(2)} €)</p>
+                      <p key={a.name} className="text-[10px] text-[#5f6d86]">+ {a.name} ({formatEUR(a.price || 0)})</p>
                     ))}
                   </div>
                 )}
@@ -1878,7 +1879,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#5f6d86]">{t("checkout.totalAmount")}</span>
-                    <span className="font-bold text-[#1a2a5e]">{Number(guestCheckoutResult.totalAmount || 0).toFixed(2)} €</span>
+                    <span className="font-bold text-[#1a2a5e]">{formatEUR(guestCheckoutResult.totalAmount || 0)}</span>
                   </div>
                   {guestCheckoutResult.paymentMethod && (
                     <div className="flex justify-between items-center">
@@ -1925,7 +1926,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                   {checkoutSuccessResult.totalAmount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-[#5f6d86]">{t("checkout.totalAmount")}</span>
-                      <span className="font-bold text-[#1a2a5e]">{Number(checkoutSuccessResult.totalAmount || 0).toFixed(2)} €</span>
+                      <span className="font-bold text-[#1a2a5e]">{formatEUR(checkoutSuccessResult.totalAmount || 0)}</span>
                     </div>
                   )}
                   {(checkoutSuccessResult.paymentMethod || paymentMethod) && (
@@ -2006,13 +2007,13 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                       <CardContent className="space-y-2 p-3.5 text-sm">
                         <div className="flex justify-between">
                           <span className="text-[#5f6d86]">{t("cart.subtotal")}</span>
-                          <span className="font-semibold text-[#1a2a5e]">{totals.subtotal.toFixed(2)} €</span>
+                          <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.subtotal)}</span>
                         </div>
 
                         {totals.discount > 0 && (
                           <div className="flex justify-between">
                             <span className="text-[#5f6d86]">{t("cart.discount")}</span>
-                            <span className="font-semibold text-[#15803d]">- {totals.discount.toFixed(2)} €</span>
+                            <span className="font-semibold text-[#15803d]">- {formatEUR(totals.discount)}</span>
                           </div>
                         )}
 
@@ -2023,13 +2024,13 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
                         <div className="flex justify-between">
                           <span className="text-[#5f6d86]">{t("cart.tax")}</span>
-                          <span className="font-semibold text-[#1a2a5e]">{totals.tax.toFixed(2)} €</span>
+                          <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.tax)}</span>
                         </div>
 
                         <div className="mt-1 flex items-center justify-between rounded-lg bg-[#f0f4ff] px-2.5 py-2 text-base border-t border-[#d8e3ff]">
                           <span className="font-bold text-[#1a2a5e]">{t("cart.grandTotal")}</span>
                           <div className="text-right">
-                            <span className="text-lg font-extrabold text-[#1a2a5e]">{totals.total.toFixed(2)} €</span>
+                            <span className="text-lg font-extrabold text-[#1a2a5e]">{formatEUR(totals.total)}</span>
                             {totals.tax > 0 && (
                               <p className="text-[10px] font-normal text-[#5f6d86]">{t("checkout.inclTax")}</p>
                             )}
@@ -2074,7 +2075,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("common.loading")}</>
                             : paymentMethod === "paypal"
                               ? <><Wallet className="mr-2 h-4 w-4" />Bitte den PayPal-Button oben verwenden</>
-                              : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {totals.total.toFixed(2)} €</>
+                              : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {formatEUR(totals.total)}</>
                           }
                         </Button>
 

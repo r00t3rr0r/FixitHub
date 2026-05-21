@@ -1,5 +1,11 @@
 import api from './api';
 
+export interface ErrorRow {
+  rowIndex: number;
+  data: Record<string, any>;
+  errors: string[];
+}
+
 export interface ValidationResult {
   success: boolean;
   needsMapping?: boolean;
@@ -7,6 +13,7 @@ export interface ValidationResult {
   previewData?: any[];
   totalRows?: number;
   validatedData?: ValidatedRow[];
+  errorRows?: ErrorRow[];
   errors?: string[];
   warnings?: string[];
   duplicateCheck?: DuplicateCheck;

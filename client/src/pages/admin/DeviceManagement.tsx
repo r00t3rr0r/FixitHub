@@ -26,6 +26,8 @@ import {
   getManufacturersByDeviceType,
   getModelsByTypeAndManufacturer,
   updateModelInformation,
+  updateModelInformationStream,
+  sendUpdateDecision,
   DeviceType,
   Manufacturer,
   DeviceModel
@@ -49,7 +51,12 @@ import {
   Info,
   HelpCircle,
   X,
-  RefreshCw
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  SkipForward,
+  AlertTriangle,
+  Clock,
 } from "lucide-react"
 import { CSVImportDevicesDialog } from '@/components/admin/CSVImportDevicesDialog';
 import {
@@ -91,6 +98,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Progress } from "@/components/ui/progress"
 import {
   Table,
   TableBody,
@@ -155,6 +163,13 @@ export function DeviceManagement() {
   const [updateLimit, setUpdateLimit] = useState<number>(0)
   const [updateOnlyNotUpdated, setUpdateOnlyNotUpdated] = useState<boolean>(true)
   const [updateResult, setUpdateResult] = useState<any | null>(null)
+
+  // SSE streaming state
+  const [updateProgress, setUpdateProgress] = useState<{ current: number; total: number; modelName: string; brandName: string } | null>(null)
+  const [updateLiveStats, setUpdateLiveStats] = useState({ updated: 0, noMatch: 0, failed: 0, skipped: 0, servicesModified: 0 })
+  const [updateLiveResults, setUpdateLiveResults] = useState<any[]>([])
+  const [pendingQuestion, setPendingQuestion] = useState<any | null>(null)
+  const [isDecisionSubmitting, setIsDecisionSubmitting] = useState(false)
 
   // Form states
   const [brandForm, setBrandForm] = useState({
@@ -918,42 +933,83 @@ export function DeviceManagement() {
   const handleModelInformationUpdate = async () => {
     setIsSubmitting(true)
     setUpdateResult(null)
+    setUpdateProgress(null)
+    setUpdateLiveResults([])
+    setUpdateLiveStats({ updated: 0, noMatch: 0, failed: 0, skipped: 0, servicesModified: 0 })
+    setPendingQuestion(null)
+
+    const payload = {
+      requestsPerSecond: Math.max(1, updateRequestsPerSecond),
+      limit: updateLimit > 0 ? updateLimit : undefined,
+      deviceTypes: selectedUpdateDeviceTypes,
+      brandIds: selectedUpdateBrandIds,
+      modelIds: selectedUpdateModelIds,
+      onlyNotUpdated: updateOnlyNotUpdated,
+    }
 
     try {
-      const payload = {
-        requestsPerSecond: Math.max(1, updateRequestsPerSecond),
-        limit: updateLimit > 0 ? updateLimit : undefined,
-        deviceTypes: selectedUpdateDeviceTypes,
-        brandIds: selectedUpdateBrandIds,
-        modelIds: selectedUpdateModelIds,
-        onlyNotUpdated: updateOnlyNotUpdated,
-      }
+      await updateModelInformationStream(payload, (type, data) => {
+        if (type === 'progress') {
+          setUpdateProgress({
+            current: data.current as number,
+            total: data.total as number,
+            modelName: data.modelName as string,
+            brandName: data.brandName as string,
+          })
+        } else if (type === 'modelResult') {
+          setUpdateLiveResults((prev) => [data, ...prev])
+          setUpdateLiveStats((prev) => ({
+            updated: prev.updated + (data.status === 'updated' ? 1 : 0),
+            noMatch: prev.noMatch + (data.status === 'no_match' ? 1 : 0),
+            failed: prev.failed + (data.status === 'failed' ? 1 : 0),
+            skipped: prev.skipped + (data.status === 'skipped' ? 1 : 0),
+            servicesModified: prev.servicesModified + ((data.servicesUpdated as number) || 0),
+          }))
+        } else if (type === 'question') {
+          setPendingQuestion(data)
+        } else if (type === 'summary') {
+          setUpdateResult(data)
+          setUpdateProgress(null)
+        } else if (type === 'error') {
+          toast({
+            title: 'Fehler beim Informationsupdate',
+            description: (data.message as string) || 'Unbekannter Fehler.',
+            variant: 'destructive',
+          })
+        }
+      })
 
-      const response = await updateModelInformation(payload)
-      setUpdateResult(response?.result || null)
-
-      if (selectedDeviceType !== "all" && selectedManufacturer !== "all") {
+      if (selectedDeviceType !== 'all' && selectedManufacturer !== 'all') {
         const refreshedModels = await getModelsByTypeAndManufacturer(selectedDeviceType, selectedManufacturer)
         setModels((refreshedModels as any).models || [])
       }
-
-      const failedCount = response?.result?.failed || 0
-      const firstRequestError = response?.result?.errors?.[0]
-      toast({
-        title: "Informationsupdate abgeschlossen",
-        description:
-          failedCount > 0 && firstRequestError?.reason
-            ? `Aktualisiert: ${response?.result?.updated || 0}, ohne Treffer: ${response?.result?.noMatch || 0}, Fehler: ${failedCount}. Erster API-Fehler: ${firstRequestError.reason}`
-            : `Aktualisiert: ${response?.result?.updated || 0}, ohne Treffer: ${response?.result?.noMatch || 0}, Fehler: ${failedCount}`,
-      })
     } catch (error: any) {
       toast({
-        title: "Informationsupdate fehlgeschlagen",
-        description: error?.message || "Das Modell-Informationsupdate konnte nicht gestartet werden.",
-        variant: "destructive"
+        title: 'Informationsupdate fehlgeschlagen',
+        description: error?.message || 'Das Modell-Informationsupdate konnte nicht gestartet werden.',
+        variant: 'destructive',
       })
     } finally {
       setIsSubmitting(false)
+      setUpdateProgress(null)
+      setPendingQuestion(null)
+    }
+  }
+
+  const handleUpdateDecision = async (decision: 'accept' | 'skip') => {
+    if (!pendingQuestion) return
+    setIsDecisionSubmitting(true)
+    try {
+      await sendUpdateDecision({
+        sessionId: pendingQuestion.sessionId as string,
+        questionId: pendingQuestion.questionId as string,
+        decision,
+      })
+      setPendingQuestion(null)
+    } catch (error: any) {
+      toast({ title: 'Fehler', description: error?.message, variant: 'destructive' })
+    } finally {
+      setIsDecisionSubmitting(false)
     }
   }
 
@@ -2479,16 +2535,45 @@ export function DeviceManagement() {
                       disabled={isSubmitting}
                     />
                   </div>
-                  <div className="md:col-span-2 flex items-center gap-3 rounded-md border p-3 bg-slate-50">
-                    <Checkbox
-                      id="onlyNotUpdated"
-                      checked={updateOnlyNotUpdated}
-                      onCheckedChange={(checked) => setUpdateOnlyNotUpdated(checked === true)}
-                      disabled={isSubmitting}
-                    />
-                    <Label htmlFor="onlyNotUpdated" className="cursor-pointer">
-                      Nur noch nicht aktualisierte Modellinformationen updaten
-                    </Label>
+                  <div className="md:col-span-2 rounded-md border p-3 bg-slate-50 space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium">Aktualisierungsmodus</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Wähle, ob nur neue Modelle verarbeitet werden oder bereits aktualisierte Modelle erneut aktualisiert werden sollen.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        type="button"
+                        variant={updateOnlyNotUpdated ? 'default' : 'outline'}
+                        className="justify-start text-left h-auto py-2"
+                        onClick={() => setUpdateOnlyNotUpdated(true)}
+                        disabled={isSubmitting}
+                      >
+                        <div>
+                          <p className="font-medium">Nur noch nicht aktualisierte</p>
+                          <p className="text-xs opacity-80">Schneller Lauf, bereits aktualisierte Modelle werden übersprungen.</p>
+                        </div>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant={!updateOnlyNotUpdated ? 'default' : 'outline'}
+                        className="justify-start text-left h-auto py-2"
+                        onClick={() => setUpdateOnlyNotUpdated(false)}
+                        disabled={isSubmitting}
+                      >
+                        <div>
+                          <p className="font-medium">Alle erneut aktualisieren</p>
+                          <p className="text-xs opacity-80">Auch bereits aktualisierte Modelle werden neu aus der API geladen.</p>
+                        </div>
+                      </Button>
+                    </div>
+
+                    <p className="text-xs">
+                      Aktuell: <strong>{updateOnlyNotUpdated ? 'Nur noch nicht aktualisierte Modelle' : 'Alle Modelle inkl. bereits aktualisierter'}</strong>
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -2556,17 +2641,152 @@ export function DeviceManagement() {
                 </CardContent>
               </Card>
 
+              {/* Pending question — shown while processing is paused */}
+              {pendingQuestion && (
+                <Card className="border-amber-300 bg-amber-50 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-amber-800 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Unsicherer API-Treffer — Entscheidung erforderlich
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      <div className="rounded border border-amber-200 bg-white p-2">
+                        <p className="text-xs text-muted-foreground mb-1">Gerätename (Original)</p>
+                        <p className="font-semibold">{pendingQuestion.brandName} {pendingQuestion.modelName}</p>
+                      </div>
+                      <div className="rounded border border-amber-200 bg-white p-2">
+                        <p className="text-xs text-muted-foreground mb-1">API-Treffer</p>
+                        <p className="font-semibold">{pendingQuestion.apiMatchName || '—'}</p>
+                        <p className="text-xs text-muted-foreground">Übereinstimmung: {pendingQuestion.certainty ?? '?'}%</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-amber-700">
+                      Die API-Übereinstimmung ist unsicher (&lt;60%). Möchtest du die Spezifikationen dieses Treffers trotzdem übernehmen oder das Gerät überspringen?
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 border-green-400 text-green-700 hover:bg-green-50"
+                        disabled={isDecisionSubmitting}
+                        onClick={() => handleUpdateDecision('accept')}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Trotzdem aktualisieren
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 border-slate-400 text-slate-600 hover:bg-slate-50"
+                        disabled={isDecisionSubmitting}
+                        onClick={() => handleUpdateDecision('skip')}
+                      >
+                        <SkipForward className="h-3.5 w-3.5" />
+                        Überspringen
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Live progress bar — shown while update is running */}
+              {isSubmitting && updateProgress && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-blue-800 flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Update läuft… {updateProgress.current} / {updateProgress.total}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Progress value={(updateProgress.current / updateProgress.total) * 100} className="h-2" />
+                    <p className="text-xs text-blue-700 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Verarbeite: <strong className="ml-1">{updateProgress.brandName} {updateProgress.modelName}</strong>
+                    </p>
+                    <div className="grid grid-cols-4 gap-2 text-xs text-center">
+                      <div className="rounded bg-green-100 p-1.5">
+                        <p className="font-bold text-green-700">{updateLiveStats.updated}</p>
+                        <p className="text-green-600">Aktualisiert</p>
+                      </div>
+                      <div className="rounded bg-slate-100 p-1.5">
+                        <p className="font-bold text-slate-600">{updateLiveStats.noMatch}</p>
+                        <p className="text-slate-500">Kein Treffer</p>
+                      </div>
+                      <div className="rounded bg-red-100 p-1.5">
+                        <p className="font-bold text-red-700">{updateLiveStats.failed}</p>
+                        <p className="text-red-600">Fehler</p>
+                      </div>
+                      <div className="rounded bg-amber-100 p-1.5">
+                        <p className="font-bold text-amber-700">{updateLiveStats.skipped}</p>
+                        <p className="text-amber-600">Übersprungen</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Live result feed — grows during update */}
+              {updateLiveResults.length > 0 && (
+                <Card className="border-gray-200 bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      Live-Protokoll
+                      <Badge variant="outline" className="ml-auto text-xs">{updateLiveResults.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="max-h-52 overflow-y-auto space-y-1 text-xs pr-1">
+                    {updateLiveResults.map((item: any, i: number) => (
+                      <div
+                        key={`${item.modelId}-${i}`}
+                        className={`flex items-start gap-2 rounded p-1.5 ${
+                          item.status === 'updated' ? 'bg-green-50' :
+                          item.status === 'failed' ? 'bg-red-50' :
+                          item.status === 'skipped' ? 'bg-amber-50' : 'bg-slate-50'
+                        }`}
+                      >
+                        {item.status === 'updated' && <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />}
+                        {item.status === 'failed' && <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />}
+                        {item.status === 'no_match' && <XCircle className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />}
+                        {item.status === 'skipped' && <SkipForward className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />}
+                        <div className="min-w-0">
+                          <span className="font-medium">{item.modelName}</span>
+                          {item.status === 'updated' && item.apiMatchName && item.apiMatchName !== item.modelName && (
+                            <span className="text-muted-foreground ml-1">→ API: {item.apiMatchName} ({item.certainty?.toFixed(0)}%)</span>
+                          )}
+                          {item.status === 'updated' && item.mergedIntoExisting && (
+                            <span className="text-blue-600 ml-1">→ zusammengeführt: {item.mergedIntoModelName || item.apiMatchName || 'bestehendes Modell'}</span>
+                          )}
+                          {item.status === 'updated' && (item.servicesUpdated > 0) && (
+                            <span className="text-green-600 ml-1">+{item.servicesUpdated} Services</span>
+                          )}
+                          {item.status === 'failed' && item.reason && (
+                            <span className="text-red-500 ml-1">— {item.reason}{item.statusCode ? ` (HTTP ${item.statusCode})` : ''}</span>
+                          )}
+                          {item.status === 'skipped' && <span className="text-amber-600 ml-1">übersprungen</span>}
+                          {item.status === 'no_match' && <span className="text-slate-400 ml-1">kein Treffer</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
               {updateResult && (
                 <Card className="border-[#f5d677] bg-[#fff9e6]">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Ergebnis</CardTitle>
+                    <CardTitle className="text-base text-[#1a2a5e]">Abschlussergebnis</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid gap-2 sm:grid-cols-2 text-sm">
+                  <CardContent className="grid gap-2 sm:grid-cols-3 text-sm">
                     <p>Verarbeitet: <strong>{updateResult.total || 0}</strong></p>
                     <p>Aktualisiert: <strong>{updateResult.updated || 0}</strong></p>
+                    <p>Zusammengeführt: <strong>{(updateResult.results || []).filter((r: any) => r.mergedIntoExisting).length}</strong></p>
                     <p>Ohne Treffer: <strong>{updateResult.noMatch || 0}</strong></p>
                     <p>Fehler: <strong>{updateResult.failed || 0}</strong></p>
-                    <p className="sm:col-span-2">Verknüpfte Repair Services aktualisiert: <strong>{updateResult.servicesModified || 0}</strong></p>
+                    <p>Übersprungen: <strong>{(updateResult.results || []).filter((r: any) => r.status === 'skipped').length}</strong></p>
+                    <p>Repair Services aktualisiert: <strong>{updateResult.servicesModified || 0}</strong></p>
                   </CardContent>
                 </Card>
               )}
@@ -2574,17 +2794,17 @@ export function DeviceManagement() {
               {updateResult?.errors?.length > 0 && (
                 <Card className="border-red-200 bg-red-50">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-red-800">API-Request-Fehler</CardTitle>
+                    <CardTitle className="text-base text-red-800">API-Fehler im Detail</CardTitle>
                     <CardDescription>
-                      Detaillierte Fehler der MobileAPI-Requests (Modell, HTTP-Status, Message)
+                      Modelle mit fehlgeschlagenen API-Requests (HTTP-Status, Fehlercode, Meldung)
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="max-h-56 overflow-y-auto space-y-2">
                     {updateResult.errors.map((item: any, index: number) => (
                       <div key={`${item.modelId || item.modelName}-${index}`} className="rounded border border-red-200 bg-white p-2 text-xs">
                         <p><strong>Modell:</strong> {item.modelName || '-'}</p>
-                        <p><strong>Status:</strong> {item.statusCode || '-'}</p>
-                        <p><strong>Code:</strong> {item.errorCode || '-'}</p>
+                        {item.statusCode && <p><strong>HTTP:</strong> {item.statusCode}</p>}
+                        {item.errorCode && <p><strong>Code:</strong> {item.errorCode}</p>}
                         <p><strong>Fehler:</strong> {item.reason || 'Unbekannter Fehler'}</p>
                       </div>
                     ))}
