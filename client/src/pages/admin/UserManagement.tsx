@@ -592,7 +592,7 @@ export function UserManagement() {
 
   if (loading && users.length === 0) {
     return (
-      <div className="user-management-page space-y-6">
+      <div className="user-management-page space-y-4">
         <div className="skeleton h-8 rounded w-48"></div>
         <Card className="skeleton">
           <CardHeader>
@@ -612,19 +612,19 @@ export function UserManagement() {
 
   return (
     <TooltipProvider>
-      <div className="user-management-page space-y-6">
+      <div className="user-management-page space-y-4">
         {/* Header */}
-        <div className="page-header flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
+        <div className="page-header flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="page-header-copy">
+            <h1>
               <Users className="h-8 w-8" />
               {t('userManagement.title')}
             </h1>
-            <p className="text-muted-foreground">
+            <p>
               {t('userManagement.description')}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="header-actions flex gap-2">
             <Button
               variant="outline"
               onClick={() => setShowCSVImportDialog(true)}
@@ -736,79 +736,69 @@ export function UserManagement() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="stats-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="stat-label text-sm font-medium">{t('userManagement.users')}</CardTitle>
-              <Users className="stat-icon h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="stat-value text-2xl font-bold">{totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                Total registered users
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="stats-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="stat-label text-sm font-medium">{t('userManagement.active')}</CardTitle>
-              <Users className="stat-icon h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="stat-value text-2xl font-bold">
-                {users.filter(u => u.isActive).length}
+        <div className="stats-grid">
+          <Card className="stat-card stat-total">
+            <CardContent className="p-0">
+              <div className="stat-card-header">
+                <div className="stat-card-title">{t('userManagement.users')}</div>
+                <div className="stat-card-icon">
+                  <Users className="h-4 w-4" />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                On current page
-              </p>
+              <div className="stat-card-value">{totalUsers}</div>
             </CardContent>
           </Card>
-          <Card className="stats-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="stat-label text-sm font-medium">{t('staffManagement.staff')}</CardTitle>
-              <Shield className="stat-icon h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="stat-value text-2xl font-bold">
-                {users.filter(u => u.role === 'staff').length}
+          <Card className="stat-card stat-pending">
+            <CardContent className="p-0">
+              <div className="stat-card-header">
+                <div className="stat-card-title">{t('userManagement.active')}</div>
+                <div className="stat-card-icon">
+                  <Activity className="h-4 w-4" />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Including {users.filter(u => u.role === 'admin').length} admins
-              </p>
+              <div className="stat-card-value">{users.filter(u => u.isActive).length}</div>
             </CardContent>
           </Card>
-          <Card className="stats-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="stat-label text-sm font-medium">{t('orders.totalCost')}</CardTitle>
-              <DollarSign className="stat-icon h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="stat-value text-2xl font-bold">
+          <Card className="stat-card stat-reviewing">
+            <CardContent className="p-0">
+              <div className="stat-card-header">
+                <div className="stat-card-title">{t('staffManagement.staff')}</div>
+                <div className="stat-card-icon">
+                  <Shield className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="stat-card-value">{users.filter(u => u.role === 'staff').length}</div>
+            </CardContent>
+          </Card>
+          <Card className="stat-card stat-converted">
+            <CardContent className="p-0">
+              <div className="stat-card-header">
+                <div className="stat-card-title">{t('orders.totalCost')}</div>
+                <div className="stat-card-icon">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="stat-card-value">
                 ${users.reduce((sum, u) => sum + (u.totalSpent || 0), 0).toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">
-                From {users.reduce((sum, u) => sum + (u.totalOrders || 0), 0)} orders
-              </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters and Search */}
-        <Card className="filters-bar">
-          <CardContent className="pt-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 filter-group">
-                <div className="relative search-input">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+        <Card className="filter-card">
+          <CardContent className="pt-0 p-3">
+            <div className="filter-container">
+              <div className="search-wrapper">
+                <Search className="h-4 w-4" />
+                <Input
+                  placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
               </div>
-              <div className="flex gap-2">
+              <div className="filter-row">
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-40">
                     <Filter className="h-4 w-4 mr-2" />
@@ -901,16 +891,16 @@ export function UserManagement() {
         </Card>
 
         {/* Enhanced Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('userManagement.users')}</CardTitle>
-            <CardDescription>
+        <Card className="requests-table-card">
+          <CardHeader className="requests-table-header">
+            <CardTitle className="requests-table-title">{t('userManagement.users')}</CardTitle>
+            <CardDescription className="requests-table-description">
               Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="table-container rounded-md border">
-              <Table>
+          <CardContent className="requests-table-content">
+            <div className="requests-table-wrapper table-container">
+              <Table className="requests-table">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -1141,7 +1131,7 @@ export function UserManagement() {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-2 py-4">
+              <div className="requests-pagination flex items-center justify-between px-2 py-4">
                 <div className="text-sm text-muted-foreground">
                   Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
                 </div>
