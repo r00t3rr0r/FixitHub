@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import "./RepairRequestsManagement.css"
 import { Button } from "@/components/ui/button"
@@ -47,7 +46,6 @@ import {
   X,
   Loader2,
   User,
-  Mail,
   Phone,
   Calendar,
   FileCheck,
@@ -99,30 +97,24 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { ContactMessagesPanel } from "@/components/admin/ContactMessagesPanel"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
 
-export function RepairRequestsManagement() {
-  const { t } = useTranslation()
+type RepairRequestsManagementView = "repair-requests" | "contact-messages"
+
+interface RepairRequestsManagementProps {
+  view?: RepairRequestsManagementView
+}
+
+export function RepairRequestsManagement({ view = "repair-requests" }: RepairRequestsManagementProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") === "contact-messages" ? "contact-messages" : "repair-requests"
-  )
 
   const [requests, setRequests] = useState<RepairRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<RepairRequest[]>([])
   const [statistics, setStatistics] = useState<RepairRequestStats | null>(null)
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [services, setServices] = useState<RepairService[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(view === "repair-requests")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -147,12 +139,14 @@ export function RepairRequestsManagement() {
   const isDetailsDialogClosingRef = useRef(false)
 
   useEffect(() => {
+    if (view !== "repair-requests") return
     fetchData()
-  }, [])
+  }, [view])
 
   useEffect(() => {
+    if (view !== "repair-requests") return
     filterRequests()
-  }, [requests, searchTerm, statusFilter, priorityFilter])
+  }, [requests, searchTerm, statusFilter, priorityFilter, view])
 
   useEffect(() => {
     if (!selectedRequest) return
@@ -183,27 +177,6 @@ export function RepairRequestsManagement() {
       isDetailsDialogClosingRef.current = false
     }
   }, [searchParams])
-
-  useEffect(() => {
-    const tabParam = searchParams.get("tab")
-    if (tabParam === "contact-messages" || tabParam === "repair-requests") {
-      setActiveTab(tabParam)
-    }
-  }, [searchParams])
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab)
-    setSearchParams((currentParams) => {
-      const nextParams = new URLSearchParams(currentParams)
-      nextParams.set("tab", tab)
-
-      if (tab !== "contact-messages") {
-        nextParams.delete("messageId")
-      }
-
-      return nextParams
-    }, { replace: true })
-  }
 
   const fetchData = async () => {
     try {
@@ -651,23 +624,10 @@ export function RepairRequestsManagement() {
 
   return (
     <div className="repair-requests-management">
-      {/* Tab Navigation */}
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="mb-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="repair-requests" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Reparaturanfragen</span>
-            <span className="sm:hidden">Anfragen</span>
-          </TabsTrigger>
-          <TabsTrigger value="contact-messages" className="flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            <span className="hidden sm:inline">Kontaktanfragen</span>
-            <span className="sm:hidden">Kontakt</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Repair Requests Tab */}
-        <TabsContent value="repair-requests" className="space-y-4 mt-4">
+      {view === "contact-messages" ? (
+        <ContactMessagesPanel />
+      ) : (
+        <div className="space-y-4 mt-4">
       {/* Header */}
       <div className="repair-requests-header">
         <h1>
@@ -1462,13 +1422,8 @@ export function RepairRequestsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-        </TabsContent>
-
-        {/* Contact Messages Tab */}
-        <TabsContent value="contact-messages" className="space-y-4 mt-4">
-          <ContactMessagesPanel />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   )
 }

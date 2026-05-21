@@ -359,6 +359,9 @@ function App() {
             <Route path="/admin/repair-requests" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<RepairRequestsManagement />} />
             </Route>
+            <Route path="/admin/contact-requests" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<RepairRequestsManagement view="contact-messages" />} />
+            </Route>
 
             {/* Inspection route */}
             <Route path="/inspection/:orderId" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>

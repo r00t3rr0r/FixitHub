@@ -170,6 +170,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/repair-requests" icon={FileText}>
           Repair Requests
         </NavItem>
+        <NavItem to="/admin/contact-requests" icon={MessageSquare}>
+          Kontaktanfragen
+        </NavItem>
         <NavItem to="/admin/complaints" icon={AlertCircle}>
           Reklamationen
         </NavItem>

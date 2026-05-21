@@ -187,7 +187,6 @@ export function ContactMessagesPanel() {
       setShowDetailsDialog(true);
       setSearchParams((currentParams) => {
         const nextParams = new URLSearchParams(currentParams);
-        nextParams.set('tab', 'contact-messages');
         nextParams.set('messageId', message._id);
         return nextParams;
       }, { replace: true });

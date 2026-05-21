@@ -772,7 +772,7 @@ export function AdminDashboard() {
                       key={request._id}
                       type="button"
                       className="compact-nested-contact-item"
-                      onClick={() => navigate(`/admin/repair-requests?tab=contact-messages&messageId=${request._id}`)}
+                      onClick={() => navigate(`/admin/contact-requests?messageId=${request._id}`)}
                     >
                       <div>
                         <p className="compact-title">{request.name}</p>
@@ -791,7 +791,7 @@ export function AdminDashboard() {
                 size="sm"
                 variant="outline"
                 className="w-full"
-                onClick={() => navigate("/admin/repair-requests?tab=contact-messages")}
+                onClick={() => navigate("/admin/contact-requests")}
               >
                 {t('adminDashboard.allContactRequests')}
                 <ArrowRight className="h-3.5 w-3.5" />
