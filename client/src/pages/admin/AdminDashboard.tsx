@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -192,11 +192,41 @@ export function AdminDashboard() {
   const [unansweredContactCount, setUnansweredContactCount] = useState(0)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
-  const fetchDashboardData = async (showToast = false) => {
+  const dashboardDataSignatureRef = useRef<string>("")
+
+  const captureScrollPositions = () => {
+    const windowScrollTop = window.scrollY
+    const panelScrollTops: number[] = []
+
+    const viewports = document.querySelectorAll<HTMLElement>(".compact-scroll-area [data-radix-scroll-area-viewport]")
+    viewports.forEach((viewport) => {
+      panelScrollTops.push(viewport.scrollTop)
+    })
+
+    return { windowScrollTop, panelScrollTops }
+  }
+
+  const restoreScrollPositions = (snapshot: { windowScrollTop: number; panelScrollTops: number[] } | null) => {
+    if (!snapshot) return
+
+    window.scrollTo({ top: snapshot.windowScrollTop, left: 0, behavior: "auto" })
+
+    const viewports = document.querySelectorAll<HTMLElement>(".compact-scroll-area [data-radix-scroll-area-viewport]")
+    viewports.forEach((viewport, index) => {
+      const saved = snapshot.panelScrollTops[index]
+      if (typeof saved === "number") {
+        viewport.scrollTop = saved
+      }
+    })
+  }
+
+  const fetchDashboardData = async (showToast = false, silent = true) => {
+    const scrollSnapshot = silent ? captureScrollPositions() : null
+
     try {
       if (showToast) {
         setRefreshing(true)
-      } else if (!hasLoadedOnce) {
+      } else if (!hasLoadedOnce && !silent) {
         setLoading(true)
       }
 
@@ -268,8 +298,6 @@ export function AdminDashboard() {
         },
       }
 
-      setDashboardData(processedData)
-
       const complaintItems = Array.isArray(complaintsData?.complaints) ? complaintsData.complaints : []
       const invoiceItems = Array.isArray(invoicesData?.invoices) ? invoicesData.invoices : []
       const paymentItems = Array.isArray(paymentsData?.payments) ? paymentsData.payments : []
@@ -279,7 +307,7 @@ export function AdminDashboard() {
       const complaintUrgencySet = new Set(["high", "urgent"])
       const now = Date.now()
 
-      setOperationsData({
+      const nextOperationsData: DashboardOperations = {
         complaints: {
           openCount: complaintItems.filter((item: Complaint) => openComplaintStatuses.has(String(item?.status || "").toLowerCase())).length,
           approvalQueueCount: complaintItems.filter((item: Complaint) => String(item?.status || "").toLowerCase() === "pending_approval").length,
@@ -302,10 +330,32 @@ export function AdminDashboard() {
           }).length,
           items: epartItems.slice(0, 5),
         },
+      }
+
+      const signature = JSON.stringify({
+        processedData,
+        nextOperationsData,
+        totalUnread: msgData.totalUnread,
+        customerMessageIds: msgData.messages.map((msg) => msg._id),
+        unresolvedContactIds: unresolvedContactMessages.map((message: ContactMessage) => message._id),
       })
 
-      setLastUpdatedAt(new Date())
-      setHasLoadedOnce(true)
+      const hasChanged = dashboardDataSignatureRef.current !== signature
+
+      if (hasChanged) {
+        dashboardDataSignatureRef.current = signature
+        setDashboardData(processedData)
+        setOperationsData(nextOperationsData)
+        setCustomerMessages(msgData.messages)
+        setTotalUnreadMessages(msgData.totalUnread)
+        setOpenContactRequests(unresolvedContactMessages.slice(0, 5))
+        setUnansweredContactCount(unresolvedContactMessages.length)
+        setLastUpdatedAt(new Date())
+      }
+
+      if (!hasLoadedOnce) {
+        setHasLoadedOnce(true)
+      }
 
       if (showToast) {
         toast({
@@ -322,21 +372,30 @@ export function AdminDashboard() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+
+      if (silent) {
+        window.requestAnimationFrame(() => {
+          restoreScrollPositions(scrollSnapshot)
+          window.requestAnimationFrame(() => {
+            restoreScrollPositions(scrollSnapshot)
+          })
+        })
+      }
     }
   }
 
   useEffect(() => {
-    fetchDashboardData()
+    fetchDashboardData(false, false)
 
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") {
-        fetchDashboardData()
+        fetchDashboardData(false, true)
       }
     }, 5000)
 
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible") {
-        fetchDashboardData()
+        fetchDashboardData(false, true)
       }
     }
 
