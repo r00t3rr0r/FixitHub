@@ -124,6 +124,11 @@
   border-color: #ef4444;
 }
 
+.stat-card.stat-closed {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-color: #94a3b8;
+}
+
 .stat-card-header {
   display: flex;
   align-items: center;
@@ -171,8 +176,16 @@
   color: #991b1b;
 }
 
+.stat-card.stat-closed .stat-card-title {
+  color: #334155;
+}
+
 .stat-card.stat-priority .stat-card-value {
   color: #7f1d1d;
+}
+
+.stat-card.stat-closed .stat-card-value {
+  color: #1e293b;
 }
 
 .stat-card-icon {
@@ -187,6 +200,10 @@
 
 .stat-card.stat-total .stat-card-icon {
   background: rgba(26, 42, 94, 0.08);
+}
+
+.stat-card.stat-closed .stat-card-icon {
+  background: rgba(148, 163, 184, 0.2);
 }
 
 .stat-card-value {
@@ -593,6 +610,75 @@
   background: var(--primary-blue-dark);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+}
+
+/* Contact requests table refinements */
+.contact-requests-table {
+  min-width: 1120px;
+}
+
+.contact-requests-table thead th:nth-child(1),
+.contact-requests-table tbody td:nth-child(1) {
+  min-width: 145px;
+}
+
+.contact-requests-table thead th:nth-child(2),
+.contact-requests-table tbody td:nth-child(2) {
+  min-width: 210px;
+}
+
+.contact-requests-table thead th:nth-child(3),
+.contact-requests-table tbody td:nth-child(3) {
+  min-width: 230px;
+}
+
+.contact-requests-table thead th:nth-child(4),
+.contact-requests-table tbody td:nth-child(4) {
+  min-width: 170px;
+}
+
+.contact-requests-table thead th:nth-child(5),
+.contact-requests-table tbody td:nth-child(5) {
+  min-width: 260px;
+}
+
+.contact-requests-table thead th:nth-child(6),
+.contact-requests-table tbody td:nth-child(6) {
+  min-width: 120px;
+}
+
+.contact-requests-table thead th:nth-child(7),
+.contact-requests-table tbody td:nth-child(7) {
+  min-width: 120px;
+}
+
+.contact-email-cell {
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-subject-badge {
+  font-size: 0.68rem;
+}
+
+.contact-open-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.contact-pagination-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.contact-pagination-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 /* Unread Badge */
