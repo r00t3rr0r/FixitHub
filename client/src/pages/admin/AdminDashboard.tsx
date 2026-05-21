@@ -757,7 +757,10 @@ export function AdminDashboard() {
 
             <div className="compact-nested-contact">
               <div className="compact-nested-contact-head">
-                <p>{t('adminDashboard.contactRequestsOpen')}</p>
+                <p>
+                  <MessageCircle className="h-3 w-3" />
+                  <span>{t('adminDashboard.contactRequestsOpen')}</span>
+                </p>
                 <Badge variant="outline" className="compact-badge compact-nested-contact-count">
                   {unansweredContactCount}
                 </Badge>
@@ -775,7 +778,10 @@ export function AdminDashboard() {
                       onClick={() => navigate(`/admin/contact-requests?messageId=${request._id}`)}
                     >
                       <div>
-                        <p className="compact-title">{request.name}</p>
+                        <p className="compact-title compact-nested-title">
+                          <Users className="h-3 w-3" />
+                          <span>{request.name}</span>
+                        </p>
                         <p className="compact-sub">{CONTACT_SUBJECT_LABELS[request.subject] || request.subject}</p>
                       </div>
                       <div className="compact-list-side">
