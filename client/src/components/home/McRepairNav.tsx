@@ -63,6 +63,48 @@ const BRAND_PRIORITY_ORDER = [
   'lenovo', 'asus', 'microsoft', 'dell', 'hp', 'acer', 'lg',
 ];
 
+const LOCAL_BRAND_LOGOS: Record<string, string> = {
+  acer: '/assets/brand-logos/acer.png',
+  apple: '/assets/brand-logos/apple.png',
+  asus: '/assets/brand-logos/asus.png',
+  blackberry: '/assets/brand-logos/blackberry.png',
+  dell: '/assets/brand-logos/dell.png',
+  google: '/assets/brand-logos/google.png',
+  'hmd global': '/assets/brand-logos/hmd-global.png',
+  htc: '/assets/brand-logos/htc.png',
+  huawei: '/assets/brand-logos/huawei.png',
+  lenovo: '/assets/brand-logos/lenovo.png',
+  lg: '/assets/brand-logos/lg.png',
+  microsoft: '/assets/brand-logos/microsoft.png',
+  windows: '/assets/brand-logos/microsoft.png',
+  motorola: '/assets/brand-logos/motorola.png',
+  nokia: '/assets/brand-logos/nokia.png',
+  oneplus: '/assets/brand-logos/oneplus.png',
+  samsung: '/assets/brand-logos/samsung.png',
+  sony: '/assets/brand-logos/sony.png',
+  toshiba: '/assets/brand-logos/toshiba.png',
+  xiaomi: '/assets/brand-logos/xiaomi.png',
+};
+
+const getLocalBrandLogo = (name?: string) => {
+  if (!name) return undefined;
+  const normalized = name.trim().toLowerCase();
+
+  if (LOCAL_BRAND_LOGOS[normalized]) {
+    return LOCAL_BRAND_LOGOS[normalized];
+  }
+
+  if (normalized.includes(',')) {
+    for (const part of normalized.split(',').map((value) => value.trim())) {
+      if (LOCAL_BRAND_LOGOS[part]) {
+        return LOCAL_BRAND_LOGOS[part];
+      }
+    }
+  }
+
+  return undefined;
+};
+
 function sortManufacturers(entries: [string, DeviceMenuModel[]][]): [string, DeviceMenuModel[]][] {
   return [...entries].sort(([a], [b]) => {
     const ai = BRAND_PRIORITY_ORDER.indexOf(a.toLowerCase());
@@ -138,7 +180,12 @@ export function McRepairNav() {
     return undefined;
   };
 
-  const resolveBrandIcon = (logo?: string): string | undefined => {
+  const resolveBrandIcon = (brandName?: string, logo?: string): string | undefined => {
+    const localLogo = getLocalBrandLogo(brandName);
+    if (localLogo) {
+      return localLogo;
+    }
+
     const normalizedLogo = logo?.trim();
     if (!normalizedLogo) {
       return undefined;
@@ -300,7 +347,7 @@ export function McRepairNav() {
 
             for (const manufacturer of manufacturers) {
               try {
-                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.logo);
+                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.name, manufacturer.logo);
 
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   deviceType._id,
@@ -386,7 +433,7 @@ export function McRepairNav() {
 
             for (const manufacturer of manufacturers) {
               try {
-                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.logo);
+                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.name, manufacturer.logo);
 
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   deviceType._id,
