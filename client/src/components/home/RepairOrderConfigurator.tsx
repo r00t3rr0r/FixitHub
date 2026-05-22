@@ -272,6 +272,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const { toast } = useToast();
   const navigate = useNavigate();
   const configuratorHeaderRef = useRef<HTMLDivElement | null>(null);
+  const additionalInfoSectionRef = useRef<HTMLDivElement | null>(null);
   const previousStepRef = useRef(1);
   const stepDefinitions = [
     { step: 1, labelKey: 'home.configurator.steps.deviceType' },
@@ -315,6 +316,22 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   // Additional info toggle state
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   const [showUnlockDetails, setShowUnlockDetails] = useState(true);
+
+  const scrollAdditionalInfoIntoView = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Wait for collapse/expand state updates before measuring and scrolling.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        additionalInfoSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      });
+    });
+  };
 
   // Photos state (NEW)
   const [photos, setPhotos] = useState<File[]>([]);
@@ -2246,6 +2263,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           onClick={() => {
                             setShowUnlockDetails(false);
                             setShowAdditionalInfo(true);
+                            scrollAdditionalInfoIntoView();
                           }}
                           style={{
                             display: 'flex',
@@ -2274,6 +2292,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 {/* Additional Information Section */}
                 <div
+                  ref={additionalInfoSectionRef}
                   style={{
                     border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d8dce6',
                     borderRadius: '8px',
