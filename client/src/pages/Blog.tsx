@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getBlogPosts, BlogPost, BlogCategory } from "@/api/blog"
 import {
@@ -12,11 +9,8 @@ import {
   Search,
   Calendar,
   Clock,
-  Heart,
   Eye,
   Filter,
-  Sparkles,
-  TrendingUp,
   ArrowRight
 } from "lucide-react"
 import {
@@ -90,165 +84,156 @@ export function Blog() {
 
   if (loading) {
     return (
-      <div className="section">
-        <div className="container">
-          <div className="section-title">
-            <h2>{t('blogPage.title')}</h2>
-            <p>{t('blogPage.description') || 'Tipps & Wissenswertes rund um Ihr Gerät'}</p>
-            <div className="accent-line"></div>
+      <section className="section py-4 sm:py-6">
+        <div className="container max-w-7xl">
+          <div className="mb-4 rounded-2xl border border-[#eceef3] bg-white p-4 shadow-sm sm:mb-6 sm:p-6">
+            <div className="h-5 w-44 animate-pulse rounded bg-slate-200 sm:h-7 sm:w-64" />
+            <div className="mt-3 h-3 w-full animate-pulse rounded bg-slate-100 sm:w-3/4" />
           </div>
 
-          {/* Search and filters skeleton */}
-          <div style={{ marginBottom: '32px', padding: '20px', background: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '200px', height: '40px', background: '#e5e5e5', borderRadius: '6px' }}></div>
-              <div style={{ width: '180px', height: '40px', background: '#e5e5e5', borderRadius: '6px' }}></div>
-            </div>
+          <div className="mb-4 grid gap-2 rounded-xl border border-[#eceef3] bg-white p-3 shadow-sm sm:mb-6 sm:grid-cols-[1fr_220px] sm:gap-3 sm:p-4">
+            <div className="h-9 animate-pulse rounded-md bg-slate-100" />
+            <div className="h-9 animate-pulse rounded-md bg-slate-100" />
           </div>
 
-          {/* Blog posts grid skeleton */}
-          <div className="blog-grid">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="blog-card" style={{ opacity: 0.5 }}>
-                <div className="blog-card-image" style={{ background: 'white' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                  </svg>
-                </div>
-                <div className="blog-card-body">
-                  <span className="blog-category">Laden...</span>
-                  <h4>Blogartikel wird geladen...</h4>
-                  <p>Bitte warten Sie einen Moment.</p>
+              <div key={i} className="overflow-hidden rounded-xl border border-[#eceef3] bg-white shadow-sm">
+                <div className="h-40 animate-pulse bg-slate-100 sm:h-44" />
+                <div className="space-y-2 p-3 sm:p-4">
+                  <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
+                  <div className="h-5 w-full animate-pulse rounded bg-slate-200" />
+                  <div className="h-4 w-4/5 animate-pulse rounded bg-slate-100" />
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
     )
   }
 
   return (
-    <div className="section">
-      <div className="container">
-        {/* Header with design system styling */}
-        <div className="section-title">
-          <h2>{t('blogPage.title')}</h2>
-          <p>{t('blogPage.description') || 'Tipps & Wissenswertes rund um Ihr Gerät'}</p>
-          <div className="accent-line"></div>
-        </div>
-
-        {/* Search and Filters */}
-        <div style={{ 
-          marginBottom: '32px', 
-          padding: '20px', 
-          background: 'white', 
-          borderRadius: '8px', 
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
-          border: '1px solid #eceef3' 
-        }}>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
-              <Search style={{ 
-                position: 'absolute', 
-                left: '12px', 
-                top: '50%', 
-                transform: 'translateY(-50%)', 
-                width: '18px', 
-                height: '18px', 
-                color: '#8892a8' 
-              }} />
-              <Input
-                placeholder={t('blogPage.searchPlaceholder') || 'Artikel durchsuchen...'}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ paddingLeft: '40px', height: '40px', border: '1px solid #d8dce6', borderRadius: '6px' }}
-                className="bg-white"
-              />
-            </div>
-            <div style={{ width: '180px' }}>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger style={{ height: '40px', border: '1px solid #d8dce6', borderRadius: '6px' }} className="bg-white">
-                  <Filter style={{ width: '16px', height: '16px', marginRight: '8px', color: '#f5b800' }} />
-                  <SelectValue placeholder={t('blogPage.allCategories')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('blogPage.allCategories')}</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category._id} value={category.name}>
-                      {category.name} ({category.postCount})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <section className="section py-4 sm:py-6">
+      <div className="container max-w-7xl">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-[#1a2a5e] bg-[#1a2a5e] p-4 shadow-sm sm:mb-6 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#f5b800]/40 bg-[#233575] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#f5b800] sm:text-xs">
+                <BookOpen className="h-3.5 w-3.5" />
+                McRepair Blog
+              </p>
+              <h1 className="text-xl font-bold leading-tight text-[#f5b800] sm:text-2xl md:text-3xl">
+                {t('blogPage.title')}
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-100 sm:text-[15px]">
+                {t('blogPage.description') || 'Tipps & Wissenswertes rund um Ihr Gerät'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Blog Posts Grid using design system */}
-        <div className="blog-grid">
+        <div className="mb-4 rounded-xl border border-[#eceef3] bg-white p-3 shadow-sm sm:mb-6 sm:p-4">
+          <div className="grid gap-2 sm:grid-cols-[1fr_220px] sm:gap-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder={t('blogPage.searchPlaceholder') || 'Artikel durchsuchen...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-9 border-[#d8dce6] bg-white pl-9 text-sm"
+              />
+            </div>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-9 border-[#d8dce6] bg-white text-sm">
+                <Filter className="mr-1.5 h-4 w-4 text-[#f5b800]" />
+                <SelectValue placeholder={t('blogPage.allCategories')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('blogPage.allCategories')}</SelectItem>
+                {categories.map(category => (
+                  <SelectItem key={category._id} value={category.name}>
+                    {category.name} ({category.postCount})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {filteredPosts.map((post) => (
-            <div 
-              key={post._id} 
-              className="blog-card"
-              onClick={() => window.location.href = `/blog/${post._id}`}
+            <Link
+              key={post._id}
+              to={`/blog/${post._id}`}
+              className="group overflow-hidden rounded-xl border border-[#eceef3] bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5b800]/50"
             >
-              <div 
-                className="blog-card-image" 
-                style={post.featuredImage ? {
-                  backgroundImage: `url(${post.featuredImage})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                } : { background: 'white' }}
-              >
-                {!post.featuredImage && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                    <path d="M12 18h.01"></path>
-                  </svg>
+              <div className="relative h-40 overflow-hidden bg-slate-100 sm:h-44">
+                {post.featuredImage ? (
+                  <img
+                    src={post.featuredImage}
+                    alt={post.title}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-slate-400">
+                    <BookOpen className="h-8 w-8" />
+                  </div>
                 )}
               </div>
-              <div className="blog-card-body">
-                <span className="blog-category">
-                  {typeof post.category === 'string'
-                    ? post.category
-                    : post.category?.name || 'Allgemein'}
-                </span>
-                <h4>{post.title}</h4>
-                <p>{post.excerpt}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', fontSize: '0.72rem', color: '#8892a8' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Calendar style={{ width: '12px', height: '12px' }} />
-                    <span>{new Date(post.publishedAt || post.createdAt).toLocaleDateString('de-DE')}</span>
-                  </div>
-                  <span>•</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock style={{ width: '12px', height: '12px' }} />
-                    <span>{post.readTime} min</span>
-                  </div>
-                  <span>•</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Eye style={{ width: '12px', height: '12px' }} />
-                    <span>{post.views}</span>
-                  </div>
+
+              <div className="p-3 sm:p-4">
+                <Badge className="mb-2 bg-[#fff8e1] text-[11px] font-semibold text-[#1a2a5e] hover:bg-[#fff8e1] sm:text-xs">
+                  {typeof post.category === 'string' ? post.category : post.category?.name || 'Allgemein'}
+                </Badge>
+
+                <h2 className="line-clamp-2 text-[15px] font-semibold leading-snug text-slate-900 sm:text-base">
+                  {post.title}
+                </h2>
+                <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600 sm:text-sm">
+                  {post.excerpt}
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {new Date(post.publishedAt || post.createdAt).toLocaleDateString('de-DE')}
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {post.readTime} min
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Eye className="h-3.5 w-3.5" />
+                    {post.views}
+                  </span>
+                </div>
+
+                <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#1a2a5e] sm:text-sm">
+                  Weiterlesen
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
 
         {filteredPosts.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 20px', background: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-            <BookOpen style={{ width: '64px', height: '64px', margin: '0 auto 20px', color: '#8892a8' }} />
-            <h3 style={{ fontSize: '1.3rem', fontWeight: '800', color: '#2d3748', marginBottom: '8px' }}>
+          <div className="rounded-xl border border-[#eceef3] bg-white px-4 py-10 text-center shadow-sm sm:px-6">
+            <BookOpen className="mx-auto mb-3 h-10 w-10 text-slate-400 sm:h-12 sm:w-12" />
+            <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
               {t('blogPage.noArticles')}
             </h3>
-            <p style={{ color: '#636e85', fontSize: '0.95rem' }}>
+            <p className="mt-1 text-sm text-slate-600">
               {t('blogPage.noArticlesDesc')}
             </p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }

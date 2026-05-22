@@ -4,6 +4,9 @@ const { requireUser, requireRole } = require('./middleware/auth');
 
 const router = express.Router();
 
+// In-memory store for pending questions during SSE streaming sessions
+const pendingDecisions = new Map();
+
 // Get all brands
 router.get('/brands', async (req, res) => {
   try {
@@ -99,6 +102,58 @@ router.post('/models/information-update', requireUser, requireRole(['admin']), a
   }
 });
 
+// SSE streaming variant — emits progress/result/question/summary events in real time
+router.post('/models/information-update-stream', requireUser, requireRole(['admin']), async (req, res) => {
+  const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const questions = new Map();
+  pendingDecisions.set(sessionId, questions);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = (type, data) => {
+    try {
+      res.write(`event: ${type}\ndata: ${JSON.stringify({ ...data, sessionId })}\n\n`);
+    } catch (_) { /* client disconnected */ }
+  };
+
+  const awaitDecision = (questionData) => new Promise((resolve) => {
+    const questionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    questions.set(questionId, resolve);
+    sendEvent('question', { ...questionData, questionId });
+  });
+
+  req.on('close', () => {
+    pendingDecisions.delete(sessionId);
+  });
+
+  try {
+    await DeviceService.updateModelInformationFromMobileApi(req.body || {}, { onProgress: sendEvent, awaitDecision });
+  } catch (error) {
+    sendEvent('error', { message: error.message });
+  } finally {
+    pendingDecisions.delete(sessionId);
+    res.end();
+  }
+});
+
+// Submit a user decision for a pending question in an SSE session
+router.post('/models/update-decision', requireUser, requireRole(['admin']), (req, res) => {
+  const { sessionId, questionId, decision } = req.body || {};
+  const questions = pendingDecisions.get(sessionId);
+  const resolver = questions?.get(questionId);
+
+  if (!resolver) {
+    return res.status(404).json({ success: false, error: 'Frage nicht gefunden oder bereits beantwortet.' });
+  }
+
+  questions.delete(questionId);
+  resolver(decision);
+  res.json({ success: true });
+});
+
 // Backfill linked repair services from current device model data (admin only)
 router.post('/models/backfill-service-links', requireUser, requireRole(['admin']), async (req, res) => {
   try {
@@ -111,6 +166,25 @@ router.post('/models/backfill-service-links', requireUser, requireRole(['admin']
     });
   } catch (error) {
     console.error('DeviceRoutes: Error running service-link backfill:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Merge existing duplicate models and relink repair services (admin only)
+router.post('/models/merge-duplicates', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await DeviceService.mergeDuplicateModels(req.body || {});
+
+    res.json({
+      success: true,
+      message: 'Duplicate model merge completed',
+      result,
+    });
+  } catch (error) {
+    console.error('DeviceRoutes: Error merging duplicate models:', error);
     res.status(400).json({
       success: false,
       error: error.message,

@@ -55,99 +55,104 @@ export function MarketingPromoOverview() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="marketing-promo-page space-y-4">
       <MarketingPromoHeader
         title="Marketing/Promo Uebersicht"
         description="Kampagnenleistung fuer Newsletter und Promo-Codes auf einen Blick."
         current="Uebersicht"
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Newsletter gesendet</CardTitle>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="marketing-promo-kpi">
+          <CardHeader className="pb-1">
+            <CardTitle className="marketing-promo-kpi-title">Newsletter gesendet</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-2xl font-bold">{newsletter.sent}</p>
-            <Mail className="h-5 w-5 text-slate-500" />
+          <CardContent className="flex items-center justify-between pt-0">
+            <p className="marketing-promo-kpi-value font-bold">{newsletter.sent}</p>
+            <Mail className="h-4 w-4 text-mcrepair-blue" />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Open/Click</CardTitle>
+
+        <Card className="marketing-promo-kpi">
+          <CardHeader className="pb-1">
+            <CardTitle className="marketing-promo-kpi-title">Open/Click</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-2xl font-bold">{newsletter.opened} / {newsletter.clicked}</p>
-            <TrendingUp className="h-5 w-5 text-slate-500" />
+          <CardContent className="flex items-center justify-between pt-0">
+            <p className="marketing-promo-kpi-value font-bold">{newsletter.opened} / {newsletter.clicked}</p>
+            <TrendingUp className="h-4 w-4 text-mcrepair-blue" />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Aktive Promo-Codes</CardTitle>
+
+        <Card className="marketing-promo-kpi">
+          <CardHeader className="pb-1">
+            <CardTitle className="marketing-promo-kpi-title">Aktive Promo-Codes</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-2xl font-bold">{promo.activeCodes}</p>
-            <Ticket className="h-5 w-5 text-slate-500" />
+          <CardContent className="flex items-center justify-between pt-0">
+            <p className="marketing-promo-kpi-value font-bold">{promo.activeCodes}</p>
+            <Ticket className="h-4 w-4 text-mcrepair-blue" />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Einloesungen</CardTitle>
+
+        <Card className="marketing-promo-kpi">
+          <CardHeader className="pb-1">
+            <CardTitle className="marketing-promo-kpi-title">Einloesungen</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-2xl font-bold">{promo.redemptions}</p>
-            <BarChart3 className="h-5 w-5 text-slate-500" />
+          <CardContent className="flex items-center justify-between pt-0">
+            <p className="marketing-promo-kpi-value font-bold">{promo.redemptions}</p>
+            <BarChart3 className="h-4 w-4 text-mcrepair-blue" />
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card>
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <Card className="marketing-promo-panel">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Letzte Newsletter</CardTitle>
-            <Button asChild variant="outline" size="sm">
+            <CardTitle className="text-base text-mcrepair-blue">Letzte Newsletter</CardTitle>
+            <Button asChild variant="outline" size="sm" className="h-8 px-2 text-xs">
               <Link to="/admin/marketing-promo/newsletters">Alle</Link>
             </Button>
           </CardHeader>
           <CardContent>
-            {loading && <p className="text-sm text-slate-500">Lade Newsletter...</p>}
+            {loading && <p className="text-xs marketing-promo-subtle">Lade Newsletter...</p>}
             {!loading && (overview?.recentNewsletters || []).length === 0 && (
-              <p className="text-sm text-slate-500">Keine Newsletter vorhanden.</p>
+              <p className="text-xs marketing-promo-subtle">Keine Newsletter vorhanden.</p>
             )}
-            <div className="space-y-2">
+
+            <div className="space-y-1.5">
               {(overview?.recentNewsletters || []).map((item) => (
-                <div key={item._id} className="rounded border border-slate-200 p-3">
+                <div key={item._id} className="marketing-promo-item rounded border">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-slate-900">{item.internalName}</p>
+                    <p className="text-sm font-medium text-slate-900">{item.internalName}</p>
                     <Badge variant="outline">{item.status}</Badge>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">{item.subject}</p>
+                  <p className="mt-1 text-xs marketing-promo-subtle">{item.subject}</p>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="marketing-promo-panel">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Letzte Promo-Codes</CardTitle>
-            <Button asChild variant="outline" size="sm">
+            <CardTitle className="text-base text-mcrepair-blue">Letzte Promo-Codes</CardTitle>
+            <Button asChild variant="outline" size="sm" className="h-8 px-2 text-xs">
               <Link to="/admin/marketing-promo/promo-codes">Alle</Link>
             </Button>
           </CardHeader>
           <CardContent>
-            {loading && <p className="text-sm text-slate-500">Lade Promo-Codes...</p>}
+            {loading && <p className="text-xs marketing-promo-subtle">Lade Promo-Codes...</p>}
             {!loading && (overview?.recentPromoCodes || []).length === 0 && (
-              <p className="text-sm text-slate-500">Keine Promo-Codes vorhanden.</p>
+              <p className="text-xs marketing-promo-subtle">Keine Promo-Codes vorhanden.</p>
             )}
-            <div className="space-y-2">
+
+            <div className="space-y-1.5">
               {(overview?.recentPromoCodes || []).map((item) => (
-                <div key={item._id} className="rounded border border-slate-200 p-3">
+                <div key={item._id} className="marketing-promo-item rounded border">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-slate-900">{item.code}</p>
+                    <p className="text-sm font-medium text-slate-900">{item.code}</p>
                     <Badge variant="outline">{item.status}</Badge>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">{item.internalName}</p>
+                  <p className="mt-1 text-xs marketing-promo-subtle">{item.internalName}</p>
                 </div>
               ))}
             </div>
@@ -155,22 +160,22 @@ export function MarketingPromoOverview() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="marketing-promo-panel">
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Audit-Log (letzte Aktionen)</CardTitle>
-          <Button asChild variant="outline" size="sm">
+          <CardTitle className="text-base text-mcrepair-blue">Audit-Log (letzte Aktionen)</CardTitle>
+          <Button asChild size="sm" className="marketing-promo-btn-brand h-8 px-3 text-xs">
             <Link to="/admin/marketing-promo/reports">Reports</Link>
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {(overview?.recentAudit || []).map((entry) => (
-              <div key={entry._id} className="rounded border border-slate-200 p-3 text-sm">
+              <div key={entry._id} className="marketing-promo-item rounded border text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-slate-900">{entry.action}</p>
-                  <p className="text-xs text-slate-500">{new Date(entry.createdAt).toLocaleString('de-DE')}</p>
+                  <p className="text-sm font-medium text-slate-900">{entry.action}</p>
+                  <p className="text-xs marketing-promo-subtle">{new Date(entry.createdAt).toLocaleString('de-DE')}</p>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs marketing-promo-subtle">
                   {entry.entityType} {entry.entityLabel ? `(${entry.entityLabel})` : ''} • {entry.performedByEmail}
                 </p>
               </div>

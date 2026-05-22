@@ -58,7 +58,7 @@ export function MarketingPromoSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="marketing-promo-page space-y-4">
       <MarketingPromoHeader
         title="Einstellungen"
         description="Globale Marketing/Promo-Defaults fuer Newsletter-Versand und Tracking."

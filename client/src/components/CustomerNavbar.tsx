@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,6 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { NavbarSearch } from '@/components/NavbarSearch';
 
 export function CustomerNavbar() {
   const { t } = useTranslation();
@@ -67,10 +66,6 @@ export function CustomerNavbar() {
           </span>
         </Link>
 
-        {/* Search Bar - visible on larger screens */}
-        <div className="hidden lg:flex flex-1 max-w-xl mx-4">
-          <NavbarSearch />
-        </div>
 
         {/* Navigation links - hidden on mobile */}
         <nav className="hidden md:flex items-center gap-6">
@@ -88,13 +83,13 @@ export function CustomerNavbar() {
             {t('home.nav.about')}
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
           </a>
-          <a
-            href="/#contact"
+          <Link
+            to="/shop"
             className="text-gray-600 hover:text-yellow-600 transition-colors duration-200 font-medium relative group"
           >
-            {t('home.nav.contact')}
+            {t('home.nav.shop') || 'Shop'}
             <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 group-hover:w-full transition-all duration-300" />
-          </a>
+          </Link>
         </nav>
 
         {/* Right side actions */}
@@ -129,11 +124,6 @@ export function CustomerNavbar() {
             </>
           )}
         </div>
-      </div>
-      
-      {/* Mobile Search Bar - visible on smaller screens */}
-      <div className="lg:hidden container mx-auto px-4 pb-3">
-        <NavbarSearch />
       </div>
     </header>
   );

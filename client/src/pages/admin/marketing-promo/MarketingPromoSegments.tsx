@@ -134,7 +134,7 @@ export function MarketingPromoSegments() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="marketing-promo-page space-y-4">
       <MarketingPromoHeader
         title="Segmente"
         description="Zielgruppen auf Basis bestehender Kundendaten definieren und wiederverwenden."

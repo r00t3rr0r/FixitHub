@@ -1758,32 +1758,36 @@ ul, ol {
 
 .config-result-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
 }
 
 
 .config-result-item {
   text-align: center;
+  padding: 10px 6px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
 }
 
 .config-result-item .label {
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   color: #718096;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .config-result-item .value {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #1a2a5e;
 }
 
 .config-result-item .value.small {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #1a2a5e;
 }
 
@@ -1791,9 +1795,9 @@ ul, ol {
   background: var(--accent-yellow);
   color: var(--primary-blue);
   width: 100%;
-  padding: 14px;
+  padding: 11px 14px;
   border-radius: var(--radius-sm);
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -1811,6 +1815,13 @@ ul, ol {
 .config-result-cta svg {
   width: 18px;
   height: 18px;
+}
+
+/* Step 6: Order summary — transparent card, compact vertical spacing */
+.config-step-content[data-step="6"] .config-result {
+  background: transparent;
+  border-radius: 0;
+  padding: 8px 0 12px;
 }
 
 /* Nav buttons */
@@ -3327,8 +3338,20 @@ ul, ol {
   }
 
   .config-result-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .config-result-item {
+    padding: 8px 4px;
+  }
+
+  .config-result-item .value {
+    font-size: 1rem;
+  }
+
+  .config-result-item .value.small {
+    font-size: 0.82rem;
   }
 
   .trust-items {
@@ -3385,6 +3408,23 @@ ul, ol {
 
 /* Small Mobile */
 @media (max-width: 480px) {
+  .config-result-item {
+    padding: 7px 4px;
+  }
+
+  .config-result-item .label {
+    font-size: 0.58rem;
+    letter-spacing: 0;
+  }
+
+  .config-result-item .value {
+    font-size: 0.95rem;
+  }
+
+  .config-result-item .value.small {
+    font-size: 0.78rem;
+  }
+
   /* Hide device category items (Smartphone/Tablet/Notebook/Konsole/Shop) in mobile menu to save space */
   .nav-links .nav-category-item {
     display: none !important;

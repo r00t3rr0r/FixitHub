@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UnlockPatternInput } from '@/components/inspection/UnlockPatternInput';
 import { VorabdiagnoseModal } from '@/components/VorabdiagnoseModal';
-import { 
-  Wrench, 
-  Smartphone, 
-  Tablet, 
-  Monitor, 
+import {
+  Wrench,
+  Smartphone,
+  Tablet,
+  Monitor,
   Gamepad2,
   ChevronRight,
   ChevronLeft,
@@ -32,7 +32,22 @@ import {
   Plus,
   X,
   Info,
-  Search
+  Search,
+  BatteryCharging,
+  Camera,
+  Volume2,
+  Settings2,
+  Zap,
+  Cpu,
+  Wifi,
+  SlidersHorizontal,
+  Layers,
+  LayoutGrid,
+  MonitorSmartphone,
+  Power,
+  HardDrive,
+  Tag,
+  Truck
 } from 'lucide-react';
 import {
   getDeviceTypes,
@@ -50,6 +65,69 @@ import { addRepairOrderToCart } from '@/api/shop';
 interface RepairOrderConfiguratorProps {
   onComplete?: (orderData: any) => void;
 }
+
+const LOCAL_BRAND_LOGOS: Record<string, string> = {
+  acer: '/assets/brand-logos/acer.png',
+  apple: '/assets/brand-logos/apple.png',
+  asus: '/assets/brand-logos/asus.png',
+  blackberry: '/assets/brand-logos/blackberry.png',
+  dell: '/assets/brand-logos/dell.png',
+  google: '/assets/brand-logos/google.png',
+  'hmd global': '/assets/brand-logos/hmd-global.png',
+  htc: '/assets/brand-logos/htc.png',
+  huawei: '/assets/brand-logos/huawei.png',
+  lenovo: '/assets/brand-logos/lenovo.png',
+  lg: '/assets/brand-logos/lg.png',
+  microsoft: '/assets/brand-logos/microsoft.png',
+  windows: '/assets/brand-logos/microsoft.png',
+  motorola: '/assets/brand-logos/motorola.png',
+  nokia: '/assets/brand-logos/nokia.png',
+  oneplus: '/assets/brand-logos/oneplus.png',
+  samsung: '/assets/brand-logos/samsung.png',
+  sony: '/assets/brand-logos/sony.png',
+  toshiba: '/assets/brand-logos/toshiba.png',
+  xiaomi: '/assets/brand-logos/xiaomi.png',
+};
+
+const getLocalBrandLogo = (name?: string) => {
+  if (!name) return null;
+  const normalized = name.trim().toLowerCase();
+
+  if (LOCAL_BRAND_LOGOS[normalized]) {
+    return LOCAL_BRAND_LOGOS[normalized];
+  }
+
+  if (normalized.includes(',')) {
+    for (const part of normalized.split(',').map((value) => value.trim())) {
+      if (LOCAL_BRAND_LOGOS[part]) {
+        return LOCAL_BRAND_LOGOS[part];
+      }
+    }
+  }
+
+  return null;
+};
+
+const normalizeLogoSource = (logo?: string) => {
+  const normalizedLogo = logo?.trim();
+  if (!normalizedLogo) {
+    return null;
+  }
+
+  if (
+    normalizedLogo.startsWith('http://') ||
+    normalizedLogo.startsWith('https://') ||
+    normalizedLogo.startsWith('/') ||
+    normalizedLogo.startsWith('data:')
+  ) {
+    return normalizedLogo;
+  }
+
+  return `data:image/jpeg;base64,${normalizedLogo}`;
+};
+
+const resolveBrandLogo = (name?: string, logo?: string) =>
+  getLocalBrandLogo(name) || normalizeLogoSource(logo);
 
 const getDeviceIcon = (deviceType: string) => {
   const type = deviceType.toLowerCase();
@@ -93,6 +171,44 @@ const formatPrice = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+
+const getCategoryIcon = (category: string, size: 'sm' | 'md' = 'md') => {
+  const cls = size === 'sm' ? 'w-4 h-4' : 'w-6 h-6';
+  const cat = category.toLowerCase();
+  if (cat.includes('display') || cat.includes('bildschirm') || cat.includes('screen') || cat.includes('glas'))
+    return <MonitorSmartphone className={cls} />;
+  if (cat.includes('akku') || cat.includes('batterie') || cat.includes('battery'))
+    return <BatteryCharging className={cls} />;
+  if (cat.includes('wasser') || cat.includes('feuchtigkeit') || cat.includes('water') || cat.includes('liquid'))
+    return <Droplets className={cls} />;
+  if (cat.includes('kamera') || cat.includes('camera') || cat.includes('foto'))
+    return <Camera className={cls} />;
+  if (cat.includes('lautsprecher') || cat.includes('mikrofon') || cat.includes('audio') || cat.includes('sound') || cat.includes('speaker'))
+    return <Volume2 className={cls} />;
+  if (cat.includes('software') || cat.includes('system') || cat.includes('reset') || cat.includes('update'))
+    return <Settings2 className={cls} />;
+  if (cat.includes('laden') || cat.includes('ladebuchse') || cat.includes('anschluss') || cat.includes('charging') || cat.includes('usb') || cat.includes('port'))
+    return <Zap className={cls} />;
+  if (cat.includes('power') || cat.includes('strom') || cat.includes('ein') && cat.includes('aus'))
+    return <Power className={cls} />;
+  if (cat.includes('platine') || cat.includes('mainboard') || cat.includes('logic') || cat.includes('board') || cat.includes('chip'))
+    return <Cpu className={cls} />;
+  if (cat.includes('hardware') || cat.includes('komponente') || cat.includes('bauteil'))
+    return <HardDrive className={cls} />;
+  if (cat.includes('emergency') || cat.includes('notfall') || cat.includes('dringend') || cat.includes('urgent'))
+    return <AlertCircle className={cls} />;
+  if (cat.includes('netz') || cat.includes('wifi') || cat.includes('wlan') || cat.includes('signal') || cat.includes('antenne'))
+    return <Wifi className={cls} />;
+  if (cat.includes('taste') || cat.includes('button') || cat.includes('schalter') || cat.includes('switch'))
+    return <SlidersHorizontal className={cls} />;
+  if (cat.includes('schutz') || cat.includes('folie') || cat.includes('protection') || cat.includes('cover'))
+    return <Layers className={cls} />;
+  if (cat.includes('gehäuse') || cat.includes('back') || cat.includes('rahmen') || cat.includes('frame'))
+    return <Package className={cls} />;
+  if (cat.includes('lock') || cat.includes('entsperr') || cat.includes('unlock') || cat.includes('pin'))
+    return <Lock className={cls} />;
+  return <Wrench className={cls} />;
+};
 
 const normalizeSearchText = (value: string | undefined | null) =>
   String(value || '')
@@ -219,6 +335,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const { toast } = useToast();
   const navigate = useNavigate();
   const configuratorHeaderRef = useRef<HTMLDivElement | null>(null);
+  const additionalInfoSectionRef = useRef<HTMLDivElement | null>(null);
   const previousStepRef = useRef(1);
   const stepDefinitions = [
     { step: 1, labelKey: 'home.configurator.steps.deviceType' },
@@ -234,6 +351,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [showDiagnoseModal, setShowDiagnoseModal] = useState(false);
   const [serviceInfoDialog, setServiceInfoDialog] = useState<RepairService | null>(null);
   const [hoveredTooltip, setHoveredTooltip] = useState<{ service: RepairService; left: number; top: number; arrowLeft: number } | null>(null);
+  const shouldJumpToStep3Ref = useRef(false);
+  const pendingServiceSelectionIdRef = useRef<string | null>(null);
   const TOOLTIP_WIDTH = 220;
   const TOOLTIP_MARGIN = 8;
 
@@ -260,6 +379,22 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   // Additional info toggle state
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   const [showUnlockDetails, setShowUnlockDetails] = useState(true);
+
+  const scrollAdditionalInfoIntoView = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Wait for collapse/expand state updates before measuring and scrolling.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        additionalInfoSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      });
+    });
+  };
 
   // Photos state (NEW)
   const [photos, setPhotos] = useState<File[]>([]);
@@ -317,6 +452,34 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     });
   }, [currentStep]);
 
+  // Jump to step 3 when all required selections are made from navigation
+  useEffect(() => {
+    if (shouldJumpToStep3Ref.current && selectedDeviceType && selectedBrand && selectedModel) {
+      console.log('[Configurator] Jumping to step 3 with:', {
+        selectedDeviceType: selectedDeviceType.name,
+        selectedBrand,
+        selectedModel: selectedModel.name
+      });
+      setCurrentStep(3);
+      shouldJumpToStep3Ref.current = false;
+    } else if (shouldJumpToStep3Ref.current) {
+      console.log('[Configurator] Waiting for all selections:', {
+        shouldJumpToStep3Ref: shouldJumpToStep3Ref.current,
+        selectedDeviceType: selectedDeviceType?.name || 'NOT SET',
+        selectedBrand: selectedBrand || 'NOT SET',
+        selectedModel: selectedModel?.name || 'NOT SET'
+      });
+    }
+  }, [selectedDeviceType, selectedBrand, selectedModel]);
+
+  // Alternative: Jump to step 3 when services are loaded (for when model exists but wasn't explicitly selected)
+  useEffect(() => {
+    if (currentStep === 3 && repairServices.length > 0 && shouldJumpToStep3Ref.current) {
+      console.log('[Configurator] Services loaded, finalizing step 3 jump');
+      shouldJumpToStep3Ref.current = false;
+    }
+  }, [currentStep, repairServices]);
+
   // Fetch device types on mount
   useEffect(() => {
     const fetchDeviceTypes = async () => {
@@ -331,15 +494,41 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         if (navDeviceSelectionJson) {
           try {
             const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+            if (navDeviceSelection?.selectedServiceId) {
+              pendingServiceSelectionIdRef.current = String(navDeviceSelection.selectedServiceId);
+            }
+
+            const navPreselectedServiceJson = sessionStorage.getItem('navPreselectedService');
+            if (navPreselectedServiceJson) {
+              try {
+                const navPreselectedService = JSON.parse(navPreselectedServiceJson);
+                if (navPreselectedService?._id) {
+                  pendingServiceSelectionIdRef.current = String(navPreselectedService._id);
+                }
+              } catch (error) {
+                console.warn('Error parsing navPreselectedService in mount flow:', error);
+              }
+            }
+
             const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
-            console.log('Device selected from navigation:', navDeviceSelection);
+            console.log('[Configurator] Navigation device selection found:', {
+              navDeviceSelection,
+              requestedConfiguratorStep,
+              deviceTypesLoaded: deviceTypesList.length
+            });
 
             // Find the matching device type
             const matchedDeviceType = deviceTypesList.find(
               (dt: DeviceType) => dt.name.toLowerCase() === navDeviceSelection.deviceType.toLowerCase()
             );
+            
+            console.log('[Configurator] Device type matching:', {
+              searchingFor: navDeviceSelection.deviceType,
+              availableTypes: deviceTypesList.map((dt: DeviceType) => dt.name),
+              matched: matchedDeviceType?.name || 'NOT FOUND'
+            });
 
-            if (matchedDeviceType && navDeviceSelection.searchQuery) {
+            if (matchedDeviceType && navDeviceSelection.manufacturer && navDeviceSelection.modelName) {
               // Set device type
               setSelectedDeviceType(matchedDeviceType);
               setCurrentStep(2); // Move to step 2
@@ -369,24 +558,28 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 setFilteredModels(modelsList);
 
                 // Find the matching model
-                const matchedModel = modelsList.find((m: DeviceModel) =>
-                  m.name.toLowerCase().includes(navDeviceSelection.modelName?.toLowerCase() || '')
-                );
+                const matchedModel = findMatchingModelByName(modelsList, navDeviceSelection.modelName);
 
                 if (matchedModel) {
                   setSelectedModel(matchedModel);
-                  setModelSearchQuery(matchedModel.name);
-                  if (requestedConfiguratorStep === 3) {
-                    setCurrentStep(3);
-                  }
+                  setModelSearchQuery(getModelSearchPrefill(matchedModel));
                   
                   toast({
                     title: t('common.success'),
                     description: `${matchedModel.name} ${t('home.configurator.toasts.deviceSelectedTitle').toLowerCase()}`,
                   });
+                  
+                  // Mark that we should jump to step 3 after state updates
+                  if (requestedConfiguratorStep === 3) {
+                    shouldJumpToStep3Ref.current = true;
+                  }
                 } else {
-                  // If no exact match, at least show the filtered models
+                  // No match at all - still show filtered models and jump to step 3 if requested
                   setModelSearchQuery(navDeviceSelection.modelName || '');
+                  if (requestedConfiguratorStep === 3) {
+                    shouldJumpToStep3Ref.current = true;
+                  }
+                  
                   toast({
                     title: t('home.configurator.toasts.selectModelTitle'),
                     description: t('home.configurator.toasts.selectModelDescription', {
@@ -465,12 +658,43 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
   // Listen for navigation device selection events (when already on homepage)
   useEffect(() => {
-    const handleNavDeviceSelected = async () => {
+    const handleNavDeviceSelected = async (event: Event) => {
+      const customEvent = event as CustomEvent<{ navDeviceSelection?: any; navPreselectedService?: any }>;
+      const detailNavDeviceSelection = customEvent.detail?.navDeviceSelection;
+      const detailPreselectedService = customEvent.detail?.navPreselectedService;
+
       const navDeviceSelectionJson = sessionStorage.getItem('navDeviceSelection');
-      if (!navDeviceSelectionJson) return;
+      const navPreselectedServiceJson = sessionStorage.getItem('navPreselectedService');
+
+      let navDeviceSelection = detailNavDeviceSelection;
+      if (!navDeviceSelection && navDeviceSelectionJson) {
+        try {
+          navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+        } catch (error) {
+          console.warn('Error parsing navDeviceSelection in event flow:', error);
+          return;
+        }
+      }
+      if (!navDeviceSelection) return;
 
       try {
-        const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+        if (navDeviceSelection?.selectedServiceId) {
+          pendingServiceSelectionIdRef.current = String(navDeviceSelection.selectedServiceId);
+        }
+
+        if (detailPreselectedService?._id) {
+          pendingServiceSelectionIdRef.current = String(detailPreselectedService._id);
+        } else if (navPreselectedServiceJson) {
+          try {
+            const navPreselectedService = JSON.parse(navPreselectedServiceJson);
+            if (navPreselectedService?._id) {
+              pendingServiceSelectionIdRef.current = String(navPreselectedService._id);
+            }
+          } catch (error) {
+            console.warn('Error parsing navPreselectedService in event flow:', error);
+          }
+        }
+
         const requestedConfiguratorStep = sessionStorage.getItem('navConfiguratorStep') === '3' ? 3 : 2;
         console.log('Device selected from navigation (event):', navDeviceSelection);
 
@@ -499,7 +723,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           setManufacturers(manufacturersList);
 
           // If we have manufacturer and model name, try to auto-select
-          if (navDeviceSelection.manufacturer && !navDeviceSelection.showAllModels) {
+          if (navDeviceSelection.manufacturer && navDeviceSelection.modelName && !navDeviceSelection.showAllModels) {
             const matchingManufacturer = manufacturersList.find((m: any) => 
               m.name.toLowerCase() === navDeviceSelection.manufacturer.toLowerCase()
             );
@@ -517,21 +741,21 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
               // Auto-select the specific model if provided
               if (navDeviceSelection.modelName) {
-                const matchingModel = modelsList.find((m: any) => 
-                  m.name.toLowerCase() === navDeviceSelection.modelName.toLowerCase()
-                );
+                const matchingModel = findMatchingModelByName(modelsList, navDeviceSelection.modelName);
 
                 if (matchingModel) {
                   setSelectedModel(matchingModel);
-                  setModelSearchQuery(matchingModel.name);
-                  if (requestedConfiguratorStep === 3) {
-                    setCurrentStep(3);
-                  }
+                  setModelSearchQuery(getModelSearchPrefill(matchingModel));
                   toast({
                     title: t('home.configurator.toasts.deviceSelectedTitle'),
                     description: `${matchingManufacturer.name} ${matchingModel.name}`,
                     variant: 'default'
                   });
+                  
+                  // Mark that we should jump to step 3 if requested
+                  if (requestedConfiguratorStep === 3) {
+                    shouldJumpToStep3Ref.current = true;
+                  }
                 }
               }
             }
@@ -728,20 +952,97 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setModelSearchQuery('');
   };
 
+  const getModelSearchPrefill = (model: DeviceModel) => {
+    const modelNumbers = Array.isArray(model.modelNumbers)
+      ? model.modelNumbers.filter((number) => String(number || '').trim().length > 0)
+      : [];
+
+    return modelNumbers.length > 0 ? `${model.name} ${modelNumbers.join(' ')}` : model.name;
+  };
+
+  const findMatchingModelByName = (modelsList: DeviceModel[], targetName: string | undefined) => {
+    const normalizedTarget = normalizeSearchText(targetName || '');
+    if (!normalizedTarget) {
+      return null;
+    }
+
+    const exactMatch = modelsList.find((model) => normalizeSearchText(model.name) === normalizedTarget);
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    const partialMatch = modelsList.find((model) => {
+      const normalizedModelName = normalizeSearchText(model.name);
+      return normalizedModelName.includes(normalizedTarget) || normalizedTarget.includes(normalizedModelName);
+    });
+
+    if (partialMatch) {
+      return partialMatch;
+    }
+
+    const targetTokens = normalizedTarget.split(' ').filter(Boolean);
+    if (targetTokens.length === 0) {
+      return null;
+    }
+
+    let bestMatch: { model: DeviceModel; score: number } | null = null;
+
+    for (const model of modelsList) {
+      const modelTokens = normalizeSearchText(model.name).split(' ').filter(Boolean);
+      if (modelTokens.length === 0) {
+        continue;
+      }
+
+      let score = 0;
+      for (const token of targetTokens) {
+        if (modelTokens.includes(token)) {
+          score += 1;
+        }
+      }
+
+      if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { model, score };
+      }
+    }
+
+    return bestMatch?.model || null;
+  };
+
+  const prepareModelSearchForEditing = () => {
+    if (!selectedModel) {
+      return;
+    }
+
+    const selectedPrefill = getModelSearchPrefill(selectedModel);
+    if (normalizeSearchText(modelSearchQuery) === normalizeSearchText(selectedPrefill)) {
+      setModelSearchQuery(selectedModel.name);
+    }
+  };
+
+  const handleModelInputFocus = () => {
+    prepareModelSearchForEditing();
+    setShowModelDropdown(true);
+  };
+
+  const handleActivateMobileSearch = () => {
+    prepareModelSearchForEditing();
+    setIsMobileSearchActive(true);
+  };
+
   // Handle model selection
   // Erweiterte Model-Auswahl mit Bild- und Specs-Check
   const handleModelSelect = async (model: DeviceModel) => {
     // Nur wenn wirklich kein nutzbares Bild vorhanden ist, hole Daten von mobileapi.dev
     if (getModelImage(model)) {
       setSelectedModel(model);
-      setModelSearchQuery(model.name);
+      setModelSearchQuery(getModelSearchPrefill(model));
       setShowModelDropdown(false);
       setShowMobileModelModal(false);
       setIsMobileSearchActive(false);
       return;
     }
     try {
-      setModelSearchQuery(model.name);
+      setModelSearchQuery(getModelSearchPrefill(model));
       setShowModelDropdown(false);
       setShowMobileModelModal(false);
       setIsMobileSearchActive(false);
@@ -919,7 +1220,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           setRepairServices(services);
           // If there's 0 or 1 category no chips will be shown; auto-select 'all' so the grid is visible
           const uniqueCategories = Array.from(new Set(services.map((s: any) => (s.category || '').trim()).filter((c: any) => c.length > 0)));
-          setSelectedRepairCategory(uniqueCategories.length <= 1 ? 'all' : null);
+          // Use functional updater to avoid overwriting a category already set by
+          // navigation auto-select (which runs synchronously before this async fetch completes).
+          setSelectedRepairCategory(prev => {
+            if (prev !== null && uniqueCategories.includes(prev as string)) {
+              return prev; // keep a valid pre-selected category
+            }
+            return uniqueCategories.length <= 1 ? 'all' : null;
+          });
         } catch (error) {
           console.error('Error fetching repair services:', error);
           toast({
@@ -972,6 +1280,62 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       fetchAddOnServices();
     }
   }, [currentStep, toast, t]);
+
+  // Auto-select service from navigation search
+  useEffect(() => {
+    if (currentStep === 3 && repairServices.length > 0) {
+      try {
+        let serviceIdToSelect: string | undefined = pendingServiceSelectionIdRef.current || undefined;
+        
+        // Try to get service ID from navDeviceSelection first
+        let navDeviceSelectionJson: string | null = null;
+        if (!serviceIdToSelect) {
+          navDeviceSelectionJson = sessionStorage.getItem('navDeviceSelection');
+        }
+        if (!serviceIdToSelect && navDeviceSelectionJson) {
+          const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+          serviceIdToSelect = navDeviceSelection.selectedServiceId;
+        }
+
+        // Fallback to navPreselectedService if available
+        if (!serviceIdToSelect) {
+          const navPreselectedServiceJson = sessionStorage.getItem('navPreselectedService');
+          if (navPreselectedServiceJson) {
+            const navPreselectedService = JSON.parse(navPreselectedServiceJson);
+            serviceIdToSelect = navPreselectedService._id;
+          }
+        }
+
+        if (serviceIdToSelect) {
+          const serviceToSelect = repairServices.find(s => s._id === serviceIdToSelect);
+          if (serviceToSelect) {
+            setSelectedRepairs([serviceToSelect]);
+            // Also activate the matching category so the repair grid becomes visible
+            setSelectedRepairCategory(serviceToSelect.category || 'all');
+            console.log('Auto-selected service from search:', serviceToSelect.name, 'category:', serviceToSelect.category);
+            pendingServiceSelectionIdRef.current = null;
+            
+            // Clear both session items after using them
+            if (navDeviceSelectionJson) {
+              const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
+              navDeviceSelection.selectedServiceId = undefined;
+              navDeviceSelection.selectedServiceName = undefined;
+              sessionStorage.setItem('navDeviceSelection', JSON.stringify(navDeviceSelection));
+            }
+            sessionStorage.removeItem('navPreselectedService');
+          } else {
+            // Service not found in the current list (e.g. different model selected) — clear
+            // stale refs and session entries so they don't affect subsequent interactions.
+            console.warn('[Configurator] Pre-selected service not found in step-3 list, clearing pending ID:', serviceIdToSelect);
+            pendingServiceSelectionIdRef.current = null;
+            sessionStorage.removeItem('navPreselectedService');
+          }
+        }
+      } catch (error) {
+        console.error('Error auto-selecting service:', error);
+      }
+    }
+  }, [currentStep, repairServices]);
 
   // Handle repair selection
   const toggleRepairSelection = (service: RepairService) => {
@@ -1490,18 +1854,21 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <SelectValue placeholder={loadingManufacturers ? t('home.configurator.loadingBrands') : t('home.configurator.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {manufacturers.map((manufacturer) => (
+                      {manufacturers.map((manufacturer) => {
+                        const brandLogo = resolveBrandLogo(manufacturer.name, manufacturer.logo);
+
+                        return (
                         <SelectItem key={manufacturer._id} value={manufacturer._id}>
-                          {manufacturer.logo && (
+                          {brandLogo && (
                             <img
-                              src={manufacturer.logo}
+                              src={brandLogo}
                               alt={manufacturer.name + ' Logo'}
                               style={{ width: 22, height: 22, objectFit: 'contain', display: 'inline-block', marginRight: 6, marginLeft: 0, verticalAlign: 'middle' }}
                             />
                           )}
                           {manufacturer.name}
                         </SelectItem>
-                      ))}
+                      )})}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1517,24 +1884,64 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         opacity: !selectedBrand || loadingModels ? 0.6 : 1
                       }}
                     >
-                      {selectedModel ? selectedModel.name : (loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...'))}
+                      {selectedModel ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          {getModelImage(selectedModel) && (
+                            <img
+                              src={getModelImage(selectedModel)}
+                              alt={selectedModel.name}
+                              className="w-6 h-6 object-contain flex-shrink-0"
+                              onError={(e) => e.currentTarget.style.display = 'none'}
+                            />
+                          )}
+                          <span className="truncate">
+                            {selectedModel.name}
+                            {selectedModel.modelNumbers && selectedModel.modelNumbers.length > 0 && (
+                              <span className="text-xs italic text-muted-foreground ml-1">({selectedModel.modelNumbers.join(', ')})</span>
+                            )}
+                          </span>
+                        </div>
+                      ) : (loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...'))}
                       <Search className="mobile-search-icon" style={{ width: 16, height: 16, position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     </div>
                   ) : (
                     <>
-                      <Input
-                        ref={modelInputRef}
-                        type="text"
-                        className="config-input"
-                        id="modelInput"
-                        placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
-                        value={modelSearchQuery}
-                        onChange={(e) => setModelSearchQuery(e.target.value)}
-                        onFocus={() => setShowModelDropdown(true)}
-                        autoComplete="off"
-                        inputMode="search"
-                        disabled={!selectedBrand || loadingModels}
-                      />
+                      <div className="relative">
+                        <Input
+                          ref={modelInputRef}
+                          type="text"
+                          className={`config-input ${selectedModel && !showModelDropdown ? 'text-transparent caret-transparent' : ''}`}
+                          style={selectedModel && !showModelDropdown ? { color: 'transparent', caretColor: 'transparent' } : undefined}
+                          id="modelInput"
+                          placeholder={loadingModels ? t('home.deviceSelection.loadingModels') : t('home.configurator.modelSearchPlaceholder', 'z.B. iPhone 15 Pro...')}
+                          value={modelSearchQuery}
+                          onChange={(e) => setModelSearchQuery(e.target.value)}
+                          onFocus={handleModelInputFocus}
+                          autoComplete="off"
+                          inputMode="search"
+                          disabled={!selectedBrand || loadingModels}
+                        />
+                        {selectedModel && !showModelDropdown && (
+                          <div className="absolute inset-y-0 left-0 right-0 flex items-center px-3 pointer-events-none">
+                            <div className="flex items-center gap-2 min-w-0 pr-8">
+                              {getModelImage(selectedModel) && (
+                                <img
+                                  src={getModelImage(selectedModel)}
+                                  alt={selectedModel.name}
+                                  className="w-6 h-6 object-contain flex-shrink-0"
+                                  onError={(e) => e.currentTarget.style.display = 'none'}
+                                />
+                              )}
+                              <span className="truncate text-sm text-gray-700">
+                                {selectedModel.name}
+                                {selectedModel.modelNumbers && selectedModel.modelNumbers.length > 0 && (
+                                  <span className="text-xs italic text-muted-foreground ml-1">({selectedModel.modelNumbers.join(', ')})</span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       {showModelDropdown && filteredModels.length > 0 && (
                         <div className="autocomplete-dropdown open">
                           {filteredModels.map((model) => (
@@ -1618,6 +2025,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         className={`repair-category-chip ${selectedRepairCategory === 'all' ? 'active' : ''}`}
                         onClick={() => setSelectedRepairCategory('all')}
                       >
+                        <LayoutGrid className="w-4 h-4" />
                         {t('home.configurator.categoryFilter.all')}
                       </button>
                       {categories.map((cat) => (
@@ -1629,6 +2037,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           className={`repair-category-chip ${selectedRepairCategory === cat ? 'active' : ''}`}
                           onClick={() => setSelectedRepairCategory(cat)}
                         >
+                          {getCategoryIcon(cat, 'sm')}
                           {cat}
                         </button>
                       ))}
@@ -1687,10 +2096,10 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       className={`repair-card ${selectedRepairs.find(s => s._id === service._id) ? 'selected' : ''}`}
                       onClick={() => toggleRepairSelection(service)}
                     >
-                      <Wrench className="w-6 h-6" />
+                      {getCategoryIcon(service.category || '', 'md')}
                       <div className="repair-info">
                         <div className="repair-name">{service.name}</div>
-                        <div className="repair-price">{t('home.configurator.repairFrom', { price: service.price.toFixed(2) })}</div>
+                        <div className="repair-price">{t('home.configurator.repairFrom', { price: formatPrice(service.price) })}</div>
                       </div>
                       {(service.shortDescription || service.description) && (
                         <div className="repair-card-info-wrap">
@@ -1914,370 +2323,414 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         unlockCode={unlockCode}
                         noLock={noDeviceLock}
                       />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUnlockDetails(false);
+                            setShowAdditionalInfo(true);
+                            scrollAdditionalInfoIntoView();
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '7px 14px',
+                            background: '#1a2a5e',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#2a3f7e'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = '#1a2a5e'; }}
+                        >
+                          {t('home.configurator.next')}
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Additional Information Button */}
-                <button
-                  className="config-step5-additional-toggle"
-                  type="button"
-                  onClick={() => {
-                    setShowAdditionalInfo(!showAdditionalInfo);
-                    if (!showAdditionalInfo) {
-                      setShowUnlockDetails(false);
-                    }
-                  }}
+                {/* Additional Information Section */}
+                <div
+                  ref={additionalInfoSectionRef}
                   style={{
-                    width: '100%',
-                    padding: '16px',
-                    background: showAdditionalInfo ? 'rgba(245, 184, 0, 0.1)' : '#f0f7ff',
-                    border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d0e4ff',
+                    border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d8dce6',
                     borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    touchAction: 'manipulation',
-                    WebkitTapHighlightColor: 'transparent'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!showAdditionalInfo) {
-                      e.currentTarget.style.background = '#e0f0ff';
-                      e.currentTarget.style.borderColor = '#b0d4ff';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!showAdditionalInfo) {
-                      e.currentTarget.style.background = '#f0f7ff';
-                      e.currentTarget.style.borderColor = '#d0e4ff';
-                    }
+                    overflow: 'hidden',
+                    transition: 'all 0.3s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Info className="w-5 h-5" style={{ color: '#1a2a5e', flexShrink: 0 }} />
-                    <div style={{ flex: 1, textAlign: 'left' }}>
-                      <h4 className="font-semibold text-sm mb-1" style={{ color: '#1a2a5e' }}>
-                        {t('home.configurator.additionalInfoTitle')}
-                      </h4>
-                      <p className="text-xs" style={{ color: '#4a5568' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdditionalInfo(!showAdditionalInfo);
+                      if (!showAdditionalInfo) {
+                        setShowUnlockDetails(false);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: showAdditionalInfo ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => { if (!showAdditionalInfo) e.currentTarget.style.background = '#e8eaf0'; }}
+                    onMouseLeave={(e) => { if (!showAdditionalInfo) e.currentTarget.style.background = showAdditionalInfo ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8'; }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Info className="w-4 h-4" style={{ color: '#1a2a5e' }} />
+                      <h3 className="font-semibold text-sm" style={{ color: '#1a2a5e' }}>{t('home.configurator.additionalInfoTitle')}</h3>
+                    </div>
+                    {showAdditionalInfo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+
+                  {/* Additional Information Content */}
+                  {showAdditionalInfo && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#e8eaf0', WebkitTextSizeAdjust: '100%', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
+                      <p style={{ padding: '12px 16px 10px', fontSize: '0.72rem', color: '#4a5568', background: '#fafbfc' }}>
                         {t('home.configurator.additionalInfoDescription')}
                       </p>
-                    </div>
-                    {showAdditionalInfo ? <ChevronUp className="w-5 h-5" style={{ color: '#1a2a5e' }} /> : <ChevronDown className="w-5 h-5" style={{ color: '#1a2a5e' }} />}
-                  </div>
-                </button>
 
-                {/* Additional Information Content (Previously Step 6) */}
-                {showAdditionalInfo && (
-                  <div className="config-step5-additional-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', background: '#fafbfc', borderRadius: '8px', border: '1px solid #e8eaf0', WebkitTextSizeAdjust: '100%', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
-                    {/* Error Description */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        htmlFor="errorDesc" 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <AlertCircle className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.errorDescription')}
-                      </label>
-                      <textarea
-                        id="errorDesc"
-                        placeholder={t('home.configurator.errorDescriptionPlaceholder')}
-                        value={errorDescription}
-                        onChange={(e) => setErrorDescription(e.target.value)}
-                        rows={4}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          border: '2px solid #d8dce6',
-                          borderRadius: '6px',
-                          fontSize: '16px',
-                          fontFamily: 'var(--font-main, Inter, sans-serif)',
-                          color: '#2d3748',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = '#f5b800';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(245, 184, 0, 0.15)';
-                          e.target.style.outline = 'none';
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = '#d8dce6';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      />
-                    </div>
-
-                    {/* Water Damage */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Droplets className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.waterDamage')}
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
-                        {['no', 'yes', 'unsure'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setWaterDamage(option as any)}
-                            style={{
-                              flex: 1,
-                              padding: '12px 16px',
-                              background: waterDamage === option ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
-                              border: waterDamage === option ? '2px solid #f5b800' : '2px solid transparent',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              color: '#2d3748',
-                              cursor: 'pointer',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center',
-                              minWidth: 0,
-                              overflowWrap: 'anywhere'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (waterDamage !== option) {
-                                e.currentTarget.style.borderColor = '#f5b800';
-                                e.currentTarget.style.background = '#ffffff';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (waterDamage !== option) {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.background = '#f5f6f8';
-                              }
-                            }}
-                          >
-                            {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Previous Repair Attempts */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Wrench className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.previousRepairAttempts')}
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
-                        {['no', 'yes', 'unsure'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setPreviousRepairAttempts(option as any)}
-                            style={{
-                              flex: 1,
-                              padding: '12px 16px',
-                              background: previousRepairAttempts === option ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
-                              border: previousRepairAttempts === option ? '2px solid #f5b800' : '2px solid transparent',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              color: '#2d3748',
-                              cursor: 'pointer',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center',
-                              minWidth: 0,
-                              overflowWrap: 'anywhere'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (previousRepairAttempts !== option) {
-                                e.currentTarget.style.borderColor = '#f5b800';
-                                e.currentTarget.style.background = '#ffffff';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (previousRepairAttempts !== option) {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.background = '#f5f6f8';
-                              }
-                            }}
-                          >
-                            {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
-                          </button>
-                        ))}
-                      </div>
-
-                      {previousRepairAttempts === 'yes' && (
+                      {/* Error Description */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          htmlFor="errorDesc"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <AlertCircle className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.errorDescription')}
+                        </label>
                         <textarea
-                          placeholder={t('home.configurator.previousRepairAttemptsPlaceholder')}
-                          value={previousRepairDetails}
-                          onChange={(e) => setPreviousRepairDetails(e.target.value)}
+                          id="errorDesc"
+                          placeholder={t('home.configurator.errorDescriptionPlaceholder')}
+                          value={errorDescription}
+                          onChange={(e) => setErrorDescription(e.target.value)}
                           rows={3}
                           style={{
                             width: '100%',
-                            padding: '12px 16px',
-                            border: '2px solid #d8dce6',
+                            padding: '9px 12px',
+                            border: '1.5px solid #d8dce6',
                             borderRadius: '6px',
-                            fontSize: '16px',
+                            fontSize: '13px',
                             fontFamily: 'var(--font-main, Inter, sans-serif)',
                             color: '#2d3748',
                             resize: 'none',
-                            marginTop: '8px',
                             boxSizing: 'border-box',
-                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                            background: '#fafbfc'
                           }}
                           onFocus={(e) => {
                             e.target.style.borderColor = '#f5b800';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(245, 184, 0, 0.15)';
+                            e.target.style.boxShadow = '0 0 0 2px rgba(245, 184, 0, 0.15)';
                             e.target.style.outline = 'none';
+                            e.target.style.background = '#ffffff';
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = '#d8dce6';
                             e.target.style.boxShadow = 'none';
+                            e.target.style.background = '#fafbfc';
                           }}
                         />
-                      )}
-                    </div>
-
-                    {/* Item Condition */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Package className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.itemCondition')}
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
-                        {['original', 'refurbished', 'unsure'].map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setItemCondition(option as any)}
-                            style={{
-                              flex: 1,
-                              padding: '12px 16px',
-                              background: itemCondition === option ? 'rgba(245, 184, 0, 0.06)' : '#f5f6f8',
-                              border: itemCondition === option ? '2px solid #f5b800' : '2px solid transparent',
-                              borderRadius: '6px',
-                              fontSize: '0.85rem',
-                              fontWeight: '600',
-                              color: '#2d3748',
-                              cursor: 'pointer',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              textAlign: 'center',
-                              minWidth: 0,
-                              overflowWrap: 'anywhere'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (itemCondition !== option) {
-                                e.currentTarget.style.borderColor = '#f5b800';
-                                e.currentTarget.style.background = '#ffffff';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (itemCondition !== option) {
-                                e.currentTarget.style.borderColor = 'transparent';
-                                e.currentTarget.style.background = '#f5f6f8';
-                              }
-                            }}
-                          >
-                            {getConditionLabel(option as 'original' | 'refurbished' | 'unsure')}
-                          </button>
-                        ))}
                       </div>
-                    </div>
 
-                    {/* Photo Upload */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label 
-                        htmlFor="photos" 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px',
-                          fontSize: '0.8rem',
-                          fontWeight: '600',
-                          color: '#4a5568'
-                        }}
-                      >
-                        <Upload className="w-4 h-4" style={{ color: '#1a2a5e' }} />
-                        {t('home.configurator.uploadPhotos')}
-                      </label>
-                      <Input
-                        id="photos"
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        disabled={photos.length >= 5}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          border: '2px solid #d8dce6',
-                          borderRadius: '6px',
-                          fontSize: '16px',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                      <p style={{ fontSize: '0.75rem', color: '#8892a8' }}>
-                        {t('home.configurator.uploadedPhotos', { count: photos.length })}
-                      </p>
-
-                      {/* Photo Previews */}
-                      {photoPreviewUrls.length > 0 && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px' }}>
-                          {photoPreviewUrls.map((url, index) => (
-                            <div key={index} className="relative group">
-                              <img
-                                src={url}
-                                alt={t('home.configurator.photoPreviewAlt', { index: index + 1 })}
-                                style={{ 
-                                  width: '100%', 
-                                  height: '96px', 
-                                  objectFit: 'cover', 
-                                  borderRadius: '6px', 
-                                  border: '1px solid #d8dce6' 
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removePhoto(index)}
-                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
+                      {/* Water Damage */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Droplets className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.waterDamage')}
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', width: '100%' }}>
+                          {['no', 'yes', 'unsure'].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setWaterDamage(option as any)}
+                              style={{
+                                padding: '7px 8px',
+                                background: waterDamage === option ? 'rgba(245, 184, 0, 0.08)' : '#f5f6f8',
+                                border: waterDamage === option ? '1.5px solid #f5b800' : '1.5px solid #e8eaf0',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '600',
+                                color: waterDamage === option ? '#1a2a5e' : '#4a5568',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                minWidth: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                if (waterDamage !== option) {
+                                  e.currentTarget.style.borderColor = '#f5b800';
+                                  e.currentTarget.style.background = '#fffbf0';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (waterDamage !== option) {
+                                  e.currentTarget.style.borderColor = '#e8eaf0';
+                                  e.currentTarget.style.background = '#f5f6f8';
+                                }
+                              }}
+                            >
+                              {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
+                            </button>
                           ))}
                         </div>
-                      )}
+                      </div>
+
+                      {/* Previous Repair Attempts */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Wrench className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.previousRepairAttempts')}
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', width: '100%' }}>
+                          {['no', 'yes', 'unsure'].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setPreviousRepairAttempts(option as any)}
+                              style={{
+                                padding: '7px 8px',
+                                background: previousRepairAttempts === option ? 'rgba(245, 184, 0, 0.08)' : '#f5f6f8',
+                                border: previousRepairAttempts === option ? '1.5px solid #f5b800' : '1.5px solid #e8eaf0',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '600',
+                                color: previousRepairAttempts === option ? '#1a2a5e' : '#4a5568',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                minWidth: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                if (previousRepairAttempts !== option) {
+                                  e.currentTarget.style.borderColor = '#f5b800';
+                                  e.currentTarget.style.background = '#fffbf0';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (previousRepairAttempts !== option) {
+                                  e.currentTarget.style.borderColor = '#e8eaf0';
+                                  e.currentTarget.style.background = '#f5f6f8';
+                                }
+                              }}
+                            >
+                              {getChoiceLabel(option as 'yes' | 'no' | 'unsure')}
+                            </button>
+                          ))}
+                        </div>
+
+                        {previousRepairAttempts === 'yes' && (
+                          <textarea
+                            placeholder={t('home.configurator.previousRepairAttemptsPlaceholder')}
+                            value={previousRepairDetails}
+                            onChange={(e) => setPreviousRepairDetails(e.target.value)}
+                            rows={2}
+                            style={{
+                              width: '100%',
+                              padding: '9px 12px',
+                              border: '1.5px solid #d8dce6',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              fontFamily: 'var(--font-main, Inter, sans-serif)',
+                              color: '#2d3748',
+                              resize: 'none',
+                              marginTop: '6px',
+                              boxSizing: 'border-box',
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              background: '#fafbfc'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = '#f5b800';
+                              e.target.style.boxShadow = '0 0 0 2px rgba(245, 184, 0, 0.15)';
+                              e.target.style.outline = 'none';
+                              e.target.style.background = '#ffffff';
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = '#d8dce6';
+                              e.target.style.boxShadow = 'none';
+                              e.target.style.background = '#fafbfc';
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Item Condition */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Package className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.itemCondition')}
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px', width: '100%' }}>
+                          {['original', 'refurbished', 'unsure'].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setItemCondition(option as any)}
+                              style={{
+                                padding: '7px 8px',
+                                background: itemCondition === option ? 'rgba(245, 184, 0, 0.08)' : '#f5f6f8',
+                                border: itemCondition === option ? '1.5px solid #f5b800' : '1.5px solid #e8eaf0',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: '600',
+                                color: itemCondition === option ? '#1a2a5e' : '#4a5568',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                minWidth: 0
+                              }}
+                              onMouseEnter={(e) => {
+                                if (itemCondition !== option) {
+                                  e.currentTarget.style.borderColor = '#f5b800';
+                                  e.currentTarget.style.background = '#fffbf0';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (itemCondition !== option) {
+                                  e.currentTarget.style.borderColor = '#e8eaf0';
+                                  e.currentTarget.style.background = '#f5f6f8';
+                                }
+                              }}
+                            >
+                              {getConditionLabel(option as 'original' | 'refurbished' | 'unsure')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Photo Upload */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
+                          htmlFor="photos"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Upload className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.uploadPhotos')}
+                        </label>
+                        <label
+                          htmlFor="photos"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 12px',
+                            border: '1.5px dashed #d8dce6',
+                            borderRadius: '6px',
+                            background: photos.length >= 5 ? '#f5f6f8' : '#fafbfc',
+                            cursor: photos.length >= 5 ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s ease',
+                            color: '#4a5568',
+                            fontSize: '0.72rem'
+                          }}
+                          onMouseEnter={(e) => { if (photos.length < 5) { e.currentTarget.style.borderColor = '#f5b800'; e.currentTarget.style.background = '#fffbf0'; } }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#d8dce6'; e.currentTarget.style.background = '#fafbfc'; }}
+                        >
+                          <Upload className="w-3.5 h-3.5" style={{ color: '#1a2a5e', flexShrink: 0 }} />
+                          <span style={{ flex: 1 }}>{t('home.configurator.uploadedPhotos', { count: photos.length })} / 5</span>
+                          <Input
+                            id="photos"
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            disabled={photos.length >= 5}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+
+                        {photoPreviewUrls.length > 0 && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '4px' }}>
+                            {photoPreviewUrls.map((url, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={t('home.configurator.photoPreviewAlt', { index: index + 1 })}
+                                  style={{
+                                    width: '100%',
+                                    height: '60px',
+                                    objectFit: 'cover',
+                                    borderRadius: '4px',
+                                    border: '1px solid #d8dce6'
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removePhoto(index)}
+                                  className="absolute top-0.5 right-0.5 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               <div className="config-nav mt-4">
@@ -2303,7 +2756,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 </h3>
 
                 {/* All Devices Summary */}
-                <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ marginBottom: '0.75rem' }}>
                   {(() => {
                     const allDevices = [...devices];
                     const isCurrentDeviceAdded = selectedModel && selectedRepairs.length > 0;
@@ -2336,36 +2789,69 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       const deviceTotal = singleDeviceTotal * quantity;
 
                       return (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           style={{
-                            padding: '1rem',
+                            padding: '0.875rem',
                             backgroundColor: '#ffffff',
                             borderRadius: '10px',
                             border: '1px solid rgba(245, 184, 0, 0.3)',
-                            marginBottom: '0.75rem'
+                            marginBottom: '0.625rem'
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a2a5e' }}>
-                              {t('home.configurator.deviceLabel', { index: idx + 1, model: device.model?.name })}
-                            </h4>
-                            {quantity > 1 && !isCurrentDevice && (
-                              <span style={{
-                                padding: '0.25rem 0.75rem',
-                                backgroundColor: '#f5b800',
-                                color: '#1a2a5e',
-                                fontSize: '0.875rem',
-                                borderRadius: '999px',
-                                fontWeight: 700
-                              }}>
-                                {quantity}x
-                              </span>
-                            )}
+                          {/* Card Header: model image + device info */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.625rem' }}>
+                            <div style={{
+                              flexShrink: 0,
+                              width: '48px',
+                              height: '48px',
+                              borderRadius: '8px',
+                              backgroundColor: '#f0f4ff',
+                              border: '1px solid rgba(26,42,94,0.08)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                              position: 'relative'
+                            }}>
+                              {(() => {
+                                const DevIcon = getDeviceIcon(device.deviceType?.name || '');
+                                return <DevIcon style={{ width: '1.25rem', height: '1.25rem', color: '#1a2a5e', opacity: 0.35 }} />;
+                              })()}
+                              {getModelImage(device.model) && (
+                                <img
+                                  src={getModelImage(device.model)}
+                                  alt={device.model?.name}
+                                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.4rem' }}>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1a2a5e', lineHeight: 1.3 }}>
+                                  {t('home.configurator.deviceLabel', { index: idx + 1, model: device.model?.name })}
+                                </h4>
+                                {quantity > 1 && !isCurrentDevice && (
+                                  <span style={{
+                                    padding: '0.2rem 0.55rem',
+                                    backgroundColor: '#f5b800',
+                                    color: '#1a2a5e',
+                                    fontSize: '0.75rem',
+                                    borderRadius: '999px',
+                                    fontWeight: 700,
+                                    flexShrink: 0
+                                  }}>
+                                    {quantity}×
+                                  </span>
+                                )}
+                              </div>
+                              <p style={{ fontSize: '0.7rem', color: '#718096', marginTop: '0.1rem' }}>
+                                {device.deviceType?.name}{device.brand?.name ? ` · ${device.brand.name}` : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '0.8rem', color: '#4a5568' }}>
-                            <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.type')}:</strong> {device.deviceType?.name}</p>
-                            <p style={{ marginBottom: '0.25rem' }}><strong>{t('home.configurator.brand')}:</strong> {device.brand?.name}</p>
+                          <div style={{ fontSize: '0.78rem', color: '#4a5568' }}>
                             
                             {/* Repair Services List */}
                             {device.repairs.length > 0 && (
@@ -2380,7 +2866,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                     alignItems: 'center'
                                   }}>
                                     <span>• {repair.name}</span>
-                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{repair.price.toFixed(2)} €</span>
+                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{formatPrice(repair.price)} €</span>
                                   </div>
                                 ))}
                               </div>
@@ -2399,7 +2885,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                                     alignItems: 'center'
                                   }}>
                                     <span>• {addon.name}</span>
-                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{addon.price.toFixed(2)} €</span>
+                                    <span style={{ color: '#f5b800', fontWeight: 600 }}>{formatPrice(addon.price)} €</span>
                                   </div>
                                 ))}
                               </div>
@@ -2490,11 +2976,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                             <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0', marginTop: '0.5rem' }}>
                               {quantity > 1 && (
                                 <p style={{ marginBottom: '0.25rem', color: '#718096' }}>
-                                  {t('home.configurator.pricePerDevice', { price: singleDeviceTotal.toFixed(2) })}
+                                  {t('home.configurator.pricePerDevice', { price: formatPrice(singleDeviceTotal) })}
                                 </p>
                               )}
                               <p style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1a2a5e' }}>
-                                {quantity > 1 ? t('home.configurator.totalPrice', { price: deviceTotal.toFixed(2) }) : t('home.configurator.singlePrice', { price: deviceTotal.toFixed(2) })}
+                                {quantity > 1 ? t('home.configurator.totalPrice', { price: formatPrice(deviceTotal) }) : t('home.configurator.singlePrice', { price: formatPrice(deviceTotal) })}
                               </p>
                             </div>
                           </div>
@@ -2507,6 +2993,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 {/* Total Summary Grid */}
                 <div className="config-result-grid">
                   <div className="config-result-item">
+                    <Smartphone style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.totalDevices')}</div>
                     <div className="value">{(() => {
                       let count = devices.reduce((sum, d) => sum + (d.quantity || 1), 0);
@@ -2515,6 +3002,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()}</div>
                   </div>
                   <div className="config-result-item">
+                    <Layers style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.deviceTypes')}</div>
                     <div className="value small">{(() => {
                       let count = devices.length;
@@ -2523,6 +3011,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                     })()}</div>
                   </div>
                   <div className="config-result-item">
+                    <Tag style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.priceTotal')}</div>
                     <div className="value">{(() => {
                       const allDevices = [...devices];
@@ -2539,10 +3028,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         const deviceTotal = (repairTotal + addonTotal) * (device.quantity || 1);
                         return sum + deviceTotal;
                       }, 0);
-                      return total.toFixed(2);
+                      return formatPrice(total);
                     })()} €</div>
                   </div>
                   <div className="config-result-item">
+                    <Truck style={{ width: '1rem', height: '1rem', color: '#f5b800', margin: '0 auto 3px', display: 'block' }} />
                     <div className="label">{t('home.configurator.shipping')}</div>
                     <div className="value small">{t('home.configurator.free')}</div>
                   </div>
@@ -2551,8 +3041,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
               {/* Add Another Device Option */}
               <div style={{
-                marginTop: '1rem',
-                padding: '1rem',
+                marginTop: '0.625rem',
+                padding: '0.875rem',
                 background: '#ffffff',
                 borderRadius: '8px',
                 border: '2px solid rgba(245, 184, 0, 0.3)'
@@ -2603,7 +3093,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               </div>
 
               {/* CTA Button */}
-              <button className="config-result-cta" onClick={handleAddToCart} style={{ marginTop: '1.5rem' }}>
+              <button className="config-result-cta" onClick={handleAddToCart} style={{ marginTop: '0.875rem' }}>
                 {t('home.configurator.addToCart')}
                 <ChevronRight className="w-5 h-5 ml-2" />
               </button>
@@ -2765,7 +3255,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                   <dt>{t('home.configurator.serviceInfo.priceFrom')}</dt>
                   <dd itemProp="offers" itemScope itemType="https://schema.org/Offer">
                     <span itemProp="price" content={String(serviceInfoDialog.price)} className="repair-service-info-dialog-price">
-                      {t('home.configurator.repairFrom', { price: serviceInfoDialog.price.toFixed(2) })}
+                      {t('home.configurator.repairFrom', { price: formatPrice(serviceInfoDialog.price) })}
                     </span>
                     <meta itemProp="priceCurrency" content="EUR" />
                   </dd>
@@ -2871,7 +3361,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             {/* Toggle Search Button */}
             {!isMobileSearchActive && (
               <button 
-                onClick={() => setIsMobileSearchActive(true)}
+                onClick={handleActivateMobileSearch}
                 className="mobile-search-toggle-btn"
               >
                 <Search className="w-4 h-4" />

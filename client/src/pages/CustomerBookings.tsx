@@ -25,6 +25,11 @@ import {
   Download,
   MessageSquare,
   X,
+  TrendingUp,
+  Hash,
+  CreditCard,
+  Home,
+  Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +65,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings";
 import { searchDevices, SearchResult } from "@/api/devices";
@@ -67,6 +73,14 @@ import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation";
+
+interface AddressFields {
+  street?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+}
 
 interface Booking {
   _id: string;
@@ -79,12 +93,15 @@ interface Booking {
     email: string;
     phone: string;
     avatar?: string;
+    invoiceAddress?: AddressFields;
+    paymentAddress?: AddressFields & { sameAsInvoice?: boolean };
   };
   items: Array<{
     _id?: string;
     type: string;
     device?: string;
     orderId: string;
+    orderNumber?: string;
     services?: Array<{
       name: string;
       price: number;
@@ -98,6 +115,7 @@ interface Booking {
     }>;
     cost: number;
     status?: string;
+    progress?: number;
   }>;
   totalCost: number;
   status: string;
@@ -473,14 +491,14 @@ export function CustomerBookings() {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('de-DE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -488,7 +506,7 @@ export function CustomerBookings() {
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    return new Date(dateString).toLocaleString('de-DE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -578,7 +596,7 @@ export function CustomerBookings() {
                 </div>
                 <h3 className="text-xl font-bold text-[#1a2a5e] mb-2">{t('bookings.noBookings')}</h3>
                 <p className="text-slate-500 text-base mb-6">You haven't made any bookings yet. Start by creating a new order.</p>
-                <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/new-order')}>
+                <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/#repair-order-configurator')}>
                   {t('navigation.newOrder')}
                 </Button>
               </div>
@@ -974,7 +992,7 @@ export function CustomerBookings() {
                                               )}
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-xs py-1" data-label="Kosten">
-                                              ${item.cost?.toFixed(2) || '0.00'}
+                                              {formatCurrency(item.cost || 0)}
                                             </TableCell>
                                           </TableRow>
                                         ))}
@@ -1029,7 +1047,7 @@ export function CustomerBookings() {
 
                                           <div className="orders-sub-card-field">
                                             <span className="orders-sub-card-label">{t('bookings.costShort')}</span>
-                                            <span className="orders-sub-card-value">${item.cost?.toFixed(2) || '0.00'}</span>
+                                            <span className="orders-sub-card-value">{formatCurrency(item.cost || 0)}</span>
                                           </div>
                                         </div>
 
@@ -1278,6 +1296,8 @@ function BookingDetailDialog({
   const [activeTab, setActiveTab] = useState("overview");
   const [repairModelImages, setRepairModelImages] = useState<Record<string, string>>({});
   const [repairImageLoadErrors, setRepairImageLoadErrors] = useState<Record<string, boolean>>({});
+  const [detailOrders, setDetailOrders] = useState<any[]>([]);
+  const [loadingRepairJobs, setLoadingRepairJobs] = useState(false);;
 
   const repairItems = (booking.items || []).filter((item) => item.type === 'repair');
 
@@ -1393,6 +1413,62 @@ function BookingDetailDialog({
       isCancelled = true;
     };
   }, [open, booking._id, repairItems.length]);
+
+  // Load detailed order data (status + progress) via getBookingOrders
+  useEffect(() => {
+    if (!open) {
+      setDetailOrders([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingRepairJobs(true);
+    getBookingOrders(booking._id)
+      .then((res: any) => {
+        if (isMounted) setDetailOrders(res.orders || []);
+      })
+      .catch(() => {
+        if (isMounted) setDetailOrders([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingRepairJobs(false);
+      });
+    return () => { isMounted = false; };
+  }, [open, booking._id]);
+
+  const getOrderStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Ausstehend';
+      case 'diagnostic-assessment': return 'Diagnosebewertung';
+      case 'diagnosed': return 'Diagnose abgeschlossen';
+      case 'awaiting-parts': return 'Wartet auf Teile';
+      case 'in-progress': return 'Reparatur läuft';
+      case 'paused': return 'Pausiert';
+      case 'on-hold': return 'Angehalten';
+      case 'quality-check': return 'Qualitätsprüfung';
+      case 'ready-for-pickup': return 'Abholbereit';
+      case 'completed': return 'Abgeschlossen';
+      case 'cancelled': return 'Storniert';
+      default: return status;
+    }
+  };
+
+  const getOrderStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+      case 'diagnostic-assessment': return 'bg-purple-100 text-purple-800 border border-purple-300';
+      case 'diagnosed': return 'bg-indigo-100 text-indigo-800 border border-indigo-300';
+      case 'awaiting-parts': return 'bg-orange-100 text-orange-800 border border-orange-300';
+      case 'in-progress': return 'bg-blue-100 text-blue-800 border border-blue-300';
+      case 'paused': return 'bg-gray-100 text-gray-700 border border-gray-300';
+      case 'on-hold': return 'bg-gray-100 text-gray-700 border border-gray-300';
+      case 'quality-check': return 'bg-cyan-100 text-cyan-800 border border-cyan-300';
+      case 'ready-for-pickup': return 'bg-teal-100 text-teal-800 border border-teal-300';
+      case 'completed': return 'bg-green-100 text-green-800 border border-green-300';
+      case 'cancelled': return 'bg-red-100 text-red-800 border border-red-300';
+      default: return 'bg-gray-100 text-gray-700 border border-gray-300';
+    }
+  };
+
   const hasOutboundShipping = Boolean(
     booking.trackingNumber ||
     booking.shippingLabelUrl ||
@@ -1514,8 +1590,72 @@ function BookingDetailDialog({
                   </div>
                   <div className="text-xs sm:text-sm pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                     <span className="text-[var(--gray-600,#4a5568)] font-semibold">Telefon: </span>
-                    <span className="font-semibold text-[var(--gray-800,#1a202c)]">{booking.customerId.phone}</span>
+                    <span className="font-semibold text-[var(--gray-800,#1a202c)]">{booking.customerId.phone || 'Nicht verfügbar'}</span>
                   </div>
+
+                  {/* Billing address */}
+                  {(() => {
+                    const addr = booking.customerId.invoiceAddress;
+                    const hasAddr = addr && (addr.street || addr.city || addr.zipCode || addr.state);
+                    return (
+                      <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <CreditCard className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
+                          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Rechnungsadresse</p>
+                        </div>
+                        {hasAddr ? (
+                          <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
+                            {addr!.street && <p>{addr!.street}</p>}
+                            {(addr!.zipCode || addr!.city) && <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>}
+                            {addr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{addr!.country}</p>}
+                          </div>
+                        ) : (
+                          <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Delivery address */}
+                  {(() => {
+                    const payAddr = booking.customerId.paymentAddress;
+                    const billAddr = booking.customerId.invoiceAddress;
+                    const hasBillAddr = billAddr && (billAddr.street || billAddr.city || billAddr.zipCode || billAddr.state);
+                    const sameAsInvoice = payAddr?.sameAsInvoice !== false;
+                    if (sameAsInvoice) {
+                      return (
+                        <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
+                            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
+                          </div>
+                          {hasBillAddr ? (
+                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Identisch mit Rechnungsadresse</p>
+                          ) : (
+                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    const hasPayAddr = payAddr && (payAddr.street || payAddr.city || payAddr.zipCode || payAddr.state);
+                    return (
+                      <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
+                          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
+                        </div>
+                        {hasPayAddr ? (
+                          <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
+                            {payAddr!.street && <p>{payAddr!.street}</p>}
+                            {(payAddr!.zipCode || payAddr!.city) && <p>{[payAddr!.zipCode, payAddr!.city].filter(Boolean).join(' ')}</p>}
+                            {payAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{payAddr!.country}</p>}
+                          </div>
+                        ) : (
+                          <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1573,87 +1713,142 @@ function BookingDetailDialog({
           </TabsContent>
 
           <TabsContent value="repairs" className="space-y-3 mt-3 sm:mt-5">
-            {repairItems.length > 0 ? (
-              <div className="space-y-3">
-                {repairItems.map((item, index) => {
-                  const imageKey = getRepairImageKey(item, index);
-                  const modelImage = repairModelImages[imageKey];
-                  const showModelImage = Boolean(modelImage) && !repairImageLoadErrors[imageKey];
+            {loadingRepairJobs ? (
+              <div className="text-center py-12 bg-white rounded-lg border border-[var(--gray-200,#d8dce6)]">
+                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary-blue,#1a2a5e)] border-t-transparent mb-2" />
+                <p className="text-[var(--gray-400,#8892a8)] text-sm">Reparaturaufträge werden geladen...</p>
+              </div>
+            ) : (() => {
+              const repairJobs = detailOrders.filter((o: any) => o.type === 'repair');
+              const displayItems: any[] = repairJobs.length > 0 ? repairJobs : repairItems;
 
-                  return (
-                  <div
-                    key={item._id || item.orderId}
-                    className="booking-detail-order-card bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 hover:border-[var(--accent-yellow,#f5b800)] hover:shadow-lg cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
-                    onClick={() => item.orderId && handleViewOrder(item.orderId)}
-                  >
-                    <div className="booking-detail-order-head">
-                      <div className="booking-detail-order-main min-w-0">
-                        <div className="booking-detail-repair-device-media">
-                          {showModelImage ? (
-                            <img
-                              src={modelImage}
-                              alt={item.device || 'Gerät Reparatur'}
-                              className="booking-detail-repair-device-image"
-                              onError={() => {
-                                setRepairImageLoadErrors((previous) => ({ ...previous, [imageKey]: true }));
+              if (displayItems.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
+                    <Wrench className="h-8 w-8 mx-auto mb-2 text-[var(--gray-300,#c5cad8)]" />
+                    <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Reparaturaufträge</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {displayItems.map((item: any, index: number) => {
+                    const imageKey = String(item.orderId || item._id || `${item.device || 'repair'}-${index}`);
+                    const modelImage = repairModelImages[imageKey];
+                    const showModelImage = Boolean(modelImage) && !repairImageLoadErrors[imageKey];
+                    const progress = item.progress ?? 0;
+                    const statusLabel = getOrderStatusLabel(item.status || 'pending');
+                    const badgeClass = getOrderStatusBadgeClass(item.status || 'pending');
+
+                    return (
+                      <div
+                        key={item._id || item.orderId || index}
+                        className="bg-white rounded-xl border border-[var(--gray-200,#d8dce6)] overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                        style={{ borderLeft: '4px solid var(--primary-blue, #1a2a5e)' }}
+                        onClick={() => item.orderId && handleViewOrder(item.orderId)}
+                      >
+                        {/* Header */}
+                        <div className="flex items-start gap-3 p-3 sm:p-4">
+                          {/* Device image / icon */}
+                          <div className="flex-shrink-0">
+                            {showModelImage ? (
+                              <img
+                                src={modelImage}
+                                alt={item.device || 'Gerät'}
+                                className="booking-detail-repair-device-image"
+                                onError={() => setRepairImageLoadErrors((prev) => ({ ...prev, [imageKey]: true }))}
+                              />
+                            ) : (
+                              <div className="booking-detail-repair-device-placeholder" aria-hidden="true">
+                                <Smartphone className="h-5 w-5" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Main info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                {(item.orderNumber || item.orderId) && (
+                                  <p className="text-[10px] sm:text-xs flex items-center gap-1 text-[var(--gray-400,#8892a8)] mb-0.5">
+                                    <Hash className="h-2.5 w-2.5" />
+                                    {item.orderNumber ? `Auftrag #${item.orderNumber}` : `Auftrag ${item.orderId.slice(-8).toUpperCase()}`}
+                                  </p>
+                                )}
+                                <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">
+                                  {item.device || 'Gerät Reparatur'}
+                                </h4>
+                                {item.services && item.services.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {item.services.map((s: any, si: number) => (
+                                      <span key={si} className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#eef2ff', color: 'var(--primary-blue, #1a2a5e)', border: '1px solid #c7d2fe' }}>
+                                        {s.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                <Badge className={`${badgeClass} text-[10px] sm:text-xs font-bold px-2 py-0.5`}>
+                                  {statusLabel}
+                                </Badge>
+                                <p className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] mt-1">{formatCurrency(item.cost)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="px-3 sm:px-4 py-2 sm:py-3" style={{ background: '#f8faff', borderTop: '1px solid #eceef3' }}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <TrendingUp className="h-3 w-3 text-[var(--primary-blue,#1a2a5e)]" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Fortschritt</span>
+                            </div>
+                            <span className="text-xs font-bold" style={{ color: progress === 100 ? '#38a169' : 'var(--primary-blue, #1a2a5e)' }}>
+                              {progress}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full overflow-hidden bg-[var(--gray-200,#d8dce6)]">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${progress}%`,
+                                background: progress === 100
+                                  ? '#38a169'
+                                  : progress >= 75
+                                  ? 'var(--primary-blue, #1a2a5e)'
+                                  : progress >= 40
+                                  ? 'var(--accent-yellow, #f5b800)'
+                                  : '#fc8181',
                               }}
                             />
-                          ) : (
-                            <div className="booking-detail-repair-device-placeholder" aria-hidden="true">
-                              <Smartphone className="h-5 w-5" />
-                            </div>
-                          )}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="booking-detail-order-number">{item.orderId ? `Auftrag ${item.orderId.slice(-8).toUpperCase()}` : 'Auftrag'}</p>
-                          <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">{item.device || 'Gerät Reparatur'}</h4>
-                        </div>
-                      </div>
-                      <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
-                        {t(`status.${item.status || 'pending'}`)}
-                      </Badge>
-                    </div>
 
-                    <div className="booking-detail-order-services text-xs sm:text-sm text-[var(--gray-600,#4a5568)] font-medium">
-                      {item.services && item.services.length > 0 ? item.services.map(s => s.name).join(', ') : 'Keine Services hinterlegt'}
-                    </div>
-
-                    <div className="booking-detail-order-meta grid grid-cols-2 gap-2 sm:gap-3 pt-2 sm:pt-3 border-t border-[var(--gray-200,#d8dce6)]">
-                      <div className="text-xs sm:text-sm min-w-0">
-                        <span className="text-[var(--gray-600,#4a5568)]">Kosten: </span>
-                        <span className="font-bold text-[var(--primary-blue,#1a2a5e)] break-words">{formatCurrency(item.cost)}</span>
+                        {/* Footer CTA */}
+                        {item.orderId && (
+                          <div className="px-3 sm:px-4 py-2 flex items-center justify-between" style={{ borderTop: '1px solid #eceef3' }}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs px-2"
+                              style={{ color: 'var(--primary-blue, #1a2a5e)' }}
+                              onClick={(e) => { e.stopPropagation(); handleViewOrder(item.orderId); }}
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Auftrag öffnen
+                            </Button>
+                            <ExternalLink className="h-3 w-3 text-[var(--gray-400,#8892a8)]" />
+                          </div>
+                        )}
                       </div>
-                      {item.services && item.services[0]?.estimatedTime && (
-                        <div className="text-xs sm:text-sm text-right min-w-0">
-                          <span className="text-[var(--gray-600,#4a5568)]">Geschätzt: </span>
-                          <span className="font-bold text-[var(--gray-800,#1a202c)]">{item.services[0].estimatedTime}m</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {item.orderId && (
-                      <div className="booking-detail-order-actions pt-2 mt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs w-full sm:w-auto"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewOrder(item.orderId);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Auftrag öffnen
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )})}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
-                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Reparaturaufträge</p>
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="items" className="space-y-3 mt-3 sm:mt-5">

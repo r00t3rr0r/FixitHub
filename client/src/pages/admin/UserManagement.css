@@ -1,18 +1,13 @@
 /* ============================================
-   Admin User Management - McRepair Homepage Theme
-   Aligned with Homepage Design System & Colors
+   User Management - aligned with Repair Requests
    ============================================ */
 
-/* --- Import Homepage CSS Variables --- */
-/* These match the McRepair Brand from mcrepair-homepage.css */
 .user-management-page {
-  /* McRepair Brand Colors */
   --primary-blue: #1a2a5e;
   --primary-blue-dark: #0f1d45;
   --primary-blue-light: #2a3f7e;
   --accent-yellow: #f5b800;
   --accent-yellow-hover: #e5ab00;
-  --accent-yellow-light: #ffd54f;
   --white: #ffffff;
   --off-white: #f8f9fc;
   --gray-50: #f5f6f8;
@@ -21,865 +16,493 @@
   --gray-300: #b0b8c9;
   --gray-400: #8892a8;
   --gray-500: #636e85;
-  --gray-600: #4a5568;
   --gray-700: #2d3748;
-  --gray-800: #1a202c;
-  --success: #38a169;
-  --danger: #e53e3e;
-  --warning: #f5b800;
-  --info: #1a2a5e;
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
-  --shadow-xl: 0 16px 48px rgba(0,0,0,0.15);
-  
-  /* Border Radius */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
-  
-  /* Transitions */
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  /* Font */
-  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  
-  /* Container */
-  --max-width: 1400px;
-  
-  /* Set font and background */
-  font-family: var(--font-main);
+
   color: var(--gray-700);
   background: var(--off-white);
   min-height: 100vh;
-  padding: 32px 24px;
+  width: 100%;
+  max-width: none;
+  padding: 14px 12px;
 }
 
-/* ============================================
-   1. PAGE HEADER
-   ============================================ */
-
 .user-management-page .page-header {
-  background: var(--primary-blue);
-  border-radius: var(--radius-lg);
-  padding: 8px 16px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 2px;
 }
 
 .user-management-page .page-header h1 {
+  font-size: 1.1rem;
+  font-weight: 800;
   color: var(--white);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.5px;
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .user-management-page .page-header h1 svg {
   color: var(--accent-yellow);
-  width: 20px;
-  height: 20px;
+  height: 1.1rem;
+  width: 1.1rem;
 }
 
 .user-management-page .page-header p {
-  color: var(--gray-100);
-  font-size: 0.8rem;
-  margin-top: 4px;
-}
-
-/* ============================================
-   2. BUTTONS - Homepage Style
-   ============================================ */
-.user-management-page .btn-primary {
-  background: var(--accent-yellow);
-  color: var(--primary-blue);
-  font-weight: 600;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-md);
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
-}
-
-.user-management-page .btn-primary:hover {
-  background: var(--accent-yellow-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.user-management-page .btn-secondary {
-  background: var(--white);
-  color: var(--primary-blue);
-  border: 2px solid var(--gray-200);
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: var(--radius-md);
-  transition: var(--transition);
-}
-
-.user-management-page .btn-secondary:hover {
-  background: var(--gray-50);
-  border-color: var(--primary-blue-light);
-  color: var(--primary-blue);
-}
-
-.user-management-page button[data-variant="default"] {
-  background: var(--accent-yellow);
-  color: var(--primary-blue);
-  font-weight: 600;
-  transition: var(--transition);
-}
-
-.user-management-page button[data-variant="default"]:hover {
-  background: var(--accent-yellow-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.user-management-page button[data-variant="outline"] {
-  background: var(--white);
-  color: var(--primary-blue);
-  border: 2px solid var(--gray-200);
-  font-weight: 500;
-  transition: var(--transition);
-}
-
-.user-management-page button[data-variant="outline"]:hover {
-  background: var(--gray-50);
-  border-color: var(--primary-blue);
-}
-
-/* ============================================
-   3. CARDS - Homepage Aligned
-   ============================================ */
-.user-management-page .card {
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--gray-100);
-  transition: var(--transition);
-}
-
-.user-management-page .card:hover {
-  box-shadow: var(--shadow-lg);
-}
-
-.user-management-page .card-header {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--gray-100);
-}
-
-.user-management-page .card-title {
-  color: var(--primary-blue);
-  font-size: 0.95rem;
-  font-weight: 700;
-  margin: 0;
-}
-
-.user-management-page .card-description {
-  color: var(--gray-500);
-  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.72rem;
   margin-top: 2px;
 }
 
-.user-management-page .card-content {
-  padding: 8px 12px;
-}
-
-/* ============================================
-   4. STATS CARDS - Homepage Style
-   ============================================ */
-.user-management-page .stats-card {
-  background: linear-gradient(135deg, var(--white) 0%, var(--gray-50) 100%);
-  border-radius: var(--radius-lg);
-  padding: 8px 12px;
-  border: 1px solid var(--gray-100);
-  transition: var(--transition);
-  position: relative;
-  overflow: hidden;
-}
-
-.user-management-page .stats-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: var(--accent-yellow);
-  opacity: 0;
-  transition: var(--transition);
-}
-
-.user-management-page .stats-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary-blue-light);
-}
-
-.user-management-page .stats-card:hover::before {
-  opacity: 1;
-}
-
-.user-management-page .stats-card .stat-value {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--primary-blue);
-  line-height: 1.2;
-}
-
-.user-management-page .stats-card .stat-label {
-  font-size: 0.7rem;
-  color: var(--gray-500);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.user-management-page .stats-card .stat-icon {
-  color: var(--accent-yellow);
-  opacity: 0.8;
-}
-
-/* ============================================
-   5. BADGES - Homepage Aligned
-   ============================================ */
-.user-management-page .badge {
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  transition: var(--transition);
-}
-
-/* Role Badges - McRepair Colors */
-.user-management-page .badge-admin {
-  background: var(--white);
-  color: var(--primary-blue);
-  border: 1px solid var(--primary-blue);
-}
-
-.user-management-page .badge-staff {
+.user-management-page .header-actions button[data-variant="default"] {
   background: var(--accent-yellow);
   color: var(--primary-blue);
-}
-
-.user-management-page .badge-customer {
-  background: var(--success);
-  color: var(--white);
-}
-
-/* Status Badges */
-.user-management-page .badge-active {
-  background: var(--success);
-  color: var(--white);
-}
-
-.user-management-page .badge-inactive {
-  background: var(--gray-400);
-  color: var(--white);
-}
-
-.user-management-page .badge-suspended {
-  background: var(--danger);
-  color: var(--white);
-}
-
-/* ============================================
-   6. TABLE - Homepage Style
-   ============================================ */
-.user-management-page .table-container {
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  border: 1px solid var(--gray-200);
-  background: var(--white);
-  margin-bottom: 8px;
-}
-
-.user-management-page table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.user-management-page table thead {
-  background: var(--white);
-  color: var(--primary-blue);
-  border-bottom: 2px solid var(--gray-100);
-}
-
-.user-management-page table thead th {
-  padding: 6px 8px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   border: none;
 }
 
-.user-management-page table thead th:hover {
-  background: var(--gray-50);
+.user-management-page .header-actions button[data-variant="default"]:hover {
+  background: var(--accent-yellow-hover);
 }
 
-.user-management-page table tbody tr {
-  border-bottom: 1px solid var(--gray-100);
-  transition: var(--transition);
+.user-management-page .header-actions button[data-variant="outline"] {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.user-management-page table tbody tr:hover {
-  background: var(--gray-50);
+.user-management-page .header-actions button[data-variant="outline"]:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--white);
 }
 
-.user-management-page table tbody tr:last-child {
-  border-bottom: none;
+.user-management-page .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
 }
 
-.user-management-page table tbody td {
-  padding: 6px 8px;
-  font-size: 0.7rem;
-  color: var(--gray-700);
-}
-
-/* ============================================
-   7. INPUTS & FORM ELEMENTS - Homepage Style
-   ============================================ */
-.user-management-page input[type="text"],
-.user-management-page input[type="text"],
-.user-management-page input[type="email"],
-.user-management-page input[type="password"],
-.user-management-page input[type="search"],
-.user-management-page select,
-.user-management-page textarea {
+.user-management-page .stat-card {
   background: var(--white);
-  border: 1px solid var(--gray-200);
-  color: var(--gray-700);
-  padding: 4px 8px;
   border-radius: var(--radius-md);
-  font-size: 0.7rem;
-  font-family: var(--font-main);
+  padding: 9px;
+  box-shadow: var(--shadow-sm);
+  border: 2px solid transparent;
   transition: var(--transition);
-  width: 100%;
 }
-.user-management-page input:focus,
-.user-management-page select:focus,
-.user-management-page textarea:focus {
-  outline: none;
+
+.user-management-page .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.user-management-page .stat-card .stat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.user-management-page .stat-card .stat-card-title {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-management-page .stat-card .stat-card-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.user-management-page .stat-card .stat-card-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.user-management-page .stat-card.stat-total {
+  border-color: var(--primary-blue);
+}
+
+.user-management-page .stat-card.stat-total .stat-card-title,
+.user-management-page .stat-card.stat-total .stat-card-value {
+  color: var(--primary-blue);
+}
+
+.user-management-page .stat-card.stat-total .stat-card-icon {
+  background: rgba(26, 42, 94, 0.08);
+  color: var(--primary-blue);
+}
+
+.user-management-page .stat-card.stat-pending {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #f59e0b;
+}
+
+.user-management-page .stat-card.stat-pending .stat-card-title {
+  color: #92400e;
+}
+
+.user-management-page .stat-card.stat-pending .stat-card-value {
+  color: #78350f;
+}
+
+.user-management-page .stat-card.stat-pending .stat-card-icon {
+  background: rgba(255, 255, 255, 0.35);
+  color: #92400e;
+}
+
+.user-management-page .stat-card.stat-reviewing {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #3b82f6;
+}
+
+.user-management-page .stat-card.stat-reviewing .stat-card-title {
+  color: #1e40af;
+}
+
+.user-management-page .stat-card.stat-reviewing .stat-card-value {
+  color: #1e3a8a;
+}
+
+.user-management-page .stat-card.stat-reviewing .stat-card-icon {
+  background: rgba(255, 255, 255, 0.35);
+  color: #1e40af;
+}
+
+.user-management-page .stat-card.stat-converted {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-color: #10b981;
+}
+
+.user-management-page .stat-card.stat-converted .stat-card-title {
+  color: #065f46;
+}
+
+.user-management-page .stat-card.stat-converted .stat-card-value {
+  color: #064e3b;
+}
+
+.user-management-page .stat-card.stat-converted .stat-card-icon {
+  background: rgba(255, 255, 255, 0.35);
+  color: #065f46;
+}
+
+.user-management-page .filter-card {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2px;
+}
+
+.user-management-page .filter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-management-page .search-wrapper {
+  position: relative;
+}
+
+.user-management-page .search-wrapper svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400);
+  z-index: 2;
+}
+
+.user-management-page .search-wrapper .search-input {
+  width: 100%;
+  height: 34px;
+  padding: 6px 10px 6px 30px;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+}
+
+.user-management-page .search-wrapper .search-input:focus {
   border-color: var(--primary-blue);
   box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
 }
 
-.user-management-page input::placeholder {
-  color: var(--gray-400);
-}
-
-/* Search Input */
-.user-management-page .search-input {
-  position: relative;
-}
-
-.user-management-page .search-input svg {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--gray-400);
-}
-
-.user-management-page .search-input input {
-  padding-left: 44px;
-}
-
-/* ============================================
-   8. PAGINATION - Homepage Style
-   ============================================ */
-.user-management-page .pagination {
+.user-management-page .filter-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 8px;
-  margin-top: 24px;
+  flex-wrap: wrap;
 }
 
-.user-management-page .pagination button {
-  background: var(--white);
-  border: 2px solid var(--gray-200);
-  color: var(--primary-blue);
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
-  font-weight: 500;
-  transition: var(--transition);
-  cursor: pointer;
+.user-management-page .filter-row button[role="combobox"] {
+  height: 34px;
+  font-size: 0.75rem;
+  border-color: var(--gray-200);
 }
 
-.user-management-page .pagination button:hover:not(:disabled) {
-  background: var(--gray-50);
-  border-color: var(--primary-blue);
-  transform: translateY(-2px);
+.user-management-page .bulk-actions-bar {
+  background: rgba(26, 42, 94, 0.06);
+  border: 1px solid rgba(26, 42, 94, 0.14);
 }
 
-.user-management-page .pagination button.active {
-  background: var(--primary-blue);
-  color: var(--white);
-  border-color: var(--primary-blue);
-}
-
-.user-management-page .pagination button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ============================================
-   9. DIALOGS & MODALS - Homepage Style
-   ============================================ */
-.user-management-page .dialog-overlay {
-  background: rgba(26, 42, 94, 0.6);
-  backdrop-filter: blur(4px);
-}
-
-.user-management-page .dialog-content {
+.user-management-page .requests-table-card {
   background: var(--white);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  border: 1px solid var(--gray-100);
-  max-width: 600px;
-  padding: 0;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
 
-.user-management-page .dialog-header {
-  padding: 24px 24px 16px;
-  border-bottom: 1px solid var(--gray-100);
+.user-management-page .requests-table-header {
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
 }
 
-.user-management-page .dialog-title {
-  color: var(--primary-blue);
-  font-size: 1.5rem;
+.user-management-page .requests-table-title {
+  font-size: 0.9rem;
   font-weight: 700;
+  color: var(--white);
   margin: 0;
 }
 
-.user-management-page .dialog-description {
-  color: var(--gray-500);
-  font-size: 0.95rem;
-  margin-top: 8px;
+.user-management-page .requests-table-description {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  margin-top: 1px;
 }
 
-.user-management-page .dialog-body {
-  padding: 24px;
+.user-management-page .requests-table-content {
+  padding: 0;
 }
 
-.user-management-page .dialog-footer {
-  padding: 16px 24px;
-  border-top: 1px solid var(--gray-100);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+.user-management-page .requests-table-wrapper {
+  overflow-x: auto;
 }
 
-/* ============================================
-   10. FILTERS BAR - Homepage Style
-   ============================================ */
-.user-management-page .filters-bar {
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--gray-100);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
+.user-management-page .table-container {
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
 
-.user-management-page .filters-bar .filter-group {
-  flex: 1;
-  min-width: 200px;
+.user-management-page .requests-table {
+  min-width: 1260px;
+  font-size: 0.74rem;
 }
 
-/* ============================================
-   11. BULK ACTIONS BAR - Homepage Style
-   ============================================ */
-.user-management-page .bulk-actions-bar {
-  background: var(--white);
+.user-management-page .requests-table thead {
+  border-bottom: 2px solid var(--gray-100);
+}
+
+.user-management-page .requests-table thead th {
+  padding: 7px 10px;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
   color: var(--primary-blue);
-  padding: 16px 20px;
-  border-radius: var(--radius-lg);
-  display: flex;
+  background: var(--white);
+}
+
+.user-management-page .requests-table tbody td {
+  padding: 7px 10px;
+  font-size: 0.72rem;
+  color: var(--gray-700);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.user-management-page .requests-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.user-management-page .requests-table thead th:nth-child(1),
+.user-management-page .requests-table tbody td:nth-child(1) {
+  min-width: 42px;
+}
+
+.user-management-page .requests-table thead th:nth-child(2),
+.user-management-page .requests-table tbody td:nth-child(2) {
+  min-width: 230px;
+}
+
+.user-management-page .requests-table thead th:nth-child(3),
+.user-management-page .requests-table tbody td:nth-child(3) {
+  min-width: 180px;
+}
+
+.user-management-page .requests-table thead th:nth-child(4),
+.user-management-page .requests-table tbody td:nth-child(4) {
+  min-width: 130px;
+}
+
+.user-management-page .requests-table thead th:nth-child(5),
+.user-management-page .requests-table tbody td:nth-child(5),
+.user-management-page .requests-table thead th:nth-child(6),
+.user-management-page .requests-table tbody td:nth-child(6) {
+  min-width: 130px;
+}
+
+.user-management-page .requests-table thead th:nth-child(7),
+.user-management-page .requests-table tbody td:nth-child(7) {
+  min-width: 170px;
+}
+
+.user-management-page .requests-table thead th:nth-child(8),
+.user-management-page .requests-table tbody td:nth-child(8) {
+  min-width: 110px;
+}
+
+.user-management-page .requests-table thead th:last-child,
+.user-management-page .requests-table tbody td:last-child {
+  text-align: right;
+}
+
+.user-management-page .badge {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 20px;
-  animation: slideDown 0.3s ease-out;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.user-management-page .badge-admin {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #3b82f6;
+}
+
+.user-management-page .badge-staff {
+  background: #e9d5ff;
+  color: #6b21a8;
+  border: 1px solid #a855f7;
+}
+
+.user-management-page .badge-customer {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.user-management-page .badge-active {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.user-management-page .badge-inactive {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.user-management-page .badge-suspended {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.user-management-page .avatar {
   border: 1px solid var(--gray-200);
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.user-management-page .requests-pagination {
+  border-top: 1px solid var(--gray-100);
 }
 
-.user-management-page .bulk-actions-bar .selected-count {
-  font-weight: 600;
-  font-size: 0.95rem;
+.user-management-page .empty-state {
+  text-align: center;
+  padding: 40px 20px;
 }
 
-.user-management-page .bulk-actions-bar button {
-  background: var(--white);
-  color: var(--primary-blue);
-  border: none;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  transition: var(--transition);
+.user-management-page .empty-state h3 {
+  color: var(--gray-500);
 }
 
-.user-management-page .bulk-actions-bar button:hover {
-  background: var(--accent-yellow);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ============================================
-   12. RESPONSIVE DESIGN - Mobile & Tablet
-   ============================================ */
-
-/* Tablet - Portrait (768px - 1024px) */
-@media (max-width: 1024px) {
-  .user-management-page {
-    padding: 24px 16px;
-  }
-
-  .user-management-page .page-header h1 {
-    font-size: 1.75rem;
-  }
-
-  .user-management-page .stats-card .stat-value {
-    font-size: 1.75rem;
-  }
-
-  .user-management-page table thead th {
-    padding: 12px 16px;
-    font-size: 0.8rem;
-  }
-
-  .user-management-page table tbody td {
-    padding: 12px 16px;
-    font-size: 0.85rem;
-  }
-
-  .user-management-page .filters-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .user-management-page .filters-bar .filter-group {
-    width: 100%;
-  }
-}
-
-/* Mobile - Portrait (320px - 767px) */
-@media (max-width: 767px) {
-  .user-management-page {
-    padding: 16px 12px;
-  }
-
-  .user-management-page .page-header h1 {
-    font-size: 1.5rem;
-  }
-
-  .user-management-page .page-header p {
-    font-size: 0.85rem;
-  }
-
-  .user-management-page .stats-card {
-    padding: 16px;
-  }
-
-  .user-management-page .stats-card .stat-value {
-    font-size: 1.5rem;
-  }
-
-  .user-management-page .stats-card .stat-label {
-    font-size: 0.75rem;
-  }
-
-  /* Table becomes scrollable on mobile */
-  .user-management-page .table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .user-management-page table {
-    min-width: 640px;
-  }
-
-  .user-management-page table thead th {
-    padding: 10px 12px;
-    font-size: 0.75rem;
-  }
-
-  .user-management-page table tbody td {
-    padding: 10px 12px;
-    font-size: 0.8rem;
-  }
-
-  /* Buttons stack on mobile */
-  .user-management-page .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .user-management-page button {
-    width: 100%;
-  }
-
-  .user-management-page .bulk-actions-bar {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-
-  .user-management-page .bulk-actions-bar button {
-    width: 100%;
-  }
-
-  .user-management-page .dialog-content {
-    max-width: 95vw;
-    margin: 12px;
-  }
-
-  .user-management-page .pagination {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .user-management-page .pagination button {
-    padding: 6px 10px;
-    font-size: 0.85rem;
-  }
-}
-
-/* ============================================
-   13. LOADING STATES - Homepage Style
-   ============================================ */
 .user-management-page .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--gray-100) 0%,
-    var(--gray-200) 50%,
-    var(--gray-100) 100%
-  );
+  background: linear-gradient(90deg, var(--gray-100) 0%, var(--gray-200) 50%, var(--gray-100) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: user-skeleton-shimmer 1.5s infinite;
   border-radius: var(--radius-md);
 }
 
-@keyframes shimmer {
+@keyframes user-skeleton-shimmer {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
-/* ============================================
-   14. TOOLTIPS - Homepage Style
-   ============================================ */
-.user-management-page .tooltip {
-  background: var(--gray-800);
-  color: var(--white);
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  box-shadow: var(--shadow-lg);
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+@media (min-width: 768px) {
+  .user-management-page .filter-container {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
   }
-  to {
-    opacity: 1;
+
+  .user-management-page .search-wrapper {
+    flex: 1;
   }
 }
 
-/* ============================================
-   15. EMPTY STATES - Homepage Style
-   ============================================ */
-.user-management-page .empty-state {
-  text-align: center;
-  padding: 60px 20px;
-}
-
-.user-management-page .empty-state svg {
-  color: var(--gray-300);
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 20px;
-  opacity: 0.5;
-}
-
-.user-management-page .empty-state h3 {
-  color: var(--gray-600);
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.user-management-page .empty-state p {
-  color: var(--gray-500);
-  font-size: 0.95rem;
-}
-
-/* ============================================
-   16. AVATAR - Homepage Style
-   ============================================ */
-.user-management-page .avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--white);
-  color: var(--primary-blue);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.9rem;
-  border: 1px solid var(--gray-200);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ============================================
-   17. SWITCH/TOGGLE - Homepage Style
-   ============================================ */
-.user-management-page .switch {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  background: var(--gray-300);
-  border-radius: 12px;
-  transition: var(--transition);
-  cursor: pointer;
-}
-
-.user-management-page .switch.active {
-  background: var(--success);
-}
-
-.user-management-page .switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: var(--white);
-  border-radius: 50%;
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
-}
-
-.user-management-page .switch.active::after {
-  left: 22px;
-}
-
-/* ============================================
-   18. DROPDOWN MENU - Homepage Style
-   ============================================ */
-.user-management-page .dropdown-menu {
-  background: var(--white);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--gray-200);
-  padding: 8px 0;
-  min-width: 180px;
-  animation: scaleIn 0.2s ease-out;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.user-management-page .dropdown-menu-item {
-  padding: 10px 16px;
-  color: var(--gray-700);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: var(--transition);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.user-management-page .dropdown-menu-item:hover {
-  background: var(--gray-50);
-  color: var(--primary-blue);
-}
-
-.user-management-page .dropdown-menu-item.danger {
-  color: var(--danger);
-}
-
-.user-management-page .dropdown-menu-item.danger:hover {
-  background: rgba(229, 62, 62, 0.1);
-}
-
-/* ============================================
-   19. ACCESSIBILITY & FOCUS STATES
-   ============================================ */
-.user-management-page button:focus-visible,
-.user-management-page input:focus-visible,
-.user-management-page select:focus-visible,
-.user-management-page a:focus-visible {
-  outline: 3px solid var(--accent-yellow);
-  outline-offset: 2px;
-}
-
-/* ============================================
-   20. PRINT STYLES
-   ============================================ */
-@media print {
+@media (max-width: 768px) {
   .user-management-page {
-    background: var(--white);
+    padding: 12px 10px;
   }
 
-  .user-management-page .card {
-    box-shadow: none;
-    border: 1px solid var(--gray-300);
+  .user-management-page .page-header {
+    gap: 10px;
   }
 
-  .user-management-page button,
-  .user-management-page .pagination,
-  .user-management-page .filters-bar,
-  .user-management-page .bulk-actions-bar {
-    display: none;
+  .user-management-page .header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .user-management-page .header-actions button {
+    width: 100%;
+  }
+
+  .user-management-page .requests-table {
+    min-width: 1080px;
+  }
+
+  .user-management-page .requests-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .user-management-page .requests-table {
+    min-width: 1140px;
+    font-size: 0.72rem;
+  }
+
+  .user-management-page .requests-table thead th,
+  .user-management-page .requests-table tbody td {
+    padding: 6px 8px;
   }
 }

@@ -6,7 +6,6 @@ import {
   BookOpen,
   Mail,
   Phone,
-  Search,
   Menu,
   X,
   MapPin,
@@ -30,7 +29,6 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { CartIcon } from '@/components/CartIcon';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { NavbarSearch } from '@/components/NavbarSearch';
 import { LoginDialog } from './LoginDialog';
 import {
   getDeviceTypes,
@@ -65,6 +63,48 @@ const BRAND_PRIORITY_ORDER = [
   'lenovo', 'asus', 'microsoft', 'dell', 'hp', 'acer', 'lg',
 ];
 
+const LOCAL_BRAND_LOGOS: Record<string, string> = {
+  acer: '/assets/brand-logos/acer.png',
+  apple: '/assets/brand-logos/apple.png',
+  asus: '/assets/brand-logos/asus.png',
+  blackberry: '/assets/brand-logos/blackberry.png',
+  dell: '/assets/brand-logos/dell.png',
+  google: '/assets/brand-logos/google.png',
+  'hmd global': '/assets/brand-logos/hmd-global.png',
+  htc: '/assets/brand-logos/htc.png',
+  huawei: '/assets/brand-logos/huawei.png',
+  lenovo: '/assets/brand-logos/lenovo.png',
+  lg: '/assets/brand-logos/lg.png',
+  microsoft: '/assets/brand-logos/microsoft.png',
+  windows: '/assets/brand-logos/microsoft.png',
+  motorola: '/assets/brand-logos/motorola.png',
+  nokia: '/assets/brand-logos/nokia.png',
+  oneplus: '/assets/brand-logos/oneplus.png',
+  samsung: '/assets/brand-logos/samsung.png',
+  sony: '/assets/brand-logos/sony.png',
+  toshiba: '/assets/brand-logos/toshiba.png',
+  xiaomi: '/assets/brand-logos/xiaomi.png',
+};
+
+const getLocalBrandLogo = (name?: string) => {
+  if (!name) return undefined;
+  const normalized = name.trim().toLowerCase();
+
+  if (LOCAL_BRAND_LOGOS[normalized]) {
+    return LOCAL_BRAND_LOGOS[normalized];
+  }
+
+  if (normalized.includes(',')) {
+    for (const part of normalized.split(',').map((value) => value.trim())) {
+      if (LOCAL_BRAND_LOGOS[part]) {
+        return LOCAL_BRAND_LOGOS[part];
+      }
+    }
+  }
+
+  return undefined;
+};
+
 function sortManufacturers(entries: [string, DeviceMenuModel[]][]): [string, DeviceMenuModel[]][] {
   return [...entries].sort(([a], [b]) => {
     const ai = BRAND_PRIORITY_ORDER.indexOf(a.toLowerCase());
@@ -84,7 +124,6 @@ export function McRepairNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [navMode, setNavMode] = useState<'full' | 'partial' | 'compact'>('full');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -141,7 +180,12 @@ export function McRepairNav() {
     return undefined;
   };
 
-  const resolveBrandIcon = (logo?: string): string | undefined => {
+  const resolveBrandIcon = (brandName?: string, logo?: string): string | undefined => {
+    const localLogo = getLocalBrandLogo(brandName);
+    if (localLogo) {
+      return localLogo;
+    }
+
     const normalizedLogo = logo?.trim();
     if (!normalizedLogo) {
       return undefined;
@@ -244,7 +288,6 @@ export function McRepairNav() {
       setMobileMenuOpen(false);
       setMobileMenuClosing(false);
       setMobileCategoryOpen(null);
-      setSearchOpen(false);
     }
   }, [navMode]);
 
@@ -304,7 +347,7 @@ export function McRepairNav() {
 
             for (const manufacturer of manufacturers) {
               try {
-                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.logo);
+                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.name, manufacturer.logo);
 
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   deviceType._id,
@@ -390,7 +433,7 @@ export function McRepairNav() {
 
             for (const manufacturer of manufacturers) {
               try {
-                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.logo);
+                iconData[category][manufacturer.name] = resolveBrandIcon(manufacturer.name, manufacturer.logo);
 
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   deviceType._id,
@@ -456,10 +499,6 @@ export function McRepairNav() {
     }
     setMobileMenuClosing(false);
     setMobileMenuOpen(true);
-  };
-
-  const toggleSearch = () => {
-    setSearchOpen(!searchOpen);
   };
 
   // Prevent background scroll when mobile menu is open/closing (mobile-safe, incl. iOS)
@@ -603,11 +642,6 @@ export function McRepairNav() {
     e.preventDefault();
     e.stopPropagation();
     closeMobileMenu(() => setShowLoginDialog(true));
-  };
-
-  const handleMobileSearchClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    closeMobileMenu(() => setSearchOpen(true));
   };
 
   const handleMobileLogout = (e: React.MouseEvent) => {
@@ -882,15 +916,19 @@ export function McRepairNav() {
             </div>
           )}
 
-          {/* Shop - moved to first position */}
-          <a
-            href="#shop"
-            className={`nav-link nav-priority-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
-            onClick={closeMobileMenu}
+          {/* Shop with Hover Search Dropdown */}
+          <div
+            className="nav-item-with-dropdown nav-priority-link nav-shop-dropdown"
           >
-            <ShoppingBag width={16} height={16} />
-            {t('home.nav.shop', 'Shop')}
-          </a>
+            <a
+              href="#shop"
+              className={`nav-link nav-shop-link nav-shop-menu-link ${isHomePage ? 'nav-shop-spotlight' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              <ShoppingBag width={16} height={16} />
+              {t('home.nav.shop', 'Shop')}
+            </a>
+          </div>
 
           {/* Smartphone */}
           <div 
@@ -955,10 +993,6 @@ export function McRepairNav() {
             {mobileMenuOpen && mobileCategoryOpen === 'notebook' && renderMobileDeviceDropdown('notebook')}
           </div>
 
-          <Link to="/contact" className="nav-link nav-category-item nav-partial-hidden" onClick={() => closeMobileMenu()}>
-            <Mail width={16} height={16} />
-            {t('home.nav.contact', 'Kontakt')}
-          </Link>
 
           {/* Mobile Extras (only shown in mobile menu) */}
           <div className="nav-mobile-extras">
@@ -966,10 +1000,6 @@ export function McRepairNav() {
               <div className="nav-mobile-section-title nav-mobile-section-title-spaced">
                 {t('home.nav.moreOptions')}
               </div>
-              <button className="nav-mobile-secondary-link" onClick={handleMobileSearchClick}>
-                <Search width={16} height={16} />
-                {t('common.search', 'Suche')}
-              </button>
               <a className="nav-mobile-secondary-link" href="tel:+4917012345678">
                 <Phone width={16} height={16} />
                 {t('home.topBar.hotline', '0170 123 4567')}
@@ -988,20 +1018,6 @@ export function McRepairNav() {
 
         {/* Right Side Actions */}
         <div className="nav-right" ref={navRightRef}>
-          {/* Desktop Search - Using NavbarSearch Component */}
-          <div className="nav-search hidden lg:block">
-            <NavbarSearch />
-          </div>
-
-          {/* Mobile Search Toggle */}
-          <button
-            className={`nav-search-toggle ${searchOpen ? 'active' : ''}`}
-            onClick={toggleSearch}
-            aria-label={t('home.nav.toggleSearch')}
-          >
-            <Search width={18} height={18} />
-          </button>
-
           {/* Mobile/Tablet Top Shop Button — shown only when nav-links collapse into hamburger */}
           {isCompactNav && (
             <a
@@ -1051,13 +1067,6 @@ export function McRepairNav() {
               <Menu width={24} height={24} />
             )}
           </button>
-        </div>
-      </div>
-
-      {/* Mobile Search Overlay */}
-      <div className={`nav-search-overlay ${searchOpen ? 'open' : ''}`}>
-        <div className="container mx-auto px-4 py-4">
-          <NavbarSearch />
         </div>
       </div>
 

@@ -17,6 +17,7 @@ import {
   Star,
   Tag,
 } from "lucide-react"
+import { formatEUR } from '@/lib/utils'
 
 interface CartProductDetailsDialogProps {
   open: boolean
@@ -124,7 +125,7 @@ export function CartProductDetailsDialog({
                       {savings > 0 && (
                         <Badge className="border-0 bg-[#fff4cc] px-3 py-1 text-[11px] font-semibold text-[#8b5e00] shadow-none">
                           <Sparkles className="mr-1 h-3.5 w-3.5" />
-                          {savings.toFixed(2)} € sparen
+                          {formatEUR(savings)} sparen
                         </Badge>
                       )}
                     </div>
@@ -197,11 +198,11 @@ export function CartProductDetailsDialog({
                           <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#63708a]">Aktueller Preis</p>
                           <div className="mt-1 flex items-end gap-2">
                             <span className="text-3xl font-bold tracking-tight text-[#1a2a5e]">
-                              {price.toFixed(2)} €
+                              {formatEUR(price)}
                             </span>
                             {typeof originalPrice === "number" && (
                               <span className="pb-1 text-sm font-medium text-[#8a94a6] line-through">
-                                {originalPrice.toFixed(2)} €
+                                {formatEUR(originalPrice)}
                               </span>
                             )}
                           </div>
@@ -221,7 +222,7 @@ export function CartProductDetailsDialog({
 
                       <div className="rounded-2xl bg-[#f8f9fc] px-3 py-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#63708a]">Gesamtwert im Warenkorb</p>
-                        <p className="mt-1 text-sm font-semibold text-[#1a2a5e]">{totalPrice.toFixed(2)} € ({quantity}x)</p>
+                        <p className="mt-1 text-sm font-semibold text-[#1a2a5e]">{formatEUR(totalPrice)} ({quantity}x)</p>
                       </div>
 
                       <div className="flex items-center gap-2">

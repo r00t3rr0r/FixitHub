@@ -1,9 +1,95 @@
 const express = require('express');
 const router = express.Router();
 const RepairRequestService = require('../services/repairRequestService');
+const RepairRequestCommunicationService = require('../services/repairRequestCommunicationService');
 const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth');
 
-// Description: Create a new repair request
+// ─────────────────────────────────────────────────────────────────────────────
+// GUEST ROUTES (no auth required) — must be declared before /:id routes
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Description: Create a repair request as a guest
+// Endpoint: POST /api/repair-requests/guest
+// Request: { guestInfo: { firstName, lastName, email, phone }, deviceType, … }
+// Response: { success: true, requestNumber, guestTrackingToken }
+router.post('/guest', async (req, res) => {
+  try {
+    const { guestInfo, ...data } = req.body;
+    const result = await RepairRequestService.createGuestRepairRequest(guestInfo, data);
+    res.status(201).json({
+      success: true,
+      requestNumber: result.repairRequest.requestNumber,
+      guestTrackingToken: result.guestTrackingToken,
+      message: 'Reparaturanfrage erfolgreich übermittelt.',
+    });
+  } catch (error) {
+    console.error('Error creating guest repair request:', error);
+    if (error?.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    res.status(500).json({ success: false, message: error.message || 'Fehler beim Erstellen der Anfrage.' });
+  }
+});
+
+// Description: Track a guest repair request
+// Endpoint: GET /api/repair-requests/guest/track?token=...&email=...
+// Response: { success: true, request: RepairRequest }
+router.get('/guest/track', async (req, res) => {
+  try {
+    const { token, email } = req.query;
+    const repairRequest = await RepairRequestService.trackGuestRepairRequest(token, email);
+    res.status(200).json({ success: true, request: repairRequest });
+  } catch (error) {
+    console.error('Error tracking guest repair request:', error);
+    res.status(404).json({ success: false, message: error.message || 'Nicht gefunden.' });
+  }
+});
+
+// Description: Get communication thread for a guest repair request
+// Endpoint: GET /api/repair-requests/guest/:id/communication?token=...&email=...
+// Response: { success: true, communication: Object | null }
+router.get('/guest/:id/communication', async (req, res) => {
+  try {
+    const { token, email } = req.query;
+    // Verify ownership first
+    await RepairRequestService.trackGuestRepairRequest(token, email);
+    const communication = await RepairRequestCommunicationService.getCommunicationThread(req.params.id);
+    res.status(200).json({ success: true, communication: communication || null });
+  } catch (error) {
+    console.error('Error getting guest communication:', error);
+    res.status(403).json({ success: false, message: error.message || 'Zugriff verweigert.' });
+  }
+});
+
+// Description: Send a message as a guest
+// Endpoint: POST /api/repair-requests/guest/:id/message
+// Request: { token, email, content }
+// Response: { success: true, communication: Object }
+router.post('/guest/:id/message', async (req, res) => {
+  try {
+    const { token, email, content } = req.body;
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, message: 'Nachrichteninhalt darf nicht leer sein.' });
+    }
+    // Verify ownership
+    const repairRequest = await RepairRequestService.trackGuestRepairRequest(token, email);
+    const communication = await RepairRequestCommunicationService.sendMessage(
+      req.params.id,
+      null,
+      repairRequest.customerName,
+      content.trim(),
+      'customer',
+      'customer'
+    );
+    res.status(201).json({ success: true, communication });
+  } catch (error) {
+    console.error('Error sending guest message:', error);
+    res.status(403).json({ success: false, message: error.message || 'Fehler beim Senden.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Endpoint: POST /api/repair-requests
 // Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, modelNumber, images }
 // Response: { success: true, request: RepairRequest }

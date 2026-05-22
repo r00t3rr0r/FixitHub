@@ -1,0 +1,123 @@
+.marketing-promo-page {
+  --marketing-blue: #1a2a5e;
+  --marketing-blue-dark: #141f47;
+  --marketing-yellow: #f5b800;
+  --marketing-yellow-dark: #d9a400;
+  --marketing-text: #273246;
+  --marketing-muted: #657187;
+  --marketing-border: #d8dce6;
+
+  background:
+    radial-gradient(900px 340px at -6% -18%, #dde6ff 0%, transparent 56%),
+    radial-gradient(620px 260px at 112% -10%, #e8f7f4 0%, transparent 54%);
+  color: var(--marketing-text);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.marketing-promo-header {
+  background: linear-gradient(135deg, var(--marketing-blue) 0%, #253f81 100%);
+  border: 1px solid #2f4a90;
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  box-shadow: 0 12px 28px -24px rgba(20, 31, 71, 0.85);
+}
+
+.marketing-promo-header h1 {
+  color: #ffffff;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.marketing-promo-header p {
+  color: rgba(255, 255, 255, 0.87);
+  font-size: 0.78rem;
+}
+
+.marketing-promo-page .marketing-promo-nav-link {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  transition: all 0.2s ease;
+}
+
+.marketing-promo-page .marketing-promo-nav-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.marketing-promo-page .marketing-promo-nav-link.active {
+  background: var(--marketing-yellow);
+  border-color: var(--marketing-yellow-dark);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.marketing-promo-page .marketing-promo-kpi {
+  border-color: #d5dced;
+  box-shadow: 0 10px 22px -22px #2a4074;
+}
+
+.marketing-promo-page .marketing-promo-kpi-title {
+  color: #334158;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.marketing-promo-page .marketing-promo-kpi-value {
+  color: var(--marketing-blue);
+  font-size: 1.28rem;
+  line-height: 1.1;
+}
+
+.marketing-promo-page .marketing-promo-panel {
+  border-color: #d8dce6;
+  box-shadow: 0 14px 28px -26px #243a73;
+}
+
+.marketing-promo-page .marketing-promo-item {
+  border-color: #e0e5f0;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  padding: 0.6rem;
+}
+
+.marketing-promo-page .marketing-promo-subtle {
+  color: var(--marketing-muted);
+}
+
+.marketing-promo-page .marketing-promo-btn-brand {
+  background: linear-gradient(135deg, var(--marketing-yellow) 0%, var(--marketing-yellow-dark) 100%);
+  border-color: var(--marketing-yellow-dark);
+  color: #111827;
+}
+
+.marketing-promo-page .marketing-promo-btn-brand:hover {
+  filter: brightness(0.98);
+}
+
+.dark .marketing-promo-page {
+  background:
+    radial-gradient(900px 340px at -6% -18%, rgba(36, 62, 120, 0.42) 0%, transparent 56%),
+    radial-gradient(620px 260px at 112% -10%, rgba(24, 80, 74, 0.4) 0%, transparent 54%);
+}
+
+.dark .marketing-promo-header {
+  background: linear-gradient(135deg, #1d2f66 0%, #13224e 100%);
+  border-color: #324f98;
+}
+
+.dark .marketing-promo-page .marketing-promo-nav-link.active {
+  color: #111827;
+}
+
+@media (max-width: 768px) {
+  .marketing-promo-page {
+    padding: 0.55rem;
+  }
+
+  .marketing-promo-header {
+    padding: 0.62rem 0.68rem;
+  }
+}

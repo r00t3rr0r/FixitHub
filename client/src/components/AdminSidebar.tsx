@@ -46,7 +46,6 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
   const [unreadNotifications, setUnreadNotifications] = useState(0)
-  const [userManagementOpen, setUserManagementOpen] = useState(false)
   const [orderManagementOpen, setOrderManagementOpen] = useState(false)
   const [contentManagementOpen, setContentManagementOpen] = useState(false)
   const [marketingPromoOpen, setMarketingPromoOpen] = useState(false)
@@ -156,130 +155,132 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   return (
     <nav className={`admin-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <NavItem to="/admin" icon={Home}>
-        {t('navigation.dashboard')}
+        Dashboard
       </NavItem>
 
       <CollapsibleSection
-        title={t('admin.menu.userManagement')}
-        icon={Users}
-        isOpen={userManagementOpen}
-        onToggle={() => setUserManagementOpen(!userManagementOpen)}
-      >
-        <NavItem to="/admin/users" icon={Users}>
-          {t('admin.menu.userManagement')}
-        </NavItem>
-        <NavItem to="/admin/customer-groups" icon={Layers}>
-          {t('admin.menu.customerGroups')}
-        </NavItem>
-        <NavItem to="/admin/staff" icon={UserCheck}>
-          {t('admin.menu.staffManagement')}
-        </NavItem>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title={t('admin.menu.orderManagement')}
+        title="Auftragsverwaltung"
         icon={Package}
         isOpen={orderManagementOpen}
         onToggle={() => setOrderManagementOpen(!orderManagementOpen)}
       >
         <NavItem to="/admin/bookings" icon={BookMarked}>
-          {t('admin.menu.bookings')}
-        </NavItem>
-        <NavItem to="/admin/services" icon={Wrench}>
-          {t('admin.menu.serviceManagement')}
-        </NavItem>
-        <NavItem to="/admin/addons" icon={Plus}>
-          {t('admin.menu.addOnServices')}
-        </NavItem>
-        <NavItem to="/admin/service-categories" icon={FolderTree}>
-          Service Categories
-        </NavItem>
-        <NavItem to="/admin/devices" icon={Smartphone}>
-          {t('admin.menu.deviceBrands')}
-        </NavItem>
-        <NavItem to="/admin/parts" icon={Package2}>
-          {t('admin.menu.partsManagement')}
-        </NavItem>
-        <NavItem to="/admin/epart-orders" icon={Boxes}>
-          {t('admin.menu.epartOrders')}
-        </NavItem>
-        <NavItem to="/admin/workflow" icon={GitBranch}>
-          {t('admin.menu.workflowManagement')}
-        </NavItem>
-        <NavItem to="/admin/analytics" icon={BarChart3}>
-          {t('admin.menu.analytics')}
+          Buchungen
         </NavItem>
         <NavItem to="/admin/repair-requests" icon={FileText}>
           Repair Requests
         </NavItem>
-        <NavItem to="/admin/financial" icon={DollarSign}>
-          {t('admin.menu.financialManagement')}
+        <NavItem to="/admin/contact-requests" icon={MessageSquare}>
+          Kontaktanfragen
         </NavItem>
         <NavItem to="/admin/complaints" icon={AlertCircle}>
           Reklamationen
         </NavItem>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Content Management"
-        icon={FileText}
-        isOpen={contentManagementOpen}
-        onToggle={() => setContentManagementOpen(!contentManagementOpen)}
-      >
-        <NavItem to="/admin/shop" icon={ShoppingBag}>
-          {t('admin.menu.webShopManagement')}
+        <NavItem to="/admin/parts" icon={Package2}>
+          Teileverwaltung
         </NavItem>
-        <NavItem to="/admin/blog" icon={FileText}>
-          {t('admin.menu.blogManagement')}
+        <NavItem to="/admin/epart-orders" icon={Boxes}>
+          Epart-Bestellungen
         </NavItem>
-        <NavItem to="/admin/faq" icon={HelpCircle}>
-          {t('admin.menu.faqManagement')}
+        <NavItem to="/admin/financial" icon={DollarSign}>
+          Finanzverwaltung
         </NavItem>
-        <NavItem to="/admin/homepage" icon={Layout}>
-          {t('admin.menu.homepageManagement')}
+        <NavItem to="/admin/users" icon={Users}>
+          Benutzerverwaltung
         </NavItem>
-        <NavItem to="/admin/website-builder" icon={Layout}>
-          Website Builder
+        <NavItem to="/admin/staff" icon={UserCheck}>
+          Personalverwaltung
         </NavItem>
-        <NavItem to="/admin/seo" icon={Search}>
-          {t('admin.menu.seoManagement')}
+        <NavItem to="/admin/analytics" icon={BarChart3}>
+          Analysen
         </NavItem>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Marketing/Promo"
-        icon={Megaphone}
-        isOpen={marketingPromoOpen}
-        onToggle={() => setMarketingPromoOpen(!marketingPromoOpen)}
-      >
-        <NavItem to="/admin/marketing-promo" icon={Megaphone}>
-          Uebersicht
-        </NavItem>
-        <NavItem to="/admin/marketing-promo/newsletters" icon={Mail}>
-          Newsletter
-        </NavItem>
-        <NavItem to="/admin/marketing-promo/promo-codes" icon={DollarSign}>
-          Promo Codes
-        </NavItem>
-        <NavItem to="/admin/marketing-promo/segments" icon={Layers}>
-          Segmente
-        </NavItem>
-        <NavItem to="/admin/marketing-promo/reports" icon={BarChart3}>
-          Reports
-        </NavItem>
-        <NavItem to="/admin/marketing-promo/settings" icon={Settings}>
-          Einstellungen
-        </NavItem>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="System Management"
+        title="Sytem Management"
         icon={Settings}
         isOpen={systemManagementOpen}
         onToggle={() => setSystemManagementOpen(!systemManagementOpen)}
       >
+        <NavItem to="/admin/customer-groups" icon={Layers}>
+          {t('admin.menu.customerGroups')}
+        </NavItem>
+        <NavItem to="/admin/services" icon={Wrench}>
+          Dienstverwaltung
+        </NavItem>
+        <NavItem to="/admin/service-categories" icon={FolderTree}>
+          Service Categories
+        </NavItem>
+        <NavItem to="/admin/addons" icon={Plus}>
+          Zusatzdienste
+        </NavItem>
+        <NavItem to="/admin/devices" icon={Smartphone}>
+          Gerätemarken
+        </NavItem>
+        <NavItem to="/admin/workflow" icon={GitBranch}>
+          Workflowverwaltung
+        </NavItem>
+
+        <CollapsibleSection
+          title="Content Management"
+          icon={FileText}
+          isOpen={contentManagementOpen}
+          onToggle={() => setContentManagementOpen(!contentManagementOpen)}
+        >
+          <NavItem to="/admin/shop" icon={ShoppingBag}>
+            Webshop-Verwaltung
+          </NavItem>
+          <NavItem to="/admin/blog" icon={FileText}>
+            Blog-Verwaltung
+          </NavItem>
+          <NavItem to="/admin/faq" icon={HelpCircle}>
+            FAQ-Verwaltung
+          </NavItem>
+          <NavItem to="/admin/homepage" icon={Layout}>
+            Homepage-Verwaltung
+          </NavItem>
+          <NavItem to="/admin/website-builder" icon={Layout}>
+            Website Builder
+          </NavItem>
+          <NavItem to="/admin/seo" icon={Search}>
+            SEO-Verwaltung
+          </NavItem>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          title="Marketing/Promo"
+          icon={Megaphone}
+          isOpen={marketingPromoOpen}
+          onToggle={() => setMarketingPromoOpen(!marketingPromoOpen)}
+        >
+          <NavItem to="/admin/marketing-promo" icon={Megaphone}>
+            Uebersicht
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/newsletters" icon={Mail}>
+            Newsletter
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/promo-codes" icon={DollarSign}>
+            Promo Codes
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/segments" icon={Layers}>
+            Segmente
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/reports" icon={BarChart3}>
+            Reports
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/settings" icon={Settings}>
+            Einstellungen
+          </NavItem>
+        </CollapsibleSection>
+
         <NavItem to="/admin/system" icon={Settings}>
-          {t('admin.menu.systemConfiguration')}
+          Systemkonfiguration
+        </NavItem>
+        <NavItem to="/admin/database" icon={Database}>
+          Datenbankverwaltung
+        </NavItem>
+        <NavItem to="/admin/security" icon={Shield}>
+          Sicherheitseinstellungen
         </NavItem>
         <NavItem to="/admin/email" icon={Mail}>
           Email-Verwaltung
@@ -287,24 +288,18 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
         <NavItem to="/admin/live-tracking" icon={Activity}>
           Live Tracking
         </NavItem>
-        <NavItem to="/admin/database" icon={Database}>
-          {t('admin.menu.databaseManagement')}
-        </NavItem>
-        <NavItem to="/admin/security" icon={Shield}>
-          {t('admin.menu.securitySettings')}
-        </NavItem>
       </CollapsibleSection>
 
       <NavItem to="/messages" icon={MessageSquare}>
-        {t('navigation.messages')}
+        Nachrichten
       </NavItem>
 
       <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
-        {t('navigation.notifications')}
+        Benachrichttigungen
       </NavItem>
 
       <NavItem to="/profile" icon={User}>
-        {t('navigation.profile')}
+        Profil
       </NavItem>
     </nav>
   )

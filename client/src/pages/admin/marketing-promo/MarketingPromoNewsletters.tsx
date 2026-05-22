@@ -308,7 +308,7 @@ export function MarketingPromoNewsletters() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="marketing-promo-page space-y-4">
       <MarketingPromoHeader
         title="Newsletter"
         description="Newsletter-Kampagnen anlegen, planen, testen und versenden."
