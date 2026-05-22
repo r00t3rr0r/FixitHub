@@ -67,7 +67,7 @@ export function MarketingPromoReports() {
   }, [])
 
   return (
-    <div className="space-y-6">
+    <div className="marketing-promo-page space-y-4">
       <MarketingPromoHeader
         title="Reports"
         description="Newsletter- und Promo-Performance inklusive Audit-Log."
