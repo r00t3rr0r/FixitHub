@@ -596,7 +596,7 @@ export function CustomerBookings() {
                 </div>
                 <h3 className="text-xl font-bold text-[#1a2a5e] mb-2">{t('bookings.noBookings')}</h3>
                 <p className="text-slate-500 text-base mb-6">You haven't made any bookings yet. Start by creating a new order.</p>
-                <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/new-order')}>
+                <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/#repair-order-configurator')}>
                   {t('navigation.newOrder')}
                 </Button>
               </div>
