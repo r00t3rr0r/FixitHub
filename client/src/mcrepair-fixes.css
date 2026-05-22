@@ -189,6 +189,11 @@ html, body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .hero {
+    padding-top: 40px !important;
+    padding-bottom: 24px !important;
+  }
+
   .config-result {
     padding: 18px;
   }
@@ -229,11 +234,20 @@ html, body {
     font-size: 0.5rem;
   }
 
-  .device-grid,
+  /* Keep device-grid at 2 columns on tiny screens (tablet-view style) */
+  .device-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
   .config-result-grid,
   .config-step5-additional-panel [style*="grid-template-columns: repeat(3, minmax(0, 1fr))"],
   .config-step5-additional-panel [style*="grid-template-columns: repeat(3, 1fr)"] {
     grid-template-columns: 1fr !important;
+  }
+
+  .hero {
+    padding-top: 32px !important;
+    padding-bottom: 16px !important;
   }
 }
 

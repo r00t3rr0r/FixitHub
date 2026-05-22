@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import "./RepairRequestsManagement.css"
 import { Button } from "@/components/ui/button"
@@ -47,13 +46,11 @@ import {
   X,
   Loader2,
   User,
-  Mail,
   Phone,
   Calendar,
   FileCheck,
   AlertCircle,
   Info,
-  ChevronDown,
 } from "lucide-react"
 import {
   Select,
@@ -72,6 +69,7 @@ import {
 } from "@/components/ui/table"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -97,33 +95,26 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { ContactMessagesPanel } from "@/components/admin/ContactMessagesPanel"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
 
-export function RepairRequestsManagement() {
-  const { t } = useTranslation()
+type RepairRequestsManagementView = "repair-requests" | "contact-messages"
+
+interface RepairRequestsManagementProps {
+  view?: RepairRequestsManagementView
+}
+
+export function RepairRequestsManagement({ view = "repair-requests" }: RepairRequestsManagementProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") === "contact-messages" ? "contact-messages" : "repair-requests"
-  )
 
   const [requests, setRequests] = useState<RepairRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<RepairRequest[]>([])
   const [statistics, setStatistics] = useState<RepairRequestStats | null>(null)
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [services, setServices] = useState<RepairService[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(view === "repair-requests")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -143,17 +134,19 @@ export function RepairRequestsManagement() {
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [estimatedCost, setEstimatedCost] = useState("")
   const [adminNote, setAdminNote] = useState("")
-  const [activeSidePanel, setActiveSidePanel] = useState<"communication" | "timeline">("communication")
-  const [notesExpanded, setNotesExpanded] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const detailsDialogHeaderClass = "relative -mx-6 -mt-6 mb-2 rounded-t-lg bg-[#1a2a5e] px-6 py-3 text-white"
+  const isDetailsDialogClosingRef = useRef(false)
 
   useEffect(() => {
+    if (view !== "repair-requests") return
     fetchData()
-  }, [])
+  }, [view])
 
   useEffect(() => {
+    if (view !== "repair-requests") return
     filterRequests()
-  }, [requests, searchTerm, statusFilter, priorityFilter])
+  }, [requests, searchTerm, statusFilter, priorityFilter, view])
 
   useEffect(() => {
     if (!selectedRequest) return
@@ -168,6 +161,7 @@ export function RepairRequestsManagement() {
   useEffect(() => {
     const requestId = searchParams.get("requestId")
     if (!requestId || requests.length === 0) return
+    if (isDetailsDialogClosingRef.current) return
 
     const request = requests.find((req) => req._id === requestId)
     if (!request) return
@@ -178,25 +172,11 @@ export function RepairRequestsManagement() {
   }, [searchParams, requests, selectedRequest?._id, showDetailsDialog])
 
   useEffect(() => {
-    const tabParam = searchParams.get("tab")
-    if (tabParam === "contact-messages" || tabParam === "repair-requests") {
-      setActiveTab(tabParam)
+    const requestId = searchParams.get("requestId")
+    if (!requestId) {
+      isDetailsDialogClosingRef.current = false
     }
   }, [searchParams])
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab)
-    setSearchParams((currentParams) => {
-      const nextParams = new URLSearchParams(currentParams)
-      nextParams.set("tab", tab)
-
-      if (tab !== "contact-messages") {
-        nextParams.delete("messageId")
-      }
-
-      return nextParams
-    }, { replace: true })
-  }
 
   const fetchData = async () => {
     try {
@@ -586,8 +566,6 @@ export function RepairRequestsManagement() {
     setSelectedRequest(request)
     setSelectedStaffId(request.assignedStaffId?._id || "")
     setEstimatedCost(request.estimatedCost ? String(request.estimatedCost) : "")
-    setActiveSidePanel("communication")
-    setNotesExpanded(false)
     setShowDetailsDialog(true)
     setSearchParams((currentParams) => {
       const nextParams = new URLSearchParams(currentParams)
@@ -597,8 +575,14 @@ export function RepairRequestsManagement() {
   }
 
   const handleDetailsDialogOpenChange = (open: boolean) => {
+    if (open) {
+      isDetailsDialogClosingRef.current = false
+      setShowDetailsDialog(true)
+      return
+    }
+
+    isDetailsDialogClosingRef.current = true
     setShowDetailsDialog(open)
-    if (open) return
 
     setSearchParams((currentParams) => {
       const nextParams = new URLSearchParams(currentParams)
@@ -640,23 +624,10 @@ export function RepairRequestsManagement() {
 
   return (
     <div className="repair-requests-management">
-      {/* Tab Navigation */}
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="mb-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="repair-requests" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Reparaturanfragen</span>
-            <span className="sm:hidden">Anfragen</span>
-          </TabsTrigger>
-          <TabsTrigger value="contact-messages" className="flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            <span className="hidden sm:inline">Kontaktanfragen</span>
-            <span className="sm:hidden">Kontakt</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Repair Requests Tab */}
-        <TabsContent value="repair-requests" className="space-y-4 mt-4">
+      {view === "contact-messages" ? (
+        <ContactMessagesPanel />
+      ) : (
+        <div className="space-y-4 mt-4">
       {/* Header */}
       <div className="repair-requests-header">
         <h1>
@@ -922,399 +893,287 @@ export function RepairRequestsManagement() {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={handleDetailsDialogOpenChange}>
-        <DialogContent className="repair-request-details-dialog max-w-[1100px] max-h-[88vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="mcrepair-dialog-header">
-            <DialogTitle className="mcrepair-dialog-title">Anfrage Details – {selectedRequest?.requestNumber}</DialogTitle>
-            <DialogDescription className="mcrepair-dialog-description">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto text-sm [&>button]:hidden">
+          <DialogHeader className={detailsDialogHeaderClass}>
+            <DialogTitle className="text-base font-semibold" style={{ color: "#f5b800" }}>
+              Anfrage Details – {selectedRequest?.requestNumber}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/80">
               Vollständige Informationen zu dieser Reparaturanfrage
             </DialogDescription>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-3 top-2.5 h-6 w-6 text-[#f5b800] hover:bg-white/10 hover:text-[#ffd54f]"
+                aria-label="Dialog schließen"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 overflow-hidden details-scroll-area">
-            {selectedRequest && (
-              <div className="details-layout-shell">
-                <section className="details-summary-bar">
-                  <div className="details-summary-main">
-                    <div>
-                      <p className="details-chip-label">Kunde</p>
-                      <p className="details-chip-value">{selectedRequest.customerName}</p>
-                    </div>
-                    <div>
-                      <p className="details-chip-label">Gerät</p>
-                      <p className="details-chip-value">{selectedRequest.deviceBrand} {selectedRequest.deviceModel}</p>
-                    </div>
-                    <div>
-                      <p className="details-chip-label">Erstellt am</p>
-                      <p className="details-chip-value">{new Date(selectedRequest.createdAt).toLocaleDateString('de-DE')}</p>
-                    </div>
+          {selectedRequest && (
+            <div className="space-y-4 py-3 [&_label]:text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 border rounded-md p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs flex-1">
+                  <div>
+                    <Label className="text-muted-foreground">Kunde</Label>
+                    <p className="text-sm font-medium">{selectedRequest.customerName}</p>
                   </div>
-                  <div className="details-summary-badges">
-                    <Badge className={`status-badge status-${selectedRequest.status}`}>
-                      {getStatusLabel(selectedRequest.status)}
-                    </Badge>
-                    <Badge className={`priority-badge priority-${selectedRequest.priority}`}>
-                      {getPriorityLabel(selectedRequest.priority)}
-                    </Badge>
+                  <div>
+                    <Label className="text-muted-foreground">Gerät</Label>
+                    <p className="text-sm font-medium">{selectedRequest.deviceBrand} {selectedRequest.deviceModel}</p>
                   </div>
-                </section>
+                  <div>
+                    <Label className="text-muted-foreground">Erstellt am</Label>
+                    <p className="text-sm font-medium">{new Date(selectedRequest.createdAt).toLocaleDateString('de-DE')}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className={`status-badge status-${selectedRequest.status}`}>
+                    {getStatusLabel(selectedRequest.status)}
+                  </Badge>
+                  <Badge className={`priority-badge priority-${selectedRequest.priority}`}>
+                    {getPriorityLabel(selectedRequest.priority)}
+                  </Badge>
+                </div>
+              </div>
 
-                <section className="details-quick-actions">
-                  <Card className="quick-action-card">
-                    <CardHeader className="pb-1 pt-2 px-3">
-                      <CardTitle className="text-xs">Schnell bearbeiten</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-3 px-3 quick-actions-grid">
-                      <div className="quick-action-field">
-                        <Label className="text-xs">Status</Label>
-                        <Select
-                          value={selectedRequest.status}
-                          onValueChange={(value) => handleStatusUpdate(selectedRequest._id, value)}
-                          disabled={actionLoading}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Ausstehend</SelectItem>
-                            <SelectItem value="reviewing">In Prüfung</SelectItem>
-                            <SelectItem value="approved">Genehmigt</SelectItem>
-                            <SelectItem value="rejected">Abgelehnt</SelectItem>
-                            <SelectItem value="converted">Umgewandelt</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="quick-action-field">
-                        <Label className="text-xs">Priorität</Label>
-                        <Select
-                          value={selectedRequest.priority}
-                          onValueChange={(value) => handlePriorityUpdate(selectedRequest._id, value)}
-                          disabled={actionLoading}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Niedrig</SelectItem>
-                            <SelectItem value="medium">Mittel</SelectItem>
-                            <SelectItem value="high">Hoch</SelectItem>
-                            <SelectItem value="urgent">Dringend</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="quick-action-field">
-                        <Label className="text-xs">Mitarbeiter</Label>
-                        <div className="quick-action-inline">
-                          <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                            <SelectTrigger className="h-8 text-xs flex-1">
-                              <SelectValue placeholder="Techniker wählen" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {staff.map((member) => (
-                                <SelectItem key={member._id} value={member._id}>
-                                  {member.firstName} {member.lastName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            onClick={handleAssignStaff}
-                            disabled={actionLoading || !selectedStaffId}
-                            className="h-8 px-2.5 text-xs"
-                          >
-                            {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Zuweisen"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="quick-action-field">
-                        <Label className="text-xs">Geschätzte Kosten (€)</Label>
-                        <div className="quick-action-inline">
-                          <Input
-                            type="number"
-                            placeholder="Betrag"
-                            value={estimatedCost}
-                            onChange={(e) => setEstimatedCost(e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                          <Button size="sm" onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost} className="h-8 px-2.5 text-xs">
-                            {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Speichern"}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </section>
-
-                <section className="details-content-grid">
-                  <div className="details-main-column">
-                    <Card>
-                      <CardHeader className="pb-1 pt-2 px-3">
-                        <CardTitle className="text-xs flex items-center gap-1.5">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          Problembeschreibung
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2.5 pb-3 px-3">
-                        <div className="details-description-box">
-                          <Label className="text-muted-foreground text-xs">Beschreibung</Label>
-                          <p className="mt-0.5 whitespace-pre-wrap text-xs leading-5">{selectedRequest.issueDescription}</p>
-                        </div>
-
-                        <div className="details-meta-grid details-meta-grid-compact">
-                          <div>
-                            <Label className="text-muted-foreground text-xs">Zeitpunkt</Label>
-                            <p className="mt-0.5 text-xs">{selectedRequest.issueOccurredDate}</p>
-                          </div>
-                          {selectedRequest.modelNumber && (
-                            <div>
-                              <Label className="text-muted-foreground text-xs">Modellnummer</Label>
-                              <p className="mt-0.5 text-xs">{selectedRequest.modelNumber}</p>
-                            </div>
-                          )}
-                          <div>
-                            <Label className="text-muted-foreground text-xs">Status</Label>
-                            <div className="mt-1">
-                              <Badge className={`status-badge status-${selectedRequest.status}`}>
-                                {getStatusLabel(selectedRequest.status)}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-muted-foreground text-xs">Priorität</Label>
-                            <div className="mt-1">
-                              <Badge className={`priority-badge priority-${selectedRequest.priority}`}>
-                                {getPriorityLabel(selectedRequest.priority)}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-muted-foreground text-xs">Kosten</Label>
-                            <p className="mt-0.5 text-xs">
-                              {selectedRequest.estimatedCost > 0 ? `€${selectedRequest.estimatedCost}` : 'Offen'}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-muted-foreground text-xs">Zuständig</Label>
-                            <p className="mt-0.5 text-xs">
-                              {selectedRequest.assignedStaffName || 'Nicht zugewiesen'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
-                          <div className="details-extra-box">
-                            <Label className="text-xs font-semibold">Erweiterte Angaben</Label>
-                            <div className="details-meta-grid mt-2">
-                              {selectedRequest.waterDamage && (
-                                <div>
-                                  <Label className="text-muted-foreground text-xs">Wasserschaden</Label>
-                                  <div className="mt-1">
-                                    <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
-                                      {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              )}
-                              {selectedRequest.itemCondition && (
-                                <div>
-                                  <Label className="text-muted-foreground text-xs">Gerätezustand</Label>
-                                  <div className="mt-1">
-                                    <Badge variant="outline">
-                                      {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            {selectedRequest.previousRepairDetails && (
-                              <div className="mt-2">
-                                <Label className="text-muted-foreground text-xs">Vorherige Reparaturversuche</Label>
-                                <p className="mt-0.5 whitespace-pre-wrap text-xs leading-5">{selectedRequest.previousRepairDetails}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-1 pt-2 px-3">
-                        <CardTitle className="text-xs flex items-center gap-1.5">
-                          <Package className="h-3.5 w-3.5" />
-                          Kunden- und Geräteinformationen
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pb-3 px-3 details-info-grid details-info-grid-compact">
-                        <div className="details-info-item">
-                          <span>Kunde</span>
-                          <strong>{selectedRequest.customerName}</strong>
-                        </div>
-                        <div className="details-info-item">
-                          <span>E-Mail</span>
-                          <strong>{selectedRequest.customerEmail}</strong>
-                        </div>
-                        <div className="details-info-item">
-                          <span>Telefon</span>
-                          <strong>{selectedRequest.customerPhone || 'Nicht angegeben'}</strong>
-                        </div>
-                        <div className="details-info-item">
-                          <span>Gerätetyp</span>
-                          <strong>{selectedRequest.deviceType}</strong>
-                        </div>
-                        <div className="details-info-item">
-                          <span>Marke</span>
-                          <strong>{selectedRequest.deviceBrand}</strong>
-                        </div>
-                        <div className="details-info-item">
-                          <span>Modell</span>
-                          <strong>{selectedRequest.deviceModel}</strong>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {selectedRequest.images && selectedRequest.images.length > 0 && (
-                      <Card>
-                        <CardHeader className="pb-1 pt-2 px-3">
-                          <CardTitle className="text-xs">Gerätebilder</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pb-3 px-3">
-                          <div className="details-image-grid details-image-grid-compact">
-                            {selectedRequest.images.map((img, idx) => (
-                              <img
-                                key={idx}
-                                src={img}
-                                alt={`Gerät ${idx + 1}`}
-                                className="details-image-item"
-                              />
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Kundendaten</Label>
+                  <div className="border rounded-md p-3 space-y-2 text-sm">
+                    <p><span className="text-muted-foreground">Name:</span> {selectedRequest.customerName}</p>
+                    <p><span className="text-muted-foreground">E-Mail:</span> {selectedRequest.customerEmail}</p>
+                    <p><span className="text-muted-foreground">Telefon:</span> {selectedRequest.customerPhone || 'Nicht angegeben'}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Geräteinformationen</Label>
+                  <div className="border rounded-md p-3 space-y-2 text-sm">
+                    <p><span className="text-muted-foreground">Typ:</span> {selectedRequest.deviceType}</p>
+                    <p><span className="text-muted-foreground">Marke:</span> {selectedRequest.deviceBrand}</p>
+                    <p><span className="text-muted-foreground">Modell:</span> {selectedRequest.deviceModel}</p>
+                    {selectedRequest.modelNumber && (
+                      <p><span className="text-muted-foreground">Modellnummer:</span> {selectedRequest.modelNumber}</p>
                     )}
                   </div>
-
-                  <aside className="details-side-column">
-                    <Collapsible
-                      open={activeSidePanel === "communication"}
-                      onOpenChange={(open) => {
-                        setActiveSidePanel(open ? "communication" : "timeline")
-                        if (!open) {
-                          setNotesExpanded(false)
-                        }
-                      }}
-                    >
-                      <Card className="details-accordion-card">
-                        <CollapsibleTrigger asChild>
-                          <button type="button" className="details-accordion-trigger">
-                            <span className="details-accordion-trigger-title">Kommunikation</span>
-                            <ChevronDown className="details-accordion-trigger-icon" />
-                          </button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="details-accordion-content">
-                          <CardContent className="pb-3 px-3 pt-0 space-y-2.5">
-                            <div className="details-communication-panel">
-                              <CommunicationPanel
-                                orderId={selectedRequest._id}
-                                entityType="repair-request"
-                              />
-                            </div>
-
-                            <Collapsible open={notesExpanded} onOpenChange={setNotesExpanded}>
-                              <div className="details-notes-collapsible">
-                                <CollapsibleTrigger asChild>
-                                  <button type="button" className="details-notes-trigger">
-                                    <div className="details-notes-trigger-copy">
-                                      <span className="details-notes-trigger-title">Interne Notizen</span>
-                                      <span className="details-notes-trigger-meta">
-                                        {selectedRequest.adminNotes?.length || 0} Einträge
-                                      </span>
-                                    </div>
-                                    <ChevronDown className="details-notes-trigger-icon" />
-                                  </button>
-                                </CollapsibleTrigger>
-
-                                <CollapsibleContent className="details-notes-content">
-                                  <div className="space-y-2.5 pt-2.5">
-                                    <Textarea
-                                      placeholder="Interne Notiz hinzufügen..."
-                                      value={adminNote}
-                                      onChange={(e) => setAdminNote(e.target.value)}
-                                      rows={2}
-                                      className="text-xs"
-                                    />
-                                    <Button size="sm" className="h-8 px-2.5 text-xs w-fit" onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
-                                      Notiz speichern
-                                    </Button>
-
-                                    {selectedRequest.adminNotes && selectedRequest.adminNotes.length > 0 ? (
-                                      <div className="details-notes-list">
-                                        {selectedRequest.adminNotes.map((note, idx) => (
-                                          <div key={idx} className="details-note-item">
-                                            <div className="details-note-meta">
-                                              <span>{note.staffName}</span>
-                                              <span>{new Date(note.createdAt).toLocaleString()}</span>
-                                            </div>
-                                            <p>{note.note}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <p className="details-notes-empty">Noch keine internen Notizen vorhanden.</p>
-                                    )}
-                                  </div>
-                                </CollapsibleContent>
-                              </div>
-                            </Collapsible>
-                          </CardContent>
-                        </CollapsibleContent>
-                      </Card>
-                    </Collapsible>
-
-                    <Collapsible
-                      open={activeSidePanel === "timeline"}
-                      onOpenChange={(open) => setActiveSidePanel(open ? "timeline" : "communication")}
-                    >
-                      <Card className="details-accordion-card">
-                        <CollapsibleTrigger asChild>
-                          <button type="button" className="details-accordion-trigger">
-                            <span className="details-accordion-trigger-title">Vorgangsübersicht</span>
-                            <ChevronDown className="details-accordion-trigger-icon" />
-                          </button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="details-accordion-content">
-                          <CardContent className="pb-3 px-3 pt-0 details-timeline-list">
-                            <div className="details-timeline-item">
-                              <span>Anfrage erstellt</span>
-                              <strong>{new Date(selectedRequest.createdAt).toLocaleString('de-DE')}</strong>
-                            </div>
-                            <div className="details-timeline-item">
-                              <span>Zuletzt aktualisiert</span>
-                              <strong>{new Date(selectedRequest.updatedAt).toLocaleString('de-DE')}</strong>
-                            </div>
-                            {selectedRequest.reviewDeadline && (
-                              <div className="details-timeline-item">
-                                <span>Review-Deadline</span>
-                                <strong>{new Date(selectedRequest.reviewDeadline).toLocaleString('de-DE')}</strong>
-                              </div>
-                            )}
-                            {selectedRequest.convertedAt && (
-                              <div className="details-timeline-item">
-                                <span>In Auftrag umgewandelt</span>
-                                <strong>{new Date(selectedRequest.convertedAt).toLocaleString('de-DE')}</strong>
-                              </div>
-                            )}
-                          </CardContent>
-                        </CollapsibleContent>
-                      </Card>
-                    </Collapsible>
-                  </aside>
-                </section>
+                </div>
               </div>
-            )}
-          </ScrollArea>
+
+              <div className="space-y-2">
+                <Label>Problembeschreibung</Label>
+                <div className="border rounded-md p-3 space-y-3 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground">Beschreibung</Label>
+                    <p className="mt-1 whitespace-pre-wrap">{selectedRequest.issueDescription}</p>
+                  </div>
+                  {selectedRequest.issueOccurredDate && (
+                    <div>
+                      <Label className="text-muted-foreground">Zeitpunkt</Label>
+                      <p className="mt-1">{selectedRequest.issueOccurredDate}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
+                <div className="space-y-2">
+                  <Label>Erweiterte Angaben</Label>
+                  <div className="border rounded-md p-3 space-y-3 text-sm">
+                    <div className="flex flex-wrap gap-3">
+                      {selectedRequest.waterDamage && (
+                        <div className="space-y-1">
+                          <Label className="text-muted-foreground">Wasserschaden</Label>
+                          <div>
+                            <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
+                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {selectedRequest.itemCondition && (
+                        <div className="space-y-1">
+                          <Label className="text-muted-foreground">Gerätezustand</Label>
+                          <div>
+                            <Badge variant="outline">
+                              {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {selectedRequest.previousRepairDetails && (
+                      <div>
+                        <Label className="text-muted-foreground">Vorherige Reparaturversuche</Label>
+                        <p className="mt-1 whitespace-pre-wrap">{selectedRequest.previousRepairDetails}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Schnell bearbeiten</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-md p-3">
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <Select
+                      value={selectedRequest.status}
+                      onValueChange={(value) => handleStatusUpdate(selectedRequest._id, value)}
+                      disabled={actionLoading}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Ausstehend</SelectItem>
+                        <SelectItem value="reviewing">In Prüfung</SelectItem>
+                        <SelectItem value="approved">Genehmigt</SelectItem>
+                        <SelectItem value="rejected">Abgelehnt</SelectItem>
+                        <SelectItem value="converted">Umgewandelt</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Priorität</Label>
+                    <Select
+                      value={selectedRequest.priority}
+                      onValueChange={(value) => handlePriorityUpdate(selectedRequest._id, value)}
+                      disabled={actionLoading}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Niedrig</SelectItem>
+                        <SelectItem value="medium">Mittel</SelectItem>
+                        <SelectItem value="high">Hoch</SelectItem>
+                        <SelectItem value="urgent">Dringend</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Mitarbeiter</Label>
+                    <div className="flex gap-2">
+                      <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+                        <SelectTrigger className="h-8 text-xs flex-1">
+                          <SelectValue placeholder="Techniker wählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {staff.map((member) => (
+                            <SelectItem key={member._id} value={member._id}>
+                              {member.firstName} {member.lastName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        onClick={handleAssignStaff}
+                        disabled={actionLoading || !selectedStaffId}
+                        className="h-8 px-2.5 text-xs"
+                      >
+                        {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Zuweisen"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Geschätzte Kosten (EUR)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Betrag"
+                        value={estimatedCost}
+                        onChange={(e) => setEstimatedCost(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                      <Button size="sm" onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost} className="h-8 px-2.5 text-xs">
+                        {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Speichern"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedRequest.images && selectedRequest.images.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Gerätebilder</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {selectedRequest.images.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`Gerät ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Kommunikation</Label>
+                <div className="border rounded-md p-3">
+                  <CommunicationPanel
+                    orderId={selectedRequest._id}
+                    entityType="repair-request"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Interne Notizen</Label>
+                <div className="border rounded-md p-3 space-y-3">
+                  <Textarea
+                    placeholder="Interne Notiz hinzufügen..."
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    rows={2}
+                    className="text-xs"
+                  />
+                  <Button size="sm" className="h-8 px-2.5 text-xs" onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
+                    Notiz speichern
+                  </Button>
+
+                  {selectedRequest.adminNotes && selectedRequest.adminNotes.length > 0 ? (
+                    <div className="space-y-2.5">
+                      {selectedRequest.adminNotes.map((note, idx) => (
+                        <div key={idx} className="rounded-md border p-2">
+                          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{note.staffName}</span>
+                            <span>{new Date(note.createdAt).toLocaleString('de-DE')}</span>
+                          </div>
+                          <p className="text-xs">{note.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Noch keine internen Notizen vorhanden.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Vorgangsübersicht</Label>
+                <div className="border rounded-md p-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <p><span className="text-muted-foreground">Anfrage erstellt:</span> {new Date(selectedRequest.createdAt).toLocaleString('de-DE')}</p>
+                  <p><span className="text-muted-foreground">Zuletzt aktualisiert:</span> {new Date(selectedRequest.updatedAt).toLocaleString('de-DE')}</p>
+                  {selectedRequest.reviewDeadline && (
+                    <p><span className="text-muted-foreground">Review-Deadline:</span> {new Date(selectedRequest.reviewDeadline).toLocaleString('de-DE')}</p>
+                  )}
+                  {selectedRequest.convertedAt && (
+                    <p><span className="text-muted-foreground">Umgewandelt am:</span> {new Date(selectedRequest.convertedAt).toLocaleString('de-DE')}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1563,13 +1422,8 @@ export function RepairRequestsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-        </TabsContent>
-
-        {/* Contact Messages Tab */}
-        <TabsContent value="contact-messages" className="space-y-4 mt-4">
-          <ContactMessagesPanel />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   )
 }

@@ -110,6 +110,48 @@ import {
 import "./DeviceManagement.css"
 
 export function DeviceManagement() {
+  const LOCAL_BRAND_LOGOS: Record<string, string> = {
+    acer: '/assets/brand-logos/acer.png',
+    apple: '/assets/brand-logos/apple.png',
+    asus: '/assets/brand-logos/asus.png',
+    blackberry: '/assets/brand-logos/blackberry.png',
+    dell: '/assets/brand-logos/dell.png',
+    google: '/assets/brand-logos/google.png',
+    'hmd global': '/assets/brand-logos/hmd-global.png',
+    htc: '/assets/brand-logos/htc.png',
+    huawei: '/assets/brand-logos/huawei.png',
+    lenovo: '/assets/brand-logos/lenovo.png',
+    lg: '/assets/brand-logos/lg.png',
+    microsoft: '/assets/brand-logos/microsoft.png',
+    windows: '/assets/brand-logos/microsoft.png',
+    motorola: '/assets/brand-logos/motorola.png',
+    nokia: '/assets/brand-logos/nokia.png',
+    oneplus: '/assets/brand-logos/oneplus.png',
+    samsung: '/assets/brand-logos/samsung.png',
+    sony: '/assets/brand-logos/sony.png',
+    toshiba: '/assets/brand-logos/toshiba.png',
+    xiaomi: '/assets/brand-logos/xiaomi.png',
+  }
+
+  const getLocalBrandLogo = (name?: string) => {
+    if (!name) return null
+    const normalized = name.trim().toLowerCase()
+
+    if (LOCAL_BRAND_LOGOS[normalized]) {
+      return LOCAL_BRAND_LOGOS[normalized]
+    }
+
+    if (normalized.includes(',')) {
+      for (const part of normalized.split(',').map((value) => value.trim())) {
+        if (LOCAL_BRAND_LOGOS[part]) {
+          return LOCAL_BRAND_LOGOS[part]
+        }
+      }
+    }
+
+    return null
+  }
+
   const [showCSVImportDevicesDialog, setShowCSVImportDevicesDialog] = useState(false);
   const { t } = useTranslation()
   const [brands, setBrands] = useState<Brand[]>([])
@@ -1291,8 +1333,12 @@ export function DeviceManagement() {
                     filteredBrands.map((brand: any) => (
                       <TableRow key={brand._id} className="hover:bg-accent/50 transition-colors">
                         <TableCell>
-                          {brand.logo ? (
-                            <img src={brand.logo} alt={brand.name} className="w-10 h-10 rounded-full object-cover" />
+                          {getLocalBrandLogo(brand.name) || brand.logo ? (
+                            <img
+                              src={getLocalBrandLogo(brand.name) || brand.logo}
+                              alt={brand.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                               <Users className="h-5 w-5 text-primary" />

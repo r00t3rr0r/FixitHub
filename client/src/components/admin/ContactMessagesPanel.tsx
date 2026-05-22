@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -14,14 +13,6 @@ import {
   ContactMessage,
   ContactMessageStats,
 } from '@/api/contactMessages';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +42,10 @@ import {
 import {
   Mail,
   Search,
+  Filter,
+  Clock,
+  CheckCircle,
+  Archive,
   MessageSquare,
   Trash2,
   Eye,
@@ -78,6 +73,13 @@ const STATUS_COLORS: Record<string, string> = {
   read: 'bg-yellow-500 text-white',
   replied: 'bg-green-500 text-white',
   closed: 'bg-gray-500 text-white',
+};
+
+const STATUS_CLASSNAMES: Record<string, string> = {
+  new: 'status-reviewing',
+  read: 'status-pending',
+  replied: 'status-approved',
+  closed: 'status-rejected',
 };
 
 export function ContactMessagesPanel() {
@@ -187,7 +189,6 @@ export function ContactMessagesPanel() {
       setShowDetailsDialog(true);
       setSearchParams((currentParams) => {
         const nextParams = new URLSearchParams(currentParams);
-        nextParams.set('tab', 'contact-messages');
         nextParams.set('messageId', message._id);
         return nextParams;
       }, { replace: true });
@@ -283,71 +284,78 @@ export function ContactMessagesPanel() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Statistics Cards */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
-                  {stats.new}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Neue Anfragen</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-yellow-600">
-                  {stats.total}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Gesamt</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
-                  {stats.replied}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Beantwortet</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600">
-                  {stats.closed}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Geschlossen</p>
-              </div>
-            </CardContent>
-          </Card>
+  if (loading && messages.length === 0) {
+    return (
+      <div className="repair-requests-management">
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p style={{ color: 'var(--gray-500)', fontSize: '1.1rem', fontWeight: 500 }}>
+            Lade Kontaktanfragen...
+          </p>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Messages Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5" />
+  return (
+    <div className="repair-requests-management">
+      <div className="space-y-4 mt-4">
+        <div className="repair-requests-header">
+          <h1>
+            <Mail className="h-6 w-6" />
             Kontaktanfragen
-          </CardTitle>
-          <CardDescription>
-            Verwaltung aller Kontaktformular-Anfragen mit Antwortfunktion
-          </CardDescription>
-        </CardHeader>
+          </h1>
+          <p>Kontaktformular-Anfragen mit Status und Antwortfunktion verwalten</p>
+        </div>
 
-        <CardContent className="space-y-4">
-          {/* Filters */}
-          <div className="flex gap-2 flex-col md:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+        {stats && (
+          <div className="stats-grid">
+            <div className="stat-card stat-total">
+              <div className="stat-card-header">
+                <div className="stat-card-title">Gesamt</div>
+                <div className="stat-card-icon">
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="stat-card-value">{stats.total}</div>
+            </div>
+
+            <div className="stat-card stat-reviewing">
+              <div className="stat-card-header">
+                <div className="stat-card-title">Neu</div>
+                <div className="stat-card-icon">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="stat-card-value">{stats.new}</div>
+            </div>
+
+            <div className="stat-card stat-converted">
+              <div className="stat-card-header">
+                <div className="stat-card-title">Beantwortet</div>
+                <div className="stat-card-icon">
+                  <CheckCircle className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="stat-card-value">{stats.replied}</div>
+            </div>
+
+            <div className="stat-card stat-closed">
+              <div className="stat-card-header">
+                <div className="stat-card-title">Geschlossen</div>
+                <div className="stat-card-icon">
+                  <Archive className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="stat-card-value">{stats.closed}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="filter-card">
+          <div className="filter-container">
+            <div className="search-wrapper">
+              <Search />
               <Input
                 placeholder="Suchen nach Name, Email, Nachricht..."
                 value={searchTerm}
@@ -355,129 +363,165 @@ export function ContactMessagesPanel() {
                   setSearchTerm(e.target.value);
                   setPage(1);
                 }}
-                className="pl-10"
+                className="search-input"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(value) => {
-              setStatusFilter(value);
-              setPage(1);
-            }}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Nach Status filtern" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Status</SelectItem>
-                <SelectItem value="new">Neu</SelectItem>
-                <SelectItem value="read">Gelesen</SelectItem>
-                <SelectItem value="replied">Beantwortet</SelectItem>
-                <SelectItem value="closed">Geschlossen</SelectItem>
-              </SelectContent>
-            </Select>
+
+            <div className="filter-row">
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[200px] bg-white border-2 border-[var(--gray-200)] h-9 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-3.5 w-3.5 text-[var(--gray-500)]" />
+                    <SelectValue placeholder="Nach Status filtern" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Status</SelectItem>
+                  <SelectItem value="new">Neu</SelectItem>
+                  <SelectItem value="read">Gelesen</SelectItem>
+                  <SelectItem value="replied">Beantwortet</SelectItem>
+                  <SelectItem value="closed">Geschlossen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <div className="requests-table-card">
+          <div className="requests-table-header">
+            <h3 className="requests-table-title">Kontaktanfragen</h3>
+            <p className="requests-table-description">Alle eingehenden Kontaktanfragen im Überblick</p>
           </div>
 
-          {/* Table */}
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-20" />
-              <p>Keine Kontaktanfragen gefunden.</p>
-            </div>
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Abgesendet</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Anliegen</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aktionen</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {messages.map((message) => (
-                    <TableRow key={message._id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
-                      <TableCell className="text-xs text-gray-500">
-                        {new Date(message.createdAt).toLocaleDateString('de-DE')}
-                      </TableCell>
-                      <TableCell className="font-medium">{message.name}</TableCell>
-                      <TableCell className="text-sm">{message.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {SUBJECT_LABELS[message.subject] || message.subject}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={STATUS_COLORS[message.status]}>
-                          {STATUS_LABELS[message.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewDetails(message)}
-                          className="gap-2"
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span className="hidden md:inline">Öffnen</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-600">
-                Seite {page} von {totalPages}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Zurück
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Weiter
-                </Button>
+          <div className="requests-table-content">
+            {loading ? (
+              <div className="loading-state">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400 mx-auto" />
               </div>
+            ) : messages.length === 0 ? (
+              <div className="empty-state">
+                <MessageSquare />
+                <p>Keine Kontaktanfragen gefunden.</p>
+              </div>
+            ) : (
+              <div className="requests-table-wrapper">
+                <table className="requests-table contact-requests-table">
+                  <thead>
+                    <tr>
+                      <th>Nr./Datum</th>
+                      <th>Absender</th>
+                      <th>Email</th>
+                      <th>Anliegen</th>
+                      <th>Vorschau</th>
+                      <th>Status</th>
+                      <th>Aktionen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {messages.map((message) => (
+                      <tr key={message._id} onClick={() => handleViewDetails(message)} style={{ cursor: 'pointer' }}>
+                        <td>
+                          <div className="request-number">{message.messageNumber}</div>
+                          <div className="request-date">
+                            {new Date(message.createdAt).toLocaleDateString('de-DE')}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="customer-info">
+                            <div className="customer-avatar">{message.name.charAt(0).toUpperCase()}</div>
+                            <div className="customer-details">
+                              <div className="customer-name">{message.name}</div>
+                              <div className="customer-email">{message.phone || 'Kein Telefon'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="customer-email contact-email-cell">{message.email}</div>
+                        </td>
+                        <td>
+                          <Badge variant="outline" className="contact-subject-badge">
+                            {SUBJECT_LABELS[message.subject] || message.subject}
+                          </Badge>
+                        </td>
+                        <td>
+                          <div className="issue-description">
+                            {message.message}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${STATUS_CLASSNAMES[message.status] || 'status-pending'}`}>
+                            {STATUS_LABELS[message.status]}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="actions-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleViewDetails(message);
+                            }}
+                          >
+                            <span className="contact-open-action">
+                              <Eye className="w-3.5 h-3.5" />
+                              Öffnen
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="contact-pagination-row">
+            <p className="request-date">
+              Seite {page} von {totalPages}
+            </p>
+            <div className="contact-pagination-buttons">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Zurück
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Weiter
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
 
       {/* Details Dialog */}
       {selectedMessage && (
         <Dialog open={showDetailsDialog} onOpenChange={handleDetailsDialogOpenChange}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Kontaktanfrage Details</DialogTitle>
-              <DialogDescription>
-                {selectedMessage.messageNumber}
-              </DialogDescription>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col repair-request-details-dialog">
+            <DialogHeader className="mcrepair-dialog-header">
+              <DialogTitle className="mcrepair-dialog-title">Kontaktanfrage Details</DialogTitle>
+              <DialogDescription className="mcrepair-dialog-description">{selectedMessage.messageNumber}</DialogDescription>
             </DialogHeader>
 
             <ScrollArea className="flex-1 overflow-hidden">
               <div className="space-y-4 pr-4">
                 {/* Header Info */}
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                   <div>
                     <p className="text-xs text-gray-500">Name</p>
                     <p className="font-semibold">{selectedMessage.name}</p>
@@ -515,9 +559,9 @@ export function ContactMessagesPanel() {
                 </div>
 
                 {/* Message */}
-                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <h4 className="font-semibold text-sm mb-2">Nachricht:</h4>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
                     {selectedMessage.message}
                   </p>
                 </div>
@@ -530,7 +574,7 @@ export function ContactMessagesPanel() {
                       {selectedMessage.replies.map((reply, idx) => (
                         <div
                           key={idx}
-                          className="bg-green-50 dark:bg-green-950 p-4 rounded-lg border border-green-200 dark:border-green-800"
+                          className="bg-green-50 p-4 rounded-lg border border-green-200"
                         >
                           <div className="flex justify-between items-start mb-2">
                             <div>
@@ -551,7 +595,7 @@ export function ContactMessagesPanel() {
                                   : 'Fehler'
                             }</Badge>
                           </div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
                             {reply.message}
                           </p>
                         </div>

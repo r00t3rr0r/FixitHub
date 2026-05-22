@@ -66,6 +66,69 @@ interface RepairOrderConfiguratorProps {
   onComplete?: (orderData: any) => void;
 }
 
+const LOCAL_BRAND_LOGOS: Record<string, string> = {
+  acer: '/assets/brand-logos/acer.png',
+  apple: '/assets/brand-logos/apple.png',
+  asus: '/assets/brand-logos/asus.png',
+  blackberry: '/assets/brand-logos/blackberry.png',
+  dell: '/assets/brand-logos/dell.png',
+  google: '/assets/brand-logos/google.png',
+  'hmd global': '/assets/brand-logos/hmd-global.png',
+  htc: '/assets/brand-logos/htc.png',
+  huawei: '/assets/brand-logos/huawei.png',
+  lenovo: '/assets/brand-logos/lenovo.png',
+  lg: '/assets/brand-logos/lg.png',
+  microsoft: '/assets/brand-logos/microsoft.png',
+  windows: '/assets/brand-logos/microsoft.png',
+  motorola: '/assets/brand-logos/motorola.png',
+  nokia: '/assets/brand-logos/nokia.png',
+  oneplus: '/assets/brand-logos/oneplus.png',
+  samsung: '/assets/brand-logos/samsung.png',
+  sony: '/assets/brand-logos/sony.png',
+  toshiba: '/assets/brand-logos/toshiba.png',
+  xiaomi: '/assets/brand-logos/xiaomi.png',
+};
+
+const getLocalBrandLogo = (name?: string) => {
+  if (!name) return null;
+  const normalized = name.trim().toLowerCase();
+
+  if (LOCAL_BRAND_LOGOS[normalized]) {
+    return LOCAL_BRAND_LOGOS[normalized];
+  }
+
+  if (normalized.includes(',')) {
+    for (const part of normalized.split(',').map((value) => value.trim())) {
+      if (LOCAL_BRAND_LOGOS[part]) {
+        return LOCAL_BRAND_LOGOS[part];
+      }
+    }
+  }
+
+  return null;
+};
+
+const normalizeLogoSource = (logo?: string) => {
+  const normalizedLogo = logo?.trim();
+  if (!normalizedLogo) {
+    return null;
+  }
+
+  if (
+    normalizedLogo.startsWith('http://') ||
+    normalizedLogo.startsWith('https://') ||
+    normalizedLogo.startsWith('/') ||
+    normalizedLogo.startsWith('data:')
+  ) {
+    return normalizedLogo;
+  }
+
+  return `data:image/jpeg;base64,${normalizedLogo}`;
+};
+
+const resolveBrandLogo = (name?: string, logo?: string) =>
+  getLocalBrandLogo(name) || normalizeLogoSource(logo);
+
 const getDeviceIcon = (deviceType: string) => {
   const type = deviceType.toLowerCase();
   if (type.includes('smartphone') || type.includes('phone')) return Smartphone;
@@ -272,6 +335,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const { toast } = useToast();
   const navigate = useNavigate();
   const configuratorHeaderRef = useRef<HTMLDivElement | null>(null);
+  const additionalInfoSectionRef = useRef<HTMLDivElement | null>(null);
   const previousStepRef = useRef(1);
   const stepDefinitions = [
     { step: 1, labelKey: 'home.configurator.steps.deviceType' },
@@ -315,6 +379,22 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   // Additional info toggle state
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   const [showUnlockDetails, setShowUnlockDetails] = useState(true);
+
+  const scrollAdditionalInfoIntoView = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Wait for collapse/expand state updates before measuring and scrolling.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        additionalInfoSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      });
+    });
+  };
 
   // Photos state (NEW)
   const [photos, setPhotos] = useState<File[]>([]);
@@ -1774,18 +1854,21 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         <SelectValue placeholder={loadingManufacturers ? t('home.configurator.loadingBrands') : t('home.configurator.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {manufacturers.map((manufacturer) => (
+                      {manufacturers.map((manufacturer) => {
+                        const brandLogo = resolveBrandLogo(manufacturer.name, manufacturer.logo);
+
+                        return (
                         <SelectItem key={manufacturer._id} value={manufacturer._id}>
-                          {manufacturer.logo && (
+                          {brandLogo && (
                             <img
-                              src={manufacturer.logo}
+                              src={brandLogo}
                               alt={manufacturer.name + ' Logo'}
                               style={{ width: 22, height: 22, objectFit: 'contain', display: 'inline-block', marginRight: 6, marginLeft: 0, verticalAlign: 'middle' }}
                             />
                           )}
                           {manufacturer.name}
                         </SelectItem>
-                      ))}
+                      )})}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2246,6 +2329,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                           onClick={() => {
                             setShowUnlockDetails(false);
                             setShowAdditionalInfo(true);
+                            scrollAdditionalInfoIntoView();
                           }}
                           style={{
                             display: 'flex',
@@ -2274,6 +2358,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
                 {/* Additional Information Section */}
                 <div
+                  ref={additionalInfoSectionRef}
                   style={{
                     border: showAdditionalInfo ? '2px solid #f5b800' : '2px solid #d8dce6',
                     borderRadius: '8px',
