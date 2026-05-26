@@ -184,6 +184,10 @@ interface Booking {
     staffId?: string
   }>
   paymentStatus?: string
+  finalCost?: number
+  invoiceOpenAmount?: number
+  customerCreditOpenAmount?: number
+  netOpenAmount?: number
   // DHL Returns information
   trackingNumber?: string
   carrier?: string
@@ -815,9 +819,9 @@ export function BookingsManagement() {
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
       case 'unpaid':
-        return 'Unbezahlt'
+        return 'Offen'
       case 'partially-paid':
-        return 'Teilweise bezahlt'
+        return 'Teilbezahlt'
       case 'paid':
         return 'Bezahlt'
       default:
@@ -888,6 +892,40 @@ export function BookingsManagement() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const getBookingOpenAmountInfo = (booking: Booking) => {
+    const hasInvoiceSummary = Number.isFinite(Number(booking.netOpenAmount))
+    if (hasInvoiceSummary) {
+      const netOpen = Number(booking.netOpenAmount || 0)
+      if (netOpen > 0.009) {
+        return { amount: netOpen, type: 'open' as const }
+      }
+      if (netOpen < -0.009) {
+        return { amount: Math.abs(netOpen), type: 'credit' as const }
+      }
+      return { amount: 0, type: 'settled' as const }
+    }
+
+    const dueTotal = Number(booking.finalCost ?? booking.totalCost ?? 0)
+    const paidAmountFallback = Number((booking as any).amountPaid ?? (booking as any).paidAmount ?? 0)
+
+    if (Number.isFinite(paidAmountFallback) && paidAmountFallback > 0) {
+      const netOpen = dueTotal - paidAmountFallback
+      if (netOpen > 0.009) {
+        return { amount: netOpen, type: 'open' as const }
+      }
+      if (netOpen < -0.009) {
+        return { amount: Math.abs(netOpen), type: 'credit' as const }
+      }
+      return { amount: 0, type: 'settled' as const }
+    }
+
+    if (booking.billingStatus === 'paid') {
+      return { amount: 0, type: 'settled' as const }
+    }
+
+    return { amount: Math.max(0, dueTotal), type: 'open' as const }
   }
 
   if (loading) {
@@ -1026,8 +1064,8 @@ export function BookingsManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Zahlungsstatus</SelectItem>
-                <SelectItem value="unpaid">Unbezahlt</SelectItem>
-                <SelectItem value="partially-paid">Teilweise bezahlt</SelectItem>
+                <SelectItem value="unpaid">Offen</SelectItem>
+                <SelectItem value="partially-paid">Teilbezahlt</SelectItem>
                 <SelectItem value="paid">Bezahlt</SelectItem>
               </SelectContent>
             </Select>
@@ -1086,6 +1124,7 @@ export function BookingsManagement() {
                     <TableHead className="min-w-[150px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Kunde</TableHead>
                     <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Status</TableHead>
                     <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Zahlungsstatus</TableHead>
+                    <TableHead className="min-w-[120px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Offener Betrag</TableHead>
                     <TableHead className="min-w-[110px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Versandstatus</TableHead>
                     <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Fortschritt</TableHead>
                     <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Gesamtkosten</TableHead>
@@ -1101,6 +1140,7 @@ export function BookingsManagement() {
                     const customer = getSafeBookingCustomer(booking)
                     const customerDisplayName = getCustomerDisplayName(customer)
                     const customerInitial = (customer.firstName || customer.name || customer.email || 'U').charAt(0).toUpperCase()
+                    const openAmountInfo = getBookingOpenAmountInfo(booking)
 
                     return (
                     <React.Fragment key={booking._id}>
@@ -1157,6 +1197,33 @@ export function BookingsManagement() {
                         <Badge className={getBillingStatusColor(booking.billingStatus)}>
                           {getBillingStatusLabel(booking.billingStatus)}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {openAmountInfo.type === 'settled' ? (
+                          <div className="flex flex-col leading-tight">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500)' }}>
+                              Ausgeglichen
+                            </span>
+                            <span className="text-xs font-semibold" style={{ color: 'var(--gray-500)' }}>
+                              {formatCurrency(0)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col leading-tight">
+                            <span
+                              className="text-[11px] font-semibold uppercase tracking-wide"
+                              style={{ color: openAmountInfo.type === 'credit' ? '#047857' : '#dc2626' }}
+                            >
+                              {openAmountInfo.type === 'credit' ? 'Gutschrift' : 'Offen'}
+                            </span>
+                            <span
+                              className="text-sm font-semibold"
+                              style={{ color: openAmountInfo.type === 'credit' ? '#047857' : '#dc2626' }}
+                            >
+                              {openAmountInfo.type === 'credit' ? '-' : ''}{formatCurrency(openAmountInfo.amount)}
+                            </span>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {booking.returnShipmentStatus ? (
@@ -1322,7 +1389,7 @@ export function BookingsManagement() {
                     {/* Expanded Row with Orders/Repair Jobs */}
                     {expandedBookings.has(booking._id) && (
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={12}>
+                        <TableCell colSpan={13}>
                           <div className="p-4 space-y-4">
                             {/* Booking Status Summary */}
                             <div className="bg-muted/50 p-3 rounded-lg border">
@@ -1921,9 +1988,9 @@ function BookingDetailDialog({
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
       case 'unpaid':
-        return 'Unbezahlt'
+        return 'Offen'
       case 'partially-paid':
-        return 'Teilweise bezahlt'
+        return 'Teilbezahlt'
       case 'paid':
         return 'Bezahlt'
       default:
@@ -2026,6 +2093,93 @@ function BookingDetailDialog({
 
   const hasAnyShippingInfo = hasOutboundShippingInfo || hasReturnShippingInfo
   const repairJobs = (detailOrders.length > 0 ? detailOrders : booking.items || []).filter((item: any) => item.type === 'repair')
+
+  const bookingItemsForFinance = Array.isArray(booking.items) ? booking.items : []
+  const detailedFinanceOrders = Array.isArray(detailOrders) && detailOrders.length > 0
+    ? detailOrders.filter((item: any) => item && typeof item.cost === 'number')
+    : bookingItemsForFinance
+
+  const financialAdjustments = detailedFinanceOrders
+    .map((item: any) => {
+      const baselineCostRaw =
+        item.bookingItemCost !== undefined && item.bookingItemCost !== null
+          ? Number(item.bookingItemCost)
+          : Number(item.cost || 0)
+      const currentCost = Number(item.cost || 0)
+      const baselineCost = Number.isFinite(baselineCostRaw) ? baselineCostRaw : 0
+      const delta = currentCost - baselineCost
+
+      return {
+        orderId: String(item.orderId || item._id || ''),
+        orderNumber: item.orderNumber || String(item.orderId || item._id || '').slice(-8).toUpperCase(),
+        label: item.device || item.type || 'Order',
+        baselineCost,
+        currentCost,
+        delta,
+        hasDeviceChangeHistory: Boolean(item.hasDeviceChangeHistory),
+      }
+    })
+    .filter((entry) => Math.abs(entry.delta) > 0.009)
+
+  const baselineTotalFromOrders = detailedFinanceOrders.reduce((sum: number, item: any) => {
+    const value = item.bookingItemCost !== undefined && item.bookingItemCost !== null
+      ? Number(item.bookingItemCost)
+      : Number(item.cost || 0)
+    return sum + (Number.isFinite(value) ? value : 0)
+  }, 0)
+
+  const currentTotalFromOrders = detailedFinanceOrders.reduce((sum: number, item: any) => {
+    const value = Number(item.cost || 0)
+    return sum + (Number.isFinite(value) ? value : 0)
+  }, 0)
+
+  const financeBaselineTotal = detailedFinanceOrders.length > 0 ? baselineTotalFromOrders : Number(booking.totalCost || 0)
+  const financeCurrentTotal = detailedFinanceOrders.length > 0 ? currentTotalFromOrders : Number(booking.totalCost || 0)
+  const financeDeltaTotal = financeCurrentTotal - financeBaselineTotal
+  const financeCreditAmount = financeDeltaTotal < 0 ? Math.abs(financeDeltaTotal) : 0
+  const financeOutstandingAmount = financeDeltaTotal > 0 ? financeDeltaTotal : 0
+  const deviceChangeRelatedCount = financialAdjustments.filter((entry) => entry.hasDeviceChangeHistory).length
+
+  const financeBillingStatusConfig = (() => {
+    switch (booking.billingStatus) {
+      case 'paid':
+        return {
+          label: 'Bezahlt',
+          border: '#86efac',
+          background: '#ecfdf5',
+          text: '#065f46',
+          creditHint: 'Als Rueckzahlung oder Kundenguthaben verbuchen.',
+          outstandingHint: 'Als Nachbelastung nach bereits erfolgter Zahlung ausweisen.'
+        }
+      case 'partially-paid':
+        return {
+          label: 'Teilbezahlt',
+          border: '#fdba74',
+          background: '#fff7ed',
+          text: '#9a3412',
+          creditHint: 'Mit dem offenen Restbetrag verrechnen.',
+          outstandingHint: 'Zum verbleibenden Restbetrag addieren.'
+        }
+      case 'unpaid':
+        return {
+          label: 'Offen',
+          border: '#fcd34d',
+          background: '#fffbeb',
+          text: '#92400e',
+          creditHint: 'Reduziert den noch offenen Rechnungsbetrag.',
+          outstandingHint: 'Erhoeht den bei Abrechnung faelligen Betrag.'
+        }
+      default:
+        return {
+          label: 'Unbekannt',
+          border: '#d1d5db',
+          background: '#f9fafb',
+          text: '#374151',
+          creditHint: 'Als Gutschrift in der Buchhaltung pruefen.',
+          outstandingHint: 'Als offenen Teilbetrag in der Buchhaltung pruefen.'
+        }
+    }
+  })()
 
   return (
     <DialogContent 
@@ -2362,6 +2516,88 @@ function BookingDetailDialog({
                     <span className="font-bold text-lg" style={{ color: 'var(--success, #38a169)' }}>{formatCurrency(booking.finalCost)}</span>
                   </div>
                 )}
+
+                {financialAdjustments.length > 0 && (
+                  <div
+                    className="mt-3 pt-3 space-y-2"
+                    style={{ borderTop: '1px dashed var(--gray-200, #d8dce6)' }}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span style={{ color: 'var(--gray-500, #636e85)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Aenderungen seit Buchung
+                      </span>
+                      <span style={{ color: 'var(--gray-500, #636e85)' }}>
+                        {financialAdjustments.length} Position(en)
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                      {financialAdjustments.map((entry) => (
+                        <div key={`${entry.orderId}-${entry.orderNumber}`} className="flex items-start justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate" style={{ color: 'var(--gray-700, #2d3748)' }}>
+                              #{entry.orderNumber} - {entry.label}
+                            </p>
+                            <p style={{ color: 'var(--gray-500, #636e85)' }}>
+                              {formatCurrency(entry.baselineCost)} {'->'} {formatCurrency(entry.currentCost)}
+                              {entry.hasDeviceChangeHistory ? ' • Geraete-/Servicewechsel' : ''}
+                            </p>
+                          </div>
+                          <span
+                            className="font-semibold shrink-0"
+                            style={{ color: entry.delta > 0 ? '#b45309' : '#047857' }}
+                          >
+                            {entry.delta > 0 ? '+' : '-'}{formatCurrency(Math.abs(entry.delta))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-md px-2.5 py-2 text-xs" style={{ background: 'var(--off-white, #f8f9fc)', border: '1px solid var(--gray-200, #d8dce6)' }}>
+                      <div className="flex items-center justify-between">
+                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Urspruenglicher Buchungswert</span>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatCurrency(financeBaselineTotal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Aktueller Auftragswert</span>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatCurrency(financeCurrentTotal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: '1px solid var(--gray-200, #d8dce6)' }}>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>Saldo Aenderung</span>
+                        <span className="font-bold" style={{ color: financeDeltaTotal > 0 ? '#b45309' : financeDeltaTotal < 0 ? '#047857' : 'var(--gray-700, #2d3748)' }}>
+                          {financeDeltaTotal > 0 ? '+' : financeDeltaTotal < 0 ? '-' : ''}{formatCurrency(Math.abs(financeDeltaTotal))}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(financeCreditAmount > 0 || financeOutstandingAmount > 0) && (
+                      <div className="rounded-md px-2.5 py-2 text-xs" style={{
+                        border: `1px solid ${financeBillingStatusConfig.border}`,
+                        background: financeBillingStatusConfig.background
+                      }}>
+                        <p className="mb-1" style={{ color: '#6b7280', fontWeight: 600 }}>
+                          Zahlungsstatus-Logik: {financeBillingStatusConfig.label}
+                        </p>
+                        {financeCreditAmount > 0 ? (
+                          <p style={{ color: financeBillingStatusConfig.text, fontWeight: 600 }}>
+                            Gutschrift ersichtlich: {formatCurrency(financeCreditAmount)}
+                            {' '}{financeBillingStatusConfig.creditHint}
+                          </p>
+                        ) : (
+                          <p style={{ color: financeBillingStatusConfig.text, fontWeight: 600 }}>
+                            Ausstehender Teilbetrag ersichtlich: {formatCurrency(financeOutstandingAmount)}
+                            {' '}{financeBillingStatusConfig.outstandingHint}
+                          </p>
+                        )}
+                        {deviceChangeRelatedCount > 0 && (
+                          <p className="mt-1" style={{ color: '#6b7280' }}>
+                            Davon betreffen {deviceChangeRelatedCount} Position(en) dokumentierte Geraetewechsel.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2466,8 +2702,8 @@ function BookingDetailDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unpaid">Unbezahlt</SelectItem>
-                  <SelectItem value="partially-paid">Teilweise bezahlt</SelectItem>
+                  <SelectItem value="unpaid">Offen</SelectItem>
+                  <SelectItem value="partially-paid">Teilbezahlt</SelectItem>
                   <SelectItem value="paid">Bezahlt</SelectItem>
                 </SelectContent>
               </Select>
