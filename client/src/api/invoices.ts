@@ -96,6 +96,7 @@ export interface InvoicePaymentPayload {
   gatewayId: string;
   gatewayProvider: 'stripe' | 'paypal' | 'bank_transfer';
   paymentData: Record<string, any>;
+  isJsSdk?: boolean;
 }
 
 export interface InvoicePaymentInitializationResponse {

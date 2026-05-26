@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   confirmInvoicePayment,
+  getInvoice,
   getCustomerInvoices,
   getInvoicePaymentGateways,
   getInvoicePaypalConfig,
@@ -64,6 +65,8 @@ export function CustomerInvoices() {
   const [payerName, setPayerName] = useState("");
   const [payerEmail, setPayerEmail] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const [termsError, setTermsError] = useState(false);
 
   const [paypalEmail, setPaypalEmail] = useState("");
   const [bankAccountHolder, setBankAccountHolder] = useState("");
@@ -204,6 +207,8 @@ export function CustomerInvoices() {
 
         if (!vals.acceptedTerms) {
           toast({ title: t('common.error'), description: 'Bitte bestätigen Sie die Zahlungsbedingungen.', variant: 'destructive' });
+          setTermsError(true);
+          document.getElementById('invoice-terms-checkbox')?.closest('label')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return actions.reject();
         }
 
@@ -235,6 +240,7 @@ export function CustomerInvoices() {
           amount,
           gatewayId: vals.selectedGateway._id,
           gatewayProvider: 'paypal',
+          isJsSdk: true,
           paymentData: {
             payerName: vals.payerName,
             payerEmail: vals.payerEmail,
@@ -262,20 +268,10 @@ export function CustomerInvoices() {
             ...response.invoice,
             amountPaid: response.invoice?.paidAmount ?? response.invoice?.amountPaid,
             paymentMethod: 'paypal',
-            paymentHistory: [
-              {
-                _id: response.payment?._id,
-                date: response.payment?.processedAt || new Date().toISOString(),
-                amount: Number(vals.amount),
-                method: vals.selectedGateway.name,
-                note: response.payment?.transactionId || 'PayPal',
-              },
-              ...(vals.selectedInvoice.paymentHistory || []),
-            ],
           };
           setSelectedInvoice(updatedInvoice);
-          setInvoices((prev) => prev.map((inv) => (inv._id === updatedInvoice._id ? updatedInvoice : inv)));
           setPaymentAmount(Math.max(0, Number(response.remainingAmount || 0)).toFixed(2));
+          await fetchInvoices();
 
           toast({ title: t('common.success'), description: 'PayPal-Zahlung erfolgreich abgeschlossen.' });
         } catch (err: any) {
@@ -332,21 +328,24 @@ export function CustomerInvoices() {
   const handleViewInvoice = async (invoice: Invoice) => {
     try {
       console.log('CustomerInvoices: Viewing invoice:', invoice._id);
-      setSelectedInvoice(invoice);
+      const detailedResponse = await getInvoice(invoice._id);
+      const detailedInvoice = detailedResponse.invoice || invoice;
+      setSelectedInvoice(detailedInvoice);
       setShowInvoiceDialog(true);
-      setPayerName(invoice.customerName || "");
-      setPayerEmail(invoice.customerEmail || "");
+      setPayerName(detailedInvoice.customerName || invoice.customerName || "");
+      setPayerEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
 
-      const openAmount = Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || invoice.amountPaid || 0));
+      const openAmount = Math.max(0, Number(detailedInvoice.total || 0) - Number(detailedInvoice.paidAmount || detailedInvoice.amountPaid || 0));
       setPaymentAmount(openAmount.toFixed(2));
 
       setSelectedGatewayId("");
       setAcceptedTerms(false);
-      setPaypalEmail(invoice.customerEmail || "");
-      setBankAccountHolder(invoice.customerName || "");
+      setTermsError(false);
+      setPaypalEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
+      setBankAccountHolder(detailedInvoice.customerName || invoice.customerName || "");
       setBankIban("");
       setBankBic("");
-      setBankTransferReference(invoice.invoiceNumber || "");
+      setBankTransferReference(detailedInvoice.invoiceNumber || invoice.invoiceNumber || "");
       setBillingStreet("");
       setBillingCity("");
       setBillingZipCode("");
@@ -355,12 +354,12 @@ export function CustomerInvoices() {
       await fetchPaymentGateways();
 
       // Mark as viewed if it was sent
-      if (invoice.status === 'sent') {
-        await markInvoiceAsViewed(invoice._id);
+      if (detailedInvoice.status === 'sent') {
+        await markInvoiceAsViewed(detailedInvoice._id);
         // Update local state
         setInvoices((prev) =>
           prev.map((inv) =>
-            inv._id === invoice._id ? { ...inv, status: 'viewed' as const } : inv
+            inv._id === detailedInvoice._id ? { ...inv, status: 'viewed' as const } : inv
           )
         );
       }
@@ -373,7 +372,16 @@ export function CustomerInvoices() {
     try {
       setLoadingPaymentGateways(true);
       const response = await getInvoicePaymentGateways();
-      setPaymentGateways(response.gateways || []);
+      const gateways = response.gateways || [];
+      setPaymentGateways(gateways);
+      setSelectedGatewayId((current) => {
+        if (current && gateways.some((gateway) => gateway._id === current)) {
+          return current;
+        }
+
+        const preferredGateway = gateways.find((gateway) => gateway.provider === 'paypal') || gateways[0] || null;
+        return preferredGateway?._id || '';
+      });
     } catch (error: any) {
       toast({
         title: t('common.error'),
@@ -416,6 +424,8 @@ export function CustomerInvoices() {
     }
     if (!acceptedTerms) {
       toast({ title: t('common.error'), description: 'Bitte bestätigen Sie die Zahlungsbedingungen.', variant: 'destructive' });
+      setTermsError(true);
+      document.getElementById('invoice-terms-checkbox')?.closest('label')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -1156,14 +1166,15 @@ export function CustomerInvoices() {
                         )}
 
                         {/* Terms */}
-                        <label className="flex items-start gap-2.5 cursor-pointer">
+                        <label className={`flex items-start gap-2.5 cursor-pointer rounded-md transition-colors ${termsError ? 'bg-red-50 border border-red-300 p-2 -mx-2' : ''}`}>
                           <input
+                            id="invoice-terms-checkbox"
                             type="checkbox"
                             checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#f5b800] cursor-pointer flex-shrink-0"
+                            onChange={(e) => { setAcceptedTerms(e.target.checked); if (e.target.checked) setTermsError(false); }}
+                            className={`mt-0.5 h-4 w-4 rounded cursor-pointer flex-shrink-0 accent-[#f5b800] ${termsError ? 'border-2 border-red-500' : 'border-slate-300'}`}
                           />
-                          <span className="text-xs text-slate-600 leading-relaxed">
+                          <span className={`text-xs leading-relaxed ${termsError ? 'text-red-600 font-medium' : 'text-slate-600'}`}>
                             Ich bestätige die Zahlungsbedingungen und die Richtigkeit meiner Angaben.
                           </span>
                         </label>
