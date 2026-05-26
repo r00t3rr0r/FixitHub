@@ -5431,5 +5431,36 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1779783598476-2djlqamdd",
+    "timestamp": "2026-05-26T08:19:58.476Z",
+    "to": "customer@example.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0001 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<53a92d21-e4e5-26f2-c758-17f97545e787@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2116,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

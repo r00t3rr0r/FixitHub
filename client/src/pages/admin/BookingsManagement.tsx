@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import "./BookingsManagement.css"
@@ -296,8 +296,13 @@ export function BookingsManagement() {
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
   const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
   const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber?: string } | null>(null)
+  const [activeHighlightedBookingId, setActiveHighlightedBookingId] = useState<string | null>(null)
 
   const { toast } = useToast()
+  const highlightBookingIdFromQuery = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search)
+    return searchParams.get("highlightBookingId")
+  }, [location.search])
 
   useEffect(() => {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
@@ -322,6 +327,52 @@ export function BookingsManagement() {
 
     reopenBookingDialog()
   }, [location.state])
+
+  useEffect(() => {
+    if (!highlightBookingIdFromQuery) {
+      return
+    }
+
+    // Start from a neutral list state so the highlighted booking can be shown.
+    setSearchTerm("")
+    setStatusFilter("all")
+    setBillingStatusFilter("all")
+    setCurrentPage(1)
+    setActiveHighlightedBookingId(highlightBookingIdFromQuery)
+  }, [highlightBookingIdFromQuery])
+
+  useEffect(() => {
+    if (!activeHighlightedBookingId || filteredBookings.length === 0) {
+      return
+    }
+
+    const highlightedBooking = filteredBookings.find((booking) => booking._id === activeHighlightedBookingId)
+    if (!highlightedBooking) {
+      return
+    }
+
+    const rowSelector = `[data-booking-row-id="${activeHighlightedBookingId}"]`
+    const timer = window.setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(rowSelector)
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }, 50)
+
+    return () => window.clearTimeout(timer)
+  }, [activeHighlightedBookingId, filteredBookings])
+
+  useEffect(() => {
+    if (!activeHighlightedBookingId) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setActiveHighlightedBookingId(null)
+    }, 6000)
+
+    return () => window.clearTimeout(timer)
+  }, [activeHighlightedBookingId])
 
   useEffect(() => {
     // Ensure admins always land on the full booking list by default.
@@ -1054,7 +1105,8 @@ export function BookingsManagement() {
                     return (
                     <React.Fragment key={booking._id}>
                     <TableRow
-                      className="hover:bg-muted/50 cursor-pointer"
+                      data-booking-row-id={booking._id}
+                      className={`hover:bg-muted/50 cursor-pointer ${activeHighlightedBookingId === booking._id ? 'booking-row-highlight' : ''}`}
                       onClick={() => handleViewDetails(booking)}
                     >
                       <TableCell className="w-12">
