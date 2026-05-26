@@ -638,14 +638,27 @@ export const changeDeviceAndRecalculateServices = async (
   orderId: string,
   deviceBrand: string,
   deviceModel: string,
-  deviceType: string
+  deviceType: string,
+  options?: {
+    serviceReplacement?: {
+      oldOrderServiceId: string
+      newServiceId: string
+    }
+  }
 ) => {
-  console.log('changeDeviceAndRecalculateServices called with:', { orderId, deviceBrand, deviceModel, deviceType });
+  console.log('changeDeviceAndRecalculateServices called with:', {
+    orderId,
+    deviceBrand,
+    deviceModel,
+    deviceType,
+    serviceReplacement: options?.serviceReplacement,
+  });
   try {
     const response = await api.post(`/api/admin/orders/${orderId}/change-device`, {
       deviceBrand,
       deviceModel,
       deviceType,
+      serviceReplacement: options?.serviceReplacement,
     });
     console.log('changeDeviceAndRecalculateServices API response:', response.data);
     return response.data;
@@ -677,10 +690,31 @@ export const confirmDeviceChange = async (orderId: string, confirmed: boolean) =
 // Endpoint: GET /api/admin/orders/device-type/:deviceType/compatible-services
 // Request: {}
 // Response: { success: boolean, services: Array<Service> }
-export const getCompatibleServices = async (deviceType: string) => {
-  console.log('getCompatibleServices called with deviceType:', deviceType);
+export const getCompatibleServices = async (
+  deviceType: string,
+  options?: {
+    deviceBrand?: string
+    deviceModel?: string
+  }
+) => {
+  console.log('getCompatibleServices called with:', {
+    deviceType,
+    deviceBrand: options?.deviceBrand,
+    deviceModel: options?.deviceModel,
+  });
   try {
-    const response = await api.get(`/api/admin/orders/device-type/${deviceType}/compatible-services`);
+    const params = new URLSearchParams();
+    if (options?.deviceBrand) {
+      params.set('deviceBrand', options.deviceBrand);
+    }
+    if (options?.deviceModel) {
+      params.set('deviceModel', options.deviceModel);
+    }
+
+    const query = params.toString();
+    const response = await api.get(
+      `/api/admin/orders/device-type/${deviceType}/compatible-services${query ? `?${query}` : ''}`
+    );
     console.log('getCompatibleServices API response:', response.data);
     return response.data;
   } catch (error: any) {

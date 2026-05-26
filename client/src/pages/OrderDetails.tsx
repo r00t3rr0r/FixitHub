@@ -5654,6 +5654,20 @@ export function OrderDetails() {
             model: order.deviceModel,
             type: order.deviceType,
           }}
+          currentServices={(Array.isArray((order as any).services) ? (order as any).services : [])
+            .filter((service: any) => service && service._id)
+            .map((service: any) => {
+              const serviceName =
+                typeof service.serviceId === 'object'
+                  ? service.serviceId?.name
+                  : service.serviceName || `Service #${String(service._id).substring(0, 8)}`
+
+              return {
+                id: String(service._id),
+                name: serviceName || 'Reparaturservice',
+                price: Number(service.price) || 0,
+              }
+            })}
           onDeviceChanged={(updatedOrder) => {
             console.log('[OrderDetails] Device changed, updating order:', updatedOrder)
             setOrder(updatedOrder)

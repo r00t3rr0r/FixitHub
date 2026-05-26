@@ -3173,8 +3173,12 @@
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
   background: var(--white, #ffffff);
   font-family: var(--font-main, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
-  width: min(96vw, 860px) !important;
-  max-height: calc(100vh - 56px) !important;
+  width: min(99vw, 1460px) !important;
+  height: min(92dvh, 1040px);
+  max-height: 92dvh !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   margin-top: 28px;
   margin-bottom: 28px;
 }
@@ -3184,6 +3188,7 @@
   color: var(--white, #ffffff);
   padding: 16px 18px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
 }
 
 .order-device-change-title {
@@ -3249,6 +3254,7 @@
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-shrink: 0;
 }
 
 .order-device-change-step {
@@ -3300,15 +3306,22 @@
 
 .order-device-change-body {
   padding: 12px;
-  max-height: calc(100vh - 292px);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--off-white, #f8f9fc);
 }
 
 .order-device-change-select-grid {
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.order-device-change-select-grid > * {
+  min-width: 0;
 }
 
 .order-device-change-side-panel {
@@ -3431,7 +3444,7 @@
 }
 
 .order-device-change-results-list {
-  max-height: 240px;
+  max-height: min(30dvh, 320px);
   overflow-y: auto;
 }
 
@@ -3499,7 +3512,7 @@
 }
 
 .order-device-change-service-list {
-  max-height: 240px;
+  max-height: min(32dvh, 340px);
   overflow-y: auto;
   display: grid;
   gap: 6px;
@@ -3514,6 +3527,118 @@
 .order-device-change-service-prices {
   font-size: 0.66rem;
   color: var(--gray-500, #636e85);
+}
+
+.order-device-change-option-list {
+  display: grid;
+  gap: 6px;
+  max-height: min(26dvh, 260px);
+  overflow-y: auto;
+}
+
+.order-device-change-option-item {
+  width: 100%;
+  border: 1px solid var(--gray-200, #d8dce6);
+  border-radius: 8px;
+  padding: 7px 9px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-size: 0.72rem;
+  color: var(--gray-700, #2d3748);
+  background: #ffffff;
+  transition: var(--transition, all 0.2s ease);
+}
+
+.order-device-change-option-item strong {
+  font-size: 0.72rem;
+  color: var(--gray-800, #1a202c);
+}
+
+.order-device-change-option-item:hover {
+  border-color: var(--primary-blue, #1a2a5e);
+  background: rgba(26, 42, 94, 0.04);
+}
+
+.order-device-change-option-item.is-selected {
+  border-color: var(--primary-blue, #1a2a5e);
+  background: rgba(26, 42, 94, 0.1);
+}
+
+.order-device-change-option-meta {
+  margin-top: 1px;
+  font-size: 0.64rem;
+  color: var(--gray-500, #636e85);
+}
+
+.order-device-change-swap-preview {
+  margin-top: 10px;
+  border-top: 1px dashed var(--gray-200, #d8dce6);
+  padding-top: 8px;
+}
+
+.order-device-change-swap-preview-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--gray-600, #4a5568);
+}
+
+.order-device-change-swap-preview-values {
+  margin-top: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.66rem;
+  color: var(--gray-700, #2d3748);
+}
+
+.order-device-change-swap-preview-diff {
+  margin-top: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.order-device-change-swap-preview-diff.is-increase {
+  color: #b42318;
+}
+
+.order-device-change-swap-preview-diff.is-decrease {
+  color: #027a48;
+}
+
+.order-device-change-swap-preview-diff.is-neutral {
+  color: var(--gray-600, #4a5568);
+}
+
+.order-device-change-review-swap {
+  margin-top: 12px;
+  border-top: 1px dashed rgba(26, 42, 94, 0.28);
+  padding-top: 10px;
+}
+
+.order-device-change-review-swap-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a2a5e;
+  margin-bottom: 4px;
+}
+
+.order-device-change-review-swap-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: #2f4678;
+  line-height: 1.35;
+}
+
+.order-device-change-review-swap-row.is-total {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(26, 42, 94, 0.18);
+  font-weight: 700;
 }
 
 .order-device-change-diff {
@@ -3565,6 +3690,7 @@
   padding: 10px 12px 12px;
   gap: 6px;
   background: #ffffff;
+  flex-shrink: 0;
 }
 
 .order-device-change-btn {
@@ -3656,22 +3782,25 @@
 
 @media (max-width: 1024px) {
   .order-device-change-dialog {
-    width: min(95vw, 760px) !important;
-    max-height: calc(100vh - 36px) !important;
+    width: min(98vw, 1240px) !important;
+    height: min(93dvh, 900px);
+    max-height: 93dvh !important;
     margin-top: 18px;
     margin-bottom: 18px;
   }
 
-  .order-device-change-body {
-    max-height: calc(100vh - 258px);
-  }
-
   .order-device-change-select-grid {
-    grid-template-columns: minmax(0, 1fr) 210px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 768px) {
+  .order-device-change-dialog {
+    width: 96vw !important;
+    height: min(94dvh, 860px);
+    max-height: 94dvh !important;
+  }
+
   .order-device-change-header {
     padding: 16px 14px 14px;
   }
@@ -3712,7 +3841,7 @@
 
   .order-device-change-body {
     padding: 10px;
-    max-height: calc(100vh - 252px);
+    max-height: none;
   }
 
   .order-device-change-select-grid {
@@ -3737,7 +3866,7 @@
   }
 
   .order-device-change-service-list {
-    max-height: 220px;
+    max-height: min(34dvh, 320px);
   }
 
   .order-device-change-total-diff-row {
@@ -3758,7 +3887,8 @@
   .order-device-change-dialog {
     width: 96vw !important;
     border-radius: 14px;
-    max-height: calc(100vh - 24px) !important;
+    height: min(95dvh, 760px);
+    max-height: 95dvh !important;
     margin-top: 12px;
     margin-bottom: 12px;
   }
@@ -3773,10 +3903,6 @@
 
   .order-device-change-step {
     min-height: 38px;
-  }
-
-  .order-device-change-body {
-    max-height: calc(100vh - 270px);
   }
 
   .order-device-change-btn {
