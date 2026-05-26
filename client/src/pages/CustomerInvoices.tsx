@@ -66,6 +66,8 @@ export function CustomerInvoices() {
   const [payerEmail, setPayerEmail] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  const [termsError, setTermsError] = useState(false);
+
   const [paypalEmail, setPaypalEmail] = useState("");
   const [bankAccountHolder, setBankAccountHolder] = useState("");
   const [bankIban, setBankIban] = useState("");
@@ -205,6 +207,8 @@ export function CustomerInvoices() {
 
         if (!vals.acceptedTerms) {
           toast({ title: t('common.error'), description: 'Bitte bestätigen Sie die Zahlungsbedingungen.', variant: 'destructive' });
+          setTermsError(true);
+          document.getElementById('invoice-terms-checkbox')?.closest('label')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return actions.reject();
         }
 
@@ -336,6 +340,7 @@ export function CustomerInvoices() {
 
       setSelectedGatewayId("");
       setAcceptedTerms(false);
+      setTermsError(false);
       setPaypalEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
       setBankAccountHolder(detailedInvoice.customerName || invoice.customerName || "");
       setBankIban("");
@@ -419,6 +424,8 @@ export function CustomerInvoices() {
     }
     if (!acceptedTerms) {
       toast({ title: t('common.error'), description: 'Bitte bestätigen Sie die Zahlungsbedingungen.', variant: 'destructive' });
+      setTermsError(true);
+      document.getElementById('invoice-terms-checkbox')?.closest('label')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -1159,14 +1166,15 @@ export function CustomerInvoices() {
                         )}
 
                         {/* Terms */}
-                        <label className="flex items-start gap-2.5 cursor-pointer">
+                        <label className={`flex items-start gap-2.5 cursor-pointer rounded-md transition-colors ${termsError ? 'bg-red-50 border border-red-300 p-2 -mx-2' : ''}`}>
                           <input
+                            id="invoice-terms-checkbox"
                             type="checkbox"
                             checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-[#f5b800] cursor-pointer flex-shrink-0"
+                            onChange={(e) => { setAcceptedTerms(e.target.checked); if (e.target.checked) setTermsError(false); }}
+                            className={`mt-0.5 h-4 w-4 rounded cursor-pointer flex-shrink-0 accent-[#f5b800] ${termsError ? 'border-2 border-red-500' : 'border-slate-300'}`}
                           />
-                          <span className="text-xs text-slate-600 leading-relaxed">
+                          <span className={`text-xs leading-relaxed ${termsError ? 'text-red-600 font-medium' : 'text-slate-600'}`}>
                             Ich bestätige die Zahlungsbedingungen und die Richtigkeit meiner Angaben.
                           </span>
                         </label>

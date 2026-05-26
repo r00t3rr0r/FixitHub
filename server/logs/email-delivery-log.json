@@ -6234,5 +6234,36 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1779794636116-jt3b4377p",
+    "timestamp": "2026-05-26T11:23:56.116Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0001 von McRepair.de steht bereit",
+    "messageId": "<08d7dc4d-6990-9695-6024-7979a5f6b11a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 933,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
