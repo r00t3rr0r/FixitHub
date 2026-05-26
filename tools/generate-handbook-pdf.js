@@ -433,6 +433,18 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
 </html>`;
 }
 
+function getMimeTypeForImage(filePath) {
+  const extension = path.extname(filePath).toLowerCase();
+
+  if (extension === '.png') return 'image/png';
+  if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg';
+  if (extension === '.webp') return 'image/webp';
+  if (extension === '.gif') return 'image/gif';
+  if (extension === '.svg') return 'image/svg+xml';
+
+  return 'application/octet-stream';
+}
+
 function rewriteRelativeImagePaths(html) {
   return html.replace(/<img([^>]*?)src="([^"]+)"([^>]*?)>/g, (fullMatch, before, src, after) => {
     if (/^(https?:|data:|file:)/i.test(src)) {
@@ -440,8 +452,16 @@ function rewriteRelativeImagePaths(html) {
     }
 
     const absolutePath = path.resolve(path.dirname(SOURCE_MD), src);
-    const fileUrl = `file://${absolutePath}`;
-    return `<img${before}src="${fileUrl}"${after}>`;
+
+    if (!fs.existsSync(absolutePath)) {
+      console.warn(`Bilddatei nicht gefunden, belasse Originalpfad: ${src}`);
+      return fullMatch;
+    }
+
+    const mimeType = getMimeTypeForImage(absolutePath);
+    const encodedImage = fs.readFileSync(absolutePath).toString('base64');
+    const dataUri = `data:${mimeType};base64,${encodedImage}`;
+    return `<img${before}src="${dataUri}"${after}>`;
   });
 }
 

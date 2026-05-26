@@ -1076,7 +1076,7 @@ router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, 
   console.log('[DeviceChange] Change device request received:', req.params.id, req.body);
 
   try {
-    const { deviceBrand, deviceModel, deviceType } = req.body;
+    const { deviceBrand, deviceModel, deviceType, serviceReplacement } = req.body;
 
     if (!deviceBrand || !deviceModel || !deviceType) {
       return res.status(400).json({ error: 'Device brand, model, and type are required' });
@@ -1088,6 +1088,7 @@ router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, 
         deviceBrand,
         deviceModel,
         deviceType,
+        serviceReplacement,
       },
       req.user._id
     );
@@ -1155,12 +1156,16 @@ router.get('/device-type/:deviceType/compatible-services', requireUser, requireA
 
   try {
     const { deviceType } = req.params;
+    const { deviceBrand, deviceModel } = req.query;
 
     if (!deviceType) {
       return res.status(400).json({ error: 'Device type is required' });
     }
 
-    const services = await DeviceChangeService.getCompatibleServices(deviceType);
+    const services = await DeviceChangeService.getCompatibleServices(deviceType, {
+      deviceBrand,
+      deviceModel,
+    });
 
     return res.status(200).json({
       success: true,

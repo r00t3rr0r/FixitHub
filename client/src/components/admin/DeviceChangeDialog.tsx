@@ -26,6 +26,7 @@ import {
 import {
   changeDeviceAndRecalculateServices,
   confirmDeviceChange,
+  getCompatibleServices,
 } from "@/api/adminOrders"
 import { searchDevices } from "@/api/devices"
 
@@ -55,9 +56,30 @@ interface PricingChangesSummary {
   totalCostAfter: number
   totalCostDifference: number
   totalCostStatus: 'increase' | 'decrease' | 'no-change'
+  selectedServiceSwap?: {
+    previousServiceName: string
+    previousServicePrice: number
+    newServiceName: string
+    newServicePrice: number
+    difference: number
+    status: 'increase' | 'decrease' | 'no-change'
+  }
   requiresConfirmation: boolean
   changedAt: string
   changedBy: string
+}
+
+interface CurrentOrderService {
+  id: string
+  name: string
+  price: number
+}
+
+interface CompatibleService {
+  _id: string
+  name: string
+  price: number
+  category?: string
 }
 
 interface DeviceChangeDialogProps {
@@ -69,6 +91,7 @@ interface DeviceChangeDialogProps {
     model: string
     type: string
   }
+  currentServices: CurrentOrderService[]
   onDeviceChanged?: (order: any) => void
 }
 
@@ -77,6 +100,7 @@ export function DeviceChangeDialog({
   onOpenChange,
   orderId,
   currentDevice,
+  currentServices,
   onDeviceChanged,
 }: DeviceChangeDialogProps) {
   const { t } = useTranslation()
@@ -91,23 +115,82 @@ export function DeviceChangeDialog({
   const [deviceSearchQuery, setDeviceSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null)
+  const [compatibleServices, setCompatibleServices] = useState<CompatibleService[]>([])
+  const [selectedCurrentServiceId, setSelectedCurrentServiceId] = useState("")
+  const [selectedReplacementServiceId, setSelectedReplacementServiceId] = useState("")
+  const [loadingCompatibleServices, setLoadingCompatibleServices] = useState(false)
   const [loading, setLoading] = useState(false)
   const [pricingChanges, setPricingChanges] = useState<PricingChangesSummary | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [densityMode, setDensityMode] = useState<'standard' | 'kompakt'>('kompakt')
   const searchRequestIdRef = useRef(0)
+  const wasOpenRef = useRef(false)
 
   // Reset dialog state when it opens
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
       setStep('select')
       setDeviceSearchQuery("")
       setSearchResults([])
       setSelectedDevice(null)
+      setCompatibleServices([])
+      setSelectedCurrentServiceId(currentServices[0]?.id || "")
+      setSelectedReplacementServiceId("")
       setPricingChanges(null)
       setDensityMode('kompakt')
     }
-  }, [open])
+
+    wasOpenRef.current = open
+  }, [open, currentServices])
+
+  useEffect(() => {
+    if (!open || step !== 'select' || !selectedDevice?.deviceType) {
+      setCompatibleServices([])
+      setSelectedReplacementServiceId("")
+      return
+    }
+
+    let cancelled = false
+
+    const loadCompatibleServices = async () => {
+      try {
+        setLoadingCompatibleServices(true)
+        const response = await getCompatibleServices(selectedDevice.deviceType, {
+          deviceBrand: selectedDevice.manufacturer,
+          deviceModel: selectedDevice.name,
+        })
+        if (cancelled) return
+
+        const services = ((response as any).services || []) as CompatibleService[]
+        setCompatibleServices(services)
+
+        setSelectedReplacementServiceId((previousValue) => {
+          if (previousValue && services.some((service) => service._id === previousValue)) {
+            return previousValue
+          }
+          return services[0]?._id || ""
+        })
+      } catch (error) {
+        if (cancelled) return
+        console.error("[DeviceChange] Error loading compatible services:", error)
+        toast({
+          title: "Fehler",
+          description: error instanceof Error ? error.message : "Kompatible Services konnten nicht geladen werden.",
+          variant: "destructive",
+        })
+      } finally {
+        if (!cancelled) {
+          setLoadingCompatibleServices(false)
+        }
+      }
+    }
+
+    loadCompatibleServices()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, step, selectedDevice, toast])
 
   useEffect(() => {
     if (!open || step !== 'select') return
@@ -153,14 +236,39 @@ export function DeviceChangeDialog({
 
   const handleSelectDevice = (device: any) => {
     setSelectedDevice(device)
+    setSelectedReplacementServiceId("")
     console.log("[DeviceChange] Selected device:", device)
   }
+
+  const selectedCurrentService = currentServices.find((service) => service.id === selectedCurrentServiceId) || null
+  const selectedReplacementService = compatibleServices.find((service) => service._id === selectedReplacementServiceId) || null
+  const hasCurrentServices = currentServices.length > 0
+
+  const liveSwapDifference =
+    selectedCurrentService && selectedReplacementService
+      ? selectedReplacementService.price - selectedCurrentService.price
+      : null
+
+  const canProceedToRecalculation =
+    Boolean(selectedDevice) &&
+    (!hasCurrentServices || (Boolean(selectedCurrentServiceId) && Boolean(selectedReplacementServiceId)))
+
+  const formatCurrency = (value: number) => `$${(Number(value) || 0).toFixed(2)}`
 
   const handleRecalculateServices = async () => {
     if (!selectedDevice) {
       toast({
         title: "Fehler",
         description: "Bitte waehlen Sie zuerst ein Geraet aus.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (hasCurrentServices && (!selectedCurrentServiceId || !selectedReplacementServiceId)) {
+      toast({
+        title: "Fehler",
+        description: "Bitte waehlen Sie den bisherigen und den neuen Reparaturservice aus.",
         variant: "destructive",
       })
       return
@@ -177,7 +285,15 @@ export function DeviceChangeDialog({
         orderId,
         selectedDevice.manufacturer,
         selectedDevice.name,
-        selectedDevice.deviceType
+        selectedDevice.deviceType,
+        hasCurrentServices
+          ? {
+              serviceReplacement: {
+                oldOrderServiceId: selectedCurrentServiceId,
+                newServiceId: selectedReplacementServiceId,
+              },
+            }
+          : undefined
       )
 
       setPricingChanges(result.pricingChangesSummary)
@@ -239,7 +355,7 @@ export function DeviceChangeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`order-device-change-dialog order-device-change-dialog--${densityMode} max-h-[88vh] w-[min(96vw,860px)] overflow-hidden p-0`}>
+      <DialogContent className={`order-device-change-dialog order-device-change-dialog--${densityMode} overflow-hidden p-0`}>
         <DialogHeader className="order-device-change-header">
           <DialogTitle className="order-device-change-title">
             <span className="order-device-change-title-icon" aria-hidden="true">
@@ -372,6 +488,82 @@ export function DeviceChangeDialog({
               </div>
 
               <div className="order-device-change-side-panel">
+                {hasCurrentServices && (
+                  <Card className="order-device-change-side-card">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="order-device-change-section-title text-sm">Service tauschen</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="order-device-change-label">Bisheriger Reparaturservice</Label>
+                        <div className="order-device-change-option-list">
+                          {currentServices.map((service) => (
+                            <button
+                              key={service.id}
+                              type="button"
+                              className={`order-device-change-option-item ${selectedCurrentServiceId === service.id ? 'is-selected' : ''}`}
+                              onClick={() => setSelectedCurrentServiceId(service.id)}
+                            >
+                              <span>{service.name}</span>
+                              <strong>{formatCurrency(service.price)}</strong>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="order-device-change-label">
+                          Neuer Reparaturservice
+                          {selectedDevice ? ` (${selectedDevice.deviceType})` : ''}
+                        </Label>
+
+                        {!selectedDevice && (
+                          <p className="order-device-change-side-empty">
+                            Waehlen Sie zuerst ein neues Geraet, um passende Services zu laden.
+                          </p>
+                        )}
+
+                        {selectedDevice && loadingCompatibleServices && (
+                          <div className="flex items-center gap-2 text-xs text-[#4a5568]">
+                            <Loader className="h-4 w-4 animate-spin" />
+                            Kompatible Services werden geladen...
+                          </div>
+                        )}
+
+                        {selectedDevice && !loadingCompatibleServices && compatibleServices.length === 0 && (
+                          <Alert className="order-device-change-empty-alert">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              Fuer dieses Geraet wurden keine kompatiblen Reparaturservices gefunden.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {selectedDevice && !loadingCompatibleServices && compatibleServices.length > 0 && (
+                          <div className="order-device-change-option-list">
+                            {compatibleServices.map((service) => (
+                              <button
+                                key={service._id}
+                                type="button"
+                                className={`order-device-change-option-item ${selectedReplacementServiceId === service._id ? 'is-selected' : ''}`}
+                                onClick={() => setSelectedReplacementServiceId(service._id)}
+                              >
+                                <div>
+                                  <span>{service.name}</span>
+                                  {service.category ? (
+                                    <p className="order-device-change-option-meta">{service.category}</p>
+                                  ) : null}
+                                </div>
+                                <strong>{formatCurrency(service.price)}</strong>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card className="order-device-change-side-card">
                   <CardHeader className="pb-2">
                     <CardTitle className="order-device-change-section-title text-sm">Auswahl</CardTitle>
@@ -388,6 +580,24 @@ export function DeviceChangeDialog({
                       <p className="order-device-change-side-empty">
                         Waehlen Sie ein Geraet aus der Liste, um fortzufahren.
                       </p>
+                    )}
+
+                    {liveSwapDifference !== null && hasCurrentServices && (
+                      <div className="order-device-change-swap-preview">
+                        <p className="order-device-change-swap-preview-label">Live-Gegenrechnung</p>
+                        <div className="order-device-change-swap-preview-values">
+                          <span>
+                            {selectedCurrentService?.name} ({formatCurrency(selectedCurrentService?.price || 0)})
+                          </span>
+                          <span>→</span>
+                          <span>
+                            {selectedReplacementService?.name} ({formatCurrency(selectedReplacementService?.price || 0)})
+                          </span>
+                        </div>
+                        <p className={`order-device-change-swap-preview-diff ${liveSwapDifference > 0 ? 'is-increase' : liveSwapDifference < 0 ? 'is-decrease' : 'is-neutral'}`}>
+                          Differenz: {liveSwapDifference > 0 ? '+' : ''}{formatCurrency(liveSwapDifference)}
+                        </p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -419,6 +629,27 @@ export function DeviceChangeDialog({
                       </p>
                     </div>
                   </div>
+
+                  {pricingChanges.selectedServiceSwap && (
+                    <div className="order-device-change-review-swap">
+                      <p className="order-device-change-review-swap-title">Gegenrechnung Reparaturservice</p>
+                      <div className="order-device-change-review-swap-row">
+                        <span>{pricingChanges.selectedServiceSwap.previousServiceName}</span>
+                        <strong>{formatCurrency(pricingChanges.selectedServiceSwap.previousServicePrice)}</strong>
+                      </div>
+                      <div className="order-device-change-review-swap-row">
+                        <span>{pricingChanges.selectedServiceSwap.newServiceName}</span>
+                        <strong>{formatCurrency(pricingChanges.selectedServiceSwap.newServicePrice)}</strong>
+                      </div>
+                      <div className="order-device-change-review-swap-row is-total">
+                        <span>Differenz</span>
+                        <strong>
+                          {pricingChanges.selectedServiceSwap.difference > 0 ? '+' : ''}
+                          {formatCurrency(pricingChanges.selectedServiceSwap.difference)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -587,9 +818,9 @@ export function DeviceChangeDialog({
             <Button
               className="order-device-change-btn order-device-change-btn-primary"
               onClick={handleRecalculateServices}
-              disabled={!selectedDevice || loading}
+              disabled={!canProceedToRecalculation || loading || loadingCompatibleServices}
             >
-              {loading ? 'Berechne neu...' : 'Servicepreise neu berechnen'}
+              {loading ? 'Berechne neu...' : 'Gegenrechnung und Servicepreise berechnen'}
             </Button>
           )}
 

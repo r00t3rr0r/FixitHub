@@ -952,6 +952,53 @@ class BookingService {
 
       console.log('BookingService: Found', bookings.length, 'bookings on current page');
 
+      const bookingIds = bookings.map((booking) => booking._id);
+      const invoiceSummaries = await Invoice.aggregate([
+        {
+          $match: {
+            bookingId: { $in: bookingIds },
+            status: { $ne: 'cancelled' },
+          },
+        },
+        {
+          $group: {
+            _id: '$bookingId',
+            receivableTotal: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', false] }, '$total', 0],
+              },
+            },
+            receivablePaid: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', false] }, '$paidAmount', 0],
+              },
+            },
+            creditTotal: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', true] }, '$total', 0],
+              },
+            },
+            creditPaid: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', true] }, '$paidAmount', 0],
+              },
+            },
+          },
+        },
+      ]);
+
+      const invoiceSummaryByBookingId = new Map(
+        invoiceSummaries.map((summary) => [
+          String(summary._id),
+          {
+            receivableTotal: Number(summary.receivableTotal || 0),
+            receivablePaid: Number(summary.receivablePaid || 0),
+            creditTotal: Number(summary.creditTotal || 0),
+            creditPaid: Number(summary.creditPaid || 0),
+          },
+        ])
+      );
+
       // Calculate real-time progress for all bookings from their associated orders
       const bookingsWithProgress = await Promise.all(
         bookings.map(async (booking) => {
@@ -961,6 +1008,22 @@ class BookingService {
 
             // Convert to plain object so we can attach computed fields freely
             const bookingPlain = booking.toObject({ virtuals: true });
+            const invoiceSummary = invoiceSummaryByBookingId.get(String(booking._id));
+
+            if (invoiceSummary) {
+              const receivableOpen = Math.max(
+                0,
+                invoiceSummary.receivableTotal - invoiceSummary.receivablePaid
+              );
+              const customerCreditOpen = Math.max(
+                0,
+                invoiceSummary.creditTotal - invoiceSummary.creditPaid
+              );
+
+              bookingPlain.invoiceOpenAmount = receivableOpen;
+              bookingPlain.customerCreditOpenAmount = customerCreditOpen;
+              bookingPlain.netOpenAmount = receivableOpen - customerCreditOpen;
+            }
 
             if (allOrders.length === 0) {
               if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
@@ -1376,22 +1439,45 @@ class BookingService {
       });
 
       const orders = Array.from(allOrdersById.values());
+      const bookingItemByOrderId = new Map();
+      (booking.items || []).forEach((item) => {
+        if (item?.orderId) {
+          bookingItemByOrderId.set(String(item.orderId), item);
+        }
+      });
 
       console.log('BookingService: Found', orders.length, 'orders for booking');
 
       // Transform orders to match expected structure with current repair progress status
       const transformedOrders = orders.map(order => {
+        const orderIdString = order._id.toString();
+        const bookingItem = bookingItemByOrderId.get(orderIdString);
+        const timelineEntries = Array.isArray(order.timeline) ? order.timeline : [];
+        const deviceChangeEntries = timelineEntries.filter((entry) => {
+          if (!entry) return false;
+          const status = String(entry.status || '').toLowerCase();
+          const description = String(entry.description || '').toLowerCase();
+          return status === 'device changed' || description.includes('device changed');
+        });
         const orderProgress = this.resolveOrderProgress(order);
         let orderData = {
-          orderId: order._id.toString(),
+          orderId: orderIdString,
           orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
           type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
           isComplaintFollowup: Boolean(order.isComplaintFollowup),
           sourceComplaintId: order.sourceComplaintId ? order.sourceComplaintId.toString() : null,
           parentOrderId: order.parentOrderId ? order.parentOrderId.toString() : null,
           status: order.status || 'pending',
+          paymentStatus: order.paymentStatus || 'pending',
           progress: orderProgress,
           cost: order.totalCost,
+          bookingItemCost: Number(bookingItem?.cost || 0),
+          hasDeviceChangeHistory: deviceChangeEntries.length > 0,
+          deviceChangeCount: deviceChangeEntries.length,
+          lastDeviceChangeAt:
+            deviceChangeEntries.length > 0
+              ? deviceChangeEntries[deviceChangeEntries.length - 1].completedAt || null
+              : null,
         };
 
         if (order.deviceType === 'Shop Products') {
