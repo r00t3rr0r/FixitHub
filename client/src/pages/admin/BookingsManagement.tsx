@@ -296,6 +296,7 @@ export function BookingsManagement() {
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
+  const [quickPayBookingId, setQuickPayBookingId] = useState<string | null>(null)
   const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
   const [detailInvoiceStatusFocus, setDetailInvoiceStatusFocus] = useState<string | null>(null)
 
@@ -638,6 +639,33 @@ export function BookingsManagement() {
       })
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const handleQuickSetPaid = async (booking: Booking) => {
+    if (quickPayBookingId) return
+
+    const effectivePaymentStatus = getEffectivePaymentStatus(booking)
+    if (effectivePaymentStatus === 'paid') {
+      return
+    }
+
+    try {
+      setQuickPayBookingId(booking._id)
+      await updateBookingBillingStatus(booking._id, 'paid', 'paid')
+      toast({
+        title: t('common.success'),
+        description: 'Zahlungsstatus auf Bezahlt gesetzt'
+      })
+      await fetchBookings()
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: 'Zahlungsstatus konnte nicht auf Bezahlt gesetzt werden',
+        variant: 'destructive'
+      })
+    } finally {
+      setQuickPayBookingId(null)
     }
   }
 
@@ -1238,22 +1266,38 @@ export function BookingsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <button
-                          type="button"
-                          className="booking-payment-status-anchor"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void handleViewDetails(booking, {
-                              initialTab: "invoices",
-                              invoiceStatusFocus: getEffectivePaymentStatus(booking)
-                            })
-                          }}
-                          title="Zum passenden Rechnungsstatus springen"
-                        >
-                          <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
-                            {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
-                          </Badge>
-                        </button>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="booking-payment-status-anchor"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleViewDetails(booking, {
+                                initialTab: "invoices",
+                                invoiceStatusFocus: getEffectivePaymentStatus(booking)
+                              })
+                            }}
+                            title="Zum passenden Rechnungsstatus springen"
+                          >
+                            <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                              {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
+                            </Badge>
+                          </button>
+
+                          <label className="inline-flex items-center gap-1 text-[11px] text-foreground/70">
+                            <input
+                              type="radio"
+                              name={`booking-paid-${booking._id}`}
+                              checked={getEffectivePaymentStatus(booking) === 'paid'}
+                              disabled={quickPayBookingId === booking._id}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => {
+                                void handleQuickSetPaid(booking)
+                              }}
+                            />
+                            Bezahlt
+                          </label>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {openAmountInfo.type === 'settled' ? (
