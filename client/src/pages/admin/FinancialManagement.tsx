@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -347,9 +348,12 @@ const createCreditFormState = (settings: FinancialSettingsState) => ({
 export function FinancialManagement() {
   const { t } = useTranslation()
   const { toast } = useToast();
+  const location = useLocation();
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeHighlightedInvoiceId, setActiveHighlightedInvoiceId] = useState<string | null>(null);
+  const [handledHighlightInvoiceKey, setHandledHighlightInvoiceKey] = useState<string | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
   const [savingFinancialSettings, setSavingFinancialSettings] = useState(false);
 
@@ -372,6 +376,16 @@ export function FinancialManagement() {
   const [creditDialogOpen, setCreditDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [gatewayDialogOpen, setGatewayDialogOpen] = useState(false);
+
+  const tabFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab');
+  }, [location.search]);
+
+  const highlightInvoiceIdFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('highlightInvoiceId');
+  }, [location.search]);
 
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [invoiceDetailPayments, setInvoiceDetailPayments] = useState<Payment[]>([]);
@@ -458,6 +472,23 @@ export function FinancialManagement() {
     detailLevel: 'detailed'
   });
 
+  const hasAddressData = (address?: any | null) => {
+    if (!address || typeof address !== 'object') return false;
+    return Boolean(
+      address.company ||
+      address.name ||
+      address.firstName ||
+      address.lastName ||
+      address.street ||
+      address.houseNumber ||
+      address.city ||
+      address.state ||
+      address.zipCode ||
+      address.zip ||
+      address.country
+    );
+  };
+
   const selectedInvoiceAddress = useMemo(() => {
     if (!selectedInvoice) return null;
     const src: any = selectedInvoice;
@@ -470,6 +501,25 @@ export function FinancialManagement() {
       null
     );
   }, [selectedInvoice]);
+
+  const selectedInvoiceShippingAddress = useMemo(() => {
+    if (!selectedInvoice) return null;
+    const src: any = selectedInvoice;
+    return (
+      src.shippingAddress ||
+      src.deliveryAddress ||
+      src.customer?.shippingAddress ||
+      src.customer?.paymentAddress ||
+      null
+    );
+  }, [selectedInvoice]);
+
+  const selectedInvoiceShippingSameAsBilling = useMemo(() => {
+    const src: any = selectedInvoice || {};
+    const explicitSameAs = src.shippingAddress?.sameAsInvoice ?? src.customer?.paymentAddress?.sameAsInvoice;
+    if (explicitSameAs === true) return true;
+    return !hasAddressData(selectedInvoiceShippingAddress) && hasAddressData(selectedInvoiceAddress);
+  }, [selectedInvoice, selectedInvoiceAddress, selectedInvoiceShippingAddress]);
 
   const compatibleRefundGateways = useMemo(() => {
     if (!selectedPayment) return [];
@@ -877,6 +927,55 @@ export function FinancialManagement() {
   useEffect(() => {
     fetchFinancialData();
   }, []);
+
+  useEffect(() => {
+    if (!tabFromQuery) return;
+    const supportedTabs = ['overview', 'dunning', 'invoices', 'payments', 'providers', 'settings', 'exports'];
+    if (supportedTabs.includes(tabFromQuery)) {
+      setActiveTab(tabFromQuery);
+    }
+  }, [tabFromQuery]);
+
+  useEffect(() => {
+    if (handledHighlightInvoiceKey !== highlightInvoiceIdFromQuery) {
+      setActiveHighlightedInvoiceId(null);
+    }
+  }, [highlightInvoiceIdFromQuery, handledHighlightInvoiceKey]);
+
+  useEffect(() => {
+    if (!highlightInvoiceIdFromQuery || invoices.length === 0) {
+      return;
+    }
+
+    if (handledHighlightInvoiceKey === highlightInvoiceIdFromQuery) {
+      return;
+    }
+
+    const targetInvoice = invoices.find((invoice) => invoice._id === highlightInvoiceIdFromQuery || invoice.invoiceNumber === highlightInvoiceIdFromQuery);
+    if (!targetInvoice?._id) {
+      return;
+    }
+
+    setActiveTab('invoices');
+    setActiveHighlightedInvoiceId(targetInvoice._id);
+    setHandledHighlightInvoiceKey(highlightInvoiceIdFromQuery);
+
+    const scrollTimer = window.setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(`[data-finance-invoice-row-id="${targetInvoice._id}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 50);
+
+    const clearHighlightTimer = window.setTimeout(() => {
+      setActiveHighlightedInvoiceId((current) => (current === targetInvoice._id ? null : current));
+    }, 5500);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearHighlightTimer);
+    };
+  }, [highlightInvoiceIdFromQuery, invoices, handledHighlightInvoiceKey]);
 
   useEffect(() => {
     if (!systemConfig) return;
@@ -2380,7 +2479,8 @@ export function FinancialManagement() {
                     {invoices.map((invoice) => (
                       <TableRow
                         key={invoice._id}
-                        className="cursor-pointer"
+                        data-finance-invoice-row-id={invoice._id}
+                        className={`cursor-pointer ${activeHighlightedInvoiceId === invoice._id ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
                         onClick={() => openInvoiceDetails(invoice)}
                       >
                         <TableCell>{invoice.invoiceNumber}</TableCell>
@@ -3427,19 +3527,43 @@ export function FinancialManagement() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Card className="border-[#d8dce6]">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Kunde & Rechnungsadresse</CardTitle>
+                    <CardTitle className="text-base text-[#1a2a5e]">Kunde, Rechnungs- & Lieferadresse</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
                     <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
                     <Separator />
-                    {selectedInvoiceAddress ? (
-                      <div className="space-y-1">
-                        <div>{(selectedInvoiceAddress as any).company || (selectedInvoiceAddress as any).name || '-'}</div>
-                        <div>{(selectedInvoiceAddress as any).street || '-'} {(selectedInvoiceAddress as any).houseNumber || ''}</div>
-                        <div>{(selectedInvoiceAddress as any).zipCode || '-'} {(selectedInvoiceAddress as any).city || '-'}</div>
-                        <div>{(selectedInvoiceAddress as any).state || '-'}</div>
-                        <div>{(selectedInvoiceAddress as any).country || '-'}</div>
+                    {hasAddressData(selectedInvoiceAddress) ? (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsadresse</div>
+                          <div className="mt-1 space-y-1">
+                            <div>{(selectedInvoiceAddress as any).company || (selectedInvoiceAddress as any).name || '-'}</div>
+                            <div>{(selectedInvoiceAddress as any).street || '-'} {(selectedInvoiceAddress as any).houseNumber || ''}</div>
+                            <div>{(selectedInvoiceAddress as any).zipCode || (selectedInvoiceAddress as any).zip || '-'} {(selectedInvoiceAddress as any).city || '-'}</div>
+                            <div>{(selectedInvoiceAddress as any).state || '-'}</div>
+                            <div>{(selectedInvoiceAddress as any).country || '-'}</div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lieferadresse</div>
+                          <div className="mt-1 space-y-1">
+                            {selectedInvoiceShippingSameAsBilling ? (
+                              <div className="italic text-muted-foreground">Identisch mit Rechnungsadresse</div>
+                            ) : hasAddressData(selectedInvoiceShippingAddress) ? (
+                              <>
+                                <div>{(selectedInvoiceShippingAddress as any).company || (selectedInvoiceShippingAddress as any).name || '-'}</div>
+                                <div>{(selectedInvoiceShippingAddress as any).street || '-'} {(selectedInvoiceShippingAddress as any).houseNumber || ''}</div>
+                                <div>{(selectedInvoiceShippingAddress as any).zipCode || (selectedInvoiceShippingAddress as any).zip || '-'} {(selectedInvoiceShippingAddress as any).city || '-'}</div>
+                                <div>{(selectedInvoiceShippingAddress as any).state || '-'}</div>
+                                <div>{(selectedInvoiceShippingAddress as any).country || '-'}</div>
+                              </>
+                            ) : (
+                              <div className="text-muted-foreground">Nicht angegeben</div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="rounded-md border border-dashed border-[#d8dce6] p-2 text-muted-foreground">

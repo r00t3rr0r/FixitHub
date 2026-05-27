@@ -113,7 +113,7 @@ export const updateBookingStatus = async (
 export const updateBookingBillingStatus = async (
   bookingId: string,
   billingStatus: 'unpaid' | 'partially-paid' | 'paid',
-  paymentStatus?: 'pending' | 'paid' | 'refunded' | 'partial'
+  paymentStatus?: 'pending' | 'paid' | 'refunded' | 'partial' | 'draft' | 'sent' | 'viewed' | 'partially_paid' | 'overdue'
 ) => {
   try {
     const response = await api.put(`/api/bookings/${bookingId}/billing-status`, {

@@ -67,6 +67,58 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  billingAddress: {
+    street: {
+      type: String,
+      default: ''
+    },
+    city: {
+      type: String,
+      default: ''
+    },
+    state: {
+      type: String,
+      default: ''
+    },
+    zip: {
+      type: String,
+      default: ''
+    },
+    zipCode: {
+      type: String,
+      default: ''
+    },
+    country: {
+      type: String,
+      default: ''
+    }
+  },
+  shippingAddress: {
+    street: {
+      type: String,
+      default: ''
+    },
+    city: {
+      type: String,
+      default: ''
+    },
+    state: {
+      type: String,
+      default: ''
+    },
+    zip: {
+      type: String,
+      default: ''
+    },
+    zipCode: {
+      type: String,
+      default: ''
+    },
+    country: {
+      type: String,
+      default: ''
+    }
+  },
   items: [invoiceItemSchema],
   subtotal: {
     type: Number,

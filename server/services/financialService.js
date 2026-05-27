@@ -28,6 +28,93 @@ function calculateDiscountAmount(subtotal, discountPercent) {
   return Number(((numericSubtotal * numericDiscountPercent) / 100).toFixed(2));
 }
 
+function normalizeBillingAddress(address) {
+  if (!address || typeof address !== 'object') return null;
+
+  const street = String(address.street || address.line1 || address.addressLine1 || '').trim();
+  const city = String(address.city || address.town || '').trim();
+  const zip = String(address.zip || address.zipCode || address.postalCode || address.postcode || '').trim();
+  const state = String(address.state || address.province || '').trim();
+  const country = String(address.country || '').trim();
+
+  if (!street && !city && !zip && !state && !country) return null;
+
+  return {
+    street,
+    city,
+    zip,
+    zipCode: zip,
+    state,
+    country,
+  };
+}
+
+function normalizeShippingAddress(address) {
+  if (!address || typeof address !== 'object') return null;
+
+  const street = String(address.street || address.line1 || address.addressLine1 || '').trim();
+  const city = String(address.city || address.town || '').trim();
+  const zip = String(address.zip || address.zipCode || address.postalCode || address.postcode || '').trim();
+  const state = String(address.state || address.province || '').trim();
+  const country = String(address.country || '').trim();
+
+  if (!street && !city && !zip && !state && !country) return null;
+
+  return {
+    street,
+    city,
+    zip,
+    zipCode: zip,
+    state,
+    country,
+  };
+}
+
+function resolveBillingAddressFromCustomer(customer) {
+  if (!customer) return null;
+  return normalizeBillingAddress(customer.invoiceAddress)
+    || normalizeBillingAddress(customer.paymentAddress)
+    || null;
+}
+
+function resolveBillingAddressFromOrder(order) {
+  if (!order) return null;
+  return normalizeBillingAddress(order.guestInfo?.billingAddress)
+    || resolveBillingAddressFromCustomer(order.customerId)
+    || null;
+}
+
+function resolveBillingAddressFromBooking(booking) {
+  if (!booking) return null;
+  return normalizeBillingAddress(booking.guestInfo?.billingAddress)
+    || resolveBillingAddressFromCustomer(booking.customerId)
+    || null;
+}
+
+function resolveShippingAddressFromCustomer(customer) {
+  if (!customer) return null;
+  return normalizeShippingAddress(customer.paymentAddress)
+    || normalizeShippingAddress(customer.shippingAddress)
+    || normalizeShippingAddress(customer.invoiceAddress)
+    || null;
+}
+
+function resolveShippingAddressFromOrder(order) {
+  if (!order) return null;
+  return normalizeShippingAddress(order.guestInfo?.shippingAddress)
+    || normalizeShippingAddress(order.shippingAddress)
+    || resolveShippingAddressFromCustomer(order.customerId)
+    || null;
+}
+
+function resolveShippingAddressFromBooking(booking) {
+  if (!booking) return null;
+  return normalizeShippingAddress(booking.guestInfo?.shippingAddress)
+    || normalizeShippingAddress(booking.shippingAddress)
+    || resolveShippingAddressFromCustomer(booking.customerId)
+    || null;
+}
+
 // Valid invoice status transitions
 const INVOICE_STATUS_TRANSITIONS = {
   draft:            ['pending_approval', 'sent', 'cancelled'],
@@ -413,6 +500,55 @@ class FinancialService {
         if (!cleanedInvoiceData.customerEmail) {
           cleanedInvoiceData.customerEmail = customer.email;
         }
+
+        if (!cleanedInvoiceData.billingAddress) {
+          cleanedInvoiceData.billingAddress = resolveBillingAddressFromCustomer(customer);
+        }
+      }
+
+      if (!cleanedInvoiceData.billingAddress && cleanedInvoiceData.orderId) {
+        const orderWithAddress = await Order.findById(cleanedInvoiceData.orderId)
+          .populate('customerId', 'invoiceAddress paymentAddress')
+          .select('guestInfo.billingAddress customerId')
+          .lean();
+        cleanedInvoiceData.billingAddress = resolveBillingAddressFromOrder(orderWithAddress);
+      }
+
+      if (!cleanedInvoiceData.billingAddress && cleanedInvoiceData.bookingId) {
+        const bookingWithAddress = await Booking.findById(cleanedInvoiceData.bookingId)
+          .populate('customerId', 'invoiceAddress paymentAddress')
+          .select('guestInfo.billingAddress guestInfo.shippingAddress shippingAddress customerId')
+          .lean();
+        cleanedInvoiceData.billingAddress = resolveBillingAddressFromBooking(bookingWithAddress);
+        if (!cleanedInvoiceData.shippingAddress) {
+          cleanedInvoiceData.shippingAddress = resolveShippingAddressFromBooking(bookingWithAddress);
+        }
+      }
+
+      if (!cleanedInvoiceData.shippingAddress && cleanedInvoiceData.orderId) {
+        const orderWithShippingAddress = await Order.findById(cleanedInvoiceData.orderId)
+          .populate('customerId', 'invoiceAddress paymentAddress shippingAddress')
+          .select('guestInfo.shippingAddress shippingAddress customerId')
+          .lean();
+        cleanedInvoiceData.shippingAddress = resolveShippingAddressFromOrder(orderWithShippingAddress);
+      }
+
+      if (!cleanedInvoiceData.shippingAddress && cleanedInvoiceData.customerId) {
+        const customerForShippingAddress = financialProfile.customer || await User.findById(cleanedInvoiceData.customerId)
+          .select('invoiceAddress paymentAddress shippingAddress')
+          .lean();
+        cleanedInvoiceData.shippingAddress = resolveShippingAddressFromCustomer(customerForShippingAddress);
+      }
+
+      if (cleanedInvoiceData.bookingId) {
+        const existingInvoice = await Invoice.findOne({ bookingId: cleanedInvoiceData.bookingId })
+          .select('_id invoiceNumber')
+          .lean();
+        if (existingInvoice) {
+          const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+          duplicateError.statusCode = 409;
+          throw duplicateError;
+        }
       }
 
       // Apply financial defaults if not explicitly provided
@@ -444,6 +580,7 @@ class FinancialService {
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
       await invoice.save();
+      await FinancialService.syncBookingPaymentStatus(invoice);
 
       console.log('FinancialService: Invoice created successfully with defaults applied');
       return invoice;
@@ -505,6 +642,8 @@ class FinancialService {
       invoice.status = 'sent';
       invoice.sentAt = new Date();
       await invoice.save();
+      await FinancialService.syncBookingPaymentStatus(invoice);
+      await FinancialService.syncBookingPaymentStatus(invoice);
 
       await NotificationService.createNotification({
         userId: invoice.customerId,
@@ -1034,6 +1173,17 @@ class FinancialService {
         throw new Error('Order not found');
       }
 
+      if (order.bookingId) {
+        const existingInvoice = await Invoice.findOne({ bookingId: order.bookingId })
+          .select('_id invoiceNumber')
+          .lean();
+        if (existingInvoice) {
+          const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+          duplicateError.statusCode = 409;
+          throw duplicateError;
+        }
+      }
+
       const financialProfile = await FinancialService.resolveFinancialProfile({ customer: order.customerId });
 
       // Convert totalCost to number if it's a Decimal128
@@ -1072,9 +1222,12 @@ class FinancialService {
 
       const invoice = new Invoice({
         orderId: order._id,
+        bookingId: order.bookingId || undefined,
         customerId: order.customerId._id,
         customerName: order.customerId.name,
         customerEmail: order.customerId.email,
+        billingAddress: resolveBillingAddressFromOrder(order),
+        shippingAddress: resolveShippingAddressFromOrder(order),
         items,
         subtotal,
         tax: subtotal * taxRate,
@@ -1162,12 +1315,29 @@ class FinancialService {
       : calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
     const total    = subtotal + tax - discount;
 
+    const bookingIds = [...new Set(orders.map((order) => order.bookingId ? String(order.bookingId) : '').filter(Boolean))];
+    const bookingId = bookingIds.length === 1 ? bookingIds[0] : undefined;
+
+    if (bookingId) {
+      const existingInvoice = await Invoice.findOne({ bookingId })
+        .select('_id invoiceNumber')
+        .lean();
+      if (existingInvoice) {
+        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+        duplicateError.statusCode = 409;
+        throw duplicateError;
+      }
+    }
+
     const invoiceData = {
       repairOrderIds,
       orderId: orders.length === 1 ? orders[0]._id : undefined,
+      bookingId,
       customerId:    customer._id,
       customerName:  customer.name,
       customerEmail: customer.email,
+      billingAddress: resolveBillingAddressFromOrder(orders[0]),
+      shippingAddress: resolveShippingAddressFromOrder(orders[0]),
       items,
       subtotal,
       tax,
@@ -1182,6 +1352,7 @@ class FinancialService {
 
     const invoice = new Invoice(invoiceData);
     await invoice.save();
+    await FinancialService.syncBookingPaymentStatus(invoice);
 
     console.log('FinancialService: Invoice generated from repair orders:', invoice.invoiceNumber);
     return invoice;
@@ -1217,7 +1388,51 @@ class FinancialService {
     if (data.notes) invoice.notes = data.notes;
 
     await invoice.save();
+
+    await FinancialService.syncBookingPaymentStatus(invoice);
+
     return invoice;
+  }
+
+  static async syncBookingPaymentStatus(invoiceInput) {
+    const invoice = invoiceInput && typeof invoiceInput.toObject === 'function'
+      ? invoiceInput.toObject()
+      : invoiceInput;
+    if (!invoice) return;
+
+    let bookingId = invoice.bookingId;
+
+    if (!bookingId && invoice.orderId) {
+      const order = await Order.findById(invoice.orderId).select('bookingId').lean();
+      bookingId = order?.bookingId;
+    }
+
+    if (!bookingId && Array.isArray(invoice.repairOrderIds) && invoice.repairOrderIds.length > 0) {
+      const linkedOrder = await Order.findOne({
+        _id: { $in: invoice.repairOrderIds },
+        bookingId: { $ne: null }
+      }).select('bookingId').lean();
+      bookingId = linkedOrder?.bookingId;
+    }
+
+    if (!bookingId) return;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return;
+
+    const invoiceStatus = String(invoice.status || 'draft');
+    const invoiceLikeStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
+    booking.paymentStatus = invoiceLikeStatuses.includes(invoiceStatus) ? invoiceStatus : 'pending';
+
+    if (invoiceStatus === 'paid') {
+      booking.billingStatus = 'paid';
+    } else if (invoiceStatus === 'partially_paid') {
+      booking.billingStatus = 'partially-paid';
+    } else {
+      booking.billingStatus = 'unpaid';
+    }
+
+    await booking.save();
   }
 
   // Record a partial (or full) payment against an invoice
@@ -1267,6 +1482,8 @@ class FinancialService {
     }
 
     await invoice.save();
+
+    await FinancialService.syncBookingPaymentStatus(invoice);
 
     return { payment, invoice };
   }
@@ -1339,6 +1556,41 @@ class FinancialService {
     const invoice = await Invoice.findById(invoiceId)
       .populate('creditNoteOf', 'invoiceNumber status total createdAt isCreditNote');
     if (!invoice) throw new Error('Invoice not found');
+
+    // Hydrate missing addresses for legacy invoices or paths that stored incomplete address data.
+    const hasBillingAddress = normalizeBillingAddress(invoice.billingAddress);
+    const hasShippingAddress = normalizeShippingAddress(invoice.shippingAddress);
+    if (!hasBillingAddress || !hasShippingAddress) {
+      let orderContext = null;
+      if (invoice.orderId) {
+        orderContext = await Order.findById(invoice.orderId)
+          .populate('customerId', 'invoiceAddress paymentAddress shippingAddress')
+          .select('guestInfo.billingAddress guestInfo.shippingAddress billingAddress shippingAddress customerId')
+          .lean();
+      }
+
+      let bookingContext = null;
+      if (invoice.bookingId) {
+        bookingContext = await Booking.findById(invoice.bookingId)
+          .populate('customerId', 'invoiceAddress paymentAddress shippingAddress')
+          .select('guestInfo.billingAddress guestInfo.shippingAddress billingAddress shippingAddress customerId')
+          .lean();
+      }
+
+      if (!hasBillingAddress) {
+        invoice.billingAddress =
+          resolveBillingAddressFromBooking(bookingContext)
+          || resolveBillingAddressFromOrder(orderContext)
+          || invoice.billingAddress;
+      }
+
+      if (!hasShippingAddress) {
+        invoice.shippingAddress =
+          resolveShippingAddressFromBooking(bookingContext)
+          || resolveShippingAddressFromOrder(orderContext)
+          || invoice.shippingAddress;
+      }
+    }
 
     // Payments directly booked against this invoice
     const payments = await Payment.find({ invoiceId: invoice._id })

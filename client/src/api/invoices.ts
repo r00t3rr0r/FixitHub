@@ -32,7 +32,9 @@ export interface Invoice {
     street?: string;
     city?: string;
     zip?: string;
+    zipCode?: string;
     country?: string;
+    state?: string;
   };
   paymentMethod?: string;
   amountPaid?: number;

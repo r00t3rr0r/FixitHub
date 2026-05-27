@@ -378,7 +378,7 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error previewing invoice:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
     });
@@ -410,7 +410,7 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error creating invoice:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
     });

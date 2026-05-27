@@ -96,6 +96,20 @@ interface Booking {
     invoiceAddress?: AddressFields;
     paymentAddress?: AddressFields & { sameAsInvoice?: boolean };
   };
+  guestInfo?: {
+    billingAddress?: AddressFields;
+    shippingAddress?: AddressFields;
+  };
+  billingAddress?: AddressFields;
+  shippingAddress?: AddressFields;
+  orderIds?: Array<{
+    billingAddress?: AddressFields;
+    shippingAddress?: AddressFields;
+    guestInfo?: {
+      billingAddress?: AddressFields;
+      shippingAddress?: AddressFields;
+    };
+  }>;
   items: Array<{
     _id?: string;
     type: string;
@@ -120,6 +134,7 @@ interface Booking {
   totalCost: number;
   status: string;
   billingStatus: string;
+  paymentStatus?: string;
   overallProgress: number;
   createdAt: string;
   updatedAt: string;
@@ -462,6 +477,16 @@ export function CustomerBookings() {
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'badge badge-pending';
+      case 'sent':
+        return 'badge badge-processing';
+      case 'viewed':
+        return 'badge badge-processing';
+      case 'overdue':
+        return 'badge badge-unpaid';
+      case 'partially_paid':
+        return 'badge badge-partially-paid';
       case 'unpaid':
         return 'badge badge-unpaid';
       case 'partially-paid':
@@ -470,6 +495,35 @@ export function CustomerBookings() {
         return 'badge badge-paid';
       default:
         return 'badge';
+    }
+  };
+
+  const getEffectivePaymentStatus = (booking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
+    const candidate = String(booking.paymentStatus || '');
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus;
+  };
+
+  const getBillingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'Vorlage';
+      case 'sent':
+        return 'Gesendet';
+      case 'viewed':
+        return 'Angesehen';
+      case 'partially_paid':
+        return 'Teilweise Bezahlt';
+      case 'overdue':
+        return 'Ueberfaellig';
+      case 'unpaid':
+        return 'Offen';
+      case 'partially-paid':
+        return 'Teilbezahlt';
+      case 'paid':
+        return 'Bezahlt';
+      default:
+        return status;
     }
   };
 
@@ -667,8 +721,8 @@ export function CustomerBookings() {
                           </Badge>
                         </TableCell>
                         <TableCell className="py-5" data-label="Billing">
-                          <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                            {t(`billingStatus.${booking.billingStatus}`)}
+                          <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                            {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                           </Badge>
                         </TableCell>
                         <TableCell className="py-5" data-label="Progress">
@@ -770,8 +824,8 @@ export function CustomerBookings() {
                                 <div className="info-grid">
                                   <div className="info-item">
                                     <div className="info-label">{t('bookings.billing')}</div>
-                                    <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                                      {t(`billingStatus.${booking.billingStatus}`)}
+                                    <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                                      {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                                     </Badge>
                                   </div>
                                   {booking.returnShipmentStatus && (
@@ -1301,6 +1355,35 @@ function BookingDetailDialog({
 
   const repairItems = (booking.items || []).filter((item) => item.type === 'repair');
 
+  const getEffectivePaymentStatus = (currentBooking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
+    const candidate = String(currentBooking.paymentStatus || '');
+    return invoiceStatuses.includes(candidate) ? candidate : currentBooking.billingStatus;
+  };
+
+  const getBillingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'Vorlage';
+      case 'sent':
+        return 'Gesendet';
+      case 'viewed':
+        return 'Angesehen';
+      case 'partially_paid':
+        return 'Teilweise Bezahlt';
+      case 'overdue':
+        return 'Ueberfaellig';
+      case 'unpaid':
+        return 'Offen';
+      case 'partially-paid':
+        return 'Teilbezahlt';
+      case 'paid':
+        return 'Bezahlt';
+      default:
+        return status;
+    }
+  };
+
   const getRepairImageKey = (item: Booking['items'][number], index: number) => {
     return String(item.orderId || item._id || `${item.device || 'repair'}-${index}`);
   };
@@ -1560,7 +1643,7 @@ function BookingDetailDialog({
               Versand
             </TabsTrigger>
             <TabsTrigger value="timeline" className="booking-detail-tab-trigger" style={tabStyle("timeline")}>
-              Verlauf
+              {t('bookings.timeline')}
             </TabsTrigger>
           </TabsList>
             );
@@ -1595,8 +1678,18 @@ function BookingDetailDialog({
 
                   {/* Billing address */}
                   {(() => {
-                    const addr = booking.customerId.invoiceAddress;
-                    const hasAddr = addr && (addr.street || addr.city || addr.zipCode || addr.state);
+                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
+                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+                    );
+                    const firstOrder = Array.isArray(booking.orderIds)
+                      ? booking.orderIds.find((order) => order && typeof order === 'object')
+                      : undefined;
+                    const addr = booking.customerId?.invoiceAddress
+                      || booking.billingAddress
+                      || booking.guestInfo?.billingAddress
+                      || firstOrder?.billingAddress
+                      || firstOrder?.guestInfo?.billingAddress;
+                    const hasAddr = hasAddressData(addr);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -1618,10 +1711,26 @@ function BookingDetailDialog({
 
                   {/* Delivery address */}
                   {(() => {
-                    const payAddr = booking.customerId.paymentAddress;
-                    const billAddr = booking.customerId.invoiceAddress;
-                    const hasBillAddr = billAddr && (billAddr.street || billAddr.city || billAddr.zipCode || billAddr.state);
-                    const sameAsInvoice = payAddr?.sameAsInvoice !== false;
+                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
+                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+                    );
+                    const firstOrder = Array.isArray(booking.orderIds)
+                      ? booking.orderIds.find((order) => order && typeof order === 'object')
+                      : undefined;
+                    const payAddr = booking.customerId?.paymentAddress;
+                    const billAddr = booking.customerId?.invoiceAddress
+                      || booking.billingAddress
+                      || booking.guestInfo?.billingAddress
+                      || firstOrder?.billingAddress
+                      || firstOrder?.guestInfo?.billingAddress;
+                    const deliveryAddr = payAddr?.sameAsInvoice === false
+                      ? payAddr
+                      : booking.shippingAddress
+                        || booking.guestInfo?.shippingAddress
+                        || firstOrder?.shippingAddress
+                        || firstOrder?.guestInfo?.shippingAddress;
+                    const hasBillAddr = hasAddressData(billAddr);
+                    const sameAsInvoice = payAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr);
                     if (sameAsInvoice) {
                       return (
                         <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
@@ -1637,7 +1746,7 @@ function BookingDetailDialog({
                         </div>
                       );
                     }
-                    const hasPayAddr = payAddr && (payAddr.street || payAddr.city || payAddr.zipCode || payAddr.state);
+                    const hasPayAddr = hasAddressData(deliveryAddr);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -1646,9 +1755,9 @@ function BookingDetailDialog({
                         </div>
                         {hasPayAddr ? (
                           <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                            {payAddr!.street && <p>{payAddr!.street}</p>}
-                            {(payAddr!.zipCode || payAddr!.city) && <p>{[payAddr!.zipCode, payAddr!.city].filter(Boolean).join(' ')}</p>}
-                            {payAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{payAddr!.country}</p>}
+                            {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
+                            {(deliveryAddr!.zipCode || deliveryAddr!.city) && <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>}
+                            {deliveryAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{deliveryAddr!.country}</p>}
                           </div>
                         ) : (
                           <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
@@ -1671,7 +1780,7 @@ function BookingDetailDialog({
                   </div>
                   <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                     <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Abrechnung</p>
-                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{t(`status.${booking.billingStatus}`)}</Badge>
+                    <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{getBillingStatusLabel(getEffectivePaymentStatus(booking))}</Badge>
                   </div>
                 </div>
               </div>

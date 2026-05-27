@@ -118,6 +118,7 @@ interface AddressFields {
   street?: string
   city?: string
   state?: string
+  zip?: string
   zipCode?: string
   country?: string
 }
@@ -145,6 +146,8 @@ interface Booking {
     billingAddress?: AddressFields
     shippingAddress?: AddressFields
   }
+  billingAddress?: AddressFields
+  shippingAddress?: AddressFields
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
   hasComplaintOrders?: boolean
@@ -260,6 +263,10 @@ const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
   return customer.name || customer.email || 'Unknown customer'
 }
 
+const hasAddressData = (addr?: AddressFields | null) => Boolean(
+  addr && (addr.street || addr.city || addr.zipCode || addr.zip || addr.state || addr.country)
+)
+
 export function BookingsManagement() {
   console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
@@ -289,6 +296,9 @@ export function BookingsManagement() {
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
+  const [quickPayBookingId, setQuickPayBookingId] = useState<string | null>(null)
+  const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
+  const [detailInvoiceStatusFocus, setDetailInvoiceStatusFocus] = useState<string | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -540,7 +550,16 @@ export function BookingsManagement() {
     setCommunicationDialogOpen(true)
   }
 
-  const handleViewDetails = async (booking: Booking) => {
+  const handleViewDetails = async (
+    booking: Booking,
+    options?: {
+      initialTab?: "overview" | "invoices"
+      invoiceStatusFocus?: string | null
+    }
+  ) => {
+    setDetailInitialTab(options?.initialTab || "overview")
+    setDetailInvoiceStatusFocus(options?.invoiceStatusFocus || null)
+
     try {
       const response = await getBooking(booking._id)
       setSelectedBooking(response.booking)
@@ -620,6 +639,33 @@ export function BookingsManagement() {
       })
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const handleQuickSetPaid = async (booking: Booking) => {
+    if (quickPayBookingId) return
+
+    const effectivePaymentStatus = getEffectivePaymentStatus(booking)
+    if (effectivePaymentStatus === 'paid') {
+      return
+    }
+
+    try {
+      setQuickPayBookingId(booking._id)
+      await updateBookingBillingStatus(booking._id, 'paid', 'paid')
+      toast({
+        title: t('common.success'),
+        description: 'Zahlungsstatus auf Bezahlt gesetzt'
+      })
+      await fetchBookings()
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: 'Zahlungsstatus konnte nicht auf Bezahlt gesetzt werden',
+        variant: 'destructive'
+      })
+    } finally {
+      setQuickPayBookingId(null)
     }
   }
 
@@ -788,6 +834,16 @@ export function BookingsManagement() {
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200'
+      case 'sent':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'viewed':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+      case 'overdue':
+        return 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+      case 'partially_paid':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
       case 'unpaid':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
       case 'partially-paid':
@@ -818,6 +874,16 @@ export function BookingsManagement() {
 
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Vorlage'
+      case 'sent':
+        return 'Gesendet'
+      case 'viewed':
+        return 'Angesehen'
+      case 'partially_paid':
+        return 'Teilweise Bezahlt'
+      case 'overdue':
+        return 'Ueberfaellig'
       case 'unpaid':
         return 'Offen'
       case 'partially-paid':
@@ -827,6 +893,12 @@ export function BookingsManagement() {
       default:
         return status
     }
+  }
+
+  const getEffectivePaymentStatus = (booking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue']
+    const candidate = String(booking.paymentStatus || '')
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
   }
 
   const getShippingStatusLabel = (status?: string) => {
@@ -1194,9 +1266,38 @@ export function BookingsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                          {getBillingStatusLabel(booking.billingStatus)}
-                        </Badge>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="booking-payment-status-anchor"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleViewDetails(booking, {
+                                initialTab: "invoices",
+                                invoiceStatusFocus: getEffectivePaymentStatus(booking)
+                              })
+                            }}
+                            title="Zum passenden Rechnungsstatus springen"
+                          >
+                            <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                              {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
+                            </Badge>
+                          </button>
+
+                          <label className="inline-flex items-center gap-1 text-[11px] text-foreground/70">
+                            <input
+                              type="radio"
+                              name={`booking-paid-${booking._id}`}
+                              checked={getEffectivePaymentStatus(booking) === 'paid'}
+                              disabled={quickPayBookingId === booking._id}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => {
+                                void handleQuickSetPaid(booking)
+                              }}
+                            />
+                            Bezahlt
+                          </label>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {openAmountInfo.type === 'settled' ? (
@@ -1316,8 +1417,39 @@ export function BookingsManagement() {
                               <Eye className="h-4 w-4 mr-2" />
                               Details anzeigen
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
+                            <DropdownMenuItem
+                              disabled={booking.status !== 'completed'}
+                              onClick={async () => {
+                              if (booking.status !== 'completed') {
+                                toast({
+                                  title: 'Rechnung nicht moeglich',
+                                  description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+                                  variant: 'destructive'
+                                })
+                                return
+                              }
+
+                              try {
+                                const existingInvoicesResponse = await getBookingInvoices(booking._id)
+                                if ((existingInvoicesResponse?.invoices || []).length > 0) {
+                                  toast({
+                                    title: 'Rechnung bereits vorhanden',
+                                    description: 'Pro Buchung kann nur eine Rechnung erstellt werden.',
+                                    variant: 'destructive'
+                                  })
+                                  return
+                                }
+                              } catch (error) {
+                                console.error('BookingsManagement: Failed to check existing booking invoices:', error)
+                              }
+
+                              try {
+                                const response = await getBooking(booking._id)
+                                setSelectedBooking(response?.booking || booking)
+                              } catch (error) {
+                                console.error('BookingsManagement: Failed to load full booking for invoice dialog:', error)
+                                setSelectedBooking(booking)
+                              }
                               setShowInvoiceDialog(true)
                             }}>
                               <FileText className="h-4 w-4 mr-2" />
@@ -1369,15 +1501,21 @@ export function BookingsManagement() {
                           if (!open) {
                             setShowDetailDialog(false)
                             setSelectedBooking(null)
+                            setDetailInitialTab("overview")
+                            setDetailInvoiceStatusFocus(null)
                           }
                         }}>
                           {selectedBooking?._id === booking._id && (
                             <BookingDetailDialog
                               booking={selectedBooking}
                               navigate={navigate}
+                              initialTab={detailInitialTab}
+                              invoiceStatusFocus={detailInvoiceStatusFocus}
                               onStatusUpdate={() => {
                                 setSelectedBooking(null)
                                 setShowDetailDialog(false)
+                                setDetailInitialTab("overview")
+                                setDetailInvoiceStatusFocus(null)
                                 fetchBookings()
                               }}
                             />
@@ -1402,8 +1540,8 @@ export function BookingsManagement() {
                               <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                                 <div>
                                   <span className="text-foreground/60">Zahlungsstatus:</span>
-                                  <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
-                                    {getBillingStatusLabel(booking.billingStatus)}
+                                  <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} ml-2`}>
+                                    {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                                   </Badge>
                                 </div>
                                 <div className="text-right">
@@ -1817,17 +1955,21 @@ export function BookingsManagement() {
 function BookingDetailDialog({
   booking,
   navigate,
+  initialTab,
+  invoiceStatusFocus,
   onStatusUpdate
 }: {
   booking: Booking;
   navigate: any;
+  initialTab?: "overview" | "invoices";
+  invoiceStatusFocus?: string | null;
   onStatusUpdate: () => void
 }) {
   const { t } = useTranslation()
   const location = useLocation()
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState(initialTab || "overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
   const [newBillingStatus, setNewBillingStatus] = useState(booking.billingStatus)
@@ -1836,6 +1978,10 @@ function BookingDetailDialog({
   const [detailOrders, setDetailOrders] = useState<any[]>([])
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(true)
   const { toast } = useToast()
+
+  useEffect(() => {
+    setActiveTab(initialTab || "overview")
+  }, [booking._id, initialTab])
 
   useEffect(() => {
     let isMounted = true
@@ -1957,6 +2103,16 @@ function BookingDetailDialog({
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800'
+      case 'sent':
+        return 'bg-blue-100 text-blue-800'
+      case 'viewed':
+        return 'bg-indigo-100 text-indigo-800'
+      case 'overdue':
+        return 'bg-rose-100 text-rose-800'
+      case 'partially_paid':
+        return 'bg-orange-100 text-orange-800'
       case 'unpaid':
         return 'bg-red-100 text-red-800'
       case 'partially-paid':
@@ -1987,6 +2143,16 @@ function BookingDetailDialog({
 
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Vorlage'
+      case 'sent':
+        return 'Gesendet'
+      case 'viewed':
+        return 'Angesehen'
+      case 'partially_paid':
+        return 'Teilweise Bezahlt'
+      case 'overdue':
+        return 'Ueberfaellig'
       case 'unpaid':
         return 'Offen'
       case 'partially-paid':
@@ -1997,6 +2163,12 @@ function BookingDetailDialog({
         return status
     }
   }
+
+  const effectivePaymentStatus = (() => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue']
+    const candidate = String(booking.paymentStatus || '')
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
+  })()
 
   const getShippingStatusLabel = (status?: string) => {
     switch (status) {
@@ -2287,7 +2459,7 @@ function BookingDetailDialog({
               transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
             }}
           >
-            Verlauf
+            {t('bookings.timeline')}
           </TabsTrigger>
         </TabsList>
 
@@ -2354,8 +2526,15 @@ function BookingDetailDialog({
 
               {/* Billing address */}
               {(() => {
-                const addr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
-                const hasAddr = addr && (addr.street || addr.city || addr.zipCode)
+                const firstOrder = Array.isArray(booking.orderIds)
+                  ? booking.orderIds.find((order) => order && typeof order === 'object')
+                  : undefined
+                const addr = booking.customerId?.invoiceAddress
+                  || booking.billingAddress
+                  || booking.guestInfo?.billingAddress
+                  || firstOrder?.billingAddress
+                  || firstOrder?.guestInfo?.billingAddress
+                const hasAddr = hasAddressData(addr)
                 return (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
@@ -2367,8 +2546,8 @@ function BookingDetailDialog({
                     {hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
                         {addr!.street && <p>{addr!.street}</p>}
-                        {(addr!.zipCode || addr!.city) && (
-                          <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>
+                        {(addr!.zipCode || addr!.zip || addr!.city) && (
+                          <p>{[addr!.zipCode || addr!.zip, addr!.city].filter(Boolean).join(' ')}</p>
                         )}
                         {addr!.state && <p>{addr!.state}</p>}
                         {addr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{addr!.country}</p>}
@@ -2382,12 +2561,23 @@ function BookingDetailDialog({
 
               {/* Shipping/delivery address */}
               {(() => {
-                const billingAddr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
-                const deliveryAddr = booking.customerId?.paymentAddress?.sameAsInvoice === false
-                  ? booking.customerId.paymentAddress
-                  : booking.guestInfo?.shippingAddress
-                const hasAddr = deliveryAddr && (deliveryAddr.street || deliveryAddr.city || deliveryAddr.zipCode)
-                const sameAsBilling = booking.customerId?.paymentAddress?.sameAsInvoice !== false && !booking.guestInfo?.shippingAddress
+                const firstOrder = Array.isArray(booking.orderIds)
+                  ? booking.orderIds.find((order) => order && typeof order === 'object')
+                  : undefined
+                const billingAddr = booking.customerId?.invoiceAddress
+                  || booking.billingAddress
+                  || booking.guestInfo?.billingAddress
+                  || firstOrder?.billingAddress
+                  || firstOrder?.guestInfo?.billingAddress
+                const customerPaymentAddr = booking.customerId?.paymentAddress
+                const deliveryAddr = customerPaymentAddr?.sameAsInvoice === false
+                  ? customerPaymentAddr
+                  : booking.shippingAddress
+                    || booking.guestInfo?.shippingAddress
+                    || firstOrder?.shippingAddress
+                    || firstOrder?.guestInfo?.shippingAddress
+                const hasAddr = hasAddressData(deliveryAddr)
+                const sameAsBilling = customerPaymentAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr)
 
                 return (
                   <div>
@@ -2397,13 +2587,13 @@ function BookingDetailDialog({
                         Lieferadresse
                       </p>
                     </div>
-                    {sameAsBilling && (billingAddr?.street || billingAddr?.city) ? (
+                    {sameAsBilling && hasAddressData(billingAddr) ? (
                       <p className="text-sm italic" style={{ color: 'var(--gray-400, #8892a8)' }}>Identisch mit Rechnungsadresse</p>
                     ) : hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
                         {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
-                        {(deliveryAddr!.zipCode || deliveryAddr!.city) && (
-                          <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
+                        {(deliveryAddr!.zipCode || deliveryAddr!.zip || deliveryAddr!.city) && (
+                          <p>{[deliveryAddr!.zipCode || deliveryAddr!.zip, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
                         )}
                         {deliveryAddr!.state && <p>{deliveryAddr!.state}</p>}
                         {deliveryAddr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{deliveryAddr!.country}</p>}
@@ -2447,7 +2637,7 @@ function BookingDetailDialog({
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
                     Zahlungsstatus
                   </p>
-                  <Badge className={getBillingStatusColor(booking.billingStatus)}>{getBillingStatusLabel(booking.billingStatus)}</Badge>
+                  <Badge className={getBillingStatusColor(effectivePaymentStatus)}>{getBillingStatusLabel(effectivePaymentStatus)}</Badge>
                 </div>
                 <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--gray-100, #eceef3)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
@@ -3331,7 +3521,11 @@ function BookingDetailDialog({
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-4 mt-4">
-          <InvoicesTabContent booking={booking} />
+          <InvoicesTabContent
+            booking={booking}
+            navigate={navigate}
+            highlightStatus={activeTab === 'invoices' ? invoiceStatusFocus : null}
+          />
         </TabsContent>
 
         <TabsContent value="timeline" className="space-y-4 mt-4">
@@ -3414,13 +3608,14 @@ function BookingDetailDialog({
 
 // Invoices Tab Content Component
 // Description: Display invoices for a booking with reminder actions
-function InvoicesTabContent({ booking }: { booking: Booking }) {
+function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: Booking; navigate: any; highlightStatus?: string | null }) {
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -3448,6 +3643,49 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
     setSelectedInvoice(invoice)
     setReminderDialogOpen(true)
   }
+
+  useEffect(() => {
+    if (!highlightStatus || invoices.length === 0) {
+      return
+    }
+
+    const normalizedStatus = String(highlightStatus)
+    const statusCandidates = (() => {
+      switch (normalizedStatus) {
+        case 'unpaid':
+          return ['draft', 'sent', 'viewed', 'overdue', 'pending']
+        case 'partially-paid':
+          return ['partially_paid']
+        case 'paid':
+          return ['paid']
+        default:
+          return [normalizedStatus]
+      }
+    })()
+
+    const targetInvoice = invoices.find((invoice) => statusCandidates.includes(String(invoice.status)))
+    if (!targetInvoice?._id) {
+      return
+    }
+
+    setHighlightedInvoiceId(targetInvoice._id)
+
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-invoice-id="${targetInvoice._id}"]`)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 40)
+
+    const clearTimer = window.setTimeout(() => {
+      setHighlightedInvoiceId(null)
+    }, 4500)
+
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(clearTimer)
+    }
+  }, [highlightStatus, invoices])
 
   const getInvoiceStatusColor = (status: string) => {
     switch (status) {
@@ -3500,7 +3738,13 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
     <>
       <div className="space-y-3">
         {invoices.map((invoice) => (
-          <div key={invoice._id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+          <div
+            key={invoice._id}
+            data-invoice-id={invoice._id}
+            className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${highlightedInvoiceId === invoice._id ? 'invoice-card-highlight' : ''}`}
+            onClick={() => navigate(`/admin/financial?tab=invoices&highlightInvoiceId=${invoice._id}`)}
+            title="Zur Finanzverwaltung und dieser Rechnung wechseln"
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
@@ -3540,7 +3784,10 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleSendReminder(invoice)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleSendReminder(invoice)
+                    }}
                   >
                     <Bell className="h-4 w-4 mr-1" />
                     Erinnerung senden
@@ -3549,7 +3796,8 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation()
                     // Open invoice in new tab or download
                     window.open(`/api/invoices/${invoice._id}/pdf`, '_blank')
                   }}
@@ -3660,6 +3908,42 @@ function InvoiceDialog({
   const [sendImmediately, setSendImmediately] = useState(false)
   const { toast } = useToast()
 
+  const firstOrder = useMemo(() => {
+    if (!Array.isArray(booking.orderIds)) {
+      return undefined
+    }
+    return booking.orderIds.find((order) => order && typeof order === 'object')
+  }, [booking.orderIds])
+
+  const bookingBillingAddress =
+    booking.customerId?.invoiceAddress ||
+    booking.billingAddress ||
+    booking.guestInfo?.billingAddress ||
+    firstOrder?.billingAddress ||
+    firstOrder?.guestInfo?.billingAddress
+
+  const customerPaymentAddress = booking.customerId?.paymentAddress
+  const bookingShippingAddress =
+    customerPaymentAddress?.sameAsInvoice === false
+      ? customerPaymentAddress
+      : booking.shippingAddress ||
+        booking.guestInfo?.shippingAddress ||
+        firstOrder?.shippingAddress ||
+        firstOrder?.guestInfo?.shippingAddress
+
+  const resolvedBillingAddress = hasAddressData(preview?.billingAddress)
+    ? preview.billingAddress
+    : bookingBillingAddress
+
+  const resolvedShippingAddress = hasAddressData(preview?.shippingAddress)
+    ? preview.shippingAddress
+    : bookingShippingAddress
+
+  const shippingSameAsBilling =
+    !hasAddressData(resolvedShippingAddress) && hasAddressData(resolvedBillingAddress)
+
+  const canCreateInvoice = booking.status === 'completed'
+
   useEffect(() => {
     if (open && booking) {
       loadPreview()
@@ -3667,14 +3951,20 @@ function InvoiceDialog({
   }, [open, booking])
 
   const loadPreview = async () => {
+    if (!canCreateInvoice) {
+      setPreview(null)
+      return
+    }
+
     try {
       setLoading(true)
       const response = await previewBookingInvoice(booking._id)
       setPreview(response.invoicePreview)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rechnungsvorschau konnte nicht geladen werden'
       toast({
         title: "Fehler",
-        description: "Rechnungsvorschau konnte nicht geladen werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -3683,6 +3973,15 @@ function InvoiceDialog({
   }
 
   const handleCreate = async () => {
+    if (!canCreateInvoice) {
+      toast({
+        title: 'Rechnung nicht moeglich',
+        description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     try {
       setLoading(true)
       await createBookingInvoice(booking._id, {
@@ -3691,9 +3990,10 @@ function InvoiceDialog({
       })
       onSuccess()
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rechnung konnte nicht erstellt werden'
       toast({
         title: "Fehler",
-        description: "Rechnung konnte nicht erstellt werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -3708,6 +4008,28 @@ function InvoiceDialog({
     }).format(value)
   }
 
+  const renderAddressBlock = (title: string, address?: AddressFields | null, fallback?: string) => {
+    const hasAddress = hasAddressData(address)
+
+    return (
+      <div className="border rounded-lg p-4 bg-muted/20">
+        <h3 className="font-semibold mb-2">{title}</h3>
+        {hasAddress ? (
+          <div className="space-y-0.5 text-sm text-foreground/80">
+            {address?.street && <p>{address.street}</p>}
+            {(address?.zipCode || address?.zip || address?.city) && (
+              <p>{[address?.zipCode || address?.zip, address?.city].filter(Boolean).join(' ')}</p>
+            )}
+            {address?.state && <p>{address.state}</p>}
+            {address?.country && <p>{address.country}</p>}
+          </div>
+        ) : (
+          <p className="text-sm text-foreground/50">{fallback || 'Nicht angegeben'}</p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -3720,12 +4042,26 @@ function InvoiceDialog({
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
+        ) : !canCreateInvoice ? (
+          <div className="text-center py-8">
+            <p className="text-sm font-medium">Rechnungserstellung noch nicht verfuegbar</p>
+            <p className="text-sm text-foreground/60 mt-1">
+              Diese Buchung hat den Status "{booking.status}". Eine Rechnung kann erst bei Status "Abgeschlossen" erstellt werden.
+            </p>
+          </div>
         ) : preview ? (
           <div className="space-y-4">
             <div className="border rounded-lg p-4 bg-muted/30">
               <h3 className="font-semibold mb-2">Kundeninformationen</h3>
               <p className="text-sm">{preview.customerName}</p>
               <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
+              {shippingSameAsBilling
+                ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
+                : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
             </div>
 
             <div className="border rounded-lg p-4">
@@ -3805,7 +4141,7 @@ function InvoiceDialog({
           <Button variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
-          <Button onClick={handleCreate} disabled={loading || !preview}>
+          <Button onClick={handleCreate} disabled={loading || !preview || !canCreateInvoice}>
             Rechnung erstellen
           </Button>
         </DialogFooter>
