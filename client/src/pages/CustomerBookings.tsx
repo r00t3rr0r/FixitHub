@@ -96,6 +96,20 @@ interface Booking {
     invoiceAddress?: AddressFields;
     paymentAddress?: AddressFields & { sameAsInvoice?: boolean };
   };
+  guestInfo?: {
+    billingAddress?: AddressFields;
+    shippingAddress?: AddressFields;
+  };
+  billingAddress?: AddressFields;
+  shippingAddress?: AddressFields;
+  orderIds?: Array<{
+    billingAddress?: AddressFields;
+    shippingAddress?: AddressFields;
+    guestInfo?: {
+      billingAddress?: AddressFields;
+      shippingAddress?: AddressFields;
+    };
+  }>;
   items: Array<{
     _id?: string;
     type: string;
@@ -1560,7 +1574,7 @@ function BookingDetailDialog({
               Versand
             </TabsTrigger>
             <TabsTrigger value="timeline" className="booking-detail-tab-trigger" style={tabStyle("timeline")}>
-              Verlauf
+              {t('bookings.timeline')}
             </TabsTrigger>
           </TabsList>
             );
@@ -1595,8 +1609,18 @@ function BookingDetailDialog({
 
                   {/* Billing address */}
                   {(() => {
-                    const addr = booking.customerId.invoiceAddress;
-                    const hasAddr = addr && (addr.street || addr.city || addr.zipCode || addr.state);
+                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
+                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+                    );
+                    const firstOrder = Array.isArray(booking.orderIds)
+                      ? booking.orderIds.find((order) => order && typeof order === 'object')
+                      : undefined;
+                    const addr = booking.customerId?.invoiceAddress
+                      || booking.billingAddress
+                      || booking.guestInfo?.billingAddress
+                      || firstOrder?.billingAddress
+                      || firstOrder?.guestInfo?.billingAddress;
+                    const hasAddr = hasAddressData(addr);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -1618,10 +1642,26 @@ function BookingDetailDialog({
 
                   {/* Delivery address */}
                   {(() => {
-                    const payAddr = booking.customerId.paymentAddress;
-                    const billAddr = booking.customerId.invoiceAddress;
-                    const hasBillAddr = billAddr && (billAddr.street || billAddr.city || billAddr.zipCode || billAddr.state);
-                    const sameAsInvoice = payAddr?.sameAsInvoice !== false;
+                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
+                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+                    );
+                    const firstOrder = Array.isArray(booking.orderIds)
+                      ? booking.orderIds.find((order) => order && typeof order === 'object')
+                      : undefined;
+                    const payAddr = booking.customerId?.paymentAddress;
+                    const billAddr = booking.customerId?.invoiceAddress
+                      || booking.billingAddress
+                      || booking.guestInfo?.billingAddress
+                      || firstOrder?.billingAddress
+                      || firstOrder?.guestInfo?.billingAddress;
+                    const deliveryAddr = payAddr?.sameAsInvoice === false
+                      ? payAddr
+                      : booking.shippingAddress
+                        || booking.guestInfo?.shippingAddress
+                        || firstOrder?.shippingAddress
+                        || firstOrder?.guestInfo?.shippingAddress;
+                    const hasBillAddr = hasAddressData(billAddr);
+                    const sameAsInvoice = payAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr);
                     if (sameAsInvoice) {
                       return (
                         <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
@@ -1637,7 +1677,7 @@ function BookingDetailDialog({
                         </div>
                       );
                     }
-                    const hasPayAddr = payAddr && (payAddr.street || payAddr.city || payAddr.zipCode || payAddr.state);
+                    const hasPayAddr = hasAddressData(deliveryAddr);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -1646,9 +1686,9 @@ function BookingDetailDialog({
                         </div>
                         {hasPayAddr ? (
                           <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                            {payAddr!.street && <p>{payAddr!.street}</p>}
-                            {(payAddr!.zipCode || payAddr!.city) && <p>{[payAddr!.zipCode, payAddr!.city].filter(Boolean).join(' ')}</p>}
-                            {payAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{payAddr!.country}</p>}
+                            {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
+                            {(deliveryAddr!.zipCode || deliveryAddr!.city) && <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>}
+                            {deliveryAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{deliveryAddr!.country}</p>}
                           </div>
                         ) : (
                           <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>

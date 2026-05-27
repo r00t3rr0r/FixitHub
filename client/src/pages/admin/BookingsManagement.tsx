@@ -260,6 +260,10 @@ const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
   return customer.name || customer.email || 'Unknown customer'
 }
 
+const hasAddressData = (addr?: AddressFields | null) => Boolean(
+  addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+)
+
 export function BookingsManagement() {
   console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
@@ -2287,7 +2291,7 @@ function BookingDetailDialog({
               transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
             }}
           >
-            Verlauf
+            {t('bookings.timeline')}
           </TabsTrigger>
         </TabsList>
 
@@ -2354,8 +2358,15 @@ function BookingDetailDialog({
 
               {/* Billing address */}
               {(() => {
-                const addr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
-                const hasAddr = addr && (addr.street || addr.city || addr.zipCode)
+                const firstOrder = Array.isArray(booking.orderIds)
+                  ? booking.orderIds.find((order) => order && typeof order === 'object')
+                  : undefined
+                const addr = booking.customerId?.invoiceAddress
+                  || booking.billingAddress
+                  || booking.guestInfo?.billingAddress
+                  || firstOrder?.billingAddress
+                  || firstOrder?.guestInfo?.billingAddress
+                const hasAddr = hasAddressData(addr)
                 return (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
@@ -2382,12 +2393,23 @@ function BookingDetailDialog({
 
               {/* Shipping/delivery address */}
               {(() => {
-                const billingAddr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
-                const deliveryAddr = booking.customerId?.paymentAddress?.sameAsInvoice === false
-                  ? booking.customerId.paymentAddress
-                  : booking.guestInfo?.shippingAddress
-                const hasAddr = deliveryAddr && (deliveryAddr.street || deliveryAddr.city || deliveryAddr.zipCode)
-                const sameAsBilling = booking.customerId?.paymentAddress?.sameAsInvoice !== false && !booking.guestInfo?.shippingAddress
+                const firstOrder = Array.isArray(booking.orderIds)
+                  ? booking.orderIds.find((order) => order && typeof order === 'object')
+                  : undefined
+                const billingAddr = booking.customerId?.invoiceAddress
+                  || booking.billingAddress
+                  || booking.guestInfo?.billingAddress
+                  || firstOrder?.billingAddress
+                  || firstOrder?.guestInfo?.billingAddress
+                const customerPaymentAddr = booking.customerId?.paymentAddress
+                const deliveryAddr = customerPaymentAddr?.sameAsInvoice === false
+                  ? customerPaymentAddr
+                  : booking.shippingAddress
+                    || booking.guestInfo?.shippingAddress
+                    || firstOrder?.shippingAddress
+                    || firstOrder?.guestInfo?.shippingAddress
+                const hasAddr = hasAddressData(deliveryAddr)
+                const sameAsBilling = customerPaymentAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr)
 
                 return (
                   <div>
@@ -2397,7 +2419,7 @@ function BookingDetailDialog({
                         Lieferadresse
                       </p>
                     </div>
-                    {sameAsBilling && (billingAddr?.street || billingAddr?.city) ? (
+                    {sameAsBilling && hasAddressData(billingAddr) ? (
                       <p className="text-sm italic" style={{ color: 'var(--gray-400, #8892a8)' }}>Identisch mit Rechnungsadresse</p>
                     ) : hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>

@@ -877,7 +877,8 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone avatar invoiceAddress paymentAddress')
+        .setOptions({ skipAutoPopulate: true })
+        .populate('customerId', 'firstName lastName name email phone avatar invoiceAddress paymentAddress')
         .populate('orderIds')
         .populate('repairOrderIds')
         .populate('shopProductOrderId');

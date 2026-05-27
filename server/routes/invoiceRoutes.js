@@ -56,6 +56,14 @@ const validatePaymentAmount = (invoice, amount) => {
   return { numericAmount, remaining };
 };
 
+const buildPaypalInvoiceId = (invoice) => {
+  const rawBase = String(invoice?.invoiceNumber || invoice?._id || 'invoice')
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 90);
+  // Ensure uniqueness across retries/partial payments so PayPal does not reject with DUPLICATE_INVOICE_ID.
+  return `${rawBase}-${Date.now().toString(36)}`;
+};
+
 const getPaypalAccessToken = async (gateway) => {
   const config = gateway.configuration || {};
   const useLive = config.environment === 'live';
@@ -324,7 +332,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
             {
               reference_id: String(invoice._id),
               custom_id: String(invoice._id),
-              invoice_id: invoice.invoiceNumber || undefined,
+              invoice_id: buildPaypalInvoiceId(invoice),
               description: `Invoice ${invoice.invoiceNumber || invoice._id}`,
               amount: {
                 currency_code: currencyCode,
@@ -450,41 +458,46 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     if (gatewayProvider === 'paypal') {
       const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
 
-      let order;
-      try {
-        const captureResponse = await axios.post(
-          `${baseUrl}/v2/checkout/orders/${providerReference}/capture`,
-          {},
+      const paypalHeaders = {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      };
+
+      const fetchOrder = async () => {
+        const orderResponse = await axios.get(
+          `${baseUrl}/v2/checkout/orders/${providerReference}`,
           {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
+            headers: paypalHeaders,
             timeout: 15000
           }
         );
-        order = captureResponse.data;
-      } catch (captureError) {
-        // If PayPal returns 422 UNPROCESSABLE_ENTITY the order may have already been captured
-        // (e.g. via the popup redirect flow). Retrieve the order to verify completion.
-        const errName = captureError?.response?.data?.name;
-        if (captureError?.response?.status === 422 || errName === 'UNPROCESSABLE_ENTITY') {
-          const orderResponse = await axios.get(
-            `${baseUrl}/v2/checkout/orders/${providerReference}`,
+        return orderResponse.data;
+      };
+
+      // Check order status first to avoid sending an unnecessary capture request that would return 422.
+      let order = await fetchOrder();
+      if (order.status !== 'COMPLETED') {
+        try {
+          const captureResponse = await axios.post(
+            `${baseUrl}/v2/checkout/orders/${providerReference}/capture`,
+            {},
             {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              },
+              headers: paypalHeaders,
               timeout: 15000
             }
           );
-          order = orderResponse.data;
-          if (order.status !== 'COMPLETED') {
-            return res.status(400).json({ success: false, error: 'PayPal payment could not be completed.' });
+          order = captureResponse.data;
+        } catch (captureError) {
+          // If PayPal returns 422 UNPROCESSABLE_ENTITY the order may already be captured.
+          const errName = captureError?.response?.data?.name;
+          if (captureError?.response?.status === 422 || errName === 'UNPROCESSABLE_ENTITY') {
+            order = await fetchOrder();
+            if (order.status !== 'COMPLETED') {
+              return res.status(400).json({ success: false, error: 'PayPal payment could not be completed.' });
+            }
+          } else {
+            throw captureError;
           }
-        } else {
-          throw captureError;
         }
       }
 
@@ -493,7 +506,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       }
 
       const capture = order.purchase_units?.[0]?.payments?.captures?.[0];
-      finalAmount = Number(capture?.amount?.value || 0);
+      finalAmount = Number(capture?.amount?.value || order.purchase_units?.[0]?.amount?.value || 0);
       gatewayResponse = `PayPal order ${order.id} captured`;
       providerDetails = {
         orderId: order.id,

@@ -2391,6 +2391,7 @@
     "returnStatus": "Rückgabestatus",
     "returnShipping": "Rücksendung",
     "tracking": "Verfolgung",
+    "timeline": "Verlauf",
     "label": "Etikett",
     "qrCode": "QR-Code",
     "loadingOrders": "Aufträge werden geladen...",

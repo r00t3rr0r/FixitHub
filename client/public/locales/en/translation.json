@@ -2100,6 +2100,7 @@
     "returnStatus": "Return Status",
     "returnShipping": "Return Shipping",
     "tracking": "Tracking",
+    "timeline": "Timeline",
     "label": "Label",
     "qrCode": "QR Code",
     "loadingOrders": "Loading orders...",
