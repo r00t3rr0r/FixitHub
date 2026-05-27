@@ -296,6 +296,8 @@ export function BookingsManagement() {
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
+  const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
+  const [detailInvoiceStatusFocus, setDetailInvoiceStatusFocus] = useState<string | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -547,7 +549,16 @@ export function BookingsManagement() {
     setCommunicationDialogOpen(true)
   }
 
-  const handleViewDetails = async (booking: Booking) => {
+  const handleViewDetails = async (
+    booking: Booking,
+    options?: {
+      initialTab?: "overview" | "invoices"
+      invoiceStatusFocus?: string | null
+    }
+  ) => {
+    setDetailInitialTab(options?.initialTab || "overview")
+    setDetailInvoiceStatusFocus(options?.invoiceStatusFocus || null)
+
     try {
       const response = await getBooking(booking._id)
       setSelectedBooking(response.booking)
@@ -1227,9 +1238,22 @@ export function BookingsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
-                          {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
-                        </Badge>
+                        <button
+                          type="button"
+                          className="booking-payment-status-anchor"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void handleViewDetails(booking, {
+                              initialTab: "invoices",
+                              invoiceStatusFocus: getEffectivePaymentStatus(booking)
+                            })
+                          }}
+                          title="Zum passenden Rechnungsstatus springen"
+                        >
+                          <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                            {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
+                          </Badge>
+                        </button>
                       </TableCell>
                       <TableCell>
                         {openAmountInfo.type === 'settled' ? (
@@ -1349,7 +1373,32 @@ export function BookingsManagement() {
                               <Eye className="h-4 w-4 mr-2" />
                               Details anzeigen
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
+                            <DropdownMenuItem
+                              disabled={booking.status !== 'completed'}
+                              onClick={async () => {
+                              if (booking.status !== 'completed') {
+                                toast({
+                                  title: 'Rechnung nicht moeglich',
+                                  description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+                                  variant: 'destructive'
+                                })
+                                return
+                              }
+
+                              try {
+                                const existingInvoicesResponse = await getBookingInvoices(booking._id)
+                                if ((existingInvoicesResponse?.invoices || []).length > 0) {
+                                  toast({
+                                    title: 'Rechnung bereits vorhanden',
+                                    description: 'Pro Buchung kann nur eine Rechnung erstellt werden.',
+                                    variant: 'destructive'
+                                  })
+                                  return
+                                }
+                              } catch (error) {
+                                console.error('BookingsManagement: Failed to check existing booking invoices:', error)
+                              }
+
                               try {
                                 const response = await getBooking(booking._id)
                                 setSelectedBooking(response?.booking || booking)
@@ -1408,15 +1457,21 @@ export function BookingsManagement() {
                           if (!open) {
                             setShowDetailDialog(false)
                             setSelectedBooking(null)
+                            setDetailInitialTab("overview")
+                            setDetailInvoiceStatusFocus(null)
                           }
                         }}>
                           {selectedBooking?._id === booking._id && (
                             <BookingDetailDialog
                               booking={selectedBooking}
                               navigate={navigate}
+                              initialTab={detailInitialTab}
+                              invoiceStatusFocus={detailInvoiceStatusFocus}
                               onStatusUpdate={() => {
                                 setSelectedBooking(null)
                                 setShowDetailDialog(false)
+                                setDetailInitialTab("overview")
+                                setDetailInvoiceStatusFocus(null)
                                 fetchBookings()
                               }}
                             />
@@ -1856,17 +1911,21 @@ export function BookingsManagement() {
 function BookingDetailDialog({
   booking,
   navigate,
+  initialTab,
+  invoiceStatusFocus,
   onStatusUpdate
 }: {
   booking: Booking;
   navigate: any;
+  initialTab?: "overview" | "invoices";
+  invoiceStatusFocus?: string | null;
   onStatusUpdate: () => void
 }) {
   const { t } = useTranslation()
   const location = useLocation()
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState(initialTab || "overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
   const [newBillingStatus, setNewBillingStatus] = useState(booking.billingStatus)
@@ -1875,6 +1934,10 @@ function BookingDetailDialog({
   const [detailOrders, setDetailOrders] = useState<any[]>([])
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(true)
   const { toast } = useToast()
+
+  useEffect(() => {
+    setActiveTab(initialTab || "overview")
+  }, [booking._id, initialTab])
 
   useEffect(() => {
     let isMounted = true
@@ -3414,7 +3477,11 @@ function BookingDetailDialog({
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-4 mt-4">
-          <InvoicesTabContent booking={booking} />
+          <InvoicesTabContent
+            booking={booking}
+            navigate={navigate}
+            highlightStatus={activeTab === 'invoices' ? invoiceStatusFocus : null}
+          />
         </TabsContent>
 
         <TabsContent value="timeline" className="space-y-4 mt-4">
@@ -3497,13 +3564,14 @@ function BookingDetailDialog({
 
 // Invoices Tab Content Component
 // Description: Display invoices for a booking with reminder actions
-function InvoicesTabContent({ booking }: { booking: Booking }) {
+function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: Booking; navigate: any; highlightStatus?: string | null }) {
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -3531,6 +3599,49 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
     setSelectedInvoice(invoice)
     setReminderDialogOpen(true)
   }
+
+  useEffect(() => {
+    if (!highlightStatus || invoices.length === 0) {
+      return
+    }
+
+    const normalizedStatus = String(highlightStatus)
+    const statusCandidates = (() => {
+      switch (normalizedStatus) {
+        case 'unpaid':
+          return ['draft', 'sent', 'viewed', 'overdue', 'pending']
+        case 'partially-paid':
+          return ['partially_paid']
+        case 'paid':
+          return ['paid']
+        default:
+          return [normalizedStatus]
+      }
+    })()
+
+    const targetInvoice = invoices.find((invoice) => statusCandidates.includes(String(invoice.status)))
+    if (!targetInvoice?._id) {
+      return
+    }
+
+    setHighlightedInvoiceId(targetInvoice._id)
+
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-invoice-id="${targetInvoice._id}"]`)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 40)
+
+    const clearTimer = window.setTimeout(() => {
+      setHighlightedInvoiceId(null)
+    }, 4500)
+
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(clearTimer)
+    }
+  }, [highlightStatus, invoices])
 
   const getInvoiceStatusColor = (status: string) => {
     switch (status) {
@@ -3583,7 +3694,13 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
     <>
       <div className="space-y-3">
         {invoices.map((invoice) => (
-          <div key={invoice._id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+          <div
+            key={invoice._id}
+            data-invoice-id={invoice._id}
+            className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${highlightedInvoiceId === invoice._id ? 'invoice-card-highlight' : ''}`}
+            onClick={() => navigate(`/admin/financial?tab=invoices&highlightInvoiceId=${invoice._id}`)}
+            title="Zur Finanzverwaltung und dieser Rechnung wechseln"
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
@@ -3623,7 +3740,10 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleSendReminder(invoice)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleSendReminder(invoice)
+                    }}
                   >
                     <Bell className="h-4 w-4 mr-1" />
                     Erinnerung senden
@@ -3632,7 +3752,8 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation()
                     // Open invoice in new tab or download
                     window.open(`/api/invoices/${invoice._id}/pdf`, '_blank')
                   }}
@@ -3777,6 +3898,8 @@ function InvoiceDialog({
   const shippingSameAsBilling =
     !hasAddressData(resolvedShippingAddress) && hasAddressData(resolvedBillingAddress)
 
+  const canCreateInvoice = booking.status === 'completed'
+
   useEffect(() => {
     if (open && booking) {
       loadPreview()
@@ -3784,14 +3907,20 @@ function InvoiceDialog({
   }, [open, booking])
 
   const loadPreview = async () => {
+    if (!canCreateInvoice) {
+      setPreview(null)
+      return
+    }
+
     try {
       setLoading(true)
       const response = await previewBookingInvoice(booking._id)
       setPreview(response.invoicePreview)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rechnungsvorschau konnte nicht geladen werden'
       toast({
         title: "Fehler",
-        description: "Rechnungsvorschau konnte nicht geladen werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -3800,6 +3929,15 @@ function InvoiceDialog({
   }
 
   const handleCreate = async () => {
+    if (!canCreateInvoice) {
+      toast({
+        title: 'Rechnung nicht moeglich',
+        description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     try {
       setLoading(true)
       await createBookingInvoice(booking._id, {
@@ -3808,9 +3946,10 @@ function InvoiceDialog({
       })
       onSuccess()
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rechnung konnte nicht erstellt werden'
       toast({
         title: "Fehler",
-        description: "Rechnung konnte nicht erstellt werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -3858,6 +3997,13 @@ function InvoiceDialog({
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        ) : !canCreateInvoice ? (
+          <div className="text-center py-8">
+            <p className="text-sm font-medium">Rechnungserstellung noch nicht verfuegbar</p>
+            <p className="text-sm text-foreground/60 mt-1">
+              Diese Buchung hat den Status "{booking.status}". Eine Rechnung kann erst bei Status "Abgeschlossen" erstellt werden.
+            </p>
           </div>
         ) : preview ? (
           <div className="space-y-4">
@@ -3951,7 +4097,7 @@ function InvoiceDialog({
           <Button variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
-          <Button onClick={handleCreate} disabled={loading || !preview}>
+          <Button onClick={handleCreate} disabled={loading || !preview || !canCreateInvoice}>
             Rechnung erstellen
           </Button>
         </DialogFooter>

@@ -1546,6 +1546,22 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
+      if (booking.status !== 'completed') {
+        const statusError = new Error('Invoice preview is only allowed for completed bookings');
+        statusError.statusCode = 400;
+        throw statusError;
+      }
+
+      const existingInvoice = await Invoice.findOne({ bookingId: booking._id })
+        .select('_id invoiceNumber status')
+        .lean();
+
+      if (existingInvoice) {
+        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+        duplicateError.statusCode = 409;
+        throw duplicateError;
+      }
+
       const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
       const primaryOrder = primaryOrderId
         ? await Order.findById(primaryOrderId)
@@ -1617,6 +1633,22 @@ class BookingService {
 
       if (!booking) {
         throw new Error('Booking not found');
+      }
+
+      if (booking.status !== 'completed') {
+        const statusError = new Error('Invoice creation is only allowed for completed bookings');
+        statusError.statusCode = 400;
+        throw statusError;
+      }
+
+      const existingInvoice = await Invoice.findOne({ bookingId: booking._id })
+        .select('_id invoiceNumber status')
+        .lean();
+
+      if (existingInvoice) {
+        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+        duplicateError.statusCode = 409;
+        throw duplicateError;
       }
 
       const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
