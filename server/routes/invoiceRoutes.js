@@ -126,6 +126,7 @@ router.get('/', requireUser, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(parseInt(skip))
+      .populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
       .populate('orderId', 'orderNumber deviceBrand deviceModel status')
       .lean();
 
@@ -725,6 +726,7 @@ router.get('/:id', requireUser, async (req, res) => {
     console.log('InvoiceRoutes: Getting invoice:', req.params.id);
 
     const invoice = await Invoice.findById(req.params.id)
+      .populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
       .populate('orderId', 'orderNumber deviceBrand deviceModel status')
       .lean();
 
@@ -810,6 +812,7 @@ router.put('/:id/view', requireUser, async (req, res) => {
     if (invoice.status === 'sent') {
       invoice.status = 'viewed';
       await invoice.save();
+      await FinancialService.syncBookingPaymentStatus(invoice);
       console.log('InvoiceRoutes: Invoice status updated to viewed');
     }
 

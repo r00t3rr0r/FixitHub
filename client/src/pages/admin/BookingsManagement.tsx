@@ -118,6 +118,7 @@ interface AddressFields {
   street?: string
   city?: string
   state?: string
+  zip?: string
   zipCode?: string
   country?: string
 }
@@ -145,6 +146,8 @@ interface Booking {
     billingAddress?: AddressFields
     shippingAddress?: AddressFields
   }
+  billingAddress?: AddressFields
+  shippingAddress?: AddressFields
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
   hasComplaintOrders?: boolean
@@ -261,7 +264,7 @@ const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
 }
 
 const hasAddressData = (addr?: AddressFields | null) => Boolean(
-  addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+  addr && (addr.street || addr.city || addr.zipCode || addr.zip || addr.state || addr.country)
 )
 
 export function BookingsManagement() {
@@ -792,6 +795,16 @@ export function BookingsManagement() {
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200'
+      case 'sent':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'viewed':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+      case 'overdue':
+        return 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+      case 'partially_paid':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
       case 'unpaid':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
       case 'partially-paid':
@@ -822,6 +835,16 @@ export function BookingsManagement() {
 
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Vorlage'
+      case 'sent':
+        return 'Gesendet'
+      case 'viewed':
+        return 'Angesehen'
+      case 'partially_paid':
+        return 'Teilweise Bezahlt'
+      case 'overdue':
+        return 'Ueberfaellig'
       case 'unpaid':
         return 'Offen'
       case 'partially-paid':
@@ -831,6 +854,12 @@ export function BookingsManagement() {
       default:
         return status
     }
+  }
+
+  const getEffectivePaymentStatus = (booking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue']
+    const candidate = String(booking.paymentStatus || '')
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
   }
 
   const getShippingStatusLabel = (status?: string) => {
@@ -1198,8 +1227,8 @@ export function BookingsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                          {getBillingStatusLabel(booking.billingStatus)}
+                        <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                          {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -1320,8 +1349,14 @@ export function BookingsManagement() {
                               <Eye className="h-4 w-4 mr-2" />
                               Details anzeigen
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const response = await getBooking(booking._id)
+                                setSelectedBooking(response?.booking || booking)
+                              } catch (error) {
+                                console.error('BookingsManagement: Failed to load full booking for invoice dialog:', error)
+                                setSelectedBooking(booking)
+                              }
                               setShowInvoiceDialog(true)
                             }}>
                               <FileText className="h-4 w-4 mr-2" />
@@ -1406,8 +1441,8 @@ export function BookingsManagement() {
                               <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                                 <div>
                                   <span className="text-foreground/60">Zahlungsstatus:</span>
-                                  <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
-                                    {getBillingStatusLabel(booking.billingStatus)}
+                                  <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} ml-2`}>
+                                    {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                                   </Badge>
                                 </div>
                                 <div className="text-right">
@@ -1961,6 +1996,16 @@ function BookingDetailDialog({
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800'
+      case 'sent':
+        return 'bg-blue-100 text-blue-800'
+      case 'viewed':
+        return 'bg-indigo-100 text-indigo-800'
+      case 'overdue':
+        return 'bg-rose-100 text-rose-800'
+      case 'partially_paid':
+        return 'bg-orange-100 text-orange-800'
       case 'unpaid':
         return 'bg-red-100 text-red-800'
       case 'partially-paid':
@@ -1991,6 +2036,16 @@ function BookingDetailDialog({
 
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Vorlage'
+      case 'sent':
+        return 'Gesendet'
+      case 'viewed':
+        return 'Angesehen'
+      case 'partially_paid':
+        return 'Teilweise Bezahlt'
+      case 'overdue':
+        return 'Ueberfaellig'
       case 'unpaid':
         return 'Offen'
       case 'partially-paid':
@@ -2001,6 +2056,12 @@ function BookingDetailDialog({
         return status
     }
   }
+
+  const effectivePaymentStatus = (() => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue']
+    const candidate = String(booking.paymentStatus || '')
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
+  })()
 
   const getShippingStatusLabel = (status?: string) => {
     switch (status) {
@@ -2378,8 +2439,8 @@ function BookingDetailDialog({
                     {hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
                         {addr!.street && <p>{addr!.street}</p>}
-                        {(addr!.zipCode || addr!.city) && (
-                          <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>
+                        {(addr!.zipCode || addr!.zip || addr!.city) && (
+                          <p>{[addr!.zipCode || addr!.zip, addr!.city].filter(Boolean).join(' ')}</p>
                         )}
                         {addr!.state && <p>{addr!.state}</p>}
                         {addr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{addr!.country}</p>}
@@ -2424,8 +2485,8 @@ function BookingDetailDialog({
                     ) : hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
                         {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
-                        {(deliveryAddr!.zipCode || deliveryAddr!.city) && (
-                          <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
+                        {(deliveryAddr!.zipCode || deliveryAddr!.zip || deliveryAddr!.city) && (
+                          <p>{[deliveryAddr!.zipCode || deliveryAddr!.zip, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
                         )}
                         {deliveryAddr!.state && <p>{deliveryAddr!.state}</p>}
                         {deliveryAddr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{deliveryAddr!.country}</p>}
@@ -2469,7 +2530,7 @@ function BookingDetailDialog({
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
                     Zahlungsstatus
                   </p>
-                  <Badge className={getBillingStatusColor(booking.billingStatus)}>{getBillingStatusLabel(booking.billingStatus)}</Badge>
+                  <Badge className={getBillingStatusColor(effectivePaymentStatus)}>{getBillingStatusLabel(effectivePaymentStatus)}</Badge>
                 </div>
                 <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--gray-100, #eceef3)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
@@ -3682,6 +3743,40 @@ function InvoiceDialog({
   const [sendImmediately, setSendImmediately] = useState(false)
   const { toast } = useToast()
 
+  const firstOrder = useMemo(() => {
+    if (!Array.isArray(booking.orderIds)) {
+      return undefined
+    }
+    return booking.orderIds.find((order) => order && typeof order === 'object')
+  }, [booking.orderIds])
+
+  const bookingBillingAddress =
+    booking.customerId?.invoiceAddress ||
+    booking.billingAddress ||
+    booking.guestInfo?.billingAddress ||
+    firstOrder?.billingAddress ||
+    firstOrder?.guestInfo?.billingAddress
+
+  const customerPaymentAddress = booking.customerId?.paymentAddress
+  const bookingShippingAddress =
+    customerPaymentAddress?.sameAsInvoice === false
+      ? customerPaymentAddress
+      : booking.shippingAddress ||
+        booking.guestInfo?.shippingAddress ||
+        firstOrder?.shippingAddress ||
+        firstOrder?.guestInfo?.shippingAddress
+
+  const resolvedBillingAddress = hasAddressData(preview?.billingAddress)
+    ? preview.billingAddress
+    : bookingBillingAddress
+
+  const resolvedShippingAddress = hasAddressData(preview?.shippingAddress)
+    ? preview.shippingAddress
+    : bookingShippingAddress
+
+  const shippingSameAsBilling =
+    !hasAddressData(resolvedShippingAddress) && hasAddressData(resolvedBillingAddress)
+
   useEffect(() => {
     if (open && booking) {
       loadPreview()
@@ -3730,6 +3825,28 @@ function InvoiceDialog({
     }).format(value)
   }
 
+  const renderAddressBlock = (title: string, address?: AddressFields | null, fallback?: string) => {
+    const hasAddress = hasAddressData(address)
+
+    return (
+      <div className="border rounded-lg p-4 bg-muted/20">
+        <h3 className="font-semibold mb-2">{title}</h3>
+        {hasAddress ? (
+          <div className="space-y-0.5 text-sm text-foreground/80">
+            {address?.street && <p>{address.street}</p>}
+            {(address?.zipCode || address?.zip || address?.city) && (
+              <p>{[address?.zipCode || address?.zip, address?.city].filter(Boolean).join(' ')}</p>
+            )}
+            {address?.state && <p>{address.state}</p>}
+            {address?.country && <p>{address.country}</p>}
+          </div>
+        ) : (
+          <p className="text-sm text-foreground/50">{fallback || 'Nicht angegeben'}</p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -3748,6 +3865,13 @@ function InvoiceDialog({
               <h3 className="font-semibold mb-2">Kundeninformationen</h3>
               <p className="text-sm">{preview.customerName}</p>
               <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
+              {shippingSameAsBilling
+                ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
+                : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
             </div>
 
             <div className="border rounded-lg p-4">

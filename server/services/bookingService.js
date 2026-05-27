@@ -10,6 +10,28 @@ const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
 class BookingService {
+  static normalizeAddress(address) {
+    if (!address || typeof address !== 'object') return null;
+
+    const street = String(address.street || address.line1 || '').trim();
+    const city = String(address.city || address.town || '').trim();
+    const zip = String(address.zip || address.zipCode || address.postalCode || '').trim();
+    const state = String(address.state || address.province || '').trim();
+    const country = String(address.country || '').trim();
+
+    if (!street && !city && !zip && !state && !country) return null;
+
+    return { street, city, zip, zipCode: zip, state, country };
+  }
+
+  static pickFirstAddress(...candidates) {
+    for (const candidate of candidates) {
+      const normalized = this.normalizeAddress(candidate);
+      if (normalized) return normalized;
+    }
+    return null;
+  }
+
   static escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -1518,16 +1540,53 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone');
+        .populate('customerId', 'firstName lastName name email phone invoiceAddress paymentAddress');
 
       if (!booking) {
         throw new Error('Booking not found');
       }
 
+      const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
+      const primaryOrder = primaryOrderId
+        ? await Order.findById(primaryOrderId)
+          .select('billingAddress shippingAddress guestInfo.billingAddress guestInfo.shippingAddress')
+          .lean()
+        : null;
+
+      const customerPaymentAddress = booking.customerId?.paymentAddress;
+
+      const billingAddress = this.pickFirstAddress(
+        booking.customerId?.invoiceAddress,
+        booking.billingAddress,
+        booking.guestInfo?.billingAddress,
+        primaryOrder?.billingAddress,
+        primaryOrder?.guestInfo?.billingAddress,
+        booking.customerId?.paymentAddress,
+      );
+
+      const shippingAddress = customerPaymentAddress?.sameAsInvoice === false
+        ? this.pickFirstAddress(
+          customerPaymentAddress,
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+        )
+        : this.pickFirstAddress(
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+          booking.guestInfo?.billingAddress,
+          booking.customerId?.invoiceAddress,
+        );
+
       // Build invoice preview
       const invoicePreview = {
-        customerName: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
-        customerEmail: booking.customerId.email,
+        customerName: `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim() || booking.customerId?.name || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim() || 'N/A',
+        customerEmail: booking.customerId?.email || booking.guestInfo?.email || 'N/A',
+        billingAddress,
+        shippingAddress,
         items: booking.items.map(item => ({
           description: item.type === 'repair' ? item.device : 'Shop Products',
           quantity: 1,
@@ -1554,17 +1613,55 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone');
+        .populate('customerId', 'firstName lastName name email phone invoiceAddress paymentAddress');
 
       if (!booking) {
         throw new Error('Booking not found');
       }
 
-      // Extract customer information
-      const customerFirstName = booking.customerId?.firstName || 'N/A';
-      const customerLastName = booking.customerId?.lastName || 'N/A';
-      const customerEmail = booking.customerId?.email || 'N/A';
-      const customerName = `${customerFirstName} ${customerLastName}`.trim();
+      const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
+      const primaryOrder = primaryOrderId
+        ? await Order.findById(primaryOrderId)
+          .select('billingAddress shippingAddress guestInfo.billingAddress guestInfo.shippingAddress')
+          .lean()
+        : null;
+
+      // Extract customer information with safe fallbacks
+      const customerName = (
+        `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim()
+        || String(booking.customerId?.name || '').trim()
+        || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim()
+        || 'N/A'
+      );
+      const customerEmail = String(booking.customerId?.email || booking.guestInfo?.email || 'N/A').trim();
+
+      const customerPaymentAddress = booking.customerId?.paymentAddress;
+
+      const billingAddress = this.pickFirstAddress(
+        booking.customerId?.invoiceAddress,
+        booking.billingAddress,
+        booking.guestInfo?.billingAddress,
+        primaryOrder?.billingAddress,
+        primaryOrder?.guestInfo?.billingAddress,
+        booking.customerId?.paymentAddress,
+      );
+
+      const shippingAddress = customerPaymentAddress?.sameAsInvoice === false
+        ? this.pickFirstAddress(
+          customerPaymentAddress,
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+        )
+        : this.pickFirstAddress(
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+          booking.guestInfo?.billingAddress,
+          booking.customerId?.invoiceAddress,
+        );
 
       console.log('BookingService: Creating invoice with customer:', customerName, 'Email:', customerEmail);
 
@@ -1596,7 +1693,9 @@ class BookingService {
         customerId: booking.customerId._id,
         customerName: customerName,
         customerEmail: customerEmail,
-        orderId: booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null, // Link to first order for reference
+        billingAddress: billingAddress || undefined,
+        shippingAddress: shippingAddress || undefined,
+        orderId: primaryOrderId, // Link to first order for reference
         bookingId: booking._id,
         items: invoiceItems,
         subtotal: booking.subtotal || booking.totalCost,
@@ -1611,6 +1710,16 @@ class BookingService {
 
       const savedInvoice = await invoice.save();
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
+
+      booking.paymentStatus = savedInvoice.status;
+      if (savedInvoice.status === 'paid') {
+        booking.billingStatus = 'paid';
+      } else if (savedInvoice.status === 'partially_paid') {
+        booking.billingStatus = 'partially-paid';
+      } else {
+        booking.billingStatus = 'unpaid';
+      }
+      await booking.save();
 
       // Only send notification when invoice is explicitly sent to the customer.
       if (shouldSendImmediately && customerEmail && customerEmail !== 'N/A') {
