@@ -5223,7 +5223,7 @@ export function OrderDetails() {
                     placeholder="Nach Name oder Beschreibung suchen"
                   />
                   {showAddonSuggestions && normalizedAddonSearch && (
-                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="mt-2 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
                       {addonSearchResults.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-muted-foreground">
                           Keine Treffer gefunden

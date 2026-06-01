@@ -1377,11 +1377,11 @@
 /* ── PROGRESS INDICATOR ── */
 .order-progress-bar {
   width: 100%;
-  height: 8px;
+  height: 5px;
   background: var(--gray-200, #d8dce6);
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .order-progress-fill {
@@ -3003,7 +3003,7 @@
   margin-bottom: 0;
   padding: 6px 8px 5px;
   border-bottom-width: 1px;
-  min-height: 0;
+  min-height: 46px;
 }
 
 .admin-order-workspace .order-section-title {
@@ -3099,6 +3099,12 @@
   justify-content: flex-start;
   gap: 4px;
   min-height: 30px;
+}
+
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-quick-actions {
+  margin-top: 14px;
+  padding-top: 0;
+  min-height: 100%;
 }
 
 .admin-order-workspace #order-communication {
@@ -4456,7 +4462,17 @@
   justify-content: space-between;
   gap: 8px;
   margin: 0;
-  min-height: 38px;
+  min-height: 46px;
+}
+
+.admin-order-workspace #order-quick-actions > [data-slot="card-header"].order-section-header,
+.admin-order-workspace #order-repair-info > [data-slot="card-header"].order-section-header,
+.admin-order-workspace #order-quick-actions .order-section-header,
+.admin-order-workspace #order-repair-info .order-section-header {
+  margin-top: -1px;
+  margin-left: -1px;
+  margin-right: -1px;
+  width: calc(100% + 2px);
 }
 
 .admin-order-workspace .order-section-card .order-section-title {
@@ -4525,6 +4541,7 @@
 .admin-order-workspace .order-section-card[id="order-staff"] {
   position: relative;
   border-left: 4px solid var(--accent-yellow, #f5b800);
+  overflow: visible;
 }
 
 .admin-order-workspace .order-section-card[id="order-device-info"] .order-section-title::before,
@@ -4725,6 +4742,7 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
   border-left: 4px solid var(--accent-yellow, #f5b800);
   border-color: #d4dae7;
   margin-top: 14px !important;
+  overflow: visible;
 }
 
 .admin-order-workspace #order-repair-info::before {
@@ -4747,36 +4765,25 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
 
 .admin-order-workspace #order-repair-info .order-section-title::before {
   content: "4";
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  min-width: 20px;
-  border-radius: 999px;
-  background: var(--accent-yellow, #f5b800);
-  color: var(--primary-blue, #1a2a5e);
-  font-size: 0.7rem;
-  font-weight: 800;
-  margin-right: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  line-height: 1;
 }
 
-/* ----- Subsection mini-headers (Shop-Produkte, etc.) ----- */
 .admin-order-workspace .repair-info-subsection {
   border: 1px solid #d4dae7;
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 8px;
   background: #ffffff;
+  margin: 0 0 10px 12px;
 }
 
 .admin-order-workspace .repair-info-subsection-header {
-  background: linear-gradient(180deg, rgba(26, 42, 94, 0.06), rgba(26, 42, 94, 0.02));
   border-bottom: 1px solid rgba(26, 42, 94, 0.18);
   padding: 6px 10px;
   margin: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .admin-order-workspace .repair-info-subsection-header h4 {
@@ -4800,19 +4807,14 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
   background: var(--accent-yellow-hover, #e5ab00) !important;
 }
 
-.admin-order-workspace .repair-info-subsection-body,
-.admin-order-workspace .repair-info-subsection > div:not(.repair-info-subsection-header) {
-  padding: 8px 10px 10px;
-}
-
 /* ----- Step 2: brand the Confirm-Unlock primary action ----- */
 .admin-order-workspace .unlock-confirm-btn {
   background: var(--primary-blue, #1a2a5e) !important;
   color: var(--accent-yellow, #f5b800) !important;
+  margin: 0 0 10px 12px;
   border: 1px solid var(--primary-blue-dark, #0f1d45) !important;
   font-weight: 700 !important;
   box-shadow: 0 2px 5px rgba(15, 29, 69, 0.25) !important;
-  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease !important;
 }
 
 .admin-order-workspace .unlock-confirm-btn:hover {

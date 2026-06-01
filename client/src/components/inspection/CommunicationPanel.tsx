@@ -867,7 +867,7 @@ export function CommunicationPanel({
 
       {/* Feedback Request Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-        <DialogContent className="inspection-comm-dialog max-w-md">
+        <DialogContent className="inspection-comm-dialog w-[96vw] max-w-[680px] max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
               <HelpCircle className="inspection-comm-dialog-icon w-5 h-5" />
@@ -1007,7 +1007,7 @@ export function CommunicationPanel({
 
       {/* Quick Action Dialog */}
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
-        <DialogContent className="inspection-comm-dialog max-w-md">
+        <DialogContent className="inspection-comm-dialog w-[96vw] max-w-[680px] max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
               <AlertCircle className="inspection-comm-dialog-icon danger w-5 h-5" />
