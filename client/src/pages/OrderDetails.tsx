@@ -500,10 +500,17 @@ export function OrderDetails() {
 
   useEffect(() => {
     document.body.classList.add('order-details-page')
+    const isStaffOrAdminUser = user?.role === 'admin' || user?.role === 'staff'
+    if (isStaffOrAdminUser) {
+      document.body.classList.add('order-details-admin')
+    } else {
+      document.body.classList.remove('order-details-admin')
+    }
     return () => {
       document.body.classList.remove('order-details-page')
+      document.body.classList.remove('order-details-admin')
     }
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
     if (!requestedWorkflowId) return
