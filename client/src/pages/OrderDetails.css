@@ -2883,7 +2883,11 @@
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested {
   grid-template-columns: minmax(320px, 1.35fr) minmax(420px, 1.7fr) minmax(340px, 1.45fr);
-  align-items: start;
+  /* Equal-height columns via grid stretch (NOT percentage `min-height: 100%`, which
+     WebKit re-resolves on every hover repaint). The cards are isolated with
+     `contain: layout` below so inner hover transitions can't make Safari recompute
+     the stretched row height — that feedback was causing the cards to jump vertically. */
+  align-items: stretch;
   grid-auto-flow: row;
 }
 
@@ -2942,7 +2946,16 @@
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-staff,
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-progress,
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-workflows {
-  min-height: 100%;
+  /* Root cause of the Safari-only vertical jitter: these cards are stretched to fill
+     the auto-sized grid row. When the pointer moves, hover transitions inside a card
+     (buttons, the card border, etc.) trigger a repaint, and WebKit re-resolves the
+     stretched grid-item height during that repaint — feeding back into the row track
+     and making every card in the row jump (~70px). Chromium/Firefox resolve it once.
+     `contain: layout` isolates each card's internal layout so inner repaints no longer
+     force the grid to recompute, which removes the jitter while keeping equal heights.
+     `min-height: 0` removes the percentage min-height that previously drove the same loop. */
+  contain: layout;
+  min-height: 0;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-staff {
@@ -2951,7 +2964,9 @@
 }
 
 .admin-order-workspace .order-nested-block .order-section-card {
-  min-height: 100%;
+  /* No percentage min-height (see the contain:layout note above) — equal heights come
+     from grid stretch, not from a percentage that Safari would re-resolve on hover. */
+  min-height: 0;
 }
 
 .admin-order-workspace .order-nested-block .order-section-header {
@@ -3104,7 +3119,7 @@
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-quick-actions {
   margin-top: 14px;
   padding-top: 0;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .admin-order-workspace #order-communication {

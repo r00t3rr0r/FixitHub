@@ -34,9 +34,10 @@ export function Layout() {
           isCollapsed={!sidebarOpen}
         />
         <main 
-          className={`flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6 transition-all duration-300 ease-in-out ${
+          className={`flex-1 overflow-y-scroll px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6 ${
             isMobile ? 'ml-0' : (shouldShowSidebar ? 'ml-64' : 'ml-16')
           }`}
+          style={{ scrollbarGutter: 'stable both-edges' }}
         >
           <div className={isAdminAnalyticsPage ? "w-full max-w-none" : "mx-auto w-full max-w-7xl"}>
             <Outlet />
