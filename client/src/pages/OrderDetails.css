@@ -1749,6 +1749,11 @@
   border-color: #dde5f2;
 }
 
+.customer-device-section {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .customer-device-lock-card {
   margin-top: 2px;
   padding-top: 14px;

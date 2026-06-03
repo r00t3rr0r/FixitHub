@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import type { MouseEvent as ReactMouseEvent } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -101,7 +102,11 @@ import {
   Download,
   Zap,
   ExternalLink,
-  Workflow
+  Workflow,
+  ZoomIn,
+  ZoomOut,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -173,6 +178,11 @@ export function OrderDetails() {
   const [customerInspection, setCustomerInspection] = useState<any>(null)
   const [customerInspectionLoading, setCustomerInspectionLoading] = useState(false)
   const [diagnosisPopupOpen, setDiagnosisPopupOpen] = useState(false)
+  const [customerPhotoViewerOpen, setCustomerPhotoViewerOpen] = useState(false)
+  const [customerPhotoIndex, setCustomerPhotoIndex] = useState(0)
+  const [customerPhotoZoom, setCustomerPhotoZoom] = useState(1)
+  const [customerPhotoLensActive, setCustomerPhotoLensActive] = useState(false)
+  const [customerPhotoLensPosition, setCustomerPhotoLensPosition] = useState({ x: 50, y: 50 })
   const [repairDetailsPopupOpen, setRepairDetailsPopupOpen] = useState(false)
   const [repairServicesPopupOpen, setRepairServicesPopupOpen] = useState(false)
   const [complaintDialogOpen, setComplaintDialogOpen] = useState(false)
@@ -1792,6 +1802,40 @@ export function OrderDetails() {
     return typeof modelImage === 'string' ? modelImage : null
   }
 
+  const getCustomerUploadedPhotos = (order: Order): string[] => {
+    if (!Array.isArray(order.photos)) {
+      return []
+    }
+    return order.photos.filter((photo) => typeof photo === 'string' && photo.trim().length > 0)
+  }
+
+  const openCustomerPhotoViewer = (index: number) => {
+    setCustomerPhotoIndex(index)
+    setCustomerPhotoZoom(1)
+    setCustomerPhotoLensActive(false)
+    setCustomerPhotoLensPosition({ x: 50, y: 50 })
+    setCustomerPhotoViewerOpen(true)
+  }
+
+  const showCustomerPhotoAt = (index: number, total: number) => {
+    if (total <= 0) return
+    const normalized = ((index % total) + total) % total
+    setCustomerPhotoIndex(normalized)
+    setCustomerPhotoZoom(1)
+    setCustomerPhotoLensActive(false)
+    setCustomerPhotoLensPosition({ x: 50, y: 50 })
+  }
+
+  const handleCustomerPhotoLensMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100
+    setCustomerPhotoLensPosition({
+      x: Math.min(100, Math.max(0, x)),
+      y: Math.min(100, Math.max(0, y)),
+    })
+  }
+
   const handleGenerateInspectionReport = async () => {
     if (!id) return
 
@@ -2689,28 +2733,50 @@ export function OrderDetails() {
           </div>
         </div>
 
-        {getDeviceModelPreviewImage(order) && (
-          <div className={`bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3 ${!isStaffOrAdmin ? 'customer-device-preview-card' : ''}`}>
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Modellbild Vorschau</p>
-            <img
-              src={getDeviceModelPreviewImage(order) as string}
-              alt={`${order.deviceBrand} ${order.deviceModel} Modellbild`}
-              className="h-20 w-20 rounded-md object-cover border border-slate-200 dark:border-slate-700"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
+        {getCustomerUploadedPhotos(order).length > 0 && (
+          <div className="customer-device-section bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                {t('orderDetails.customerUploadedPhotos', 'Hochgeladene Fotos')}
+              </p>
+              <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                {getCustomerUploadedPhotos(order).length}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {getCustomerUploadedPhotos(order).map((photo, idx) => (
+                <button
+                  key={`${photo}-${idx}`}
+                  type="button"
+                  onClick={() => openCustomerPhotoViewer(idx)}
+                  className="group relative aspect-square overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label={t('orderDetails.viewPhoto', 'Foto vergrößern')}
+                >
+                  <img
+                    src={photo}
+                    alt={`${order.deviceBrand} ${order.deviceModel} ${t('orderDetails.photo', 'Foto')} ${idx + 1}`}
+                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
+                    <ZoomIn className="h-5 w-5 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {order.customerNotes && (
-          <div className={`bg-muted/50 p-2 rounded-lg ${!isStaffOrAdmin ? 'customer-device-notes-card' : ''}`}>
+          <div className={`customer-device-section bg-muted/50 p-3 rounded-lg ${!isStaffOrAdmin ? 'customer-device-notes-card' : ''}`}>
             <h4 className="font-medium text-xs">{t('orderDetails.notes', 'Notes:')}</h4>
             <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{order.customerNotes}</p>
           </div>
         )}
 
-        <div id="order-device-lock" className={`space-y-2 border-t pt-3 ${!isStaffOrAdmin ? 'customer-device-lock-card' : ''}`}>
+        <div id="order-device-lock" className={`customer-device-section space-y-2 border-t pt-3 ${!isStaffOrAdmin ? 'customer-device-lock-card' : ''}`}>
           <h4 className="font-medium text-sm flex items-center gap-1.5">
             <Lock className="h-4 w-4 text-blue-600" />
             {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
@@ -2898,6 +2964,132 @@ export function OrderDetails() {
 
         </div>
       </CardContent>
+
+      <Dialog open={customerPhotoViewerOpen} onOpenChange={setCustomerPhotoViewerOpen}>
+        <DialogContent className="order-dialog-content sm:max-w-[860px]">
+          <DialogHeader className="order-dialog-header">
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              {t('orderDetails.customerUploadedPhotos', 'Hochgeladene Fotos')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('orderDetails.photoViewerHint', 'Bewegen Sie den Mauszeiger über das Bild für die Lupenfunktion oder nutzen Sie die Zoom-Tasten.')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {(() => {
+            const customerPhotos = getCustomerUploadedPhotos(order)
+            const total = customerPhotos.length
+            if (total === 0) {
+              return null
+            }
+            const safeIndex = Math.min(customerPhotoIndex, total - 1)
+            const activePhoto = customerPhotos[safeIndex]
+
+            return (
+              <div className="space-y-3">
+                <div
+                  className="relative mx-auto flex max-h-[60vh] w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                  onMouseEnter={() => setCustomerPhotoLensActive(true)}
+                  onMouseLeave={() => setCustomerPhotoLensActive(false)}
+                  onMouseMove={handleCustomerPhotoLensMove}
+                  style={{ cursor: customerPhotoLensActive ? 'zoom-in' : 'default' }}
+                >
+                  <img
+                    src={activePhoto}
+                    alt={`${order.deviceBrand} ${order.deviceModel} ${t('orderDetails.photo', 'Foto')} ${safeIndex + 1}`}
+                    className="max-h-[60vh] w-auto select-none object-contain transition-transform duration-150"
+                    style={{
+                      transform: `scale(${customerPhotoZoom})`,
+                      transformOrigin: `${customerPhotoLensPosition.x}% ${customerPhotoLensPosition.y}%`,
+                    }}
+                    draggable={false}
+                  />
+
+                  {customerPhotoLensActive && customerPhotoZoom === 1 && (
+                    <div
+                      className="pointer-events-none absolute hidden h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg sm:block"
+                      style={{
+                        left: `${customerPhotoLensPosition.x}%`,
+                        top: `${customerPhotoLensPosition.y}%`,
+                        backgroundImage: `url(${activePhoto})`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: '300% 300%',
+                        backgroundPosition: `${customerPhotoLensPosition.x}% ${customerPhotoLensPosition.y}%`,
+                      }}
+                    />
+                  )}
+
+                  {total > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => showCustomerPhotoAt(safeIndex - 1, total)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+                        aria-label={t('orderDetails.previousPhoto', 'Vorheriges Foto')}
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showCustomerPhotoAt(safeIndex + 1, total)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+                        aria-label={t('orderDetails.nextPhoto', 'Nächstes Foto')}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-1">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPhotoZoom((z) => Math.max(1, Math.round((z - 0.5) * 10) / 10))}
+                      className="rounded p-1 text-white transition-colors hover:bg-white/20 disabled:opacity-40"
+                      disabled={customerPhotoZoom <= 1}
+                      aria-label={t('orderDetails.zoomOut', 'Verkleinern')}
+                    >
+                      <ZoomOut className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="min-w-[3rem] text-center text-xs font-medium text-white">
+                      {Math.round(customerPhotoZoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPhotoZoom((z) => Math.min(4, Math.round((z + 0.5) * 10) / 10))}
+                      className="rounded p-1 text-white transition-colors hover:bg-white/20 disabled:opacity-40"
+                      disabled={customerPhotoZoom >= 4}
+                      aria-label={t('orderDetails.zoomIn', 'Vergrößern')}
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {total > 1 && (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {customerPhotos.map((photo, idx) => (
+                      <button
+                        key={`thumb-${photo}-${idx}`}
+                        type="button"
+                        onClick={() => showCustomerPhotoAt(idx, total)}
+                        className={`h-14 w-14 overflow-hidden rounded-md border-2 transition-colors ${idx === safeIndex ? 'border-blue-500' : 'border-transparent hover:border-slate-300'}`}
+                        aria-label={`${t('orderDetails.photo', 'Foto')} ${idx + 1}`}
+                      >
+                        <img src={photo} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-center text-xs text-muted-foreground">
+                  {t('orderDetails.photo', 'Foto')} {safeIndex + 1} / {total}
+                </p>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 
