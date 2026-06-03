@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react"
-import { useTranslation } from "react-i18next"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,7 +27,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Eye,
   DollarSign,
   Clock,
   Star,
@@ -38,7 +36,6 @@ import {
   Link as LinkIcon,
   Info,
   Calendar,
-  Tag,
   Smartphone,
   User,
   FileText,
@@ -90,13 +87,471 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
+import "./ServiceManagement.css"
 
-type SortField = 'name' | 'category' | 'manufacturer' | 'price' | 'estimatedTime' | 'popularity'
+type SortField = 'name' | 'category' | 'manufacturer' | 'model' | 'price' | 'estimatedTime' | 'popularity'
 type SortOrder = 'asc' | 'desc'
 
+interface ColumnFilterMenuProps {
+  column: string
+  label: string
+  allValues: string[]
+  excludedValues: Set<string>
+  onExcludedChange: (column: string, excluded: Set<string>) => void
+  sortBy?: string
+  sortOrder?: SortOrder
+  onSortAsc?: () => void
+  onSortDesc?: () => void
+}
+
+function ServiceDetailView({ service }: { service: RepairService }) {
+  const renderHtmlBlock = (value?: string) => {
+    if (!value) {
+      return <p className="service-detail-empty">No information available</p>
+    }
+
+    return (
+      <div
+        className="service-detail-html"
+        dangerouslySetInnerHTML={{ __html: value }}
+      />
+    )
+  }
+
+  return (
+    <div className="service-detail-layout">
+      <section className="service-detail-hero">
+        <div>
+          <div className="service-detail-hero__row">
+            <span className="service-detail-hero__partnum">{service.articleNumber || 'NO-ARTICLE'}</span>
+            <span className={`service-status-badge ${service.isActive ? 'service-status-badge--active' : 'service-status-badge--inactive'}`}>
+              {service.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+          <h2 className="service-detail-hero__name">{service.name}</h2>
+          <p className="service-detail-hero__sub">
+            {service.service || service.category}
+            {service.manufacturer ? ` • ${service.manufacturer}` : ''}
+            {service.model ? ` • ${service.model}` : ''}
+          </p>
+        </div>
+        <div className="service-detail-hero__price">
+          <span className="service-detail-hero__price-value">${service.price}</span>
+          <span className="service-detail-hero__price-label">Current Price</span>
+        </div>
+      </section>
+
+      <div className="service-detail-sections">
+        <section className="service-detail-section">
+          <div className="service-detail-section__header">
+            <h3 className="service-detail-section__title">
+              <Wrench />
+              Basic Information
+            </h3>
+          </div>
+          <div className="service-detail-section__body">
+            <div className="service-detail-grid service-detail-grid--3">
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Category</span>
+                <span className="service-detail-tile__value">{service.category}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Service</span>
+                <span className="service-detail-tile__value">{service.service || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Estimated Time</span>
+                <span className="service-detail-tile__value"><Clock className="h-3.5 w-3.5" />{service.estimatedTime || '—'}</span>
+              </div>
+            </div>
+            <div className="service-detail-stack">
+              <div>
+                <span className="service-detail-tile__label">Short Description</span>
+                {renderHtmlBlock(service.shortDescription)}
+              </div>
+              <div>
+                <span className="service-detail-tile__label">Description</span>
+                {renderHtmlBlock(service.description)}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-detail-section">
+          <div className="service-detail-section__header">
+            <h3 className="service-detail-section__title">
+              <DollarSign />
+              Pricing & Performance
+            </h3>
+          </div>
+          <div className="service-detail-section__body">
+            <div className="service-detail-grid service-detail-grid--4">
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Price</span>
+                <span className="service-detail-tile__value service-detail-tile__value--money">${service.price}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">MSRP</span>
+                <span className="service-detail-tile__value">${service.msrp || 0}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Purchase Price</span>
+                <span className="service-detail-tile__value">${service.purchasePrice || 0}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Popularity</span>
+                <span className="service-detail-tile__value service-detail-tile__value--big"><Star className="h-3.5 w-3.5" />{service.popularity}%</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Tax Class</span>
+                <span className="service-detail-tile__value">{service.taxClass || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Source</span>
+                <span className="service-detail-tile__value">{service.source || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Created</span>
+                <span className="service-detail-tile__value"><Calendar className="h-3.5 w-3.5" />{new Date(service.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Updated</span>
+                <span className="service-detail-tile__value"><Calendar className="h-3.5 w-3.5" />{new Date(service.updatedAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-detail-section">
+          <div className="service-detail-section__header">
+            <h3 className="service-detail-section__title">
+              <Smartphone />
+              Device Compatibility
+            </h3>
+          </div>
+          <div className="service-detail-section__body">
+            <div className="service-detail-grid service-detail-grid--3">
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Manufacturer</span>
+                <span className="service-detail-tile__value">{service.manufacturer || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Model</span>
+                <span className="service-detail-tile__value">{service.model || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Device Types</span>
+                <span className="service-detail-tile__value">{service.deviceTypes.length || 0}</span>
+              </div>
+            </div>
+            <div className="service-chip-list service-chip-list--detail">
+              {service.deviceTypes.length > 0 ? service.deviceTypes.map((deviceType) => (
+                <span key={deviceType} className="service-chip">{deviceType}</span>
+              )) : <p className="service-detail-empty">No compatible device types defined</p>}
+            </div>
+          </div>
+        </section>
+
+        <section className="service-detail-section">
+          <div className="service-detail-section__header">
+            <h3 className="service-detail-section__title">
+              <FileText />
+              SEO, Print & Notes
+            </h3>
+          </div>
+          <div className="service-detail-section__body">
+            <div className="service-detail-grid service-detail-grid--3">
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">Keywords</span>
+                <span className="service-detail-tile__value">{service.searchKeywords || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">SEO Name</span>
+                <span className="service-detail-tile__value">{service.seoName || '—'}</span>
+              </div>
+              <div className="service-detail-tile">
+                <span className="service-detail-tile__label">SEO Title</span>
+                <span className="service-detail-tile__value">{service.seoTitleTag || '—'}</span>
+              </div>
+            </div>
+            <div className="service-detail-stack">
+              <div>
+                <span className="service-detail-tile__label">SEO Meta Keywords</span>
+                <p className="service-detail-text">{service.seoMetaKeywords || '—'}</p>
+              </div>
+              <div>
+                <span className="service-detail-tile__label">SEO Meta Description</span>
+                <p className="service-detail-text">{service.seoMetaDescription || '—'}</p>
+              </div>
+              <div>
+                <span className="service-detail-tile__label">Print Short Description</span>
+                <p className="service-detail-text">{service.printShortDescription || '—'}</p>
+              </div>
+              <div>
+                <span className="service-detail-tile__label">Print Description</span>
+                <p className="service-detail-text">{service.printDescription || '—'}</p>
+              </div>
+              <div>
+                <span className="service-detail-tile__label">Note</span>
+                <p className="service-detail-text">{service.note || '—'}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-detail-section">
+          <div className="service-detail-section__header">
+            <h3 className="service-detail-section__title">
+              <User />
+              Repair Information
+            </h3>
+          </div>
+          <div className="service-detail-section__body">
+            <div className="service-detail-stack">
+              <div>
+                <span className="service-detail-tile__label">External Repair Information</span>
+                <p className="service-detail-text">{service.externalRepairInfo || 'No customer-facing repair information provided'}</p>
+              </div>
+              <div>
+                <span className="service-detail-tile__label">Internal Repair Information</span>
+                <p className="service-detail-text">{service.internalRepairInfo || 'No internal repair information provided'}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-detail-section">
+          <div className="service-detail-section__header">
+            <h3 className="service-detail-section__title">
+              <BookOpen />
+              Knowledge Base
+            </h3>
+          </div>
+          <div className="service-detail-section__body">
+            {service.linkedKnowledgeBaseArticles && service.linkedKnowledgeBaseArticles.length > 0 ? (
+              <div className="service-knowledge-list">
+                {service.linkedKnowledgeBaseArticles.map((article, index) => (
+                  <div key={`${article.url || article.title || 'kb'}-${index}`} className="service-knowledge-item">
+                    <LinkIcon className="h-4 w-4" />
+                    <div>
+                      <p className="service-knowledge-item__title">{article.title || 'Untitled Article'}</p>
+                      {article.url ? (
+                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="service-knowledge-item__link">
+                          {article.url}
+                        </a>
+                      ) : (
+                        <p className="service-detail-empty">No URL linked</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="service-detail-empty">No knowledge base articles linked to this service</p>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function ColumnFilterMenu({
+  column,
+  label,
+  allValues,
+  excludedValues,
+  onExcludedChange,
+  sortBy,
+  sortOrder,
+  onSortAsc,
+  onSortDesc,
+}: ColumnFilterMenuProps) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  const hasSortActions = Boolean(onSortAsc && onSortDesc)
+  const isSortActive = hasSortActions && sortBy === column
+  const isActive = isSortActive || excludedValues.size > 0
+
+  const filteredValues = allValues.filter((value) =>
+    value.toLowerCase().includes(search.toLowerCase())
+  )
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false)
+        setSearch("")
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open])
+
+  const toggleValue = (value: string) => {
+    const next = new Set(excludedValues)
+
+    if (next.has(value)) {
+      next.delete(value)
+    } else {
+      next.add(value)
+    }
+
+    onExcludedChange(column, next)
+  }
+
+  const selectAll = () => {
+    const next = new Set(excludedValues)
+    filteredValues.forEach((value) => next.delete(value))
+    onExcludedChange(column, next)
+  }
+
+  const deselectAll = () => {
+    const next = new Set(excludedValues)
+    filteredValues.forEach((value) => next.add(value))
+    onExcludedChange(column, next)
+  }
+
+  const clearFilter = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    onExcludedChange(column, new Set())
+  }
+
+  const sortIcon = isSortActive
+    ? (sortOrder === 'asc'
+        ? <ChevronUp className="h-3.5 w-3.5" />
+        : <ChevronDown className="h-3.5 w-3.5" />)
+    : <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+
+  return (
+    <div className="col-filter-root">
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`col-filter-trigger${isActive ? ' col-filter-trigger--active' : ''}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((current) => !current)
+        }}
+        title={`Filter ${label}`}
+      >
+        <span className="col-filter-label">{label}</span>
+        {excludedValues.size > 0
+          ? <Filter className="col-filter-icon--filtered h-3.5 w-3.5" />
+          : sortIcon}
+        {excludedValues.size > 0 && (
+          <span className="col-filter-badge">{excludedValues.size}</span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          className="col-filter-menu"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {hasSortActions && (
+            <>
+              <div className="col-filter-sort-row">
+                <button
+                  type="button"
+                  className={`col-filter-sort-btn${isSortActive && sortOrder === 'asc' ? ' col-filter-sort-btn--active' : ''}`}
+                  onClick={() => {
+                    onSortAsc?.()
+                    setOpen(false)
+                  }}
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                  Asc
+                </button>
+                <button
+                  type="button"
+                  className={`col-filter-sort-btn${isSortActive && sortOrder === 'desc' ? ' col-filter-sort-btn--active' : ''}`}
+                  onClick={() => {
+                    onSortDesc?.()
+                    setOpen(false)
+                  }}
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  Desc
+                </button>
+              </div>
+              <div className="col-filter-divider" />
+            </>
+          )}
+
+          <div className="col-filter-search-wrap">
+            <Search className="col-filter-search-icon h-3.5 w-3.5" />
+            <input
+              className="col-filter-search-input"
+              placeholder="Search values..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              autoFocus
+            />
+            {search && (
+              <button
+                type="button"
+                className="col-filter-search-clear"
+                onClick={() => setSearch("")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="col-filter-actions-row">
+            <button type="button" className="col-filter-link" onClick={selectAll}>All</button>
+            <button type="button" className="col-filter-link" onClick={deselectAll}>None</button>
+            {excludedValues.size > 0 && (
+              <button
+                type="button"
+                className="col-filter-link col-filter-link--danger"
+                onClick={clearFilter}
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="col-filter-list">
+            {filteredValues.length === 0 ? (
+              <span className="col-filter-empty">No values found</span>
+            ) : (
+              filteredValues.map((value) => (
+                <label key={value} className="col-filter-item">
+                  <input
+                    type="checkbox"
+                    className="col-filter-checkbox"
+                    checked={!excludedValues.has(value)}
+                    onChange={() => toggleValue(value)}
+                  />
+                  <span className="col-filter-item-label" title={value}>
+                    {value}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ServiceManagement() {
-  const { t } = useTranslation()
   const [services, setServices] = useState<RepairService[]>([])
+  const [allServicesForFilterMenus, setAllServicesForFilterMenus] = useState<RepairService[]>([])
   const [filteredServices, setFilteredServices] = useState<RepairService[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -117,6 +572,7 @@ export function ServiceManagement() {
   // Sorting state
   const [sortBy, setSortBy] = useState<SortField>('popularity')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({})
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -165,8 +621,47 @@ export function ServiceManagement() {
   const [loadingCategories, setLoadingCategories] = useState(true)
   const deviceTypes = ['iPhone', 'Samsung', 'Google Pixel', 'iPad', 'Tablet', 'Laptop']
 
+  const sortDisplayValues = (values: string[]) => (
+    values.sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+  )
+
+  const getServiceValue = (service: RepairService, column: string) => {
+    switch (column) {
+      case 'name':
+        return service.name || '—'
+      case 'category':
+        return service.category || '—'
+      case 'manufacturer':
+        return service.manufacturer?.trim() || '—'
+      case 'model':
+        return service.model?.trim() || '—'
+      case 'price':
+        return `$${service.price}`
+      case 'estimatedTime':
+        return service.estimatedTime || '—'
+      case 'knowledgeBase':
+        return String(service.linkedKnowledgeBaseArticles?.length || 0)
+      case 'popularity':
+        return `${service.popularity}%`
+      default:
+        return '—'
+    }
+  }
+
+  const getServiceDeviceTypes = (service: RepairService) => (
+    service.deviceTypes?.length ? service.deviceTypes : ['—']
+  )
+
   useEffect(() => {
     fetchCategories()
+    fetchAllServicesForFilterMenus()
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.add('service-management-page')
+    return () => {
+      document.body.classList.remove('service-management-page')
+    }
   }, [])
 
   useEffect(() => {
@@ -174,20 +669,40 @@ export function ServiceManagement() {
   }, [currentPage, pageSize, sortBy, sortOrder, categoryFilter])
 
   useEffect(() => {
-    // Apply client-side search filter
-    if (searchTerm) {
-      const filtered = services.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (service.manufacturer && service.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (service.model && service.model.toLowerCase().includes(searchTerm.toLowerCase()))
+    const normalizedSearch = searchTerm.trim().toLowerCase()
+
+    const filtered = services.filter((service) => {
+      const matchesSearch = !normalizedSearch || (
+        service.name.toLowerCase().includes(normalizedSearch) ||
+        service.description.toLowerCase().includes(normalizedSearch) ||
+        service.category.toLowerCase().includes(normalizedSearch) ||
+        (service.manufacturer && service.manufacturer.toLowerCase().includes(normalizedSearch)) ||
+        (service.model && service.model.toLowerCase().includes(normalizedSearch))
       )
-      setFilteredServices(filtered)
-    } else {
-      setFilteredServices(services)
-    }
-  }, [services, searchTerm])
+
+      if (!matchesSearch) return false
+
+      if (columnFilters.name?.size && columnFilters.name.has(getServiceValue(service, 'name'))) return false
+      if (columnFilters.category?.size && columnFilters.category.has(getServiceValue(service, 'category'))) return false
+      if (columnFilters.manufacturer?.size && columnFilters.manufacturer.has(getServiceValue(service, 'manufacturer'))) return false
+      if (columnFilters.model?.size && columnFilters.model.has(getServiceValue(service, 'model'))) return false
+      if (columnFilters.price?.size && columnFilters.price.has(getServiceValue(service, 'price'))) return false
+      if (columnFilters.estimatedTime?.size && columnFilters.estimatedTime.has(getServiceValue(service, 'estimatedTime'))) return false
+      if (columnFilters.knowledgeBase?.size && columnFilters.knowledgeBase.has(getServiceValue(service, 'knowledgeBase'))) return false
+      if (columnFilters.popularity?.size && columnFilters.popularity.has(getServiceValue(service, 'popularity'))) return false
+
+      if (columnFilters.deviceTypes?.size) {
+        const hasExcludedDeviceType = getServiceDeviceTypes(service)
+          .some((deviceType) => columnFilters.deviceTypes?.has(deviceType))
+
+        if (hasExcludedDeviceType) return false
+      }
+
+      return true
+    })
+
+    setFilteredServices(filtered)
+  }, [services, searchTerm, columnFilters])
 
   const fetchCategories = async () => {
     try {
@@ -246,6 +761,38 @@ export function ServiceManagement() {
     }
   }
 
+  const fetchAllServicesForFilterMenus = async () => {
+    try {
+      const maxLimitPerPage = 200
+      let page = 1
+      let totalPages = 1
+      const allServices: RepairService[] = []
+
+      do {
+        const response = await getRepairServices({
+          page,
+          limit: maxLimitPerPage,
+          sortBy: 'name',
+          sortOrder: 'asc'
+        })
+
+        const batch = response.services || []
+        allServices.push(...batch)
+        totalPages = response.pagination?.totalPages || 1
+        page += 1
+      } while (page <= totalPages)
+
+      const uniqueById = Array.from(
+        new Map(allServices.map((service) => [service._id, service])).values()
+      )
+
+      setAllServicesForFilterMenus(uniqueById)
+    } catch (error) {
+      console.error('Failed to fetch full service list for filter menus:', error)
+      setAllServicesForFilterMenus([])
+    }
+  }
+
   const fetchServiceDetails = async (serviceId: string) => {
     try {
       setLoadingDetail(true)
@@ -286,6 +833,7 @@ export function ServiceManagement() {
       })
 
       await fetchServices()
+      await fetchAllServicesForFilterMenus()
       setIsCreateDialogOpen(false)
       resetForm()
     } catch (error: any) {
@@ -315,6 +863,7 @@ export function ServiceManagement() {
       })
 
       await fetchServices()
+      await fetchAllServicesForFilterMenus()
       setIsEditDialogOpen(false)
       setSelectedService(null)
       resetForm()
@@ -345,6 +894,7 @@ export function ServiceManagement() {
       })
 
       await fetchServices()
+      await fetchAllServicesForFilterMenus()
       setIsDeleteDialogOpen(false)
       setSelectedService(null)
     } catch (error: any) {
@@ -359,27 +909,20 @@ export function ServiceManagement() {
     }
   }
 
-  const handleSort = (field: SortField) => {
-    console.log(`Sorting by ${field}`)
-    if (sortBy === field) {
-      // Toggle sort order
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      // New sort field, default to ascending
-      setSortBy(field)
-      setSortOrder('asc')
-    }
-    // Reset to first page when sorting changes
+  const handleColumnFilterChange = (column: string, excluded: Set<string>) => {
+    setColumnFilters((previous) => ({ ...previous, [column]: excluded }))
+  }
+
+  const makeSortAsc = (field: SortField) => () => {
+    setSortBy(field)
+    setSortOrder('asc')
     setCurrentPage(1)
   }
 
-  const getSortIcon = (field: SortField) => {
-    if (sortBy !== field) {
-      return <ChevronsUpDown className="h-4 w-4 ml-1 text-muted-foreground" />
-    }
-    return sortOrder === 'asc'
-      ? <ChevronUp className="h-4 w-4 ml-1" />
-      : <ChevronDown className="h-4 w-4 ml-1" />
+  const makeSortDesc = (field: SortField) => () => {
+    setSortBy(field)
+    setSortOrder('desc')
+    setCurrentPage(1)
   }
 
   const openCreateDialog = () => {
@@ -492,66 +1035,73 @@ export function ServiceManagement() {
 
   if (loading && services.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="service-page-container">
+        <div className="service-page-header animate-pulse" style={{ minHeight: 96 }} />
+        <div className="service-stats-grid">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="service-stat-card animate-pulse" style={{ minHeight: 92 }} />
+          ))}
+        </div>
+        <div className="service-section-card animate-pulse" style={{ minHeight: 280 }} />
       </div>
     )
   }
 
+  const activeFilterCount = Object.values(columnFilters).filter((values) => values.size > 0).length
+  const hasClientFilters = Boolean(searchTerm.trim()) || activeFilterCount > 0
+  const columnValues = {
+    name: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'name'))))),
+    category: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'category'))))),
+    manufacturer: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'manufacturer'))))),
+    model: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'model'))))),
+    price: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'price'))))),
+    estimatedTime: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'estimatedTime'))))),
+    deviceTypes: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).flatMap((service) => getServiceDeviceTypes(service))))),
+    knowledgeBase: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'knowledgeBase'))))),
+    popularity: sortDisplayValues(Array.from(new Set((allServicesForFilterMenus.length ? allServicesForFilterMenus : services).map((service) => getServiceValue(service, 'popularity'))))),
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="service-page-container">
       {/* Header */}
-      <div className="rounded-lg border border-[#2a3f7e] bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45] px-4 py-3 text-white shadow-sm">
+      <div className="service-page-header">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
-              <Wrench className="h-5 w-5 sm:h-6 sm:w-6" />
+          <div className="service-page-header__title-block">
+            <h1 className="service-page-header__title">
+              <Wrench className="h-6 w-6" />
             Service Management
             </h1>
-            <p className="text-xs text-[#d8dce6] sm:text-sm">
-            Manage repair services and pricing. Click on a service row to view detailed information.
+            <p className="service-page-header__subtitle">
+            Manage repair services and pricing with column filters and detailed service records.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" className="h-8" onClick={() => setIsCSVImportDialogOpen(true)}>
-              <Upload className="mr-1.5 h-3.5 w-3.5" />
+          <div className="service-page-header__actions">
+            <button type="button" className="service-header-btn service-header-btn--ghost" onClick={() => setIsCSVImportDialogOpen(true)}>
+              <Upload className="h-4 w-4" />
             Import CSV
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-8"
+            </button>
+            <button
+              type="button"
+              className="service-header-btn service-header-btn--danger"
               onClick={() => {
                 setDeleteAllPassword("")
                 setIsDeleteAllDialogOpen(true)
               }}
             >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
               Delete All
-            </Button>
-            <Button size="sm" className="h-8 bg-white text-[#1a2a5e] hover:bg-[#f5f6f8]" onClick={openCreateDialog}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
+            </button>
+            <button type="button" className="service-header-btn service-header-btn--solid" onClick={openCreateDialog}>
+              <Plus className="h-4 w-4" />
             Add Service
-            </Button>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-3 md:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+      <div className="service-stats-grid">
+        <Card className="service-stat-card service-stat-card--blue">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-blue-700 dark:text-blue-300">
               Total Services
@@ -565,7 +1115,7 @@ export function ServiceManagement() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
+        <Card className="service-stat-card service-stat-card--green">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-green-700 dark:text-green-300">
               Avg. Price
@@ -579,7 +1129,7 @@ export function ServiceManagement() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+        <Card className="service-stat-card service-stat-card--purple">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-purple-700 dark:text-purple-300">
               Categories
@@ -593,7 +1143,7 @@ export function ServiceManagement() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
+        <Card className="service-stat-card service-stat-card--orange">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-orange-700 dark:text-orange-300">
               Avg. Rating
@@ -609,7 +1159,7 @@ export function ServiceManagement() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="service-section-card">
         <CardContent className="pt-4">
           <div className="flex flex-col gap-3 lg:flex-row">
             <div className="flex-1">
@@ -661,64 +1211,142 @@ export function ServiceManagement() {
       </Card>
 
       {/* Services Table */}
-      <Card>
+      <Card className="service-section-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Repair Services</CardTitle>
           <CardDescription className="text-xs">
-            Manage your repair service catalog and pricing. Click on any row to view detailed information. Click column headers to sort.
+            Manage your repair service catalog and pricing. Use the column menus to sort or exclude values on the current page.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
+          {activeFilterCount > 0 && (
+            <div className="service-active-filters-bar">
+              <Filter className="h-3.5 w-3.5" />
+              <span>
+                {activeFilterCount} column filters active, showing {filteredServices.length} of {services.length} services on this page
+              </span>
+              <button
+                type="button"
+                className="col-filter-link col-filter-link--danger"
+                onClick={() => setColumnFilters({})}
+              >
+                <X className="h-3 w-3" />
+                Clear all
+              </button>
+            </div>
+          )}
+
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead
-                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
-                  onClick={() => handleSort('name')}
-                >
-                  <div className="flex items-center">
-                    Service
-                    {getSortIcon('name')}
-                  </div>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="name"
+                    label="Service"
+                    allValues={columnValues.name}
+                    excludedValues={columnFilters.name || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('name')}
+                    onSortDesc={makeSortDesc('name')}
+                  />
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
-                  onClick={() => handleSort('category')}
-                >
-                  <div className="flex items-center">
-                    Category
-                    {getSortIcon('category')}
-                  </div>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="category"
+                    label="Category"
+                    allValues={columnValues.category}
+                    excludedValues={columnFilters.category || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('category')}
+                    onSortDesc={makeSortDesc('category')}
+                  />
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
-                  onClick={() => handleSort('manufacturer')}
-                >
-                  <div className="flex items-center">
-                    Manufacturer/Model
-                    {getSortIcon('manufacturer')}
-                  </div>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="manufacturer"
+                    label="Manufacturer"
+                    allValues={columnValues.manufacturer}
+                    excludedValues={columnFilters.manufacturer || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('manufacturer')}
+                    onSortDesc={makeSortDesc('manufacturer')}
+                  />
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
-                  onClick={() => handleSort('price')}
-                >
-                  <div className="flex items-center">
-                    Price
-                    {getSortIcon('price')}
-                  </div>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="model"
+                    label="Model"
+                    allValues={columnValues.model}
+                    excludedValues={columnFilters.model || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('model')}
+                    onSortDesc={makeSortDesc('model')}
+                  />
                 </TableHead>
-                <TableHead className="py-2 text-xs">Est. Time</TableHead>
-                <TableHead className="py-2 text-xs">Device Types</TableHead>
-                <TableHead className="py-2 text-xs">Knowledge Base</TableHead>
-                <TableHead
-                  className="cursor-pointer select-none py-2 text-xs hover:bg-muted/50"
-                  onClick={() => handleSort('popularity')}
-                >
-                  <div className="flex items-center">
-                    Popularity
-                    {getSortIcon('popularity')}
-                  </div>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="price"
+                    label="Price"
+                    allValues={columnValues.price}
+                    excludedValues={columnFilters.price || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('price')}
+                    onSortDesc={makeSortDesc('price')}
+                  />
+                </TableHead>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="estimatedTime"
+                    label="Est. Time"
+                    allValues={columnValues.estimatedTime}
+                    excludedValues={columnFilters.estimatedTime || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('estimatedTime')}
+                    onSortDesc={makeSortDesc('estimatedTime')}
+                  />
+                </TableHead>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="deviceTypes"
+                    label="Device Types"
+                    allValues={columnValues.deviceTypes}
+                    excludedValues={columnFilters.deviceTypes || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                  />
+                </TableHead>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="knowledgeBase"
+                    label="Knowledge Base"
+                    allValues={columnValues.knowledgeBase}
+                    excludedValues={columnFilters.knowledgeBase || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                  />
+                </TableHead>
+                <TableHead className="select-none py-2 text-xs">
+                  <ColumnFilterMenu
+                    column="popularity"
+                    label="Popularity"
+                    allValues={columnValues.popularity}
+                    excludedValues={columnFilters.popularity || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('popularity')}
+                    onSortDesc={makeSortDesc('popularity')}
+                  />
                 </TableHead>
                 <TableHead className="py-2 text-right text-xs">Actions</TableHead>
               </TableRow>
@@ -726,7 +1354,7 @@ export function ServiceManagement() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                       <span className="text-muted-foreground">Loading services...</span>
@@ -735,9 +1363,9 @@ export function ServiceManagement() {
                 </TableRow>
               ) : filteredServices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <Wrench className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No services found</p>
+                    <p className="text-muted-foreground">No services match the current search or column filters</p>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -760,16 +1388,13 @@ export function ServiceManagement() {
                     </TableCell>
                     <TableCell className="py-2">
                       <div className="text-xs">
-                        {service.manufacturer && (
-                          <p className="font-medium">{service.manufacturer}</p>
-                        )}
-                        {service.model && (
-                          <p className="text-muted-foreground">{service.model}</p>
-                        )}
-                        {!service.manufacturer && !service.model && (
-                          <span className="text-muted-foreground">-</span>
-                        )}
+                        {service.manufacturer
+                          ? <p className="font-medium">{service.manufacturer}</p>
+                          : <span className="text-muted-foreground">-</span>}
                       </div>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <span className="text-xs text-muted-foreground">{service.model || '-'}</span>
                     </TableCell>
                     <TableCell className="py-2">
                       <div className="flex items-center gap-1">
@@ -847,7 +1472,9 @@ export function ServiceManagement() {
           {!loading && pagination.totalPages > 1 && (
             <div className="mt-3 flex items-center justify-between border-t pt-3">
               <div className="text-xs text-muted-foreground">
-                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, pagination.total)} of {pagination.total} services
+                {hasClientFilters
+                  ? `Showing ${filteredServices.length} of ${services.length} services on this page (${pagination.total} total)`
+                  : `Showing ${((currentPage - 1) * pageSize) + 1} to ${Math.min(currentPage * pageSize, pagination.total)} of ${pagination.total} services`}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -905,16 +1532,18 @@ export function ServiceManagement() {
 
       {/* Service Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto p-4 sm:p-5">
-          <DialogHeader className="-mx-4 -mt-4 border-b border-[#2a3f7e] bg-[#1a2a5e] px-4 py-2.5 text-white sm:-mx-5 sm:-mt-5 sm:px-5">
-            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+        <DialogContent className="max-h-[90vh] max-w-4xl service-detail-dialog">
+          <DialogHeader>
+            <DialogTitle>
               <Info className="h-4 w-4" />
               Service Details
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#d8dce6]">
+            <DialogDescription>
               Comprehensive information about the selected repair service
             </DialogDescription>
           </DialogHeader>
+
+          <div className="service-dialog-scroll">
 
           {loadingDetail ? (
             <div className="space-y-4 p-6">
@@ -929,317 +1558,21 @@ export function ServiceManagement() {
               </div>
             </div>
           ) : detailService ? (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid h-8 w-full grid-cols-4">
-                <TabsTrigger value="overview" className="px-2 text-xs">Overview</TabsTrigger>
-                <TabsTrigger value="device" className="px-2 text-xs">Device Info</TabsTrigger>
-                <TabsTrigger value="repair" className="px-2 text-xs">Repair Details</TabsTrigger>
-                <TabsTrigger value="knowledge" className="px-2 text-xs">Knowledge Base</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <Wrench className="h-4 w-4" />
-                        Basic Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-xs">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Service Name</Label>
-                        <p className="text-sm font-semibold">{detailService.name}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Artikelnummer</Label>
-                        <p className="mt-1 font-medium">{detailService.articleNumber || '-'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Service</Label>
-                        <p className="mt-1 text-xs">{detailService.service || '-'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Category</Label>
-                        <div className="mt-1">
-                          <Badge variant="outline" className="h-5 px-1.5 text-[11px]">
-                            <Tag className="h-3 w-3 mr-1" />
-                            {detailService.category}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Kurzbeschreibung</Label>
-                        {detailService.shortDescription ? (
-                          <div
-                            className="mt-1 text-xs leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
-                            dangerouslySetInnerHTML={{ __html: detailService.shortDescription }}
-                          />
-                        ) : (
-                          <p className="mt-1 text-xs leading-relaxed">-</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Description</Label>
-                        {detailService.description ? (
-                          <div
-                            className="mt-1 text-xs leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0"
-                            dangerouslySetInnerHTML={{ __html: detailService.description }}
-                          />
-                        ) : (
-                          <p className="mt-1 text-xs leading-relaxed">-</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Status</Label>
-                        <div className="mt-1">
-                          <Badge variant={detailService.isActive ? "default" : "secondary"} className="h-5 px-1.5 text-[11px]">
-                            {detailService.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <DollarSign className="h-4 w-4" />
-                        Pricing & Performance
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-xs">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground">Price</Label>
-                          <p className="text-lg font-bold text-green-600">${detailService.price}</p>
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground">Popularity</Label>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3.5 w-3.5 text-yellow-400" />
-                            <p className="text-base font-semibold">{detailService.popularity}%</p>
-                          </div>
-                        </div>
-                      </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">UVP</Label>
-                            <p className="font-medium">${detailService.msrp || 0}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">Purchase Price</Label>
-                            <p className="font-medium">${detailService.purchasePrice || 0}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">Steuerklasse</Label>
-                            <p className="font-medium">{detailService.taxClass || '-'}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">_quelle</Label>
-                            <p className="font-medium">{detailService.source || '-'}</p>
-                          </div>
-                        </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Estimated Time</Label>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <p className="font-medium">{detailService.estimatedTime}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Created</Label>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                          <p>{new Date(detailService.createdAt).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <FileText className="h-4 w-4" />
-                      SEO, Print & Notes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-xs">
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Suchbegriffe</Label>
-                      <p className="mt-1">{detailService.searchKeywords || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">SEO Namen (Suchmaschienenname)</Label>
-                      <p className="mt-1">{detailService.seoName || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">SEO Titel-Tag</Label>
-                      <p className="mt-1">{detailService.seoTitleTag || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">SEO Meta-Keywords</Label>
-                      <p className="mt-1">{detailService.seoMetaKeywords || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">SEO Meta-Description</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{detailService.seoMetaDescription || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Druck Kurzbeschreibung</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{detailService.printShortDescription || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Druck Beschreibung</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{detailService.printDescription || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Amerkung / Anmerkung</Label>
-                      <p className="mt-1 whitespace-pre-wrap">{detailService.note || '-'}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="device" className="space-y-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <Smartphone className="h-4 w-4" />
-                      Device Compatibility
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-xs">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Manufacturer</Label>
-                        <p className="font-medium mt-1">
-                          {detailService.manufacturer || <span className="text-muted-foreground">Not specified</span>}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Model</Label>
-                        <p className="font-medium mt-1">
-                          {detailService.model || <span className="text-muted-foreground">Not specified</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Compatible Device Types</Label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {detailService.deviceTypes.map(type => (
-                          <Badge key={type} variant="secondary" className="h-5 px-1.5 text-[11px]">
-                            <Smartphone className="h-3 w-3 mr-1" />
-                            {type}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="repair" className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4" />
-                        Customer Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">External Repair Information</Label>
-                        <div className="mt-2 p-3 bg-muted/50 rounded-lg">
-                          {detailService.externalRepairInfo ? (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{detailService.externalRepairInfo}</p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic">No customer-facing repair information provided</p>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <FileText className="h-4 w-4" />
-                        Internal Technical Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs">
-                      <div>
-                        <Label className="text-xs font-medium text-muted-foreground">Internal Repair Information</Label>
-                        <div className="mt-2 p-3 bg-muted/50 rounded-lg">
-                          {detailService.internalRepairInfo ? (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{detailService.internalRepairInfo}</p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic">No internal repair information provided</p>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="knowledge" className="space-y-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <BookOpen className="h-4 w-4" />
-                      Linked Knowledge Base Articles
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-xs">
-                    {detailService.linkedKnowledgeBaseArticles && detailService.linkedKnowledgeBaseArticles.length > 0 ? (
-                      <div className="space-y-2.5">
-                        {detailService.linkedKnowledgeBaseArticles.map((article, index) => (
-                          <div key={index} className="flex items-start gap-2 p-2.5 border rounded-lg hover:bg-muted/50 transition-colors">
-                            <LinkIcon className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium">{article.title || 'Untitled Article'}</p>
-                              {article.url && (
-                                <a
-                                  href={article.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:text-blue-800 break-all"
-                                >
-                                  {article.url}
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                        <p className="text-muted-foreground">No knowledge base articles linked to this service</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+            <ServiceDetailView service={detailService} />
           ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground">Failed to load service details</p>
             </div>
           )}
 
+          </div>
+
           <DialogFooter>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsDetailDialogOpen(false)}>
+            <Button variant="outline" size="sm" className="service-dialog-btn-outline" onClick={() => setIsDetailDialogOpen(false)}>
               Close
             </Button>
             {detailService && (
-              <Button size="sm" className="h-8 text-xs" onClick={() => {
+              <Button size="sm" className="service-dialog-btn-primary" onClick={() => {
                 setIsDetailDialogOpen(false)
                 openEditDialog(detailService)
               }}>
@@ -1747,6 +2080,7 @@ export function ServiceManagement() {
         onOpenChange={setIsCSVImportDialogOpen}
         onImportComplete={() => {
           fetchServices()
+          fetchAllServicesForFilterMenus()
           setIsCSVImportDialogOpen(false)
         }}
       />
@@ -1809,6 +2143,7 @@ export function ServiceManagement() {
                   setIsDeleteAllDialogOpen(false)
                   setDeleteAllPassword("")
                   await fetchServices()
+                  await fetchAllServicesForFilterMenus()
                 } catch (err: any) {
                   toast({
                     variant: "destructive",

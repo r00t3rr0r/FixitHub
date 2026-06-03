@@ -114,6 +114,7 @@ class ServiceService {
         'name': 'name',
         'category': 'category',
         'manufacturer': 'manufacturer',
+        'model': 'model',
         'price': 'price',
         'estimatedTime': 'estimatedTime',
         'popularity': 'popularity'

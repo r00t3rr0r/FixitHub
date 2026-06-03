@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -57,9 +57,6 @@ function ColumnFilterMenu({
   const filtered = allValues.filter(v =>
     v.toLowerCase().includes(search.toLowerCase())
   );
-
-  const allChecked = filtered.every(v => !excludedValues.has(v));
-  const someChecked = filtered.some(v => !excludedValues.has(v));
 
   const toggleValue = (val: string) => {
     const next = new Set(excludedValues);
@@ -420,17 +417,6 @@ export function PartsManagement() {
     }
   };
 
-  const handleSort = (column: string) => {
-    console.log('PartsManagement: Sorting by column:', column);
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortOrder('asc');
-    }
-    setCurrentPage(1);
-  };
-
   const makeSortAsc = (col: string) => () => {
     setSortBy(col);
     setSortOrder('asc');
@@ -441,15 +427,6 @@ export function PartsManagement() {
     setSortBy(col);
     setSortOrder('desc');
     setCurrentPage(1);
-  };
-
-  const getSortIcon = (column: string) => {
-    if (sortBy !== column) {
-      return <ChevronsUpDown className="ml-1 h-4 w-4 inline-block text-muted-foreground" />;
-    }
-    return sortOrder === 'asc'
-      ? <ChevronUp className="ml-1 h-4 w-4 inline-block" />
-      : <ChevronDown className="ml-1 h-4 w-4 inline-block" />;
   };
 
   const handlePageChange = (newPage: number) => {
