@@ -672,15 +672,23 @@ class InspectionCommunicationService {
         throw new Error('Communication thread not found');
       }
 
+      const now = new Date();
       let markedCount = 0;
       communication.messages.forEach(message => {
-        const hasUserRead = message.readBy.some(read => read.userId.toString() === userId.toString());
-        if (!hasUserRead) {
-          message.readBy.push({
-            userId,
-            readAt: new Date(),
-          });
+        const existingEntry = message.readBy.find(read => read.userId.toString() === userId.toString());
+
+        if (!existingEntry) {
+          // First time reading this message
+          message.readBy.push({ userId, readAt: now });
           markedCount++;
+        } else {
+          // For feedback-responded messages: if the customer responded AFTER the admin last read,
+          // update readAt so the unread check (readAt >= respondedAt) passes correctly.
+          const respondedAt = message.feedbackRequest?.respondedAt;
+          if (respondedAt && new Date(existingEntry.readAt) < new Date(respondedAt)) {
+            existingEntry.readAt = now;
+            markedCount++;
+          }
         }
       });
 

@@ -33,7 +33,8 @@ import {
   getRemindersByBooking
 } from "@/api/reminders"
 import {
-  getUnreadMessageCounts
+  getUnreadMessageCounts,
+  markMessagesAsRead as markInspectionMessagesAsRead
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
@@ -600,6 +601,10 @@ export function BookingsManagement() {
 
   const openOrderCommunication = (orderId: string, orderNumber?: string) => {
     if (!orderId) return
+    // Mark as read on the server immediately — don't wait for CommunicationPanel to mount and load
+    markInspectionMessagesAsRead(orderId).catch((err) =>
+      console.error('BookingsManagement: Error marking messages as read:', err)
+    )
     // Optimistically clear the unread count for this order so the badge disappears immediately
     locallyReadOrderIds.current.add(orderId)
     setUnreadCounts((prev) => {
