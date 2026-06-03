@@ -7920,5 +7920,127 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1780477615899-fwgac7jyo",
+    "timestamp": "2026-06-03T09:06:55.899Z",
+    "to": "rb@arinna.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<4399a34e-27f8-186a-755a-a82cf55d52fb@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2672,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1780477739840-mbn3p5efo",
+    "timestamp": "2026-06-03T09:08:59.840Z",
+    "to": "rb@arinna.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0008 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<b2da002c-e23b-5ec1-033e-17a71de8edff@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1300,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1780478050734-6hygl5wct",
+    "timestamp": "2026-06-03T09:14:10.734Z",
+    "to": "rb@arinna.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<e350a33c-5811-7424-70c0-a1a1309d1606@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 946,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780478425671-w1tjttl44",
+    "timestamp": "2026-06-03T09:20:25.671Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0009 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<d1af6133-2325-c8f2-f4cf-16c54f130337@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1471,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

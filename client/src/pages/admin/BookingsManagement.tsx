@@ -343,6 +343,37 @@ export function BookingsManagement() {
   }, [location.state])
 
   useEffect(() => {
+    const openByOrderId = (location.state as { openBookingByOrderId?: string } | null)?.openBookingByOrderId
+    if (!openByOrderId || filteredBookings.length === 0) {
+      return
+    }
+
+    const match = filteredBookings.find((b) =>
+      Array.isArray(b.orderIds) && b.orderIds.some((o: string | { _id: string }) =>
+        (typeof o === 'string' ? o : o._id) === openByOrderId
+      )
+    )
+    if (!match) return
+
+    const openDialog = async () => {
+      try {
+        setStatusFilter('all')
+        setBillingStatusFilter('all')
+        setCurrentPage(1)
+        setActiveHighlightedBookingId(match._id)
+        await new Promise((r) => window.setTimeout(r, 400))
+        const response = await getBooking(match._id)
+        setSelectedBooking(response.booking)
+        setShowDetailDialog(true)
+      } catch (error) {
+        console.error('BookingsManagement: Error opening booking by orderId:', error)
+      }
+    }
+
+    openDialog()
+  }, [location.state, filteredBookings])
+
+  useEffect(() => {
     if (!highlightBookingIdFromQuery) {
       return
     }
@@ -3742,7 +3773,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
             key={invoice._id}
             data-invoice-id={invoice._id}
             className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${highlightedInvoiceId === invoice._id ? 'invoice-card-highlight' : ''}`}
-            onClick={() => navigate(`/admin/financial?tab=invoices&highlightInvoiceId=${invoice._id}`)}
+            onClick={() => navigate(`/admin/financial?tab=overview&highlightInvoiceId=${invoice._id}`)}
             title="Zur Finanzverwaltung und dieser Rechnung wechseln"
           >
             <div className="flex items-start justify-between mb-3">

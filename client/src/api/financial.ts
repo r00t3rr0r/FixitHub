@@ -36,6 +36,7 @@ export interface Invoice {
   numberPrefix?: string;
   orderId?: string;
   repairOrderIds?: string[];
+  bookingId?: string;
   creditNoteOf?: string;
   isCreditNote?: boolean;
   customerId: string;
