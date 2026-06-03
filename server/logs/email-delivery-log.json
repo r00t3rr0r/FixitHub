@@ -7614,5 +7614,209 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1780468195117-qj3r1n49l",
+    "timestamp": "2026-06-03T06:29:55.117Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<5a5200a0-ee02-c8fc-9cdc-0588134f92dc@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1392,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780468215559-c0x46l8fa",
+    "timestamp": "2026-06-03T06:30:15.559Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<7d842489-4c34-e0bb-3b3f-1c8149617f7f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1142,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780468234274-bb54lklvc",
+    "timestamp": "2026-06-03T06:30:34.274Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<17e7d25b-834d-7199-4859-7b702bd9986b@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1417,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780468239416-v4gcpy2rx",
+    "timestamp": "2026-06-03T06:30:39.416Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<a2f3a91e-4196-9be5-8af9-ac76d618d3ea@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1380,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780468325741-2qkh53tjp",
+    "timestamp": "2026-06-03T06:32:05.741Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<2ff9a00d-3db4-fd29-4578-205015ab5abc@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1228,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780468329984-mn4x908k1",
+    "timestamp": "2026-06-03T06:32:09.984Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<8f1adb92-7aee-df0e-6260-4ff7b71d33e9@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1091,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]

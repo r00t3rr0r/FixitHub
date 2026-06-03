@@ -427,7 +427,6 @@ export function WorkflowExecutionModal({
                   onStepSkip={handleSkipStep}
                   isLoading={isLoading}
                   workflowStatus={workflow.status}
-                  workflowPauseReason={workflow.pauseReason}
                 />
               </div>
             </div>

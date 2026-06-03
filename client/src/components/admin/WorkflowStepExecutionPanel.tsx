@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -385,81 +384,120 @@ export function WorkflowStepExecutionPanel({
     })
   }
 
-  const completedChecklistItems = Object.values(checklistData).filter(Boolean).length
-  const totalChecklistItems = normalizedStep.checklistItems?.length || 0
+  const totalChecklistItems = normalizedStep.checklistItems.length
+  const completedChecklistItems = normalizedStep.checklistItems.filter((_, i) => checklistData[i]).length
+
   const fieldControlClass = "bg-white border-slate-300 text-slate-900 focus-visible:ring-[#1a2a5e] focus-visible:ring-offset-1"
-  const choiceControlClass = "border-slate-400 data-[state=checked]:border-[#1a2a5e] data-[state=checked]:bg-[#1a2a5e]"
+  const checkboxClass = "h-5 w-5 rounded border-2 border-slate-400 data-[state=checked]:border-[#1a2a5e] data-[state=checked]:bg-[#1a2a5e] data-[state=unchecked]:bg-white shrink-0"
 
   return (
     <>
-      <Card className="border-gray-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <CardTitle className="text-lg text-white">
-                Schritt {currentStepIndex + 1}: {normalizedStep.name}
-              </CardTitle>
-              <CardDescription className="mt-2 text-blue-100">
-                {normalizedStep.description || "Keine Beschreibung vorhanden"}
-              </CardDescription>
+      <div className="flex flex-col h-full bg-white">
+
+        {/* ── Step header ── */}
+        <div className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-300 mb-1">
+                Schritt {currentStepIndex + 1} von {steps.length}
+              </p>
+              <h2 className="text-lg font-bold text-[#f5b800] leading-snug">
+                {normalizedStep.name}
+              </h2>
+              {normalizedStep.description && (
+                <p className="mt-1 text-sm text-blue-100 leading-relaxed">
+                  {normalizedStep.description}
+                </p>
+              )}
             </div>
             <Badge
-              variant="outline"
-              className={`whitespace-nowrap ${
+              className={`flex-shrink-0 whitespace-nowrap font-semibold text-xs ${
                 normalizedStep.status === 'completed'
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-500'
                   : normalizedStep.status === 'in-progress'
-                    ? 'bg-white text-[#1a2a5e] border-blue-100'
-                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                    ? 'bg-[#f5b800] text-[#1a2a5e] hover:bg-[#f5b800]'
+                    : 'bg-white/20 text-white hover:bg-white/20'
               }`}
             >
-              {normalizedStep.status === 'completed' && <CheckCircle2 className="h-4 w-4 mr-1" />}
-              {normalizedStep.status === 'in-progress' && <AlertCircle className="h-4 w-4 mr-1" />}
-              <span className="capitalize">{normalizedStep.status}</span>
+              {normalizedStep.status === 'completed' && <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+              {normalizedStep.status === 'in-progress' && <AlertCircle className="h-3.5 w-3.5 mr-1" />}
+              {normalizedStep.status === 'completed'
+                ? 'Abgeschlossen'
+                : normalizedStep.status === 'in-progress'
+                  ? 'In Bearbeitung'
+                  : normalizedStep.status === 'skipped'
+                    ? 'Übersprungen'
+                    : 'Ausstehend'}
             </Badge>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="space-y-6">
-          {/* Checklist Items */}
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+
+          {/* ── Checklist ── */}
           {normalizedStep.checklistItems && normalizedStep.checklistItems.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="font-medium flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Checkliste ({completedChecklistItems}/{totalChecklistItems})
-              </h4>
-              <div className="space-y-2 bg-white p-3 rounded-lg border">
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                  <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
+                  Checkliste
+                </h3>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  completedChecklistItems === totalChecklistItems && totalChecklistItems > 0
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {completedChecklistItems}/{totalChecklistItems} erledigt
+                </span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden divide-y divide-slate-200">
                 {normalizedStep.checklistItems.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3">
+                  <label
+                    key={index}
+                    htmlFor={`checklist-${index}`}
+                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors select-none ${
+                      checklistData[index]
+                        ? 'bg-emerald-50/70'
+                        : 'hover:bg-white'
+                    }`}
+                  >
                     <Checkbox
                       id={`checklist-${index}`}
                       checked={checklistData[index] || false}
                       onCheckedChange={() => handleChecklistItemToggle(index)}
                       disabled={isSubmitting}
-                      className={choiceControlClass}
+                      className={checkboxClass}
                     />
-                    <label
-                      htmlFor={`checklist-${index}`}
-                      className="text-sm text-slate-800 flex-1 cursor-pointer"
-                    >
+                    <span className={`text-sm flex-1 leading-snug ${
+                      checklistData[index]
+                        ? 'line-through text-slate-400'
+                        : 'text-slate-800 font-medium'
+                    }`}>
                       {item}
-                    </label>
-                  </div>
+                    </span>
+                    {checklistData[index] && (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    )}
+                  </label>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Form Fields */}
+          {/* ── Form fields ── */}
           {normalizedStep.formFields && normalizedStep.formFields.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="font-medium">Formularangaben</h4>
-              <div className="space-y-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <section>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+                <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
+                Formularfelder
+              </h3>
+              <div className="space-y-3">
                 {normalizedStep.formFields.map((field) => (
-                  <div key={field.id} className="space-y-2 rounded-md border border-slate-200 bg-white p-3">
-                    <label className="text-sm font-semibold text-slate-800">
+                  <div key={field.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-sm">
+                    <label className="text-sm font-semibold text-slate-800 flex items-center gap-1">
                       {field.label}
-                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                      {field.required && <span className="text-red-500 text-xs ml-0.5">*</span>}
                     </label>
 
                     {field.type === 'text' && (
@@ -523,7 +561,7 @@ export function WorkflowStepExecutionPanel({
                         disabled={isSubmitting}
                       >
                         <SelectTrigger className={fieldControlClass}>
-                          <SelectValue placeholder={field.placeholder} />
+                          <SelectValue placeholder={field.placeholder || 'Bitte wählen…'} />
                         </SelectTrigger>
                         <SelectContent className="border-slate-300">
                           {field.options.map((option) => (
@@ -540,15 +578,15 @@ export function WorkflowStepExecutionPanel({
                     )}
 
                     {field.type === 'checkbox' && (
-                      <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-3 cursor-pointer">
                         <Checkbox
                           checked={formData[field.name] || false}
                           onCheckedChange={(checked) => handleFormFieldChange(field.name, checked)}
                           disabled={isSubmitting}
-                          className={choiceControlClass}
+                          className={checkboxClass}
                         />
-                        <span className="text-sm text-slate-800">{field.placeholder}</span>
-                      </div>
+                        <span className="text-sm text-slate-800">{field.placeholder || field.label}</span>
+                      </label>
                     )}
 
                     {field.type === 'radio' && field.options && (
@@ -556,32 +594,36 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onValueChange={(value) => handleFormFieldChange(field.name, value)}
                         disabled={isSubmitting}
+                        className="space-y-1"
                       >
-                        <div className="space-y-2">
-                          {field.options.map((option) => (
-                            <div key={option.value} className="flex items-center gap-2">
-                              <RadioGroupItem
-                                value={option.value}
-                                id={`${field.id}-${option.value}`}
-                                disabled={isSubmitting}
-                                className="border-slate-400 text-[#1a2a5e]"
-                              />
-                              <label
-                                htmlFor={`${field.id}-${option.value}`}
-                                className="text-sm text-slate-800 font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                              >
-                                {option.label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
+                        {field.options.map((option) => (
+                          <label
+                            key={option.value}
+                            htmlFor={`${field.id}-${option.value}`}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors"
+                          >
+                            <RadioGroupItem
+                              value={option.value}
+                              id={`${field.id}-${option.value}`}
+                              disabled={isSubmitting}
+                              className="border-slate-400 text-[#1a2a5e]"
+                            />
+                            <span className="text-sm text-slate-800 font-medium">{option.label}</span>
+                          </label>
+                        ))}
                       </RadioGroup>
                     )}
 
                     {field.type === 'multiselect' && field.options && (
-                      <div className="space-y-2">
+                      <div className="rounded-lg border border-slate-200 overflow-hidden divide-y divide-slate-100">
                         {field.options.map((option) => (
-                          <div key={option.value} className="flex items-center gap-2">
+                          <label
+                            key={option.value}
+                            htmlFor={`${field.id}-${option.value}`}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              (formData[field.name] || []).includes(option.value) ? 'bg-blue-50' : 'hover:bg-slate-50'
+                            }`}
+                          >
                             <Checkbox
                               id={`${field.id}-${option.value}`}
                               checked={(formData[field.name] || []).includes(option.value)}
@@ -590,69 +632,56 @@ export function WorkflowStepExecutionPanel({
                                 if (checked) {
                                   handleFormFieldChange(field.name, [...currentValues, option.value])
                                 } else {
-                                  handleFormFieldChange(
-                                    field.name,
-                                    currentValues.filter((v: string) => v !== option.value)
-                                  )
+                                  handleFormFieldChange(field.name, currentValues.filter((v: string) => v !== option.value))
                                 }
                               }}
                               disabled={isSubmitting}
-                              className={choiceControlClass}
+                              className={checkboxClass}
                             />
-                            <label
-                              htmlFor={`${field.id}-${option.value}`}
-                              className="text-sm text-slate-800 font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {option.label}
-                            </label>
-                          </div>
+                            <span className="text-sm text-slate-800 font-medium">{option.label}</span>
+                          </label>
                         ))}
                       </div>
                     )}
 
                     {field.type === 'file' && (
                       <div className="space-y-2">
-                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center bg-slate-50">
-                          <input
-                            type="file"
-                            multiple
-                            onChange={(e) => {
-                              if (e.target.files) {
-                                const files = Array.from(e.target.files)
-                                const currentFiles = formData[field.name] || []
-                                handleFormFieldChange(field.name, [...currentFiles, ...files])
-                              }
-                            }}
-                            disabled={isSubmitting}
-                            className="hidden"
-                            id={`file-${field.id}`}
-                          />
-                          <label
-                            htmlFor={`file-${field.id}`}
-                            className="cursor-pointer flex flex-col items-center gap-1"
-                          >
-                            <FileUp className="h-5 w-5 text-slate-500" />
-                            <span className="text-xs text-slate-700">
-                              Klicken, um Dateien hochzuladen
-                            </span>
-                          </label>
-                        </div>
+                        <input
+                          type="file"
+                          multiple
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              const files = Array.from(e.target.files)
+                              const currentFiles = formData[field.name] || []
+                              handleFormFieldChange(field.name, [...currentFiles, ...files])
+                            }
+                          }}
+                          disabled={isSubmitting}
+                          className="hidden"
+                          id={`file-${field.id}`}
+                        />
+                        <label
+                          htmlFor={`file-${field.id}`}
+                          className="flex flex-col items-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#1a2a5e] hover:bg-blue-50/30 transition-colors"
+                        >
+                          <FileUp className="h-6 w-6 text-slate-400" />
+                          <span className="text-xs text-slate-600 font-medium">
+                            Klicken zum Hochladen
+                          </span>
+                        </label>
                         {formData[field.name] && formData[field.name].length > 0 && (
                           <div className="space-y-1">
                             {formData[field.name].map((file: File, index: number) => (
-                              <div key={index} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
-                                <span className="truncate">{file.name}</span>
+                              <div key={index} className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                <span className="truncate text-slate-700">{file.name}</span>
                                 <button
                                   onClick={() => {
-                                    const updatedFiles = formData[field.name].filter(
-                                      (_: File, i: number) => i !== index
-                                    )
-                                    handleFormFieldChange(field.name, updatedFiles)
+                                    handleFormFieldChange(field.name, formData[field.name].filter((_: File, i: number) => i !== index))
                                   }}
-                                  className="text-red-500 hover:text-red-700"
+                                  className="ml-2 text-slate-400 hover:text-red-500 transition-colors"
                                   type="button"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             ))}
@@ -662,116 +691,120 @@ export function WorkflowStepExecutionPanel({
                     )}
 
                     {field.helpText && (
-                      <p className="text-xs text-slate-600">{field.helpText}</p>
+                      <p className="text-xs text-slate-500 italic">{field.helpText}</p>
                     )}
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Zusaetzliche Notizen</label>
+          {/* ── Notes ── */}
+          <section>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+              <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
+              Notizen
+            </h3>
             <Textarea
-              placeholder="Notizen oder Beobachtungen zu diesem Schritt..."
+              placeholder="Beobachtungen, Auffälligkeiten oder Hinweise für diesen Schritt …"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isSubmitting}
               rows={3}
+              className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#1a2a5e] resize-none"
             />
-          </div>
+          </section>
 
-          {/* Photo Upload */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Fotos hochladen</label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center">
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                disabled={isSubmitting}
-                className="hidden"
-                id="photo-upload"
-              />
-              <label
-                htmlFor="photo-upload"
-                className="cursor-pointer flex flex-col items-center gap-2"
-              >
-                <FileUp className="h-6 w-6 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Klicken, um Fotos hochzuladen, oder per Drag and Drop ablegen
-                </span>
-              </label>
-            </div>
+          {/* ── Photo upload ── */}
+          <section>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+              <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
+              Fotos
+            </h3>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              disabled={isSubmitting}
+              className="hidden"
+              id="photo-upload"
+            />
+            <label
+              htmlFor="photo-upload"
+              className="flex flex-col items-center gap-2 border-2 border-dashed border-slate-300 rounded-xl p-5 text-center cursor-pointer hover:border-[#1a2a5e] hover:bg-blue-50/30 transition-colors"
+            >
+              <FileUp className="h-7 w-7 text-slate-400" />
+              <span className="text-sm font-medium text-slate-600">Fotos hochladen</span>
+              <span className="text-xs text-slate-400">Klicken oder Drag & Drop</span>
+            </label>
             {photos.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                {photos.length} Foto(s) ausgewaehlt
-              </div>
+              <p className="mt-2 text-xs text-slate-500 font-medium">{photos.length} Foto(s) ausgewählt</p>
             )}
-          </div>
+          </section>
+        </div>
 
-          {/* Navigation and Actions */}
-          <div className="flex gap-2 pt-4 border-t">
+        {/* ── Footer: navigation + actions ── */}
+        <div className="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-3 space-y-2">
+          {/* Step complete / skip */}
+          {normalizedStep.status !== 'completed' ? (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowCompleteConfirm(true)}
+                disabled={isSubmitting || isLoading}
+                className="flex-1 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white font-semibold h-10"
+              >
+                {isSubmitting
+                  ? <><span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Schliesse ab…</>
+                  : <><CheckCircle2 className="h-4 w-4 mr-2" />Schritt {currentStepIndex + 1} abschliessen</>
+                }
+              </Button>
+              {normalizedStep.canSkip && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSkipConfirm(true)}
+                  disabled={isSubmitting || isLoading}
+                  className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                >
+                  Überspringen
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-2 text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-200">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="text-sm font-semibold">Schritt abgeschlossen</span>
+            </div>
+          )}
+
+          {/* Prev / next navigation */}
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onStepChange(Math.max(0, currentStepIndex - 1))}
               disabled={!canGoPrev || isSubmitting || isLoading}
+              className="border-slate-200 text-slate-600 hover:bg-slate-50"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Zurueck
+              Zurück
             </Button>
-
-            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-              Schritt {currentStepIndex + 1} / {steps.length}
-            </div>
-
+            <span className="flex-1 text-center text-xs text-slate-400 font-medium">
+              {currentStepIndex + 1} / {steps.length}
+            </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => onStepChange(Math.min(steps.length - 1, currentStepIndex + 1))}
               disabled={!canGoNext || isSubmitting || isLoading}
+              className="border-slate-200 text-slate-600 hover:bg-slate-50"
             >
               Weiter
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
-
-          {/* Complete and Skip Actions */}
-          <div className="flex gap-2 pt-2 border-t">
-            {normalizedStep.status !== 'completed' && (
-              <>
-                <Button
-                  onClick={() => setShowCompleteConfirm(true)}
-                  disabled={isSubmitting || isLoading}
-                  className="flex-1"
-                >
-                  {isSubmitting ? "Schliesse ab..." : `Schritt ${currentStepIndex + 1} abschliessen`}
-                </Button>
-
-                {normalizedStep.canSkip && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowSkipConfirm(true)}
-                    disabled={isSubmitting || isLoading}
-                  >
-                    Schritt ueberspringen
-                  </Button>
-                )}
-              </>
-            )}
-
-            {normalizedStep.status === 'completed' && (
-              <div className="flex-1 flex items-center justify-center gap-2 text-green-600">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>Schritt abgeschlossen</span>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Complete Confirmation Dialog */}
       <AlertDialog open={showCompleteConfirm} onOpenChange={setShowCompleteConfirm}>
