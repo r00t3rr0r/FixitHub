@@ -2107,7 +2107,7 @@ export function FinancialManagement() {
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-[#f5c800]">{t('financialManagement.invoices')}</CardTitle>
+                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')}</CardTitle>
                 <div className="flex gap-2">
                   <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                     <DialogTrigger asChild><Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
@@ -2392,7 +2392,7 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Mahnwesen & Faelligkeiten</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Mahnwesen & Faelligkeiten</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Ueberfaellige Rechnungen und Mahnstufen-Monitoring.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -2424,7 +2424,7 @@ export function FinancialManagement() {
             </CardContent>
           </Card>
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Zahlungsprozesse filtern</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Zahlungsprozesse filtern</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Filter wirken auf die unter den Rechnungen aufklappbaren Zahlungsprozesse. Zahlungen ohne Rechnungslink erscheinen darunter.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -2514,7 +2514,7 @@ export function FinancialManagement() {
         <TabsContent value="dunning" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Gespeicherte Mahnlaeufe</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Gespeicherte Mahnlaeufe</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Persistente Mahnlaeufe laden, Status einsehen und den aktuellen Lauf zur Bearbeitung waehlen.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -2586,7 +2586,7 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Manueller Mahnlauf-Builder</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Manueller Mahnlauf-Builder</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Mahnlauf haendisch erstellen, Fallliste steuern und waehrend der Verarbeitung eingreifen.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -2634,7 +2634,7 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Ueberfaellige Rechnungen (manuelle Auswahl)</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Ueberfaellige Rechnungen (manuelle Auswahl)</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Selektiere Faelle fuer den naechsten Mahnlauf und greife pro Rechnung direkt ein.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -2695,7 +2695,7 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Aktiver Mahnlauf</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Aktiver Mahnlauf</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Im laufenden Prozess einzelne Faelle erneut senden, ueberspringen, eskalieren oder entfernen.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -2761,7 +2761,7 @@ export function FinancialManagement() {
         </TabsContent>
         <TabsContent value="settings" className="space-y-4">
           <Card className="border-[#d8dce6]">
-            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle className="text-[#f5c800]">{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {gateways.map((gateway) => (
                 <div key={gateway._id} className="rounded-md border border-[#d8dce6] p-3">
@@ -2792,7 +2792,7 @@ export function FinancialManagement() {
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <CardTitle className="text-[#f5c800]">Abrechnungs- und Zahlungsparameter</CardTitle>
+                  <CardTitle style={{ color: "#f5c800" }}>Abrechnungs- und Zahlungsparameter</CardTitle>
                   <CardDescription className="text-[#c8d0e7]">
                     Konfiguriere zentrale Defaults fuer Steuer, Waehrung, Rabatte, Rechnungs-Metadaten und Versandlogik.
                   </CardDescription>
@@ -2810,7 +2810,7 @@ export function FinancialManagement() {
           <div className="grid gap-4 xl:grid-cols-3">
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-                <CardTitle className="text-[#f5c800]">Steuer, Waehrung & Fristen</CardTitle>
+                <CardTitle style={{ color: "#f5c800" }}>Steuer, Waehrung & Fristen</CardTitle>
                 <CardDescription className="text-[#c8d0e7]">Defaults fuer neue Rechnungen, Zahlungsbuchungen und Gutschriften.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2870,7 +2870,7 @@ export function FinancialManagement() {
 
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-                <CardTitle className="text-[#f5c800]">Rabatte & Zahlungslogik</CardTitle>
+                <CardTitle style={{ color: "#f5c800" }}>Rabatte & Zahlungslogik</CardTitle>
                 <CardDescription className="text-[#c8d0e7]">Steuere Nachlaesse, Teilzahlungen und Versandverhalten zentral.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2913,7 +2913,7 @@ export function FinancialManagement() {
 
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-                <CardTitle className="text-[#f5c800]">Rechnungs-Meta-Daten</CardTitle>
+                <CardTitle style={{ color: "#f5c800" }}>Rechnungs-Meta-Daten</CardTitle>
                 <CardDescription className="text-[#c8d0e7]">Absender, Kennungen und visuelle Versand-Defaults fuer Rechnungen.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2977,7 +2977,7 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle className="text-[#f5c800]">Wirkung der aktuellen Defaults</CardTitle>
+              <CardTitle style={{ color: "#f5c800" }}>Wirkung der aktuellen Defaults</CardTitle>
               <CardDescription className="text-[#c8d0e7]">Die Werte unten fliessen direkt in neue Rechnungen, Teilzahlungen, Gutschriften und den Versand-Composer ein.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
@@ -2988,12 +2988,12 @@ export function FinancialManagement() {
             </CardContent>
           </Card>
           <Card className="border-[#d8dce6]">
-            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle className="text-[#f5c800]">Berichte &amp; Export</CardTitle><CardDescription className="text-[#c8d0e7]">Daten als CSV/JSON exportieren und Kennzahlen einsehen.</CardDescription></CardHeader>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>Berichte &amp; Export</CardTitle><CardDescription className="text-[#c8d0e7]">Daten als CSV/JSON exportieren und Kennzahlen einsehen.</CardDescription></CardHeader>
           </Card>
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle className="text-[#f5c800]">{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle className="text-[#f5c800]">{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle className="text-[#f5c800]">{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
           </div>
         </TabsContent>
       </Tabs>
@@ -3013,7 +3013,7 @@ export function FinancialManagement() {
             <div className="grid gap-4 lg:grid-cols-2">
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Versand & Formulierung</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Versand & Formulierung</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">
@@ -3069,7 +3069,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Verrechnungsfunktionen & Vorschau</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Verrechnungsfunktionen & Vorschau</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-2 md:grid-cols-2 text-sm">
@@ -3203,7 +3203,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Laufmanagement</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Laufmanagement</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   <Button
@@ -3251,7 +3251,7 @@ export function FinancialManagement() {
               </Card>
 
               <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2"><CardTitle className="text-base text-[#f5c800]">Faelle im Lauf</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base" style={{ color: "#f5c800" }}>Faelle im Lauf</CardTitle></CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
                     <Table>
@@ -3289,7 +3289,7 @@ export function FinancialManagement() {
               </Card>
 
               <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2"><CardTitle className="text-base text-[#f5c800]">Laufhistorie</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base" style={{ color: "#f5c800" }}>Laufhistorie</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {(selectedDunningRun.logs || []).slice().reverse().map((log, idx) => (
                     <div key={`${log.at || 'log'}-${idx}`} className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
@@ -3341,7 +3341,7 @@ export function FinancialManagement() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Card className="border-[#d8dce6]">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#f5c800]">Mahnungsdaten</CardTitle>
+                    <CardTitle className="text-base" style={{ color: "#f5c800" }}>Mahnungsdaten</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
@@ -3356,7 +3356,7 @@ export function FinancialManagement() {
 
                 <Card className="border-[#d8dce6]">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#f5c800]">Eingriff in Mahnlauf</CardTitle>
+                    <CardTitle className="text-base" style={{ color: "#f5c800" }}>Eingriff in Mahnlauf</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <div>
@@ -3389,7 +3389,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Relevante Rechnungspositionen</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Relevante Rechnungspositionen</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
@@ -3426,7 +3426,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Aktivitaets-Timeline</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Aktivitaets-Timeline</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -3470,22 +3470,27 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={invoiceDetailsDialogOpen} onOpenChange={setInvoiceDetailsDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <FileSpreadsheet className="h-5 w-5" />
               Rechnungsdetails
+              {selectedInvoice?.invoiceNumber && (
+                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoice.invoiceNumber}</span>
+              )}
               {selectedInvoice?.isCreditNote && (
-                <Badge className="bg-violet-100 text-violet-700 border-violet-300 border">Gutschrift</Badge>
+                <Badge className="bg-violet-500/90 text-white border border-violet-300 ml-2">Gutschrift</Badge>
               )}
               {selectedInvoice?.status === 'credited' && !selectedInvoice?.isCreditNote && (
-                <Badge className="bg-orange-100 text-orange-700 border-orange-300 border">Gutgeschrieben</Badge>
+                <Badge className="bg-orange-500/90 text-white border border-orange-300 ml-2">Gutgeschrieben</Badge>
               )}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-[#c8d0e7]">
               Vollstaendige Detailansicht inkl. Zahlungen, Erstattungen und Gutschriften.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4">
           {invoiceDetailLoading && (
             <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -3529,33 +3534,32 @@ export function FinancialManagement() {
               {/* ── Stat cards ────────────────────────────────────────────── */}
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Rechnungsnummer</div>
-                  <div className="font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsnummer</div>
+                  <div className="mt-1 font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
                   <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge></div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Gesamtbetrag</div>
-                  <div className="font-semibold text-[#1a2a5e]">{formatCurrency(selectedInvoice.total)}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamtbetrag</div>
+                  <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(selectedInvoice.total)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Offen</div>
-                  <div className="font-semibold text-[#1a2a5e]">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
+                  <div className="mt-1 font-semibold text-red-700">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
                 </div>
               </div>
 
-              <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Schnellaktionen</CardTitle>
-                  <CardDescription className="text-[#c8d0e7]">Aktionen direkt aus den Rechnungsdetails ausfuehren.</CardDescription>
+              <Card className="border-[#d8dce6] overflow-hidden">
+                <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Schnellaktionen</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
                       onClick={() => {
                         setInvoiceDetailsDialogOpen(false);
                         openSendComposer(selectedInvoice, 'invoice');
@@ -3565,7 +3569,7 @@ export function FinancialManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
                       onClick={() => {
                         setInvoiceDetailsDialogOpen(false);
                         openStatusDialog(selectedInvoice);
@@ -3575,7 +3579,7 @@ export function FinancialManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e] disabled:opacity-50"
                       disabled={!canRecordPayment(selectedInvoice)}
                       title={canRecordPayment(selectedInvoice)
                         ? 'Teilzahlung erfassen'
@@ -3589,7 +3593,7 @@ export function FinancialManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e] disabled:opacity-50"
                       disabled={
                         !['paid', 'cancelled', 'credited'].includes(selectedInvoice.status) ||
                         selectedInvoice.isCreditNote ||
@@ -3600,7 +3604,7 @@ export function FinancialManagement() {
                         openCreditDialog(selectedInvoice);
                       }}
                     >
-                      Gutschrift erstellen
+                      <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />Gutschrift erstellen
                     </Button>
                   </div>
                 </CardContent>
@@ -3608,11 +3612,11 @@ export function FinancialManagement() {
 
               {/* ── Customer & Lifecycle ─────────────────────────────────── */}
               <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#f5c800]">Kunde, Rechnungs- & Lieferadresse</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Kunde, Rechnungs- &amp; Lieferadresse</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
+                  <CardContent className="p-3 space-y-2 text-sm">
                     <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
                     <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
                     <Separator />
@@ -3656,11 +3660,11 @@ export function FinancialManagement() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#f5c800]">Verknuepfte Orders & Lifecycle</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Orders &amp; Lifecycle</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
+                  <CardContent className="p-3 space-y-2 text-sm">
                     <div><span className="text-muted-foreground">Order-ID:</span> {formatReferenceValue(selectedInvoice.orderId)}</div>
                     <div>
                       <span className="text-muted-foreground">RepairOrder-IDs:</span>{' '}
@@ -3678,11 +3682,11 @@ export function FinancialManagement() {
 
               {/* ── Payments & Refunds ────────────────────────────────────── */}
               {!invoiceDetailLoading && (
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#f5c800]">Zahlungen & Erstattungen</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Zahlungen &amp; Erstattungen</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-3">
                     {invoiceDetailPayments.length === 0 ? (
                       <div className="rounded-md border border-dashed border-[#d8dce6] p-3 text-center text-sm text-muted-foreground">
                         Keine Zahlungen fuer diese Rechnung erfasst.
@@ -3772,11 +3776,11 @@ export function FinancialManagement() {
 
               {/* ── Linked Credit Notes ───────────────────────────────────── */}
               {!invoiceDetailLoading && invoiceDetailCreditNotes.length > 0 && (
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#f5c800]">Verknuepfte Gutschriften</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Gutschriften</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-3">
                     <div className="space-y-2">
                       {invoiceDetailCreditNotes.map((cn) => (
                         <div key={String(cn._id)} className="flex items-center justify-between rounded-md border border-violet-200 bg-violet-50 p-3 text-sm">
@@ -3810,11 +3814,11 @@ export function FinancialManagement() {
               )}
 
               {/* ── Invoice items ─────────────────────────────────────────── */}
-              <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Rechnungsposten</CardTitle>
+              <Card className="border-[#d8dce6] overflow-hidden">
+                <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Rechnungsposten</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3">
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
                     <Table>
                       <TableHeader>
@@ -3855,19 +3859,20 @@ export function FinancialManagement() {
               </Card>
 
               {/* ── Notes ─────────────────────────────────────────────────── */}
-              <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#f5c800]">Notizen & Zusatzinfos</CardTitle>
+              <Card className="border-[#d8dce6] overflow-hidden">
+                <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Notizen &amp; Zusatzinfos</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm">
+                <CardContent className="p-3 text-sm">
                   {selectedInvoice.notes ? selectedInvoice.notes : <span className="text-muted-foreground">Keine Notiz vorhanden.</span>}
                 </CardContent>
               </Card>
             </div>
           )}
+          </div>
 
-          <DialogFooter className="mt-2 flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setInvoiceDetailsDialogOpen(false)}>{t('common.close')}</Button>
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]" onClick={() => setInvoiceDetailsDialogOpen(false)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
