@@ -34,8 +34,8 @@ export interface Invoice {
   _id: string;
   invoiceNumber: string;
   numberPrefix?: string;
-  orderId?: string;
-  repairOrderIds?: string[];
+  orderId?: string | { _id: string; orderNumber?: string; status?: string; deviceType?: string; deviceBrand?: string; deviceModel?: string };
+  repairOrderIds?: (string | { _id: string; orderNumber?: string; status?: string; deviceType?: string; deviceBrand?: string; deviceModel?: string })[];
   bookingId?: string;
   creditNoteOf?: string;
   isCreditNote?: boolean;

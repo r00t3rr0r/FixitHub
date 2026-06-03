@@ -84,6 +84,7 @@ import {
   Settings,
   ShieldCheck,
   TrendingUp,
+  User,
   Wallet,
   Wrench,
   XCircle
@@ -2298,7 +2299,9 @@ export function FinancialManagement() {
                               type="button"
                               onClick={() => navigate(`/admin/orders`)}
                               className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
-                              title={`${invoice.repairOrderIds.length} RepairOrder(s)`}
+                              title={invoice.repairOrderIds.map((r) =>
+                                typeof r === 'object' ? ((r as { orderNumber?: string }).orderNumber || (r as { _id: string })._id) : String(r)
+                              ).join(', ')}
                             >
                               <Wrench className="h-3 w-3" />
                               {invoice.repairOrderIds.length} Auftrag{invoice.repairOrderIds.length > 1 ? 'e' : ''}
@@ -3610,53 +3613,75 @@ export function FinancialManagement() {
                 </CardContent>
               </Card>
 
-              {/* ── Customer & Lifecycle ─────────────────────────────────── */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* ── Customer & Orders side by side ───────────────────────── */}
+              <div className="grid gap-4 lg:grid-cols-2">
                 <Card className="border-[#d8dce6] overflow-hidden">
                   <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Kunde, Rechnungs- &amp; Lieferadresse</CardTitle>
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Kundendaten</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 space-y-2 text-sm">
-                    <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
-                    <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
-                    <Separator />
-                    {hasAddressData(selectedInvoiceAddress) ? (
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsadresse</div>
-                          <div className="mt-1 space-y-1">
-                            <div>{(selectedInvoiceAddress as any).company || (selectedInvoiceAddress as any).name || '-'}</div>
-                            <div>{(selectedInvoiceAddress as any).street || '-'} {(selectedInvoiceAddress as any).houseNumber || ''}</div>
-                            <div>{(selectedInvoiceAddress as any).zipCode || (selectedInvoiceAddress as any).zip || '-'} {(selectedInvoiceAddress as any).city || '-'}</div>
-                            <div>{(selectedInvoiceAddress as any).state || '-'}</div>
-                            <div>{(selectedInvoiceAddress as any).country || '-'}</div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lieferadresse</div>
-                          <div className="mt-1 space-y-1">
-                            {selectedInvoiceShippingSameAsBilling ? (
-                              <div className="italic text-muted-foreground">Identisch mit Rechnungsadresse</div>
-                            ) : hasAddressData(selectedInvoiceShippingAddress) ? (
-                              <>
-                                <div>{(selectedInvoiceShippingAddress as any).company || (selectedInvoiceShippingAddress as any).name || '-'}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).street || '-'} {(selectedInvoiceShippingAddress as any).houseNumber || ''}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).zipCode || (selectedInvoiceShippingAddress as any).zip || '-'} {(selectedInvoiceShippingAddress as any).city || '-'}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).state || '-'}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).country || '-'}</div>
-                              </>
-                            ) : (
-                              <div className="text-muted-foreground">Nicht angegeben</div>
-                            )}
-                          </div>
+                  <CardContent className="p-3 space-y-3 text-sm">
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 items-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">Kunde:</span>
+                        {selectedInvoice.customerId ? (
+                          <Badge
+                            className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
+                            onClick={() => {
+                              setInvoiceDetailsDialogOpen(false);
+                              const cid = typeof selectedInvoice.customerId === 'object' && selectedInvoice.customerId !== null
+                                ? (selectedInvoice.customerId as unknown as { _id: string })._id
+                                : selectedInvoice.customerId;
+                              navigate('/admin/users', { state: { reopenUserDetailsId: cid } });
+                            }}
+                          >
+                            <User className="h-3 w-3" />
+                            {selectedInvoice.customerName}
+                          </Badge>
+                        ) : (
+                          <span>{selectedInvoice.customerName}</span>
+                        )}
+                      </div>
+                      <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
+                    </div>
+                    {/* Adressen nebeneinander */}
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {/* Rechnungsadresse */}
+                      <div className="rounded-md border border-[#d8dce6] overflow-hidden">
+                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>Rechnungsadresse</div>
+                        <div className="p-3">
+                          {hasAddressData(selectedInvoiceAddress) ? (
+                            <div className="space-y-0.5">
+                              <div className="font-medium">{(selectedInvoiceAddress as any).company || (selectedInvoiceAddress as any).name || '-'}</div>
+                              <div>{(selectedInvoiceAddress as any).street || '-'} {(selectedInvoiceAddress as any).houseNumber || ''}</div>
+                              <div>{(selectedInvoiceAddress as any).zipCode || (selectedInvoiceAddress as any).zip || '-'} {(selectedInvoiceAddress as any).city || '-'}</div>
+                              {(selectedInvoiceAddress as any).state && <div>{(selectedInvoiceAddress as any).state}</div>}
+                              <div className="text-muted-foreground">{(selectedInvoiceAddress as any).country || '-'}</div>
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground text-xs italic">Keine Rechnungsadresse enthalten.</div>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <div className="rounded-md border border-dashed border-[#d8dce6] p-2 text-muted-foreground">
-                        Keine Rechnungsadresse in der Rechnung enthalten.
+                      {/* Lieferadresse */}
+                      <div className="rounded-md border border-[#d8dce6] overflow-hidden">
+                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>Lieferadresse</div>
+                        <div className="p-3">
+                          {selectedInvoiceShippingSameAsBilling ? (
+                            <div className="text-muted-foreground italic text-xs">↑ Identisch mit Rechnungsadresse</div>
+                          ) : hasAddressData(selectedInvoiceShippingAddress) ? (
+                            <div className="space-y-0.5">
+                              <div className="font-medium">{(selectedInvoiceShippingAddress as any).company || (selectedInvoiceShippingAddress as any).name || '-'}</div>
+                              <div>{(selectedInvoiceShippingAddress as any).street || '-'} {(selectedInvoiceShippingAddress as any).houseNumber || ''}</div>
+                              <div>{(selectedInvoiceShippingAddress as any).zipCode || (selectedInvoiceShippingAddress as any).zip || '-'} {(selectedInvoiceShippingAddress as any).city || '-'}</div>
+                              {(selectedInvoiceShippingAddress as any).state && <div>{(selectedInvoiceShippingAddress as any).state}</div>}
+                              <div className="text-muted-foreground">{(selectedInvoiceShippingAddress as any).country || '-'}</div>
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground text-xs italic">Keine Lieferadresse angegeben.</div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -3665,17 +3690,70 @@ export function FinancialManagement() {
                     <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Orders &amp; Lifecycle</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 space-y-2 text-sm">
-                    <div><span className="text-muted-foreground">Order-ID:</span> {formatReferenceValue(selectedInvoice.orderId)}</div>
-                    <div>
-                      <span className="text-muted-foreground">RepairOrder-IDs:</span>{' '}
-                      {formatReferenceList(selectedInvoice.repairOrderIds)}
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
+                      {/* Order-ID Badge */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">Buchung:</span>
+                        {selectedInvoice.orderId ? (() => {
+                          const isObj = typeof selectedInvoice.orderId === 'object' && selectedInvoice.orderId !== null;
+                          const oid = isObj ? (selectedInvoice.orderId as { _id: string })._id : selectedInvoice.orderId as string;
+                          const label = isObj
+                            ? ((selectedInvoice.orderId as { orderNumber?: string }).orderNumber || oid.slice(-6))
+                            : oid.slice(-6);
+                          return (
+                            <Badge
+                              className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
+                              onClick={() => {
+                                setInvoiceDetailsDialogOpen(false);
+                                navigate(`/orders/${oid}`);
+                              }}
+                            >
+                              <Package className="h-3 w-3" />
+                              {label}
+                            </Badge>
+                          );
+                        })() : <span className="text-muted-foreground italic text-xs">–</span>}
+                      </div>
+                      {/* RepairOrder Badges */}
+                      {selectedInvoice.repairOrderIds && selectedInvoice.repairOrderIds.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-muted-foreground">Reparaturaufträge:</span>
+                          {selectedInvoice.repairOrderIds.map((rid) => {
+                            const isObj = typeof rid === 'object' && rid !== null;
+                            const id = isObj ? (rid as { _id: string })._id : (rid as string);
+                            const label = isObj
+                              ? ((rid as { orderNumber?: string }).orderNumber || id.slice(-6))
+                              : id.slice(-6);
+                            const r = isObj ? rid as { deviceBrand?: string; deviceModel?: string; deviceType?: string } : null;
+                            const tooltip = r
+                              ? [label, r.deviceBrand, r.deviceModel].filter(Boolean).join(' – ')
+                              : label;
+                            return (
+                              <Badge
+                                key={id}
+                                className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
+                                title={tooltip}
+                                onClick={() => {
+                                  setInvoiceDetailsDialogOpen(false);
+                                  navigate(`/orders/${id}`);
+                                }}
+                              >
+                                <Wrench className="h-3 w-3" />
+                                {label}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div><span className="text-muted-foreground">Erstellt:</span> {formatDate(selectedInvoice.createdAt)}</div>
-                    <div><span className="text-muted-foreground">Faellig:</span> {formatDate(selectedInvoice.dueDate)}</div>
-                    <div><span className="text-muted-foreground">Gesendet:</span> {formatDate(selectedInvoice.sentAt)}</div>
-                    <div><span className="text-muted-foreground">Bezahlt:</span> {formatDate(selectedInvoice.paidAt)}</div>
-                    <div><span className="text-muted-foreground">Zahlungsziel:</span> {selectedInvoice.paymentTerms || '-'}</div>
-                    <div><span className="text-muted-foreground">Template:</span> {selectedInvoice.template || '-'}</div>
+                    <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 pt-1 border-t border-[#d8dce6]">
+                      <div><span className="text-muted-foreground">Erstellt:</span> {formatDate(selectedInvoice.createdAt)}</div>
+                      <div><span className="text-muted-foreground">Faellig:</span> {formatDate(selectedInvoice.dueDate)}</div>
+                      <div><span className="text-muted-foreground">Gesendet:</span> {formatDate(selectedInvoice.sentAt)}</div>
+                      <div><span className="text-muted-foreground">Bezahlt:</span> {formatDate(selectedInvoice.paidAt)}</div>
+                      <div><span className="text-muted-foreground">Zahlungsziel:</span> {selectedInvoice.paymentTerms || '-'}</div>
+                      <div><span className="text-muted-foreground">Template:</span> {selectedInvoice.template || '-'}</div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
