@@ -4859,7 +4859,7 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
 .admin-order-workspace .unlock-confirm-btn {
   background: var(--primary-blue, #1a2a5e) !important;
   color: var(--accent-yellow, #f5b800) !important;
-  margin: 0 0 10px 12px;
+  margin: 10px 0 0 0;
   border: 1px solid var(--primary-blue-dark, #0f1d45) !important;
   font-weight: 700 !important;
   box-shadow: 0 2px 5px rgba(15, 29, 69, 0.25) !important;

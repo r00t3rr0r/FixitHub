@@ -2260,6 +2260,7 @@
     "more": "mehr",
     "noElectronicParts": "Keine elektronischen Teile",
     "repairInfo": {
+      "title": "Zusätzliche Reparaturinformationen",
       "description": "Während der Auftragserstellung gesammelte Informationen zur Unterstützung bei Diagnose und Reparatur",
       "errorDescriptionLabel": "Fehlerbeschreibung",
       "noInformationProvided": "Keine Fehlerbeschreibung bereitgestellt",

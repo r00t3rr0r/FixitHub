@@ -2248,6 +2248,7 @@
     "updateConfirmation": "Update Confirmation",
     "optional": "Optional",
     "repairInfo": {
+      "title": "Additional Repair Information",
       "description": "Information collected during order creation to help with diagnosis and repair",
       "errorDescriptionLabel": "Error Description",
       "noInformationProvided": "No error description provided",

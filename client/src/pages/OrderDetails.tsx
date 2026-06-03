@@ -2666,6 +2666,168 @@ export function OrderDetails() {
     setRepairServicesPopupOpen(true)
   }
 
+  const renderAdditionalRepairInfo = () => (
+    <div className="space-y-3">
+      {/* Error Description */}
+      {order.errorDescription && order.errorDescription.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
+                {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
+              </h4>
+              <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                {order.errorDescription}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
+                {t('orderDetails.repairInfo.noInformationProvided') || 'Keine Fehlerbeschreibung vorhanden'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Water Damage */}
+      {order.waterDamage && order.waterDamage.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
+              </h4>
+            </div>
+            <Badge
+              variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
+              className={`text-xs px-2 py-0.5 ${
+                order.waterDamage === 'yes'
+                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
+                  : order.waterDamage === 'no'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage.charAt(0).toUpperCase() + order.waterDamage.slice(1)}
+            </Badge>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.waterDamageLabel') || 'Wasserschaden'}
+              </h4>
+            </div>
+            <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
+              {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
+            </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* Previous Repair Attempts */}
+      {order.previousRepairAttempts && order.previousRepairAttempts.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                  {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
+                </h4>
+              </div>
+              <Badge
+                variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
+                className={`text-xs px-2 py-0.5 ${
+                  order.previousRepairAttempts === 'yes'
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
+                    : order.previousRepairAttempts === 'no'
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts.charAt(0).toUpperCase() + order.previousRepairAttempts.slice(1)}
+              </Badge>
+            </div>
+            {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && order.previousRepairDetails.trim() && (
+              <div className="ml-6 pl-3 border-l-2 border-amber-400">
+                <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  {order.previousRepairDetails}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
+              </h4>
+            </div>
+            <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
+              {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
+            </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* Item Condition */}
+      {order.itemCondition && order.itemCondition.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                  {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
+              </h4>
+            </div>
+            <Badge
+              variant="secondary"
+              className={`text-xs px-2 py-0.5 ${
+                order.itemCondition === 'original'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
+                  : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
+              }`}
+            >
+              {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition.charAt(0).toUpperCase() + order.itemCondition.slice(1)}
+            </Badge>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
+              </h4>
+            </div>
+            <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
+              {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
+            </Badge>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   const renderDeviceInformationCard = () => (
     <Card id="order-device-info" className={`order-section-card ${!isStaffOrAdmin ? 'customer-device-card-shell' : ''}`}>
       <CardHeader className="order-section-header">
@@ -2889,6 +3051,14 @@ export function OrderDetails() {
               <ChevronDown className="unlock-confirm-btn-arrow" style={{ transform: 'rotate(-90deg)' }} />
             </button>
           )}
+
+          <div className="border-t pt-3 mt-1 space-y-2">
+            <h4 className="font-medium text-sm flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              {t('orderDetails.repairInfo.title') || 'Zusätzliche Reparaturinformationen'}
+            </h4>
+            {renderAdditionalRepairInfo()}
+          </div>
 
           {hasDeviceHistoryTimeline && (
             <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
@@ -4524,171 +4694,14 @@ export function OrderDetails() {
                 <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
                   <CardTitle className="order-section-title">
                     <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    Zusätzliche Reparaturinformationen
+                    {t('orderDetails.servicesAndProducts.title') || 'Reparaturleistungen & Produkte'}
                   </CardTitle>
                   <p className="order-section-description">
-                    {t('orderDetails.repairInfo.description') || 'Vom Kunden bereitgestellte Informationen zum Gerät und zu den Reparaturanforderungen'}
+                    {t('orderDetails.servicesAndProducts.description') || 'Gebuchte Reparaturdienste, Zusatzleistungen und Produkte für diesen Auftrag'}
                   </p>
                 </CardHeader>
                 <CardContent className="pt-3 space-y-3">
                   <div>
-                {/* Error Description */}
-                {order.errorDescription && order.errorDescription.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
-                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
-                        </h4>
-                        <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                          {order.errorDescription}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
-                          {t('orderDetails.repairInfo.noInformationProvided') || 'Keine Fehlerbeschreibung vorhanden'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Water Damage */}
-                {order.waterDamage && order.waterDamage.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
-                        </h4>
-                      </div>
-                      <Badge
-                        variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
-                        className={`text-xs px-2 py-0.5 ${
-                          order.waterDamage === 'yes'
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
-                            : order.waterDamage === 'no'
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage.charAt(0).toUpperCase() + order.waterDamage.slice(1)}
-                      </Badge>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Wasserschaden'}
-                        </h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Previous Repair Attempts */}
-                {order.previousRepairAttempts && order.previousRepairAttempts.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
-                          </h4>
-                        </div>
-                        <Badge
-                          variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
-                          className={`text-xs px-2 py-0.5 ${
-                            order.previousRepairAttempts === 'yes'
-                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
-                              : order.previousRepairAttempts === 'no'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts.charAt(0).toUpperCase() + order.previousRepairAttempts.slice(1)}
-                        </Badge>
-                      </div>
-                      {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && order.previousRepairDetails.trim() && (
-                        <div className="ml-6 pl-3 border-l-2 border-amber-400">
-                          <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                            {order.previousRepairDetails}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Wrench className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
-                        </h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Item Condition */}
-                {order.itemCondition && order.itemCondition.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
-                        </h4>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={`text-xs px-2 py-0.5 ${
-                          order.itemCondition === 'original'
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
-                            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
-                        }`}
-                      >
-                        {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition.charAt(0).toUpperCase() + order.itemCondition.slice(1)}
-                      </Badge>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
-                        </h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
 
                 {renderRepairServicesSection()}
 
