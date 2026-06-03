@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import "./BookingsManagement.css"
@@ -308,6 +308,9 @@ export function BookingsManagement() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+  // Track order IDs that were optimistically marked as read so periodic fetches don't restore their badges
+  const locallyReadOrderIds = useRef<Set<string>>(new Set())
+  const communicationDialogOpenRef = useRef(false)
   const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
   const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber?: string } | null>(null)
   const [activeHighlightedBookingId, setActiveHighlightedBookingId] = useState<string | null>(null)
@@ -433,8 +436,9 @@ export function BookingsManagement() {
       console.log('BookingsManagement: Bookings available, fetching unread counts')
       fetchUnreadCounts()
 
-      // Set up periodic refresh every 10 seconds
+      // Set up periodic refresh every 10 seconds, skip while chat dialog is open
       const intervalId = setInterval(() => {
+        if (communicationDialogOpenRef.current) return
         console.log('BookingsManagement: Auto-refreshing unread counts (periodic)')
         fetchUnreadCounts()
       }, 10000) // 10 seconds
@@ -529,8 +533,27 @@ export function BookingsManagement() {
 
       // Ensure we have an object to work with
       const countsToSet = counts && typeof counts === 'object' ? counts : {}
-      console.log('BookingsManagement: Setting unread counts state:', countsToSet)
-      setUnreadCounts(countsToSet)
+
+      // Remove entries for orders the user already opened (optimistically marked as read).
+      // If the server no longer reports unread for a locally-read order, it's confirmed read —
+      // remove from local set so future new messages show up again.
+      const filtered: typeof countsToSet = {}
+      for (const [id, val] of Object.entries(countsToSet)) {
+        if (locallyReadOrderIds.current.has(id)) {
+          // Server still reports unread — keep suppressing the badge (markAsRead may not have propagated yet)
+        } else {
+          filtered[id] = val
+        }
+      }
+      // Clean up local set for orders the server no longer reports as unread
+      for (const id of locallyReadOrderIds.current) {
+        if (!(id in countsToSet)) {
+          locallyReadOrderIds.current.delete(id)
+        }
+      }
+
+      console.log('BookingsManagement: Setting unread counts state:', filtered)
+      setUnreadCounts(filtered)
 
       // Log booking-to-order mapping for debugging
       let totalUnreadAcrossAllBookings = 0
@@ -577,6 +600,15 @@ export function BookingsManagement() {
 
   const openOrderCommunication = (orderId: string, orderNumber?: string) => {
     if (!orderId) return
+    // Optimistically clear the unread count for this order so the badge disappears immediately
+    locallyReadOrderIds.current.add(orderId)
+    setUnreadCounts((prev) => {
+      if (!prev[orderId]) return prev
+      const updated = { ...prev }
+      delete updated[orderId]
+      return updated
+    })
+    communicationDialogOpenRef.current = true
     setSelectedCommunicationOrder({ orderId, orderNumber })
     setCommunicationDialogOpen(true)
   }
@@ -1841,10 +1873,14 @@ export function BookingsManagement() {
           <Dialog
             open={communicationDialogOpen && !!selectedCommunicationOrder}
             onOpenChange={(open) => {
+              communicationDialogOpenRef.current = open
               setCommunicationDialogOpen(open)
               if (!open) {
                 setSelectedCommunicationOrder(null)
-                fetchUnreadCounts()
+                // Delay refetch so the backend markAsRead has time to complete.
+                // Do NOT clear locallyReadOrderIds here — let fetchUnreadCounts handle
+                // cleanup when the server confirms 0 unread for that order.
+                setTimeout(() => fetchUnreadCounts(), 2000)
               }
             }}
           >
