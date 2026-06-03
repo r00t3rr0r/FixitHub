@@ -4497,16 +4497,6 @@ export function OrderDetails() {
                   </div>
                 )}
 
-                {/* Information Notice */}
-                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed">
-                      {t('orderDetails.repairInfo.infoNotice') || 'Diese Informationen helfen unseren Technikern, Ihr Gerät besser zu beurteilen und zu reparieren. Während der Inspektion können zusätzliche Details angefragt werden.'}
-                    </p>
-                  </div>
-                </div>
-
                 {renderRepairServicesSection()}
 
                 {renderAddOnServicesSection()}

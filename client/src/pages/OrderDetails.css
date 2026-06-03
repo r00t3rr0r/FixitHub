@@ -1295,7 +1295,7 @@
 @media (min-width: 1200px) {
   .order-nested-top-grid {
     display: grid;
-    grid-template-columns: minmax(320px, 1.35fr) minmax(420px, 1.7fr) minmax(340px, 1.45fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     align-items: start;
     grid-auto-flow: row;
@@ -1414,6 +1414,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(248, 250, 252, 0.65));
+  width: 100%;
 }
 
 .repair-info-subsection-header {
@@ -4804,7 +4805,9 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
   overflow: hidden;
   margin-bottom: 8px;
   background: #ffffff;
-  margin: 0 0 10px 12px;
+  margin: 0 0 10px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .admin-order-workspace .repair-info-subsection-header {
