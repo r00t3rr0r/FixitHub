@@ -41,7 +41,10 @@ import {
   XCircle,
   AlertCircle,
   ExternalLink,
-  FileText
+  FileText,
+  Wrench,
+  Hash,
+  TrendingUp
 } from "lucide-react"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import "./UserDetailsDialog.css"
@@ -175,6 +178,61 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
       default:
         return 'text-[#1a2a5e]'
     }
+  }
+
+  const getRepairStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Ausstehend'
+      case 'diagnostic-assessment': return 'Diagnosebewertung'
+      case 'diagnosed': return 'Diagnose abgeschlossen'
+      case 'awaiting-parts': return 'Wartet auf Teile'
+      case 'in-progress': return 'Reparatur läuft'
+      case 'paused': return 'Pausiert'
+      case 'on-hold': return 'Angehalten'
+      case 'quality-check': return 'Qualitätsprüfung'
+      case 'ready-for-pickup': return 'Abholbereit'
+      case 'completed': return 'Abgeschlossen'
+      case 'cancelled': return 'Storniert'
+      default: return status
+    }
+  }
+
+  const getRepairStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+      case 'diagnostic-assessment': return 'bg-purple-100 text-purple-800 border border-purple-300'
+      case 'diagnosed': return 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+      case 'awaiting-parts': return 'bg-orange-100 text-orange-800 border border-orange-300'
+      case 'in-progress': return 'bg-blue-100 text-blue-800 border border-blue-300'
+      case 'paused': return 'bg-gray-100 text-gray-700 border border-gray-300'
+      case 'on-hold': return 'bg-gray-100 text-gray-700 border border-gray-300'
+      case 'quality-check': return 'bg-cyan-100 text-cyan-800 border border-cyan-300'
+      case 'ready-for-pickup': return 'bg-teal-100 text-teal-800 border border-teal-300'
+      case 'completed': return 'bg-green-100 text-green-800 border border-green-300'
+      case 'cancelled': return 'bg-red-100 text-red-800 border border-red-300'
+      default: return 'bg-gray-100 text-gray-700 border border-gray-300'
+    }
+  }
+
+  const getRepairProgressFromStatus = (status: string): number => {
+    switch (status) {
+      case 'pending': return 5
+      case 'diagnostic-assessment': return 15
+      case 'diagnosed': return 25
+      case 'awaiting-parts': return 40
+      case 'in-progress': return 60
+      case 'paused': return 60
+      case 'on-hold': return 60
+      case 'quality-check': return 80
+      case 'ready-for-pickup': return 95
+      case 'completed': return 100
+      case 'cancelled': return 0
+      default: return 0
+    }
+  }
+
+  const formatRepairCurrency = (value: number) => {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value)
   }
 
   const getInvoiceStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -411,44 +469,128 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
               </Card>
             </TabsContent>
 
-            <TabsContent value="orders" className="space-y-4 pt-2">
-              <Card className="border-none shadow-md bg-white">
-                <CardHeader className="border-b border-gray-100 pb-3">
-                  <CardTitle className="text-xl font-bold text-[#1a2a5e]">Order History</CardTitle>
-                  <CardDescription className="text-base text-gray-600">Complete list of user orders - click on any order to view details</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="space-y-3">
-                    {user.orders.map((order) => (
-                      <div 
-                        key={order._id} 
-                        className="flex flex-col md:flex-row md:items-center md:justify-between p-4 border border-gray-200 rounded-lg cursor-pointer hover:border-[#f5b800] hover:bg-[#f5b800]/5 hover:shadow-md transition-all"
+            <TabsContent value="orders" className="space-y-3 pt-2">
+              {user.orders.length === 0 ? (
+                <div
+                  className="text-center py-12"
+                  style={{
+                    background: 'var(--white, #ffffff)',
+                    border: '1px solid var(--gray-200, #d8dce6)',
+                    borderRadius: 'var(--radius-lg, 16px)',
+                  }}
+                >
+                  <Wrench className="h-8 w-8 mx-auto mb-3" style={{ color: 'var(--gray-300, #c5cad8)' }} />
+                  <p className="font-medium" style={{ color: 'var(--gray-400, #8892a8)' }}>Keine Reparaturaufträge vorhanden</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {user.orders.map((order) => {
+                    const progress = getRepairProgressFromStatus(order.status)
+                    const statusLabel = getRepairStatusLabel(order.status)
+                    const badgeClass = getRepairStatusBadgeClass(order.status)
+
+                    return (
+                      <div
+                        key={order._id}
                         onClick={() => handleOrderClick(order._id)}
+                        style={{
+                          border: '1px solid var(--gray-200, #d8dce6)',
+                          borderLeft: '4px solid var(--primary-blue, #1a2a5e)',
+                          borderRadius: 'var(--radius-lg, 16px)',
+                          background: 'var(--white, #ffffff)',
+                          boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
+                          cursor: 'pointer',
+                          overflow: 'hidden',
+                        }}
+                        className="transition-shadow hover:shadow-md"
                       >
-                        <div className="flex items-start md:items-center gap-4 flex-1 min-w-0">
-                          {getOrderStatusIcon(order.status)}
+                        {/* Card Header */}
+                        <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
                           <div className="flex-1 min-w-0">
-                            <p className="font-bold text-[#1a2a5e] flex items-center gap-2 text-sm md:text-base">
-                              {order.orderNumber}
-                              <ExternalLink className="h-3 w-3 text-[#f5b800]" />
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <div style={{ background: '#eef2ff', borderRadius: '6px', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Wrench className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                              </div>
+                              <h4 className="font-bold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem' }}>
+                                {order.deviceBrand} {order.deviceModel}
+                              </h4>
+                              <Badge className={badgeClass} style={{ fontSize: '0.75rem', fontWeight: '600' }}>
+                                {statusLabel}
+                              </Badge>
+                            </div>
+                            {order.orderNumber && (
+                              <p className="text-xs flex items-center gap-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
+                                <Hash className="h-3 w-3" />
+                                Auftrag #{order.orderNumber}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-bold text-lg" style={{ color: 'var(--primary-blue, #1a2a5e)', lineHeight: 1.2 }}>
+                              {formatRepairCurrency(order.totalCost)}
                             </p>
-                            <p className="text-sm text-gray-600 truncate">
-                              {order.deviceBrand} {order.deviceModel}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(order.createdAt).toLocaleString()}
-                            </p>
+                            <p className="text-xs" style={{ color: 'var(--gray-400, #8892a8)' }}>Kosten</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 mt-3 md:mt-0 md:text-right md:ml-4">
-                          <Badge variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] font-bold">{order.status}</Badge>
-                          <p className="font-bold text-[#1a2a5e] text-sm md:text-base">${order.totalCost.toFixed(2)}</p>
+
+                        {/* Progress bar section */}
+                        <div
+                          className="px-5 py-3"
+                          style={{ background: '#f8faff', borderTop: '1px solid var(--gray-100, #eceef3)' }}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <TrendingUp className="h-3.5 w-3.5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
+                                Fortschritt
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs" style={{ color: 'var(--gray-600, #4a5568)' }}>{statusLabel}</span>
+                              <span className="text-sm font-bold" style={{ color: progress === 100 ? '#38a169' : 'var(--primary-blue, #1a2a5e)', minWidth: '36px', textAlign: 'right' }}>
+                                {progress}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--gray-200, #d8dce6)' }}>
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${progress}%`,
+                                  background: progress === 100
+                                    ? '#38a169'
+                                    : progress >= 75
+                                    ? 'var(--primary-blue, #1a2a5e)'
+                                    : progress >= 40
+                                    ? 'var(--accent-yellow, #f5b800)'
+                                    : '#e53e3e',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div
+                          className="px-5 py-2 flex items-center justify-between gap-1"
+                          style={{ borderTop: '1px solid var(--gray-100, #eceef3)' }}
+                        >
+                          <p className="text-xs" style={{ color: 'var(--gray-400, #8892a8)' }}>
+                            {new Date(order.createdAt).toLocaleDateString('de-DE', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                            <span className="text-xs font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+                              Auftragsdetails öffnen
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                    )
+                  })}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="invoices" className="space-y-4 pt-2">
