@@ -49,79 +49,23 @@ type QuickActionType = OrderQuickActionType | RepairRequestQuickActionType
 
 interface QuickActionOption {
   value: QuickActionType
-  label: string
-  title: string
-  description: string
+  emoji: string
   tone: 'is-part' | 'is-device' | 'is-unlock' | 'is-cost'
 }
 
 const ORDER_QUICK_ACTION_OPTIONS: QuickActionOption[] = [
-  {
-    value: 'part_replacement',
-    label: 'Part replacement required',
-    title: '🔧 Part Replacement Required',
-    description: 'Notify customer that additional parts need to be replaced to complete the repair',
-    tone: 'is-part',
-  },
-  {
-    value: 'incorrect_device',
-    label: 'Incorrect device specification',
-    title: '❌ Incorrect Device Specified',
-    description: 'Notify customer that the device specifications provided do not match the device brought in',
-    tone: 'is-device',
-  },
-  {
-    value: 'incorrect_unlock_code',
-    label: 'Incorrect unlock code',
-    title: '🔐 Incorrect Unlock Code',
-    description: 'Notify customer that the unlock code provided is incorrect or does not work',
-    tone: 'is-unlock',
-  },
-  {
-    value: 'additional_costs',
-    label: 'Additional costs required',
-    title: '💰 Additional Costs Required',
-    description: 'Notify customer of unexpected costs that require approval before proceeding',
-    tone: 'is-cost',
-  },
+  { value: 'part_replacement', emoji: '🔧', tone: 'is-part' },
+  { value: 'incorrect_device', emoji: '❌', tone: 'is-device' },
+  { value: 'incorrect_unlock_code', emoji: '🔐', tone: 'is-unlock' },
+  { value: 'additional_costs', emoji: '💰', tone: 'is-cost' },
 ]
 
 const REPAIR_REQUEST_QUICK_ACTION_OPTIONS: QuickActionOption[] = [
-  {
-    value: 'parts_needed',
-    label: 'Parts needed',
-    title: '🔧 Parts Needed',
-    description: 'Notify customer that additional parts are required to continue the repair request',
-    tone: 'is-part',
-  },
-  {
-    value: 'approval_required',
-    label: 'Approval required',
-    title: '✅ Customer Approval Required',
-    description: 'Ask customer to approve the next repair step before work continues',
-    tone: 'is-device',
-  },
-  {
-    value: 'additional_cost',
-    label: 'Additional cost',
-    title: '💰 Additional Cost',
-    description: 'Inform customer about additional costs and request confirmation',
-    tone: 'is-cost',
-  },
-  {
-    value: 'status_update',
-    label: 'Status update',
-    title: '📌 Repair Status Update',
-    description: 'Send a structured status update with clear next steps',
-    tone: 'is-device',
-  },
-  {
-    value: 'schedule_appointment',
-    label: 'Schedule appointment',
-    title: '📅 Schedule Appointment',
-    description: 'Ask customer to schedule a handover, pickup, or follow-up appointment',
-    tone: 'is-unlock',
-  },
+  { value: 'parts_needed', emoji: '🔧', tone: 'is-part' },
+  { value: 'approval_required', emoji: '✅', tone: 'is-device' },
+  { value: 'additional_cost', emoji: '💰', tone: 'is-cost' },
+  { value: 'status_update', emoji: '📌', tone: 'is-device' },
+  { value: 'schedule_appointment', emoji: '📅', tone: 'is-unlock' },
 ]
 
 // Use unified message and communication interfaces
@@ -205,7 +149,14 @@ export function CommunicationPanel({
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const isUserEditingRef = useRef(false)
-  const quickActionOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
+  const quickActionBaseOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
+  const quickActionOptions = quickActionBaseOptions.map((option) => ({
+    value: option.value,
+    tone: option.tone,
+    label: t(`communicationPanel.quickActions.${option.value}.label`),
+    title: `${option.emoji} ${t(`communicationPanel.quickActions.${option.value}.title`)}`,
+    description: t(`communicationPanel.quickActions.${option.value}.description`),
+  }))
   const defaultQuickActionType = (quickActionOptions[0]?.value || 'part_replacement') as QuickActionType
   const selectedQuickActionOption = quickActionOptions.find((option) => option.value === quickActionType) || quickActionOptions[0]
 
@@ -624,13 +575,13 @@ export function CommunicationPanel({
                           variant={message.feedbackRequest.status === "pending" ? "outline" : "default"}
                           className="inspection-comm-status text-xs flex-shrink-0"
                         >
-                          {message.feedbackRequest.status === "pending" ? "⏳ Pending" : "✓ Responded"}
+                          {message.feedbackRequest.status === "pending" ? `⏳ ${t('communicationPanel.pending')}` : `✓ ${t('communicationPanel.answered')}`}
                         </Badge>
                       </div>
 
                       {message.feedbackRequest.status === "pending" ? (
                         <div className="space-y-2">
-                          <p className="inspection-comm-response-hint text-xs mb-2">Click to respond:</p>
+                          <p className="inspection-comm-response-hint text-xs mb-2">{t('communicationPanel.clickToRespond')}</p>
                           {message.feedbackRequest.options.map((option) => (
                             <Button
                               key={option.value}
@@ -1022,7 +973,7 @@ export function CommunicationPanel({
             <div className="space-y-2">
               <Label htmlFor="actionType" className="flex items-center gap-2">
                 <span>{t('communicationPanel.actionType')}</span>
-                <span className="inspection-comm-required text-xs is-empty">required</span>
+                <span className="inspection-comm-required text-xs is-empty">{t('communicationPanel.required')}</span>
               </Label>
               <select
                 id="actionType"
@@ -1054,7 +1005,7 @@ export function CommunicationPanel({
               <Label htmlFor="description" className="flex items-center gap-2">
                 <span>{t('communicationPanel.description')}</span>
                 <span className={`inspection-comm-required text-xs ${quickActionDescription.trim() ? "is-valid" : "is-empty"}`}>
-                  {quickActionDescription.trim() ? "✓" : "required"}
+                  {quickActionDescription.trim() ? "✓" : t('communicationPanel.required')}
                 </span>
               </Label>
               <Textarea
@@ -1069,14 +1020,14 @@ export function CommunicationPanel({
                 }`}
               />
               <p className="inspection-comm-help text-xs">
-                Provide clear, specific details about the action and any next steps the customer needs to take. Be professional but friendly.
+                {t('communicationPanel.actionDescriptionHelp')}
               </p>
             </div>
 
             {/* Preview Section */}
             {quickActionDescription.trim() && (
               <div className="inspection-comm-preview border rounded-lg p-3">
-                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Preview:</p>
+                <p className="inspection-comm-preview-title text-xs font-medium mb-2">{t('communicationPanel.preview')}</p>
                 <div className={`inspection-comm-action-preview space-y-2 border-l-4 rounded p-3 ${
                   selectedQuickActionOption?.tone || 'is-cost'
                 }`}>

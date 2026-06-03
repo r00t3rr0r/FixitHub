@@ -65,8 +65,8 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
 
   const noteTemplates = [
     'Erstdiagnose abgeschlossen. Bitte den Standard-Reparaturablauf fortsetzen.',
-    'Kunde hat eine priorisierte Bearbeitung fuer diesen Service angefragt.',
-    'Bitte vor Uebergabe die abschliessende Qualitaetskontrolle dokumentieren.',
+    'Kunde hat eine priorisierte Bearbeitung für diesen Service angefragt.',
+    'Bitte vor Übergabe die abschließende Qualitätskontrolle dokumentieren.',
   ];
 
   const quickTimeOptions = [15, 30, 45, 60];
@@ -142,7 +142,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
     if (mode === 'add' && !formData.serviceId) {
       toast({
         title: 'Fehler',
-        description: 'Bitte waehlen Sie einen Service aus.',
+        description: 'Bitte wählen Sie einen Service aus.',
         variant: 'destructive',
       });
       return;
@@ -151,7 +151,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
     if (formData.price < 0 || formData.estimatedTime < 0) {
       toast({
         title: 'Fehler',
-        description: 'Preis und geschaetzte Zeit muessen positive Werte sein.',
+        description: 'Preis und geschätzte Zeit müssen positive Werte sein.',
         variant: 'destructive',
       });
       return;
@@ -162,7 +162,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
       await onSave(formData);
       toast({
         title: 'Erfolg',
-        description: `Service wurde erfolgreich ${mode === 'edit' ? 'aktualisiert' : 'hinzugefuegt'}.`,
+        description: `Service wurde erfolgreich ${mode === 'edit' ? 'aktualisiert' : 'hinzugefügt'}.`,
       });
       onClose();
     } catch (error: any) {
@@ -219,17 +219,21 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="order-dialog-content order-repair-service-dialog w-[96vw] max-w-[760px] max-h-[88vh] overflow-y-auto">
         <DialogHeader className="order-dialog-header">
-          <DialogTitle>
-            {mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Reparaturservice zum Auftrag hinzufuegen'}
+          <DialogTitle className="flex items-center gap-2">
+            <Wrench className="h-4 w-4 flex-shrink-0" />
+            {mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Reparaturservice zum Auftrag hinzufügen'}
           </DialogTitle>
           <DialogDescription>
-            Waehlen Sie eine Service-Vorlage und passen Sie bei Bedarf Preis, Zeit und Notizen an.
+            Wählen Sie eine Service-Vorlage und passen Sie bei Bedarf Preis, Zeit und Notizen an.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pb-2">
           {mode === 'add' && (
             <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+              <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
+                1 · Service auswählen
+              </p>
               <div className="space-y-2 relative">
                 <Label htmlFor="service-search">Vorlage suchen</Label>
                 <Input
@@ -281,7 +285,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-slate-900">{item.name}</p>
-                            <span className="text-xs font-semibold text-slate-600">${item.price.toFixed(2)}</span>
+                            <span className="text-xs font-semibold text-slate-600">{item.price.toFixed(2)} €</span>
                           </div>
                         </button>
                       ))
@@ -296,7 +300,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="service-select">Reparaturservice auswaehlen *</Label>
+                <Label htmlFor="service-select">Reparaturservice auswählen *</Label>
                 <Select
                   value={formData.serviceId}
                   onValueChange={(value) => {
@@ -308,7 +312,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                   }}
                 >
                   <SelectTrigger id="service-select">
-                    <SelectValue placeholder="Reparaturservice auswaehlen..." />
+                    <SelectValue placeholder="Reparaturservice auswählen..." />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredAvailableServices.length === 0 ? (
@@ -316,7 +320,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                     ) : (
                       filteredAvailableServices.map((item) => (
                         <SelectItem key={item._id} value={item._id}>
-                          {item.name} - ${item.price.toFixed(2)}
+                          {item.name} - {item.price.toFixed(2)} €
                         </SelectItem>
                       ))
                     )}
@@ -329,8 +333,8 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                   <p className="text-sm font-semibold text-slate-900">{selectedService.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">Standardwerte aus dem Servicekatalog</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border bg-slate-50 px-2.5 py-1">${selectedService.price.toFixed(2)}</span>
-                    <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedService.estimatedTime} min</span>
+                    <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedService.price.toFixed(2)} €</span>
+                    <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedService.estimatedTime} Min.</span>
                   </div>
                 </div>
               )}
@@ -338,9 +342,12 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
           )}
 
           <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+            <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
+              {mode === 'add' ? '2 · Preis & Zeit' : 'Preis & Zeit'}
+            </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="price">Preis ($) *</Label>
+              <Label htmlFor="price">Preis (€) *</Label>
               <Input
                 id="price"
                 type="number"
@@ -353,7 +360,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="time">Geschaetzte Zeit (Minuten) *</Label>
+              <Label htmlFor="time">Geschätzte Zeit (Minuten) *</Label>
               <Input
                 id="time"
                 type="number"
@@ -369,7 +376,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
             <div className="space-y-2">
             <Label className="inline-flex items-center gap-1">
               <Clock3 className="h-3.5 w-3.5" />
-              Schnellaktionen Zeit
+              Zeit-Schnellauswahl
             </Label>
             <div className="flex flex-wrap gap-2">
               {quickTimeOptions.map((time) => (
@@ -410,12 +417,15 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-              <Label htmlFor="notes">Notizen</Label>
+              <Label htmlFor="notes" className="flex items-center gap-2">
+                Notizen
+                <span className="text-[0.62rem] font-normal text-slate-400">(optional)</span>
+              </Label>
             <Textarea
               id="notes"
               value={formData.notes}
               onChange={handleNotesChange}
-                placeholder="Zusaetzliche Hinweise erfassen..."
+                placeholder="Zusätzliche Hinweise erfassen..."
               rows={3}
             />
             <div className="flex flex-wrap gap-2">
@@ -446,14 +456,14 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
-                  {selectedService?.name || (mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Kein Reparaturservice ausgewaehlt')}
+                  {selectedService?.name || (mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Kein Reparaturservice ausgewählt')}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
                   {formData.estimatedTime > 0 ? `${formData.estimatedTime} Minuten` : 'Keine Zeitangabe'}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-slate-900">${Number(formData.price || 0).toFixed(2)}</p>
+                <p className="text-lg font-bold text-slate-900">{Number(formData.price || 0).toFixed(2)} €</p>
                 {selectedService && (
                   <Badge variant="secondary" className="text-xs">
                     <Wrench className="mr-1 h-3 w-3" />
@@ -483,10 +493,10 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
               onClick={handleResetForm}
               disabled={isLoading}
             >
-              Formular zuruecksetzen
+              Formular zurücksetzen
             </Button>
             <Button onClick={handleSubmit} disabled={!canSubmit || isLoading}>
-              {isLoading ? 'Speichert...' : mode === 'edit' ? 'Service aktualisieren' : 'Reparaturservice hinzufuegen'}
+              {isLoading ? 'Speichert...' : mode === 'edit' ? 'Service aktualisieren' : 'Reparaturservice hinzufügen'}
             </Button>
           </div>
         </DialogFooter>

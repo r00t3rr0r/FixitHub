@@ -2361,7 +2361,59 @@
     "successActionSent": "Quick action sent to customer",
     "successResponseRecorded": "Your response has been recorded",
     "successMessageSent": "Message sent successfully",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "required": "required",
+    "answered": "Responded",
+    "clickToRespond": "Click to respond:",
+    "preview": "Preview:",
+    "actionDescriptionHelp": "Provide clear, specific details about the action and any next steps the customer needs to take. Be professional but friendly.",
+    "quickActions": {
+      "part_replacement": {
+        "label": "Part replacement required",
+        "title": "Part Replacement Required",
+        "description": "Notify customer that additional parts need to be replaced to complete the repair"
+      },
+      "incorrect_device": {
+        "label": "Incorrect device specification",
+        "title": "Incorrect Device Specified",
+        "description": "Notify customer that the device specifications provided do not match the device brought in"
+      },
+      "incorrect_unlock_code": {
+        "label": "Incorrect unlock code",
+        "title": "Incorrect Unlock Code",
+        "description": "Notify customer that the unlock code provided is incorrect or does not work"
+      },
+      "additional_costs": {
+        "label": "Additional costs required",
+        "title": "Additional Costs Required",
+        "description": "Notify customer of unexpected costs that require approval before proceeding"
+      },
+      "parts_needed": {
+        "label": "Parts needed",
+        "title": "Parts Needed",
+        "description": "Notify customer that additional parts are required to continue the repair request"
+      },
+      "approval_required": {
+        "label": "Approval required",
+        "title": "Customer Approval Required",
+        "description": "Ask customer to approve the next repair step before work continues"
+      },
+      "additional_cost": {
+        "label": "Additional cost",
+        "title": "Additional Cost",
+        "description": "Inform customer about additional costs and request confirmation"
+      },
+      "status_update": {
+        "label": "Status update",
+        "title": "Repair Status Update",
+        "description": "Send a structured status update with clear next steps"
+      },
+      "schedule_appointment": {
+        "label": "Schedule appointment",
+        "title": "Schedule Appointment",
+        "description": "Ask customer to schedule a handover, pickup, or follow-up appointment"
+      }
+    }
   },
   "bookings": {
     "myBookings": "My Bookings",
