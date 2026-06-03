@@ -3956,12 +3956,18 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.issueRefund')}</DialogTitle>
-            <DialogDescription>Rückerstattung mit Gateway-Integration und vollständiger Nachvollziehbarkeit erfassen.</DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <RefreshCw className="h-5 w-5" />
+              {t('financialManagement.issueRefund')}
+            </DialogTitle>
+            <DialogDescription className="text-[#c8d0e7]">
+              Rückerstattung mit Gateway-Integration und vollständiger Nachvollziehbarkeit erfassen.
+            </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4">
           {/* ── Payment context ──────────────────────────────────────── */}
           {selectedPayment && (
             <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-1">
@@ -4146,9 +4152,12 @@ export function FinancialManagement() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRefundDialogOpen(false)}>{t('common.cancel')}</Button>
+          </div>
+
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setRefundDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
+              className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
               onClick={onRefund}
               disabled={!refundForm.amount || Number(refundForm.amount) <= 0 || (!refundForm.reason.trim() && !refundForm.reasonCategory)}
             >
@@ -4358,12 +4367,21 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle>
-            <DialogDescription>Erstellt eine negative Gegenrechnung zur ausgewählten Ursprungsrechnung.</DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <FileSpreadsheet className="h-5 w-5" />
+              Gutschrift erstellen
+              {selectedInvoice?.invoiceNumber && (
+                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoice.invoiceNumber}</span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-[#c8d0e7]">
+              Erstellt eine negative Gegenrechnung zur ausgewählten Ursprungsrechnung.
+            </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4">
           {/* ── Invoice context ──────────────────────────────────────── */}
           {selectedInvoice && (
             <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-1">
@@ -4572,9 +4590,12 @@ export function FinancialManagement() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreditDialogOpen(false)}>{t('common.cancel')}</Button>
+          </div>
+
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setCreditDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
+              className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
               onClick={onCreateCredit}
               disabled={
                 creditForm.scope === 'partial' &&

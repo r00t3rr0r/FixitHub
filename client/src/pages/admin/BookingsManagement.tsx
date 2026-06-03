@@ -2399,7 +2399,7 @@ function BookingDetailDialog({
         <DialogTitle style={{ 
           fontSize: '1.15rem', 
           fontWeight: '700', 
-          color: 'var(--white, #ffffff)',
+          color: '#f5c800',
           marginBottom: '2px',
           letterSpacing: '-0.5px'
         }}>
@@ -2407,7 +2407,7 @@ function BookingDetailDialog({
         </DialogTitle>
         <DialogDescription style={{ 
           fontSize: '0.78rem', 
-          color: 'rgba(255,255,255,0.88)',
+          color: '#c8d0e7',
           fontWeight: '500'
         }}>
           Buchungs-ID: #{booking._id.slice(-8).toUpperCase()}
@@ -2506,11 +2506,11 @@ function BookingDetailDialog({
             }}
           >
             {/* Header row */}
-            <div className="flex items-center gap-2 mb-4">
-              <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
-                <User className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+            <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+              <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                <User className="h-4 w-4" style={{ color: '#f5c800' }} />
               </div>
-              <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+              <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                 Kundeninformationen
               </h3>
               {booking.guestInfo?.isGuest && (
@@ -2649,11 +2649,11 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
               }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
-                  <Activity className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+              <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                  <Activity className="h-4 w-4" style={{ color: '#f5c800' }} />
                 </div>
-                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                   Buchungsstatus
                 </h3>
               </div>
@@ -2700,11 +2700,11 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
               }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <div style={{ background: 'var(--accent-yellow, #f5b800)', borderRadius: '8px', padding: '6px' }}>
-                  <DollarSign className="h-4 w-4" style={{ color: 'var(--gray-900, #111827)' }} />
+              <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                  <DollarSign className="h-4 w-4" style={{ color: '#f5c800' }} />
                 </div>
-                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                   Finanzen
                 </h3>
               </div>
@@ -3153,8 +3153,8 @@ function BookingDetailDialog({
                   }}
                   className="hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem', fontWeight: '700' }}>
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                    <h4 className="font-semibold" style={{ color: '#f5c800', fontSize: '1.1rem', fontWeight: '700' }}>
                       Produktposition
                     </h4>
                     <Badge className={getStatusColor(item.status || 'pending')}>
@@ -3231,12 +3231,12 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '12px 18px', borderRadius: '16px 16px 0 0', margin: '-24px -24px 16px -24px', borderBottom: '1px solid #0f1d45' }}>
                     <h3
                       className="font-semibold text-lg flex items-center gap-2"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                      style={{ color: '#f5c800', fontWeight: '700' }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
                       Versandinformationen (Hinweg)
                     </h3>
                     {booking.shippingStatus && (
@@ -3380,12 +3380,12 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '12px 18px', borderRadius: '16px 16px 0 0', margin: '-24px -24px 16px -24px', borderBottom: '1px solid #0f1d45' }}>
                     <h3
                       className="font-semibold text-lg flex items-center gap-2"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                      style={{ color: '#f5c800', fontWeight: '700' }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
                       Ruecksendungsinformationen
                     </h3>
                     {booking.returnShipmentStatus && (
@@ -3509,7 +3509,7 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <h4 className="font-semibold mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem' }}>Ruecksendehinweise</h4>
+                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Ruecksendehinweise</h4>
                   <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--gray-600, #4a5568)', fontSize: '0.9rem' }}>
                     <li>Ruecksende-Label ausdrucken oder den QR-Code am Handy speichern</li>
                     <li>Artikel sicher in einem geeigneten Karton verpacken</li>
