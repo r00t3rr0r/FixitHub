@@ -217,7 +217,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="order-dialog-content order-repair-service-dialog w-[96vw] max-w-[760px] max-h-[88vh] overflow-y-auto">
+      <DialogContent className="order-dialog-content order-repair-service-dialog w-[96vw] max-w-[760px] max-h-[88vh]">
         <DialogHeader className="order-dialog-header">
           <DialogTitle className="flex items-center gap-2">
             <Wrench className="h-4 w-4 flex-shrink-0" />
@@ -228,7 +228,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pb-2">
+        <div className="order-dialog-body space-y-4 pb-2">
           {mode === 'add' && (
             <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
               <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">

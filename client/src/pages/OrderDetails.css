@@ -129,6 +129,18 @@
   border-radius: 10px;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollable body: keeps the dialog header pinned at the top and the footer
+   pinned at the bottom while only the content in between scrolls. Prevents the
+   action buttons from being pushed out of reach when selecting a service grows
+   the dialog beyond its max height. */
+.order-details-page .order-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .order-details-page .order-dialog-header,
@@ -139,6 +151,7 @@
   padding: 10px 12px;
   margin: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
 }
 
 .order-details-page .order-dialog-header h2,
@@ -165,6 +178,9 @@
 .order-details-page [data-slot="dialog-content"] [data-slot="dialog-footer"] {
   padding: 8px 12px 12px;
   gap: 5px;
+  flex-shrink: 0;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
 .order-details-page .order-repair-service-dialog,

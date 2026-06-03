@@ -5165,7 +5165,7 @@ export function OrderDetails() {
 
       {/* Add Add-On Dialog */}
       <Dialog open={addAddonDialogOpen} onOpenChange={setAddAddonDialogOpen}>
-        <DialogContent className="order-dialog-content order-addon-dialog w-[96vw] max-w-[760px] max-h-[88vh] overflow-y-auto">
+        <DialogContent className="order-dialog-content order-addon-dialog w-[96vw] max-w-[760px] max-h-[88vh]">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="flex items-center gap-2">
               <PlusCircle className="h-4 w-4 flex-shrink-0" />
@@ -5175,7 +5175,7 @@ export function OrderDetails() {
               Wählen Sie eine Vorlage oder erstellen Sie einen individuellen Zusatzservice für diesen Auftrag.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pb-2">
+          <div className="order-dialog-body space-y-4 pb-2">
             <div className="order-dialog-segmented-toggle">
               <button
                 type="button"
