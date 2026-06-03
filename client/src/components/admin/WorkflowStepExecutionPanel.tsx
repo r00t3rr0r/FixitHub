@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react"
-import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { CheckCircle2, Clock, AlertCircle, ChevronLeft, ChevronRight, FileUp, X } from "lucide-react"
+import { CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, FileUp, X } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
 
 interface FormField {
@@ -76,7 +74,6 @@ interface WorkflowStepExecutionPanelProps {
   onStepSkip?: (reason: string) => Promise<void>
   isLoading?: boolean
   workflowStatus?: 'not-started' | 'in-progress' | 'completed' | 'on-hold'
-  workflowPauseReason?: string
 }
 
 export function WorkflowStepExecutionPanel({
@@ -88,9 +85,7 @@ export function WorkflowStepExecutionPanel({
   onStepSkip,
   isLoading = false,
   workflowStatus,
-  workflowPauseReason,
 }: WorkflowStepExecutionPanelProps) {
-  const { t } = useTranslation()
   const { toast } = useToast()
 
   // Normalize step data to ensure consistent property naming
@@ -112,19 +107,8 @@ export function WorkflowStepExecutionPanel({
   const [timerTick, setTimerTick] = useState(() => Date.now())
   const [fallbackStartedAt, setFallbackStartedAt] = useState<string>(() => new Date().toISOString())
 
-  const normalizeStepStatus = (status?: string) => {
-    const normalizedStatus = String(status || '').trim().toLowerCase()
-    if (normalizedStatus === 'in_progress') return 'in-progress'
-    return normalizedStatus
-  }
-
   const canGoNext = currentStepIndex < steps.length - 1
   const canGoPrev = currentStepIndex > 0
-  const completedSteps = steps.filter((stepItem) => {
-    const stepStatus = normalizeStepStatus(stepItem.status)
-    return stepStatus === 'completed' || stepStatus === 'skipped'
-  }).length
-  const progressPercentage = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0
 
   useEffect(() => {
     if (normalizedStep.startedAt) {
@@ -181,19 +165,6 @@ export function WorkflowStepExecutionPanel({
 
   const estimatedMinutes = normalizedStep.estimatedTime || 0
   const deltaMinutes = stepElapsedMinutes - estimatedMinutes
-  const stepTimingProgress = estimatedMinutes > 0
-    ? Math.min(100, Math.round((stepElapsedMinutes / estimatedMinutes) * 100))
-    : 0
-  const isStepOverEstimate = estimatedMinutes > 0 && stepElapsedMinutes > estimatedMinutes
-
-  const formatMinutes = (minutes: number) => {
-    if (!Number.isFinite(minutes) || minutes < 0) return "0m"
-    const hours = Math.floor(minutes / 60)
-    const remaining = minutes % 60
-    if (hours <= 0) return `${remaining}m`
-    if (remaining <= 0) return `${hours}h`
-    return `${hours}h ${remaining}m`
-  }
 
   const validateForm = (): boolean => {
     if (!normalizedStep.formFields || normalizedStep.formFields.length === 0) return true
@@ -450,95 +421,6 @@ export function WorkflowStepExecutionPanel({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Step Timing Guidance */}
-          <div className={`rounded-lg border p-4 ${
-            isStepOverEstimate
-              ? 'border-amber-300 bg-amber-50'
-              : 'border-blue-100 bg-blue-50/60'
-          }`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Zeitstatus dieses Steps</p>
-                <p className="text-xs text-slate-600">
-                  {estimatedMinutes > 0
-                    ? 'Die Soll-Zeit ist eine Richtlinie. Du siehst hier live, ob du im Plan bist.'
-                    : 'Für diesen Step wurde keine Soll-Zeit hinterlegt.'}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className={isStepOverEstimate
-                  ? 'border-amber-300 bg-amber-100 text-amber-800'
-                  : 'border-emerald-200 bg-emerald-100 text-emerald-800'}
-              >
-                {isStepOverEstimate ? 'Ueber Sollzeit' : 'Im Zeitplan'}
-              </Badge>
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md bg-white p-3 border border-slate-100">
-                <p className="text-xs text-slate-500">Soll-Zeit</p>
-                <p className="text-lg font-semibold text-slate-900">{formatMinutes(estimatedMinutes)}</p>
-              </div>
-              <div className="rounded-md bg-white p-3 border border-slate-100">
-                <p className="text-xs text-slate-500">Laufzeit</p>
-                <p className="text-lg font-semibold text-slate-900">{formatMinutes(stepElapsedMinutes)}</p>
-              </div>
-              <div className="rounded-md bg-white p-3 border border-slate-100">
-                <p className="text-xs text-slate-500">Abweichung</p>
-                <p className={`text-lg font-semibold ${deltaMinutes > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                  {deltaMinutes > 0 ? '+' : ''}{formatMinutes(Math.abs(deltaMinutes))}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-md bg-white p-3 border border-slate-100">
-                <p className="text-xs text-slate-500">Pausenzeit in diesem Schritt</p>
-                <p className="text-lg font-semibold text-slate-900">{formatMinutes(totalPausedMinutes)}</p>
-              </div>
-              <div className="rounded-md bg-white p-3 border border-slate-100">
-                <p className="text-xs text-slate-500">Aktueller Workflow-Status</p>
-                <p className={`text-sm font-semibold ${workflowStatus === 'on-hold' ? 'text-amber-700' : 'text-slate-900'}`}>
-                  {workflowStatus === 'on-hold' ? 'Pausiert' : 'Aktiv'}
-                </p>
-                {workflowStatus === 'on-hold' && workflowPauseReason && (
-                  <p className="mt-1 text-xs text-slate-600">Grund: {workflowPauseReason}</p>
-                )}
-              </div>
-            </div>
-
-            {estimatedMinutes > 0 && (
-              <div className="mt-3 space-y-1">
-                <Progress value={stepTimingProgress} className="h-2" />
-                <p className="text-xs text-slate-500">
-                  {isStepOverEstimate
-                    ? `Du arbeitest seit ${formatMinutes(stepElapsedMinutes)} an diesem Step und liegst ${formatMinutes(Math.abs(deltaMinutes))} ueber der Richtzeit.`
-                    : `Du arbeitest seit ${formatMinutes(stepElapsedMinutes)} an diesem Step und liegst im Zeitkorridor.`}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Overall Progress */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Workflow-Fortschritt</span>
-              <span className="text-sm text-muted-foreground">
-                {completedSteps}/{steps.length} Schritte erledigt
-              </span>
-            </div>
-            <Progress value={progressPercentage} className="h-2" />
-          </div>
-
-          {/* Step Time Estimate */}
-          {normalizedStep.estimatedTime && (
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>Richtzeit: {normalizedStep.estimatedTime} Minuten</span>
-            </div>
-          )}
-
           {/* Checklist Items */}
           {normalizedStep.checklistItems && normalizedStep.checklistItems.length > 0 && (
             <div className="space-y-3">
