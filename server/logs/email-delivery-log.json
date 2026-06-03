@@ -7886,5 +7886,39 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1780475447954-l202iaj17",
+    "timestamp": "2026-06-03T08:30:47.954Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<5c8786db-06a3-4f0f-ab54-99c2227008bc@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1334,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]

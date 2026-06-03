@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,6 +66,8 @@ import {
   Banknote,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Download,
   Eye,
   FileSpreadsheet,
@@ -359,6 +361,7 @@ export function FinancialManagement() {
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expandedInvoiceIds, setExpandedInvoiceIds] = useState<Set<string>>(new Set());
   const [report, setReport] = useState<FinancialReport | null>(null);
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [overdueInvoices, setOverdueInvoices] = useState<Invoice[]>([]);
@@ -930,9 +933,11 @@ export function FinancialManagement() {
 
   useEffect(() => {
     if (!tabFromQuery) return;
-    const supportedTabs = ['overview', 'dunning', 'invoices', 'payments', 'providers', 'settings', 'exports'];
-    if (supportedTabs.includes(tabFromQuery)) {
-      setActiveTab(tabFromQuery);
+    const tabAlias: Record<string, string> = { payments: 'invoices', providers: 'settings', exports: 'settings' };
+    const resolvedTab = tabAlias[tabFromQuery] || tabFromQuery;
+    const supportedTabs = ['overview', 'invoices', 'dunning', 'settings'];
+    if (supportedTabs.includes(resolvedTab)) {
+      setActiveTab(resolvedTab);
     }
   }, [tabFromQuery]);
 
@@ -1574,6 +1579,51 @@ export function FinancialManagement() {
 
   const getInvoiceById = (invoiceId: string) => invoices.find((i) => i._id === invoiceId) || dunningEligibleInvoices.find((i) => i._id === invoiceId) || null;
 
+  const paymentsByInvoiceId = useMemo(() => {
+    const map = new Map<string, Payment[]>();
+    payments.forEach((payment) => {
+      if (!payment.invoiceId) return;
+      const key = String(payment.invoiceId);
+      const bucket = map.get(key) || [];
+      bucket.push(payment);
+      map.set(key, bucket);
+    });
+    return map;
+  }, [payments]);
+
+  const toggleInvoiceExpanded = (invoiceId: string) => {
+    setExpandedInvoiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(invoiceId)) {
+        next.delete(invoiceId);
+      } else {
+        next.add(invoiceId);
+      }
+      return next;
+    });
+  };
+
+  const openRefundForPayment = (payment: Payment) => {
+    const defaultProvider = payment.paymentMethod === 'paypal'
+      ? 'paypal'
+      : payment.paymentMethod === 'stripe'
+        ? 'stripe'
+        : '';
+
+    setSelectedPayment(payment);
+    setRefundForm({
+      amount: String(payment.amount),
+      reason: '',
+      reasonCategory: '',
+      internalNote: '',
+      mode: defaultProvider ? 'gateway' : 'manual',
+      gatewayProvider: defaultProvider,
+      gatewayReference: '',
+      notifyCustomer: false,
+    });
+    setRefundDialogOpen(true);
+  };
+
   const hydrateQueueFromRun = (run?: DunningRun | null) => {
     if (!run) {
       setDunningQueue([]);
@@ -2045,14 +2095,19 @@ export function FinancialManagement() {
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7 border border-[#d8dce6] bg-[#f8f9fc]">
-          <TabsTrigger value="overview">Uebersicht</TabsTrigger>
-          <TabsTrigger value="dunning">Mahnlaeufe</TabsTrigger>
-          <TabsTrigger value="invoices">{t('financialManagement.invoices')}</TabsTrigger>
-          <TabsTrigger value="payments">{t('financialManagement.payments')}</TabsTrigger>
-          <TabsTrigger value="providers">Provider</TabsTrigger>
-          <TabsTrigger value="settings">Konfiguration</TabsTrigger>
-          <TabsTrigger value="exports">{t('financialManagement.reports')}</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 gap-1 border border-[#d8dce6] bg-[#f8f9fc] sm:grid-cols-4">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <TrendingUp className="mr-2 h-4 w-4" />Uebersicht
+          </TabsTrigger>
+          <TabsTrigger value="invoices" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <Wallet className="mr-2 h-4 w-4" />Rechnungen &amp; Zahlungen
+          </TabsTrigger>
+          <TabsTrigger value="dunning" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <Mail className="mr-2 h-4 w-4" />Mahnwesen
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <Settings className="mr-2 h-4 w-4" />Einstellungen
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -2474,16 +2529,44 @@ export function FinancialManagement() {
 
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                 <Table>
-                  <TableHeader><TableRow><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {invoices.map((invoice) => (
+                    {invoices.map((invoice) => {
+                      const invoicePayments = paymentsByInvoiceId.get(invoice._id) || [];
+                      const isExpanded = expandedInvoiceIds.has(invoice._id);
+                      return (
+                      <Fragment key={invoice._id}>
                       <TableRow
-                        key={invoice._id}
                         data-finance-invoice-row-id={invoice._id}
                         className={`cursor-pointer ${activeHighlightedInvoiceId === invoice._id ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
                         onClick={() => openInvoiceDetails(invoice)}
                       >
-                        <TableCell>{invoice.invoiceNumber}</TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={invoicePayments.length === 0}
+                            title={invoicePayments.length === 0 ? 'Keine Zahlungsprozesse' : `${invoicePayments.length} Zahlungsprozess(e)`}
+                            onClick={() => toggleInvoiceExpanded(invoice._id)}
+                          >
+                            {invoicePayments.length === 0 ? (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                            ) : isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-[#1a2a5e]" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-[#1a2a5e]" />
+                            )}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span>{invoice.invoiceNumber}</span>
+                            {invoicePayments.length > 0 && (
+                              <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
                         <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
                         <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
@@ -2493,38 +2576,88 @@ export function FinancialManagement() {
                           <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      {isExpanded && invoicePayments.length > 0 && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={8} className="bg-[#f8f9fc] p-0">
+                            <div className="px-4 py-3">
+                              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
+                                <Wallet className="h-3.5 w-3.5" />Zahlungsprozesse
+                              </div>
+                              <div className="overflow-x-auto rounded-md border border-[#d8dce6] bg-white">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Prozess</TableHead>
+                                      <TableHead>{t('financialManagement.status')}</TableHead>
+                                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                                      <TableHead>{t('financialManagement.amount')}</TableHead>
+                                      <TableHead>{t('financialManagement.date')}</TableHead>
+                                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {invoicePayments.map((payment) => {
+                                      const metadata = (payment.metadata || {}) as Record<string, unknown>;
+                                      const processLabel = payment.status === 'refunded'
+                                        ? 'Erstattung abgeschlossen'
+                                        : payment.status === 'completed'
+                                          ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
+                                          : payment.status === 'disputed'
+                                            ? 'Dispute in Klärung'
+                                            : 'Zahlungsvorgang';
+
+                                      return (
+                                        <TableRow key={payment._id}>
+                                          <TableCell>
+                                            <div className="space-y-1">
+                                              <Badge variant="outline">{processLabel}</Badge>
+                                              <div className="text-xs text-muted-foreground">{payment.orderNumber || payment._id.slice(-8)}</div>
+                                              {payment.status === 'refunded' && (
+                                                <div className="text-xs text-purple-700">{formatCurrency(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
+                                          <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                                          <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
+                                          <TableCell>
+                                            <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
+                                            <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="max-w-[200px] truncate text-sm" title={payment.transactionId || payment.gatewayResponse || '-'}>
+                                              {payment.transactionId || payment.gatewayResponse || '-'}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            {payment.status === 'completed' && (
+                                              <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="payments" className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Abgeschlossene Zahlungen</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.completedCount}</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Volumen: {formatCurrency(paymentOverview.completedVolume)}</CardContent>
-            </Card>
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Erstattete Vorgänge</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.refundedCount}</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Volumen: {formatCurrency(paymentOverview.refundedVolume)}</CardContent>
-            </Card>
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Offene Prozesse</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.openCount}</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Fehlgeschlagen: {paymentOverview.failedCount}</CardContent>
-            </Card>
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Erfolgsquote</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.successRate.toFixed(1)}%</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Gesamtvorgänge: {paymentOverview.totalCount}</CardContent>
-            </Card>
-          </div>
 
           <Card className="border-[#d8dce6]">
             <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Zahlungsprozesse verwalten</CardTitle>
-              <CardDescription>Filtern, überwachen, erstatten und direkt zur verknüpften Rechnung springen.</CardDescription>
+              <CardTitle className="text-[#1a2a5e]">Zahlungsprozesse filtern</CardTitle>
+              <CardDescription>Filter wirken auf die unter den Rechnungen aufklappbaren Zahlungsprozesse. Zahlungen ohne Rechnungslink erscheinen darunter.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-3 grid gap-2 md:grid-cols-6">
@@ -2565,115 +2698,53 @@ export function FinancialManagement() {
                 </Button>
               </div>
 
-              <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('financialManagement.payments')}</TableHead>
-                      <TableHead>{t('financialManagement.customer')}</TableHead>
-                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
-                      <TableHead>{t('financialManagement.status')}</TableHead>
-                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
-                      <TableHead>{t('financialManagement.amount')}</TableHead>
-                      <TableHead>{t('financialManagement.date')}</TableHead>
-                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
-                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((payment) => {
-                      const metadata = (payment.metadata || {}) as Record<string, unknown>;
-                      const linkedInvoice = payment.invoiceId ? getInvoiceById(String(payment.invoiceId)) : null;
-                      const processLabel = payment.status === 'refunded'
-                        ? 'Erstattung abgeschlossen'
-                        : payment.status === 'completed'
-                          ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
-                          : payment.status === 'disputed'
-                            ? 'Dispute in Klärung'
-                            : 'Zahlungsvorgang';
-
-                      return (
-                        <TableRow key={payment._id}>
-                          <TableCell>
-                            <div className="font-medium text-[#1a2a5e]">{payment.orderNumber || payment._id.slice(-8)}</div>
-                            <div className="text-xs text-muted-foreground">{payment.invoiceId ? `Invoice: ${String(payment.invoiceId).slice(-8)}` : 'Ohne Rechnungslink'}</div>
-                          </TableCell>
-                          <TableCell>{payment.customerName}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Badge variant="outline">{processLabel}</Badge>
-                              {payment.status === 'refunded' && (
-                                <div className="text-xs text-purple-700">{formatCurrency(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
-                          <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
-                          <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
-                            <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-[220px] truncate text-sm" title={payment.transactionId || payment.gatewayResponse || '-'}>
-                              {payment.transactionId || payment.gatewayResponse || '-'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              {linkedInvoice && (
-                                <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(linkedInvoice)}>
-                                  <Eye className="mr-1 h-3.5 w-3.5" />Rechnung
-                                </Button>
-                              )}
-                              {payment.status === 'completed' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    const defaultProvider = payment.paymentMethod === 'paypal'
-                                      ? 'paypal'
-                                      : payment.paymentMethod === 'stripe'
-                                        ? 'stripe'
-                                        : '';
-
-                                    setSelectedPayment(payment);
-                                    setRefundForm({
-                                      amount: String(payment.amount),
-                                      reason: '',
-                                      reasonCategory: '',
-                                      internalNote: '',
-                                      mode: defaultProvider ? 'gateway' : 'manual',
-                                      gatewayProvider: defaultProvider,
-                                      gatewayReference: '',
-                                      notifyCustomer: false,
-                                    });
-                                    setRefundDialogOpen(true);
-                                  }}
-                                >
-                                  Erstattung
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
+              {payments.filter((p) => !p.invoiceId).length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />Zahlungen ohne Rechnungslink
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Prozess</TableHead>
+                          <TableHead>{t('financialManagement.customer')}</TableHead>
+                          <TableHead>{t('financialManagement.status')}</TableHead>
+                          <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                          <TableHead>{t('financialManagement.amount')}</TableHead>
+                          <TableHead>{t('financialManagement.date')}</TableHead>
+                          <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
                         </TableRow>
-                      );
-                    })}
-                    {payments.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
-                          Keine Zahlungsvorgänge gefunden.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.filter((p) => !p.invoiceId).map((payment) => (
+                          <TableRow key={payment._id}>
+                            <TableCell>
+                              <div className="font-medium text-[#1a2a5e]">{payment.orderNumber || payment._id.slice(-8)}</div>
+                              <div className="text-xs text-muted-foreground">Ohne Rechnungslink</div>
+                            </TableCell>
+                            <TableCell>{payment.customerName}</TableCell>
+                            <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
+                            <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                            <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
+                            <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
+                            <TableCell className="text-right">
+                              {payment.status === 'completed' && (
+                                <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="providers" className="space-y-4">
+        <TabsContent value="settings" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
@@ -2702,9 +2773,6 @@ export function FinancialManagement() {
               ))}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -2904,9 +2972,9 @@ export function FinancialManagement() {
               <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Versandtheme:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.paymentPreferences.defaultVisualTheme}</div></div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="exports" className="space-y-4">
+          <Card className="border-[#d8dce6]">
+            <CardHeader><CardTitle className="text-[#1a2a5e]">Berichte &amp; Export</CardTitle><CardDescription>Daten als CSV/JSON exportieren und Kennzahlen einsehen.</CardDescription></CardHeader>
+          </Card>
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
             <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
