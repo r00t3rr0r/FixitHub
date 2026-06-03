@@ -214,6 +214,9 @@ export function PartsManagement() {
 
   // Column-level quick filters (excluded values per column key)
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
+  // Full unpaginated parts list used to populate column filter menus and to
+  // filter results across all pages once any column filter is active.
+  const [allPartsForFilterMenus, setAllPartsForFilterMenus] = useState<Part[]>([]);
 
   const handleColumnFilterChange = (col: string, excluded: Set<string>) => {
     setColumnFilters(prev => ({ ...prev, [col]: excluded }));
@@ -296,6 +299,40 @@ export function PartsManagement() {
     }
   };
 
+  // Fetch ALL parts (paginated) for filter menu population. This allows the
+  // column filter dropdowns to show every available value across all pages,
+  // and lets filtering apply across the entire dataset (not just current page).
+  const fetchAllPartsForFilterMenus = async () => {
+    try {
+      const maxLimitPerPage = 200;
+      let page = 1;
+      let totalPagesLocal = 1;
+      const collected: Part[] = [];
+
+      do {
+        const response = await getParts({
+          page,
+          limit: maxLimitPerPage,
+          sortBy: 'lastUpdated',
+          sortOrder: 'desc'
+        });
+        const batch: Part[] = response.parts || [];
+        collected.push(...batch);
+        totalPagesLocal = response.totalPages || 1;
+        page += 1;
+      } while (page <= totalPagesLocal);
+
+      const uniqueById = Array.from(
+        new Map(collected.map((p) => [p._id, p])).values()
+      );
+
+      setAllPartsForFilterMenus(uniqueById);
+    } catch (error) {
+      console.error('PartsManagement: Failed to fetch full parts list for filter menus:', error);
+      setAllPartsForFilterMenus([]);
+    }
+  };
+
   const handleRowClick = (part: Part) => {
     console.log('PartsManagement: Opening detail view for part:', part._id);
     setSelectedPart(part);
@@ -330,6 +367,7 @@ export function PartsManagement() {
           description: t('partsManagement.partDeleted'),
         });
         fetchParts();
+        fetchAllPartsForFilterMenus();
       } catch (error) {
         toast({
           title: t('common.error'),
@@ -351,6 +389,7 @@ export function PartsManagement() {
       setShowAddDialog(false);
       resetForm();
       fetchParts();
+      fetchAllPartsForFilterMenus();
     } catch (error) {
       console.error('Error adding part:', error);
       toast({
@@ -374,6 +413,7 @@ export function PartsManagement() {
       setShowEditDialog(false);
       resetForm();
       fetchParts();
+      fetchAllPartsForFilterMenus();
     } catch (error) {
       console.error('Error updating part:', error);
       toast({
@@ -608,6 +648,12 @@ export function PartsManagement() {
     };
   }, []);
 
+  // Fetch full parts list once on mount (and whenever data may have changed)
+  // for the column filter dropdowns and cross-page filtering.
+  useEffect(() => {
+    fetchAllPartsForFilterMenus();
+  }, []);
+
   const categories = [
     'display', 'battery', 'camera', 'speaker', 'microphone',
     'charging-port', 'button', 'sensor', 'tool', 'adhesive', 'screw',
@@ -636,14 +682,20 @@ export function PartsManagement() {
 
   const totalUniqueModels = new Set(parts.map(p => p.model).filter(Boolean)).size;
 
-  // Build value sets for each filterable column from current page data
+  // Source for filter menus & cross-page filtering. Fall back to current page
+  // until the full list is loaded.
+  const filterSource = allPartsForFilterMenus.length ? allPartsForFilterMenus : parts;
+  const hasAnyColumnFilter = Object.values(columnFilters).some(s => s && s.size > 0);
+
+  // Build value sets for each filterable column from the FULL dataset so that
+  // every possible value is always selectable in the dropdowns.
   const colValues = {
-    partNumber: Array.from(new Set(parts.map(p => p.partNumber || '').filter(Boolean))).sort(),
-    itemName:   Array.from(new Set(parts.map(p => p.name || p.itemName || '').filter(Boolean))).sort(),
-    category:   Array.from(new Set(parts.map(p => p.category || '').filter(Boolean))).sort(),
-    model:      Array.from(new Set(parts.map(p => p.model || '').filter(Boolean))).sort(),
-    location:   Array.from(new Set(parts.map(p => p.location || '').filter(Boolean))).sort(),
-    status:     Array.from(new Set(parts.map(p => {
+    partNumber: Array.from(new Set(filterSource.map(p => p.partNumber || '').filter(Boolean))).sort(),
+    itemName:   Array.from(new Set(filterSource.map(p => p.name || p.itemName || '').filter(Boolean))).sort(),
+    category:   Array.from(new Set(filterSource.map(p => p.category || '').filter(Boolean))).sort(),
+    model:      Array.from(new Set(filterSource.map(p => p.model || '').filter(Boolean))).sort(),
+    location:   Array.from(new Set(filterSource.map(p => p.location || '').filter(Boolean))).sort(),
+    status:     Array.from(new Set(filterSource.map(p => {
       const s = p.stockQuantity || 0; const m = p.minStockLevel || 0;
       return s === 0 ? 'Out of Stock' : s <= m ? 'Low Stock' : 'In Stock';
     }))).sort(),
@@ -654,8 +706,11 @@ export function PartsManagement() {
     return s === 0 ? 'Out of Stock' : s <= m ? 'Low Stock' : 'In Stock';
   };
 
-  // Apply column filters to displayed parts
-  const displayedParts = parts.filter(p => {
+  // Apply column filters. When any filter is active, filter the FULL dataset
+  // so values living on other pages remain reachable (e.g. after clicking
+  // "None" and re-selecting individual values). Otherwise show the current
+  // server-paginated page unchanged.
+  const filterPredicate = (p: Part) => {
     const cf = columnFilters;
     if (cf.partNumber?.size && cf.partNumber.has(p.partNumber || '')) return false;
     if (cf.itemName?.size && cf.itemName.has(p.name || p.itemName || '')) return false;
@@ -664,7 +719,11 @@ export function PartsManagement() {
     if (cf.location?.size && cf.location.has(p.location || '')) return false;
     if (cf.status?.size && cf.status.has(getPartStockLabel(p))) return false;
     return true;
-  });
+  };
+
+  const displayedParts = hasAnyColumnFilter
+    ? filterSource.filter(filterPredicate)
+    : parts.filter(filterPredicate);
 
   const activeFilterCount = Object.values(columnFilters).filter(s => s.size > 0).length;
 
@@ -696,7 +755,7 @@ export function PartsManagement() {
           <DeleteAllConfirmButton
             resourceLabel="parts / inventory items"
             onConfirmDelete={(password) => deleteAllParts(password)}
-            onDeleted={fetchParts}
+            onDeleted={() => { fetchParts(); fetchAllPartsForFilterMenus(); }}
           />
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
@@ -860,7 +919,7 @@ export function PartsManagement() {
           {activeFilterCount > 0 && (
             <div className="parts-active-filters-bar mt-2">
               <Filter className="h-3.5 w-3.5" />
-              <span>{activeFilterCount} Spaltenfilter aktiv — {displayedParts.length} von {parts.length} Einträgen sichtbar</span>
+              <span>{activeFilterCount} Spaltenfilter aktiv — {displayedParts.length} von {filterSource.length} Einträgen sichtbar</span>
               <button
                 type="button"
                 className="col-filter-link col-filter-link--danger"
@@ -1324,6 +1383,7 @@ export function PartsManagement() {
         onImportSuccess={() => {
           console.log('PartsManagement: CSV import successful, refreshing parts list');
           fetchParts();
+          fetchAllPartsForFilterMenus();
         }}
       />
     </div>

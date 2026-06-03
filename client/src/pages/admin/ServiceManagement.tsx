@@ -105,252 +105,254 @@ interface ColumnFilterMenuProps {
 }
 
 function ServiceDetailView({ service }: { service: RepairService }) {
-  const renderHtmlBlock = (value?: string) => {
-    if (!value) {
-      return <p className="service-detail-empty">No information available</p>
-    }
+  const stripHtml = (value?: string) => {
+    if (!value) return ''
+    return value.replace(/<[^>]*>/g, '').trim()
+  }
 
+  const renderHtmlBlock = (label: string, value?: string) => {
+    const hasContent = Boolean(stripHtml(value))
     return (
-      <div
-        className="service-detail-html"
-        dangerouslySetInnerHTML={{ __html: value }}
-      />
+      <div className="sd-desc">
+        <span className="sd-desc__label">{label}</span>
+        {hasContent ? (
+          <div
+            className="sd-desc__body"
+            dangerouslySetInnerHTML={{ __html: value as string }}
+          />
+        ) : (
+          <p className="sd-desc__body sd-desc__body--empty">No information available</p>
+        )}
+      </div>
     )
   }
 
+  const renderTextBlock = (label: string, value?: string, fallback = '—') => {
+    const hasContent = Boolean(value && value.trim())
+    return (
+      <div className="sd-desc">
+        <span className="sd-desc__label">{label}</span>
+        <p className={`sd-desc__body${hasContent ? '' : ' sd-desc__body--empty'}`}>
+          {hasContent ? value : fallback}
+        </p>
+      </div>
+    )
+  }
+
+  const formatMoney = (value?: number) => `$${(value ?? 0).toFixed(2)}`
+
   return (
-    <div className="service-detail-layout">
-      <section className="service-detail-hero">
-        <div>
-          <div className="service-detail-hero__row">
-            <span className="service-detail-hero__partnum">{service.articleNumber || 'NO-ARTICLE'}</span>
-            <span className={`service-status-badge ${service.isActive ? 'service-status-badge--active' : 'service-status-badge--inactive'}`}>
-              {service.isActive ? 'Active' : 'Inactive'}
-            </span>
+    <div className="sd-layout">
+      {/* Identity strip */}
+      <div className="sd-identity">
+        <div className="sd-identity__left">
+          <div className="sd-partnum">#{service.articleNumber || 'NO-ARTICLE'}</div>
+          <div className="sd-name">{service.name}</div>
+          <div className="sd-meta">
+            {service.manufacturer && <span>{service.manufacturer}</span>}
+            {service.manufacturer && (service.model || service.category) && <span className="sd-dot">·</span>}
+            {service.model && <span>{service.model}</span>}
+            {service.model && service.category && <span className="sd-dot">·</span>}
+            <span className="sd-category-pill">{service.category}</span>
           </div>
-          <h2 className="service-detail-hero__name">{service.name}</h2>
-          <p className="service-detail-hero__sub">
-            {service.service || service.category}
-            {service.manufacturer ? ` • ${service.manufacturer}` : ''}
-            {service.model ? ` • ${service.model}` : ''}
-          </p>
         </div>
-        <div className="service-detail-hero__price">
-          <span className="service-detail-hero__price-value">${service.price}</span>
-          <span className="service-detail-hero__price-label">Current Price</span>
+        <div className="sd-price-block">
+          <div className="sd-price">{formatMoney(service.price)}</div>
+          <div className="sd-price-label">Current Price</div>
+          <span className={`sd-status-badge ${service.isActive ? 'sd-status-badge--active' : 'sd-status-badge--inactive'}`}>
+            {service.isActive ? 'Active' : 'Inactive'}
+          </span>
         </div>
-      </section>
+      </div>
 
-      <div className="service-detail-sections">
-        <section className="service-detail-section">
-          <div className="service-detail-section__header">
-            <h3 className="service-detail-section__title">
-              <Wrench />
-              Basic Information
-            </h3>
-          </div>
-          <div className="service-detail-section__body">
-            <div className="service-detail-grid service-detail-grid--3">
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Category</span>
-                <span className="service-detail-tile__value">{service.category}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Service</span>
-                <span className="service-detail-tile__value">{service.service || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Estimated Time</span>
-                <span className="service-detail-tile__value"><Clock className="h-3.5 w-3.5" />{service.estimatedTime || '—'}</span>
-              </div>
-            </div>
-            <div className="service-detail-stack">
-              <div>
-                <span className="service-detail-tile__label">Short Description</span>
-                {renderHtmlBlock(service.shortDescription)}
-              </div>
-              <div>
-                <span className="service-detail-tile__label">Description</span>
-                {renderHtmlBlock(service.description)}
-              </div>
-            </div>
-          </div>
-        </section>
+      {/* Two-column body: left = Basic + Pricing, right = Device + SEO */}
+      <div className="sd-body-grid">
 
-        <section className="service-detail-section">
-          <div className="service-detail-section__header">
-            <h3 className="service-detail-section__title">
-              <DollarSign />
-              Pricing & Performance
-            </h3>
-          </div>
-          <div className="service-detail-section__body">
-            <div className="service-detail-grid service-detail-grid--4">
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Price</span>
-                <span className="service-detail-tile__value service-detail-tile__value--money">${service.price}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">MSRP</span>
-                <span className="service-detail-tile__value">${service.msrp || 0}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Purchase Price</span>
-                <span className="service-detail-tile__value">${service.purchasePrice || 0}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Popularity</span>
-                <span className="service-detail-tile__value service-detail-tile__value--big"><Star className="h-3.5 w-3.5" />{service.popularity}%</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Tax Class</span>
-                <span className="service-detail-tile__value">{service.taxClass || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Source</span>
-                <span className="service-detail-tile__value">{service.source || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Created</span>
-                <span className="service-detail-tile__value"><Calendar className="h-3.5 w-3.5" />{new Date(service.createdAt).toLocaleDateString()}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Updated</span>
-                <span className="service-detail-tile__value"><Calendar className="h-3.5 w-3.5" />{new Date(service.updatedAt).toLocaleDateString()}</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* LEFT COLUMN */}
+        <div className="sd-col">
 
-        <section className="service-detail-section">
-          <div className="service-detail-section__header">
-            <h3 className="service-detail-section__title">
-              <Smartphone />
-              Device Compatibility
-            </h3>
-          </div>
-          <div className="service-detail-section__body">
-            <div className="service-detail-grid service-detail-grid--3">
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Manufacturer</span>
-                <span className="service-detail-tile__value">{service.manufacturer || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Model</span>
-                <span className="service-detail-tile__value">{service.model || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Device Types</span>
-                <span className="service-detail-tile__value">{service.deviceTypes.length || 0}</span>
-              </div>
-            </div>
-            <div className="service-chip-list service-chip-list--detail">
-              {service.deviceTypes.length > 0 ? service.deviceTypes.map((deviceType) => (
-                <span key={deviceType} className="service-chip">{deviceType}</span>
-              )) : <p className="service-detail-empty">No compatible device types defined</p>}
-            </div>
-          </div>
-        </section>
+          {/* Basic Information */}
+          <div className="sd-section">
+            <div className="sd-section-title"><Info size={12} /> Basic Information</div>
+            <div className="sd-kv-grid">
+              <span className="sd-kv-label">Article #</span>
+              <span className="sd-kv-value sd-mono">{service.articleNumber || '—'}</span>
 
-        <section className="service-detail-section">
-          <div className="service-detail-section__header">
-            <h3 className="service-detail-section__title">
-              <FileText />
-              SEO, Print & Notes
-            </h3>
-          </div>
-          <div className="service-detail-section__body">
-            <div className="service-detail-grid service-detail-grid--3">
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">Keywords</span>
-                <span className="service-detail-tile__value">{service.searchKeywords || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">SEO Name</span>
-                <span className="service-detail-tile__value">{service.seoName || '—'}</span>
-              </div>
-              <div className="service-detail-tile">
-                <span className="service-detail-tile__label">SEO Title</span>
-                <span className="service-detail-tile__value">{service.seoTitleTag || '—'}</span>
-              </div>
-            </div>
-            <div className="service-detail-stack">
-              <div>
-                <span className="service-detail-tile__label">SEO Meta Keywords</span>
-                <p className="service-detail-text">{service.seoMetaKeywords || '—'}</p>
-              </div>
-              <div>
-                <span className="service-detail-tile__label">SEO Meta Description</span>
-                <p className="service-detail-text">{service.seoMetaDescription || '—'}</p>
-              </div>
-              <div>
-                <span className="service-detail-tile__label">Print Short Description</span>
-                <p className="service-detail-text">{service.printShortDescription || '—'}</p>
-              </div>
-              <div>
-                <span className="service-detail-tile__label">Print Description</span>
-                <p className="service-detail-text">{service.printDescription || '—'}</p>
-              </div>
-              <div>
-                <span className="service-detail-tile__label">Note</span>
-                <p className="service-detail-text">{service.note || '—'}</p>
-              </div>
-            </div>
-          </div>
-        </section>
+              <span className="sd-kv-label">Category</span>
+              <span className="sd-kv-value">{service.category || '—'}</span>
 
-        <section className="service-detail-section">
-          <div className="service-detail-section__header">
-            <h3 className="service-detail-section__title">
-              <User />
-              Repair Information
-            </h3>
-          </div>
-          <div className="service-detail-section__body">
-            <div className="service-detail-stack">
-              <div>
-                <span className="service-detail-tile__label">External Repair Information</span>
-                <p className="service-detail-text">{service.externalRepairInfo || 'No customer-facing repair information provided'}</p>
-              </div>
-              <div>
-                <span className="service-detail-tile__label">Internal Repair Information</span>
-                <p className="service-detail-text">{service.internalRepairInfo || 'No internal repair information provided'}</p>
-              </div>
+              <span className="sd-kv-label">Service</span>
+              <span className="sd-kv-value">{service.service || '—'}</span>
+
+              <span className="sd-kv-label">Estimated Time</span>
+              <span className="sd-kv-value">
+                {service.estimatedTime
+                  ? <span className="sd-inline-icon"><Clock size={12} />{service.estimatedTime}</span>
+                  : '—'}
+              </span>
             </div>
           </div>
-        </section>
 
-        <section className="service-detail-section">
-          <div className="service-detail-section__header">
-            <h3 className="service-detail-section__title">
-              <BookOpen />
-              Knowledge Base
-            </h3>
+          {/* Pricing & Performance */}
+          <div className="sd-section">
+            <div className="sd-section-title"><DollarSign size={12} /> Pricing &amp; Performance</div>
+            <div className="sd-kv-grid">
+              <span className="sd-kv-label">Price</span>
+              <span className="sd-kv-value sd-money">{formatMoney(service.price)}</span>
+
+              <span className="sd-kv-label">MSRP</span>
+              <span className="sd-kv-value sd-money">{formatMoney(service.msrp)}</span>
+
+              <span className="sd-kv-label">Purchase Price</span>
+              <span className="sd-kv-value sd-money">{formatMoney(service.purchasePrice)}</span>
+
+              <span className="sd-kv-label">Tax Class</span>
+              <span className="sd-kv-value">{service.taxClass || '—'}</span>
+
+              <span className="sd-kv-label">Source</span>
+              <span className="sd-kv-value">{service.source || '—'}</span>
+
+              <span className="sd-kv-label">Popularity</span>
+              <span className="sd-kv-value sd-big">
+                <span className="sd-inline-icon"><Star size={12} />{service.popularity}%</span>
+              </span>
+            </div>
           </div>
-          <div className="service-detail-section__body">
-            {service.linkedKnowledgeBaseArticles && service.linkedKnowledgeBaseArticles.length > 0 ? (
-              <div className="service-knowledge-list">
-                {service.linkedKnowledgeBaseArticles.map((article, index) => (
-                  <div key={`${article.url || article.title || 'kb'}-${index}`} className="service-knowledge-item">
-                    <LinkIcon className="h-4 w-4" />
-                    <div>
-                      <p className="service-knowledge-item__title">{article.title || 'Untitled Article'}</p>
-                      {article.url ? (
-                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="service-knowledge-item__link">
-                          {article.url}
-                        </a>
-                      ) : (
-                        <p className="service-detail-empty">No URL linked</p>
-                      )}
-                    </div>
-                  </div>
+
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="sd-col">
+
+          {/* Device Compatibility */}
+          <div className="sd-section">
+            <div className="sd-section-title"><Smartphone size={12} /> Device Compatibility</div>
+            <div className="sd-kv-grid">
+              <span className="sd-kv-label">Manufacturer</span>
+              <span className="sd-kv-value">{service.manufacturer || '—'}</span>
+
+              <span className="sd-kv-label">Model</span>
+              <span className="sd-kv-value">{service.model || '—'}</span>
+
+              <span className="sd-kv-label">Device Types</span>
+              <span className="sd-kv-value sd-big">{service.deviceTypes?.length || 0}</span>
+            </div>
+            {service.deviceTypes && service.deviceTypes.length > 0 ? (
+              <div className="sd-chip-list">
+                {service.deviceTypes.map((deviceType) => (
+                  <span key={deviceType} className="sd-chip">{deviceType}</span>
                 ))}
               </div>
             ) : (
-              <p className="service-detail-empty">No knowledge base articles linked to this service</p>
+              <p className="sd-chip-empty">No compatible device types defined</p>
             )}
           </div>
-        </section>
+
+          {/* SEO */}
+          <div className="sd-section">
+            <div className="sd-section-title"><FileText size={12} /> SEO</div>
+            <div className="sd-kv-grid">
+              <span className="sd-kv-label">Keywords</span>
+              <span className="sd-kv-value">{service.searchKeywords || '—'}</span>
+
+              <span className="sd-kv-label">SEO Name</span>
+              <span className="sd-kv-value">{service.seoName || '—'}</span>
+
+              <span className="sd-kv-label">SEO Title</span>
+              <span className="sd-kv-value">{service.seoTitleTag || '—'}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Full-width: Descriptions */}
+      <div className="sd-section">
+        <div className="sd-section-title"><FileText size={12} /> Descriptions</div>
+        {renderHtmlBlock('Short Description', service.shortDescription)}
+        {renderHtmlBlock('Description', service.description)}
+      </div>
+
+      {/* Full-width: SEO Meta */}
+      {(service.seoMetaKeywords || service.seoMetaDescription) && (
+        <div className="sd-section">
+          <div className="sd-section-title"><FileText size={12} /> SEO Meta</div>
+          {renderTextBlock('SEO Meta Keywords', service.seoMetaKeywords)}
+          {renderTextBlock('SEO Meta Description', service.seoMetaDescription)}
+        </div>
+      )}
+
+      {/* Full-width: Print Information */}
+      {(service.printShortDescription || service.printDescription) && (
+        <div className="sd-section">
+          <div className="sd-section-title"><FileText size={12} /> Print Information</div>
+          {renderTextBlock('Print Short Description', service.printShortDescription)}
+          {renderTextBlock('Print Description', service.printDescription)}
+        </div>
+      )}
+
+      {/* Full-width: Repair Information */}
+      <div className="sd-section">
+        <div className="sd-section-title"><User size={12} /> Repair Information</div>
+        {renderTextBlock(
+          'External Repair Information',
+          service.externalRepairInfo,
+          'No customer-facing repair information provided'
+        )}
+        {renderTextBlock(
+          'Internal Repair Information',
+          service.internalRepairInfo,
+          'No internal repair information provided'
+        )}
+      </div>
+
+      {/* Full-width: Note */}
+      {service.note && service.note.trim() && (
+        <div className="sd-section">
+          <div className="sd-section-title"><FileText size={12} /> Note</div>
+          {renderTextBlock('Note', service.note)}
+        </div>
+      )}
+
+      {/* Full-width: Knowledge Base */}
+      <div className="sd-section">
+        <div className="sd-section-title">
+          <BookOpen size={12} /> Knowledge Base
+          {service.linkedKnowledgeBaseArticles && service.linkedKnowledgeBaseArticles.length > 0
+            ? ` (${service.linkedKnowledgeBaseArticles.length})`
+            : ''}
+        </div>
+        {service.linkedKnowledgeBaseArticles && service.linkedKnowledgeBaseArticles.length > 0 ? (
+          <div className="sd-kb-list">
+            {service.linkedKnowledgeBaseArticles.map((article, index) => (
+              <div key={`${article.url || article.title || 'kb'}-${index}`} className="sd-kb-item">
+                <LinkIcon />
+                <div>
+                  <p className="sd-kb-title">{article.title || 'Untitled Article'}</p>
+                  {article.url ? (
+                    <a href={article.url} target="_blank" rel="noopener noreferrer" className="sd-kb-link">
+                      {article.url}
+                    </a>
+                  ) : (
+                    <p className="sd-empty">No URL linked</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="sd-empty">No knowledge base articles linked to this service</p>
+        )}
+      </div>
+
+      {/* Meta footer */}
+      <div className="sd-meta-footer">
+        <Calendar size={12} />
+        <span>Created:</span>
+        <span>{new Date(service.createdAt).toLocaleString()}</span>
+        <span className="sd-dot">·</span>
+        <span>Updated:</span>
+        <span>{new Date(service.updatedAt).toLocaleString()}</span>
       </div>
     </div>
   )
@@ -670,8 +672,16 @@ export function ServiceManagement() {
 
   useEffect(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
+    const hasAnyColumnFilter = Object.values(columnFilters).some((set) => set && set.size > 0)
 
-    const filtered = services.filter((service) => {
+    // When column filters are active, filter the full dataset so that values
+    // unique to other pages remain reachable (e.g. after "None" + re-select).
+    // Otherwise filter only the current page for performance and correct pagination.
+    const sourceList = hasAnyColumnFilter && allServicesForFilterMenus.length
+      ? allServicesForFilterMenus
+      : services
+
+    const filtered = sourceList.filter((service) => {
       const matchesSearch = !normalizedSearch || (
         service.name.toLowerCase().includes(normalizedSearch) ||
         service.description.toLowerCase().includes(normalizedSearch) ||
@@ -692,17 +702,18 @@ export function ServiceManagement() {
       if (columnFilters.popularity?.size && columnFilters.popularity.has(getServiceValue(service, 'popularity'))) return false
 
       if (columnFilters.deviceTypes?.size) {
-        const hasExcludedDeviceType = getServiceDeviceTypes(service)
-          .some((deviceType) => columnFilters.deviceTypes?.has(deviceType))
+        const serviceDeviceTypes = getServiceDeviceTypes(service)
+        const hasAtLeastOneIncludedDeviceType = serviceDeviceTypes
+          .some((deviceType) => !columnFilters.deviceTypes?.has(deviceType))
 
-        if (hasExcludedDeviceType) return false
+        if (!hasAtLeastOneIncludedDeviceType) return false
       }
 
       return true
     })
 
     setFilteredServices(filtered)
-  }, [services, searchTerm, columnFilters])
+  }, [services, allServicesForFilterMenus, searchTerm, columnFilters])
 
   const fetchCategories = async () => {
     try {
@@ -1215,7 +1226,7 @@ export function ServiceManagement() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Repair Services</CardTitle>
           <CardDescription className="text-xs">
-            Manage your repair service catalog and pricing. Use the column menus to sort or exclude values on the current page.
+            Manage your repair service catalog and pricing. Use the column menus to sort or exclude values across all services.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -1223,7 +1234,7 @@ export function ServiceManagement() {
             <div className="service-active-filters-bar">
               <Filter className="h-3.5 w-3.5" />
               <span>
-                {activeFilterCount} column filters active, showing {filteredServices.length} of {services.length} services on this page
+                {activeFilterCount} column filters active, showing {filteredServices.length} of {allServicesForFilterMenus.length || services.length} services
               </span>
               <button
                 type="button"
@@ -1473,7 +1484,7 @@ export function ServiceManagement() {
             <div className="mt-3 flex items-center justify-between border-t pt-3">
               <div className="text-xs text-muted-foreground">
                 {hasClientFilters
-                  ? `Showing ${filteredServices.length} of ${services.length} services on this page (${pagination.total} total)`
+                  ? `Showing ${filteredServices.length} of ${allServicesForFilterMenus.length || services.length} services (${pagination.total} total)`
                   : `Showing ${((currentPage - 1) * pageSize) + 1} to ${Math.min(currentPage * pageSize, pagination.total)} of ${pagination.total} services`}
               </div>
               <div className="flex items-center gap-2">
