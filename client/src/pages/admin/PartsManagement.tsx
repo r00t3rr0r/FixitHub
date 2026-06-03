@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Upload, Boxes, Tag, Wrench, ClipboardList, Layers, ShieldCheck } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Upload, Boxes, Tag, Wrench, ClipboardList, Layers, ShieldCheck, Filter, X } from 'lucide-react';
 import { getParts, createInventoryItem, updatePart, deletePart, deleteAllParts, Part, PartVersion } from '../../api/parts';
 import { getNeedLists, createNeedList, addItemToNeedList, NeedList } from '../../api/needLists';
 import { PartsCSVImportDialog } from '../../components/admin/PartsCSVImportDialog';
@@ -22,6 +22,180 @@ import './PartsManagement.css';
 
 const compactFieldClassName = "h-9 text-sm";
 const compactLabelClassName = "parts-detail-tile__label";
+
+// ── Column Filter Menu ──────────────────────────────────────────────────────
+interface ColumnFilterMenuProps {
+  column: string;
+  label: string;
+  allValues: string[];
+  excludedValues: Set<string>;
+  onExcludedChange: (col: string, excluded: Set<string>) => void;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  onSortAsc: () => void;
+  onSortDesc: () => void;
+}
+
+function ColumnFilterMenu({
+  column,
+  label,
+  allValues,
+  excludedValues,
+  onExcludedChange,
+  sortBy,
+  sortOrder,
+  onSortAsc,
+  onSortDesc,
+}: ColumnFilterMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const isActive = sortBy === column || excludedValues.size > 0;
+
+  const filtered = allValues.filter(v =>
+    v.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const allChecked = filtered.every(v => !excludedValues.has(v));
+  const someChecked = filtered.some(v => !excludedValues.has(v));
+
+  const toggleValue = (val: string) => {
+    const next = new Set(excludedValues);
+    if (next.has(val)) next.delete(val); else next.add(val);
+    onExcludedChange(column, next);
+  };
+
+  const selectAll = () => {
+    const next = new Set(excludedValues);
+    filtered.forEach(v => next.delete(v));
+    onExcludedChange(column, next);
+  };
+
+  const deselectAll = () => {
+    const next = new Set(excludedValues);
+    filtered.forEach(v => next.add(v));
+    onExcludedChange(column, next);
+  };
+
+  const clearFilter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onExcludedChange(column, new Set());
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const sortIcon = sortBy === column
+    ? (sortOrder === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)
+    : <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />;
+
+  return (
+    <div className="col-filter-root">
+      <button
+        ref={btnRef}
+        type="button"
+        className={`col-filter-trigger${isActive ? ' col-filter-trigger--active' : ''}`}
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        title={`Filter / Sort: ${label}`}
+      >
+        <span className="col-filter-label">{label}</span>
+        {excludedValues.size > 0
+          ? <Filter className="h-3.5 w-3.5 col-filter-icon--filtered" />
+          : sortIcon
+        }
+        {excludedValues.size > 0 && (
+          <span className="col-filter-badge">{excludedValues.size}</span>
+        )}
+      </button>
+
+      {open && (
+        <div ref={menuRef} className="col-filter-menu" onClick={e => e.stopPropagation()}>
+          {/* Sort actions */}
+          <div className="col-filter-sort-row">
+            <button
+              type="button"
+              className={`col-filter-sort-btn${sortBy === column && sortOrder === 'asc' ? ' col-filter-sort-btn--active' : ''}`}
+              onClick={() => { onSortAsc(); setOpen(false); }}
+            >
+              <ChevronUp className="h-3.5 w-3.5" /> Aufsteigend
+            </button>
+            <button
+              type="button"
+              className={`col-filter-sort-btn${sortBy === column && sortOrder === 'desc' ? ' col-filter-sort-btn--active' : ''}`}
+              onClick={() => { onSortDesc(); setOpen(false); }}
+            >
+              <ChevronDown className="h-3.5 w-3.5" /> Absteigend
+            </button>
+          </div>
+
+          <div className="col-filter-divider" />
+
+          {/* Search */}
+          <div className="col-filter-search-wrap">
+            <Search className="col-filter-search-icon h-3.5 w-3.5" />
+            <input
+              className="col-filter-search-input"
+              placeholder="Suchen…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              autoFocus
+            />
+            {search && (
+              <button type="button" className="col-filter-search-clear" onClick={() => setSearch('')}>
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Select all / deselect all */}
+          <div className="col-filter-actions-row">
+            <button type="button" className="col-filter-link" onClick={selectAll}>Alle wählen</button>
+            <button type="button" className="col-filter-link" onClick={deselectAll}>Keine</button>
+            {excludedValues.size > 0 && (
+              <button type="button" className="col-filter-link col-filter-link--danger" onClick={clearFilter}>
+                <X className="h-3 w-3" /> Filter löschen
+              </button>
+            )}
+          </div>
+
+          {/* Value list */}
+          <div className="col-filter-list">
+            {filtered.length === 0 ? (
+              <span className="col-filter-empty">Keine Einträge gefunden</span>
+            ) : (
+              filtered.map(val => (
+                <label key={val} className="col-filter-item">
+                  <input
+                    type="checkbox"
+                    className="col-filter-checkbox"
+                    checked={!excludedValues.has(val)}
+                    onChange={() => toggleValue(val)}
+                  />
+                  <span className="col-filter-item-label" title={val}>{val || '—'}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function PartsManagement() {
   const { t } = useTranslation()
@@ -40,6 +214,13 @@ export function PartsManagement() {
   // Sorting state
   const [sortBy, setSortBy] = useState<string>('lastUpdated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Column-level quick filters (excluded values per column key)
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
+
+  const handleColumnFilterChange = (col: string, excluded: Set<string>) => {
+    setColumnFilters(prev => ({ ...prev, [col]: excluded }));
+  };
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -242,14 +423,23 @@ export function PartsManagement() {
   const handleSort = (column: string) => {
     console.log('PartsManagement: Sorting by column:', column);
     if (sortBy === column) {
-      // Toggle sort order if clicking the same column
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      // Set new column and default to ascending
       setSortBy(column);
       setSortOrder('asc');
     }
-    // Reset to first page when sorting changes
+    setCurrentPage(1);
+  };
+
+  const makeSortAsc = (col: string) => () => {
+    setSortBy(col);
+    setSortOrder('asc');
+    setCurrentPage(1);
+  };
+
+  const makeSortDesc = (col: string) => () => {
+    setSortBy(col);
+    setSortOrder('desc');
     setCurrentPage(1);
   };
 
@@ -469,6 +659,38 @@ export function PartsManagement() {
 
   const totalUniqueModels = new Set(parts.map(p => p.model).filter(Boolean)).size;
 
+  // Build value sets for each filterable column from current page data
+  const colValues = {
+    partNumber: Array.from(new Set(parts.map(p => p.partNumber || '').filter(Boolean))).sort(),
+    itemName:   Array.from(new Set(parts.map(p => p.name || p.itemName || '').filter(Boolean))).sort(),
+    category:   Array.from(new Set(parts.map(p => p.category || '').filter(Boolean))).sort(),
+    model:      Array.from(new Set(parts.map(p => p.model || '').filter(Boolean))).sort(),
+    location:   Array.from(new Set(parts.map(p => p.location || '').filter(Boolean))).sort(),
+    status:     Array.from(new Set(parts.map(p => {
+      const s = p.stockQuantity || 0; const m = p.minStockLevel || 0;
+      return s === 0 ? 'Out of Stock' : s <= m ? 'Low Stock' : 'In Stock';
+    }))).sort(),
+  };
+
+  const getPartStockLabel = (p: Part) => {
+    const s = p.stockQuantity || 0; const m = p.minStockLevel || 0;
+    return s === 0 ? 'Out of Stock' : s <= m ? 'Low Stock' : 'In Stock';
+  };
+
+  // Apply column filters to displayed parts
+  const displayedParts = parts.filter(p => {
+    const cf = columnFilters;
+    if (cf.partNumber?.size && cf.partNumber.has(p.partNumber || '')) return false;
+    if (cf.itemName?.size && cf.itemName.has(p.name || p.itemName || '')) return false;
+    if (cf.category?.size && cf.category.has(p.category || '')) return false;
+    if (cf.model?.size && cf.model.has(p.model || '')) return false;
+    if (cf.location?.size && cf.location.has(p.location || '')) return false;
+    if (cf.status?.size && cf.status.has(getPartStockLabel(p))) return false;
+    return true;
+  });
+
+  const activeFilterCount = Object.values(columnFilters).filter(s => s.size > 0).length;
+
   return (
     <div className="parts-page-container">
       {/* Page Header */}
@@ -656,6 +878,21 @@ export function PartsManagement() {
               </Button>
             </div>
           )}
+
+          {/* Active column-filter badge */}
+          {activeFilterCount > 0 && (
+            <div className="parts-active-filters-bar mt-2">
+              <Filter className="h-3.5 w-3.5" />
+              <span>{activeFilterCount} Spaltenfilter aktiv — {displayedParts.length} von {parts.length} Einträgen sichtbar</span>
+              <button
+                type="button"
+                className="col-filter-link col-filter-link--danger"
+                onClick={() => setColumnFilters({})}
+              >
+                <X className="h-3 w-3" /> Alle löschen
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Parts Table */}
@@ -665,42 +902,94 @@ export function PartsManagement() {
               <TableRow>
                 <TableHead className="w-10">
                   <Checkbox
-                    checked={selectedParts.size === parts.length && parts.length > 0}
+                    checked={selectedParts.size === displayedParts.length && displayedParts.length > 0}
                     onCheckedChange={handleSelectAllParts}
                   />
                 </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('sku')}>
-                  <div className="flex items-center">
-                    {t('partsManagement.partNumber')}
-                    {getSortIcon('sku')}
-                  </div>
+                <TableHead className="select-none">
+                  <ColumnFilterMenu
+                    column="partNumber"
+                    label={t('partsManagement.partNumber')}
+                    allValues={colValues.partNumber}
+                    excludedValues={columnFilters.partNumber || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('partNumber')}
+                    onSortDesc={makeSortDesc('partNumber')}
+                  />
                 </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('itemName')}>
-                  <div className="flex items-center">
-                    {t('partsManagement.partName')}
-                    {getSortIcon('itemName')}
-                  </div>
+                <TableHead className="select-none">
+                  <ColumnFilterMenu
+                    column="itemName"
+                    label={t('partsManagement.partName')}
+                    allValues={colValues.itemName}
+                    excludedValues={columnFilters.itemName || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('itemName')}
+                    onSortDesc={makeSortDesc('itemName')}
+                  />
                 </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('category')}>
-                  <div className="flex items-center">
-                    {t('partsManagement.category')}
-                    {getSortIcon('category')}
-                  </div>
+                <TableHead className="select-none">
+                  <ColumnFilterMenu
+                    column="category"
+                    label={t('partsManagement.category')}
+                    allValues={colValues.category}
+                    excludedValues={columnFilters.category || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('category')}
+                    onSortDesc={makeSortDesc('category')}
+                  />
                 </TableHead>
-                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('model')}>
-                  <div className="flex items-center">
-                    Model
-                    {getSortIcon('model')}
-                  </div>
+                <TableHead className="select-none">
+                  <ColumnFilterMenu
+                    column="model"
+                    label="Model"
+                    allValues={colValues.model}
+                    excludedValues={columnFilters.model || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('model')}
+                    onSortDesc={makeSortDesc('model')}
+                  />
                 </TableHead>
                 <TableHead>Stock</TableHead>
-                <TableHead>{t('partsManagement.status')}</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead className="select-none">
+                  <ColumnFilterMenu
+                    column="status"
+                    label={t('partsManagement.status')}
+                    allValues={colValues.status}
+                    excludedValues={columnFilters.status || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('status')}
+                    onSortDesc={makeSortDesc('status')}
+                  />
+                </TableHead>
+                <TableHead className="select-none">
+                  <ColumnFilterMenu
+                    column="location"
+                    label="Location"
+                    allValues={colValues.location}
+                    excludedValues={columnFilters.location || new Set()}
+                    onExcludedChange={handleColumnFilterChange}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSortAsc={makeSortAsc('location')}
+                    onSortDesc={makeSortDesc('location')}
+                  />
+                </TableHead>
                 <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {parts.length === 0 ? (
+              {displayedParts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9}>
                     <div className="parts-empty-state">
@@ -711,7 +1000,7 @@ export function PartsManagement() {
                   </TableCell>
                 </TableRow>
               ) : (
-                parts.map((part) => (
+                displayedParts.map((part) => (
                   <TableRow
                     key={part._id}
                     className="cursor-pointer"

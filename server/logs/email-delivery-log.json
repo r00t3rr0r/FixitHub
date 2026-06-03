@@ -7818,5 +7818,73 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1780471231568-vfu9l524q",
+    "timestamp": "2026-06-03T07:20:31.568Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<104dd57a-8610-cd32-2e22-26a709c71aa4@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2029,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780471234128-02nl9jved",
+    "timestamp": "2026-06-03T07:20:34.128Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<d70f6856-feb0-b9f5-91f9-4abc4e43ba76@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4577,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]
