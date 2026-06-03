@@ -29,7 +29,6 @@ import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionVi
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
 import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModal"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
-import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
@@ -4665,20 +4664,6 @@ export function OrderDetails() {
         renderCustomerLayout()
       ) : (
         <>
-          {/* Overall Progress Timeline */}
-          {progressTimeline && (
-            <div className="order-section-card">
-              <OrderProgressTimeline
-                stages={progressTimeline.stages.map((stage: any, index: number) => ({
-                  ...stage,
-                  id: stage.id || `stage-${index}`,
-                  label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-                }))}
-                currentStage={timelineCurrentStageId}
-              />
-            </div>
-          )}
-
           <div className="order-grid">
             {/* Main Content */}
             <div className="order-main-content space-y-4">
@@ -4723,14 +4708,6 @@ export function OrderDetails() {
                 <CardContent className="space-y-4 pt-2">
                   {isStaffOrAdmin ? (
                     <>
-                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
-                        <Clock className="h-3 w-3 mr-1" />
-                        Status aktualisieren
-                      </Button>
-                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
-                        <Users className="h-3 w-3 mr-1" />
-                        Personal verwalten
-                      </Button>
                     </>
                   ) : null}
 

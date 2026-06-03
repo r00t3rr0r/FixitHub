@@ -527,7 +527,7 @@ export function CommunicationPanel({
                   size="sm"
                   variant="outline"
                   onClick={() => setShowQuickActionDialog(true)}
-                  className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
+                  className="h-7 px-2 text-xs gap-1"
                   title={t('communicationPanel.sendQuickAction')}
                 >
                   <AlertCircle className="w-3 h-3" />
@@ -641,25 +641,25 @@ export function CommunicationPanel({
 
                   {/* Quick Actions */}
                   {message.messageType === "quick_action" && message.quickAction && (
-                    <div className={`inspection-comm-action-card border-l-4 rounded-r-lg p-4 transition-all ${
+                    <div className={`rounded-lg border p-4 transition-colors ${
                       message.quickAction.status === "pending"
-                        ? "is-pending"
-                        : "is-completed"
+                        ? "border-amber-300 bg-amber-50/50"
+                        : "border-emerald-300 bg-emerald-50/40"
                     }`}>
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="inspection-comm-action-icon w-4 h-4 flex-shrink-0" />
-                            <p className="inspection-comm-action-title font-semibold text-sm">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0 text-primary" />
+                            <p className="font-semibold text-sm text-foreground">
                               {message.quickAction.actionLabel}
                             </p>
                           </div>
                           {message.quickAction.description && (
-                            <p className="inspection-comm-action-description text-sm p-2 rounded mb-2 border">
+                            <p className="text-sm p-2 rounded mb-2 border bg-background text-foreground/90">
                               {message.quickAction.description}
                             </p>
                           )}
-                          <div className="inspection-comm-meta flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <User className="w-3 h-3" />
                             <span>{message.senderName}</span>
                             <Clock className="w-3 h-3 ml-2" />
@@ -667,13 +667,13 @@ export function CommunicationPanel({
                           </div>
                         </div>
                         {message.quickAction.status === "completed" && (
-                          <Badge variant="default" className="inspection-comm-status gap-1 flex-shrink-0 text-xs">
+                          <Badge className="gap-1 flex-shrink-0 text-xs border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
                             <CheckCircle2 className="w-3 h-3" />
                             {t('communicationPanel.completed')}
                           </Badge>
                         )}
                         {message.quickAction.status === "pending" && (
-                          <Badge variant="outline" className="inspection-comm-status gap-1 flex-shrink-0 text-xs">
+                          <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs border-amber-300 bg-amber-100 text-amber-800">
                             ⏳ {t('communicationPanel.pending')}
                           </Badge>
                         )}
@@ -818,23 +818,23 @@ export function CommunicationPanel({
 
       {/* Feedback Request Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-        <DialogContent className="inspection-comm-dialog w-[96vw] max-w-[680px] max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
-              <HelpCircle className="inspection-comm-dialog-icon w-5 h-5" />
+        <DialogContent className="order-dialog-content inspection-comm-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-hidden flex flex-col">
+          <DialogHeader className="order-dialog-header space-y-1 border-b pb-3">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-primary" />
               {t('communicationPanel.sendFeedbackRequest')}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs">
               {t('communicationPanel.askCustomerFeedback')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-2">
-              <Label htmlFor="question" className="flex items-center gap-2">
+          <div className="space-y-4 pt-1 overflow-y-auto flex-1 pr-1">
+            <section className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <Label htmlFor="question" className="flex items-center justify-between gap-2 text-xs font-medium">
                 <span>{t('communicationPanel.question')}</span>
-                <span className={`inspection-comm-required text-xs ${feedbackQuestion.trim() ? "is-valid" : "is-empty"}`}>
-                  {feedbackQuestion.trim() ? "✓" : "erforderlich"}
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${feedbackQuestion.trim() ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                  {feedbackQuestion.trim() ? 'Ausgefüllt' : 'Pflichtfeld'}
                 </span>
               </Label>
               <Textarea
@@ -842,35 +842,35 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.exampleQuestion')}
                 value={feedbackQuestion}
                 onChange={(e) => setFeedbackQuestion(e.target.value)}
-                className={`inspection-comm-input min-h-[80px] resize-none transition-colors ${
+                className={`min-h-[88px] resize-none text-xs ${
                   feedbackQuestion.trim()
-                    ? "is-valid"
-                    : "is-empty"
+                    ? 'border-emerald-300 focus-visible:ring-emerald-500/30'
+                    : 'border-amber-300 focus-visible:ring-amber-500/30'
                 }`}
               />
-              <p className="inspection-comm-help text-xs">
+              <p className="text-xs text-muted-foreground">
                 Stellen Sie eine klare Frage, die eine Ja/Nein- oder Multiple-Choice-Antwort erfordert. Beispiel: "Genehmigen Sie den Austausch der Batterie für 45 €?"
               </p>
-            </div>
+            </section>
 
-            <div className="inspection-comm-tips border rounded-lg p-3">
-              <p className="inspection-comm-tips-title text-xs font-medium mb-2">Tipps für effektive Rückmeldungen:</p>
-              <ul className="inspection-comm-tips-list text-xs space-y-1 list-disc list-inside">
+            <section className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+              <p className="text-xs font-medium text-blue-900 mb-2">Tipps für effektive Rückmeldungen:</p>
+              <ul className="text-xs space-y-1 list-disc list-inside text-blue-900/90">
                 <li>Seien Sie spezifisch, was Sie vom Kunden brauchen</li>
                 <li>Bieten Sie 2-4 klare Antwortoptionen an</li>
                 <li>Vermeiden Sie offene Fragen</li>
               </ul>
-            </div>
+            </section>
 
             {/* Dynamic Feedback Options */}
-            <div className="space-y-3">
+            <section className="space-y-3 rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Antwortoptionen ({feedbackOptions.filter(opt => opt.label.trim()).length} von {feedbackOptions.length})</Label>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleAddFeedbackOption}
-                  className="h-6 text-xs gap-1"
+                  className="h-7 text-xs gap-1"
                   disabled={feedbackOptions.length >= 5}
                 >
                   <Plus className="w-3 h-3" />
@@ -879,10 +879,10 @@ export function CommunicationPanel({
               </div>
 
               {feedbackOptions.map((option, index) => (
-                <div key={index} className="space-y-1 pb-2 border-b">
-                  <Label htmlFor={`option-${index}`} className="text-xs flex items-center gap-2">
+                <div key={index} className="space-y-1 rounded-md border bg-background p-2">
+                  <Label htmlFor={`option-${index}`} className="text-xs flex items-center gap-2 font-medium">
                     <span>Option {index + 1}</span>
-                    {option.label.trim() && <span className="text-green-600">✓</span>}
+                    {option.label.trim() && <span className="text-emerald-600">✓</span>}
                   </Label>
                   <div className="flex gap-2">
                     <Input
@@ -897,41 +897,42 @@ export function CommunicationPanel({
                         size="sm"
                         variant="ghost"
                         onClick={() => handleRemoveFeedbackOption(index)}
-                        className="h-8 w-8 p-0"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         title="Option entfernen"
                       >
-                        <Trash2 className="w-3 h-3 text-red-500" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
                 </div>
               ))}
-            </div>
+            </section>
 
             {/* Preview Section */}
             {feedbackQuestion.trim() && feedbackOptions.filter(opt => opt.label.trim()).length >= 2 && (
-              <div className="inspection-comm-preview border rounded-lg p-3">
-                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Vorschau:</p>
-                <div className="inspection-comm-preview-content space-y-2 border-l-4 p-3 rounded bg-gray-50">
+              <section className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-medium mb-2">Vorschau:</p>
+                <div className="space-y-2 border-l-2 border-primary/30 p-3 rounded bg-background">
                   <p className="font-medium text-sm">{feedbackQuestion}</p>
                   <div className="space-y-1 text-xs">
                     {feedbackOptions.filter(opt => opt.label.trim()).map((option, idx) => (
-                      <div key={idx} className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border bg-white">
-                        <div className="inspection-comm-preview-dot w-3 h-3 rounded-full border" />
+                      <div key={idx} className="flex items-center gap-2 p-2 rounded border bg-background">
+                        <div className="w-3 h-3 rounded-full border border-muted-foreground/50" />
                         <span>{option.label}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </div>
+              </section>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3 mt-2 bg-background sticky bottom-0 z-10">
             <Button
               variant="outline"
               onClick={() => setShowFeedbackDialog(false)}
               disabled={sendingFeedback}
+              size="sm"
             >
               {t('common.cancel')}
             </Button>
@@ -939,6 +940,7 @@ export function CommunicationPanel({
               onClick={handleSendFeedback}
               disabled={sendingFeedback || !feedbackQuestion.trim() || feedbackOptions.filter(opt => opt.label.trim()).length < 2}
               className="gap-2"
+              size="sm"
             >
               {sendingFeedback ? (
                 <>
@@ -958,28 +960,30 @@ export function CommunicationPanel({
 
       {/* Quick Action Dialog */}
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
-        <DialogContent className="inspection-comm-dialog w-[96vw] max-w-[680px] max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
-              <AlertCircle className="inspection-comm-dialog-icon danger w-5 h-5" />
+        <DialogContent className="order-dialog-content inspection-comm-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-hidden flex flex-col">
+          <DialogHeader className="order-dialog-header space-y-1 border-b pb-3">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-primary" />
               {t('communicationPanel.sendQuickAction')}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs">
               {t('communicationPanel.notifyCustomerAction')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-2">
-              <Label htmlFor="actionType" className="flex items-center gap-2">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-1 pt-1">
+            <section className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <Label htmlFor="actionType" className="flex items-center justify-between gap-2 text-xs font-medium">
                 <span>{t('communicationPanel.actionType')}</span>
-                <span className="inspection-comm-required text-xs is-empty">{t('communicationPanel.required')}</span>
+                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] border-amber-300 bg-amber-50 text-amber-700">
+                  {t('communicationPanel.required')}
+                </span>
               </Label>
               <select
                 id="actionType"
                 value={quickActionType}
                 onChange={(e) => setQuickActionType(e.target.value as any)}
-                className="inspection-comm-select w-full px-3 py-2 border rounded-md bg-white text-sm transition-colors"
+                className="w-full px-3 py-2 border rounded-md bg-background text-xs transition-colors"
               >
                 {quickActionOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -987,25 +991,23 @@ export function CommunicationPanel({
                   </option>
                 ))}
               </select>
-            </div>
+            </section>
 
             {/* Action Type Info Box */}
-            <div className={`inspection-comm-action-type-box border rounded-lg p-3 text-xs transition-colors ${
-              selectedQuickActionOption?.tone || 'is-cost'
-            }`}>
-              <p className="font-medium mb-2">
+            <section className="border rounded-lg p-3 text-xs transition-colors bg-muted/20">
+              <p className="font-medium mb-2 text-sm">
                 {selectedQuickActionOption?.title}
               </p>
-              <p className="opacity-75">
+              <p className="text-muted-foreground">
                 {selectedQuickActionOption?.description}
               </p>
-            </div>
+            </section>
 
-            <div className="space-y-2">
-              <Label htmlFor="description" className="flex items-center gap-2">
+            <section className="space-y-2 rounded-lg border p-3">
+              <Label htmlFor="description" className="flex items-center justify-between gap-2 text-xs font-medium">
                 <span>{t('communicationPanel.description')}</span>
-                <span className={`inspection-comm-required text-xs ${quickActionDescription.trim() ? "is-valid" : "is-empty"}`}>
-                  {quickActionDescription.trim() ? "✓" : t('communicationPanel.required')}
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${quickActionDescription.trim() ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                  {quickActionDescription.trim() ? 'Ausgefüllt' : t('communicationPanel.required')}
                 </span>
               </Label>
               <Textarea
@@ -1013,51 +1015,44 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.describeAction')}
                 value={quickActionDescription}
                 onChange={(e) => setQuickActionDescription(e.target.value)}
-                className={`inspection-comm-input min-h-[100px] resize-none transition-colors ${
+                className={`min-h-[100px] resize-none text-xs transition-colors ${
                   quickActionDescription.trim()
-                    ? "is-valid"
-                    : "is-empty"
+                    ? 'border-emerald-300 focus-visible:ring-emerald-500/30'
+                    : 'border-amber-300 focus-visible:ring-amber-500/30'
                 }`}
               />
-              <p className="inspection-comm-help text-xs">
+              <p className="inspection-comm-help text-xs text-muted-foreground">
                 {t('communicationPanel.actionDescriptionHelp')}
               </p>
-            </div>
+            </section>
 
             {/* Preview Section */}
             {quickActionDescription.trim() && (
-              <div className="inspection-comm-preview border rounded-lg p-3">
+              <section className="inspection-comm-preview border rounded-lg bg-muted/20 p-3">
                 <p className="inspection-comm-preview-title text-xs font-medium mb-2">{t('communicationPanel.preview')}</p>
-                <div className={`inspection-comm-action-preview space-y-2 border-l-4 rounded p-3 ${
-                  selectedQuickActionOption?.tone || 'is-cost'
-                }`}>
+                <div className="space-y-2 border-l-2 border-primary/30 rounded p-3 bg-background">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 inspection-comm-preview-icon ${
-                      selectedQuickActionOption?.tone || 'is-cost'
-                    }`} />
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
                     <div className="flex-1">
-                      <p className={`font-medium text-sm mb-1 inspection-comm-preview-heading ${
-                        selectedQuickActionOption?.tone || 'is-cost'
-                      }`}>
+                      <p className="font-medium text-sm mb-1 text-foreground">
                         {selectedQuickActionOption?.title}
                       </p>
-                      <p className={`text-xs inspection-comm-preview-copy ${
-                        selectedQuickActionOption?.tone || 'is-cost'
-                      }`}>
+                      <p className="text-xs text-muted-foreground">
                         {quickActionDescription}
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3 mt-2 bg-background sticky bottom-0 z-10">
             <Button
               variant="outline"
               onClick={() => setShowQuickActionDialog(false)}
               disabled={sendingQuickAction}
+              size="sm"
             >
               {t('common.cancel')}
             </Button>
@@ -1065,6 +1060,7 @@ export function CommunicationPanel({
               onClick={handleSendQuickAction}
               disabled={sendingQuickAction || !quickActionDescription.trim()}
               className="gap-2"
+              size="sm"
             >
               {sendingQuickAction ? (
                 <>
