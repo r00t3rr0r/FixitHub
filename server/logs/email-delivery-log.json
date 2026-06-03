@@ -8042,5 +8042,103 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1780484003362-ohhpdcfd9",
+    "timestamp": "2026-06-03T10:53:23.362Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<57fb7e6d-8cd1-68b2-8a6a-035595d6865f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1279,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780484006375-kqgdizix8",
+    "timestamp": "2026-06-03T10:53:26.375Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<2166a61a-f9ae-8e84-8938-d1c22e87771d@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4291,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780484069586-j6byw8tze",
+    "timestamp": "2026-06-03T10:54:29.586Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-016 – Apple iPhone 16 Pro Max",
+    "messageId": "<075a8534-b77b-83b9-65fb-0d991e5a4476@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 850,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
