@@ -389,6 +389,72 @@
   padding-right: 4px;
 }
 
+/* ── Service Detail Dialog: McRepair blue header + yellow title ── */
+.service-management-page [data-slot="dialog-content"].service-detail-dialog {
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.service-management-page .service-detail-dialog > [data-slot="dialog-header"] {
+  background: linear-gradient(135deg, #1a2a5e 0%, #2a3f7e 100%);
+  color: #ffffff;
+  padding: 14px 18px;
+  margin: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
+}
+
+.service-management-page .service-detail-dialog > [data-slot="dialog-header"] [data-slot="dialog-title"] {
+  color: #f5b800 !important;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.service-management-page .service-detail-dialog > [data-slot="dialog-header"] [data-slot="dialog-title"] svg {
+  color: #f5b800 !important;
+}
+
+.service-management-page .service-detail-dialog > [data-slot="dialog-header"] [data-slot="dialog-description"] {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  margin-top: 4px;
+}
+
+.service-management-page .service-detail-dialog > [data-slot="dialog-footer"] {
+  padding: 12px 18px 16px;
+  gap: 8px;
+  flex-shrink: 0;
+  border-top: 1px solid #e2e8f0;
+  background: #fafbfd;
+}
+
+.service-management-page .service-detail-dialog [data-slot="dialog-close"] {
+  color: rgba(255, 255, 255, 0.9);
+  top: 10px;
+  right: 10px;
+}
+
+.service-management-page .service-detail-dialog [data-slot="dialog-close"]:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.service-management-page .service-detail-dialog .service-dialog-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+  max-height: 64vh;
+}
+
 .service-detail-dialog [data-slot="dialog-title"] {
   display: flex;
   align-items: center;
