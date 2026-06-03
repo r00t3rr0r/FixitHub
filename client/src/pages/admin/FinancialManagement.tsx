@@ -2095,12 +2095,9 @@ export function FinancialManagement() {
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 gap-1 border border-[#d8dce6] bg-[#f8f9fc] sm:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3 gap-1 border border-[#d8dce6] bg-[#f8f9fc]">
           <TabsTrigger value="overview" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
             <TrendingUp className="mr-2 h-4 w-4" />Uebersicht
-          </TabsTrigger>
-          <TabsTrigger value="invoices" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <Wallet className="mr-2 h-4 w-4" />Rechnungen &amp; Zahlungen
           </TabsTrigger>
           <TabsTrigger value="dunning" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
             <Mail className="mr-2 h-4 w-4" />Mahnwesen
@@ -2141,6 +2138,340 @@ export function FinancialManagement() {
                     </div>
                   </button>
                 ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#d8dce6]">
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')}</CardTitle>
+                <div className="flex gap-2">
+                  <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+                    <DialogTrigger asChild><Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader><DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle><DialogDescription>{t('financialManagement.description')}</DialogDescription></DialogHeader>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label>Kunde suchen</Label>
+                          <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
+                          {customerResults.length > 0 && (
+                            <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
+                              {customerResults.map((c) => (
+                                <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
+                                  setInvoiceForm((prev) => ({ ...prev, customerId: c._id, customerName: c.name, customerEmail: c.email }));
+                                  setCustomerResults([]);
+                                  setCustomerQuery(c.name);
+                                }}>
+                                  <div className="font-medium text-[#1a2a5e]">{c.name}</div>
+                                  <div className="text-xs text-muted-foreground">{c.email}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div><Label>Kunden-ID</Label><Input value={invoiceForm.customerId} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerId: e.target.value }))} /></div>
+                          <div><Label>Order-ID</Label><Input value={invoiceForm.orderId} onChange={(e) => setInvoiceForm((p) => ({ ...p, orderId: e.target.value }))} /></div>
+                          <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
+                          <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
+                          <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+                          <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
+                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Line Items</Label>
+                            <Button variant="outline" size="sm" type="button" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position</Button>
+                          </div>
+                          {invoiceForm.items.map((item, index) => (
+                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] p-3 md:grid-cols-12">
+                              <div className="md:col-span-5"><Input placeholder="Beschreibung" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
+                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} /></div>
+                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} /></div>
+                              <div className="md:col-span-2">
+                                <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value)}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="service">Service</SelectItem>
+                                    <SelectItem value="addon">Add-On</SelectItem>
+                                    <SelectItem value="product">Teil</SelectItem>
+                                    <SelectItem value="fee">Gebuehr</SelectItem>
+                                    <SelectItem value="discount">Rabatt</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="md:col-span-1"><Button variant="ghost" size="icon" type="button" onClick={() => onRemoveInvoiceLineItem(index)}><AlertTriangle className="h-4 w-4 text-red-600" /></Button></div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
+                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
+                          {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrency(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
+                          <div className="flex justify-between"><span>Steuer ({invoiceForm.taxRate}%)</span><span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span></div>
+                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
+                        </div>
+                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
+                        <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
+                    <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#f8f9fc]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Rechnung aus RepairOrder-IDs</DialogTitle><DialogDescription>Mehrere IDs kommasepariert eingeben.</DialogDescription></DialogHeader>
+                      <div className="space-y-2">
+                        <Label>RepairOrder IDs</Label><Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label>Steuer %</Label><Input type="number" value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Rabatt</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+                          <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
+                        </div>
+                      </div>
+                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 grid gap-2 md:grid-cols-4">
+                <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="cancelled">Canceled</SelectItem>
+                    <SelectItem value="credited">Credited</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
+                <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
+                <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
+                <Table>
+                  <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => {
+                      const invoicePayments = paymentsByInvoiceId.get(invoice._id) || [];
+                      const isExpanded = expandedInvoiceIds.has(invoice._id);
+                      return (
+                      <Fragment key={invoice._id}>
+                      <TableRow
+                        data-finance-invoice-row-id={invoice._id}
+                        className={`cursor-pointer ${activeHighlightedInvoiceId === invoice._id ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
+                        onClick={() => openInvoiceDetails(invoice)}
+                      >
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={invoicePayments.length === 0}
+                            title={invoicePayments.length === 0 ? 'Keine Zahlungsprozesse' : `${invoicePayments.length} Zahlungsprozess(e)`}
+                            onClick={() => toggleInvoiceExpanded(invoice._id)}
+                          >
+                            {invoicePayments.length === 0 ? (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                            ) : isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-[#1a2a5e]" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-[#1a2a5e]" />
+                            )}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span>{invoice.invoiceNumber}</span>
+                            {invoicePayments.length > 0 && (
+                              <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{invoice.customerName}</TableCell>
+                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
+                        <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.total)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.paidAmount || 0)}</TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && invoicePayments.length > 0 && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={8} className="bg-[#f8f9fc] p-0">
+                            <div className="px-4 py-3">
+                              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
+                                <Wallet className="h-3.5 w-3.5" />Zahlungsprozesse
+                              </div>
+                              <div className="overflow-x-auto rounded-md border border-[#d8dce6] bg-white">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Prozess</TableHead>
+                                      <TableHead>{t('financialManagement.status')}</TableHead>
+                                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                                      <TableHead>{t('financialManagement.amount')}</TableHead>
+                                      <TableHead>{t('financialManagement.date')}</TableHead>
+                                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {invoicePayments.map((payment) => {
+                                      const metadata = (payment.metadata || {}) as Record<string, unknown>;
+                                      const processLabel = payment.status === 'refunded'
+                                        ? 'Erstattung abgeschlossen'
+                                        : payment.status === 'completed'
+                                          ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
+                                          : payment.status === 'disputed'
+                                            ? 'Dispute in Klärung'
+                                            : 'Zahlungsvorgang';
+                                      return (
+                                        <TableRow key={payment._id}>
+                                          <TableCell>
+                                            <div className="space-y-1">
+                                              <Badge variant="outline">{processLabel}</Badge>
+                                              <div className="text-xs text-muted-foreground">{payment.orderNumber || payment._id.slice(-8)}</div>
+                                              {payment.status === 'refunded' && (
+                                                <div className="text-xs text-purple-700">{formatCurrency(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
+                                          <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                                          <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
+                                          <TableCell>
+                                            <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
+                                            <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="max-w-[200px] truncate text-sm" title={payment.transactionId || payment.gatewayResponse || '-'}>
+                                              {payment.transactionId || payment.gatewayResponse || '-'}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            {payment.status === 'completed' && (
+                                              <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#d8dce6]">
+            <CardHeader>
+              <CardTitle className="text-[#1a2a5e]">Zahlungsprozesse filtern</CardTitle>
+              <CardDescription>Filter wirken auf die unter den Rechnungen aufklappbaren Zahlungsprozesse. Zahlungen ohne Rechnungslink erscheinen darunter.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 grid gap-2 md:grid-cols-6">
+                <Select value={paymentFilters.status} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, status: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="refunded">Refunded</SelectItem>
+                    <SelectItem value="disputed">Disputed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={paymentFilters.method} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, method: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Methode" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="credit_card">Kreditkarte</SelectItem>
+                    <SelectItem value="debit_card">Debitkarte</SelectItem>
+                    <SelectItem value="paypal">PayPal</SelectItem>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={paymentFilters.dateFrom} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
+                <Input type="date" value={paymentFilters.dateTo} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateTo: e.target.value }))} />
+                <Button variant="outline" onClick={onApplyPaymentFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPaymentFilters({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
+                    getPayments({}).then((res) => setPayments(res.payments || []));
+                  }}
+                >
+                  {t('common.reset')}
+                </Button>
+              </div>
+              {payments.filter((p) => !p.invoiceId).length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />Zahlungen ohne Rechnungslink
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Prozess</TableHead>
+                          <TableHead>{t('financialManagement.customer')}</TableHead>
+                          <TableHead>{t('financialManagement.status')}</TableHead>
+                          <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                          <TableHead>{t('financialManagement.amount')}</TableHead>
+                          <TableHead>{t('financialManagement.date')}</TableHead>
+                          <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.filter((p) => !p.invoiceId).map((payment) => (
+                          <TableRow key={payment._id}>
+                            <TableCell>
+                              <div className="font-medium text-[#1a2a5e]">{payment.orderNumber || payment._id.slice(-8)}</div>
+                              <div className="text-xs text-muted-foreground">Ohne Rechnungslink</div>
+                            </TableCell>
+                            <TableCell>{payment.customerName}</TableCell>
+                            <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
+                            <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                            <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
+                            <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
+                            <TableCell className="text-right">
+                              {payment.status === 'completed' && (
+                                <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -2394,356 +2725,6 @@ export function FinancialManagement() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="invoices" className="space-y-4">
-          <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')}</CardTitle>
-                <div className="flex gap-2">
-                  <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                    <DialogTrigger asChild><Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-                      <DialogHeader><DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle><DialogDescription>{t('financialManagement.description')}</DialogDescription></DialogHeader>
-
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label>Kunde suchen</Label>
-                          <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
-                          {customerResults.length > 0 && (
-                            <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
-                              {customerResults.map((c) => (
-                                <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
-                                  setInvoiceForm((prev) => ({ ...prev, customerId: c._id, customerName: c.name, customerEmail: c.email }));
-                                  setCustomerResults([]);
-                                  setCustomerQuery(c.name);
-                                }}>
-                                  <div className="font-medium text-[#1a2a5e]">{c.name}</div>
-                                  <div className="text-xs text-muted-foreground">{c.email}</div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div><Label>Kunden-ID</Label><Input value={invoiceForm.customerId} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerId: e.target.value }))} /></div>
-                          <div><Label>Order-ID</Label><Input value={invoiceForm.orderId} onChange={(e) => setInvoiceForm((p) => ({ ...p, orderId: e.target.value }))} /></div>
-                          <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
-                          <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
-                          <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-                          <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
-                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
-                        </div>
-
-                        <Separator />
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label>Line Items</Label>
-                            <Button variant="outline" size="sm" type="button" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position</Button>
-                          </div>
-
-                          {invoiceForm.items.map((item, index) => (
-                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] p-3 md:grid-cols-12">
-                              <div className="md:col-span-5"><Input placeholder="Beschreibung" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
-                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} /></div>
-                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} /></div>
-                              <div className="md:col-span-2">
-                                <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value)}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="service">Service</SelectItem>
-                                    <SelectItem value="addon">Add-On</SelectItem>
-                                    <SelectItem value="product">Teil</SelectItem>
-                                    <SelectItem value="fee">Gebuehr</SelectItem>
-                                    <SelectItem value="discount">Rabatt</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="md:col-span-1"><Button variant="ghost" size="icon" type="button" onClick={() => onRemoveInvoiceLineItem(index)}><AlertTriangle className="h-4 w-4 text-red-600" /></Button></div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
-                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
-                          {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrency(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
-                          <div className="flex justify-between"><span>Steuer ({invoiceForm.taxRate}%)</span><span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span></div>
-                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
-                        </div>
-
-                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
-                      </div>
-
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
-                        <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
-                    <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#f8f9fc]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Rechnung aus RepairOrder-IDs</DialogTitle><DialogDescription>Mehrere IDs kommasepariert eingeben.</DialogDescription></DialogHeader>
-                      <div className="space-y-2">
-                        <Label>RepairOrder IDs</Label><Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
-                        <div className="grid grid-cols-2 gap-2">
-                          <div><Label>Steuer %</Label><Input type="number" value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-                          <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
-                        </div>
-                      </div>
-                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent>
-              <div className="mb-3 grid gap-2 md:grid-cols-4">
-                <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="cancelled">Canceled</SelectItem>
-                    <SelectItem value="credited">Credited</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
-                <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
-                <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
-              </div>
-
-              <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
-                <Table>
-                  <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {invoices.map((invoice) => {
-                      const invoicePayments = paymentsByInvoiceId.get(invoice._id) || [];
-                      const isExpanded = expandedInvoiceIds.has(invoice._id);
-                      return (
-                      <Fragment key={invoice._id}>
-                      <TableRow
-                        data-finance-invoice-row-id={invoice._id}
-                        className={`cursor-pointer ${activeHighlightedInvoiceId === invoice._id ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
-                        onClick={() => openInvoiceDetails(invoice)}
-                      >
-                        <TableCell onClick={(event) => event.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            disabled={invoicePayments.length === 0}
-                            title={invoicePayments.length === 0 ? 'Keine Zahlungsprozesse' : `${invoicePayments.length} Zahlungsprozess(e)`}
-                            onClick={() => toggleInvoiceExpanded(invoice._id)}
-                          >
-                            {invoicePayments.length === 0 ? (
-                              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-                            ) : isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-[#1a2a5e]" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-[#1a2a5e]" />
-                            )}
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>{invoice.invoiceNumber}</span>
-                            {invoicePayments.length > 0 && (
-                              <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
-                        <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
-                        <TableCell>{formatCurrency(invoice.total)}</TableCell>
-                        <TableCell>{formatCurrency(invoice.paidAmount || 0)}</TableCell>
-                        <TableCell onClick={(event) => event.stopPropagation()}>
-                          <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
-                        </TableCell>
-                      </TableRow>
-                      {isExpanded && invoicePayments.length > 0 && (
-                        <TableRow className="hover:bg-transparent">
-                          <TableCell colSpan={8} className="bg-[#f8f9fc] p-0">
-                            <div className="px-4 py-3">
-                              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
-                                <Wallet className="h-3.5 w-3.5" />Zahlungsprozesse
-                              </div>
-                              <div className="overflow-x-auto rounded-md border border-[#d8dce6] bg-white">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Prozess</TableHead>
-                                      <TableHead>{t('financialManagement.status')}</TableHead>
-                                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
-                                      <TableHead>{t('financialManagement.amount')}</TableHead>
-                                      <TableHead>{t('financialManagement.date')}</TableHead>
-                                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
-                                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {invoicePayments.map((payment) => {
-                                      const metadata = (payment.metadata || {}) as Record<string, unknown>;
-                                      const processLabel = payment.status === 'refunded'
-                                        ? 'Erstattung abgeschlossen'
-                                        : payment.status === 'completed'
-                                          ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
-                                          : payment.status === 'disputed'
-                                            ? 'Dispute in Klärung'
-                                            : 'Zahlungsvorgang';
-
-                                      return (
-                                        <TableRow key={payment._id}>
-                                          <TableCell>
-                                            <div className="space-y-1">
-                                              <Badge variant="outline">{processLabel}</Badge>
-                                              <div className="text-xs text-muted-foreground">{payment.orderNumber || payment._id.slice(-8)}</div>
-                                              {payment.status === 'refunded' && (
-                                                <div className="text-xs text-purple-700">{formatCurrency(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
-                                              )}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
-                                          <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
-                                          <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
-                                          <TableCell>
-                                            <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
-                                            <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="max-w-[200px] truncate text-sm" title={payment.transactionId || payment.gatewayResponse || '-'}>
-                                              {payment.transactionId || payment.gatewayResponse || '-'}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            {payment.status === 'completed' && (
-                                              <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
-                                            )}
-                                          </TableCell>
-                                        </TableRow>
-                                      );
-                                    })}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      </Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Zahlungsprozesse filtern</CardTitle>
-              <CardDescription>Filter wirken auf die unter den Rechnungen aufklappbaren Zahlungsprozesse. Zahlungen ohne Rechnungslink erscheinen darunter.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-3 grid gap-2 md:grid-cols-6">
-                <Select value={paymentFilters.status} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, status: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="refunded">Refunded</SelectItem>
-                    <SelectItem value="disputed">Disputed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={paymentFilters.method} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, method: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Methode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="credit_card">Kreditkarte</SelectItem>
-                    <SelectItem value="debit_card">Debitkarte</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="date" value={paymentFilters.dateFrom} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
-                <Input type="date" value={paymentFilters.dateTo} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateTo: e.target.value }))} />
-                <Button variant="outline" onClick={onApplyPaymentFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setPaymentFilters({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
-                    getPayments({}).then((res) => setPayments(res.payments || []));
-                  }}
-                >
-                  {t('common.reset')}
-                </Button>
-              </div>
-
-              {payments.filter((p) => !p.invoiceId).length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />Zahlungen ohne Rechnungslink
-                  </div>
-                  <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Prozess</TableHead>
-                          <TableHead>{t('financialManagement.customer')}</TableHead>
-                          <TableHead>{t('financialManagement.status')}</TableHead>
-                          <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
-                          <TableHead>{t('financialManagement.amount')}</TableHead>
-                          <TableHead>{t('financialManagement.date')}</TableHead>
-                          <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {payments.filter((p) => !p.invoiceId).map((payment) => (
-                          <TableRow key={payment._id}>
-                            <TableCell>
-                              <div className="font-medium text-[#1a2a5e]">{payment.orderNumber || payment._id.slice(-8)}</div>
-                              <div className="text-xs text-muted-foreground">Ohne Rechnungslink</div>
-                            </TableCell>
-                            <TableCell>{payment.customerName}</TableCell>
-                            <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
-                            <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
-                            <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
-                            <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
-                            <TableCell className="text-right">
-                              {payment.status === 'completed' && (
-                                <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="settings" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
