@@ -200,6 +200,8 @@ export function OrderDetails() {
   const [complaintActionLoading, setComplaintActionLoading] = useState<"ack" | "deny" | "">("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const [convertOfferBookingLoading, setConvertOfferBookingLoading] = useState(false)
+  const [commFeedbackOpen, setCommFeedbackOpen] = useState(false)
+  const [commQuickActionOpen, setCommQuickActionOpen] = useState(false)
   const [linkedBooking, setLinkedBooking] = useState<any | null>(null)
   const bookingTrackingRefreshRef = useRef<Record<string, number>>({})
   const { toast } = useToast()
@@ -3059,77 +3061,6 @@ export function OrderDetails() {
             {renderAdditionalRepairInfo()}
           </div>
 
-          {hasDeviceHistoryTimeline && (
-            <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
-              <div className="device-history-collapsible">
-                <CollapsibleTrigger asChild>
-                  <button type="button" className="device-history-trigger">
-                    <div className="device-history-trigger-copy">
-                      <span className="device-history-trigger-title">Auftragsverlauf &amp; Historie</span>
-                      <span className="device-history-trigger-summary">
-                        {progressHistoryEntries.length} Meilensteine • {orderHistoryEntries.length} Historieneinträge
-                      </span>
-                    </div>
-                    <ChevronDown className={`device-history-trigger-icon ${deviceHistoryOpen ? 'is-open' : ''}`} />
-                  </button>
-                </CollapsibleTrigger>
-
-                <CollapsibleContent className="device-history-content">
-                  <div className="device-history-section">
-                    <div className="device-history-section-heading">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>Fortschritt</span>
-                    </div>
-                    {progressHistoryEntries.length > 0 ? (
-                      <div className="device-history-list">
-                        {progressHistoryEntries.map((entry) => (
-                          <div key={entry.id} className="device-history-item">
-                            <div className={`device-history-marker is-${entry.tone}`} />
-                            <div className="device-history-item-body">
-                              <div className="device-history-item-head">
-                                <p className="device-history-item-title">{entry.title}</p>
-                                <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
-                              </div>
-                              <p className="device-history-item-description">{entry.description}</p>
-                              <p className="device-history-item-meta">{entry.meta}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="device-history-empty-state">Keine Fortschrittsmeilensteine verfügbar.</div>
-                    )}
-                  </div>
-
-                  <div className="device-history-section">
-                    <div className="device-history-section-heading">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Historie</span>
-                    </div>
-                    {orderHistoryEntries.length > 0 ? (
-                      <div className="device-history-list">
-                        {orderHistoryEntries.map((entry) => (
-                          <div key={entry.id} className="device-history-item">
-                            <div className={`device-history-marker is-${entry.tone}`} />
-                            <div className="device-history-item-body">
-                              <div className="device-history-item-head">
-                                <p className="device-history-item-title">{entry.title}</p>
-                                <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
-                              </div>
-                              <p className="device-history-item-description">{entry.description}</p>
-                              <p className="device-history-item-meta">{entry.meta}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="device-history-empty-state">Keine Historieneinträge vorhanden.</div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          )}
 
 
         </div>
@@ -3268,10 +3199,10 @@ export function OrderDetails() {
       <CardHeader className="order-section-header">
         <CardTitle className="order-section-title">
           <FileText className="h-5 w-5" />
-          {t('orderDetails.deviceInspection', 'Device Inspection')}
+          Geräteinspektion
         </CardTitle>
         <p className="order-section-description">
-          {t('orderDetails.deviceInspectionInlineHint', 'Start, continue, or review the inspection directly from device details.')}
+          Inspektion starten, fortsetzen oder Ergebnisse direkt einsehen.
         </p>
       </CardHeader>
       <CardContent className="pt-3">
@@ -4776,16 +4707,33 @@ export function OrderDetails() {
                     </div>
                   </div>
 
-                  <div id="order-quick-actions-communication" className="border-t pt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-blue-600" />
-                        <h4 className="font-medium text-sm">Customer Communication</h4>
-                      </div>
+                  <div id="order-quick-actions-communication" className="border-t pt-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1a2a5e]/10">
+                        <MessageSquare className="h-4 w-4 text-[#1a2a5e]" />
+                      </span>
+                      <h4 className="font-semibold text-sm text-[#1a2a5e]">Kundenkommunikation</h4>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Manage customer feedback, requests, and quick follow-ups in one place.
-                    </p>
+                    {isStaffOrAdmin && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                          onClick={() => setCommFeedbackOpen(true)}
+                        >
+                          <HelpCircle className="h-4 w-4 mr-1.5" />
+                          Rückmeldung
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                          onClick={() => setCommQuickActionOpen(true)}
+                        >
+                          <Zap className="h-4 w-4 mr-1.5" />
+                          Aktion
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Repair Offer Card — shown when complaint is denied and offer is pending */}
                     {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status === 'pending' && (
@@ -4902,11 +4850,88 @@ export function OrderDetails() {
                     )}
 
                     {id && (
-                      <div className="rounded-lg border p-2 bg-background">
-                        <CommunicationPanel
-                          orderId={id}
-                          inspectionId={order?._id}
-                        />
+                      <CommunicationPanel
+                        orderId={id}
+                        inspectionId={order?._id}
+                        variant="compact"
+                        feedbackOpen={commFeedbackOpen}
+                        onFeedbackOpenChange={setCommFeedbackOpen}
+                        quickActionOpen={commQuickActionOpen}
+                        onQuickActionOpenChange={setCommQuickActionOpen}
+                      />
+                    )}
+
+                    {hasDeviceHistoryTimeline && (
+                      <div className="border-t pt-3">
+                        <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
+                          <div className="device-history-collapsible">
+                            <CollapsibleTrigger asChild>
+                              <button type="button" className="device-history-trigger">
+                                <div className="device-history-trigger-copy">
+                                  <span className="device-history-trigger-title">Auftragsverlauf &amp; Historie</span>
+                                  <span className="device-history-trigger-summary">
+                                    {progressHistoryEntries.length} Meilensteine • {orderHistoryEntries.length} Historieneinträge
+                                  </span>
+                                </div>
+                                <ChevronDown className={`device-history-trigger-icon ${deviceHistoryOpen ? 'is-open' : ''}`} />
+                              </button>
+                            </CollapsibleTrigger>
+
+                            <CollapsibleContent className="device-history-content">
+                              <div className="device-history-section">
+                                <div className="device-history-section-heading">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  <span>Fortschritt</span>
+                                </div>
+                                {progressHistoryEntries.length > 0 ? (
+                                  <div className="device-history-list">
+                                    {progressHistoryEntries.map((entry) => (
+                                      <div key={entry.id} className="device-history-item">
+                                        <div className={`device-history-marker is-${entry.tone}`} />
+                                        <div className="device-history-item-body">
+                                          <div className="device-history-item-head">
+                                            <p className="device-history-item-title">{entry.title}</p>
+                                            <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
+                                          </div>
+                                          <p className="device-history-item-description">{entry.description}</p>
+                                          <p className="device-history-item-meta">{entry.meta}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="device-history-empty-state">Keine Fortschrittsmeilensteine verfügbar.</div>
+                                )}
+                              </div>
+
+                              <div className="device-history-section">
+                                <div className="device-history-section-heading">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  <span>Historie</span>
+                                </div>
+                                {orderHistoryEntries.length > 0 ? (
+                                  <div className="device-history-list">
+                                    {orderHistoryEntries.map((entry) => (
+                                      <div key={entry.id} className="device-history-item">
+                                        <div className={`device-history-marker is-${entry.tone}`} />
+                                        <div className="device-history-item-body">
+                                          <div className="device-history-item-head">
+                                            <p className="device-history-item-title">{entry.title}</p>
+                                            <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
+                                          </div>
+                                          <p className="device-history-item-description">{entry.description}</p>
+                                          <p className="device-history-item-meta">{entry.meta}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="device-history-empty-state">Keine Historieneinträge vorhanden.</div>
+                                )}
+                              </div>
+                            </CollapsibleContent>
+                          </div>
+                        </Collapsible>
                       </div>
                     )}
                   </div>

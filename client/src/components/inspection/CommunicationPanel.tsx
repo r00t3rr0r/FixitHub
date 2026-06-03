@@ -21,7 +21,7 @@ import {
   sendMessage as sendRepairRequestMessage,
 } from "@/api/repairRequestCommunication"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText } from "lucide-react"
+import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText, Maximize2 } from "lucide-react"
 import { acceptComplaintOffer, rejectComplaintOffer } from "@/api/complaints"
 import {
   Dialog,
@@ -41,6 +41,18 @@ interface CommunicationPanelProps {
   orderId: string
   inspectionId?: string
   entityType?: "order" | "repair-request"
+  /**
+   * "full" renders the complete thread inline (default).
+   * "compact" renders only the latest message as a preview with a button
+   * that opens the full conversation inside a larger dialog.
+   */
+  variant?: "full" | "compact"
+  /** Controlled open state for the feedback dialog (optional – for external triggers) */
+  feedbackOpen?: boolean
+  onFeedbackOpenChange?: (open: boolean) => void
+  /** Controlled open state for the quick-action dialog (optional – for external triggers) */
+  quickActionOpen?: boolean
+  onQuickActionOpenChange?: (open: boolean) => void
 }
 
 type OrderQuickActionType = 'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'
@@ -125,6 +137,11 @@ export function CommunicationPanel({
   orderId,
   inspectionId,
   entityType = "order",
+  variant = "full",
+  feedbackOpen,
+  onFeedbackOpenChange,
+  quickActionOpen,
+  onQuickActionOpenChange,
 }: CommunicationPanelProps) {
   // Description: React component for managing inspection communication threads
   // i18n keys: communicationPanel namespace
@@ -136,8 +153,19 @@ export function CommunicationPanel({
   const [responding, setResponding] = useState(false)
   const [sendingFeedback, setSendingFeedback] = useState(false)
   const [sendingQuickAction, setSendingQuickAction] = useState(false)
-  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
-  const [showQuickActionDialog, setShowQuickActionDialog] = useState(false)
+  const [_showFeedbackDialog, _setShowFeedbackDialog] = useState(false)
+  const [_showQuickActionDialog, _setShowQuickActionDialog] = useState(false)
+  // Support optional controlled mode from parent (for external trigger buttons)
+  const showFeedbackDialog = feedbackOpen !== undefined ? feedbackOpen : _showFeedbackDialog
+  const setShowFeedbackDialog = (v: boolean) => {
+    _setShowFeedbackDialog(v)
+    onFeedbackOpenChange?.(v)
+  }
+  const showQuickActionDialog = quickActionOpen !== undefined ? quickActionOpen : _showQuickActionDialog
+  const setShowQuickActionDialog = (v: boolean) => {
+    _setShowQuickActionDialog(v)
+    onQuickActionOpenChange?.(v)
+  }
   const [newMessage, setNewMessage] = useState("")
   const [sendingMessage, setSendingMessage] = useState(false)
   const [feedbackQuestion, setFeedbackQuestion] = useState("")
@@ -148,6 +176,7 @@ export function CommunicationPanel({
   const [quickActionType, setQuickActionType] = useState<QuickActionType>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
+  const [showFullChatDialog, setShowFullChatDialog] = useState(false)
   const isUserEditingRef = useRef(false)
   const quickActionBaseOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
   const quickActionOptions = quickActionBaseOptions.map((option) => ({
@@ -495,8 +524,46 @@ export function CommunicationPanel({
     return null
   }
 
-  return (
-    <>
+  const lastMessage = communicationMessages[communicationMessages.length - 1]
+  const pendingTotal =
+    (communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)
+
+  const getMessageSnippet = (message?: Message): string => {
+    if (!message) return ""
+    switch (message.messageType) {
+      case "feedback_request":
+        return message.feedbackRequest?.question || ""
+      case "quick_action":
+        return [message.quickAction?.actionLabel, message.quickAction?.description]
+          .filter(Boolean)
+          .join(" – ")
+      case "repair_offer": {
+        const meta = message.metadata as
+          | { offerAmount?: number; offerDescription?: string }
+          | undefined
+        if (meta?.offerDescription) return meta.offerDescription
+        if (meta?.offerAmount != null) return `Reparaturangebot: ${meta.offerAmount.toFixed(2)} €`
+        return "Reparaturangebot"
+      }
+      default:
+        return message.content || ""
+    }
+  }
+
+  const getMessageTypeLabel = (message?: Message): string | null => {
+    switch (message?.messageType) {
+      case "feedback_request":
+        return t('communicationPanel.feedback')
+      case "quick_action":
+        return t('communicationPanel.action')
+      case "repair_offer":
+        return "Angebot"
+      default:
+        return null
+    }
+  }
+
+  const panelBody = (
       <div className="inspection-comm-panel mt-4 space-y-3">
         <div className="inspection-comm-header flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
@@ -815,6 +882,99 @@ export function CommunicationPanel({
           </div>
         )}
       </div>
+  )
+
+  const compactPreview = (
+    <div className="rounded-xl border border-[#1a2a5e]/15 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45]">
+        <div className="flex items-center gap-2 text-white">
+          <MessageCircle className="w-4 h-4 text-[#f5b800]" />
+          <span className="text-sm font-semibold">
+            {t('communicationPanel.communicationAndFeedback')}
+          </span>
+        </div>
+        {pendingTotal > 0 && (
+          <span className="inline-flex items-center rounded-full bg-[#f5b800] px-2 py-0.5 text-[11px] font-semibold text-[#1a2a5e]">
+            {pendingTotal} {t('communicationPanel.pending')}
+          </span>
+        )}
+      </div>
+
+      <div className="p-3">
+        {lastMessage ? (
+          <div className="flex items-start gap-3">
+            <Avatar className="w-8 h-8 border border-[#1a2a5e]/15">
+              <AvatarImage src={lastMessage.senderId?.avatar} />
+              <AvatarFallback className="bg-[#1a2a5e]/10 text-[#1a2a5e] text-xs font-semibold">
+                {lastMessage.senderName?.split(' ').map((n: string) => n[0]).join('').substring(0, 2) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-[#1a2a5e] truncate">{lastMessage.senderName}</p>
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                  <Clock className="w-3 h-3" />
+                  {formatMessageTime(lastMessage.createdAt)}
+                </span>
+              </div>
+              {getMessageTypeLabel(lastMessage) && (
+                <span className="mt-0.5 inline-flex items-center rounded-full border border-[#1a2a5e]/20 bg-[#1a2a5e]/5 px-2 py-0.5 text-[10px] font-medium text-[#1a2a5e]">
+                  {getMessageTypeLabel(lastMessage)}
+                </span>
+              )}
+              <p className="mt-1 text-xs text-gray-600 line-clamp-2 break-words whitespace-pre-wrap">
+                {getMessageSnippet(lastMessage)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+            <MessageCircle className="w-4 h-4" />
+            {t('communicationPanel.noCommunicationMessages')}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-[#1a2a5e]/10 bg-[#f8f9fc] px-3 py-2">
+        <span className="text-[11px] text-muted-foreground">
+          {communicationMessages.length > 1
+            ? `+${communicationMessages.length - 1} weitere Nachrichten`
+            : 'Nur die letzte Nachricht wird angezeigt'}
+        </span>
+        <Button
+          size="sm"
+          onClick={() => setShowFullChatDialog(true)}
+          className="h-8 gap-1.5 bg-[#1a2a5e] hover:bg-[#0f1d45] text-white text-xs font-semibold"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          Gesamten Chatverlauf öffnen
+        </Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      {variant === "compact" ? compactPreview : panelBody}
+
+      {variant === "compact" && (
+        <Dialog open={showFullChatDialog} onOpenChange={setShowFullChatDialog}>
+          <DialogContent className="order-dialog-content inspection-comm-dialog w-[calc(100vw-12px)] sm:max-w-3xl max-h-[92dvh] overflow-hidden flex flex-col p-0 gap-0">
+            <DialogHeader className="space-y-1 border-b border-[#0f1d45] px-4 py-3 bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45]">
+              <DialogTitle className="text-base flex items-center gap-2 text-white">
+                <MessageCircle className="w-5 h-5 text-[#f5b800]" />
+                Kundenkommunikation
+              </DialogTitle>
+              <DialogDescription className="text-xs text-white/80">
+                Vollständiger Chatverlauf mit allen Nachrichten, Rückfragen und Aktionen.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              {panelBody}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Feedback Request Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
