@@ -1,0 +1,131 @@
+.unlock-pattern-visual {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.unlock-pattern-visual__grid {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Faint background grid dots for spatial context (phone-like) */
+.unlock-pattern-visual__bg-dot {
+  fill: #e2e8f0;
+}
+
+.dark .unlock-pattern-visual__bg-dot {
+  fill: #334155;
+}
+
+/* Active dots that are part of the pattern */
+.unlock-pattern-visual__dot {
+  fill: #1a2a5e;
+}
+
+.unlock-pattern-visual__dot--start {
+  fill: #16a34a;
+}
+
+.unlock-pattern-visual__dot--end {
+  fill: #dc2626;
+}
+
+.unlock-pattern-visual__dot-halo {
+  fill: rgba(26, 42, 94, 0.12);
+}
+
+.unlock-pattern-visual__order {
+  fill: #ffffff;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* The drawn swipe path */
+.unlock-pattern-visual__path {
+  fill: none;
+  stroke: #1a2a5e;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0.9;
+}
+
+.dark .unlock-pattern-visual__path {
+  stroke: #93b4ff;
+}
+
+.unlock-pattern-visual__arrow {
+  fill: #1a2a5e;
+  stroke: none;
+}
+
+.dark .unlock-pattern-visual__arrow {
+  fill: #93b4ff;
+}
+
+/* Progressive draw + traveling dot animation depicting the swipe motion */
+.unlock-pattern-visual--animate .unlock-pattern-visual__path {
+  stroke-dasharray: var(--upv-path-length);
+  stroke-dashoffset: var(--upv-path-length);
+  animation: upv-draw var(--upv-duration, 2.4s) ease-in-out infinite;
+}
+
+.unlock-pattern-visual--animate .unlock-pattern-visual__tracer {
+  fill: #1a2a5e;
+  animation: upv-tracer-fade var(--upv-duration, 2.4s) ease-in-out infinite;
+}
+
+.dark .unlock-pattern-visual--animate .unlock-pattern-visual__tracer {
+  fill: #93b4ff;
+}
+
+@keyframes upv-draw {
+  0% {
+    stroke-dashoffset: var(--upv-path-length);
+  }
+  60% {
+    stroke-dashoffset: 0;
+  }
+  85% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes upv-tracer-fade {
+  0% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.unlock-pattern-visual__sequence {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unlock-pattern-visual--animate .unlock-pattern-visual__path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .unlock-pattern-visual--animate .unlock-pattern-visual__tracer {
+    animation: none;
+    opacity: 0;
+  }
+}

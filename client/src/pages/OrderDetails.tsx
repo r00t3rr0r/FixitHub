@@ -31,6 +31,7 @@ import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModa
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
+import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
@@ -2784,13 +2785,13 @@ export function OrderDetails() {
 
           {order.unlockPattern && order.unlockPattern.length > 0 && (
             <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
                 {t('orderDetails.unlockPattern', 'Unlock Pattern')}
               </p>
-              <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                {order.unlockPattern.join(' → ')}
+              <div className="flex flex-col items-center gap-1">
+                <UnlockPatternVisual pattern={order.unlockPattern} size={140} />
+                <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
               </div>
-              <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
             </div>
           )}
 
