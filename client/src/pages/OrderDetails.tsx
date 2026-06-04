@@ -155,6 +155,7 @@ export function OrderDetails() {
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
+  const [expandedServiceDescriptions, setExpandedServiceDescriptions] = useState<Set<string>>(new Set())
   const [editingService, setEditingService] = useState<any>(null)
   const [unlockConfirmDialogOpen, setUnlockConfirmDialogOpen] = useState(false)
   const [confirmingUnlock, setConfirmingUnlock] = useState(false)
@@ -3269,9 +3270,29 @@ export function OrderDetails() {
             <div key={service._id || `service-${index}`} className="service-list-item">
               <div className="service-info flex-1">
                 <h4>{service.serviceId?.name || 'Service'}</h4>
-                {service.serviceId?.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
-                )}
+                {service.serviceId?.description && (() => {
+                  const id = service._id || `service-${index}`;
+                  const isExpanded = expandedServiceDescriptions.has(id);
+                  const desc = service.serviceId.description;
+                  const isLong = desc.length > 80;
+                  return (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      <span>{isExpanded || !isLong ? desc : desc.slice(0, 80) + '…'}</span>
+                      {isLong && (
+                        <button
+                          onClick={() => setExpandedServiceDescriptions(prev => {
+                            const next = new Set(prev);
+                            isExpanded ? next.delete(id) : next.add(id);
+                            return next;
+                          })}
+                          className="ml-1 text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium"
+                        >
+                          {isExpanded ? t('common.showLess', 'Weniger') : t('common.showMore', 'Mehr')}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 {service.notes && (
                   <p className="text-xs text-muted-foreground italic mt-1">{service.notes}</p>
                 )}
