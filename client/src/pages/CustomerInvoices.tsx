@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { formatEUR } from '@/lib/utils';
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
   Calendar,
@@ -51,6 +51,7 @@ export function CustomerInvoices() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,10 @@ export function CustomerInvoices() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(null);
+  const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
   const [paymentGateways, setPaymentGateways] = useState<InvoicePaymentGateway[]>([]);
   const [loadingPaymentGateways, setLoadingPaymentGateways] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -106,6 +111,39 @@ export function CustomerInvoices() {
     payerName,
     payerEmail,
   };
+
+  // Handle incoming navigation state for invoice highlight + dialog open
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.highlightInvoiceId) {
+      setPendingHighlightId(state.highlightInvoiceId);
+      setPendingOpenId(state.openInvoiceId || state.highlightInvoiceId);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!pendingHighlightId || loading || invoices.length === 0) return;
+    const invoiceId = pendingHighlightId;
+    const openId = pendingOpenId;
+    setPendingHighlightId(null);
+    setPendingOpenId(null);
+
+    const timer = setTimeout(() => {
+      const row = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedInvoiceId(invoiceId);
+        setTimeout(() => setHighlightedInvoiceId(null), 1600);
+      }
+      if (openId) {
+        const inv = invoices.find((i) => i._id === openId);
+        if (inv) setTimeout(() => handleViewInvoice(inv), 900);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [pendingHighlightId, loading, invoices]);
 
   // Load PayPal JS SDK when a PayPal gateway is selected
   useEffect(() => {
@@ -1272,8 +1310,13 @@ export function CustomerInvoices() {
                 return (
                   <div
                     key={invoice._id}
+                    data-invoice-id={invoice._id}
                     onClick={() => handleViewInvoice(invoice)}
-                    className="group bg-white border border-slate-200 rounded-xl p-4 sm:p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-[#f5b800] hover:shadow-md"
+                    className={`group bg-white border rounded-xl p-4 sm:p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-[#f5b800] hover:shadow-md ${
+                      highlightedInvoiceId === invoice._id
+                        ? 'border-[#f5b800] shadow-md ring-2 ring-[#f5b800] ring-opacity-60'
+                        : 'border-slate-200'
+                    }`}
                   >
                     <div
                       className="w-1 self-stretch rounded-full"

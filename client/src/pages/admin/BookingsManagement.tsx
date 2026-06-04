@@ -22,7 +22,8 @@ import {
   getReturnTracking,
   updateReturnStatus,
   downloadBookingShippingLabel,
-  downloadBookingReturnLabel
+  downloadBookingReturnLabel,
+  bulkUpdateBookingShippingStatuses
 } from "@/api/bookings"
 import {
   createComplaint,
@@ -278,8 +279,11 @@ export function BookingsManagement() {
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [billingStatusFilter, setBillingStatusFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [updateStatusDialog, setUpdateStatusDialog] = useState(false)
@@ -309,6 +313,7 @@ export function BookingsManagement() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+  const [loadingBulkShippingUpdate, setLoadingBulkShippingUpdate] = useState(false)
   // Track order IDs that were optimistically marked as read so periodic fetches don't restore their badges
   const locallyReadOrderIds = useRef<Set<string>>(new Set())
   const communicationDialogOpenRef = useRef(false)
@@ -323,9 +328,17 @@ export function BookingsManagement() {
   }, [location.search])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setCurrentPage(1)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
-  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
+  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter, debouncedSearch, dateFrom, dateTo])
 
   useEffect(() => {
     const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog
@@ -363,6 +376,10 @@ export function BookingsManagement() {
       try {
         setStatusFilter('all')
         setBillingStatusFilter('all')
+        setSearchTerm('')
+        setDebouncedSearch('')
+        setDateFrom('')
+        setDateTo('')
         setCurrentPage(1)
         setActiveHighlightedBookingId(match._id)
         await new Promise((r) => window.setTimeout(r, 400))
@@ -471,6 +488,18 @@ export function BookingsManagement() {
         filters.billingStatus = billingStatusFilter
       }
 
+      if (debouncedSearch) {
+        filters.search = debouncedSearch
+      }
+
+      if (dateFrom) {
+        filters.startDate = dateFrom
+      }
+
+      if (dateTo) {
+        filters.endDate = dateTo
+      }
+
       console.log('Fetching bookings with filters:', filters)
       const response = await getAdminBookings(filters)
 
@@ -494,11 +523,31 @@ export function BookingsManagement() {
     }
   }
 
+  const handleBulkShippingUpdate = async () => {
+    try {
+      setLoadingBulkShippingUpdate(true)
+      const result = await bulkUpdateBookingShippingStatuses()
+      toast({
+        title: 'Versandstatus aktualisiert',
+        description: `${result.updated} Sendung(en) aktualisiert, ${result.skipped} unverändert${result.errors > 0 ? `, ${result.errors} Fehler` : ''}.`,
+        variant: result.errors > 0 ? 'destructive' : 'default',
+      })
+      fetchBookings()
+    } catch (error: any) {
+      toast({
+        title: 'Fehler beim Aktualisieren',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingBulkShippingUpdate(false)
+    }
+  }
+
   // Fetch unread message counts for all visible bookings
   const fetchUnreadCounts = async () => {
     try {
       setLoadingUnreadCounts(true)
-
       console.log(`BookingsManagement: fetchUnreadCounts called with ${bookings.length} bookings`)
 
       // Collect all order IDs from all bookings' items
@@ -578,26 +627,10 @@ export function BookingsManagement() {
     }
   }
 
-  // Client-side search filtering (API filters are handled on server)
+  // Search and date filtering are handled server-side; just mirror bookings into filteredBookings
   useEffect(() => {
-    let filtered = bookings
-
-    if (searchTerm) {
-      filtered = filtered.filter(booking => {
-        const customer = getSafeBookingCustomer(booking)
-        const customerName = getCustomerDisplayName(customer)
-        return (
-          booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (booking.bookingNumber && booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.phone.includes(searchTerm)
-        )
-      })
-    }
-
-    setFilteredBookings(filtered)
-  }, [bookings, searchTerm])
+    setFilteredBookings(bookings)
+  }, [bookings])
 
   const openOrderCommunication = (orderId: string, orderNumber?: string) => {
     if (!orderId) return
@@ -1068,7 +1101,7 @@ export function BookingsManagement() {
     return { amount: Math.max(0, dueTotal), type: 'open' as const }
   }
 
-  if (loading) {
+  if (loading && filteredBookings.length === 0) {
     return (
       <div className="section" style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="container">
@@ -1139,22 +1172,22 @@ export function BookingsManagement() {
       </div>
 
       {/* Filters and Search */}
-      <div style={{ 
-        background: 'var(--white)', 
-        border: '1px solid var(--gray-200)', 
-        borderRadius: 'var(--radius-lg)', 
+      <div style={{
+        background: 'var(--white)',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-lg)',
         padding: '14px',
         boxShadow: 'var(--shadow-sm)',
         marginBottom: '14px'
       }}>
         <h2 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--gray-800)', marginBottom: '10px' }}>Filter</h2>
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1">
+        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
             <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Suche</label>
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: 'var(--gray-400)' }} />
               <Input
-                placeholder="Suche nach Buchungs-ID, Kundenname, E-Mail oder Telefon..."
+                placeholder="Buchungs-ID, Kundenname, E-Mail oder Telefon..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1210,6 +1243,69 @@ export function BookingsManagement() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-full md:w-40">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+              <Calendar className="inline-block h-3 w-3 mr-1" />
+              Von
+            </label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value)
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px',
+                fontSize: '0.82rem',
+                width: '100%'
+              }}
+            />
+          </div>
+          <div className="w-full md:w-40">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+              <Calendar className="inline-block h-3 w-3 mr-1" />
+              Bis
+            </label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px',
+                fontSize: '0.82rem',
+                width: '100%'
+              }}
+            />
+          </div>
+          {(searchTerm || statusFilter !== 'all' || billingStatusFilter !== 'all' || dateFrom || dateTo) && (
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('')
+                  setDebouncedSearch('')
+                  setStatusFilter('all')
+                  setBillingStatusFilter('all')
+                  setDateFrom('')
+                  setDateTo('')
+                  setCurrentPage(1)
+                }}
+                style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Filter zurücksetzen
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1224,7 +1320,9 @@ export function BookingsManagement() {
         <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-blue)', marginBottom: '2px' }}>Buchungsliste</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>{filteredBookings.length} Buchungen gefunden</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+              {loading ? 'Wird geladen…' : `${filteredBookings.length} Buchungen gefunden`}
+            </p>
           </div>
           <Button
             variant="outline"
@@ -1246,6 +1344,28 @@ export function BookingsManagement() {
             }}
           >
             <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkShippingUpdate}
+            disabled={loadingBulkShippingUpdate}
+            title="Versandstatus aller aktiven Sendungen über DHL API prüfen und aktualisieren"
+            style={{
+              border: '1px solid var(--gray-200)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--white)',
+              color: 'var(--gray-700)',
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '500',
+              gap: '6px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Truck className={`h-4 w-4 ${loadingBulkShippingUpdate ? 'animate-pulse' : ''}`} />
+            Versandstatus prüfen
           </Button>
         </div>
         <div style={{ padding: '10px 12px' }}>
@@ -1352,19 +1472,6 @@ export function BookingsManagement() {
                             </Badge>
                           </button>
 
-                          <label className="inline-flex items-center gap-1 text-[11px] text-foreground/70">
-                            <input
-                              type="radio"
-                              name={`booking-paid-${booking._id}`}
-                              checked={getEffectivePaymentStatus(booking) === 'paid'}
-                              disabled={quickPayBookingId === booking._id}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={() => {
-                                void handleQuickSetPaid(booking)
-                              }}
-                            />
-                            Bezahlt
-                          </label>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -3977,7 +4084,7 @@ function InvoiceDialog({
   const [loading, setLoading] = useState(false)
   const [preview, setPreview] = useState<any>(null)
   const [notes, setNotes] = useState('')
-  const [sendImmediately, setSendImmediately] = useState(false)
+  const [sendImmediately, setSendImmediately] = useState(true)
   const { toast } = useToast()
 
   const firstOrder = useMemo(() => {
@@ -4074,9 +4181,9 @@ function InvoiceDialog({
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value)
   }
 
@@ -4084,136 +4191,176 @@ function InvoiceDialog({
     const hasAddress = hasAddressData(address)
 
     return (
-      <div className="border rounded-lg p-4 bg-muted/20">
-        <h3 className="font-semibold mb-2">{title}</h3>
-        {hasAddress ? (
-          <div className="space-y-0.5 text-sm text-foreground/80">
-            {address?.street && <p>{address.street}</p>}
-            {(address?.zipCode || address?.zip || address?.city) && (
-              <p>{[address?.zipCode || address?.zip, address?.city].filter(Boolean).join(' ')}</p>
-            )}
-            {address?.state && <p>{address.state}</p>}
-            {address?.country && <p>{address.country}</p>}
-          </div>
-        ) : (
-          <p className="text-sm text-foreground/50">{fallback || 'Nicht angegeben'}</p>
-        )}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-[#1a2a5e] px-4 py-2">
+          <h3 className="font-semibold text-[#f5b800] text-sm">{title}</h3>
+        </div>
+        <div className="p-4 bg-white dark:bg-muted/10">
+          {hasAddress ? (
+            <div className="space-y-0.5 text-sm text-foreground/80">
+              {address?.street && <p>{address.street}</p>}
+              {(address?.zipCode || address?.zip || address?.city) && (
+                <p>{[address?.zipCode || address?.zip, address?.city].filter(Boolean).join(' ')}</p>
+              )}
+              {address?.state && <p>{address.state}</p>}
+              {address?.country && <p>{address.country}</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-foreground/50">{fallback || 'Nicht angegeben'}</p>
+          )}
+        </div>
       </div>
     )
   }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Rechnung fuer Buchung erstellen</DialogTitle>
-          <DialogDescription>Rechnungsdetails pruefen und bestaetigen</DialogDescription>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+        {/* Header */}
+        <DialogHeader className="bg-[#1a2a5e] px-6 py-4 flex-shrink-0">
+          <DialogTitle className="text-[#f5b800] text-lg font-bold">
+            Rechnung fuer Buchung erstellen
+          </DialogTitle>
+          <DialogDescription className="text-white/70 text-sm">
+            Rechnungsdetails pruefen und bestaetigen
+          </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : !canCreateInvoice ? (
-          <div className="text-center py-8">
-            <p className="text-sm font-medium">Rechnungserstellung noch nicht verfuegbar</p>
-            <p className="text-sm text-foreground/60 mt-1">
-              Diese Buchung hat den Status "{booking.status}". Eine Rechnung kann erst bei Status "Abgeschlossen" erstellt werden.
-            </p>
-          </div>
-        ) : preview ? (
-          <div className="space-y-4">
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <h3 className="font-semibold mb-2">Kundeninformationen</h3>
-              <p className="text-sm">{preview.customerName}</p>
-              <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f5b800]"></div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
-              {shippingSameAsBilling
-                ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
-                : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
+          ) : !canCreateInvoice ? (
+            <div className="text-center py-8">
+              <p className="text-sm font-medium text-[#1a2a5e]">Rechnungserstellung noch nicht verfuegbar</p>
+              <p className="text-sm text-foreground/60 mt-1">
+                Diese Buchung hat den Status "{booking.status}". Eine Rechnung kann erst bei Status "Abgeschlossen" erstellt werden.
+              </p>
             </div>
+          ) : preview ? (
+            <div className="space-y-4">
+              {/* Kundeninformationen */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Kundeninformationen</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10">
+                  <p className="text-sm font-medium">{preview.customerName}</p>
+                  <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+                </div>
+              </div>
 
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-3">Rechnungspositionen</h3>
-              <div className="space-y-2">
-                {preview.items.map((item: any) => (
-                  <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
-                    <div className="flex-1">
-                      <p className="font-medium">{item.description}</p>
-                      <p className="text-xs text-foreground/60">
-                        Menge: {item.quantity} × {formatCurrency(item.unitPrice)}
-                      </p>
+              {/* Adressen */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
+                {shippingSameAsBilling
+                  ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
+                  : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
+              </div>
+
+              {/* Rechnungspositionen */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungspositionen</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                  {preview.items.map((item: any) => (
+                    <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                      <div className="flex-1">
+                        <p className="font-medium text-[#1a2a5e]">{item.description}</p>
+                        <p className="text-xs text-foreground/60">
+                          Menge: {item.quantity} × {formatCurrency(item.unitPrice)}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-[#1a2a5e]">{formatCurrency(item.total)}</p>
                     </div>
-                    <p className="font-semibold">{formatCurrency(item.total)}</p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Zusammenfassung */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungszusammenfassung</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70">Nettobetrag:</span>
+                    <span className="font-medium">{formatCurrency(preview.subtotal)}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Zwischensumme:</span>
-                  <span>{formatCurrency(preview.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Steuer:</span>
-                  <span>{formatCurrency(preview.tax)}</span>
-                </div>
-                {preview.discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Rabatt:</span>
-                    <span>-{formatCurrency(preview.discount)}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70">Enthaltene MwSt.:</span>
+                    <span className="font-medium">{formatCurrency(preview.tax)}</span>
                   </div>
-                )}
-                <Separator />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Gesamt:</span>
-                  <span>{formatCurrency(preview.total)}</span>
+                  {preview.discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Rabatt:</span>
+                      <span>-{formatCurrency(preview.discount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between text-base font-bold text-[#1a2a5e]">
+                    <span>Gesamtbetrag (Brutto):</span>
+                    <span>{formatCurrency(preview.total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notizen & Optionen */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Optionen</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10 space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-[#1a2a5e]">Notizen (optional)</label>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Weitere Notizen hinzufuegen..."
+                      rows={3}
+                      className="mt-2 border-[#1a2a5e]/20 focus-visible:ring-[#f5b800]"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sendImmediately"
+                      checked={sendImmediately}
+                      onChange={(e) => setSendImmediately(e.target.checked)}
+                      className="rounded accent-[#f5b800]"
+                    />
+                    <label htmlFor="sendImmediately" className="text-sm text-[#1a2a5e] font-medium cursor-pointer">
+                      Rechnung sofort an den Kunden senden
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium">Notizen (optional)</label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Weitere Notizen hinzufuegen..."
-                  rows={3}
-                  className="mt-2"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="sendImmediately"
-                  checked={sendImmediately}
-                  onChange={(e) => setSendImmediately(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="sendImmediately" className="text-sm">
-                  Rechnung sofort an den Kunden senden
-                </label>
-              </div>
+          ) : (
+            <div className="text-center py-8 text-foreground/60">
+              Keine Vorschau verfuegbar
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-foreground/60">
-            Keine Vorschau verfuegbar
-          </div>
-        )}
+          )}
+        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        {/* Footer */}
+        <DialogFooter className="px-6 py-4 border-t bg-gray-50 dark:bg-muted/20 flex-shrink-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
+          >
             Abbrechen
           </Button>
-          <Button onClick={handleCreate} disabled={loading || !preview || !canCreateInvoice}>
+          <Button
+            onClick={handleCreate}
+            disabled={loading || !preview || !canCreateInvoice}
+            className="bg-[#f5b800] text-[#1a2a5e] font-bold hover:bg-[#e5ab00] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Rechnung erstellen
           </Button>
         </DialogFooter>

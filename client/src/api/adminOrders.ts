@@ -338,10 +338,15 @@ export const updateOrderStatus = async (orderId: string, status: string, note?: 
   }
 };
 
-// Description: Get available staff members for assignment with workload information
-// Endpoint: GET /api/admin/staff-management/staff
-// Request: {}
-// Response: { staff: StaffMember[] }
+export const confirmPickup = async (orderId: string) => {
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/confirm-pickup`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 export const getAvailableStaff = async () => {
   try {
     console.log('getAvailableStaff: Fetching staff members with workload from API');
@@ -626,6 +631,19 @@ export const confirmUnlockCode = async (orderId: string, confirmationStatus: 've
     return response.data;
   } catch (error: any) {
     console.error('confirmUnlockCode API error:', error);
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Request updated unlock information from the customer (sets order to paused)
+// Endpoint: POST /api/admin/orders/:id/request-unlock-update
+// Request: { notes?: string }
+// Response: { order: AdminOrder, communication: Object }
+export const requestUnlockInfoUpdate = async (orderId: string, notes: string = '') => {
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/request-unlock-update`, { notes });
+    return response.data;
+  } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };

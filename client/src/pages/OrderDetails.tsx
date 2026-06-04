@@ -15,7 +15,7 @@ import "./OrderDetails.css"
 import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -106,7 +106,9 @@ import {
   ZoomIn,
   ZoomOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  PackageCheck,
+  UserCheck
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -155,6 +157,7 @@ export function OrderDetails() {
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
+  const [expandedServiceDescriptions, setExpandedServiceDescriptions] = useState<Set<string>>(new Set())
   const [editingService, setEditingService] = useState<any>(null)
   const [unlockConfirmDialogOpen, setUnlockConfirmDialogOpen] = useState(false)
   const [confirmingUnlock, setConfirmingUnlock] = useState(false)
@@ -170,6 +173,7 @@ export function OrderDetails() {
   const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
   const [resolvedDeviceImage, setResolvedDeviceImage] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [confirmingPickup, setConfirmingPickup] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
@@ -810,6 +814,20 @@ export function OrderDetails() {
     }
   }
 
+  const handleConfirmPickup = async () => {
+    if (!id || !order || confirmingPickup) return
+    try {
+      setConfirmingPickup(true)
+      await confirmPickup(id)
+      toast({ title: 'Abholung bestätigt', description: 'Auftrag wurde als Abgeschlossen markiert.' })
+      await refreshOrder()
+    } catch (error: any) {
+      toast({ title: 'Fehler', description: error.message || 'Abholung konnte nicht bestätigt werden.', variant: 'destructive' })
+    } finally {
+      setConfirmingPickup(false)
+    }
+  }
+
   const handleRemoveEPart = async (ePartId: string) => {
     if (!id) return
 
@@ -1236,6 +1254,20 @@ export function OrderDetails() {
     }
   }
 
+  const handleRequestUnlockUpdate = async (notes: string = '') => {
+    if (!id || !user) return
+    try {
+      setConfirmingUnlock(true)
+      await requestUnlockInfoUpdate(id, notes)
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error requesting unlock update:", error)
+      throw error
+    } finally {
+      setConfirmingUnlock(false)
+    }
+  }
+
   // Handle device search
   const handleDeviceSearch = async (query: string) => {
     setDeviceSearchQuery(query)
@@ -1599,6 +1631,19 @@ export function OrderDetails() {
         return 'status-cancelled'
       default:
         return 'status-pending'
+    }
+  }
+
+  const getStatusButtonClasses = (status: string) => {
+    switch (status) {
+      case 'completed':           return 'bg-emerald-100 text-emerald-900 border border-emerald-400 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-600'
+      case 'in-progress':
+      case 'diagnostic-assessment': return 'bg-blue-100 text-blue-900 border border-blue-400 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-600'
+      case 'paused':              return 'bg-slate-200 text-slate-800 border border-slate-400 hover:bg-slate-300 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-500'
+      case 'quality-check':       return 'bg-purple-100 text-purple-900 border border-purple-400 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-600'
+      case 'ready-for-pickup':    return 'bg-orange-100 text-orange-900 border border-orange-400 hover:bg-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-600'
+      case 'cancelled':           return 'bg-red-100 text-red-900 border border-red-400 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-600'
+      default:                    return 'bg-yellow-100 text-yellow-900 border border-yellow-400 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-200 dark:border-yellow-600'
     }
   }
 
@@ -2648,6 +2693,25 @@ export function OrderDetails() {
     : []
   const hasDeviceHistoryTimeline = isStaffOrAdmin && (progressHistoryEntries.length > 0 || orderHistoryEntries.length > 0)
 
+  const staffLastActions = (() => {
+    const timeline = Array.isArray(order?.timeline) ? order.timeline : []
+    const toId = (v: unknown): string => {
+      if (!v) return ''
+      try { return String(v) } catch { return '' }
+    }
+    const lastActiveEntry = [...timeline]
+      .filter(e => e.staffId && e.staffId !== 'system')
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0]
+    const lastActiveUserId = lastActiveEntry ? toId(lastActiveEntry.staffId) : ''
+
+    const byStaff = (staffUserId: string) =>
+      timeline
+        .filter(e => e.staffId && toId(e.staffId) === staffUserId)
+        .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+
+    return { toId, lastActiveUserId, byStaff }
+  })()
+
   const scrollToSection = (sectionId: string) => {
     const target = document.getElementById(sectionId)
     if (target) {
@@ -3250,9 +3314,29 @@ export function OrderDetails() {
             <div key={service._id || `service-${index}`} className="service-list-item">
               <div className="service-info flex-1">
                 <h4>{service.serviceId?.name || 'Service'}</h4>
-                {service.serviceId?.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{service.serviceId.description}</p>
-                )}
+                {service.serviceId?.description && (() => {
+                  const id = service._id || `service-${index}`;
+                  const isExpanded = expandedServiceDescriptions.has(id);
+                  const desc = service.serviceId.description;
+                  const isLong = desc.length > 80;
+                  return (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      <span>{isExpanded || !isLong ? desc : desc.slice(0, 80) + '…'}</span>
+                      {isLong && (
+                        <button
+                          onClick={() => setExpandedServiceDescriptions(prev => {
+                            const next = new Set(prev);
+                            isExpanded ? next.delete(id) : next.add(id);
+                            return next;
+                          })}
+                          className="ml-1 text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium"
+                        >
+                          {isExpanded ? t('common.showLess', 'Weniger') : t('common.showMore', 'Mehr')}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 {service.notes && (
                   <p className="text-xs text-muted-foreground italic mt-1">{service.notes}</p>
                 )}
@@ -4492,9 +4576,9 @@ export function OrderDetails() {
               <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className={`${getStatusColor(order.status)} text-xs px-3 py-1 cursor-pointer border-none flex items-center gap-1`}
+                    className={`${getStatusButtonClasses(order.status)} text-xs px-3 py-1.5 cursor-pointer font-semibold flex items-center gap-1.5 rounded-md`}
                     disabled={updatingStatus}
                   >
                     {getStatusIcon(order.status)}
@@ -4541,6 +4625,32 @@ export function OrderDetails() {
                 {getStatusIcon(order.status)}
                 <span className="ml-1">{translateOrderStatus(order.status)}</span>
               </span>
+            )}
+            {isStaffOrAdmin && order.status === 'ready-for-pickup' && !order.pickupConfirmation && (
+              <Button
+                size="sm"
+                onClick={handleConfirmPickup}
+                disabled={confirmingPickup}
+                className="text-xs bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm gap-1.5 font-medium"
+              >
+                <PackageCheck className="h-3.5 w-3.5" />
+                {confirmingPickup ? 'Wird bestätigt…' : 'Abholung bestätigen'}
+              </Button>
+            )}
+            {order.pickupConfirmation?.confirmedAt && (
+              <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md px-2.5 py-1">
+                <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Abgeholt{' '}
+                  {new Date(order.pickupConfirmation.confirmedAt).toLocaleString('de-DE', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  })}
+                  {order.pickupConfirmation.confirmedByName && (
+                    <> · {order.pickupConfirmation.confirmedByName}</>
+                  )}
+                </span>
+              </div>
             )}
             <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
               <CreditCard className="h-3 w-3 mr-1" />
@@ -5027,20 +5137,49 @@ export function OrderDetails() {
             <CardContent className="pt-3">
               {order.assignedStaff && order.assignedStaff.length > 0 ? (
                 <div className="space-y-2">
-                  {order.assignedStaff.map((staff) => (
-                    <div key={staff._id} className="flex items-center gap-2 p-2 border rounded-lg">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={staff.avatar} />
-                        <AvatarFallback className="text-xs">
-                          {staff.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{staff.name}</p>
-                        <p className="text-xs text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
+                  {order.assignedStaff.map((staff) => {
+                    const staffUserId = staffLastActions.toId((staff as any).staffId) || staffLastActions.toId(staff._id)
+                    const isLastActive = !!(staffLastActions.lastActiveUserId && staffUserId && staffLastActions.lastActiveUserId === staffUserId)
+                    const lastEntry = staffLastActions.byStaff(staffUserId)[0]
+                    return (
+                      <div
+                        key={staff._id}
+                        className={`flex items-start gap-2 p-2 border rounded-lg transition-colors ${isLastActive ? 'border-primary bg-primary/5' : ''}`}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={staff.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {staff.name.split(' ').map((n: string) => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isLastActive && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary border-2 border-background" title="Zuletzt aktiv" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm">{staff.name}</p>
+                            {isLastActive && (
+                              <span className="text-xs text-primary font-medium">• Zuletzt aktiv</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
+                          {lastEntry ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground/70">{lastEntry.status}:</span>{' '}
+                              <span className="truncate">{lastEntry.description}</span>
+                              <span className="ml-1 opacity-60">
+                                · {new Date(lastEntry.completedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-xs text-muted-foreground/60 italic">Noch keine Aktivität</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
@@ -5061,6 +5200,7 @@ export function OrderDetails() {
                   isOpen={unlockConfirmDialogOpen}
                   onOpenChange={setUnlockConfirmDialogOpen}
                   onConfirm={handleConfirmUnlock}
+                  onRequestUnlockUpdate={handleRequestUnlockUpdate}
                   unlockPattern={order?.unlockPattern}
                   unlockCode={order?.unlockCode}
                   noLock={order?.noLock}

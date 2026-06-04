@@ -209,12 +209,12 @@ cartSchema.pre('save', async function(next) {
   const discountAmount = Number(this.discount || 0);
   const subtotalAfterDiscount = Math.max(0, this.subtotal - discountAmount);
 
-  // Calculate tax on the amount AFTER discount (standard practice)
-  // Tax rate: 19% (German VAT standard)
-  this.tax = Number((subtotalAfterDiscount * 0.19).toFixed(2));
+  // Prices are already gross (brutto) — extract the VAT component, do NOT add on top
+  // VAT extraction: tax = gross * (19/119)
+  this.tax = Number((subtotalAfterDiscount * (19 / 119)).toFixed(2));
 
-  // Calculate total: subtotal - discount + tax
-  this.total = Number((subtotalAfterDiscount + this.tax).toFixed(2));
+  // Total equals the gross price (VAT already included)
+  this.total = Number(subtotalAfterDiscount.toFixed(2));
 
   this.updatedAt = new Date();
 

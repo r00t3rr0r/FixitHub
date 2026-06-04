@@ -4316,6 +4316,25 @@
 .cudlg-contact-btn:hover { background: #1a2a5e; color: #fff; }
 .cudlg-contact-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.cudlg-request-update-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-main, 'Inter', sans-serif);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(220,38,38,0.25);
+}
+.cudlg-request-update-btn:hover { background: #b91c1c; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
+.cudlg-request-update-btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
 .cudlg-request-label {
   display: inline-flex;
   align-items: center;
@@ -4401,7 +4420,7 @@
   .cudlg-body { max-height: 70vh; }
   .cudlg-unlock-value { font-size: 1rem; }
   .cudlg-action-panel-btns { flex-direction: column; align-items: stretch; }
-  .cudlg-contact-btn, .cudlg-request-label { justify-content: center; }
+  .cudlg-contact-btn, .cudlg-request-label, .cudlg-request-update-btn { justify-content: center; }
   .cudlg-footer { flex-direction: column-reverse; }
   .cudlg-btn-cancel, .cudlg-btn-confirm { width: 100%; justify-content: center; }
 }

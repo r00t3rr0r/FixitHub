@@ -30,6 +30,9 @@ import {
   CreditCard,
   Home,
   Wrench,
+  Receipt,
+  AlertCircle,
+  Euro,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,7 +70,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings";
+import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel, getBookingInvoices } from "@/api/bookings";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
@@ -1353,6 +1356,66 @@ function BookingDetailDialog({
   const [detailOrders, setDetailOrders] = useState<any[]>([]);
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(false);;
 
+  const [bookingInvoices, setBookingInvoices] = useState<any[]>([]);
+  const [loadingBookingInvoices, setLoadingBookingInvoices] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoadingBookingInvoices(true);
+      try {
+        const data = await getBookingInvoices(booking._id);
+        if (!cancelled) setBookingInvoices(data.invoices || []);
+      } catch {
+        if (!cancelled) setBookingInvoices([]);
+      } finally {
+        if (!cancelled) setLoadingBookingInvoices(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [open, booking._id]);
+
+  const getInvoiceStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft': return 'Vorlage';
+      case 'pending_approval': return 'Ausstehend';
+      case 'sent': return 'Gesendet';
+      case 'viewed': return 'Angesehen';
+      case 'partially_paid': return 'Teilbezahlt';
+      case 'paid': return 'Bezahlt';
+      case 'overdue': return 'Überfällig';
+      case 'cancelled': return 'Storniert';
+      case 'credited': return 'Gutgeschrieben';
+      default: return status;
+    }
+  };
+
+  const getInvoiceStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'paid': return 'bg-green-100 text-green-700 border border-green-200';
+      case 'partially_paid': return 'bg-blue-100 text-blue-700 border border-blue-200';
+      case 'overdue': return 'bg-red-100 text-red-700 border border-red-200';
+      case 'sent': return 'bg-purple-100 text-purple-700 border border-purple-200';
+      case 'viewed': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+      case 'cancelled': return 'bg-gray-100 text-gray-500 border border-gray-200';
+      case 'draft': return 'bg-gray-100 text-gray-600 border border-gray-200';
+      default: return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+    }
+  };
+
+  const getPaymentMethodLabel = (method?: string) => {
+    switch (method) {
+      case 'stripe': return 'Stripe';
+      case 'paypal': return 'PayPal';
+      case 'bank_transfer': return 'Überweisung';
+      case 'cash': return 'Bar';
+      case 'manual': return 'Manuell';
+      default: return method || 'Unbekannt';
+    }
+  };
+
   const repairItems = (booking.items || []).filter((item) => item.type === 'repair');
 
   const getEffectivePaymentStatus = (currentBooking: Booking) => {
@@ -1819,6 +1882,109 @@ function BookingDetailDialog({
                 </div>
               </div>
             </div>
+
+            {/* Rechnungen */}
+            <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+              <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
+                <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                Rechnungen
+              </p>
+              {loadingBookingInvoices ? (
+                <div className="flex items-center gap-2 py-3">
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary-blue,#1a2a5e)] border-t-transparent" />
+                  <span className="text-xs text-[var(--gray-400,#8892a8)]">Rechnungen werden geladen...</span>
+                </div>
+              ) : bookingInvoices.length === 0 ? (
+                <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Keine Rechnungen vorhanden</p>
+              ) : (
+                <div className="space-y-2">
+                  {bookingInvoices.map((inv: any) => {
+                    const openAmount = Math.max(0, Number(inv.total || 0) - Number(inv.paidAmount || inv.amountPaid || 0));
+                    const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'paid';
+                    return (
+                      <div
+                        key={inv._id}
+                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)] hover:bg-[var(--gray-100,#eef0f5)] cursor-pointer transition-colors border border-transparent hover:border-[var(--accent-yellow,#f5b800)]"
+                        onClick={() => {
+                          onClose();
+                          navigate('/invoices', { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
+                        }}
+                      >
+                        <Receipt className="h-4 w-4 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-[var(--gray-800,#1a202c)]">{inv.invoiceNumber}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${getInvoiceStatusBadgeClass(inv.status)}`}>
+                              {getInvoiceStatusLabel(inv.status)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            <span className="text-xs text-[var(--gray-600,#4a5568)]">
+                              Gesamt: <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatCurrency(inv.total)}</span>
+                            </span>
+                            {Number(inv.paidAmount || inv.amountPaid || 0) > 0 && (
+                              <span className="text-xs text-green-600 font-semibold">
+                                Bezahlt: {formatCurrency(Number(inv.paidAmount || inv.amountPaid || 0))}
+                              </span>
+                            )}
+                            {openAmount > 0 && (
+                              <span className={`text-xs font-semibold ${isOverdue ? 'text-red-600' : 'text-[var(--gray-600,#4a5568)]'}`}>
+                                Offen: {formatCurrency(openAmount)}
+                              </span>
+                            )}
+                            {inv.dueDate && (
+                              <span className={`text-[10px] ${isOverdue ? 'text-red-500 font-semibold' : 'text-[var(--gray-400,#8892a8)]'}`}>
+                                {isOverdue && <AlertCircle className="inline h-3 w-3 mr-0.5" />}
+                                Fällig: {formatDate(inv.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-[var(--gray-400,#8892a8)] flex-shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Zahlungsprozesse */}
+            {(() => {
+              const allPayments = bookingInvoices.flatMap((inv: any) =>
+                (inv.paymentHistory || []).map((p: any) => ({ ...p, invoiceNumber: inv.invoiceNumber }))
+              ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+              if (loadingBookingInvoices || allPayments.length === 0) return null;
+              return (
+                <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+                  <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
+                    <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                    Zahlungsprozesse
+                  </p>
+                  <div className="space-y-2">
+                    {allPayments.map((p: any, i: number) => (
+                      <div key={p._id || i} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)]">
+                        <Euro className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-green-700">{formatCurrency(p.amount)}</span>
+                            {p.method && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 font-semibold">
+                                {getPaymentMethodLabel(p.method)}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[var(--gray-400,#8892a8)]">{p.invoiceNumber}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-[var(--gray-500,#636e85)]">{formatDateTime(p.date)}</span>
+                            {p.note && <span className="text-[10px] text-[var(--gray-400,#8892a8)] truncate">{p.note}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="repairs" className="space-y-3 mt-3 sm:mt-5">

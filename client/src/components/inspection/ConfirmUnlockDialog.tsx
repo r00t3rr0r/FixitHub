@@ -25,6 +25,7 @@ import {
   Lock,
   Shield,
   MessageSquare,
+  RefreshCw,
 } from "lucide-react"
 
 interface ConfirmUnlockDialogProps {
@@ -35,6 +36,7 @@ interface ConfirmUnlockDialogProps {
     notes: string,
     requestFromCustomer?: boolean
   ) => Promise<void>
+  onRequestUnlockUpdate?: (notes: string) => Promise<void>
   unlockPattern?: string[]
   unlockCode?: string
   noLock?: boolean
@@ -91,6 +93,7 @@ export function ConfirmUnlockDialog({
   isOpen,
   onOpenChange,
   onConfirm,
+  onRequestUnlockUpdate,
   unlockPattern = [],
   unlockCode = "",
   noLock = false,
@@ -105,10 +108,11 @@ export function ConfirmUnlockDialog({
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [requestingFromCustomer, setRequestingFromCustomer] = useState(false)
+  const [requestingUpdate, setRequestingUpdate] = useState(false)
   const [codeHidden, setCodeHidden] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
 
-  const busy = submitting || isLoading
+  const busy = submitting || isLoading || requestingUpdate
   const showActionPanel =
     confirmationStatus === "incorrect" ||
     confirmationStatus === "unable-to-verify"
@@ -148,6 +152,39 @@ export function ConfirmUnlockDialog({
       })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleRequestUnlockUpdate = async () => {
+    if (!onRequestUnlockUpdate) return
+    try {
+      setRequestingUpdate(true)
+      await onRequestUnlockUpdate(notes)
+      toast({
+        title: t("common.success", "Erfolg"),
+        description: t(
+          "orderDetails.unlockUpdateRequested",
+          "Rückmeldungsanfrage wurde an den Kunden gesendet. Buchung wurde pausiert."
+        ),
+        variant: "default",
+      })
+      setConfirmationStatus("verified")
+      setNotes("")
+      setCodeHidden(false)
+      onOpenChange(false)
+    } catch (error: any) {
+      toast({
+        title: t("common.error", "Fehler"),
+        description:
+          error.message ||
+          t(
+            "orderDetails.unlockUpdateRequestError",
+            "Anfrage konnte nicht gesendet werden"
+          ),
+        variant: "destructive",
+      })
+    } finally {
+      setRequestingUpdate(false)
     }
   }
 
@@ -364,14 +401,39 @@ export function ConfirmUnlockDialog({
                         )}
                   </p>
                   <p className="cudlg-action-panel-desc">
-                    {t(
-                      "orderDetails.requestUnlockFromCustomer",
-                      "Entsperrinformation direkt beim Kunden anfordern"
-                    )}
+                    {confirmationStatus === "incorrect"
+                      ? t(
+                          "orderDetails.requestUnlockFromCustomerDesc",
+                          "Fordern Sie den Kunden auf, die Entsperrinformation zu aktualisieren. Die Buchung wird bis zur Rückmeldung pausiert."
+                        )
+                      : t(
+                          "orderDetails.requestUnlockFromCustomer",
+                          "Entsperrinformation direkt beim Kunden anfordern"
+                        )}
                   </p>
                 </div>
               </div>
               <div className="cudlg-action-panel-btns">
+                {confirmationStatus === "incorrect" && onRequestUnlockUpdate && (
+                  <button
+                    type="button"
+                    className="cudlg-request-update-btn"
+                    onClick={handleRequestUnlockUpdate}
+                    disabled={busy}
+                  >
+                    {requestingUpdate ? (
+                      <>
+                        <span className="cudlg-spinner" />
+                        {t("common.loading", "Wird gesendet …")}
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        {t("orderDetails.requestUnlockUpdate", "Entsperrinformation anfordern")}
+                      </>
+                    )}
+                  </button>
+                )}
                 {onOpenContactCustomer && (
                   <button
                     type="button"
@@ -383,16 +445,18 @@ export function ConfirmUnlockDialog({
                     {t("orderDetails.contactCustomer", "Kunden kontaktieren")}
                   </button>
                 )}
-                <label className="cudlg-request-label">
-                  <input
-                    type="checkbox"
-                    checked={requestingFromCustomer}
-                    onChange={(e) => setRequestingFromCustomer(e.target.checked)}
-                    disabled={busy}
-                    className="cudlg-request-checkbox"
-                  />
-                  {t("orderDetails.markAsRequested", "Als angefordert markieren")}
-                </label>
+                {confirmationStatus === "unable-to-verify" && (
+                  <label className="cudlg-request-label">
+                    <input
+                      type="checkbox"
+                      checked={requestingFromCustomer}
+                      onChange={(e) => setRequestingFromCustomer(e.target.checked)}
+                      disabled={busy}
+                      className="cudlg-request-checkbox"
+                    />
+                    {t("orderDetails.markAsRequested", "Als angefordert markieren")}
+                  </label>
+                )}
               </div>
             </div>
           )}

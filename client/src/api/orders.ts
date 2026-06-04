@@ -90,6 +90,11 @@ export interface Order {
     confirmationStatus?: 'verified' | 'incorrect' | 'unable-to-verify';
     notes?: string;
   };
+  pickupConfirmation?: {
+    confirmedBy?: string;
+    confirmedByName?: string;
+    confirmedAt?: string;
+  };
   // Additional repair information from Step 3
   errorDescription?: string;
   waterDamage?: 'yes' | 'no' | 'dont-know' | '';
