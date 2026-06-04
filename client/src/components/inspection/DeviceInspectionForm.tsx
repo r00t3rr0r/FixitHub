@@ -326,24 +326,6 @@ export function DeviceInspectionForm({
         modemFirmware: { present: modemFirmwarePresent },
         touchIdFaceId: { applicable: touchIdFaceIdApplicable, working: touchIdFaceIdWorking },
       });
-      toast({
-        title: t('inspection.toast.successTitle', 'Erfolg'),
-        description: t('inspection.toast.appleSaved', 'Apple-spezifische Prüfungen gespeichert'),
-      });
-      setCurrentStep(7);
-      setExpandedSteps([7]);
-    } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCompleteInspection = async () => {
-    if (submitting) return;
-
-    try {
-      setSubmitting(true);
       await completeInspection(orderId, isRepairable || false, {
         cost: parseFloat(repairCost),
         timeframe: repairTimeframe,
@@ -746,31 +728,6 @@ export function DeviceInspectionForm({
               )}
             </div>
 
-            <Button onClick={handleAppleSpecific} disabled={submitting} className="inspection-primary-button">
-              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
-            </Button>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Final Step: Summary */}
-      <Card className="inspection-step-card">
-        <CardHeader
-          className="inspection-step-header cursor-pointer"
-          onClick={() => toggleStep(7)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant={currentStep >= 7 ? 'default' : 'outline'} className={currentStep >= 7 ? 'inspection-step-badge' : ''}>
-                {t('inspection.steps.summaryBadge', 'Abschluss')}
-              </Badge>
-              <CardTitle className="inspection-step-title">{t('inspection.steps.summaryTitle', 'Inspektionszusammenfassung')}</CardTitle>
-            </div>
-            {expandedSteps.includes(7) ? <ChevronUp /> : <ChevronDown />}
-          </div>
-        </CardHeader>
-        {expandedSteps.includes(7) && (
-          <CardContent className="space-y-4">
             <div>
               <Label>{t('inspection.fields.repairableQuestion', 'Ist das Gerät reparierbar?')}</Label>
               <div className="inspection-repairable-actions">
@@ -830,7 +787,7 @@ export function DeviceInspectionForm({
             )}
 
             <Button
-              onClick={handleCompleteInspection}
+              onClick={handleAppleSpecific}
               disabled={submitting || isRepairable === null}
               className="w-full inspection-primary-button"
             >
