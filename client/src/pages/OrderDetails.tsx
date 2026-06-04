@@ -2648,6 +2648,25 @@ export function OrderDetails() {
     : []
   const hasDeviceHistoryTimeline = isStaffOrAdmin && (progressHistoryEntries.length > 0 || orderHistoryEntries.length > 0)
 
+  const staffLastActions = (() => {
+    const timeline = Array.isArray(order?.timeline) ? order.timeline : []
+    const toId = (v: unknown): string => {
+      if (!v) return ''
+      try { return String(v) } catch { return '' }
+    }
+    const lastActiveEntry = [...timeline]
+      .filter(e => e.staffId && e.staffId !== 'system')
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0]
+    const lastActiveUserId = lastActiveEntry ? toId(lastActiveEntry.staffId) : ''
+
+    const byStaff = (staffUserId: string) =>
+      timeline
+        .filter(e => e.staffId && toId(e.staffId) === staffUserId)
+        .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+
+    return { toId, lastActiveUserId, byStaff }
+  })()
+
   const scrollToSection = (sectionId: string) => {
     const target = document.getElementById(sectionId)
     if (target) {
@@ -5027,20 +5046,49 @@ export function OrderDetails() {
             <CardContent className="pt-3">
               {order.assignedStaff && order.assignedStaff.length > 0 ? (
                 <div className="space-y-2">
-                  {order.assignedStaff.map((staff) => (
-                    <div key={staff._id} className="flex items-center gap-2 p-2 border rounded-lg">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={staff.avatar} />
-                        <AvatarFallback className="text-xs">
-                          {staff.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{staff.name}</p>
-                        <p className="text-xs text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
+                  {order.assignedStaff.map((staff) => {
+                    const staffUserId = staffLastActions.toId((staff as any).staffId) || staffLastActions.toId(staff._id)
+                    const isLastActive = !!(staffLastActions.lastActiveUserId && staffUserId && staffLastActions.lastActiveUserId === staffUserId)
+                    const lastEntry = staffLastActions.byStaff(staffUserId)[0]
+                    return (
+                      <div
+                        key={staff._id}
+                        className={`flex items-start gap-2 p-2 border rounded-lg transition-colors ${isLastActive ? 'border-primary bg-primary/5' : ''}`}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={staff.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {staff.name.split(' ').map((n: string) => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isLastActive && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary border-2 border-background" title="Zuletzt aktiv" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm">{staff.name}</p>
+                            {isLastActive && (
+                              <span className="text-xs text-primary font-medium">• Zuletzt aktiv</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
+                          {lastEntry ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground/70">{lastEntry.status}:</span>{' '}
+                              <span className="truncate">{lastEntry.description}</span>
+                              <span className="ml-1 opacity-60">
+                                · {new Date(lastEntry.completedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-xs text-muted-foreground/60 italic">Noch keine Aktivität</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
