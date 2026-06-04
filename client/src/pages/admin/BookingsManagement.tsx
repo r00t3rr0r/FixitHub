@@ -279,8 +279,11 @@ export function BookingsManagement() {
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [billingStatusFilter, setBillingStatusFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [updateStatusDialog, setUpdateStatusDialog] = useState(false)
@@ -325,9 +328,17 @@ export function BookingsManagement() {
   }, [location.search])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setCurrentPage(1)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
-  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
+  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter, debouncedSearch, dateFrom, dateTo])
 
   useEffect(() => {
     const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog
@@ -365,6 +376,10 @@ export function BookingsManagement() {
       try {
         setStatusFilter('all')
         setBillingStatusFilter('all')
+        setSearchTerm('')
+        setDebouncedSearch('')
+        setDateFrom('')
+        setDateTo('')
         setCurrentPage(1)
         setActiveHighlightedBookingId(match._id)
         await new Promise((r) => window.setTimeout(r, 400))
@@ -471,6 +486,18 @@ export function BookingsManagement() {
 
       if (billingStatusFilter !== "all") {
         filters.billingStatus = billingStatusFilter
+      }
+
+      if (debouncedSearch) {
+        filters.search = debouncedSearch
+      }
+
+      if (dateFrom) {
+        filters.startDate = dateFrom
+      }
+
+      if (dateTo) {
+        filters.endDate = dateTo
       }
 
       console.log('Fetching bookings with filters:', filters)
@@ -600,26 +627,10 @@ export function BookingsManagement() {
     }
   }
 
-  // Client-side search filtering (API filters are handled on server)
+  // Search and date filtering are handled server-side; just mirror bookings into filteredBookings
   useEffect(() => {
-    let filtered = bookings
-
-    if (searchTerm) {
-      filtered = filtered.filter(booking => {
-        const customer = getSafeBookingCustomer(booking)
-        const customerName = getCustomerDisplayName(customer)
-        return (
-          booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (booking.bookingNumber && booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.phone.includes(searchTerm)
-        )
-      })
-    }
-
-    setFilteredBookings(filtered)
-  }, [bookings, searchTerm])
+    setFilteredBookings(bookings)
+  }, [bookings])
 
   const openOrderCommunication = (orderId: string, orderNumber?: string) => {
     if (!orderId) return
@@ -1090,7 +1101,7 @@ export function BookingsManagement() {
     return { amount: Math.max(0, dueTotal), type: 'open' as const }
   }
 
-  if (loading) {
+  if (loading && filteredBookings.length === 0) {
     return (
       <div className="section" style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="container">
@@ -1161,22 +1172,22 @@ export function BookingsManagement() {
       </div>
 
       {/* Filters and Search */}
-      <div style={{ 
-        background: 'var(--white)', 
-        border: '1px solid var(--gray-200)', 
-        borderRadius: 'var(--radius-lg)', 
+      <div style={{
+        background: 'var(--white)',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-lg)',
         padding: '14px',
         boxShadow: 'var(--shadow-sm)',
         marginBottom: '14px'
       }}>
         <h2 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--gray-800)', marginBottom: '10px' }}>Filter</h2>
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1">
+        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
             <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Suche</label>
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: 'var(--gray-400)' }} />
               <Input
-                placeholder="Suche nach Buchungs-ID, Kundenname, E-Mail oder Telefon..."
+                placeholder="Buchungs-ID, Kundenname, E-Mail oder Telefon..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1232,6 +1243,69 @@ export function BookingsManagement() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-full md:w-40">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+              <Calendar className="inline-block h-3 w-3 mr-1" />
+              Von
+            </label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value)
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px',
+                fontSize: '0.82rem',
+                width: '100%'
+              }}
+            />
+          </div>
+          <div className="w-full md:w-40">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+              <Calendar className="inline-block h-3 w-3 mr-1" />
+              Bis
+            </label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px',
+                fontSize: '0.82rem',
+                width: '100%'
+              }}
+            />
+          </div>
+          {(searchTerm || statusFilter !== 'all' || billingStatusFilter !== 'all' || dateFrom || dateTo) && (
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('')
+                  setDebouncedSearch('')
+                  setStatusFilter('all')
+                  setBillingStatusFilter('all')
+                  setDateFrom('')
+                  setDateTo('')
+                  setCurrentPage(1)
+                }}
+                style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Filter zurücksetzen
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1246,7 +1320,9 @@ export function BookingsManagement() {
         <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-blue)', marginBottom: '2px' }}>Buchungsliste</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>{filteredBookings.length} Buchungen gefunden</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+              {loading ? 'Wird geladen…' : `${filteredBookings.length} Buchungen gefunden`}
+            </p>
           </div>
           <Button
             variant="outline"

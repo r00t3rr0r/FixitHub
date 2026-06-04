@@ -146,6 +146,9 @@ export const cancelBooking = async (bookingId: string) => {
 export const getAdminBookings = async (filters?: {
   status?: string;
   billingStatus?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
   limit?: number;
   skip?: number;
 }) => {
@@ -153,6 +156,9 @@ export const getAdminBookings = async (filters?: {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.billingStatus) params.append('billingStatus', filters.billingStatus);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.limit) params.append('limit', filters.limit.toString());
     if (filters?.skip) params.append('skip', filters.skip.toString());
 

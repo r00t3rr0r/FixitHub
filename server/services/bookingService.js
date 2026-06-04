@@ -971,6 +971,28 @@ class BookingService {
     }
   }
 
+  // Build search $or clause matching bookingNumber, guestInfo fields, and registered customers
+  static async buildSearchClause(search) {
+    const regex = new RegExp(search, 'i');
+    const matchingUsers = await User.find({
+      $or: [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { phone: regex },
+      ],
+    }).select('_id');
+    const matchingUserIds = matchingUsers.map((u) => u._id);
+    return [
+      { bookingNumber: regex },
+      { 'guestInfo.email': regex },
+      { 'guestInfo.firstName': regex },
+      { 'guestInfo.lastName': regex },
+      { 'guestInfo.phone': regex },
+      ...(matchingUserIds.length > 0 ? [{ customerId: { $in: matchingUserIds } }] : []),
+    ];
+  }
+
   // Get total count of bookings matching filters
   static async getBookingsCount(filters = {}) {
     console.log('BookingService: Getting bookings count with filters:', filters);
@@ -978,19 +1000,22 @@ class BookingService {
     try {
       const query = {};
 
-      // Apply status filter if provided
-      if (filters.status) {
-        query.status = filters.status;
+      if (filters.status) query.status = filters.status;
+      if (filters.billingStatus) query.billingStatus = filters.billingStatus;
+      if (filters.customerId) query.customerId = filters.customerId;
+
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
-      // Apply billing status filter if provided
-      if (filters.billingStatus) {
-        query.billingStatus = filters.billingStatus;
-      }
-
-      // Apply customer filter if provided
-      if (filters.customerId) {
-        query.customerId = filters.customerId;
+      if (filters.search) {
+        query.$or = await BookingService.buildSearchClause(filters.search);
       }
 
       const count = await Booking.countDocuments(query);
@@ -1010,14 +1035,21 @@ class BookingService {
     try {
       const query = {};
 
-      // Apply status filter if provided
-      if (filters.status) {
-        query.status = filters.status;
+      if (filters.status) query.status = filters.status;
+      if (filters.billingStatus) query.billingStatus = filters.billingStatus;
+
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
-      // Apply billing status filter if provided
-      if (filters.billingStatus) {
-        query.billingStatus = filters.billingStatus;
+      if (filters.search) {
+        query.$or = await BookingService.buildSearchClause(filters.search);
       }
 
       const bookings = await Booking.find(query)

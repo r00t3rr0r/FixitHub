@@ -12,11 +12,14 @@ router.get('/', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting bookings for user:', req.user._id, 'Role:', req.user.role);
 
-    const { status, billingStatus, limit = 20, skip = 0 } = req.query;
+    const { status, billingStatus, search, startDate, endDate, limit = 20, skip = 0 } = req.query;
 
     const filters = {};
     if (status) filters.status = status;
     if (billingStatus) filters.billingStatus = billingStatus;
+    if (search) filters.search = search;
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
     filters.limit = parseInt(limit);
     filters.skip = parseInt(skip);
 
@@ -32,6 +35,9 @@ router.get('/', requireUser, async (req, res) => {
       const countFilters = {};
       if (status) countFilters.status = status;
       if (billingStatus) countFilters.billingStatus = billingStatus;
+      if (search) countFilters.search = search;
+      if (startDate) countFilters.startDate = startDate;
+      if (endDate) countFilters.endDate = endDate;
       total = await BookingService.getBookingsCount(countFilters);
     } else {
       console.log('BookingRoutes: Regular user requesting their own bookings');
