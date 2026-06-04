@@ -2,6 +2,7 @@ const express = require('express');
 const OrderService = require('../services/orderService');
 const DeviceChangeService = require('../services/deviceChangeService');
 const NotificationService = require('../services/notificationService');
+const Order = require('../models/Order');
 const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
@@ -134,6 +135,27 @@ router.put('/:id/status', requireUser, requireAdminOrStaff, async (req, res) => 
     return res.status(500).json({ 
       error: error.message || 'Failed to update order status' 
     });
+  }
+});
+
+// Confirm customer pickup (admin/staff) — sets status to completed and records who confirmed
+router.post('/:id/confirm-pickup', requireUser, requireAdminOrStaff, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    order.status = 'completed';
+    order.pickupConfirmation = {
+      confirmedBy: req.user._id,
+      confirmedByName: req.user.name || req.user.email,
+      confirmedAt: new Date(),
+    };
+    await order.save();
+
+    return res.status(200).json({ success: true, order });
+  } catch (error) {
+    console.error('Error confirming pickup:', error);
+    return res.status(500).json({ error: error.message || 'Failed to confirm pickup' });
   }
 });
 

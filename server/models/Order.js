@@ -62,6 +62,23 @@ const staffNoteSchema = new mongoose.Schema({
   },
 }, { _id: true });
 
+// Pickup confirmation schema
+const pickupConfirmationSchema = new mongoose.Schema({
+  confirmedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  confirmedByName: {
+    type: String,
+    required: true,
+  },
+  confirmedAt: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: false });
+
 // Unlock pattern/code confirmation schema
 const unlockConfirmationSchema = new mongoose.Schema({
   confirmedBy: {
@@ -568,6 +585,7 @@ const orderSchema = new mongoose.Schema({
     default: false,
   },
   unlockConfirmation: unlockConfirmationSchema,
+  pickupConfirmation: pickupConfirmationSchema,
   // Additional repair information
   errorDescription: {
     type: String,

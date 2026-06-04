@@ -15,7 +15,7 @@ import "./OrderDetails.css"
 import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -106,7 +106,9 @@ import {
   ZoomIn,
   ZoomOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  PackageCheck,
+  UserCheck
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -171,6 +173,7 @@ export function OrderDetails() {
   const [selectedDeviceForChange, setSelectedDeviceForChange] = useState<SearchResult | null>(null)
   const [resolvedDeviceImage, setResolvedDeviceImage] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [confirmingPickup, setConfirmingPickup] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
@@ -808,6 +811,20 @@ export function OrderDetails() {
       })
     } finally {
       setUpdatingStatus(false)
+    }
+  }
+
+  const handleConfirmPickup = async () => {
+    if (!id || !order || confirmingPickup) return
+    try {
+      setConfirmingPickup(true)
+      await confirmPickup(id)
+      toast({ title: 'Abholung bestätigt', description: 'Auftrag wurde als Abgeschlossen markiert.' })
+      await refreshOrder()
+    } catch (error: any) {
+      toast({ title: 'Fehler', description: error.message || 'Abholung konnte nicht bestätigt werden.', variant: 'destructive' })
+    } finally {
+      setConfirmingPickup(false)
     }
   }
 
@@ -1600,6 +1617,19 @@ export function OrderDetails() {
         return 'status-cancelled'
       default:
         return 'status-pending'
+    }
+  }
+
+  const getStatusButtonClasses = (status: string) => {
+    switch (status) {
+      case 'completed':           return 'bg-emerald-100 text-emerald-900 border border-emerald-400 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-600'
+      case 'in-progress':
+      case 'diagnostic-assessment': return 'bg-blue-100 text-blue-900 border border-blue-400 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-600'
+      case 'paused':              return 'bg-slate-200 text-slate-800 border border-slate-400 hover:bg-slate-300 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-500'
+      case 'quality-check':       return 'bg-purple-100 text-purple-900 border border-purple-400 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-600'
+      case 'ready-for-pickup':    return 'bg-orange-100 text-orange-900 border border-orange-400 hover:bg-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-600'
+      case 'cancelled':           return 'bg-red-100 text-red-900 border border-red-400 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-600'
+      default:                    return 'bg-yellow-100 text-yellow-900 border border-yellow-400 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-200 dark:border-yellow-600'
     }
   }
 
@@ -4532,9 +4562,9 @@ export function OrderDetails() {
               <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className={`${getStatusColor(order.status)} text-xs px-3 py-1 cursor-pointer border-none flex items-center gap-1`}
+                    className={`${getStatusButtonClasses(order.status)} text-xs px-3 py-1.5 cursor-pointer font-semibold flex items-center gap-1.5 rounded-md`}
                     disabled={updatingStatus}
                   >
                     {getStatusIcon(order.status)}
@@ -4581,6 +4611,32 @@ export function OrderDetails() {
                 {getStatusIcon(order.status)}
                 <span className="ml-1">{translateOrderStatus(order.status)}</span>
               </span>
+            )}
+            {isStaffOrAdmin && order.status === 'ready-for-pickup' && !order.pickupConfirmation && (
+              <Button
+                size="sm"
+                onClick={handleConfirmPickup}
+                disabled={confirmingPickup}
+                className="text-xs bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm gap-1.5 font-medium"
+              >
+                <PackageCheck className="h-3.5 w-3.5" />
+                {confirmingPickup ? 'Wird bestätigt…' : 'Abholung bestätigen'}
+              </Button>
+            )}
+            {order.pickupConfirmation?.confirmedAt && (
+              <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md px-2.5 py-1">
+                <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Abgeholt{' '}
+                  {new Date(order.pickupConfirmation.confirmedAt).toLocaleString('de-DE', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  })}
+                  {order.pickupConfirmation.confirmedByName && (
+                    <> · {order.pickupConfirmation.confirmedByName}</>
+                  )}
+                </span>
+              </div>
             )}
             <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
               <CreditCard className="h-3 w-3 mr-1" />

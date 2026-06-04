@@ -8775,5 +8775,35 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1780567465074-cemgfnld9",
+    "timestamp": "2026-06-04T10:04:25.074Z",
+    "to": "rb@arinna.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-015 – Apple iPhone 14 Pro",
+    "messageId": "<6f583e63-93bd-e788-4abc-849c4ee827ef@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1213,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
