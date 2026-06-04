@@ -1352,19 +1352,6 @@ export function BookingsManagement() {
                             </Badge>
                           </button>
 
-                          <label className="inline-flex items-center gap-1 text-[11px] text-foreground/70">
-                            <input
-                              type="radio"
-                              name={`booking-paid-${booking._id}`}
-                              checked={getEffectivePaymentStatus(booking) === 'paid'}
-                              disabled={quickPayBookingId === booking._id}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={() => {
-                                void handleQuickSetPaid(booking)
-                              }}
-                            />
-                            Bezahlt
-                          </label>
                         </div>
                       </TableCell>
                       <TableCell>
