@@ -635,6 +635,19 @@ export const confirmUnlockCode = async (orderId: string, confirmationStatus: 've
   }
 };
 
+// Description: Request updated unlock information from the customer (sets order to paused)
+// Endpoint: POST /api/admin/orders/:id/request-unlock-update
+// Request: { notes?: string }
+// Response: { order: AdminOrder, communication: Object }
+export const requestUnlockInfoUpdate = async (orderId: string, notes: string = '') => {
+  try {
+    const response = await api.post(`/api/admin/orders/${orderId}/request-unlock-update`, { notes });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Change device and recalculate repair services
 // Endpoint: POST /api/admin/orders/:id/change-device
 // Request: { deviceBrand: string, deviceModel: string, deviceType: string }

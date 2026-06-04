@@ -15,7 +15,7 @@ import "./OrderDetails.css"
 import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
-import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
+import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -1248,6 +1248,20 @@ export function OrderDetails() {
       }
     } catch (error: any) {
       console.error("OrderDetails: Error confirming unlock:", error)
+      throw error
+    } finally {
+      setConfirmingUnlock(false)
+    }
+  }
+
+  const handleRequestUnlockUpdate = async (notes: string = '') => {
+    if (!id || !user) return
+    try {
+      setConfirmingUnlock(true)
+      await requestUnlockInfoUpdate(id, notes)
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error requesting unlock update:", error)
       throw error
     } finally {
       setConfirmingUnlock(false)
@@ -5186,6 +5200,7 @@ export function OrderDetails() {
                   isOpen={unlockConfirmDialogOpen}
                   onOpenChange={setUnlockConfirmDialogOpen}
                   onConfirm={handleConfirmUnlock}
+                  onRequestUnlockUpdate={handleRequestUnlockUpdate}
                   unlockPattern={order?.unlockPattern}
                   unlockCode={order?.unlockCode}
                   noLock={order?.noLock}

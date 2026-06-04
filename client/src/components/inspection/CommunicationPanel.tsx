@@ -11,6 +11,7 @@ import {
   sendFeedbackRequest as sendInspectionFeedbackRequest,
   createQuickAction as createInspectionQuickAction,
   sendMessage as sendInspectionMessage,
+  submitUnlockInfoUpdate,
 } from "@/api/inspectionCommunication"
 import {
   getCommunicationThread as getRepairRequestCommunicationThread,
@@ -21,7 +22,7 @@ import {
   sendMessage as sendRepairRequestMessage,
 } from "@/api/repairRequestCommunication"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText, Maximize2 } from "lucide-react"
+import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText, Maximize2, RefreshCw } from "lucide-react"
 import { acceptComplaintOffer, rejectComplaintOffer } from "@/api/complaints"
 import {
   Dialog,
@@ -133,6 +134,57 @@ const formatMessageTime = (dateString: string): string => {
   }
 }
 
+function UnlockPatternGrid({
+  pattern,
+  onPatternChange,
+  disabled,
+}: {
+  pattern: string[]
+  onPatternChange: (p: string[]) => void
+  disabled?: boolean
+}) {
+  const dots = [[1,2,3],[4,5,6],[7,8,9]]
+  const handleDot = (d: number) => {
+    if (disabled) return
+    onPatternChange([...pattern, d.toString()])
+  }
+  return (
+    <div className="space-y-1">
+      <div className="inline-grid grid-cols-3 gap-2 bg-muted/40 rounded-lg p-3">
+        {dots.flat().map((d) => {
+          const count = pattern.filter((p) => p === d.toString()).length
+          const active = count > 0
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => handleDot(d)}
+              disabled={disabled}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                active
+                  ? 'bg-primary border-primary text-primary-foreground shadow-md'
+                  : 'bg-background border-border text-muted-foreground hover:border-primary/60 hover:bg-primary/5'
+              }`}
+            >
+              {active ? (count > 1 ? `${d}×${count}` : d) : d}
+            </button>
+          )
+        })}
+      </div>
+      {pattern.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onPatternChange([])}
+          disabled={disabled}
+          className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+        >
+          ↩ Muster zurücksetzen
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function CommunicationPanel({
   orderId,
   inspectionId,
@@ -177,6 +229,13 @@ export function CommunicationPanel({
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const [showFullChatDialog, setShowFullChatDialog] = useState(false)
+  const [unlockUpdateForms, setUnlockUpdateForms] = useState<Record<string, {
+    unlockCode: string
+    unlockPattern: string[]
+    noLock: boolean
+    submitting: boolean
+    selectedType: 'code' | 'pattern' | 'noLock'
+  }>>({})
   const isUserEditingRef = useRef(false)
   const quickActionBaseOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
   const quickActionOptions = quickActionBaseOptions.map((option) => ({
@@ -471,6 +530,57 @@ export function CommunicationPanel({
     }
   }
 
+  const getUnlockUpdateForm = (messageId: string, defaultType: 'code' | 'pattern' | 'noLock') => {
+    return unlockUpdateForms[messageId] ?? {
+      unlockCode: '',
+      unlockPattern: [],
+      noLock: false,
+      submitting: false,
+      selectedType: defaultType,
+    }
+  }
+
+  const updateUnlockForm = (messageId: string, patch: Partial<typeof unlockUpdateForms[string]>) => {
+    setUnlockUpdateForms((prev) => ({
+      ...prev,
+      [messageId]: { ...(prev[messageId] ?? { unlockCode: '', unlockPattern: [], noLock: false, submitting: false, selectedType: 'code' }), ...patch },
+    }))
+  }
+
+  const handleSubmitUnlockUpdate = async (messageId: string) => {
+    const form = unlockUpdateForms[messageId]
+    if (!form) return
+    updateUnlockForm(messageId, { submitting: true })
+    try {
+      let payload: { unlockCode?: string; unlockPattern?: string[]; noLock?: boolean } = {}
+      if (form.selectedType === 'noLock') {
+        payload = { noLock: true }
+      } else if (form.selectedType === 'pattern') {
+        if (!form.unlockPattern || form.unlockPattern.length < 4) {
+          toast({ title: 'Fehler', description: 'Bitte zeichnen Sie ein Entsperrmuster mit mindestens 4 Punkten.', variant: 'destructive' })
+          updateUnlockForm(messageId, { submitting: false })
+          return
+        }
+        payload = { unlockPattern: form.unlockPattern }
+      } else {
+        if (!form.unlockCode || form.unlockCode.trim().length === 0) {
+          toast({ title: 'Fehler', description: 'Bitte geben Sie einen Entsperrcode ein.', variant: 'destructive' })
+          updateUnlockForm(messageId, { submitting: false })
+          return
+        }
+        payload = { unlockCode: form.unlockCode.trim() }
+      }
+      await submitUnlockInfoUpdate(orderId, payload)
+      // Refresh thread
+      const thread = await getInspectionCommunicationThread(orderId)
+      setCommunication(thread)
+      toast({ title: 'Erfolg', description: 'Entsperrinformation erfolgreich aktualisiert. Das Team wird benachrichtigt.' })
+    } catch (error: any) {
+      toast({ title: 'Fehler', description: error.message || 'Aktualisierung fehlgeschlagen', variant: 'destructive' })
+      updateUnlockForm(messageId, { submitting: false })
+    }
+  }
+
   const handleAcceptRepairOffer = async (complaintId: string) => {
     try {
       setOfferActionLoading("accept")
@@ -707,46 +817,168 @@ export function CommunicationPanel({
                   )}
 
                   {/* Quick Actions */}
-                  {message.messageType === "quick_action" && message.quickAction && (
-                    <div className={`rounded-lg border p-4 transition-colors ${
-                      message.quickAction.status === "pending"
-                        ? "border-amber-300 bg-amber-50/50"
-                        : "border-emerald-300 bg-emerald-50/40"
-                    }`}>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="w-4 h-4 flex-shrink-0 text-primary" />
-                            <p className="font-semibold text-sm text-foreground">
-                              {message.quickAction.actionLabel}
-                            </p>
+                  {message.messageType === "quick_action" && message.quickAction && (() => {
+                    const qa = message.quickAction
+                    const isUpdateUnlockInfo = qa.actionType === 'update_unlock_info'
+                    const isCustomerUser = user?.role === 'customer'
+                    const isPending = qa.status === 'pending'
+                    const defaultUnlockType = (qa.metadata as any)?.unlockType === 'pattern' ? 'pattern' : 'code'
+                    const form = getUnlockUpdateForm(message._id, defaultUnlockType as 'code' | 'pattern' | 'noLock')
+
+                    if (isUpdateUnlockInfo) {
+                      return (
+                        <div className={`rounded-lg border-l-4 p-4 transition-colors ${
+                          isPending ? 'border-l-red-500 bg-red-50/60 border border-red-200' : 'border-l-emerald-500 bg-emerald-50/40 border border-emerald-200'
+                        }`}>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <RefreshCw className="w-4 h-4 flex-shrink-0 text-red-600" />
+                                <p className="font-semibold text-sm text-foreground">
+                                  Entsperrinformation aktualisieren
+                                </p>
+                              </div>
+                              {qa.description && (
+                                <p className="text-sm text-foreground/80 mb-1">{qa.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatMessageTime(message.createdAt)}</span>
+                              </div>
+                            </div>
+                            {isPending ? (
+                              <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs border-red-300 bg-red-100 text-red-800">
+                                ⏳ Ausstehend
+                              </Badge>
+                            ) : (
+                              <Badge className="gap-1 flex-shrink-0 text-xs border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Erledigt
+                              </Badge>
+                            )}
                           </div>
-                          {message.quickAction.description && (
-                            <p className="text-sm p-2 rounded mb-2 border bg-background text-foreground/90">
-                              {message.quickAction.description}
-                            </p>
+
+                          {isPending && isCustomerUser && (
+                            <div className="mt-3 space-y-3">
+                              {/* Type selector */}
+                              <div className="flex gap-2 flex-wrap">
+                                {(['code', 'pattern', 'noLock'] as const).map((type) => (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => updateUnlockForm(message._id, { selectedType: type })}
+                                    disabled={form.submitting}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                      form.selectedType === type
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-foreground border-border hover:bg-muted'
+                                    }`}
+                                  >
+                                    {type === 'code' && '🔢 Entsperrcode'}
+                                    {type === 'pattern' && '🔷 Entsperrmuster'}
+                                    {type === 'noLock' && '✅ Keine Sperre'}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {form.selectedType === 'code' && (
+                                <div className="space-y-1">
+                                  <label className="text-xs font-medium text-foreground/70">Entsperrcode (PIN oder Passwort)</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="Entsperrcode eingeben …"
+                                    value={form.unlockCode}
+                                    onChange={(e) => updateUnlockForm(message._id, { unlockCode: e.target.value })}
+                                    disabled={form.submitting}
+                                    className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                  />
+                                </div>
+                              )}
+
+                              {form.selectedType === 'pattern' && (
+                                <div className="space-y-1">
+                                  <label className="text-xs font-medium text-foreground/70">
+                                    Entsperrmuster zeichnen
+                                    {form.unlockPattern.length > 0 && (
+                                      <span className="ml-2 text-primary">{form.unlockPattern.join(' → ')}</span>
+                                    )}
+                                  </label>
+                                  <UnlockPatternGrid
+                                    pattern={form.unlockPattern}
+                                    onPatternChange={(p) => updateUnlockForm(message._id, { unlockPattern: p })}
+                                    disabled={form.submitting}
+                                  />
+                                </div>
+                              )}
+
+                              {form.selectedType === 'noLock' && (
+                                <p className="text-sm text-foreground/70 bg-muted/50 rounded-md px-3 py-2">
+                                  Ihr Gerät wird als <strong>entsperrt / ohne Sperre</strong> markiert.
+                                </p>
+                              )}
+
+                              <Button
+                                size="sm"
+                                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                                disabled={form.submitting}
+                                onClick={() => handleSubmitUnlockUpdate(message._id)}
+                              >
+                                {form.submitting ? (
+                                  <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Wird gesendet …</>
+                                ) : (
+                                  <><Send className="w-3.5 h-3.5 mr-1.5" /> Entsperrinformation senden</>
+                                )}
+                              </Button>
+                            </div>
                           )}
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <User className="w-3 h-3" />
-                            <span>{message.senderName}</span>
-                            <Clock className="w-3 h-3 ml-2" />
-                            <span>{formatMessageTime(message.createdAt)}</span>
-                          </div>
+
+                          {isPending && !isCustomerUser && (
+                            <p className="text-xs text-muted-foreground mt-2">Wartet auf Rückmeldung des Kunden.</p>
+                          )}
                         </div>
-                        {message.quickAction.status === "completed" && (
-                          <Badge className="gap-1 flex-shrink-0 text-xs border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                            <CheckCircle2 className="w-3 h-3" />
-                            {t('communicationPanel.completed')}
-                          </Badge>
-                        )}
-                        {message.quickAction.status === "pending" && (
-                          <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs border-amber-300 bg-amber-100 text-amber-800">
-                            ⏳ {t('communicationPanel.pending')}
-                          </Badge>
-                        )}
+                      )
+                    }
+
+                    return (
+                      <div className={`rounded-lg border p-4 transition-colors ${
+                        isPending ? "border-amber-300 bg-amber-50/50" : "border-emerald-300 bg-emerald-50/40"
+                      }`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertCircle className="w-4 h-4 flex-shrink-0 text-primary" />
+                              <p className="font-semibold text-sm text-foreground">
+                                {qa.actionLabel}
+                              </p>
+                            </div>
+                            {qa.description && (
+                              <p className="text-sm p-2 rounded mb-2 border bg-background text-foreground/90">
+                                {qa.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <User className="w-3 h-3" />
+                              <span>{message.senderName}</span>
+                              <Clock className="w-3 h-3 ml-2" />
+                              <span>{formatMessageTime(message.createdAt)}</span>
+                            </div>
+                          </div>
+                          {qa.status === "completed" && (
+                            <Badge className="gap-1 flex-shrink-0 text-xs border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                              <CheckCircle2 className="w-3 h-3" />
+                              {t('communicationPanel.completed')}
+                            </Badge>
+                          )}
+                          {isPending && (
+                            <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs border-amber-300 bg-amber-100 text-amber-800">
+                              ⏳ {t('communicationPanel.pending')}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Repair Offer Messages */}
                   {message.messageType === "repair_offer" && message.metadata && (() => {
