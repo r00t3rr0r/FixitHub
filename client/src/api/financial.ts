@@ -14,7 +14,7 @@ export interface Payment {
   amount: number;
   currency: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'disputed';
-  paymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer';
+  paymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer' | 'prepayment' | 'cash';
   transactionId: string;
   gatewayResponse: string;
   createdAt: string;

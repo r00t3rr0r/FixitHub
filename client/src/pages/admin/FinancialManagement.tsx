@@ -115,6 +115,8 @@ const paymentEligibleInvoiceStatuses: InvoiceStatus[] = ['draft', 'pending_appro
 
 const paymentMethodLabel: Record<Payment['paymentMethod'], string> = {
   bank_transfer: 'Banküberweisung',
+  prepayment: 'Vorkasse',
+  cash: 'Bar',
   credit_card: 'Kreditkarte',
   debit_card: 'Debitkarte',
   paypal: 'PayPal',
@@ -4170,67 +4172,80 @@ export function FinancialManagement() {
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}><DialogContent><DialogHeader><DialogTitle>{t('financialManagement.status')}</DialogTitle></DialogHeader><Label>{t('financialManagement.status')}</Label><Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="pending_approval">Pending Approval</SelectItem><SelectItem value="sent">Sent</SelectItem><SelectItem value="partially_paid">Partially Paid</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="overdue">Overdue</SelectItem><SelectItem value="cancelled">Canceled</SelectItem><SelectItem value="credited">Credited</SelectItem></SelectContent></Select><Label>Notiz</Label><Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} /><DialogFooter><Button variant="outline" onClick={() => setStatusDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onChangeStatus}>{t('common.save')}</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.markAsPaid')}</DialogTitle>
-            <DialogDescription>Teilzahlungen und Vollzahlungen strukturiert erfassen, prüfen und dokumentieren.</DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="text-xl font-bold" style={{ color: '#f5c800' }}>{t('financialManagement.markAsPaid')}</DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">Teilzahlungen und Vollzahlungen strukturiert erfassen, prüfen und dokumentieren.</DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4">
+
           {selectedInvoice && (
-            <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
-                <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge>
-              </div>
-              <div className="grid gap-2 md:grid-cols-3">
-                <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
-                <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
-                <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Zahlungsfortschritt</span>
-                  <span>{formatCurrency(selectedInvoiceOpenAmount)} offen</span>
+            <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+              <div className="bg-[#1a2a5e] px-3 py-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="font-semibold text-sm" style={{ color: '#f5c800' }}>{selectedInvoice.invoiceNumber}</div>
+                  <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge>
                 </div>
-                <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className="h-full bg-[#1a2a5e]"
-                    style={{ width: `${Math.min(100, Math.max(0, ((Number(selectedInvoice.paidAmount || 0) / Math.max(1, Number(selectedInvoice.total || 0))) * 100)))}%` }}
-                  />
+              </div>
+              <div className="bg-[#f8f9fc] p-3 text-sm space-y-2">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
+                  <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
+                  <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Zahlungsfortschritt</span>
+                    <span>{formatCurrency(selectedInvoiceOpenAmount)} offen</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full bg-[#1a2a5e]"
+                      style={{ width: `${Math.min(100, Math.max(0, ((Number(selectedInvoice.paidAmount || 0) / Math.max(1, Number(selectedInvoice.total || 0))) * 100)))}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          <Separator className="my-1" />
-
-          <div className="space-y-1">
-            <Label>Zahlungsart</Label>
+          <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+            <div className="bg-[#1a2a5e] px-3 py-2">
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zahlungsart</span>
+            </div>
+            <div className="bg-[#f8f9fc] p-3">
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className={`rounded-md border px-3 py-2 text-sm transition-colors ${paymentForm.scope === 'partial' ? 'border-[#1a2a5e] bg-[#1a2a5e] text-white' : 'border-input hover:bg-accent'}`}
+                className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${paymentForm.scope === 'partial' ? 'border-[#f5c800] bg-[#f5c800] text-[#1a2a5e]' : 'border-[#d8dce6] bg-white text-[#1a2a5e] hover:bg-[#f5c800]/10'}`}
                 onClick={() => setPaymentForm((p) => ({ ...p, scope: 'partial' }))}
               >
                 Teilzahlung
               </button>
               <button
                 type="button"
-                className={`rounded-md border px-3 py-2 text-sm transition-colors ${paymentForm.scope === 'full' ? 'border-[#1a2a5e] bg-[#1a2a5e] text-white' : 'border-input hover:bg-accent'}`}
+                className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${paymentForm.scope === 'full' ? 'border-[#f5c800] bg-[#f5c800] text-[#1a2a5e]' : 'border-[#d8dce6] bg-white text-[#1a2a5e] hover:bg-[#f5c800]/10'}`}
                 onClick={() => setPaymentForm((p) => ({ ...p, scope: 'full', amount: String(selectedInvoiceOpenAmount) }))}
               >
                 Vollzahlung (Restbetrag)
               </button>
             </div>
+            </div>
           </div>
 
+          <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+            <div className="bg-[#1a2a5e] px-3 py-2">
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zahlungsdetails</span>
+            </div>
+            <div className="bg-[#f8f9fc] p-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <Label>Betrag *</Label>
                 <button
                   type="button"
-                  className="text-xs text-[#1a2a5e] underline-offset-2 hover:underline"
+                  className="text-xs text-[#1a2a5e] underline-offset-2 hover:underline font-medium"
                   onClick={() => setPaymentForm((p) => ({ ...p, amount: String(selectedInvoiceOpenAmount), scope: 'full' }))}
                 >
                   Max. übernehmen
@@ -4269,6 +4284,8 @@ export function FinancialManagement() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
+                  <SelectItem value="prepayment">Vorkasse</SelectItem>
+                  <SelectItem value="cash">Bar</SelectItem>
                   <SelectItem value="credit_card">Kreditkarte</SelectItem>
                   <SelectItem value="debit_card">Debitkarte</SelectItem>
                   <SelectItem value="paypal">PayPal</SelectItem>
@@ -4286,7 +4303,14 @@ export function FinancialManagement() {
               />
             </div>
           </div>
+            </div>
+          </div>
 
+          <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+            <div className="bg-[#1a2a5e] px-3 py-2">
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zusatzinformationen</span>
+            </div>
+            <div className="bg-[#f8f9fc] p-3 space-y-3">
           <div className="space-y-1">
             <Label>Gateway/Provider Antwort (optional)</Label>
             <Textarea
@@ -4315,28 +4339,36 @@ export function FinancialManagement() {
             />
             <Label htmlFor="payment-notify" className="cursor-pointer">Kunden über Zahlungseingang informieren</Label>
           </div>
+            </div>
+          </div>
 
-          <div className="rounded-md border border-[#d8dce6] bg-slate-50 p-3 text-sm space-y-1">
-            <div className="font-semibold text-[#1a2a5e]">Zusammenfassung</div>
+          <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+            <div className="bg-[#1a2a5e] px-3 py-2">
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zusammenfassung</span>
+            </div>
+            <div className="bg-[#f8f9fc] p-3 text-sm space-y-1">
             <div className="grid gap-x-4 gap-y-0.5 md:grid-cols-2">
               <div><span className="text-muted-foreground">Vorgang:</span> {paymentForm.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung'}</div>
               <div><span className="text-muted-foreground">Methode:</span> {paymentMethodLabel[paymentForm.paymentMethod as Payment['paymentMethod']] || paymentForm.paymentMethod}</div>
               <div><span className="text-muted-foreground">Betrag:</span> <span className="font-semibold text-[#1a2a5e]">{formatCurrency(Number(paymentForm.amount || 0))}</span></div>
               <div><span className="text-muted-foreground">Rest nach Buchung:</span> {formatCurrency(Math.max(0, selectedInvoiceOpenAmount - Number(paymentForm.amount || 0)))}</div>
             </div>
+            </div>
           </div>
 
           {selectedInvoicePaymentHistory.length > 0 && (
-            <div className="space-y-2">
-              <Label>Bisherige Zahlungen zur Rechnung</Label>
-              <div className="rounded-md border border-input overflow-hidden">
+            <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+              <div className="bg-[#1a2a5e] px-3 py-2">
+                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Bisherige Zahlungen zur Rechnung</span>
+              </div>
+              <div className="overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Datum</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Methode</TableHead>
-                      <TableHead className="text-right">Betrag</TableHead>
+                    <TableRow className="bg-[#f8f9fc]">
+                      <TableHead className="text-[#1a2a5e] font-semibold">Datum</TableHead>
+                      <TableHead className="text-[#1a2a5e] font-semibold">Status</TableHead>
+                      <TableHead className="text-[#1a2a5e] font-semibold">Methode</TableHead>
+                      <TableHead className="text-right text-[#1a2a5e] font-semibold">Betrag</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4354,11 +4386,14 @@ export function FinancialManagement() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>{t('common.cancel')}</Button>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setPaymentDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={onAddPayment}
               disabled={!paymentForm.amount || Number(paymentForm.amount) <= 0 || Number(paymentForm.amount) > selectedInvoiceOpenAmount + 0.01}
+              className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800] disabled:opacity-50"
             >
               Zahlung buchen
             </Button>
