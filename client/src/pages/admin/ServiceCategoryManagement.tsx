@@ -78,6 +78,7 @@ export default function ServiceCategoryManagement() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
+  const [migrateFromName, setMigrateFromName] = useState('');
 
   // Form states
   const [formData, setFormData] = useState<CreateCategoryData>({
@@ -161,6 +162,7 @@ export default function ServiceCategoryManagement() {
         icon: formData.icon,
         color: formData.color,
         order: formData.order,
+        ...(migrateFromName.trim() ? { migrateFromName: migrateFromName.trim() } : {}),
       };
 
       const response = await updateServiceCategory(selectedCategory._id, updateData);
@@ -230,6 +232,7 @@ export default function ServiceCategoryManagement() {
 
   const openEditDialog = (category: ServiceCategory) => {
     setSelectedCategory(category);
+    setMigrateFromName('');
     setFormData({
       name: category.name,
       description: category.description,
@@ -247,6 +250,7 @@ export default function ServiceCategoryManagement() {
   };
 
   const resetForm = () => {
+    setMigrateFromName('');
     setFormData({
       name: '',
       description: '',
@@ -668,6 +672,21 @@ export default function ServiceCategoryManagement() {
                 placeholder="Display order"
                 className="h-8 text-xs"
               />
+            </div>
+            <div>
+              <Label htmlFor="edit-migrate-from" className="mb-1 block text-xs font-medium">
+                Dienste migrieren von (optional)
+              </Label>
+              <Input
+                id="edit-migrate-from"
+                value={migrateFromName}
+                onChange={(e) => setMigrateFromName(e.target.value)}
+                placeholder="Alter Kategoriename, z.B. Emergency"
+                className="h-8 text-xs"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Nur nötig wenn Dienste noch den alten Kategorienamen verwenden.
+              </p>
             </div>
           </div>
           <DialogFooter className="border-t bg-slate-50 px-3 py-2 sm:justify-end sm:space-x-1.5">
