@@ -1619,6 +1619,113 @@ class BookingService {
     }
   }
 
+  // Build invoice line items from actual (current) Order documents for a booking.
+  // Produces one InvoiceItem per service / addOn / shop-product so the invoice
+  // reflects the latest repair data, not the stale booking.items snapshot.
+  static async _buildInvoiceItems(booking) {
+    const orderIds = booking.orderIds || [];
+    if (orderIds.length === 0) return [];
+
+    const orders = await Order.find({ _id: { $in: orderIds } })
+      .populate('services.serviceId', 'name')
+      .populate('shopProducts.productId', 'name');
+
+    const bookingItemByOrderId = new Map();
+    (booking.items || []).forEach((item) => {
+      if (item?.orderId) bookingItemByOrderId.set(item.orderId.toString(), item);
+    });
+
+    const invoiceItems = [];
+
+    for (const order of orders) {
+      const bookingItem = bookingItemByOrderId.get(order._id.toString());
+      const deviceLabel = (
+        bookingItem?.device
+        || `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim()
+        || 'Gerät'
+      );
+
+      const isProductOrder = order.deviceType === 'Shop Products';
+
+      if (isProductOrder) {
+        if (order.shopProducts && order.shopProducts.length > 0) {
+          for (const prod of order.shopProducts) {
+            const qty = prod.quantity || 1;
+            invoiceItems.push({
+              description: prod.productId?.name || 'Produkt',
+              quantity: qty,
+              unitPrice: prod.priceAtOrder,
+              total: prod.priceAtOrder * qty,
+              type: 'product',
+            });
+          }
+        } else {
+          invoiceItems.push({
+            description: 'Produkte',
+            quantity: 1,
+            unitPrice: order.totalCost,
+            total: order.totalCost,
+            type: 'product',
+          });
+        }
+      } else {
+        let hasItems = false;
+
+        for (const svc of (order.services || [])) {
+          invoiceItems.push({
+            description: `${deviceLabel} – ${svc.serviceId?.name || 'Reparaturservice'}`,
+            quantity: 1,
+            unitPrice: svc.price,
+            total: svc.price,
+            type: 'service',
+          });
+          hasItems = true;
+        }
+
+        for (const addon of (order.addOns || [])) {
+          invoiceItems.push({
+            description: addon.name,
+            quantity: 1,
+            unitPrice: addon.price,
+            total: addon.price,
+            type: 'addon',
+          });
+          hasItems = true;
+        }
+
+        if (!hasItems) {
+          invoiceItems.push({
+            description: `${deviceLabel} Reparatur`,
+            quantity: 1,
+            unitPrice: order.totalCost,
+            total: order.totalCost,
+            type: 'service',
+          });
+        }
+      }
+    }
+
+    return invoiceItems;
+  }
+
+  // Compute invoice financial totals for gross-priced items (VAT is included in prices,
+  // not added on top). Extracts the tax portion using the configured tax rate.
+  static async _computeInvoiceTotals(invoiceItems, discount = 0) {
+    const config = await SystemConfiguration.findOne()
+      .select('financialSettings.defaults.taxRate')
+      .lean();
+    const taxRatePct = config?.financialSettings?.defaults?.taxRate ?? 19;
+
+    const itemsGrossTotal = invoiceItems.reduce((sum, item) => sum + (item.total || 0), 0);
+    const grossAfterDiscount = Math.max(0, itemsGrossTotal - discount);
+
+    // Prices are gross (inclusive of VAT) → extract tax: grossAfterDiscount × rate/(100+rate)
+    const tax = Math.round(grossAfterDiscount * taxRatePct / (100 + taxRatePct) * 100) / 100;
+    const subtotal = Math.round((grossAfterDiscount - tax) * 100) / 100;
+
+    return { subtotal, tax, discount, total: grossAfterDiscount };
+  }
+
   // Preview invoice for a booking
   static async previewInvoice(bookingId) {
     console.log('BookingService: Previewing invoice for booking:', bookingId);
@@ -1682,22 +1789,20 @@ class BookingService {
           booking.customerId?.invoiceAddress,
         );
 
-      // Build invoice preview
+      // Build invoice preview from current order data (not stale booking.items snapshot)
+      const previewItems = await BookingService._buildInvoiceItems(booking);
+      const previewTotals = await BookingService._computeInvoiceTotals(previewItems, booking.discount || 0);
+
       const invoicePreview = {
         customerName: `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim() || booking.customerId?.name || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim() || 'N/A',
         customerEmail: booking.customerId?.email || booking.guestInfo?.email || 'N/A',
         billingAddress,
         shippingAddress,
-        items: booking.items.map(item => ({
-          description: item.type === 'repair' ? item.device : 'Shop Products',
-          quantity: 1,
-          unitPrice: item.cost,
-          total: item.cost,
-        })),
-        subtotal: booking.subtotal || booking.totalCost,
-        tax: booking.tax || 0,
-        discount: booking.discount || 0,
-        total: booking.totalCost,
+        items: previewItems,
+        subtotal: previewTotals.subtotal,
+        tax: previewTotals.tax,
+        discount: previewTotals.discount,
+        total: previewTotals.total,
       };
 
       console.log('BookingService: Invoice preview generated successfully');
@@ -1782,26 +1887,12 @@ class BookingService {
 
       console.log('BookingService: Creating invoice with customer:', customerName, 'Email:', customerEmail);
 
-      // Build invoice items from booking with required type field
-      const invoiceItems = booking.items.map(item => {
-        // Determine item type based on booking item
-        let itemType = 'service'; // default
-        if (item.type === 'product') {
-          itemType = 'product';
-        } else if (item.type === 'repair') {
-          itemType = 'service';
-        }
+      // Build invoice items from current order data and compute correct totals.
+      // Prices are gross (VAT inclusive) – VAT is extracted, NOT added on top again.
+      const invoiceItems = await BookingService._buildInvoiceItems(booking);
+      const invoiceTotals = await BookingService._computeInvoiceTotals(invoiceItems, booking.discount || 0);
 
-        return {
-          description: item.type === 'repair' ? `${item.device} Repair` : 'Shop Products',
-          quantity: 1,
-          unitPrice: item.cost,
-          total: item.cost,
-          type: itemType,
-        };
-      });
-
-      console.log('BookingService: Created', invoiceItems.length, 'invoice items with types');
+      console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
       const shouldSendImmediately = Boolean(invoiceData.sendImmediately);
 
@@ -1812,15 +1903,16 @@ class BookingService {
         customerEmail: customerEmail,
         billingAddress: billingAddress || undefined,
         shippingAddress: shippingAddress || undefined,
-        orderId: primaryOrderId, // Link to first order for reference
+        orderId: primaryOrderId,
+        repairOrderIds: booking.orderIds || [],
         bookingId: booking._id,
         items: invoiceItems,
-        subtotal: booking.subtotal || booking.totalCost,
-        tax: booking.tax || 0,
-        discount: booking.discount || 0,
-        total: booking.totalCost,
+        subtotal: invoiceTotals.subtotal,
+        tax: invoiceTotals.tax,
+        discount: invoiceTotals.discount,
+        total: invoiceTotals.total,
         status: shouldSendImmediately ? 'sent' : 'draft',
-        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         notes: invoiceData.notes || '',
         sentAt: shouldSendImmediately ? new Date() : undefined,
       });

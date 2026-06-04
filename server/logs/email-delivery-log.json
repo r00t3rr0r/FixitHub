@@ -9409,5 +9409,134 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1780578317559-q1nyfqg65",
+    "timestamp": "2026-06-04T13:05:17.559Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<f4370125-9cbf-b275-9121-9e4573f3c19a@fixithub.com>",
+    "status": "sent",
+    "attempts": 2,
+    "duration": 1841,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780579799902-1oyvbqmrp",
+    "timestamp": "2026-06-04T13:29:59.902Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0011 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<2c2751f7-8026-bf60-7742-1d65de74148a@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1617,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1780579834593-olwe4lq2r",
+    "timestamp": "2026-06-04T13:30:34.593Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<01a9458e-2cbb-b6b1-0a68-4cf517b49da8@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1121,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1780579854173-vcc4vrix3",
+    "timestamp": "2026-06-04T13:30:54.173Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0009 von McRepair.de steht bereit",
+    "messageId": "<f51a9c70-e0b8-954c-2837-7852b6a41931@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1313,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
