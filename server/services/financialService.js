@@ -429,7 +429,9 @@ class FinancialService {
       const invoices = await Invoice.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit);
+        .limit(limit)
+        .populate('repairOrderIds', 'orderNumber status deviceType')
+        .populate('orderId', 'orderNumber status deviceType');
 
       const totalInvoices = await Invoice.countDocuments(query);
       const totalPages = Math.ceil(totalInvoices / limit);
@@ -1554,7 +1556,9 @@ class FinancialService {
     console.log('FinancialService: Getting invoice details for:', invoiceId);
 
     const invoice = await Invoice.findById(invoiceId)
-      .populate('creditNoteOf', 'invoiceNumber status total createdAt isCreditNote');
+      .populate('creditNoteOf', 'invoiceNumber status total createdAt isCreditNote')
+      .populate('repairOrderIds', 'orderNumber status deviceType deviceBrand deviceModel')
+      .populate('orderId', 'orderNumber status deviceType deviceBrand deviceModel');
     if (!invoice) throw new Error('Invoice not found');
 
     // Hydrate missing addresses for legacy invoices or paths that stored incomplete address data.

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Lock, CheckCircle, AlertCircle, HelpCircle, X } from "lucide-react"
+import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
 
 interface UnlockConfirmation {
   confirmedBy?: string
@@ -105,10 +106,8 @@ export function UnlockInformationDisplay({
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">
               {t('orderDetails.unlockPattern', 'Unlock Pattern')}
             </p>
-            <div className="flex items-center gap-2">
-              <div className="text-lg font-mono font-bold text-blue-600 dark:text-blue-400">
-                {unlockPattern.join(' → ')}
-              </div>
+            <div className="flex flex-col items-center gap-1">
+              <UnlockPatternVisual pattern={unlockPattern} size={150} />
               <span className="text-xs text-slate-500">
                 ({unlockPattern.length} {t('orderDetails.dots', 'dots')})
               </span>

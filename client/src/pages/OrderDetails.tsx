@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import type { MouseEvent as ReactMouseEvent } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,8 +29,8 @@ import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionVi
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
 import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModal"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
-import { OrderProgressTimeline } from "@/components/OrderProgressTimeline"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
+import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
@@ -100,7 +101,12 @@ import {
   ChevronDown,
   Download,
   Zap,
-  ExternalLink
+  ExternalLink,
+  Workflow,
+  ZoomIn,
+  ZoomOut,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -172,6 +178,11 @@ export function OrderDetails() {
   const [customerInspection, setCustomerInspection] = useState<any>(null)
   const [customerInspectionLoading, setCustomerInspectionLoading] = useState(false)
   const [diagnosisPopupOpen, setDiagnosisPopupOpen] = useState(false)
+  const [customerPhotoViewerOpen, setCustomerPhotoViewerOpen] = useState(false)
+  const [customerPhotoIndex, setCustomerPhotoIndex] = useState(0)
+  const [customerPhotoZoom, setCustomerPhotoZoom] = useState(1)
+  const [customerPhotoLensActive, setCustomerPhotoLensActive] = useState(false)
+  const [customerPhotoLensPosition, setCustomerPhotoLensPosition] = useState({ x: 50, y: 50 })
   const [repairDetailsPopupOpen, setRepairDetailsPopupOpen] = useState(false)
   const [repairServicesPopupOpen, setRepairServicesPopupOpen] = useState(false)
   const [complaintDialogOpen, setComplaintDialogOpen] = useState(false)
@@ -189,6 +200,8 @@ export function OrderDetails() {
   const [complaintActionLoading, setComplaintActionLoading] = useState<"ack" | "deny" | "">("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const [convertOfferBookingLoading, setConvertOfferBookingLoading] = useState(false)
+  const [commFeedbackOpen, setCommFeedbackOpen] = useState(false)
+  const [commQuickActionOpen, setCommQuickActionOpen] = useState(false)
   const [linkedBooking, setLinkedBooking] = useState<any | null>(null)
   const bookingTrackingRefreshRef = useRef<Record<string, number>>({})
   const { toast } = useToast()
@@ -500,10 +513,17 @@ export function OrderDetails() {
 
   useEffect(() => {
     document.body.classList.add('order-details-page')
+    const isStaffOrAdminUser = user?.role === 'admin' || user?.role === 'staff'
+    if (isStaffOrAdminUser) {
+      document.body.classList.add('order-details-admin')
+    } else {
+      document.body.classList.remove('order-details-admin')
+    }
     return () => {
       document.body.classList.remove('order-details-page')
+      document.body.classList.remove('order-details-admin')
     }
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
     if (!requestedWorkflowId) return
@@ -834,7 +854,7 @@ export function OrderDetails() {
         if (!customAddonName || !customAddonPrice) {
           toast({
             title: "Fehler",
-            description: "Bitte geben Sie Name und Preis fuer den Zusatzservice an.",
+            description: "Bitte geben Sie Name und Preis für den Zusatzservice an.",
             variant: "destructive"
           })
           return
@@ -844,7 +864,7 @@ export function OrderDetails() {
         if (Number.isNaN(parsedCustomPrice) || parsedCustomPrice <= 0) {
           toast({
             title: "Fehler",
-            description: "Der Preis muss groesser als 0 sein.",
+            description: "Der Preis muss größer als 0 sein.",
             variant: "destructive"
           })
           return
@@ -863,7 +883,7 @@ export function OrderDetails() {
 
       toast({
         title: "Erfolg",
-        description: "Zusatzservice wurde erfolgreich hinzugefuegt."
+        description: "Zusatzservice wurde erfolgreich hinzugefügt."
       })
 
       // Reset form
@@ -876,7 +896,7 @@ export function OrderDetails() {
       console.error("Error adding add-on:", error)
       toast({
         title: "Fehler",
-        description: error.message || "Zusatzservice konnte nicht hinzugefuegt werden.",
+        description: error.message || "Zusatzservice konnte nicht hinzugefügt werden.",
         variant: "destructive"
       })
     } finally {
@@ -1784,6 +1804,40 @@ export function OrderDetails() {
     return typeof modelImage === 'string' ? modelImage : null
   }
 
+  const getCustomerUploadedPhotos = (order: Order): string[] => {
+    if (!Array.isArray(order.photos)) {
+      return []
+    }
+    return order.photos.filter((photo) => typeof photo === 'string' && photo.trim().length > 0)
+  }
+
+  const openCustomerPhotoViewer = (index: number) => {
+    setCustomerPhotoIndex(index)
+    setCustomerPhotoZoom(1)
+    setCustomerPhotoLensActive(false)
+    setCustomerPhotoLensPosition({ x: 50, y: 50 })
+    setCustomerPhotoViewerOpen(true)
+  }
+
+  const showCustomerPhotoAt = (index: number, total: number) => {
+    if (total <= 0) return
+    const normalized = ((index % total) + total) % total
+    setCustomerPhotoIndex(normalized)
+    setCustomerPhotoZoom(1)
+    setCustomerPhotoLensActive(false)
+    setCustomerPhotoLensPosition({ x: 50, y: 50 })
+  }
+
+  const handleCustomerPhotoLensMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100
+    setCustomerPhotoLensPosition({
+      x: Math.min(100, Math.max(0, x)),
+      y: Math.min(100, Math.max(0, y)),
+    })
+  }
+
   const handleGenerateInspectionReport = async () => {
     if (!id) return
 
@@ -2613,6 +2667,168 @@ export function OrderDetails() {
     setRepairServicesPopupOpen(true)
   }
 
+  const renderAdditionalRepairInfo = () => (
+    <div className="space-y-3">
+      {/* Error Description */}
+      {order.errorDescription && order.errorDescription.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
+                {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
+              </h4>
+              <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                {order.errorDescription}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
+                {t('orderDetails.repairInfo.noInformationProvided') || 'Keine Fehlerbeschreibung vorhanden'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Water Damage */}
+      {order.waterDamage && order.waterDamage.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
+              </h4>
+            </div>
+            <Badge
+              variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
+              className={`text-xs px-2 py-0.5 ${
+                order.waterDamage === 'yes'
+                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
+                  : order.waterDamage === 'no'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage.charAt(0).toUpperCase() + order.waterDamage.slice(1)}
+            </Badge>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.waterDamageLabel') || 'Wasserschaden'}
+              </h4>
+            </div>
+            <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
+              {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
+            </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* Previous Repair Attempts */}
+      {order.previousRepairAttempts && order.previousRepairAttempts.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                  {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
+                </h4>
+              </div>
+              <Badge
+                variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
+                className={`text-xs px-2 py-0.5 ${
+                  order.previousRepairAttempts === 'yes'
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
+                    : order.previousRepairAttempts === 'no'
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts.charAt(0).toUpperCase() + order.previousRepairAttempts.slice(1)}
+              </Badge>
+            </div>
+            {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && order.previousRepairDetails.trim() && (
+              <div className="ml-6 pl-3 border-l-2 border-amber-400">
+                <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  {order.previousRepairDetails}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
+              </h4>
+            </div>
+            <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
+              {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
+            </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* Item Condition */}
+      {order.itemCondition && order.itemCondition.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                  {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
+              </h4>
+            </div>
+            <Badge
+              variant="secondary"
+              className={`text-xs px-2 py-0.5 ${
+                order.itemCondition === 'original'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
+                  : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
+              }`}
+            >
+              {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition.charAt(0).toUpperCase() + order.itemCondition.slice(1)}
+            </Badge>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
+              </h4>
+            </div>
+            <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
+              {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
+            </Badge>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   const renderDeviceInformationCard = () => (
     <Card id="order-device-info" className={`order-section-card ${!isStaffOrAdmin ? 'customer-device-card-shell' : ''}`}>
       <CardHeader className="order-section-header">
@@ -2681,28 +2897,50 @@ export function OrderDetails() {
           </div>
         </div>
 
-        {getDeviceModelPreviewImage(order) && (
-          <div className={`bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3 ${!isStaffOrAdmin ? 'customer-device-preview-card' : ''}`}>
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Modellbild Vorschau</p>
-            <img
-              src={getDeviceModelPreviewImage(order) as string}
-              alt={`${order.deviceBrand} ${order.deviceModel} Modellbild`}
-              className="h-20 w-20 rounded-md object-cover border border-slate-200 dark:border-slate-700"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
+        {getCustomerUploadedPhotos(order).length > 0 && (
+          <div className="customer-device-section bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                {t('orderDetails.customerUploadedPhotos', 'Hochgeladene Fotos')}
+              </p>
+              <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                {getCustomerUploadedPhotos(order).length}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {getCustomerUploadedPhotos(order).map((photo, idx) => (
+                <button
+                  key={`${photo}-${idx}`}
+                  type="button"
+                  onClick={() => openCustomerPhotoViewer(idx)}
+                  className="group relative aspect-square overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label={t('orderDetails.viewPhoto', 'Foto vergrößern')}
+                >
+                  <img
+                    src={photo}
+                    alt={`${order.deviceBrand} ${order.deviceModel} ${t('orderDetails.photo', 'Foto')} ${idx + 1}`}
+                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
+                    <ZoomIn className="h-5 w-5 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {order.customerNotes && (
-          <div className={`bg-muted/50 p-2 rounded-lg ${!isStaffOrAdmin ? 'customer-device-notes-card' : ''}`}>
+          <div className={`customer-device-section bg-muted/50 p-3 rounded-lg ${!isStaffOrAdmin ? 'customer-device-notes-card' : ''}`}>
             <h4 className="font-medium text-xs">{t('orderDetails.notes', 'Notes:')}</h4>
             <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{order.customerNotes}</p>
           </div>
         )}
 
-        <div id="order-device-lock" className={`space-y-2 border-t pt-3 ${!isStaffOrAdmin ? 'customer-device-lock-card' : ''}`}>
+        <div id="order-device-lock" className={`customer-device-section space-y-2 border-t pt-3 ${!isStaffOrAdmin ? 'customer-device-lock-card' : ''}`}>
           <h4 className="font-medium text-sm flex items-center gap-1.5">
             <Lock className="h-4 w-4 text-blue-600" />
             {t('orderDetails.deviceLockInformation', 'Device Lock Information')}
@@ -2710,13 +2948,13 @@ export function OrderDetails() {
 
           {order.unlockPattern && order.unlockPattern.length > 0 && (
             <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-0.5">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
                 {t('orderDetails.unlockPattern', 'Unlock Pattern')}
               </p>
-              <div className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                {order.unlockPattern.join(' → ')}
+              <div className="flex flex-col items-center gap-1">
+                <UnlockPatternVisual pattern={order.unlockPattern} size={140} />
+                <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
               </div>
-              <span className="text-xs text-slate-500">({order.unlockPattern.length} {t('orderDetails.dots', 'dots')})</span>
             </div>
           )}
 
@@ -2815,81 +3053,144 @@ export function OrderDetails() {
             </button>
           )}
 
-          {hasDeviceHistoryTimeline && (
-            <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
-              <div className="device-history-collapsible">
-                <CollapsibleTrigger asChild>
-                  <button type="button" className="device-history-trigger">
-                    <div className="device-history-trigger-copy">
-                      <span className="device-history-trigger-title">Auftragsverlauf &amp; Historie</span>
-                      <span className="device-history-trigger-summary">
-                        {progressHistoryEntries.length} Meilensteine • {orderHistoryEntries.length} Historieneinträge
-                      </span>
-                    </div>
-                    <ChevronDown className={`device-history-trigger-icon ${deviceHistoryOpen ? 'is-open' : ''}`} />
-                  </button>
-                </CollapsibleTrigger>
+          <div className="border-t pt-3 mt-1 space-y-2">
+            <h4 className="font-medium text-sm flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              {t('orderDetails.repairInfo.title') || 'Zusätzliche Reparaturinformationen'}
+            </h4>
+            {renderAdditionalRepairInfo()}
+          </div>
 
-                <CollapsibleContent className="device-history-content">
-                  <div className="device-history-section">
-                    <div className="device-history-section-heading">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>Fortschritt</span>
-                    </div>
-                    {progressHistoryEntries.length > 0 ? (
-                      <div className="device-history-list">
-                        {progressHistoryEntries.map((entry) => (
-                          <div key={entry.id} className="device-history-item">
-                            <div className={`device-history-marker is-${entry.tone}`} />
-                            <div className="device-history-item-body">
-                              <div className="device-history-item-head">
-                                <p className="device-history-item-title">{entry.title}</p>
-                                <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
-                              </div>
-                              <p className="device-history-item-description">{entry.description}</p>
-                              <p className="device-history-item-meta">{entry.meta}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="device-history-empty-state">Keine Fortschrittsmeilensteine verfügbar.</div>
-                    )}
-                  </div>
-
-                  <div className="device-history-section">
-                    <div className="device-history-section-heading">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Historie</span>
-                    </div>
-                    {orderHistoryEntries.length > 0 ? (
-                      <div className="device-history-list">
-                        {orderHistoryEntries.map((entry) => (
-                          <div key={entry.id} className="device-history-item">
-                            <div className={`device-history-marker is-${entry.tone}`} />
-                            <div className="device-history-item-body">
-                              <div className="device-history-item-head">
-                                <p className="device-history-item-title">{entry.title}</p>
-                                <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
-                              </div>
-                              <p className="device-history-item-description">{entry.description}</p>
-                              <p className="device-history-item-meta">{entry.meta}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="device-history-empty-state">Keine Historieneinträge vorhanden.</div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          )}
 
 
         </div>
       </CardContent>
+
+      <Dialog open={customerPhotoViewerOpen} onOpenChange={setCustomerPhotoViewerOpen}>
+        <DialogContent className="order-dialog-content sm:max-w-[860px]">
+          <DialogHeader className="order-dialog-header">
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              {t('orderDetails.customerUploadedPhotos', 'Hochgeladene Fotos')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('orderDetails.photoViewerHint', 'Bewegen Sie den Mauszeiger über das Bild für die Lupenfunktion oder nutzen Sie die Zoom-Tasten.')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {(() => {
+            const customerPhotos = getCustomerUploadedPhotos(order)
+            const total = customerPhotos.length
+            if (total === 0) {
+              return null
+            }
+            const safeIndex = Math.min(customerPhotoIndex, total - 1)
+            const activePhoto = customerPhotos[safeIndex]
+
+            return (
+              <div className="space-y-3">
+                <div
+                  className="relative mx-auto flex max-h-[60vh] w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                  onMouseEnter={() => setCustomerPhotoLensActive(true)}
+                  onMouseLeave={() => setCustomerPhotoLensActive(false)}
+                  onMouseMove={handleCustomerPhotoLensMove}
+                  style={{ cursor: customerPhotoLensActive ? 'zoom-in' : 'default' }}
+                >
+                  <img
+                    src={activePhoto}
+                    alt={`${order.deviceBrand} ${order.deviceModel} ${t('orderDetails.photo', 'Foto')} ${safeIndex + 1}`}
+                    className="max-h-[60vh] w-auto select-none object-contain transition-transform duration-150"
+                    style={{
+                      transform: `scale(${customerPhotoZoom})`,
+                      transformOrigin: `${customerPhotoLensPosition.x}% ${customerPhotoLensPosition.y}%`,
+                    }}
+                    draggable={false}
+                  />
+
+                  {customerPhotoLensActive && customerPhotoZoom === 1 && (
+                    <div
+                      className="pointer-events-none absolute hidden h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg sm:block"
+                      style={{
+                        left: `${customerPhotoLensPosition.x}%`,
+                        top: `${customerPhotoLensPosition.y}%`,
+                        backgroundImage: `url(${activePhoto})`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: '300% 300%',
+                        backgroundPosition: `${customerPhotoLensPosition.x}% ${customerPhotoLensPosition.y}%`,
+                      }}
+                    />
+                  )}
+
+                  {total > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => showCustomerPhotoAt(safeIndex - 1, total)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+                        aria-label={t('orderDetails.previousPhoto', 'Vorheriges Foto')}
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showCustomerPhotoAt(safeIndex + 1, total)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white"
+                        aria-label={t('orderDetails.nextPhoto', 'Nächstes Foto')}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-1">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPhotoZoom((z) => Math.max(1, Math.round((z - 0.5) * 10) / 10))}
+                      className="rounded p-1 text-white transition-colors hover:bg-white/20 disabled:opacity-40"
+                      disabled={customerPhotoZoom <= 1}
+                      aria-label={t('orderDetails.zoomOut', 'Verkleinern')}
+                    >
+                      <ZoomOut className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="min-w-[3rem] text-center text-xs font-medium text-white">
+                      {Math.round(customerPhotoZoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPhotoZoom((z) => Math.min(4, Math.round((z + 0.5) * 10) / 10))}
+                      className="rounded p-1 text-white transition-colors hover:bg-white/20 disabled:opacity-40"
+                      disabled={customerPhotoZoom >= 4}
+                      aria-label={t('orderDetails.zoomIn', 'Vergrößern')}
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {total > 1 && (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {customerPhotos.map((photo, idx) => (
+                      <button
+                        key={`thumb-${photo}-${idx}`}
+                        type="button"
+                        onClick={() => showCustomerPhotoAt(idx, total)}
+                        className={`h-14 w-14 overflow-hidden rounded-md border-2 transition-colors ${idx === safeIndex ? 'border-blue-500' : 'border-transparent hover:border-slate-300'}`}
+                        aria-label={`${t('orderDetails.photo', 'Foto')} ${idx + 1}`}
+                      >
+                        <img src={photo} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-center text-xs text-muted-foreground">
+                  {t('orderDetails.photo', 'Foto')} {safeIndex + 1} / {total}
+                </p>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 
@@ -2898,10 +3199,10 @@ export function OrderDetails() {
       <CardHeader className="order-section-header">
         <CardTitle className="order-section-title">
           <FileText className="h-5 w-5" />
-          {t('orderDetails.deviceInspection', 'Device Inspection')}
+          Geräteinspektion
         </CardTitle>
         <p className="order-section-description">
-          {t('orderDetails.deviceInspectionInlineHint', 'Start, continue, or review the inspection directly from device details.')}
+          Inspektion starten, fortsetzen oder Ergebnisse direkt einsehen.
         </p>
       </CardHeader>
       <CardContent className="pt-3">
@@ -4294,20 +4595,6 @@ export function OrderDetails() {
         renderCustomerLayout()
       ) : (
         <>
-          {/* Overall Progress Timeline */}
-          {progressTimeline && (
-            <div className="order-section-card">
-              <OrderProgressTimeline
-                stages={progressTimeline.stages.map((stage: any, index: number) => ({
-                  ...stage,
-                  id: stage.id || `stage-${index}`,
-                  label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-                }))}
-                currentStage={timelineCurrentStageId}
-              />
-            </div>
-          )}
-
           <div className="order-grid">
             {/* Main Content */}
             <div className="order-main-content space-y-4">
@@ -4323,181 +4610,14 @@ export function OrderDetails() {
                 <CardHeader className="order-section-header bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40">
                   <CardTitle className="order-section-title">
                     <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    Zusätzliche Reparaturinformationen
+                    {t('orderDetails.servicesAndProducts.title') || 'Reparaturleistungen & Produkte'}
                   </CardTitle>
                   <p className="order-section-description">
-                    {t('orderDetails.repairInfo.description') || 'Vom Kunden bereitgestellte Informationen zum Gerät und zu den Reparaturanforderungen'}
+                    {t('orderDetails.servicesAndProducts.description') || 'Gebuchte Reparaturdienste, Zusatzleistungen und Produkte für diesen Auftrag'}
                   </p>
                 </CardHeader>
                 <CardContent className="pt-3 space-y-3">
                   <div>
-                {/* Error Description */}
-                {order.errorDescription && order.errorDescription.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
-                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
-                        </h4>
-                        <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                          {order.errorDescription}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.errorDescriptionLabel') || 'Fehlerbeschreibung'}
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
-                          {t('orderDetails.repairInfo.noInformationProvided') || 'Keine Fehlerbeschreibung vorhanden'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Water Damage */}
-                {order.waterDamage && order.waterDamage.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Water Damage'}
-                        </h4>
-                      </div>
-                      <Badge
-                        variant={order.waterDamage === 'yes' ? 'destructive' : order.waterDamage === 'no' ? 'default' : 'secondary'}
-                        className={`text-xs px-2 py-0.5 ${
-                          order.waterDamage === 'yes'
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300'
-                            : order.waterDamage === 'no'
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {t(`orderDetails.repairInfo.waterDamage.${order.waterDamage}`) || order.waterDamage.charAt(0).toUpperCase() + order.waterDamage.slice(1)}
-                      </Badge>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.waterDamageLabel') || 'Wasserschaden'}
-                        </h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Previous Repair Attempts */}
-                {order.previousRepairAttempts && order.previousRepairAttempts.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
-                          </h4>
-                        </div>
-                        <Badge
-                          variant={order.previousRepairAttempts === 'yes' ? 'secondary' : 'default'}
-                          className={`text-xs px-2 py-0.5 ${
-                            order.previousRepairAttempts === 'yes'
-                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300'
-                              : order.previousRepairAttempts === 'no'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {t(`orderDetails.repairInfo.previousRepair.${order.previousRepairAttempts}`) || order.previousRepairAttempts.charAt(0).toUpperCase() + order.previousRepairAttempts.slice(1)}
-                        </Badge>
-                      </div>
-                      {order.previousRepairAttempts === 'yes' && order.previousRepairDetails && order.previousRepairDetails.trim() && (
-                        <div className="ml-6 pl-3 border-l-2 border-amber-400">
-                          <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                            {order.previousRepairDetails}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Wrench className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.previousRepairLabel') || 'Vorherige Reparaturversuche'}
-                        </h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Item Condition */}
-                {order.itemCondition && order.itemCondition.trim() ? (
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100">
-                            {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
-                        </h4>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={`text-xs px-2 py-0.5 ${
-                          order.itemCondition === 'original'
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300'
-                            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300'
-                        }`}
-                      >
-                        {t(`orderDetails.repairInfo.itemCondition.${order.itemCondition}`) || order.itemCondition.charAt(0).toUpperCase() + order.itemCondition.slice(1)}
-                      </Badge>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-gray-400 dark:text-gray-600" />
-                        <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
-                          {t('orderDetails.repairInfo.itemConditionLabel') || 'Gerätezustand'}
-                        </h4>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
-                        {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Information Notice */}
-                <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed">
-                      {t('orderDetails.repairInfo.infoNotice') || 'Diese Informationen helfen unseren Technikern, Ihr Gerät besser zu beurteilen und zu reparieren. Während der Inspektion können zusätzliche Details angefragt werden.'}
-                    </p>
-                  </div>
-                </div>
 
                 {renderRepairServicesSection()}
 
@@ -4519,14 +4639,6 @@ export function OrderDetails() {
                 <CardContent className="space-y-4 pt-2">
                   {isStaffOrAdmin ? (
                     <>
-                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => setStatusDropdownOpen(true)}>
-                        <Clock className="h-3 w-3 mr-1" />
-                        Status aktualisieren
-                      </Button>
-                      <Button className="w-full text-xs h-8" variant="outline" size="sm" onClick={() => scrollToSection('order-staff')}>
-                        <Users className="h-3 w-3 mr-1" />
-                        Personal verwalten
-                      </Button>
                     </>
                   ) : null}
 
@@ -4595,16 +4707,33 @@ export function OrderDetails() {
                     </div>
                   </div>
 
-                  <div id="order-quick-actions-communication" className="border-t pt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-blue-600" />
-                        <h4 className="font-medium text-sm">Customer Communication</h4>
-                      </div>
+                  <div id="order-quick-actions-communication" className="border-t pt-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1a2a5e]/10">
+                        <MessageSquare className="h-4 w-4 text-[#1a2a5e]" />
+                      </span>
+                      <h4 className="font-semibold text-sm text-[#1a2a5e]">Kundenkommunikation</h4>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Manage customer feedback, requests, and quick follow-ups in one place.
-                    </p>
+                    {isStaffOrAdmin && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                          onClick={() => setCommFeedbackOpen(true)}
+                        >
+                          <HelpCircle className="h-4 w-4 mr-1.5" />
+                          Rückmeldung
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                          onClick={() => setCommQuickActionOpen(true)}
+                        >
+                          <Zap className="h-4 w-4 mr-1.5" />
+                          Aktion
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Repair Offer Card — shown when complaint is denied and offer is pending */}
                     {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status === 'pending' && (
@@ -4721,11 +4850,88 @@ export function OrderDetails() {
                     )}
 
                     {id && (
-                      <div className="rounded-lg border p-2 bg-background">
-                        <CommunicationPanel
-                          orderId={id}
-                          inspectionId={order?._id}
-                        />
+                      <CommunicationPanel
+                        orderId={id}
+                        inspectionId={order?._id}
+                        variant="compact"
+                        feedbackOpen={commFeedbackOpen}
+                        onFeedbackOpenChange={setCommFeedbackOpen}
+                        quickActionOpen={commQuickActionOpen}
+                        onQuickActionOpenChange={setCommQuickActionOpen}
+                      />
+                    )}
+
+                    {hasDeviceHistoryTimeline && (
+                      <div className="border-t pt-3">
+                        <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
+                          <div className="device-history-collapsible">
+                            <CollapsibleTrigger asChild>
+                              <button type="button" className="device-history-trigger">
+                                <div className="device-history-trigger-copy">
+                                  <span className="device-history-trigger-title">Auftragsverlauf &amp; Historie</span>
+                                  <span className="device-history-trigger-summary">
+                                    {progressHistoryEntries.length} Meilensteine • {orderHistoryEntries.length} Historieneinträge
+                                  </span>
+                                </div>
+                                <ChevronDown className={`device-history-trigger-icon ${deviceHistoryOpen ? 'is-open' : ''}`} />
+                              </button>
+                            </CollapsibleTrigger>
+
+                            <CollapsibleContent className="device-history-content">
+                              <div className="device-history-section">
+                                <div className="device-history-section-heading">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  <span>Fortschritt</span>
+                                </div>
+                                {progressHistoryEntries.length > 0 ? (
+                                  <div className="device-history-list">
+                                    {progressHistoryEntries.map((entry) => (
+                                      <div key={entry.id} className="device-history-item">
+                                        <div className={`device-history-marker is-${entry.tone}`} />
+                                        <div className="device-history-item-body">
+                                          <div className="device-history-item-head">
+                                            <p className="device-history-item-title">{entry.title}</p>
+                                            <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
+                                          </div>
+                                          <p className="device-history-item-description">{entry.description}</p>
+                                          <p className="device-history-item-meta">{entry.meta}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="device-history-empty-state">Keine Fortschrittsmeilensteine verfügbar.</div>
+                                )}
+                              </div>
+
+                              <div className="device-history-section">
+                                <div className="device-history-section-heading">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  <span>Historie</span>
+                                </div>
+                                {orderHistoryEntries.length > 0 ? (
+                                  <div className="device-history-list">
+                                    {orderHistoryEntries.map((entry) => (
+                                      <div key={entry.id} className="device-history-item">
+                                        <div className={`device-history-marker is-${entry.tone}`} />
+                                        <div className="device-history-item-body">
+                                          <div className="device-history-item-head">
+                                            <p className="device-history-item-title">{entry.title}</p>
+                                            <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
+                                          </div>
+                                          <p className="device-history-item-description">{entry.description}</p>
+                                          <p className="device-history-item-meta">{entry.meta}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="device-history-empty-state">Keine Historieneinträge vorhanden.</div>
+                                )}
+                              </div>
+                            </CollapsibleContent>
+                          </div>
+                        </Collapsible>
                       </div>
                     )}
                   </div>
@@ -5157,21 +5363,24 @@ export function OrderDetails() {
 
       {/* Add Add-On Dialog */}
       <Dialog open={addAddonDialogOpen} onOpenChange={setAddAddonDialogOpen}>
-        <DialogContent className="order-dialog-content order-addon-dialog w-[96vw] max-w-[760px] max-h-[88vh] overflow-y-auto">
+        <DialogContent className="order-dialog-content order-addon-dialog w-[96vw] max-w-[760px] max-h-[88vh]">
           <DialogHeader className="order-dialog-header">
-            <DialogTitle>Zusatzservice hinzufuegen</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4 flex-shrink-0" />
+              Zusatzservice hinzufügen
+            </DialogTitle>
             <DialogDescription>
-              Waehlen Sie eine Vorlage oder erstellen Sie einen individuellen Zusatzservice fuer diesen Auftrag.
+              Wählen Sie eine Vorlage oder erstellen Sie einen individuellen Zusatzservice für diesen Auftrag.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pb-2">
+          <div className="order-dialog-body space-y-4 pb-2">
             <div className="order-dialog-segmented-toggle">
               <button
                 type="button"
                 className={`order-dialog-segmented-button ${addonInputMode === 'catalog' ? 'is-active' : ''}`}
                 onClick={() => setAddonInputMode('catalog')}
               >
-                Vorlage waehlen
+                Vorlage wählen
               </button>
               <button
                 type="button"
@@ -5187,6 +5396,9 @@ export function OrderDetails() {
 
             {addonInputMode === 'catalog' ? (
               <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
+                  1 · Zusatzservice auswählen
+                </p>
                 <div className="space-y-2 relative">
                   <Label htmlFor="addon-search">Vorlage suchen</Label>
                   <Input
@@ -5216,7 +5428,7 @@ export function OrderDetails() {
                     placeholder="Nach Name oder Beschreibung suchen"
                   />
                   {showAddonSuggestions && normalizedAddonSearch && (
-                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="mt-2 max-h-64 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
                       {addonSearchResults.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-muted-foreground">
                           Keine Treffer gefunden
@@ -5236,7 +5448,7 @@ export function OrderDetails() {
                           >
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-medium text-slate-900">{addon.name}</p>
-                              <span className="text-xs font-semibold text-slate-600">${safeToNumber(addon.price).toFixed(2)}</span>
+                              <span className="text-xs font-semibold text-slate-600">{safeToNumber(addon.price).toFixed(2)} €</span>
                             </div>
                             {addon.description && (
                               <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{addon.description}</p>
@@ -5254,7 +5466,7 @@ export function OrderDetails() {
                 </div>
 
                 <div>
-                  <Label htmlFor="addon-service">Zusatzservice auswaehlen</Label>
+                  <Label htmlFor="addon-service">Zusatzservice auswählen</Label>
                   <Select
                     value={selectedAddonService?._id || ""}
                     onValueChange={(value) => {
@@ -5263,7 +5475,7 @@ export function OrderDetails() {
                     }}
                   >
                     <SelectTrigger id="addon-service">
-                      <SelectValue placeholder="Zusatzservice auswaehlen..." />
+                      <SelectValue placeholder="Zusatzservice auswählen..." />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredAvailableAddons.length === 0 ? (
@@ -5271,7 +5483,7 @@ export function OrderDetails() {
                       ) : (
                         filteredAvailableAddons.map((addon) => (
                           <SelectItem key={addon._id} value={addon._id}>
-                            {addon.name} - ${safeToNumber(addon.price).toFixed(2)}
+                            {addon.name} - {safeToNumber(addon.price).toFixed(2)} €
                           </SelectItem>
                         ))
                       )}
@@ -5284,7 +5496,7 @@ export function OrderDetails() {
                     <p className="text-sm font-semibold text-slate-900">{selectedAddonService.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">{selectedAddonService.description || 'Keine Beschreibung vorhanden.'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full border bg-slate-50 px-2.5 py-1">${safeToNumber(selectedAddonService.price).toFixed(2)}</span>
+                      <span className="rounded-full border bg-slate-50 px-2.5 py-1">{safeToNumber(selectedAddonService.price).toFixed(2)} €</span>
                       {selectedAddonService.estimatedTime && (
                         <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedAddonService.estimatedTime}</span>
                       )}
@@ -5294,6 +5506,9 @@ export function OrderDetails() {
               </div>
             ) : (
               <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
+                  1 · Zusatzservice beschreiben
+                </p>
                 <div>
                   <Label htmlFor="custom-name">Name des Zusatzservices</Label>
                   <Input
@@ -5317,7 +5532,7 @@ export function OrderDetails() {
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <Label htmlFor="custom-price">Preis ($)</Label>
+                    <Label htmlFor="custom-price">Preis (€)</Label>
                     <Input
                       id="custom-price"
                       type="number"
@@ -5329,7 +5544,7 @@ export function OrderDetails() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="custom-time">Geschaetzte Zeit (optional)</Label>
+                    <Label htmlFor="custom-time">Geschätzte Zeit (optional)</Label>
                     <Input
                       id="custom-time"
                       value={customAddonTime}
@@ -5367,14 +5582,14 @@ export function OrderDetails() {
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Vorschau</p>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{addonPreviewName || 'Kein Zusatzservice ausgewaehlt'}</p>
+                  <p className="text-sm font-semibold text-slate-900">{addonPreviewName || 'Kein Zusatzservice ausgewählt'}</p>
                   <p className="text-xs text-slate-600 mt-1">
                     {addonPreviewTime || 'Keine Zeitangabe'}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-slate-900">${addonPreviewPrice.toFixed(2)}</p>
-                  <p className="text-xs text-slate-600">Auftragsgesamt nach Hinzufuegen: ${orderTotalAfterAddon.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-slate-900">{addonPreviewPrice.toFixed(2)} €</p>
+                  <p className="text-xs text-slate-600">Auftragsgesamt nach Hinzufügen: {orderTotalAfterAddon.toFixed(2)} €</p>
                 </div>
               </div>
             </div>
@@ -5394,10 +5609,10 @@ export function OrderDetails() {
                 onClick={resetAddOnForm}
                 disabled={submittingAddon}
               >
-                Formular zuruecksetzen
+                Formular zurücksetzen
               </Button>
               <Button onClick={handleAddAddon} disabled={!canSubmitAddon || submittingAddon}>
-                {submittingAddon ? 'Fuegt hinzu...' : 'Zusatzservice hinzufuegen'}
+                {submittingAddon ? 'Fügt hinzu...' : 'Zusatzservice hinzufügen'}
               </Button>
             </div>
           </DialogFooter>
@@ -5535,19 +5750,25 @@ export function OrderDetails() {
       <Dialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
         <DialogContent className="order-dialog-content sm:max-w-[600px]">
           <DialogHeader className="order-dialog-header">
-            <DialogTitle>Assign Workflow to Order</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Workflow className="h-4 w-4 flex-shrink-0" />
+              Workflow zuweisen
+            </DialogTitle>
             <DialogDescription>
-              Select a workflow template that matches this order's device type and services
+              Wählen Sie eine passende Workflow-Vorlage für den Gerätetyp und die Services dieses Auftrags.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+          <div className="space-y-3 max-h-[420px] overflow-y-auto py-1">
             {suggestedWorkflows.length > 0 ? (
               suggestedWorkflows.map((workflow: any) => (
-                <Card key={workflow._id} className="cursor-pointer hover:bg-accent/50 transition-colors">
+                <Card
+                  key={workflow._id}
+                  className="border-slate-200 transition-colors hover:border-[#1a2a5e] hover:bg-[#1a2a5e]/[0.03]"
+                >
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
-                        <CardTitle className="text-base">{workflow.name}</CardTitle>
+                        <CardTitle className="text-base text-slate-900">{workflow.name}</CardTitle>
                         <CardDescription className="mt-1">
                           {workflow.description}
                         </CardDescription>
@@ -5556,24 +5777,31 @@ export function OrderDetails() {
                         size="sm"
                         onClick={() => handleAssignWorkflow(workflow._id)}
                         disabled={assigningWorkflow}
+                        className="flex-shrink-0 gap-1"
                       >
-                        Assign
+                        {assigningWorkflow ? (
+                          <span className="inline-block animate-spin">⏳</span>
+                        ) : (
+                          <Plus className="h-3.5 w-3.5" />
+                        )}
+                        Zuweisen
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4" />
-                        {workflow.steps?.length || 0} steps
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-700">
+                        <CheckCircle className="h-3.5 w-3.5 text-[#1a2a5e]" />
+                        {workflow.steps?.length || 0} Schritte
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {workflow.estimatedTotalTime || 0} min
+                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-700">
+                        <Clock className="h-3.5 w-3.5 text-[#1a2a5e]" />
+                        {workflow.estimatedTotalTime || 0} Min.
                       </span>
                       {workflow.deviceTypes && workflow.deviceTypes.length > 0 && (
-                        <span>
-                          Devices: {workflow.deviceTypes.join(', ')}
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-700">
+                          <Smartphone className="h-3.5 w-3.5 text-[#1a2a5e]" />
+                          {workflow.deviceTypes.join(', ')}
                         </span>
                       )}
                     </div>
@@ -5581,16 +5809,18 @@ export function OrderDetails() {
                 </Card>
               ))
             ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No suggested workflows available</p>
-                <p className="text-sm">Create workflows in the admin panel that match this order's device type and services</p>
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/60 py-10 text-center">
+                <Workflow className="mb-2 h-10 w-10 text-slate-300" />
+                <p className="text-sm font-semibold text-slate-700">Keine passenden Workflows verfügbar</p>
+                <p className="mt-1 max-w-sm text-xs text-slate-500">
+                  Legen Sie im Admin-Bereich Workflows an, die zum Gerätetyp und den Services dieses Auftrags passen.
+                </p>
               </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setWorkflowDialogOpen(false)}>
-              Cancel
+              Abbrechen
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import "./BookingsManagement.css"
@@ -33,7 +33,8 @@ import {
   getRemindersByBooking
 } from "@/api/reminders"
 import {
-  getUnreadMessageCounts
+  getUnreadMessageCounts,
+  markMessagesAsRead as markInspectionMessagesAsRead
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
@@ -308,6 +309,9 @@ export function BookingsManagement() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+  // Track order IDs that were optimistically marked as read so periodic fetches don't restore their badges
+  const locallyReadOrderIds = useRef<Set<string>>(new Set())
+  const communicationDialogOpenRef = useRef(false)
   const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
   const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber?: string } | null>(null)
   const [activeHighlightedBookingId, setActiveHighlightedBookingId] = useState<string | null>(null)
@@ -341,6 +345,37 @@ export function BookingsManagement() {
 
     reopenBookingDialog()
   }, [location.state])
+
+  useEffect(() => {
+    const openByOrderId = (location.state as { openBookingByOrderId?: string } | null)?.openBookingByOrderId
+    if (!openByOrderId || filteredBookings.length === 0) {
+      return
+    }
+
+    const match = filteredBookings.find((b) =>
+      Array.isArray(b.orderIds) && b.orderIds.some((o: string | { _id: string }) =>
+        (typeof o === 'string' ? o : o._id) === openByOrderId
+      )
+    )
+    if (!match) return
+
+    const openDialog = async () => {
+      try {
+        setStatusFilter('all')
+        setBillingStatusFilter('all')
+        setCurrentPage(1)
+        setActiveHighlightedBookingId(match._id)
+        await new Promise((r) => window.setTimeout(r, 400))
+        const response = await getBooking(match._id)
+        setSelectedBooking(response.booking)
+        setShowDetailDialog(true)
+      } catch (error) {
+        console.error('BookingsManagement: Error opening booking by orderId:', error)
+      }
+    }
+
+    openDialog()
+  }, [location.state, filteredBookings])
 
   useEffect(() => {
     if (!highlightBookingIdFromQuery) {
@@ -402,8 +437,9 @@ export function BookingsManagement() {
       console.log('BookingsManagement: Bookings available, fetching unread counts')
       fetchUnreadCounts()
 
-      // Set up periodic refresh every 10 seconds
+      // Set up periodic refresh every 10 seconds, skip while chat dialog is open
       const intervalId = setInterval(() => {
+        if (communicationDialogOpenRef.current) return
         console.log('BookingsManagement: Auto-refreshing unread counts (periodic)')
         fetchUnreadCounts()
       }, 10000) // 10 seconds
@@ -498,8 +534,27 @@ export function BookingsManagement() {
 
       // Ensure we have an object to work with
       const countsToSet = counts && typeof counts === 'object' ? counts : {}
-      console.log('BookingsManagement: Setting unread counts state:', countsToSet)
-      setUnreadCounts(countsToSet)
+
+      // Remove entries for orders the user already opened (optimistically marked as read).
+      // If the server no longer reports unread for a locally-read order, it's confirmed read —
+      // remove from local set so future new messages show up again.
+      const filtered: typeof countsToSet = {}
+      for (const [id, val] of Object.entries(countsToSet)) {
+        if (locallyReadOrderIds.current.has(id)) {
+          // Server still reports unread — keep suppressing the badge (markAsRead may not have propagated yet)
+        } else {
+          filtered[id] = val
+        }
+      }
+      // Clean up local set for orders the server no longer reports as unread
+      for (const id of locallyReadOrderIds.current) {
+        if (!(id in countsToSet)) {
+          locallyReadOrderIds.current.delete(id)
+        }
+      }
+
+      console.log('BookingsManagement: Setting unread counts state:', filtered)
+      setUnreadCounts(filtered)
 
       // Log booking-to-order mapping for debugging
       let totalUnreadAcrossAllBookings = 0
@@ -546,6 +601,19 @@ export function BookingsManagement() {
 
   const openOrderCommunication = (orderId: string, orderNumber?: string) => {
     if (!orderId) return
+    // Mark as read on the server immediately — don't wait for CommunicationPanel to mount and load
+    markInspectionMessagesAsRead(orderId).catch((err) =>
+      console.error('BookingsManagement: Error marking messages as read:', err)
+    )
+    // Optimistically clear the unread count for this order so the badge disappears immediately
+    locallyReadOrderIds.current.add(orderId)
+    setUnreadCounts((prev) => {
+      if (!prev[orderId]) return prev
+      const updated = { ...prev }
+      delete updated[orderId]
+      return updated
+    })
+    communicationDialogOpenRef.current = true
     setSelectedCommunicationOrder({ orderId, orderNumber })
     setCommunicationDialogOpen(true)
   }
@@ -1810,10 +1878,14 @@ export function BookingsManagement() {
           <Dialog
             open={communicationDialogOpen && !!selectedCommunicationOrder}
             onOpenChange={(open) => {
+              communicationDialogOpenRef.current = open
               setCommunicationDialogOpen(open)
               if (!open) {
                 setSelectedCommunicationOrder(null)
-                fetchUnreadCounts()
+                // Delay refetch so the backend markAsRead has time to complete.
+                // Do NOT clear locallyReadOrderIds here — let fetchUnreadCounts handle
+                // cleanup when the server confirms 0 unread for that order.
+                setTimeout(() => fetchUnreadCounts(), 2000)
               }
             }}
           >
@@ -2368,7 +2440,7 @@ function BookingDetailDialog({
         <DialogTitle style={{ 
           fontSize: '1.15rem', 
           fontWeight: '700', 
-          color: 'var(--white, #ffffff)',
+          color: '#f5c800',
           marginBottom: '2px',
           letterSpacing: '-0.5px'
         }}>
@@ -2376,7 +2448,7 @@ function BookingDetailDialog({
         </DialogTitle>
         <DialogDescription style={{ 
           fontSize: '0.78rem', 
-          color: 'rgba(255,255,255,0.88)',
+          color: '#c8d0e7',
           fontWeight: '500'
         }}>
           Buchungs-ID: #{booking._id.slice(-8).toUpperCase()}
@@ -2475,11 +2547,11 @@ function BookingDetailDialog({
             }}
           >
             {/* Header row */}
-            <div className="flex items-center gap-2 mb-4">
-              <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
-                <User className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+            <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+              <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                <User className="h-4 w-4" style={{ color: '#f5c800' }} />
               </div>
-              <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+              <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                 Kundeninformationen
               </h3>
               {booking.guestInfo?.isGuest && (
@@ -2618,11 +2690,11 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
               }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
-                  <Activity className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+              <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                  <Activity className="h-4 w-4" style={{ color: '#f5c800' }} />
                 </div>
-                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                   Buchungsstatus
                 </h3>
               </div>
@@ -2669,11 +2741,11 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
               }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <div style={{ background: 'var(--accent-yellow, #f5b800)', borderRadius: '8px', padding: '6px' }}>
-                  <DollarSign className="h-4 w-4" style={{ color: 'var(--gray-900, #111827)' }} />
+              <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                  <DollarSign className="h-4 w-4" style={{ color: '#f5c800' }} />
                 </div>
-                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                   Finanzen
                 </h3>
               </div>
@@ -3122,8 +3194,8 @@ function BookingDetailDialog({
                   }}
                   className="hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem', fontWeight: '700' }}>
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                    <h4 className="font-semibold" style={{ color: '#f5c800', fontSize: '1.1rem', fontWeight: '700' }}>
                       Produktposition
                     </h4>
                     <Badge className={getStatusColor(item.status || 'pending')}>
@@ -3200,12 +3272,12 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '12px 18px', borderRadius: '16px 16px 0 0', margin: '-24px -24px 16px -24px', borderBottom: '1px solid #0f1d45' }}>
                     <h3
                       className="font-semibold text-lg flex items-center gap-2"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                      style={{ color: '#f5c800', fontWeight: '700' }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
                       Versandinformationen (Hinweg)
                     </h3>
                     {booking.shippingStatus && (
@@ -3349,12 +3421,12 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '12px 18px', borderRadius: '16px 16px 0 0', margin: '-24px -24px 16px -24px', borderBottom: '1px solid #0f1d45' }}>
                     <h3
                       className="font-semibold text-lg flex items-center gap-2"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                      style={{ color: '#f5c800', fontWeight: '700' }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
                       Ruecksendungsinformationen
                     </h3>
                     {booking.returnShipmentStatus && (
@@ -3478,7 +3550,7 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <h4 className="font-semibold mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem' }}>Ruecksendehinweise</h4>
+                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Ruecksendehinweise</h4>
                   <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--gray-600, #4a5568)', fontSize: '0.9rem' }}>
                     <li>Ruecksende-Label ausdrucken oder den QR-Code am Handy speichern</li>
                     <li>Artikel sicher in einem geeigneten Karton verpacken</li>
@@ -3742,7 +3814,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
             key={invoice._id}
             data-invoice-id={invoice._id}
             className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${highlightedInvoiceId === invoice._id ? 'invoice-card-highlight' : ''}`}
-            onClick={() => navigate(`/admin/financial?tab=invoices&highlightInvoiceId=${invoice._id}`)}
+            onClick={() => navigate(`/admin/financial?tab=overview&highlightInvoiceId=${invoice._id}`)}
             title="Zur Finanzverwaltung und dieser Rechnung wechseln"
           >
             <div className="flex items-start justify-between mb-3">

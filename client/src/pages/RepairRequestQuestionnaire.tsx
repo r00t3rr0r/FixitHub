@@ -112,6 +112,27 @@ export function RepairRequestQuestionnaire() {
 
   // Navigation back
   const navigateBack = () => {
+    const originState = location.state?.repairRequestOrigin as {
+      selectedRepairCategory?: string | null
+      selectedServiceId?: string
+      selectedServiceName?: string
+    } | undefined
+
+    let persistedBackContext: {
+      selectedRepairCategory?: string | null
+      selectedServiceId?: string
+      selectedServiceName?: string
+    } = {}
+
+    try {
+      const rawBackContext = sessionStorage.getItem("repairRequestBackContext")
+      if (rawBackContext) {
+        persistedBackContext = JSON.parse(rawBackContext)
+      }
+    } catch {
+      persistedBackContext = {}
+    }
+
     if (selectedDevice?.deviceType && selectedDevice?.manufacturer && selectedDevice?.name) {
       sessionStorage.setItem(
         "navDeviceSelection",
@@ -120,11 +141,15 @@ export function RepairRequestQuestionnaire() {
           manufacturer: selectedDevice.manufacturer,
           modelName: selectedDevice.name,
           searchQuery: selectedDevice.name,
+          selectedRepairCategory: originState?.selectedRepairCategory ?? persistedBackContext.selectedRepairCategory ?? null,
+          selectedServiceId: originState?.selectedServiceId ?? persistedBackContext.selectedServiceId,
+          selectedServiceName: originState?.selectedServiceName ?? persistedBackContext.selectedServiceName,
         })
       )
       sessionStorage.setItem("navConfiguratorStep", "3")
     }
-    navigate("/")
+    sessionStorage.removeItem("repairRequestBackContext")
+    navigate("/#repair-order-configurator")
   }
 
   // Device icon helper

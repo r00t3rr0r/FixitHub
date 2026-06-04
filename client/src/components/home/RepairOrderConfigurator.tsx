@@ -172,6 +172,8 @@ const formatPrice = (value: number) =>
     maximumFractionDigits: 2,
   }).format(value);
 
+const isPriceOnRequestService = (service: RepairService) => Number(service?.price || 0) <= 0;
+
 const getCategoryIcon = (category: string, size: 'sm' | 'md' = 'md') => {
   const cls = size === 'sm' ? 'w-4 h-4' : 'w-6 h-6';
   const cat = category.toLowerCase();
@@ -353,6 +355,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [hoveredTooltip, setHoveredTooltip] = useState<{ service: RepairService; left: number; top: number; arrowLeft: number } | null>(null);
   const shouldJumpToStep3Ref = useRef(false);
   const pendingServiceSelectionIdRef = useRef<string | null>(null);
+  const pendingRepairCategoryRef = useRef<string | null>(null);
   const TOOLTIP_WIDTH = 220;
   const TOOLTIP_MARGIN = 8;
 
@@ -496,6 +499,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
             const navDeviceSelection = JSON.parse(navDeviceSelectionJson);
             if (navDeviceSelection?.selectedServiceId) {
               pendingServiceSelectionIdRef.current = String(navDeviceSelection.selectedServiceId);
+            }
+            if (navDeviceSelection?.selectedRepairCategory) {
+              pendingRepairCategoryRef.current = String(navDeviceSelection.selectedRepairCategory);
             }
 
             const navPreselectedServiceJson = sessionStorage.getItem('navPreselectedService');
@@ -680,6 +686,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       try {
         if (navDeviceSelection?.selectedServiceId) {
           pendingServiceSelectionIdRef.current = String(navDeviceSelection.selectedServiceId);
+        }
+        if (navDeviceSelection?.selectedRepairCategory) {
+          pendingRepairCategoryRef.current = String(navDeviceSelection.selectedRepairCategory);
         }
 
         if (detailPreselectedService?._id) {
@@ -1223,6 +1232,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           // Use functional updater to avoid overwriting a category already set by
           // navigation auto-select (which runs synchronously before this async fetch completes).
           setSelectedRepairCategory(prev => {
+            if (pendingRepairCategoryRef.current && uniqueCategories.includes(pendingRepairCategoryRef.current)) {
+              const restoredCategory = pendingRepairCategoryRef.current;
+              pendingRepairCategoryRef.current = null;
+              return restoredCategory;
+            }
             if (prev !== null && uniqueCategories.includes(prev as string)) {
               return prev; // keep a valid pre-selected category
             }
@@ -1339,6 +1353,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
   // Handle repair selection
   const toggleRepairSelection = (service: RepairService) => {
+    if (isPriceOnRequestService(service)) {
+      navigateToRepairRequest();
+      return;
+    }
+
     setSelectedRepairs(prev => {
       const isSelected = prev.find(s => s._id === service._id);
       if (isSelected) {
@@ -1624,15 +1643,34 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       return;
     }
 
+    const selectedBrandName = manufacturers.find(m => m._id === selectedBrand)?.name || '';
+
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(
+        'repairRequestBackContext',
+        JSON.stringify({
+          deviceType: selectedDeviceType?.name || '',
+          manufacturer: selectedBrandName,
+          modelName: selectedModel.name,
+          selectedRepairCategory,
+        })
+      );
+    }
+
     navigate('/repair-request', {
       state: {
         device: {
           _id: selectedModel._id,
           name: selectedModel.name,
           deviceType: selectedDeviceType?.name || '',
-          manufacturer: manufacturers.find(m => m._id === selectedBrand)?.name || '',
+          manufacturer: selectedBrandName,
           manufacturerId: selectedBrand,
           image: selectedModel.image
+        },
+        repairRequestOrigin: {
+          fromConfigurator: true,
+          step: 3,
+          selectedRepairCategory,
         }
       }
     });
@@ -2099,7 +2137,11 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       {getCategoryIcon(service.category || '', 'md')}
                       <div className="repair-info">
                         <div className="repair-name">{service.name}</div>
-                        <div className="repair-price">{t('home.configurator.repairFrom', { price: formatPrice(service.price) })}</div>
+                        {isPriceOnRequestService(service) ? (
+                          <div className="repair-price repair-price-on-request">{t('home.configurator.priceOnRequest', 'Preis auf Anfrage')}</div>
+                        ) : (
+                          <div className="repair-price">{t('home.configurator.repairFrom', { price: formatPrice(service.price) })}</div>
+                        )}
                       </div>
                       {(service.shortDescription || service.description) && (
                         <div className="repair-card-info-wrap">

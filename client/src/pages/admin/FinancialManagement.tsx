@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -66,11 +66,14 @@ import {
   Banknote,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Download,
   Eye,
   FileSpreadsheet,
   ListChecks,
   Mail,
+  Package,
   PauseCircle,
   PlayCircle,
   Plus,
@@ -81,7 +84,9 @@ import {
   Settings,
   ShieldCheck,
   TrendingUp,
+  User,
   Wallet,
+  Wrench,
   XCircle
 } from 'lucide-react';
 
@@ -349,6 +354,7 @@ export function FinancialManagement() {
   const { t } = useTranslation()
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -359,6 +365,7 @@ export function FinancialManagement() {
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expandedInvoiceIds, setExpandedInvoiceIds] = useState<Set<string>>(new Set());
   const [report, setReport] = useState<FinancialReport | null>(null);
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [overdueInvoices, setOverdueInvoices] = useState<Invoice[]>([]);
@@ -930,9 +937,11 @@ export function FinancialManagement() {
 
   useEffect(() => {
     if (!tabFromQuery) return;
-    const supportedTabs = ['overview', 'dunning', 'invoices', 'payments', 'providers', 'settings', 'exports'];
-    if (supportedTabs.includes(tabFromQuery)) {
-      setActiveTab(tabFromQuery);
+    const tabAlias: Record<string, string> = { payments: 'invoices', providers: 'settings', exports: 'settings' };
+    const resolvedTab = tabAlias[tabFromQuery] || tabFromQuery;
+    const supportedTabs = ['overview', 'invoices', 'dunning', 'settings'];
+    if (supportedTabs.includes(resolvedTab)) {
+      setActiveTab(resolvedTab);
     }
   }, [tabFromQuery]);
 
@@ -956,7 +965,7 @@ export function FinancialManagement() {
       return;
     }
 
-    setActiveTab('invoices');
+    setActiveTab('overview');
     setActiveHighlightedInvoiceId(targetInvoice._id);
     setHandledHighlightInvoiceKey(highlightInvoiceIdFromQuery);
 
@@ -1574,6 +1583,51 @@ export function FinancialManagement() {
 
   const getInvoiceById = (invoiceId: string) => invoices.find((i) => i._id === invoiceId) || dunningEligibleInvoices.find((i) => i._id === invoiceId) || null;
 
+  const paymentsByInvoiceId = useMemo(() => {
+    const map = new Map<string, Payment[]>();
+    payments.forEach((payment) => {
+      if (!payment.invoiceId) return;
+      const key = String(payment.invoiceId);
+      const bucket = map.get(key) || [];
+      bucket.push(payment);
+      map.set(key, bucket);
+    });
+    return map;
+  }, [payments]);
+
+  const toggleInvoiceExpanded = (invoiceId: string) => {
+    setExpandedInvoiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(invoiceId)) {
+        next.delete(invoiceId);
+      } else {
+        next.add(invoiceId);
+      }
+      return next;
+    });
+  };
+
+  const openRefundForPayment = (payment: Payment) => {
+    const defaultProvider = payment.paymentMethod === 'paypal'
+      ? 'paypal'
+      : payment.paymentMethod === 'stripe'
+        ? 'stripe'
+        : '';
+
+    setSelectedPayment(payment);
+    setRefundForm({
+      amount: String(payment.amount),
+      reason: '',
+      reasonCategory: '',
+      internalNote: '',
+      mode: defaultProvider ? 'gateway' : 'manual',
+      gatewayProvider: defaultProvider,
+      gatewayReference: '',
+      notifyCustomer: false,
+    });
+    setRefundDialogOpen(true);
+  };
+
   const hydrateQueueFromRun = (run?: DunningRun | null) => {
     if (!run) {
       setDunningQueue([]);
@@ -2027,39 +2081,322 @@ export function FinancialManagement() {
             <p className="text-sm text-[#d8dce6]">{t('financialManagement.description')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="border-white/50 bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]" onClick={fetchFinancialData}>
+            <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={fetchFinancialData}>
               <RefreshCw className="mr-2 h-4 w-4" /> {t('common.refresh')}
             </Button>
-            <Button variant="outline" className="border-white/50 bg-white text-[#1a2a5e] hover:bg-[#f8f9fc]" onClick={onRunDunning}>
+            <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onRunDunning}>
               <Mail className="mr-2 h-4 w-4" /> Mahnlauf
             </Button>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.payments')}</CardDescription><CardTitle className="text-[#1a2a5e]">{formatCurrency(totals.paidAmount)}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground"><Wallet className="mr-1 inline h-3.5 w-3.5 text-[#2a3f7e]" />{t('financialManagement.completed')}</CardContent></Card>
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.invoices')}</CardDescription><CardTitle className="text-[#1a2a5e]">{totals.openCount}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground">{formatCurrency(totals.openAmount)}</CardContent></Card>
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.invoices')}</CardDescription><CardTitle className="text-[#1a2a5e]">{totals.overdueCount}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground">{formatCurrency(totals.overdueAmount)}</CardContent></Card>
-        <Card className="border-[#d8dce6]"><CardHeader className="pb-2"><CardDescription>{t('financialManagement.profit')}</CardDescription><CardTitle className="text-[#1a2a5e]">{formatCurrency(report?.netProfit || 0)}</CardTitle></CardHeader><CardContent className="pt-0 text-xs text-muted-foreground"><TrendingUp className="mr-1 inline h-3.5 w-3.5 text-[#2a3f7e]" />Marge: {Number(report?.grossMargin || 0).toFixed(1)}%</CardContent></Card>
-      </section>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7 border border-[#d8dce6] bg-[#f8f9fc]">
-          <TabsTrigger value="overview">Uebersicht</TabsTrigger>
-          <TabsTrigger value="dunning">Mahnlaeufe</TabsTrigger>
-          <TabsTrigger value="invoices">{t('financialManagement.invoices')}</TabsTrigger>
-          <TabsTrigger value="payments">{t('financialManagement.payments')}</TabsTrigger>
-          <TabsTrigger value="providers">Provider</TabsTrigger>
-          <TabsTrigger value="settings">Konfiguration</TabsTrigger>
-          <TabsTrigger value="exports">{t('financialManagement.reports')}</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 gap-1 border border-[#d8dce6] bg-[#f8f9fc]">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <TrendingUp className="mr-2 h-4 w-4" />Uebersicht
+          </TabsTrigger>
+          <TabsTrigger value="dunning" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <Mail className="mr-2 h-4 w-4" />Mahnwesen
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+            <Settings className="mr-2 h-4 w-4" />Einstellungen
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Mahnwesen & Faelligkeiten</CardTitle>
-              <CardDescription>Ueberfaellige Rechnungen und Mahnstufen-Monitoring.</CardDescription>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')}</CardTitle>
+                <div className="flex gap-2">
+                  <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+                    <DialogTrigger asChild><Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader><DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle><DialogDescription>{t('financialManagement.description')}</DialogDescription></DialogHeader>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label>Kunde suchen</Label>
+                          <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
+                          {customerResults.length > 0 && (
+                            <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
+                              {customerResults.map((c) => (
+                                <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
+                                  setInvoiceForm((prev) => ({ ...prev, customerId: c._id, customerName: c.name, customerEmail: c.email }));
+                                  setCustomerResults([]);
+                                  setCustomerQuery(c.name);
+                                }}>
+                                  <div className="font-medium text-[#1a2a5e]">{c.name}</div>
+                                  <div className="text-xs text-muted-foreground">{c.email}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div><Label>Kunden-ID</Label><Input value={invoiceForm.customerId} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerId: e.target.value }))} /></div>
+                          <div><Label>Order-ID</Label><Input value={invoiceForm.orderId} onChange={(e) => setInvoiceForm((p) => ({ ...p, orderId: e.target.value }))} /></div>
+                          <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
+                          <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
+                          <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+                          <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
+                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Line Items</Label>
+                            <Button variant="outline" size="sm" type="button" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position</Button>
+                          </div>
+                          {invoiceForm.items.map((item, index) => (
+                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] p-3 md:grid-cols-12">
+                              <div className="md:col-span-5"><Input placeholder="Beschreibung" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
+                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} /></div>
+                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} /></div>
+                              <div className="md:col-span-2">
+                                <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value)}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="service">Service</SelectItem>
+                                    <SelectItem value="addon">Add-On</SelectItem>
+                                    <SelectItem value="product">Teil</SelectItem>
+                                    <SelectItem value="fee">Gebuehr</SelectItem>
+                                    <SelectItem value="discount">Rabatt</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="md:col-span-1"><Button variant="ghost" size="icon" type="button" onClick={() => onRemoveInvoiceLineItem(index)}><AlertTriangle className="h-4 w-4 text-red-600" /></Button></div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
+                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
+                          {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrency(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
+                          <div className="flex justify-between"><span>Steuer ({invoiceForm.taxRate}%)</span><span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span></div>
+                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
+                        </div>
+                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
+                        <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
+                    <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Rechnung aus RepairOrder-IDs</DialogTitle><DialogDescription>Mehrere IDs kommasepariert eingeben.</DialogDescription></DialogHeader>
+                      <div className="space-y-2">
+                        <Label>RepairOrder IDs</Label><Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label>Steuer %</Label><Input type="number" value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Rabatt</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+                          <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
+                        </div>
+                      </div>
+                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 grid gap-2 md:grid-cols-4">
+                <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="cancelled">Canceled</SelectItem>
+                    <SelectItem value="credited">Credited</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
+                <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
+                <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
+                <Table>
+                  <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead>Buchung</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => {
+                      const invoicePayments = paymentsByInvoiceId.get(invoice._id) || [];
+                      const isExpanded = expandedInvoiceIds.has(invoice._id);
+                      return (
+                      <Fragment key={invoice._id}>
+                      <TableRow
+                        data-finance-invoice-row-id={invoice._id}
+                        className={`cursor-pointer ${activeHighlightedInvoiceId === invoice._id ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
+                        onClick={() => openInvoiceDetails(invoice)}
+                      >
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={invoicePayments.length === 0}
+                            title={invoicePayments.length === 0 ? 'Keine Zahlungsprozesse' : `${invoicePayments.length} Zahlungsprozess(e)`}
+                            onClick={() => toggleInvoiceExpanded(invoice._id)}
+                          >
+                            {invoicePayments.length === 0 ? (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                            ) : isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-[#1a2a5e]" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-[#1a2a5e]" />
+                            )}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span>{invoice.invoiceNumber}</span>
+                            {invoicePayments.length > 0 && (
+                              <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{invoice.customerName}</TableCell>
+                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
+                        <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.total)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.paidAmount || 0)}</TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          {invoice.orderId ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const oid = typeof invoice.orderId === 'object' ? (invoice.orderId as {_id: string})._id : invoice.orderId;
+                                navigate('/admin/bookings', { state: { openBookingByOrderId: oid } });
+                              }}
+                              className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
+                              title="Zur verknüpften Buchung"
+                            >
+                              <Package className="h-3 w-3" />
+                              Bestellung
+                            </button>
+                          ) : invoice.bookingId ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate('/admin/bookings', { state: { reopenBookingDialog: invoice.bookingId } })}
+                              className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
+                              title="Zur verknüpften Buchung"
+                            >
+                              <Calendar className="h-3 w-3" />
+                              Buchung
+                            </button>
+                          ) : invoice.repairOrderIds && invoice.repairOrderIds.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/admin/orders`)}
+                              className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
+                              title={invoice.repairOrderIds.map((r) =>
+                                typeof r === 'object' ? ((r as { orderNumber?: string }).orderNumber || (r as { _id: string })._id) : String(r)
+                              ).join(', ')}
+                            >
+                              <Wrench className="h-3 w-3" />
+                              {invoice.repairOrderIds.length} Auftrag{invoice.repairOrderIds.length > 1 ? 'e' : ''}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && invoicePayments.length > 0 && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={9} className="bg-[#f8f9fc] p-0">
+                            <div className="px-4 py-3">
+                              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
+                                <Wallet className="h-3.5 w-3.5" />Zahlungsprozesse
+                              </div>
+                              <div className="overflow-x-auto rounded-md border border-[#d8dce6] bg-white">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Prozess</TableHead>
+                                      <TableHead>{t('financialManagement.status')}</TableHead>
+                                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                                      <TableHead>{t('financialManagement.amount')}</TableHead>
+                                      <TableHead>{t('financialManagement.date')}</TableHead>
+                                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {invoicePayments.map((payment) => {
+                                      const metadata = (payment.metadata || {}) as Record<string, unknown>;
+                                      const processLabel = payment.status === 'refunded'
+                                        ? 'Erstattung abgeschlossen'
+                                        : payment.status === 'completed'
+                                          ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
+                                          : payment.status === 'disputed'
+                                            ? 'Dispute in Klärung'
+                                            : 'Zahlungsvorgang';
+                                      return (
+                                        <TableRow key={payment._id}>
+                                          <TableCell>
+                                            <div className="space-y-1">
+                                              <Badge variant="outline">{processLabel}</Badge>
+                                              <div className="text-xs text-muted-foreground">{payment.orderNumber || payment._id.slice(-8)}</div>
+                                              {payment.status === 'refunded' && (
+                                                <div className="text-xs text-purple-700">{formatCurrency(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
+                                          <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                                          <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
+                                          <TableCell>
+                                            <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
+                                            <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="max-w-[200px] truncate text-sm" title={payment.transactionId || payment.gatewayResponse || '-'}>
+                                              {payment.transactionId || payment.gatewayResponse || '-'}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            {payment.status === 'completed' && (
+                                              <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#d8dce6]">
+
+          <Card className="border-[#d8dce6]">
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Mahnwesen & Faelligkeiten</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Ueberfaellige Rechnungen und Mahnstufen-Monitoring.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {dunningEligibleInvoices.length === 0 ? (
@@ -2089,13 +2426,99 @@ export function FinancialManagement() {
               )}
             </CardContent>
           </Card>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Zahlungsprozesse filtern</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Filter wirken auf die unter den Rechnungen aufklappbaren Zahlungsprozesse. Zahlungen ohne Rechnungslink erscheinen darunter.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 grid gap-2 md:grid-cols-6">
+                <Select value={paymentFilters.status} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, status: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="refunded">Refunded</SelectItem>
+                    <SelectItem value="disputed">Disputed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={paymentFilters.method} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, method: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Methode" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="credit_card">Kreditkarte</SelectItem>
+                    <SelectItem value="debit_card">Debitkarte</SelectItem>
+                    <SelectItem value="paypal">PayPal</SelectItem>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={paymentFilters.dateFrom} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
+                <Input type="date" value={paymentFilters.dateTo} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateTo: e.target.value }))} />
+                <Button variant="outline" onClick={onApplyPaymentFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPaymentFilters({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
+                    getPayments({}).then((res) => setPayments(res.payments || []));
+                  }}
+                >
+                  {t('common.reset')}
+                </Button>
+              </div>
+              {payments.filter((p) => !p.invoiceId).length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />Zahlungen ohne Rechnungslink
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Prozess</TableHead>
+                          <TableHead>{t('financialManagement.customer')}</TableHead>
+                          <TableHead>{t('financialManagement.status')}</TableHead>
+                          <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                          <TableHead>{t('financialManagement.amount')}</TableHead>
+                          <TableHead>{t('financialManagement.date')}</TableHead>
+                          <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.filter((p) => !p.invoiceId).map((payment) => (
+                          <TableRow key={payment._id}>
+                            <TableCell>
+                              <div className="font-medium text-[#1a2a5e]">{payment.orderNumber || payment._id.slice(-8)}</div>
+                              <div className="text-xs text-muted-foreground">Ohne Rechnungslink</div>
+                            </TableCell>
+                            <TableCell>{payment.customerName}</TableCell>
+                            <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
+                            <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                            <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
+                            <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
+                            <TableCell className="text-right">
+                              {payment.status === 'completed' && (
+                                <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="dunning" className="space-y-4">
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Gespeicherte Mahnlaeufe</CardTitle>
-              <CardDescription>Persistente Mahnlaeufe laden, Status einsehen und den aktuellen Lauf zur Bearbeitung waehlen.</CardDescription>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Gespeicherte Mahnlaeufe</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Persistente Mahnlaeufe laden, Status einsehen und den aktuellen Lauf zur Bearbeitung waehlen.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-3 md:grid-cols-3">
@@ -2165,9 +2588,9 @@ export function FinancialManagement() {
           </Card>
 
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Manueller Mahnlauf-Builder</CardTitle>
-              <CardDescription>Mahnlauf haendisch erstellen, Fallliste steuern und waehrend der Verarbeitung eingreifen.</CardDescription>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Manueller Mahnlauf-Builder</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Mahnlauf haendisch erstellen, Fallliste steuern und waehrend der Verarbeitung eingreifen.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 md:grid-cols-3">
@@ -2197,7 +2620,7 @@ export function FinancialManagement() {
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={onSelectAllOverdue}><ListChecks className="mr-2 h-4 w-4" />Alle ueberfaelligen auswaehlen</Button>
                 <Button variant="outline" onClick={onClearDunningSelection}><XCircle className="mr-2 h-4 w-4" />Auswahl leeren</Button>
-                <Button onClick={onCreateManualDunningRun} className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"><PlayCircle className="mr-2 h-4 w-4" />Lauf aus Auswahl erstellen</Button>
+                <Button onClick={onCreateManualDunningRun} className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><PlayCircle className="mr-2 h-4 w-4" />Lauf aus Auswahl erstellen</Button>
                 <Button variant="outline" onClick={onExecuteDunningQueue} disabled={dunningExecuting || dunningPaused}><Send className="mr-2 h-4 w-4" />Auto-Verarbeitung starten</Button>
                 <Button variant="outline" onClick={onToggleDunningPause}>
                   {dunningPaused ? <PlayCircle className="mr-2 h-4 w-4" /> : <PauseCircle className="mr-2 h-4 w-4" />}
@@ -2213,9 +2636,9 @@ export function FinancialManagement() {
           </Card>
 
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Ueberfaellige Rechnungen (manuelle Auswahl)</CardTitle>
-              <CardDescription>Selektiere Faelle fuer den naechsten Mahnlauf und greife pro Rechnung direkt ein.</CardDescription>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Ueberfaellige Rechnungen (manuelle Auswahl)</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Selektiere Faelle fuer den naechsten Mahnlauf und greife pro Rechnung direkt ein.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
@@ -2274,9 +2697,9 @@ export function FinancialManagement() {
           </Card>
 
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Aktiver Mahnlauf</CardTitle>
-              <CardDescription>Im laufenden Prozess einzelne Faelle erneut senden, ueberspringen, eskalieren oder entfernen.</CardDescription>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Aktiver Mahnlauf</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Im laufenden Prozess einzelne Faelle erneut senden, ueberspringen, eskalieren oder entfernen.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
@@ -2339,343 +2762,9 @@ export function FinancialManagement() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="invoices" className="space-y-4">
+        <TabsContent value="settings" className="space-y-4">
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')}</CardTitle>
-                <div className="flex gap-2">
-                  <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                    <DialogTrigger asChild><Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-                      <DialogHeader><DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle><DialogDescription>{t('financialManagement.description')}</DialogDescription></DialogHeader>
-
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <Label>Kunde suchen</Label>
-                          <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
-                          {customerResults.length > 0 && (
-                            <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
-                              {customerResults.map((c) => (
-                                <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
-                                  setInvoiceForm((prev) => ({ ...prev, customerId: c._id, customerName: c.name, customerEmail: c.email }));
-                                  setCustomerResults([]);
-                                  setCustomerQuery(c.name);
-                                }}>
-                                  <div className="font-medium text-[#1a2a5e]">{c.name}</div>
-                                  <div className="text-xs text-muted-foreground">{c.email}</div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div><Label>Kunden-ID</Label><Input value={invoiceForm.customerId} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerId: e.target.value }))} /></div>
-                          <div><Label>Order-ID</Label><Input value={invoiceForm.orderId} onChange={(e) => setInvoiceForm((p) => ({ ...p, orderId: e.target.value }))} /></div>
-                          <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
-                          <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
-                          <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-                          <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
-                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
-                        </div>
-
-                        <Separator />
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label>Line Items</Label>
-                            <Button variant="outline" size="sm" type="button" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position</Button>
-                          </div>
-
-                          {invoiceForm.items.map((item, index) => (
-                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] p-3 md:grid-cols-12">
-                              <div className="md:col-span-5"><Input placeholder="Beschreibung" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
-                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} /></div>
-                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} /></div>
-                              <div className="md:col-span-2">
-                                <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value)}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="service">Service</SelectItem>
-                                    <SelectItem value="addon">Add-On</SelectItem>
-                                    <SelectItem value="product">Teil</SelectItem>
-                                    <SelectItem value="fee">Gebuehr</SelectItem>
-                                    <SelectItem value="discount">Rabatt</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="md:col-span-1"><Button variant="ghost" size="icon" type="button" onClick={() => onRemoveInvoiceLineItem(index)}><AlertTriangle className="h-4 w-4 text-red-600" /></Button></div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
-                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
-                          {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrency(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
-                          <div className="flex justify-between"><span>Steuer ({invoiceForm.taxRate}%)</span><span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span></div>
-                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
-                        </div>
-
-                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
-                      </div>
-
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
-                        <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
-                    <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#f8f9fc]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Rechnung aus RepairOrder-IDs</DialogTitle><DialogDescription>Mehrere IDs kommasepariert eingeben.</DialogDescription></DialogHeader>
-                      <div className="space-y-2">
-                        <Label>RepairOrder IDs</Label><Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
-                        <div className="grid grid-cols-2 gap-2">
-                          <div><Label>Steuer %</Label><Input type="number" value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-                          <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
-                        </div>
-                      </div>
-                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent>
-              <div className="mb-3 grid gap-2 md:grid-cols-4">
-                <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="cancelled">Canceled</SelectItem>
-                    <SelectItem value="credited">Credited</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
-                <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
-                <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
-              </div>
-
-              <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
-                <Table>
-                  <TableHeader><TableRow><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {invoices.map((invoice) => (
-                      <TableRow
-                        key={invoice._id}
-                        data-finance-invoice-row-id={invoice._id}
-                        className={`cursor-pointer ${activeHighlightedInvoiceId === invoice._id ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
-                        onClick={() => openInvoiceDetails(invoice)}
-                      >
-                        <TableCell>{invoice.invoiceNumber}</TableCell>
-                        <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
-                        <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
-                        <TableCell>{formatCurrency(invoice.total)}</TableCell>
-                        <TableCell>{formatCurrency(invoice.paidAmount || 0)}</TableCell>
-                        <TableCell onClick={(event) => event.stopPropagation()}>
-                          <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="payments" className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Abgeschlossene Zahlungen</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.completedCount}</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Volumen: {formatCurrency(paymentOverview.completedVolume)}</CardContent>
-            </Card>
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Erstattete Vorgänge</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.refundedCount}</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Volumen: {formatCurrency(paymentOverview.refundedVolume)}</CardContent>
-            </Card>
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Offene Prozesse</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.openCount}</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Fehlgeschlagen: {paymentOverview.failedCount}</CardContent>
-            </Card>
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="pb-2"><CardDescription>Erfolgsquote</CardDescription><CardTitle className="text-[#1a2a5e]">{paymentOverview.successRate.toFixed(1)}%</CardTitle></CardHeader>
-              <CardContent className="text-sm text-muted-foreground">Gesamtvorgänge: {paymentOverview.totalCount}</CardContent>
-            </Card>
-          </div>
-
-          <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Zahlungsprozesse verwalten</CardTitle>
-              <CardDescription>Filtern, überwachen, erstatten und direkt zur verknüpften Rechnung springen.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-3 grid gap-2 md:grid-cols-6">
-                <Select value={paymentFilters.status} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, status: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="refunded">Refunded</SelectItem>
-                    <SelectItem value="disputed">Disputed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={paymentFilters.method} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, method: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Methode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="credit_card">Kreditkarte</SelectItem>
-                    <SelectItem value="debit_card">Debitkarte</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="date" value={paymentFilters.dateFrom} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
-                <Input type="date" value={paymentFilters.dateTo} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateTo: e.target.value }))} />
-                <Button variant="outline" onClick={onApplyPaymentFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setPaymentFilters({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
-                    getPayments({}).then((res) => setPayments(res.payments || []));
-                  }}
-                >
-                  {t('common.reset')}
-                </Button>
-              </div>
-
-              <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('financialManagement.payments')}</TableHead>
-                      <TableHead>{t('financialManagement.customer')}</TableHead>
-                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
-                      <TableHead>{t('financialManagement.status')}</TableHead>
-                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
-                      <TableHead>{t('financialManagement.amount')}</TableHead>
-                      <TableHead>{t('financialManagement.date')}</TableHead>
-                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
-                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((payment) => {
-                      const metadata = (payment.metadata || {}) as Record<string, unknown>;
-                      const linkedInvoice = payment.invoiceId ? getInvoiceById(String(payment.invoiceId)) : null;
-                      const processLabel = payment.status === 'refunded'
-                        ? 'Erstattung abgeschlossen'
-                        : payment.status === 'completed'
-                          ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
-                          : payment.status === 'disputed'
-                            ? 'Dispute in Klärung'
-                            : 'Zahlungsvorgang';
-
-                      return (
-                        <TableRow key={payment._id}>
-                          <TableCell>
-                            <div className="font-medium text-[#1a2a5e]">{payment.orderNumber || payment._id.slice(-8)}</div>
-                            <div className="text-xs text-muted-foreground">{payment.invoiceId ? `Invoice: ${String(payment.invoiceId).slice(-8)}` : 'Ohne Rechnungslink'}</div>
-                          </TableCell>
-                          <TableCell>{payment.customerName}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Badge variant="outline">{processLabel}</Badge>
-                              {payment.status === 'refunded' && (
-                                <div className="text-xs text-purple-700">{formatCurrency(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
-                          <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
-                          <TableCell>{formatCurrency(payment.amount, payment.currency || 'EUR')}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
-                            <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-[220px] truncate text-sm" title={payment.transactionId || payment.gatewayResponse || '-'}>
-                              {payment.transactionId || payment.gatewayResponse || '-'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              {linkedInvoice && (
-                                <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(linkedInvoice)}>
-                                  <Eye className="mr-1 h-3.5 w-3.5" />Rechnung
-                                </Button>
-                              )}
-                              {payment.status === 'completed' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    const defaultProvider = payment.paymentMethod === 'paypal'
-                                      ? 'paypal'
-                                      : payment.paymentMethod === 'stripe'
-                                        ? 'stripe'
-                                        : '';
-
-                                    setSelectedPayment(payment);
-                                    setRefundForm({
-                                      amount: String(payment.amount),
-                                      reason: '',
-                                      reasonCategory: '',
-                                      internalNote: '',
-                                      mode: defaultProvider ? 'gateway' : 'manual',
-                                      gatewayProvider: defaultProvider,
-                                      gatewayReference: '',
-                                      notifyCustomer: false,
-                                    });
-                                    setRefundDialogOpen(true);
-                                  }}
-                                >
-                                  Erstattung
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {payments.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
-                          Keine Zahlungsvorgänge gefunden.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="providers" className="space-y-4">
-          <Card className="border-[#d8dce6]">
-            <CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {gateways.map((gateway) => (
                 <div key={gateway._id} className="rounded-md border border-[#d8dce6] p-3">
@@ -2702,21 +2791,18 @@ export function FinancialManagement() {
               ))}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
           <Card className="border-[#d8dce6]">
-            <CardHeader>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <CardTitle className="text-[#1a2a5e]">Abrechnungs- und Zahlungsparameter</CardTitle>
-                  <CardDescription>
+                  <CardTitle style={{ color: "#f5c800" }}>Abrechnungs- und Zahlungsparameter</CardTitle>
+                  <CardDescription className="text-[#c8d0e7]">
                     Konfiguriere zentrale Defaults fuer Steuer, Waehrung, Rabatte, Rechnungs-Metadaten und Versandlogik.
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <span>Letzte Aenderung: {systemConfig?.updatedAt ? formatDateTime(systemConfig.updatedAt) : '-'}</span>
-                  <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || !systemConfig}>
+                  <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || !systemConfig}>
                     <RefreshCw className={`mr-2 h-4 w-4 ${savingFinancialSettings ? 'animate-spin' : ''}`} />{t('common.save')}
                   </Button>
                 </div>
@@ -2726,9 +2812,9 @@ export function FinancialManagement() {
 
           <div className="grid gap-4 xl:grid-cols-3">
             <Card className="border-[#d8dce6]">
-              <CardHeader>
-                <CardTitle className="text-[#1a2a5e]">Steuer, Waehrung & Fristen</CardTitle>
-                <CardDescription>Defaults fuer neue Rechnungen, Zahlungsbuchungen und Gutschriften.</CardDescription>
+              <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+                <CardTitle style={{ color: "#f5c800" }}>Steuer, Waehrung & Fristen</CardTitle>
+                <CardDescription className="text-[#c8d0e7]">Defaults fuer neue Rechnungen, Zahlungsbuchungen und Gutschriften.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -2786,9 +2872,9 @@ export function FinancialManagement() {
             </Card>
 
             <Card className="border-[#d8dce6]">
-              <CardHeader>
-                <CardTitle className="text-[#1a2a5e]">Rabatte & Zahlungslogik</CardTitle>
-                <CardDescription>Steuere Nachlaesse, Teilzahlungen und Versandverhalten zentral.</CardDescription>
+              <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+                <CardTitle style={{ color: "#f5c800" }}>Rabatte & Zahlungslogik</CardTitle>
+                <CardDescription className="text-[#c8d0e7]">Steuere Nachlaesse, Teilzahlungen und Versandverhalten zentral.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -2829,9 +2915,9 @@ export function FinancialManagement() {
             </Card>
 
             <Card className="border-[#d8dce6]">
-              <CardHeader>
-                <CardTitle className="text-[#1a2a5e]">Rechnungs-Meta-Daten</CardTitle>
-                <CardDescription>Absender, Kennungen und visuelle Versand-Defaults fuer Rechnungen.</CardDescription>
+              <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+                <CardTitle style={{ color: "#f5c800" }}>Rechnungs-Meta-Daten</CardTitle>
+                <CardDescription className="text-[#c8d0e7]">Absender, Kennungen und visuelle Versand-Defaults fuer Rechnungen.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -2893,9 +2979,9 @@ export function FinancialManagement() {
           </div>
 
           <Card className="border-[#d8dce6]">
-            <CardHeader>
-              <CardTitle className="text-[#1a2a5e]">Wirkung der aktuellen Defaults</CardTitle>
-              <CardDescription>Die Werte unten fliessen direkt in neue Rechnungen, Teilzahlungen, Gutschriften und den Versand-Composer ein.</CardDescription>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
+              <CardTitle style={{ color: "#f5c800" }}>Wirkung der aktuellen Defaults</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">Die Werte unten fliessen direkt in neue Rechnungen, Teilzahlungen, Gutschriften und den Versand-Composer ein.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Standardsteuer:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.taxRate}%</div></div>
@@ -2904,13 +2990,13 @@ export function FinancialManagement() {
               <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Versandtheme:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.paymentPreferences.defaultVisualTheme}</div></div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="exports" className="space-y-4">
+          <Card className="border-[#d8dce6]">
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>Berichte &amp; Export</CardTitle><CardDescription className="text-[#c8d0e7]">Daten als CSV/JSON exportieren und Kennzahlen einsehen.</CardDescription></CardHeader>
+          </Card>
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader><CardTitle className="text-[#1a2a5e]">{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
           </div>
         </TabsContent>
       </Tabs>
@@ -2930,7 +3016,7 @@ export function FinancialManagement() {
             <div className="grid gap-4 lg:grid-cols-2">
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Versand & Formulierung</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Versand & Formulierung</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">
@@ -2986,7 +3072,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Verrechnungsfunktionen & Vorschau</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Verrechnungsfunktionen & Vorschau</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-2 md:grid-cols-2 text-sm">
@@ -3097,7 +3183,7 @@ export function FinancialManagement() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setSendComposerOpen(false)}>{t('common.cancel')}</Button>
-            <Button className="bg-[#1a2a5e] hover:bg-[#2a3f7e]" onClick={onSubmitSendComposer}>Jetzt senden</Button>
+            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSubmitSendComposer}>Jetzt senden</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3120,7 +3206,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Laufmanagement</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Laufmanagement</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   <Button
@@ -3168,7 +3254,7 @@ export function FinancialManagement() {
               </Card>
 
               <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2"><CardTitle className="text-base text-[#1a2a5e]">Faelle im Lauf</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base" style={{ color: "#f5c800" }}>Faelle im Lauf</CardTitle></CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
                     <Table>
@@ -3206,7 +3292,7 @@ export function FinancialManagement() {
               </Card>
 
               <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2"><CardTitle className="text-base text-[#1a2a5e]">Laufhistorie</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base" style={{ color: "#f5c800" }}>Laufhistorie</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {(selectedDunningRun.logs || []).slice().reverse().map((log, idx) => (
                     <div key={`${log.at || 'log'}-${idx}`} className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
@@ -3258,7 +3344,7 @@ export function FinancialManagement() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Card className="border-[#d8dce6]">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Mahnungsdaten</CardTitle>
+                    <CardTitle className="text-base" style={{ color: "#f5c800" }}>Mahnungsdaten</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
@@ -3273,7 +3359,7 @@ export function FinancialManagement() {
 
                 <Card className="border-[#d8dce6]">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Eingriff in Mahnlauf</CardTitle>
+                    <CardTitle className="text-base" style={{ color: "#f5c800" }}>Eingriff in Mahnlauf</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <div>
@@ -3306,7 +3392,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Relevante Rechnungspositionen</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Relevante Rechnungspositionen</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
@@ -3343,7 +3429,7 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Aktivitaets-Timeline</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Aktivitaets-Timeline</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -3387,22 +3473,27 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={invoiceDetailsDialogOpen} onOpenChange={setInvoiceDetailsDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <FileSpreadsheet className="h-5 w-5" />
               Rechnungsdetails
+              {selectedInvoice?.invoiceNumber && (
+                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoice.invoiceNumber}</span>
+              )}
               {selectedInvoice?.isCreditNote && (
-                <Badge className="bg-violet-100 text-violet-700 border-violet-300 border">Gutschrift</Badge>
+                <Badge className="bg-violet-500/90 text-white border border-violet-300 ml-2">Gutschrift</Badge>
               )}
               {selectedInvoice?.status === 'credited' && !selectedInvoice?.isCreditNote && (
-                <Badge className="bg-orange-100 text-orange-700 border-orange-300 border">Gutgeschrieben</Badge>
+                <Badge className="bg-orange-500/90 text-white border border-orange-300 ml-2">Gutgeschrieben</Badge>
               )}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-[#c8d0e7]">
               Vollstaendige Detailansicht inkl. Zahlungen, Erstattungen und Gutschriften.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4">
           {invoiceDetailLoading && (
             <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -3446,33 +3537,32 @@ export function FinancialManagement() {
               {/* ── Stat cards ────────────────────────────────────────────── */}
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Rechnungsnummer</div>
-                  <div className="font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsnummer</div>
+                  <div className="mt-1 font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
                   <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge></div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Gesamtbetrag</div>
-                  <div className="font-semibold text-[#1a2a5e]">{formatCurrency(selectedInvoice.total)}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamtbetrag</div>
+                  <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(selectedInvoice.total)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Offen</div>
-                  <div className="font-semibold text-[#1a2a5e]">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
+                  <div className="mt-1 font-semibold text-red-700">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
                 </div>
               </div>
 
-              <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Schnellaktionen</CardTitle>
-                  <CardDescription>Aktionen direkt aus den Rechnungsdetails ausfuehren.</CardDescription>
+              <Card className="border-[#d8dce6] overflow-hidden">
+                <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Schnellaktionen</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
                       onClick={() => {
                         setInvoiceDetailsDialogOpen(false);
                         openSendComposer(selectedInvoice, 'invoice');
@@ -3482,7 +3572,7 @@ export function FinancialManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
                       onClick={() => {
                         setInvoiceDetailsDialogOpen(false);
                         openStatusDialog(selectedInvoice);
@@ -3492,7 +3582,7 @@ export function FinancialManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e] disabled:opacity-50"
                       disabled={!canRecordPayment(selectedInvoice)}
                       title={canRecordPayment(selectedInvoice)
                         ? 'Teilzahlung erfassen'
@@ -3506,7 +3596,7 @@ export function FinancialManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e] disabled:opacity-50"
                       disabled={
                         !['paid', 'cancelled', 'credited'].includes(selectedInvoice.status) ||
                         selectedInvoice.isCreditNote ||
@@ -3517,89 +3607,164 @@ export function FinancialManagement() {
                         openCreditDialog(selectedInvoice);
                       }}
                     >
-                      Gutschrift erstellen
+                      <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />Gutschrift erstellen
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* ── Customer & Lifecycle ─────────────────────────────────── */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Kunde, Rechnungs- & Lieferadresse</CardTitle>
+              {/* ── Customer & Orders side by side ───────────────────────── */}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Kundendaten</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
-                    <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
-                    <Separator />
-                    {hasAddressData(selectedInvoiceAddress) ? (
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsadresse</div>
-                          <div className="mt-1 space-y-1">
-                            <div>{(selectedInvoiceAddress as any).company || (selectedInvoiceAddress as any).name || '-'}</div>
-                            <div>{(selectedInvoiceAddress as any).street || '-'} {(selectedInvoiceAddress as any).houseNumber || ''}</div>
-                            <div>{(selectedInvoiceAddress as any).zipCode || (selectedInvoiceAddress as any).zip || '-'} {(selectedInvoiceAddress as any).city || '-'}</div>
-                            <div>{(selectedInvoiceAddress as any).state || '-'}</div>
-                            <div>{(selectedInvoiceAddress as any).country || '-'}</div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lieferadresse</div>
-                          <div className="mt-1 space-y-1">
-                            {selectedInvoiceShippingSameAsBilling ? (
-                              <div className="italic text-muted-foreground">Identisch mit Rechnungsadresse</div>
-                            ) : hasAddressData(selectedInvoiceShippingAddress) ? (
-                              <>
-                                <div>{(selectedInvoiceShippingAddress as any).company || (selectedInvoiceShippingAddress as any).name || '-'}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).street || '-'} {(selectedInvoiceShippingAddress as any).houseNumber || ''}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).zipCode || (selectedInvoiceShippingAddress as any).zip || '-'} {(selectedInvoiceShippingAddress as any).city || '-'}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).state || '-'}</div>
-                                <div>{(selectedInvoiceShippingAddress as any).country || '-'}</div>
-                              </>
-                            ) : (
-                              <div className="text-muted-foreground">Nicht angegeben</div>
-                            )}
-                          </div>
+                  <CardContent className="p-3 space-y-3 text-sm">
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 items-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">Kunde:</span>
+                        {selectedInvoice.customerId ? (
+                          <Badge
+                            className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
+                            onClick={() => {
+                              setInvoiceDetailsDialogOpen(false);
+                              const cid = typeof selectedInvoice.customerId === 'object' && selectedInvoice.customerId !== null
+                                ? (selectedInvoice.customerId as unknown as { _id: string })._id
+                                : selectedInvoice.customerId;
+                              navigate('/admin/users', { state: { reopenUserDetailsId: cid } });
+                            }}
+                          >
+                            <User className="h-3 w-3" />
+                            {selectedInvoice.customerName}
+                          </Badge>
+                        ) : (
+                          <span>{selectedInvoice.customerName}</span>
+                        )}
+                      </div>
+                      <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
+                    </div>
+                    {/* Adressen nebeneinander */}
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {/* Rechnungsadresse */}
+                      <div className="rounded-md border border-[#d8dce6] overflow-hidden">
+                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>Rechnungsadresse</div>
+                        <div className="p-3">
+                          {hasAddressData(selectedInvoiceAddress) ? (
+                            <div className="space-y-0.5">
+                              <div className="font-medium">{(selectedInvoiceAddress as any).company || (selectedInvoiceAddress as any).name || '-'}</div>
+                              <div>{(selectedInvoiceAddress as any).street || '-'} {(selectedInvoiceAddress as any).houseNumber || ''}</div>
+                              <div>{(selectedInvoiceAddress as any).zipCode || (selectedInvoiceAddress as any).zip || '-'} {(selectedInvoiceAddress as any).city || '-'}</div>
+                              {(selectedInvoiceAddress as any).state && <div>{(selectedInvoiceAddress as any).state}</div>}
+                              <div className="text-muted-foreground">{(selectedInvoiceAddress as any).country || '-'}</div>
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground text-xs italic">Keine Rechnungsadresse enthalten.</div>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <div className="rounded-md border border-dashed border-[#d8dce6] p-2 text-muted-foreground">
-                        Keine Rechnungsadresse in der Rechnung enthalten.
+                      {/* Lieferadresse */}
+                      <div className="rounded-md border border-[#d8dce6] overflow-hidden">
+                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>Lieferadresse</div>
+                        <div className="p-3">
+                          {selectedInvoiceShippingSameAsBilling ? (
+                            <div className="text-muted-foreground italic text-xs">↑ Identisch mit Rechnungsadresse</div>
+                          ) : hasAddressData(selectedInvoiceShippingAddress) ? (
+                            <div className="space-y-0.5">
+                              <div className="font-medium">{(selectedInvoiceShippingAddress as any).company || (selectedInvoiceShippingAddress as any).name || '-'}</div>
+                              <div>{(selectedInvoiceShippingAddress as any).street || '-'} {(selectedInvoiceShippingAddress as any).houseNumber || ''}</div>
+                              <div>{(selectedInvoiceShippingAddress as any).zipCode || (selectedInvoiceShippingAddress as any).zip || '-'} {(selectedInvoiceShippingAddress as any).city || '-'}</div>
+                              {(selectedInvoiceShippingAddress as any).state && <div>{(selectedInvoiceShippingAddress as any).state}</div>}
+                              <div className="text-muted-foreground">{(selectedInvoiceShippingAddress as any).country || '-'}</div>
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground text-xs italic">Keine Lieferadresse angegeben.</div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Verknuepfte Orders & Lifecycle</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Orders &amp; Lifecycle</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div><span className="text-muted-foreground">Order-ID:</span> {formatReferenceValue(selectedInvoice.orderId)}</div>
-                    <div>
-                      <span className="text-muted-foreground">RepairOrder-IDs:</span>{' '}
-                      {formatReferenceList(selectedInvoice.repairOrderIds)}
+                  <CardContent className="p-3 space-y-2 text-sm">
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
+                      {/* Order-ID Badge */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground">Buchung:</span>
+                        {selectedInvoice.orderId ? (() => {
+                          const isObj = typeof selectedInvoice.orderId === 'object' && selectedInvoice.orderId !== null;
+                          const oid = isObj ? (selectedInvoice.orderId as { _id: string })._id : selectedInvoice.orderId as string;
+                          const label = isObj
+                            ? ((selectedInvoice.orderId as { orderNumber?: string }).orderNumber || oid.slice(-6))
+                            : oid.slice(-6);
+                          return (
+                            <Badge
+                              className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
+                              onClick={() => {
+                                setInvoiceDetailsDialogOpen(false);
+                                navigate(`/orders/${oid}`);
+                              }}
+                            >
+                              <Package className="h-3 w-3" />
+                              {label}
+                            </Badge>
+                          );
+                        })() : <span className="text-muted-foreground italic text-xs">–</span>}
+                      </div>
+                      {/* RepairOrder Badges */}
+                      {selectedInvoice.repairOrderIds && selectedInvoice.repairOrderIds.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-muted-foreground">Reparaturaufträge:</span>
+                          {selectedInvoice.repairOrderIds.map((rid) => {
+                            const isObj = typeof rid === 'object' && rid !== null;
+                            const id = isObj ? (rid as { _id: string })._id : (rid as string);
+                            const label = isObj
+                              ? ((rid as { orderNumber?: string }).orderNumber || id.slice(-6))
+                              : id.slice(-6);
+                            const r = isObj ? rid as { deviceBrand?: string; deviceModel?: string; deviceType?: string } : null;
+                            const tooltip = r
+                              ? [label, r.deviceBrand, r.deviceModel].filter(Boolean).join(' – ')
+                              : label;
+                            return (
+                              <Badge
+                                key={id}
+                                className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
+                                title={tooltip}
+                                onClick={() => {
+                                  setInvoiceDetailsDialogOpen(false);
+                                  navigate(`/orders/${id}`);
+                                }}
+                              >
+                                <Wrench className="h-3 w-3" />
+                                {label}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div><span className="text-muted-foreground">Erstellt:</span> {formatDate(selectedInvoice.createdAt)}</div>
-                    <div><span className="text-muted-foreground">Faellig:</span> {formatDate(selectedInvoice.dueDate)}</div>
-                    <div><span className="text-muted-foreground">Gesendet:</span> {formatDate(selectedInvoice.sentAt)}</div>
-                    <div><span className="text-muted-foreground">Bezahlt:</span> {formatDate(selectedInvoice.paidAt)}</div>
-                    <div><span className="text-muted-foreground">Zahlungsziel:</span> {selectedInvoice.paymentTerms || '-'}</div>
-                    <div><span className="text-muted-foreground">Template:</span> {selectedInvoice.template || '-'}</div>
+                    <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 pt-1 border-t border-[#d8dce6]">
+                      <div><span className="text-muted-foreground">Erstellt:</span> {formatDate(selectedInvoice.createdAt)}</div>
+                      <div><span className="text-muted-foreground">Faellig:</span> {formatDate(selectedInvoice.dueDate)}</div>
+                      <div><span className="text-muted-foreground">Gesendet:</span> {formatDate(selectedInvoice.sentAt)}</div>
+                      <div><span className="text-muted-foreground">Bezahlt:</span> {formatDate(selectedInvoice.paidAt)}</div>
+                      <div><span className="text-muted-foreground">Zahlungsziel:</span> {selectedInvoice.paymentTerms || '-'}</div>
+                      <div><span className="text-muted-foreground">Template:</span> {selectedInvoice.template || '-'}</div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* ── Payments & Refunds ────────────────────────────────────── */}
               {!invoiceDetailLoading && (
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Zahlungen & Erstattungen</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Zahlungen &amp; Erstattungen</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-3">
                     {invoiceDetailPayments.length === 0 ? (
                       <div className="rounded-md border border-dashed border-[#d8dce6] p-3 text-center text-sm text-muted-foreground">
                         Keine Zahlungen fuer diese Rechnung erfasst.
@@ -3689,11 +3854,11 @@ export function FinancialManagement() {
 
               {/* ── Linked Credit Notes ───────────────────────────────────── */}
               {!invoiceDetailLoading && invoiceDetailCreditNotes.length > 0 && (
-                <Card className="border-[#d8dce6]">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-[#1a2a5e]">Verknuepfte Gutschriften</CardTitle>
+                <Card className="border-[#d8dce6] overflow-hidden">
+                  <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Gutschriften</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-3">
                     <div className="space-y-2">
                       {invoiceDetailCreditNotes.map((cn) => (
                         <div key={String(cn._id)} className="flex items-center justify-between rounded-md border border-violet-200 bg-violet-50 p-3 text-sm">
@@ -3727,11 +3892,11 @@ export function FinancialManagement() {
               )}
 
               {/* ── Invoice items ─────────────────────────────────────────── */}
-              <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Rechnungsposten</CardTitle>
+              <Card className="border-[#d8dce6] overflow-hidden">
+                <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Rechnungsposten</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3">
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
                     <Table>
                       <TableHeader>
@@ -3772,30 +3937,37 @@ export function FinancialManagement() {
               </Card>
 
               {/* ── Notes ─────────────────────────────────────────────────── */}
-              <Card className="border-[#d8dce6]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[#1a2a5e]">Notizen & Zusatzinfos</CardTitle>
+              <Card className="border-[#d8dce6] overflow-hidden">
+                <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Notizen &amp; Zusatzinfos</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm">
+                <CardContent className="p-3 text-sm">
                   {selectedInvoice.notes ? selectedInvoice.notes : <span className="text-muted-foreground">Keine Notiz vorhanden.</span>}
                 </CardContent>
               </Card>
             </div>
           )}
+          </div>
 
-          <DialogFooter className="mt-2 flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setInvoiceDetailsDialogOpen(false)}>{t('common.close')}</Button>
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]" onClick={() => setInvoiceDetailsDialogOpen(false)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.issueRefund')}</DialogTitle>
-            <DialogDescription>Rückerstattung mit Gateway-Integration und vollständiger Nachvollziehbarkeit erfassen.</DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <RefreshCw className="h-5 w-5" />
+              {t('financialManagement.issueRefund')}
+            </DialogTitle>
+            <DialogDescription className="text-[#c8d0e7]">
+              Rückerstattung mit Gateway-Integration und vollständiger Nachvollziehbarkeit erfassen.
+            </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4">
           {/* ── Payment context ──────────────────────────────────────── */}
           {selectedPayment && (
             <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-1">
@@ -3980,9 +4152,12 @@ export function FinancialManagement() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRefundDialogOpen(false)}>{t('common.cancel')}</Button>
+          </div>
+
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setRefundDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
+              className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
               onClick={onRefund}
               disabled={!refundForm.amount || Number(refundForm.amount) <= 0 || (!refundForm.reason.trim() && !refundForm.reasonCategory)}
             >
@@ -4192,12 +4367,21 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle>
-            <DialogDescription>Erstellt eine negative Gegenrechnung zur ausgewählten Ursprungsrechnung.</DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <FileSpreadsheet className="h-5 w-5" />
+              Gutschrift erstellen
+              {selectedInvoice?.invoiceNumber && (
+                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoice.invoiceNumber}</span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-[#c8d0e7]">
+              Erstellt eine negative Gegenrechnung zur ausgewählten Ursprungsrechnung.
+            </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4">
           {/* ── Invoice context ──────────────────────────────────────── */}
           {selectedInvoice && (
             <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-1">
@@ -4406,9 +4590,12 @@ export function FinancialManagement() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreditDialogOpen(false)}>{t('common.cancel')}</Button>
+          </div>
+
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setCreditDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
+              className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]"
               onClick={onCreateCredit}
               disabled={
                 creditForm.scope === 'partial' &&

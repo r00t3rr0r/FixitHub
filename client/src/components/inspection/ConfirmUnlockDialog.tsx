@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/useToast"
+import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
 import {
   Send,
   AlertCircle,
@@ -210,13 +211,11 @@ export function ConfirmUnlockDialog({
 
               {/* Pattern */}
               {unlockPattern.length > 0 && (
-                <div className="cudlg-unlock-row">
+                <div className="cudlg-unlock-row cudlg-unlock-row--pattern">
                   <span className="cudlg-unlock-type-badge">
                     {t("orderDetails.pattern", "Muster")}
                   </span>
-                  <span className="cudlg-unlock-value cudlg-unlock-value--pattern">
-                    {unlockPattern.join(" → ")}
-                  </span>
+                  <UnlockPatternVisual pattern={unlockPattern} size={150} />
                 </div>
               )}
 
