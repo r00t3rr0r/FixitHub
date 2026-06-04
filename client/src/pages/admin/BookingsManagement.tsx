@@ -22,7 +22,8 @@ import {
   getReturnTracking,
   updateReturnStatus,
   downloadBookingShippingLabel,
-  downloadBookingReturnLabel
+  downloadBookingReturnLabel,
+  bulkUpdateBookingShippingStatuses
 } from "@/api/bookings"
 import {
   createComplaint,
@@ -309,6 +310,7 @@ export function BookingsManagement() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+  const [loadingBulkShippingUpdate, setLoadingBulkShippingUpdate] = useState(false)
   // Track order IDs that were optimistically marked as read so periodic fetches don't restore their badges
   const locallyReadOrderIds = useRef<Set<string>>(new Set())
   const communicationDialogOpenRef = useRef(false)
@@ -494,11 +496,31 @@ export function BookingsManagement() {
     }
   }
 
+  const handleBulkShippingUpdate = async () => {
+    try {
+      setLoadingBulkShippingUpdate(true)
+      const result = await bulkUpdateBookingShippingStatuses()
+      toast({
+        title: 'Versandstatus aktualisiert',
+        description: `${result.updated} Sendung(en) aktualisiert, ${result.skipped} unverändert${result.errors > 0 ? `, ${result.errors} Fehler` : ''}.`,
+        variant: result.errors > 0 ? 'destructive' : 'default',
+      })
+      fetchBookings()
+    } catch (error: any) {
+      toast({
+        title: 'Fehler beim Aktualisieren',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingBulkShippingUpdate(false)
+    }
+  }
+
   // Fetch unread message counts for all visible bookings
   const fetchUnreadCounts = async () => {
     try {
       setLoadingUnreadCounts(true)
-
       console.log(`BookingsManagement: fetchUnreadCounts called with ${bookings.length} bookings`)
 
       // Collect all order IDs from all bookings' items
@@ -1246,6 +1268,28 @@ export function BookingsManagement() {
             }}
           >
             <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkShippingUpdate}
+            disabled={loadingBulkShippingUpdate}
+            title="Versandstatus aller aktiven Sendungen über DHL API prüfen und aktualisieren"
+            style={{
+              border: '1px solid var(--gray-200)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--white)',
+              color: 'var(--gray-700)',
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '500',
+              gap: '6px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Truck className={`h-4 w-4 ${loadingBulkShippingUpdate ? 'animate-pulse' : ''}`} />
+            Versandstatus prüfen
           </Button>
         </div>
         <div style={{ padding: '10px 12px' }}>

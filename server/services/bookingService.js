@@ -823,6 +823,59 @@ class BookingService {
     throw lastError || new Error('Failed to create live booking shipping label');
   }
 
+  static async bulkUpdateShippingStatuses() {
+    console.log('BookingService: Starting bulk shipping status update')
+
+    const activeStatuses = ['label-created', 'shipped', 'in-transit', 'out-for-delivery']
+    const bookings = await Booking.find({
+      trackingNumber: { $exists: true, $ne: '' },
+      shippingStatus: { $in: activeStatuses },
+    }).select('_id trackingNumber shippingStatus')
+
+    console.log(`BookingService: Found ${bookings.length} bookings to update`)
+
+    const results = []
+    let updated = 0
+    let skipped = 0
+    let errors = 0
+
+    for (const booking of bookings) {
+      try {
+        const result = await this.updateShippingStatus(booking._id.toString())
+        const statusChanged = result.booking.shippingStatus !== booking.shippingStatus
+        results.push({
+          bookingId: booking._id,
+          trackingNumber: booking.trackingNumber,
+          previousStatus: booking.shippingStatus,
+          newStatus: result.booking.shippingStatus,
+          changed: statusChanged,
+        })
+        if (statusChanged) updated++
+        else skipped++
+      } catch (error) {
+        console.error(`BookingService: Failed to update shipping status for booking ${booking._id}:`, error.message)
+        errors++
+        results.push({
+          bookingId: booking._id,
+          trackingNumber: booking.trackingNumber,
+          previousStatus: booking.shippingStatus,
+          error: error.message,
+        })
+      }
+    }
+
+    console.log(`BookingService: Bulk update complete — updated: ${updated}, unchanged: ${skipped}, errors: ${errors}`)
+
+    return {
+      success: true,
+      total: bookings.length,
+      updated,
+      skipped,
+      errors,
+      results,
+    }
+  }
+
   static async updateShippingStatus(bookingId) {
     console.log('BookingService: Updating shipping status for booking:', bookingId)
 

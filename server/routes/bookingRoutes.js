@@ -573,6 +573,21 @@ router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
   }
 })
 
+// Description: Bulk update shipping statuses for all active bookings from DHL API (admin/staff only)
+// Endpoint: PUT /api/bookings/shipping-status/bulk-update
+// Request: {}
+// Response: { success: boolean, updated: number, skipped: number, errors: number, results: Array }
+router.put('/shipping-status/bulk-update', requireStaff, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Bulk updating shipping statuses, user:', req.user._id)
+    const result = await BookingService.bulkUpdateShippingStatuses()
+    res.json(result)
+  } catch (error) {
+    console.error('BookingRoutes: Error bulk updating shipping statuses:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Description: Update outbound shipment status from DHL API for booking
 // Endpoint: PUT /api/bookings/:id/shipping-status/update
 // Request: {}

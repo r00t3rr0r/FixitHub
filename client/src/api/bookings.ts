@@ -344,6 +344,19 @@ export const getBookingShippingTracking = async (bookingId: string) => {
   }
 }
 
+// Description: Bulk update shipping statuses for all active bookings from DHL API (admin/staff only)
+// Endpoint: PUT /api/bookings/shipping-status/bulk-update
+// Request: {}
+// Response: { success: boolean, total: number, updated: number, skipped: number, errors: number, results: Array }
+export const bulkUpdateBookingShippingStatuses = async () => {
+  try {
+    const response = await api.put('/api/bookings/shipping-status/bulk-update')
+    return response.data
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message)
+  }
+}
+
 // Description: Update outbound shipment status from DHL API for booking
 // Endpoint: PUT /api/bookings/:id/shipping-status/update
 // Request: {}
