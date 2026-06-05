@@ -104,6 +104,18 @@
   color: var(--primary-blue, #1a2a5e);
 }
 
+.admin-nav-group-divider {
+  height: 1px;
+  border: 0;
+  margin: 0.25rem 0.625rem 0.5rem;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.admin-nav-group-divider.collapsed {
+  margin-left: 0.375rem;
+  margin-right: 0.375rem;
+}
+
 /* Collapsible Sections */
 .admin-collapsible-trigger {
   width: 100%;
