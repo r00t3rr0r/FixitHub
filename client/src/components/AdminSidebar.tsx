@@ -163,10 +163,10 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       <GroupDivider />
 
       <NavItem to="/admin/users" icon={Users}>
-        Benutzerverwaltung
+        Kunden
       </NavItem>
       <NavItem to="/admin/bookings" icon={BookMarked}>
-        Buchungen
+        Aufträge
       </NavItem>
       <NavItem to="/admin/financial" icon={DollarSign}>
         Rechnungen
