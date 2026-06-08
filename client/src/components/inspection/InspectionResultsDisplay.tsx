@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { getInspection, generateInspectionReport } from '@/api/deviceInspection';
@@ -11,27 +9,25 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
-  Clock,
   Smartphone,
   Package,
   Eye,
   Zap,
-  Apple,
   FileText,
   Loader,
   ArrowRight,
   Play,
+  Wrench,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface InspectionResultsDisplayProps {
   orderId: string;
   onStartInspection?: () => void;
-  userRole?: string; // 'customer', 'staff', 'admin'
+  userRole?: string;
 }
 
 export function InspectionResultsDisplay({ orderId, onStartInspection, userRole = 'customer' }: InspectionResultsDisplayProps) {
-  // Description: Display device inspection results with progress tracking, status badges, and report generation
-  // i18n keys: deviceInspection namespace
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -39,17 +35,15 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
   const [loading, setLoading] = useState(true);
   const [generatingReport, setGeneratingReport] = useState(false);
 
+  const canAccessInspectionWorkflow = userRole === 'admin' || userRole === 'staff';
+
   const handleStartInspection = () => {
     if (onStartInspection) {
       onStartInspection();
     } else {
-      // Navigate to inspection workflow page
       navigate(`/inspection/${orderId}`);
     }
   };
-
-  // Check if user has permission to access inspection workflow
-  const canAccessInspectionWorkflow = userRole === 'admin' || userRole === 'staff';
 
   useEffect(() => {
     fetchInspection();
@@ -60,8 +54,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
       setLoading(true);
       const result = await getInspection(orderId);
       setInspection(result.inspection);
-    } catch (error: any) {
-      console.log('Inspection not found, which is normal if not yet created');
+    } catch {
       setInspection(null);
     } finally {
       setLoading(false);
@@ -72,8 +65,6 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
     try {
       setGeneratingReport(true);
       const result = await generateInspectionReport(orderId);
-
-      // Download the report
       if (result.reportUrl) {
         const link = document.createElement('a');
         link.href = result.reportUrl;
@@ -82,7 +73,6 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
         link.click();
         document.body.removeChild(link);
       }
-
       toast({ title: t('common.success'), description: t('deviceInspection.downloadPdf') });
     } catch (error: any) {
       toast({ title: t('common.error'), description: error.message });
@@ -91,355 +81,388 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
     }
   };
 
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader className="h-5 w-5 animate-spin" />
-          <span className="ml-2">{t('deviceInspection.loadingInspectionData')}</span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // No inspection yet
-  if (!inspection) {
-    // For customers: don't show anything if no inspection exists yet
-    if (!canAccessInspectionWorkflow) {
-      return null;
-    }
-
-    // For admin/staff: show button to start inspection
-    return (
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            {t('deviceInspection.deviceInspection')}
-          </CardTitle>
-          <CardDescription>{t('deviceInspection.noInspectionCompleted')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={handleStartInspection} className="w-full">
-            <ArrowRight className="h-4 w-4 mr-2" />
-            {t('deviceInspection.startDeviceInspection')}
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const calculateProgress = (): number => {
-    if (!inspection) return 0;
-
-    const steps = [
-      inspection.modelVerification,
-      inspection.identification,
-      inspection.accessories,
-      inspection.externalInspection,
-      inspection.deviceTest,
-      inspection.appleSpecific,
-    ];
-
-    const completedSteps = steps.filter(step => step !== null && step !== undefined).length;
-    return Math.round((completedSteps / 6) * 100);
-  };
-
-  const getCurrentStep = (): number => {
-    if (!inspection) return 0;
-
-    const steps = [
-      inspection.modelVerification,
-      inspection.identification,
-      inspection.accessories,
-      inspection.externalInspection,
-      inspection.deviceTest,
-      inspection.appleSpecific,
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      if (!steps[i]) {
-        return i + 1;
-      }
-    }
-    return 6;
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-500">Completed</Badge>;
-      case 'in-progress':
-        return <Badge className="bg-blue-500">In Progress</Badge>;
-      case 'on-hold':
-        return <Badge className="bg-yellow-500">On Hold</Badge>;
-      default:
-        return <Badge className="bg-gray-500">Not Started</Badge>;
-    }
-  };
-
-  const testStatusIcon = (status: string) => {
-    return status === 'OK' ? (
-      <CheckCircle2 className="h-4 w-4 text-green-500" />
-    ) : (
-      <AlertCircle className="h-4 w-4 text-red-500" />
-    );
-  };
-
-  // Show special UI for in-progress inspections
-  if (inspection && inspection.status === 'in-progress') {
-    const progress = calculateProgress();
-    const currentStep = getCurrentStep();
-
-      // For customers: show simple status card without continue button
-      if (!canAccessInspectionWorkflow) {
-      return (
-        <div className="space-y-3">
-          <Card className="border-blue-200 bg-blue-50">
-            <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                  <CardTitle className="text-sm text-blue-900">{t('deviceInspection.deviceInspection')}</CardTitle>
-                </div>
-                <Badge className="bg-blue-500 text-xs flex-shrink-0">{t('deviceInspection.inProgress')}</Badge>
-              </div>
-              <CardDescription className="text-blue-800 text-xs">
-                {t('deviceInspection.inspectionBeingPerformed')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              {/* Progress Bar */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
-                  <span className="text-xs font-medium">{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-
-              {/* Current Step Information */}
-              <div className="bg-white p-2 rounded border border-blue-200">
-                <p className="text-xs font-medium text-blue-900 mb-1">{t('deviceInspection.currentStep')}:</p>
-                <p className="text-xs text-muted-foreground">
-                  {currentStep === 1 && t('deviceInspection.modelVerification')}
-                  {currentStep === 2 && t('deviceInspection.deviceIdentification')}
-                  {currentStep === 3 && t('deviceInspection.accessoriesPackaging')}
-                  {currentStep === 4 && t('deviceInspection.externalInspection')}
-                  {currentStep === 5 && t('deviceInspection.deviceTesting')}
-                  {currentStep === 6 && t('deviceInspection.appleSpecificChecks')}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {t('deviceInspection.inspectionWillBeCompletedShortly')}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    // For admin/staff: show continue button
-    return (
-      <div className="space-y-3">
-        {/* In-Progress Card */}
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader className="pb-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                <CardTitle className="text-sm text-blue-900">Device Inspection</CardTitle>
-              </div>
-              <Badge className="bg-blue-500 text-xs flex-shrink-0">In Progress</Badge>
-            </div>
-            <CardDescription className="text-blue-800 text-xs">
-              Continue where you left off
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-0">
-            {/* Progress Bar */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">{t('deviceInspection.step')} {currentStep} {t('deviceInspection.of')} 6</span>
-                <span className="text-xs font-medium">{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-
-            {/* Step Information */}
-            <div className="bg-white p-2 rounded border border-blue-200">
-              <p className="text-xs text-muted-foreground">
-                {currentStep === 1 && t('deviceInspection.modelVerification')}
-                {currentStep === 2 && t('deviceInspection.deviceIdentification')}
-                {currentStep === 3 && t('deviceInspection.accessoriesPackaging')}
-                {currentStep === 4 && t('deviceInspection.externalInspection')}
-                {currentStep === 5 && t('deviceInspection.deviceTesting')}
-                {currentStep === 6 && t('deviceInspection.appleSpecificChecks')}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">{t('deviceInspection.clickContinue')}</p>
-            </div>
-
-            {/* Continue Button */}
-            <Button onClick={handleStartInspection} className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700">
-              <Play className="h-3 w-3 mr-1.5" />
-              {t('deviceInspection.continueInspection')}
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center gap-2 py-6 text-[#1a2a5e]">
+        <Loader className="h-4 w-4 animate-spin" />
+        <span className="text-sm text-muted-foreground">{t('deviceInspection.loadingInspectionData')}</span>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-3">
-      {/* Main Inspection Card */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <FileText className="h-4 w-4 flex-shrink-0" />
-              <CardTitle className="text-sm leading-tight">{t('deviceInspection.deviceInspectionReport')}</CardTitle>
+  // ── No inspection ────────────────────────────────────────────────────────
+  if (!inspection) {
+    if (!canAccessInspectionWorkflow) return null;
+
+    return (
+      <div className="rounded-xl border border-dashed border-[#1a2a5e]/25 bg-[#f8f9fc] p-5 text-center space-y-3">
+        <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#1a2a5e]/10">
+          <FileText className="h-5 w-5 text-[#1a2a5e]" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-[#1a2a5e]">{t('deviceInspection.deviceInspection')}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('deviceInspection.noInspectionCompleted')}</p>
+        </div>
+        <Button
+          onClick={handleStartInspection}
+          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0 w-full"
+          size="sm"
+        >
+          <ArrowRight className="h-4 w-4 mr-1.5" />
+          {t('deviceInspection.startDeviceInspection')}
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const calculateProgress = (): number => {
+    const steps = [
+      inspection.modelVerification,
+      inspection.identification,
+      inspection.accessories,
+      inspection.externalInspection,
+      inspection.deviceTest,
+      inspection.appleSpecific,
+    ];
+    return Math.round((steps.filter(Boolean).length / 6) * 100);
+  };
+
+  const getCurrentStep = (): number => {
+    const steps = [
+      inspection.modelVerification,
+      inspection.identification,
+      inspection.accessories,
+      inspection.externalInspection,
+      inspection.deviceTest,
+      inspection.appleSpecific,
+    ];
+    for (let i = 0; i < steps.length; i++) {
+      if (!steps[i]) return i + 1;
+    }
+    return 6;
+  };
+
+  const stepLabel = (step: number) => {
+    const labels: Record<number, string> = {
+      1: t('deviceInspection.modelVerification'),
+      2: t('deviceInspection.deviceIdentification'),
+      3: t('deviceInspection.accessoriesPackaging'),
+      4: t('deviceInspection.externalInspection'),
+      5: t('deviceInspection.deviceTesting'),
+      6: t('deviceInspection.appleSpecificChecks'),
+    };
+    return labels[step] ?? '';
+  };
+
+  const statusConfig = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return { label: 'Abgeschlossen', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      case 'in-progress':
+        return { label: 'In Bearbeitung', bg: 'bg-[#1a2a5e]/10 text-[#1a2a5e] border-[#1a2a5e]/20' };
+      case 'on-hold':
+        return { label: 'Pausiert', bg: 'bg-amber-100 text-amber-800 border-amber-200' };
+      default:
+        return { label: 'Ausstehend', bg: 'bg-gray-100 text-gray-600 border-gray-200' };
+    }
+  };
+
+  // ── In-Progress ──────────────────────────────────────────────────────────
+  if (inspection.status === 'in-progress') {
+    const progress = calculateProgress();
+    const currentStep = getCurrentStep();
+
+    return (
+      <div className="space-y-3">
+        {/* McRepair gradient header strip */}
+        <div className="rounded-xl overflow-hidden border border-[#1a2a5e]/15">
+          <div className="bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45] px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15">
+                <FileText className="h-4 w-4 text-white" />
+              </span>
+              <span className="text-sm font-semibold text-white">Geräteinspektion</span>
             </div>
-            <div className="flex flex-wrap items-center gap-1 flex-shrink-0">
-              {getStatusBadge(inspection.status)}
-              {inspection.hasFailedTests && (
-                <Badge className="bg-red-500 text-xs">{t('deviceInspection.failed')}</Badge>
+            <Badge className="bg-[#f5b800]/20 text-[#f5b800] border border-[#f5b800]/30 text-[10px]">
+              In Bearbeitung
+            </Badge>
+          </div>
+
+          <div className="bg-white p-4 space-y-3">
+            {/* Progress */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-[#1a2a5e]">
+                  Schritt {currentStep} von 6
+                </span>
+                <span className="font-semibold text-[#1a2a5e]">{progress}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-[#1a2a5e]/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#1a2a5e] to-[#f5b800] transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Current step */}
+            <div className="rounded-lg bg-[#f8f9fc] border border-[#1a2a5e]/10 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/60 font-medium mb-0.5">
+                Aktueller Schritt
+              </p>
+              <p className="text-xs font-semibold text-[#1a2a5e]">{stepLabel(currentStep)}</p>
+              {canAccessInspectionWorkflow && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {t('deviceInspection.clickContinue')}
+                </p>
               )}
             </div>
+
+            {/* Continue button — staff/admin only */}
+            {canAccessInspectionWorkflow && (
+              <Button
+                onClick={handleStartInspection}
+                className="w-full bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                size="sm"
+              >
+                <Play className="h-3.5 w-3.5 mr-1.5" />
+                {t('deviceInspection.continueInspection')}
+              </Button>
+            )}
+
+            {!canAccessInspectionWorkflow && (
+              <p className="text-[10px] text-center text-muted-foreground">
+                {t('deviceInspection.inspectionWillBeCompletedShortly')}
+              </p>
+            )}
           </div>
-          <CardDescription className="text-xs">
-            {t('deviceInspection.completedOn')} {inspection.completedAt ? new Date(inspection.completedAt).toLocaleDateString() : t('deviceInspection.pending')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
-          {/* Summary Grid — 1 col on tiny screens, 2 cols on sm+ */}
-          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-            {/* Model Verification */}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Completed inspection ─────────────────────────────────────────────────
+  const sc = statusConfig(inspection.status);
+
+  return (
+    <div className="space-y-0 rounded-xl overflow-hidden border border-[#1a2a5e]/15">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45] px-4 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-white/15">
+            <ShieldCheck className="h-4 w-4 text-white" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white leading-tight">Inspektionsbericht</p>
+            {inspection.completedAt && (
+              <p className="text-[10px] text-white/60 leading-none mt-0.5">
+                Abgeschlossen {new Date(inspection.completedAt).toLocaleDateString('de-DE')}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {inspection.hasFailedTests && (
+            <Badge className="bg-red-500/20 text-red-300 border border-red-400/30 text-[10px]">
+              Tests fehlgeschlagen
+            </Badge>
+          )}
+          <Badge className={`border text-[10px] ${sc.bg}`}>{sc.label}</Badge>
+        </div>
+      </div>
+
+      <div className="bg-white divide-y divide-[#1a2a5e]/08">
+
+        {/* Summary grid */}
+        {(inspection.modelVerification || inspection.identification || inspection.deviceTest || inspection.isRepairable !== undefined) && (
+          <div className="grid grid-cols-2 gap-px bg-[#1a2a5e]/08 p-px">
             {inspection.modelVerification && (
-              <div className="border-l-2 border-blue-500 pl-2 min-w-0">
-                <p className="text-muted-foreground">{t('deviceInspection.model')}</p>
-                <p className="font-medium break-words">{inspection.modelVerification.actualModel}</p>
-                <div className="flex items-center gap-1 mt-0.5">
+              <div className="bg-white p-3 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Smartphone className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Modell</span>
+                </div>
+                <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
+                  {inspection.modelVerification.actualModel}
+                </p>
+                <div className="flex items-center gap-1">
                   {inspection.modelVerification.verified ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500 flex-shrink-0" />
                   ) : (
                     <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
                   )}
-                  <span className="text-xs capitalize">
-                    {inspection.modelVerification.verificationStatus.replace(/-/g, ' ')}
+                  <span className="text-[10px] text-muted-foreground capitalize">
+                    {inspection.modelVerification.verificationStatus?.replace(/-/g, ' ')}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Device Identification */}
             {inspection.identification && (
-              <div className="border-l-2 border-purple-500 pl-2 min-w-0">
-                <p className="text-muted-foreground">{t('deviceInspection.deviceType')}</p>
-                <p className="font-medium break-words">{inspection.identification.deviceType}</p>
+              <div className="bg-white p-3 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Gerätetyp</span>
+                </div>
+                <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
+                  {inspection.identification.deviceType}
+                </p>
                 {inspection.identification.imei && (
-                  <p className="text-xs text-muted-foreground break-all">IMEI: {inspection.identification.imei}</p>
+                  <p className="text-[10px] text-muted-foreground break-all">IMEI: {inspection.identification.imei}</p>
                 )}
               </div>
             )}
 
-            {/* Device Tests Summary */}
             {inspection.deviceTest && (
-              <div className="border-l-2 border-green-500 pl-2 min-w-0">
-                <p className="text-muted-foreground">{t('deviceInspection.deviceTests')}</p>
-                <p className="font-medium">
-                  {inspection.hasFailedTests ? (
-                    <span className="text-red-600 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" /> {t('deviceInspection.failed')}
-                    </span>
-                  ) : (
-                    <span className="text-green-600 flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> {t('deviceInspection.ok')}
-                    </span>
-                  )}
-                </p>
+              <div className="bg-white p-3 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Gerätetests</span>
+                </div>
+                {inspection.hasFailedTests ? (
+                  <div className="flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-red-600">Fehler gefunden</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-emerald-600">Alle Tests OK</span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Repair Assessment */}
             {inspection.isRepairable !== undefined && (
-              <div className={`border-l-2 pl-2 min-w-0 ${inspection.isRepairable ? 'border-green-500' : 'border-red-500'}`}>
-                <p className="text-muted-foreground">{t('deviceInspection.repairable')}</p>
-                <p className="font-medium">
-                  {inspection.isRepairable ? (
-                    <span className="text-green-600">{t('deviceInspection.yes')}</span>
-                  ) : (
-                    <span className="text-red-600">{t('deviceInspection.no')}</span>
-                  )}
-                </p>
+              <div className="bg-white p-3 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Reparierbar</span>
+                </div>
+                {inspection.isRepairable ? (
+                  <div className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-emerald-600">Ja</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-red-600">Nein</span>
+                  </div>
+                )}
                 {inspection.repairOffer?.cost && (
-                  <p className="text-xs text-muted-foreground">${inspection.repairOffer.cost}</p>
+                  <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.cost} €</p>
                 )}
               </div>
             )}
           </div>
+        )}
 
-          {/* Accessories Quick Check */}
-          {inspection.accessories && (
-            <div className="border-t pt-2 text-xs">
-              <p className="text-muted-foreground font-medium mb-1">{t('deviceInspection.accessories')}</p>
-              <div className="flex gap-2 flex-wrap">
-                {inspection.accessories.originalPackaging?.present !== undefined && (
-                  <Badge variant={inspection.accessories.originalPackaging.present ? 'secondary' : 'outline'} className="text-xs">
-                    {inspection.accessories.originalPackaging.present ? '✓' : '✗'} {t('deviceInspection.packaging')}
-                  </Badge>
-                )}
-                {inspection.accessories.caseCover?.present !== undefined && (
-                  <Badge variant={inspection.accessories.caseCover.present ? 'secondary' : 'outline'} className="text-xs">
-                    {inspection.accessories.caseCover.present ? '✓' : '✗'} {t('deviceInspection.case')}
-                  </Badge>
-                )}
-                {inspection.accessories.powerAdapter?.present !== undefined && (
-                  <Badge variant={inspection.accessories.powerAdapter.present ? 'secondary' : 'outline'} className="text-xs">
-                    {inspection.accessories.powerAdapter.present ? '✓' : '✗'} {t('deviceInspection.adapter')}
-                  </Badge>
-                )}
-              </div>
+        {/* Accessories */}
+        {inspection.accessories && (
+          <div className="px-4 py-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Package className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+              <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">
+                {t('deviceInspection.accessories')}
+              </span>
             </div>
-          )}
-
-          {/* External Inspection Quick Check */}
-          {inspection.externalInspection && (
-            <div className="text-xs">
-              <p className="text-muted-foreground font-medium mb-1">{t('deviceInspection.externalCondition')}</p>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { label: t('deviceInspection.display'), data: inspection.externalInspection.display },
-                  { label: t('deviceInspection.frame'), data: inspection.externalInspection.frame },
-                  { label: t('deviceInspection.backCover'), data: inspection.externalInspection.backCover },
-                  { label: t('deviceInspection.buttons'), data: inspection.externalInspection.buttons },
-                ].map(({ label, data }) => (
-                  <Badge key={label} variant={data.status === 'OK' ? 'secondary' : 'destructive'} className="text-xs">
-                    {data.status === 'OK' ? '✓' : '✗'} {label}
-                  </Badge>
-                ))}
-              </div>
-              {inspection.externalInspection.visibleDamages?.hasDamage && (
-                <p className="text-red-600 mt-1 text-xs break-words">{t('deviceInspection.visibleDamage')} {inspection.externalInspection.visibleDamages.description}</p>
-              )}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { key: 'originalPackaging', label: t('deviceInspection.packaging') },
+                { key: 'caseCover', label: t('deviceInspection.case') },
+                { key: 'powerAdapter', label: t('deviceInspection.adapter') },
+              ].map(({ key, label }) => {
+                const item = inspection.accessories[key];
+                if (!item || item.present === undefined) return null;
+                return (
+                  <span
+                    key={key}
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                      item.present
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-red-50 text-red-600 border-red-200'
+                    }`}
+                  >
+                    {item.present ? (
+                      <CheckCircle2 className="h-2.5 w-2.5" />
+                    ) : (
+                      <AlertCircle className="h-2.5 w-2.5" />
+                    )}
+                    {label}
+                  </span>
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Generate Report Button - Compact */}
-          {inspection.status === 'completed' && (
+        {/* External condition */}
+        {inspection.externalInspection && (
+          <div className="px-4 py-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Eye className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+              <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">
+                {t('deviceInspection.externalCondition')}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: t('deviceInspection.display'), data: inspection.externalInspection.display },
+                { label: t('deviceInspection.frame'), data: inspection.externalInspection.frame },
+                { label: t('deviceInspection.backCover'), data: inspection.externalInspection.backCover },
+                { label: t('deviceInspection.buttons'), data: inspection.externalInspection.buttons },
+              ].map(({ label, data }) => {
+                if (!data) return null;
+                const ok = data.status === 'OK';
+                return (
+                  <span
+                    key={label}
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                      ok
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-red-50 text-red-600 border-red-200'
+                    }`}
+                  >
+                    {ok ? (
+                      <CheckCircle2 className="h-2.5 w-2.5" />
+                    ) : (
+                      <AlertCircle className="h-2.5 w-2.5" />
+                    )}
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+            {inspection.externalInspection.visibleDamages?.hasDamage && (
+              <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-2">
+                <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-px" />
+                <p className="text-[11px] text-red-700 break-words leading-snug">
+                  <span className="font-semibold">{t('deviceInspection.visibleDamage')}</span>{' '}
+                  {inspection.externalInspection.visibleDamages.description}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PDF Download */}
+        {inspection.status === 'completed' && (
+          <div className="px-4 py-3">
             <Button
               onClick={handleGenerateReport}
               disabled={generatingReport}
-              className="w-full mt-2 h-8 text-xs"
-              variant="default"
+              className="w-full bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
               size="sm"
             >
-              <Download className="h-3 w-3 mr-1" />
+              <Download className="h-3.5 w-3.5 mr-1.5" />
               {generatingReport ? t('deviceInspection.generating') : t('deviceInspection.downloadPdf')}
             </Button>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

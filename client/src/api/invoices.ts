@@ -32,7 +32,9 @@ export interface Invoice {
     street?: string;
     city?: string;
     zip?: string;
+    zipCode?: string;
     country?: string;
+    state?: string;
   };
   paymentMethod?: string;
   amountPaid?: number;
@@ -96,6 +98,7 @@ export interface InvoicePaymentPayload {
   gatewayId: string;
   gatewayProvider: 'stripe' | 'paypal' | 'bank_transfer';
   paymentData: Record<string, any>;
+  isJsSdk?: boolean;
 }
 
 export interface InvoicePaymentInitializationResponse {

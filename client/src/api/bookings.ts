@@ -113,7 +113,7 @@ export const updateBookingStatus = async (
 export const updateBookingBillingStatus = async (
   bookingId: string,
   billingStatus: 'unpaid' | 'partially-paid' | 'paid',
-  paymentStatus?: 'pending' | 'paid' | 'refunded' | 'partial'
+  paymentStatus?: 'pending' | 'paid' | 'refunded' | 'partial' | 'draft' | 'sent' | 'viewed' | 'partially_paid' | 'overdue'
 ) => {
   try {
     const response = await api.put(`/api/bookings/${bookingId}/billing-status`, {
@@ -146,6 +146,9 @@ export const cancelBooking = async (bookingId: string) => {
 export const getAdminBookings = async (filters?: {
   status?: string;
   billingStatus?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
   limit?: number;
   skip?: number;
 }) => {
@@ -153,6 +156,9 @@ export const getAdminBookings = async (filters?: {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.billingStatus) params.append('billingStatus', filters.billingStatus);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.limit) params.append('limit', filters.limit.toString());
     if (filters?.skip) params.append('skip', filters.skip.toString());
 
@@ -338,6 +344,19 @@ export const getReturnTracking = async (bookingId: string) => {
 export const getBookingShippingTracking = async (bookingId: string) => {
   try {
     const response = await api.get(`/api/bookings/${bookingId}/shipping-tracking`)
+    return response.data
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message)
+  }
+}
+
+// Description: Bulk update shipping statuses for all active bookings from DHL API (admin/staff only)
+// Endpoint: PUT /api/bookings/shipping-status/bulk-update
+// Request: {}
+// Response: { success: boolean, total: number, updated: number, skipped: number, errors: number, results: Array }
+export const bulkUpdateBookingShippingStatuses = async () => {
+  try {
+    const response = await api.put('/api/bookings/shipping-status/bulk-update')
     return response.data
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message)

@@ -38,6 +38,7 @@ export interface UpdateCategoryData {
   icon?: string;
   color?: string;
   order?: number;
+  migrateFromName?: string;
 }
 
 export interface CategoryFilters {

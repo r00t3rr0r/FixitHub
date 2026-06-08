@@ -943,9 +943,16 @@ export function ShoppingCartPage() {
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium" style={{ color: 'var(--gray-600, #4a5568)' }}>{t('cart.tax')}</span>
-                    <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{formatEUR(cart.tax)}</span>
+                  <div className="border-t pt-2.5 space-y-2" style={{ borderColor: 'var(--gray-200, #d8dce6)' }}>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium" style={{ color: 'var(--gray-600, #4a5568)' }}>{t('cart.netto')}</span>
+                      <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{formatEUR(cart.total - cart.tax)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium" style={{ color: 'var(--gray-600, #4a5568)' }}>{t('cart.tax')}</span>
+                      <span className="font-bold" style={{ color: PRIMARY_BLUE }}>{formatEUR(cart.tax)}</span>
+                    </div>
                   </div>
                 </div>
 

@@ -2580,11 +2580,11 @@ Wichtige Rollenlogik:
 
 Screenshot 1 - Vollstaendige Order-Detail-Seite (Scrolluebersicht):
 
-![Order Detail Uebersicht](screenshots/order-detail-overview.png)
+![Order Detail Uebersicht](screenshots/staff/order-details/order-detail-overview.png)
 
 Screenshot 2 - Kopfbereich mit Fortschrittsbalken, Device-Infos und Lock-Daten:
 
-![Order Detail Oberer Bereich](screenshots/order-detail-device-section.png)
+![Order Detail Oberer Bereich](screenshots/staff/order-details/order-detail-device-section.png)
 
 ##### Seitenaufbau: Was ist wo und warum
 
@@ -2858,7 +2858,7 @@ Regel:
 
 ##### 20.5.1.1 Prozess: Device Information
 
-![Device Information und Lock-Bereich](screenshots/order-detail-device-section.png)
+![Device Information und Lock-Bereich](screenshots/staff/order-details/order-detail-device-section.png)
 
 **Was ist der Bereich?**
 Die linke Spalte der Order-Detail-Seite zeigt die Geraetekarte. Sie enthaelt: Geraetebild, Modellname, Geraetetyp, den gebuchten Hauptservice mit Preis sowie alle Sperrinformationen des Geraets.
@@ -2945,7 +2945,7 @@ Die Historie ist das zentrale Audit-Log eines Auftrags. Bei Streitigkeiten, Rekl
 
 ##### 20.5.1.2 Prozess: Device Inspection
 
-![Device Inspection Bereich](screenshots/order-detail-inspection-section.png)
+![Device Inspection Bereich](screenshots/staff/order-details/order-detail-inspection-section.png)
 
 **Was ist der Bereich?**
 Die Geraeteinspektion ist die formale technische Zustandserfassung des Kundengeraets beim Eingang. Sie dokumentiert Zustand, Tests, Zubehoer und bildet die Grundlage fuer Reparaturentscheidungen und Haftungsabgrenzung.
@@ -2996,7 +2996,7 @@ Nach abgeschlossener Inspektion erscheint der Button "Download PDF" am unteren R
 
 ##### 20.5.1.3 Prozess: Repair Services
 
-![Repair Services Bereich](screenshots/order-detail-repair-services.png)
+![Repair Services Bereich](screenshots/staff/order-details/order-detail-repair-services.png)
 
 **Was ist der Bereich?**
 Die "Repair Services"-Karte zeigt alle dem Auftrag zugeordneten Reparaturservices. Diese sind die kostenpflichtigen Arbeitspositionen der Reparatur. Jede Position basiert auf einer Service-Vorlage aus dem Service-Stamm.
@@ -3044,7 +3044,7 @@ Jede Position hat ein Loeschen-Icon (Muelleimer):
 
 ##### 20.5.1.4 Prozess: Add-On Services
 
-![Add-On Services und Addon-Dialog](screenshots/order-detail-addon-dialog.png)
+![Add-On Services und Addon-Dialog](screenshots/staff/order-details/order-detail-addon-dialog.png)
 
 **Was ist der Bereich?**
 Add-On Services ("Zusatzleistungen") sind optionale ergaenzende Leistungen, die neben der Hauptreparatur erbracht werden. Beispiele: Express-Service, Datensicherung, Geraetepruefung nach Reparatur.
@@ -3088,7 +3088,7 @@ Jede Position zeigt einen Status-Badge (z. B. `pending`, `in-progress`, `complet
 
 ##### 20.5.1.5 Prozess: Shop-Produkte
 
-![Shop-Produkte Dialog](screenshots/order-detail-shop-product-dialog.png)
+![Shop-Produkte Dialog](screenshots/staff/order-details/order-detail-shop-product-dialog.png)
 
 **Was ist der Bereich?**
 Ueber die Shop-Produkte-Karte koennen physische Artikel aus dem Online-Shop als Positionen auf einen Auftrag gelegt werden. Typische Anwendungsfaelle: Schutzhuellen, Zubehoer, Kabel, die der Kunde beim Reparaturauftrag gleich mitbestellen moechte.
@@ -3132,7 +3132,7 @@ Nach dem Hinzufuegen erscheinen in der Karte alle Shop-Produkt-Positionen mit:
 
 ##### 20.5.1.6 Prozess: E-Parts (Elektronische Ersatzteile)
 
-![E-Part Zuweisung Dialog](screenshots/order-detail-epart-dialog.png)
+![E-Part Zuweisung Dialog](screenshots/staff/order-details/order-detail-epart-dialog.png)
 
 **Was ist der Bereich?**
 E-Parts sind Ersatzteile aus dem internen Lager (z. B. Displays, Akkus, Ladebuchsen), die einem Reparaturauftrag zugewiesen werden. Die Zuweisung koppelt den Materialeinsatz direkt an den Auftrag und reduziert den Lagerbestand.
@@ -3185,7 +3185,7 @@ Wenn der Bestand 0 ist oder das Teil nicht vorratig ist:
 
 ##### 20.5.1.7 Prozess: Workflows
 
-![Workflow Zuweisung Dialog](screenshots/order-detail-workflow-assign-dialog.png)
+![Workflow Zuweisung Dialog](screenshots/staff/order-details/order-detail-workflow-assign-dialog.png)
 
 **Was ist der Bereich?**
 Workflows strukturieren den Reparaturprozess als definierte Schrittfolge. Sie stellen sicher, dass kein Prozessschritt uebersprungen wird, und liefern den Fortschrittswert fuer die KPI-Leiste und den Fortschrittsbalken.
@@ -3272,7 +3272,7 @@ Button `Delete` in der Workflow-Karte:
 
 ##### 20.5.1.8 Prozess: Staff (Mitarbeiterzuweisung)
 
-![Staff Zuweisung Dialog](screenshots/order-detail-staff-dialog.png)
+![Staff Zuweisung Dialog](screenshots/staff/order-details/order-detail-staff-dialog.png)
 
 **Was ist der Bereich?**
 Die rechte Spalte der Seite enthaelt den "Assigned Staff"-Bereich. Hier werden Mitarbeiter, die an diesem Auftrag arbeiten, dem Auftrag zugeordnet. Die Zuweisung ist die Grundlage fuer Zeiterfassung, Lastverteilung und Kommunikation.

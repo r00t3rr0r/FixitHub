@@ -597,7 +597,12 @@ export function AdminDashboard() {
                   const amount = Number(booking.totalCost ?? booking.totalAmount ?? 0)
                   const bookingId = booking.bookingNumber || booking._id?.slice(-6) || "-"
                   return (
-                    <div key={booking._id || bookingId} className="compact-list-item">
+                    <button
+                      key={booking._id || bookingId}
+                      type="button"
+                      className="compact-list-item compact-list-item-button"
+                      onClick={() => booking?._id && navigate(`/admin/bookings?highlightBookingId=${booking._id}`)}
+                    >
                       <div>
                         <p className="compact-title">{customerName}</p>
                         <p className="compact-sub">#{bookingId}</p>
@@ -607,7 +612,7 @@ export function AdminDashboard() {
                         <span>{toCurrency(amount)}</span>
                         <small>{timeAgo(booking.createdAt || booking.bookingTime)}</small>
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>

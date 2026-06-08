@@ -10,6 +10,28 @@ const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
 class BookingService {
+  static normalizeAddress(address) {
+    if (!address || typeof address !== 'object') return null;
+
+    const street = String(address.street || address.line1 || '').trim();
+    const city = String(address.city || address.town || '').trim();
+    const zip = String(address.zip || address.zipCode || address.postalCode || '').trim();
+    const state = String(address.state || address.province || '').trim();
+    const country = String(address.country || '').trim();
+
+    if (!street && !city && !zip && !state && !country) return null;
+
+    return { street, city, zip, zipCode: zip, state, country };
+  }
+
+  static pickFirstAddress(...candidates) {
+    for (const candidate of candidates) {
+      const normalized = this.normalizeAddress(candidate);
+      if (normalized) return normalized;
+    }
+    return null;
+  }
+
   static escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -801,6 +823,59 @@ class BookingService {
     throw lastError || new Error('Failed to create live booking shipping label');
   }
 
+  static async bulkUpdateShippingStatuses() {
+    console.log('BookingService: Starting bulk shipping status update')
+
+    const activeStatuses = ['label-created', 'shipped', 'in-transit', 'out-for-delivery']
+    const bookings = await Booking.find({
+      trackingNumber: { $exists: true, $ne: '' },
+      shippingStatus: { $in: activeStatuses },
+    }).select('_id trackingNumber shippingStatus')
+
+    console.log(`BookingService: Found ${bookings.length} bookings to update`)
+
+    const results = []
+    let updated = 0
+    let skipped = 0
+    let errors = 0
+
+    for (const booking of bookings) {
+      try {
+        const result = await this.updateShippingStatus(booking._id.toString())
+        const statusChanged = result.booking.shippingStatus !== booking.shippingStatus
+        results.push({
+          bookingId: booking._id,
+          trackingNumber: booking.trackingNumber,
+          previousStatus: booking.shippingStatus,
+          newStatus: result.booking.shippingStatus,
+          changed: statusChanged,
+        })
+        if (statusChanged) updated++
+        else skipped++
+      } catch (error) {
+        console.error(`BookingService: Failed to update shipping status for booking ${booking._id}:`, error.message)
+        errors++
+        results.push({
+          bookingId: booking._id,
+          trackingNumber: booking.trackingNumber,
+          previousStatus: booking.shippingStatus,
+          error: error.message,
+        })
+      }
+    }
+
+    console.log(`BookingService: Bulk update complete — updated: ${updated}, unchanged: ${skipped}, errors: ${errors}`)
+
+    return {
+      success: true,
+      total: bookings.length,
+      updated,
+      skipped,
+      errors,
+      results,
+    }
+  }
+
   static async updateShippingStatus(bookingId) {
     console.log('BookingService: Updating shipping status for booking:', bookingId)
 
@@ -877,7 +952,8 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone avatar invoiceAddress paymentAddress')
+        .setOptions({ skipAutoPopulate: true })
+        .populate('customerId', 'firstName lastName name email phone avatar invoiceAddress paymentAddress')
         .populate('orderIds')
         .populate('repairOrderIds')
         .populate('shopProductOrderId');
@@ -895,6 +971,28 @@ class BookingService {
     }
   }
 
+  // Build search $or clause matching bookingNumber, guestInfo fields, and registered customers
+  static async buildSearchClause(search) {
+    const regex = new RegExp(search, 'i');
+    const matchingUsers = await User.find({
+      $or: [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { phone: regex },
+      ],
+    }).select('_id');
+    const matchingUserIds = matchingUsers.map((u) => u._id);
+    return [
+      { bookingNumber: regex },
+      { 'guestInfo.email': regex },
+      { 'guestInfo.firstName': regex },
+      { 'guestInfo.lastName': regex },
+      { 'guestInfo.phone': regex },
+      ...(matchingUserIds.length > 0 ? [{ customerId: { $in: matchingUserIds } }] : []),
+    ];
+  }
+
   // Get total count of bookings matching filters
   static async getBookingsCount(filters = {}) {
     console.log('BookingService: Getting bookings count with filters:', filters);
@@ -902,19 +1000,22 @@ class BookingService {
     try {
       const query = {};
 
-      // Apply status filter if provided
-      if (filters.status) {
-        query.status = filters.status;
+      if (filters.status) query.status = filters.status;
+      if (filters.billingStatus) query.billingStatus = filters.billingStatus;
+      if (filters.customerId) query.customerId = filters.customerId;
+
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
-      // Apply billing status filter if provided
-      if (filters.billingStatus) {
-        query.billingStatus = filters.billingStatus;
-      }
-
-      // Apply customer filter if provided
-      if (filters.customerId) {
-        query.customerId = filters.customerId;
+      if (filters.search) {
+        query.$or = await BookingService.buildSearchClause(filters.search);
       }
 
       const count = await Booking.countDocuments(query);
@@ -934,14 +1035,21 @@ class BookingService {
     try {
       const query = {};
 
-      // Apply status filter if provided
-      if (filters.status) {
-        query.status = filters.status;
+      if (filters.status) query.status = filters.status;
+      if (filters.billingStatus) query.billingStatus = filters.billingStatus;
+
+      if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
       }
 
-      // Apply billing status filter if provided
-      if (filters.billingStatus) {
-        query.billingStatus = filters.billingStatus;
+      if (filters.search) {
+        query.$or = await BookingService.buildSearchClause(filters.search);
       }
 
       const bookings = await Booking.find(query)
@@ -952,6 +1060,53 @@ class BookingService {
 
       console.log('BookingService: Found', bookings.length, 'bookings on current page');
 
+      const bookingIds = bookings.map((booking) => booking._id);
+      const invoiceSummaries = await Invoice.aggregate([
+        {
+          $match: {
+            bookingId: { $in: bookingIds },
+            status: { $ne: 'cancelled' },
+          },
+        },
+        {
+          $group: {
+            _id: '$bookingId',
+            receivableTotal: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', false] }, '$total', 0],
+              },
+            },
+            receivablePaid: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', false] }, '$paidAmount', 0],
+              },
+            },
+            creditTotal: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', true] }, '$total', 0],
+              },
+            },
+            creditPaid: {
+              $sum: {
+                $cond: [{ $eq: ['$isCreditNote', true] }, '$paidAmount', 0],
+              },
+            },
+          },
+        },
+      ]);
+
+      const invoiceSummaryByBookingId = new Map(
+        invoiceSummaries.map((summary) => [
+          String(summary._id),
+          {
+            receivableTotal: Number(summary.receivableTotal || 0),
+            receivablePaid: Number(summary.receivablePaid || 0),
+            creditTotal: Number(summary.creditTotal || 0),
+            creditPaid: Number(summary.creditPaid || 0),
+          },
+        ])
+      );
+
       // Calculate real-time progress for all bookings from their associated orders
       const bookingsWithProgress = await Promise.all(
         bookings.map(async (booking) => {
@@ -961,6 +1116,22 @@ class BookingService {
 
             // Convert to plain object so we can attach computed fields freely
             const bookingPlain = booking.toObject({ virtuals: true });
+            const invoiceSummary = invoiceSummaryByBookingId.get(String(booking._id));
+
+            if (invoiceSummary) {
+              const receivableOpen = Math.max(
+                0,
+                invoiceSummary.receivableTotal - invoiceSummary.receivablePaid
+              );
+              const customerCreditOpen = Math.max(
+                0,
+                invoiceSummary.creditTotal - invoiceSummary.creditPaid
+              );
+
+              bookingPlain.invoiceOpenAmount = receivableOpen;
+              bookingPlain.customerCreditOpenAmount = customerCreditOpen;
+              bookingPlain.netOpenAmount = receivableOpen - customerCreditOpen;
+            }
 
             if (allOrders.length === 0) {
               if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
@@ -1376,22 +1547,45 @@ class BookingService {
       });
 
       const orders = Array.from(allOrdersById.values());
+      const bookingItemByOrderId = new Map();
+      (booking.items || []).forEach((item) => {
+        if (item?.orderId) {
+          bookingItemByOrderId.set(String(item.orderId), item);
+        }
+      });
 
       console.log('BookingService: Found', orders.length, 'orders for booking');
 
       // Transform orders to match expected structure with current repair progress status
       const transformedOrders = orders.map(order => {
+        const orderIdString = order._id.toString();
+        const bookingItem = bookingItemByOrderId.get(orderIdString);
+        const timelineEntries = Array.isArray(order.timeline) ? order.timeline : [];
+        const deviceChangeEntries = timelineEntries.filter((entry) => {
+          if (!entry) return false;
+          const status = String(entry.status || '').toLowerCase();
+          const description = String(entry.description || '').toLowerCase();
+          return status === 'device changed' || description.includes('device changed');
+        });
         const orderProgress = this.resolveOrderProgress(order);
         let orderData = {
-          orderId: order._id.toString(),
+          orderId: orderIdString,
           orderNumber: order.orderNumber || order._id.toString().slice(-8).toUpperCase(),
           type: order.deviceType === 'Shop Products' ? 'product' : 'repair',
           isComplaintFollowup: Boolean(order.isComplaintFollowup),
           sourceComplaintId: order.sourceComplaintId ? order.sourceComplaintId.toString() : null,
           parentOrderId: order.parentOrderId ? order.parentOrderId.toString() : null,
           status: order.status || 'pending',
+          paymentStatus: order.paymentStatus || 'pending',
           progress: orderProgress,
           cost: order.totalCost,
+          bookingItemCost: Number(bookingItem?.cost || 0),
+          hasDeviceChangeHistory: deviceChangeEntries.length > 0,
+          deviceChangeCount: deviceChangeEntries.length,
+          lastDeviceChangeAt:
+            deviceChangeEntries.length > 0
+              ? deviceChangeEntries[deviceChangeEntries.length - 1].completedAt || null
+              : null,
         };
 
         if (order.deviceType === 'Shop Products') {
@@ -1425,32 +1619,190 @@ class BookingService {
     }
   }
 
+  // Build invoice line items from actual (current) Order documents for a booking.
+  // Produces one InvoiceItem per service / addOn / shop-product so the invoice
+  // reflects the latest repair data, not the stale booking.items snapshot.
+  static async _buildInvoiceItems(booking) {
+    const orderIds = booking.orderIds || [];
+    if (orderIds.length === 0) return [];
+
+    const orders = await Order.find({ _id: { $in: orderIds } })
+      .populate('services.serviceId', 'name')
+      .populate('shopProducts.productId', 'name');
+
+    const bookingItemByOrderId = new Map();
+    (booking.items || []).forEach((item) => {
+      if (item?.orderId) bookingItemByOrderId.set(item.orderId.toString(), item);
+    });
+
+    const invoiceItems = [];
+
+    for (const order of orders) {
+      const bookingItem = bookingItemByOrderId.get(order._id.toString());
+      const deviceLabel = (
+        bookingItem?.device
+        || `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim()
+        || 'Gerät'
+      );
+
+      const isProductOrder = order.deviceType === 'Shop Products';
+
+      if (isProductOrder) {
+        if (order.shopProducts && order.shopProducts.length > 0) {
+          for (const prod of order.shopProducts) {
+            const qty = prod.quantity || 1;
+            invoiceItems.push({
+              description: prod.productId?.name || 'Produkt',
+              quantity: qty,
+              unitPrice: prod.priceAtOrder,
+              total: prod.priceAtOrder * qty,
+              type: 'product',
+            });
+          }
+        } else {
+          invoiceItems.push({
+            description: 'Produkte',
+            quantity: 1,
+            unitPrice: order.totalCost,
+            total: order.totalCost,
+            type: 'product',
+          });
+        }
+      } else {
+        let hasItems = false;
+
+        for (const svc of (order.services || [])) {
+          invoiceItems.push({
+            description: `${deviceLabel} – ${svc.serviceId?.name || 'Reparaturservice'}`,
+            quantity: 1,
+            unitPrice: svc.price,
+            total: svc.price,
+            type: 'service',
+          });
+          hasItems = true;
+        }
+
+        for (const addon of (order.addOns || [])) {
+          invoiceItems.push({
+            description: addon.name,
+            quantity: 1,
+            unitPrice: addon.price,
+            total: addon.price,
+            type: 'addon',
+          });
+          hasItems = true;
+        }
+
+        if (!hasItems) {
+          invoiceItems.push({
+            description: `${deviceLabel} Reparatur`,
+            quantity: 1,
+            unitPrice: order.totalCost,
+            total: order.totalCost,
+            type: 'service',
+          });
+        }
+      }
+    }
+
+    return invoiceItems;
+  }
+
+  // Compute invoice financial totals for gross-priced items (VAT is included in prices,
+  // not added on top). Extracts the tax portion using the configured tax rate.
+  static async _computeInvoiceTotals(invoiceItems, discount = 0) {
+    const config = await SystemConfiguration.findOne()
+      .select('financialSettings.defaults.taxRate')
+      .lean();
+    const taxRatePct = config?.financialSettings?.defaults?.taxRate ?? 19;
+
+    const itemsGrossTotal = invoiceItems.reduce((sum, item) => sum + (item.total || 0), 0);
+    const grossAfterDiscount = Math.max(0, itemsGrossTotal - discount);
+
+    // Prices are gross (inclusive of VAT) → extract tax: grossAfterDiscount × rate/(100+rate)
+    const tax = Math.round(grossAfterDiscount * taxRatePct / (100 + taxRatePct) * 100) / 100;
+    const subtotal = Math.round((grossAfterDiscount - tax) * 100) / 100;
+
+    return { subtotal, tax, discount, total: grossAfterDiscount };
+  }
+
   // Preview invoice for a booking
   static async previewInvoice(bookingId) {
     console.log('BookingService: Previewing invoice for booking:', bookingId);
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone');
+        .populate('customerId', 'firstName lastName name email phone invoiceAddress paymentAddress');
 
       if (!booking) {
         throw new Error('Booking not found');
       }
 
-      // Build invoice preview
+      if (booking.status !== 'completed') {
+        const statusError = new Error('Invoice preview is only allowed for completed bookings');
+        statusError.statusCode = 400;
+        throw statusError;
+      }
+
+      const existingInvoice = await Invoice.findOne({ bookingId: booking._id })
+        .select('_id invoiceNumber status')
+        .lean();
+
+      if (existingInvoice) {
+        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+        duplicateError.statusCode = 409;
+        throw duplicateError;
+      }
+
+      const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
+      const primaryOrder = primaryOrderId
+        ? await Order.findById(primaryOrderId)
+          .select('billingAddress shippingAddress guestInfo.billingAddress guestInfo.shippingAddress')
+          .lean()
+        : null;
+
+      const customerPaymentAddress = booking.customerId?.paymentAddress;
+
+      const billingAddress = this.pickFirstAddress(
+        booking.customerId?.invoiceAddress,
+        booking.billingAddress,
+        booking.guestInfo?.billingAddress,
+        primaryOrder?.billingAddress,
+        primaryOrder?.guestInfo?.billingAddress,
+        booking.customerId?.paymentAddress,
+      );
+
+      const shippingAddress = customerPaymentAddress?.sameAsInvoice === false
+        ? this.pickFirstAddress(
+          customerPaymentAddress,
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+        )
+        : this.pickFirstAddress(
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+          booking.guestInfo?.billingAddress,
+          booking.customerId?.invoiceAddress,
+        );
+
+      // Build invoice preview from current order data (not stale booking.items snapshot)
+      const previewItems = await BookingService._buildInvoiceItems(booking);
+      const previewTotals = await BookingService._computeInvoiceTotals(previewItems, booking.discount || 0);
+
       const invoicePreview = {
-        customerName: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
-        customerEmail: booking.customerId.email,
-        items: booking.items.map(item => ({
-          description: item.type === 'repair' ? item.device : 'Shop Products',
-          quantity: 1,
-          unitPrice: item.cost,
-          total: item.cost,
-        })),
-        subtotal: booking.subtotal || booking.totalCost,
-        tax: booking.tax || 0,
-        discount: booking.discount || 0,
-        total: booking.totalCost,
+        customerName: `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim() || booking.customerId?.name || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim() || 'N/A',
+        customerEmail: booking.customerId?.email || booking.guestInfo?.email || 'N/A',
+        billingAddress,
+        shippingAddress,
+        items: previewItems,
+        subtotal: previewTotals.subtotal,
+        tax: previewTotals.tax,
+        discount: previewTotals.discount,
+        total: previewTotals.total,
       };
 
       console.log('BookingService: Invoice preview generated successfully');
@@ -1467,40 +1819,80 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName email phone');
+        .populate('customerId', 'firstName lastName name email phone invoiceAddress paymentAddress');
 
       if (!booking) {
         throw new Error('Booking not found');
       }
 
-      // Extract customer information
-      const customerFirstName = booking.customerId?.firstName || 'N/A';
-      const customerLastName = booking.customerId?.lastName || 'N/A';
-      const customerEmail = booking.customerId?.email || 'N/A';
-      const customerName = `${customerFirstName} ${customerLastName}`.trim();
+      if (booking.status !== 'completed') {
+        const statusError = new Error('Invoice creation is only allowed for completed bookings');
+        statusError.statusCode = 400;
+        throw statusError;
+      }
+
+      const existingInvoice = await Invoice.findOne({ bookingId: booking._id })
+        .select('_id invoiceNumber status')
+        .lean();
+
+      if (existingInvoice) {
+        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
+        duplicateError.statusCode = 409;
+        throw duplicateError;
+      }
+
+      const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
+      const primaryOrder = primaryOrderId
+        ? await Order.findById(primaryOrderId)
+          .select('billingAddress shippingAddress guestInfo.billingAddress guestInfo.shippingAddress')
+          .lean()
+        : null;
+
+      // Extract customer information with safe fallbacks
+      const customerName = (
+        `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim()
+        || String(booking.customerId?.name || '').trim()
+        || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim()
+        || 'N/A'
+      );
+      const customerEmail = String(booking.customerId?.email || booking.guestInfo?.email || 'N/A').trim();
+
+      const customerPaymentAddress = booking.customerId?.paymentAddress;
+
+      const billingAddress = this.pickFirstAddress(
+        booking.customerId?.invoiceAddress,
+        booking.billingAddress,
+        booking.guestInfo?.billingAddress,
+        primaryOrder?.billingAddress,
+        primaryOrder?.guestInfo?.billingAddress,
+        booking.customerId?.paymentAddress,
+      );
+
+      const shippingAddress = customerPaymentAddress?.sameAsInvoice === false
+        ? this.pickFirstAddress(
+          customerPaymentAddress,
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+        )
+        : this.pickFirstAddress(
+          booking.shippingAddress,
+          booking.guestInfo?.shippingAddress,
+          primaryOrder?.shippingAddress,
+          primaryOrder?.guestInfo?.shippingAddress,
+          booking.guestInfo?.billingAddress,
+          booking.customerId?.invoiceAddress,
+        );
 
       console.log('BookingService: Creating invoice with customer:', customerName, 'Email:', customerEmail);
 
-      // Build invoice items from booking with required type field
-      const invoiceItems = booking.items.map(item => {
-        // Determine item type based on booking item
-        let itemType = 'service'; // default
-        if (item.type === 'product') {
-          itemType = 'product';
-        } else if (item.type === 'repair') {
-          itemType = 'service';
-        }
+      // Build invoice items from current order data and compute correct totals.
+      // Prices are gross (VAT inclusive) – VAT is extracted, NOT added on top again.
+      const invoiceItems = await BookingService._buildInvoiceItems(booking);
+      const invoiceTotals = await BookingService._computeInvoiceTotals(invoiceItems, booking.discount || 0);
 
-        return {
-          description: item.type === 'repair' ? `${item.device} Repair` : 'Shop Products',
-          quantity: 1,
-          unitPrice: item.cost,
-          total: item.cost,
-          type: itemType,
-        };
-      });
-
-      console.log('BookingService: Created', invoiceItems.length, 'invoice items with types');
+      console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
       const shouldSendImmediately = Boolean(invoiceData.sendImmediately);
 
@@ -1509,21 +1901,34 @@ class BookingService {
         customerId: booking.customerId._id,
         customerName: customerName,
         customerEmail: customerEmail,
-        orderId: booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null, // Link to first order for reference
+        billingAddress: billingAddress || undefined,
+        shippingAddress: shippingAddress || undefined,
+        orderId: primaryOrderId,
+        repairOrderIds: booking.orderIds || [],
         bookingId: booking._id,
         items: invoiceItems,
-        subtotal: booking.subtotal || booking.totalCost,
-        tax: booking.tax || 0,
-        discount: booking.discount || 0,
-        total: booking.totalCost,
+        subtotal: invoiceTotals.subtotal,
+        tax: invoiceTotals.tax,
+        discount: invoiceTotals.discount,
+        total: invoiceTotals.total,
         status: shouldSendImmediately ? 'sent' : 'draft',
-        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         notes: invoiceData.notes || '',
         sentAt: shouldSendImmediately ? new Date() : undefined,
       });
 
       const savedInvoice = await invoice.save();
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
+
+      booking.paymentStatus = savedInvoice.status;
+      if (savedInvoice.status === 'paid') {
+        booking.billingStatus = 'paid';
+      } else if (savedInvoice.status === 'partially_paid') {
+        booking.billingStatus = 'partially-paid';
+      } else {
+        booking.billingStatus = 'unpaid';
+      }
+      await booking.save();
 
       // Only send notification when invoice is explicitly sent to the customer.
       if (shouldSendImmediately && customerEmail && customerEmail !== 'N/A') {

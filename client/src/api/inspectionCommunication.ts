@@ -188,3 +188,20 @@ export const getUnreadMessageCounts = async (orderIds: string[]) => {
     throw new Error((error as any)?.response?.data?.error || (error as any).message);
   }
 };
+
+// Description: Submit updated unlock information (customer facing)
+// Endpoint: POST /api/inspection-communication/:orderId/update-unlock-info
+// Request: { unlockCode?: string, unlockPattern?: string[], noLock?: boolean }
+// Response: { order: Object }
+export const submitUnlockInfoUpdate = async (
+  orderId: string,
+  data: { unlockCode?: string; unlockPattern?: string[]; noLock?: boolean }
+) => {
+  try {
+    const response = await api.post(`/api/inspection-communication/${orderId}/update-unlock-info`, data);
+    return response.data;
+  } catch (error) {
+    console.error('submitUnlockInfoUpdate error:', error);
+    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+  }
+};

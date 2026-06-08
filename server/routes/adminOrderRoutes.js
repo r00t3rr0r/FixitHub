@@ -2,6 +2,8 @@ const express = require('express');
 const OrderService = require('../services/orderService');
 const DeviceChangeService = require('../services/deviceChangeService');
 const NotificationService = require('../services/notificationService');
+const InspectionCommunicationService = require('../services/inspectionCommunicationService');
+const Order = require('../models/Order');
 const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
@@ -134,6 +136,27 @@ router.put('/:id/status', requireUser, requireAdminOrStaff, async (req, res) => 
     return res.status(500).json({ 
       error: error.message || 'Failed to update order status' 
     });
+  }
+});
+
+// Confirm customer pickup (admin/staff) — sets status to completed and records who confirmed
+router.post('/:id/confirm-pickup', requireUser, requireAdminOrStaff, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    order.status = 'completed';
+    order.pickupConfirmation = {
+      confirmedBy: req.user._id,
+      confirmedByName: req.user.name || req.user.email,
+      confirmedAt: new Date(),
+    };
+    await order.save();
+
+    return res.status(200).json({ success: true, order });
+  } catch (error) {
+    console.error('Error confirming pickup:', error);
+    return res.status(500).json({ error: error.message || 'Failed to confirm pickup' });
   }
 });
 
@@ -924,6 +947,66 @@ router.post('/:id/confirm-unlock', requireUser, requireAdminOrStaff, async (req,
   }
 });
 
+// Description: Request updated unlock information from the customer
+// Endpoint: POST /api/admin-orders/:id/request-unlock-update
+// Request: {}
+// Response: { order: Order, communication: Object }
+router.post('/:id/request-unlock-update', requireUser, requireAdminOrStaff, async (req, res) => {
+  const orderId = req.params.id;
+  console.log('Request unlock update received for order:', orderId, 'by user:', req.user.email);
+
+  try {
+    const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Determine what type of unlock info exists
+    const unlockType = order.unlockPattern && order.unlockPattern.length > 0 ? 'pattern' : 'code';
+
+    // Confirm unlock as incorrect
+    const updatedOrder = await OrderService.confirmUnlock(
+      orderId,
+      req.user._id,
+      req.user.name,
+      'incorrect',
+      req.body.notes || ''
+    );
+
+    // Set order status to paused with reason
+    const PAUSE_REASON = 'Entsperrinformationen Falsch - Nutzerrückmeldung erwartet';
+    await Order.findByIdAndUpdate(orderId, {
+      status: 'paused',
+      pauseReason: PAUSE_REASON,
+    });
+
+    // Create a quick action message for the customer to update unlock info
+    const description = unlockType === 'pattern'
+      ? 'Bitte geben Sie ein neues Entsperrmuster für Ihr Gerät an.'
+      : 'Bitte geben Sie einen neuen Entsperrcode für Ihr Gerät an.';
+
+    const communication = await InspectionCommunicationService.createQuickAction(
+      orderId,
+      null,
+      req.user._id,
+      req.user.name,
+      'update_unlock_info',
+      description,
+      { unlockType },
+      req.user.role
+    );
+
+    console.log('Request unlock update successful for order:', orderId);
+    return res.status(200).json({ order: updatedOrder, communication });
+  } catch (error) {
+    console.error('Error requesting unlock update:', error);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    return res.status(500).json({ error: error.message || 'Failed to request unlock update' });
+  }
+});
+
 // ===== Shop Products Routes =====
 
 // Description: Add shop product to order
@@ -1076,7 +1159,7 @@ router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, 
   console.log('[DeviceChange] Change device request received:', req.params.id, req.body);
 
   try {
-    const { deviceBrand, deviceModel, deviceType } = req.body;
+    const { deviceBrand, deviceModel, deviceType, serviceReplacement } = req.body;
 
     if (!deviceBrand || !deviceModel || !deviceType) {
       return res.status(400).json({ error: 'Device brand, model, and type are required' });
@@ -1088,6 +1171,7 @@ router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, 
         deviceBrand,
         deviceModel,
         deviceType,
+        serviceReplacement,
       },
       req.user._id
     );
@@ -1155,12 +1239,16 @@ router.get('/device-type/:deviceType/compatible-services', requireUser, requireA
 
   try {
     const { deviceType } = req.params;
+    const { deviceBrand, deviceModel } = req.query;
 
     if (!deviceType) {
       return res.status(400).json({ error: 'Device type is required' });
     }
 
-    const services = await DeviceChangeService.getCompatibleServices(deviceType);
+    const services = await DeviceChangeService.getCompatibleServices(deviceType, {
+      deviceBrand,
+      deviceModel,
+    });
 
     return res.status(200).json({
       success: true,

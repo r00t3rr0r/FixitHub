@@ -11,6 +11,7 @@ import {
   sendFeedbackRequest as sendInspectionFeedbackRequest,
   createQuickAction as createInspectionQuickAction,
   sendMessage as sendInspectionMessage,
+  submitUnlockInfoUpdate,
 } from "@/api/inspectionCommunication"
 import {
   getCommunicationThread as getRepairRequestCommunicationThread,
@@ -21,7 +22,7 @@ import {
   sendMessage as sendRepairRequestMessage,
 } from "@/api/repairRequestCommunication"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText } from "lucide-react"
+import { CheckCircle2, MessageCircle, AlertCircle, Plus, Send, Clock, User, HelpCircle, X, Trash2, FileText, Maximize2, RefreshCw } from "lucide-react"
 import { acceptComplaintOffer, rejectComplaintOffer } from "@/api/complaints"
 import {
   Dialog,
@@ -41,6 +42,18 @@ interface CommunicationPanelProps {
   orderId: string
   inspectionId?: string
   entityType?: "order" | "repair-request"
+  /**
+   * "full" renders the complete thread inline (default).
+   * "compact" renders only the latest message as a preview with a button
+   * that opens the full conversation inside a larger dialog.
+   */
+  variant?: "full" | "compact"
+  /** Controlled open state for the feedback dialog (optional – for external triggers) */
+  feedbackOpen?: boolean
+  onFeedbackOpenChange?: (open: boolean) => void
+  /** Controlled open state for the quick-action dialog (optional – for external triggers) */
+  quickActionOpen?: boolean
+  onQuickActionOpenChange?: (open: boolean) => void
 }
 
 type OrderQuickActionType = 'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs'
@@ -49,79 +62,23 @@ type QuickActionType = OrderQuickActionType | RepairRequestQuickActionType
 
 interface QuickActionOption {
   value: QuickActionType
-  label: string
-  title: string
-  description: string
+  emoji: string
   tone: 'is-part' | 'is-device' | 'is-unlock' | 'is-cost'
 }
 
 const ORDER_QUICK_ACTION_OPTIONS: QuickActionOption[] = [
-  {
-    value: 'part_replacement',
-    label: 'Part replacement required',
-    title: '🔧 Part Replacement Required',
-    description: 'Notify customer that additional parts need to be replaced to complete the repair',
-    tone: 'is-part',
-  },
-  {
-    value: 'incorrect_device',
-    label: 'Incorrect device specification',
-    title: '❌ Incorrect Device Specified',
-    description: 'Notify customer that the device specifications provided do not match the device brought in',
-    tone: 'is-device',
-  },
-  {
-    value: 'incorrect_unlock_code',
-    label: 'Incorrect unlock code',
-    title: '🔐 Incorrect Unlock Code',
-    description: 'Notify customer that the unlock code provided is incorrect or does not work',
-    tone: 'is-unlock',
-  },
-  {
-    value: 'additional_costs',
-    label: 'Additional costs required',
-    title: '💰 Additional Costs Required',
-    description: 'Notify customer of unexpected costs that require approval before proceeding',
-    tone: 'is-cost',
-  },
+  { value: 'part_replacement', emoji: '🔧', tone: 'is-part' },
+  { value: 'incorrect_device', emoji: '❌', tone: 'is-device' },
+  { value: 'incorrect_unlock_code', emoji: '🔐', tone: 'is-unlock' },
+  { value: 'additional_costs', emoji: '💰', tone: 'is-cost' },
 ]
 
 const REPAIR_REQUEST_QUICK_ACTION_OPTIONS: QuickActionOption[] = [
-  {
-    value: 'parts_needed',
-    label: 'Parts needed',
-    title: '🔧 Parts Needed',
-    description: 'Notify customer that additional parts are required to continue the repair request',
-    tone: 'is-part',
-  },
-  {
-    value: 'approval_required',
-    label: 'Approval required',
-    title: '✅ Customer Approval Required',
-    description: 'Ask customer to approve the next repair step before work continues',
-    tone: 'is-device',
-  },
-  {
-    value: 'additional_cost',
-    label: 'Additional cost',
-    title: '💰 Additional Cost',
-    description: 'Inform customer about additional costs and request confirmation',
-    tone: 'is-cost',
-  },
-  {
-    value: 'status_update',
-    label: 'Status update',
-    title: '📌 Repair Status Update',
-    description: 'Send a structured status update with clear next steps',
-    tone: 'is-device',
-  },
-  {
-    value: 'schedule_appointment',
-    label: 'Schedule appointment',
-    title: '📅 Schedule Appointment',
-    description: 'Ask customer to schedule a handover, pickup, or follow-up appointment',
-    tone: 'is-unlock',
-  },
+  { value: 'parts_needed', emoji: '🔧', tone: 'is-part' },
+  { value: 'approval_required', emoji: '✅', tone: 'is-device' },
+  { value: 'additional_cost', emoji: '💰', tone: 'is-cost' },
+  { value: 'status_update', emoji: '📌', tone: 'is-device' },
+  { value: 'schedule_appointment', emoji: '📅', tone: 'is-unlock' },
 ]
 
 // Use unified message and communication interfaces
@@ -177,10 +134,66 @@ const formatMessageTime = (dateString: string): string => {
   }
 }
 
+function UnlockPatternGrid({
+  pattern,
+  onPatternChange,
+  disabled,
+}: {
+  pattern: string[]
+  onPatternChange: (p: string[]) => void
+  disabled?: boolean
+}) {
+  const dots = [[1,2,3],[4,5,6],[7,8,9]]
+  const handleDot = (d: number) => {
+    if (disabled) return
+    onPatternChange([...pattern, d.toString()])
+  }
+  return (
+    <div className="space-y-1">
+      <div className="inline-grid grid-cols-3 gap-2 bg-muted/40 rounded-lg p-3">
+        {dots.flat().map((d) => {
+          const count = pattern.filter((p) => p === d.toString()).length
+          const active = count > 0
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => handleDot(d)}
+              disabled={disabled}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                active
+                  ? 'bg-primary border-primary text-primary-foreground shadow-md'
+                  : 'bg-background border-border text-muted-foreground hover:border-primary/60 hover:bg-primary/5'
+              }`}
+            >
+              {active ? (count > 1 ? `${d}×${count}` : d) : d}
+            </button>
+          )
+        })}
+      </div>
+      {pattern.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onPatternChange([])}
+          disabled={disabled}
+          className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+        >
+          ↩ Muster zurücksetzen
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function CommunicationPanel({
   orderId,
   inspectionId,
   entityType = "order",
+  variant = "full",
+  feedbackOpen,
+  onFeedbackOpenChange,
+  quickActionOpen,
+  onQuickActionOpenChange,
 }: CommunicationPanelProps) {
   // Description: React component for managing inspection communication threads
   // i18n keys: communicationPanel namespace
@@ -192,8 +205,19 @@ export function CommunicationPanel({
   const [responding, setResponding] = useState(false)
   const [sendingFeedback, setSendingFeedback] = useState(false)
   const [sendingQuickAction, setSendingQuickAction] = useState(false)
-  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
-  const [showQuickActionDialog, setShowQuickActionDialog] = useState(false)
+  const [_showFeedbackDialog, _setShowFeedbackDialog] = useState(false)
+  const [_showQuickActionDialog, _setShowQuickActionDialog] = useState(false)
+  // Support optional controlled mode from parent (for external trigger buttons)
+  const showFeedbackDialog = feedbackOpen !== undefined ? feedbackOpen : _showFeedbackDialog
+  const setShowFeedbackDialog = (v: boolean) => {
+    _setShowFeedbackDialog(v)
+    onFeedbackOpenChange?.(v)
+  }
+  const showQuickActionDialog = quickActionOpen !== undefined ? quickActionOpen : _showQuickActionDialog
+  const setShowQuickActionDialog = (v: boolean) => {
+    _setShowQuickActionDialog(v)
+    onQuickActionOpenChange?.(v)
+  }
   const [newMessage, setNewMessage] = useState("")
   const [sendingMessage, setSendingMessage] = useState(false)
   const [feedbackQuestion, setFeedbackQuestion] = useState("")
@@ -204,8 +228,23 @@ export function CommunicationPanel({
   const [quickActionType, setQuickActionType] = useState<QuickActionType>('part_replacement')
   const [quickActionDescription, setQuickActionDescription] = useState("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
+  const [showFullChatDialog, setShowFullChatDialog] = useState(false)
+  const [unlockUpdateForms, setUnlockUpdateForms] = useState<Record<string, {
+    unlockCode: string
+    unlockPattern: string[]
+    noLock: boolean
+    submitting: boolean
+    selectedType: 'code' | 'pattern' | 'noLock'
+  }>>({})
   const isUserEditingRef = useRef(false)
-  const quickActionOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
+  const quickActionBaseOptions = entityType === "repair-request" ? REPAIR_REQUEST_QUICK_ACTION_OPTIONS : ORDER_QUICK_ACTION_OPTIONS
+  const quickActionOptions = quickActionBaseOptions.map((option) => ({
+    value: option.value,
+    tone: option.tone,
+    label: t(`communicationPanel.quickActions.${option.value}.label`),
+    title: `${option.emoji} ${t(`communicationPanel.quickActions.${option.value}.title`)}`,
+    description: t(`communicationPanel.quickActions.${option.value}.description`),
+  }))
   const defaultQuickActionType = (quickActionOptions[0]?.value || 'part_replacement') as QuickActionType
   const selectedQuickActionOption = quickActionOptions.find((option) => option.value === quickActionType) || quickActionOptions[0]
 
@@ -491,6 +530,57 @@ export function CommunicationPanel({
     }
   }
 
+  const getUnlockUpdateForm = (messageId: string, defaultType: 'code' | 'pattern' | 'noLock') => {
+    return unlockUpdateForms[messageId] ?? {
+      unlockCode: '',
+      unlockPattern: [],
+      noLock: false,
+      submitting: false,
+      selectedType: defaultType,
+    }
+  }
+
+  const updateUnlockForm = (messageId: string, patch: Partial<typeof unlockUpdateForms[string]>) => {
+    setUnlockUpdateForms((prev) => ({
+      ...prev,
+      [messageId]: { ...(prev[messageId] ?? { unlockCode: '', unlockPattern: [], noLock: false, submitting: false, selectedType: 'code' }), ...patch },
+    }))
+  }
+
+  const handleSubmitUnlockUpdate = async (messageId: string) => {
+    const form = unlockUpdateForms[messageId]
+    if (!form) return
+    updateUnlockForm(messageId, { submitting: true })
+    try {
+      let payload: { unlockCode?: string; unlockPattern?: string[]; noLock?: boolean } = {}
+      if (form.selectedType === 'noLock') {
+        payload = { noLock: true }
+      } else if (form.selectedType === 'pattern') {
+        if (!form.unlockPattern || form.unlockPattern.length < 4) {
+          toast({ title: 'Fehler', description: 'Bitte zeichnen Sie ein Entsperrmuster mit mindestens 4 Punkten.', variant: 'destructive' })
+          updateUnlockForm(messageId, { submitting: false })
+          return
+        }
+        payload = { unlockPattern: form.unlockPattern }
+      } else {
+        if (!form.unlockCode || form.unlockCode.trim().length === 0) {
+          toast({ title: 'Fehler', description: 'Bitte geben Sie einen Entsperrcode ein.', variant: 'destructive' })
+          updateUnlockForm(messageId, { submitting: false })
+          return
+        }
+        payload = { unlockCode: form.unlockCode.trim() }
+      }
+      await submitUnlockInfoUpdate(orderId, payload)
+      // Refresh thread
+      const thread = await getInspectionCommunicationThread(orderId)
+      setCommunication(thread)
+      toast({ title: 'Erfolg', description: 'Entsperrinformation erfolgreich aktualisiert. Das Team wird benachrichtigt.' })
+    } catch (error: any) {
+      toast({ title: 'Fehler', description: error.message || 'Aktualisierung fehlgeschlagen', variant: 'destructive' })
+      updateUnlockForm(messageId, { submitting: false })
+    }
+  }
+
   const handleAcceptRepairOffer = async (complaintId: string) => {
     try {
       setOfferActionLoading("accept")
@@ -544,8 +634,46 @@ export function CommunicationPanel({
     return null
   }
 
-  return (
-    <>
+  const lastMessage = communicationMessages[communicationMessages.length - 1]
+  const pendingTotal =
+    (communication?.pendingFeedbackCount || 0) + (communication?.pendingActionsCount || 0)
+
+  const getMessageSnippet = (message?: Message): string => {
+    if (!message) return ""
+    switch (message.messageType) {
+      case "feedback_request":
+        return message.feedbackRequest?.question || ""
+      case "quick_action":
+        return [message.quickAction?.actionLabel, message.quickAction?.description]
+          .filter(Boolean)
+          .join(" – ")
+      case "repair_offer": {
+        const meta = message.metadata as
+          | { offerAmount?: number; offerDescription?: string }
+          | undefined
+        if (meta?.offerDescription) return meta.offerDescription
+        if (meta?.offerAmount != null) return `Reparaturangebot: ${meta.offerAmount.toFixed(2)} €`
+        return "Reparaturangebot"
+      }
+      default:
+        return message.content || ""
+    }
+  }
+
+  const getMessageTypeLabel = (message?: Message): string | null => {
+    switch (message?.messageType) {
+      case "feedback_request":
+        return t('communicationPanel.feedback')
+      case "quick_action":
+        return t('communicationPanel.action')
+      case "repair_offer":
+        return "Angebot"
+      default:
+        return null
+    }
+  }
+
+  const panelBody = (
       <div className="inspection-comm-panel mt-4 space-y-3">
         <div className="inspection-comm-header flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
@@ -576,7 +704,7 @@ export function CommunicationPanel({
                   size="sm"
                   variant="outline"
                   onClick={() => setShowQuickActionDialog(true)}
-                  className="inspection-comm-toolbar-btn h-7 px-2 text-xs gap-1"
+                  className="h-7 px-2 text-xs gap-1"
                   title={t('communicationPanel.sendQuickAction')}
                 >
                   <AlertCircle className="w-3 h-3" />
@@ -624,13 +752,13 @@ export function CommunicationPanel({
                           variant={message.feedbackRequest.status === "pending" ? "outline" : "default"}
                           className="inspection-comm-status text-xs flex-shrink-0"
                         >
-                          {message.feedbackRequest.status === "pending" ? "⏳ Pending" : "✓ Responded"}
+                          {message.feedbackRequest.status === "pending" ? `⏳ ${t('communicationPanel.pending')}` : `✓ ${t('communicationPanel.answered')}`}
                         </Badge>
                       </div>
 
                       {message.feedbackRequest.status === "pending" ? (
                         <div className="space-y-2">
-                          <p className="inspection-comm-response-hint text-xs mb-2">Click to respond:</p>
+                          <p className="inspection-comm-response-hint text-xs mb-2">{t('communicationPanel.clickToRespond')}</p>
                           {message.feedbackRequest.options.map((option) => (
                             <Button
                               key={option.value}
@@ -689,46 +817,168 @@ export function CommunicationPanel({
                   )}
 
                   {/* Quick Actions */}
-                  {message.messageType === "quick_action" && message.quickAction && (
-                    <div className={`inspection-comm-action-card border-l-4 rounded-r-lg p-4 transition-all ${
-                      message.quickAction.status === "pending"
-                        ? "is-pending"
-                        : "is-completed"
-                    }`}>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="inspection-comm-action-icon w-4 h-4 flex-shrink-0" />
-                            <p className="inspection-comm-action-title font-semibold text-sm">
-                              {message.quickAction.actionLabel}
-                            </p>
+                  {message.messageType === "quick_action" && message.quickAction && (() => {
+                    const qa = message.quickAction
+                    const isUpdateUnlockInfo = qa.actionType === 'update_unlock_info'
+                    const isCustomerUser = user?.role === 'customer'
+                    const isPending = qa.status === 'pending'
+                    const defaultUnlockType = (qa.metadata as any)?.unlockType === 'pattern' ? 'pattern' : 'code'
+                    const form = getUnlockUpdateForm(message._id, defaultUnlockType as 'code' | 'pattern' | 'noLock')
+
+                    if (isUpdateUnlockInfo) {
+                      return (
+                        <div className={`rounded-lg border-l-4 p-4 transition-colors ${
+                          isPending ? 'border-l-red-500 bg-red-50/60 border border-red-200' : 'border-l-emerald-500 bg-emerald-50/40 border border-emerald-200'
+                        }`}>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <RefreshCw className="w-4 h-4 flex-shrink-0 text-red-600" />
+                                <p className="font-semibold text-sm text-foreground">
+                                  Entsperrinformation aktualisieren
+                                </p>
+                              </div>
+                              {qa.description && (
+                                <p className="text-sm text-foreground/80 mb-1">{qa.description}</p>
+                              )}
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatMessageTime(message.createdAt)}</span>
+                              </div>
+                            </div>
+                            {isPending ? (
+                              <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs border-red-300 bg-red-100 text-red-800">
+                                ⏳ Ausstehend
+                              </Badge>
+                            ) : (
+                              <Badge className="gap-1 flex-shrink-0 text-xs border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Erledigt
+                              </Badge>
+                            )}
                           </div>
-                          {message.quickAction.description && (
-                            <p className="inspection-comm-action-description text-sm p-2 rounded mb-2 border">
-                              {message.quickAction.description}
-                            </p>
+
+                          {isPending && isCustomerUser && (
+                            <div className="mt-3 space-y-3">
+                              {/* Type selector */}
+                              <div className="flex gap-2 flex-wrap">
+                                {(['code', 'pattern', 'noLock'] as const).map((type) => (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => updateUnlockForm(message._id, { selectedType: type })}
+                                    disabled={form.submitting}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                      form.selectedType === type
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-foreground border-border hover:bg-muted'
+                                    }`}
+                                  >
+                                    {type === 'code' && '🔢 Entsperrcode'}
+                                    {type === 'pattern' && '🔷 Entsperrmuster'}
+                                    {type === 'noLock' && '✅ Keine Sperre'}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {form.selectedType === 'code' && (
+                                <div className="space-y-1">
+                                  <label className="text-xs font-medium text-foreground/70">Entsperrcode (PIN oder Passwort)</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="Entsperrcode eingeben …"
+                                    value={form.unlockCode}
+                                    onChange={(e) => updateUnlockForm(message._id, { unlockCode: e.target.value })}
+                                    disabled={form.submitting}
+                                    className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                  />
+                                </div>
+                              )}
+
+                              {form.selectedType === 'pattern' && (
+                                <div className="space-y-1">
+                                  <label className="text-xs font-medium text-foreground/70">
+                                    Entsperrmuster zeichnen
+                                    {form.unlockPattern.length > 0 && (
+                                      <span className="ml-2 text-primary">{form.unlockPattern.join(' → ')}</span>
+                                    )}
+                                  </label>
+                                  <UnlockPatternGrid
+                                    pattern={form.unlockPattern}
+                                    onPatternChange={(p) => updateUnlockForm(message._id, { unlockPattern: p })}
+                                    disabled={form.submitting}
+                                  />
+                                </div>
+                              )}
+
+                              {form.selectedType === 'noLock' && (
+                                <p className="text-sm text-foreground/70 bg-muted/50 rounded-md px-3 py-2">
+                                  Ihr Gerät wird als <strong>entsperrt / ohne Sperre</strong> markiert.
+                                </p>
+                              )}
+
+                              <Button
+                                size="sm"
+                                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                                disabled={form.submitting}
+                                onClick={() => handleSubmitUnlockUpdate(message._id)}
+                              >
+                                {form.submitting ? (
+                                  <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Wird gesendet …</>
+                                ) : (
+                                  <><Send className="w-3.5 h-3.5 mr-1.5" /> Entsperrinformation senden</>
+                                )}
+                              </Button>
+                            </div>
                           )}
-                          <div className="inspection-comm-meta flex items-center gap-2 text-xs">
-                            <User className="w-3 h-3" />
-                            <span>{message.senderName}</span>
-                            <Clock className="w-3 h-3 ml-2" />
-                            <span>{formatMessageTime(message.createdAt)}</span>
-                          </div>
+
+                          {isPending && !isCustomerUser && (
+                            <p className="text-xs text-muted-foreground mt-2">Wartet auf Rückmeldung des Kunden.</p>
+                          )}
                         </div>
-                        {message.quickAction.status === "completed" && (
-                          <Badge variant="default" className="inspection-comm-status gap-1 flex-shrink-0 text-xs">
-                            <CheckCircle2 className="w-3 h-3" />
-                            {t('communicationPanel.completed')}
-                          </Badge>
-                        )}
-                        {message.quickAction.status === "pending" && (
-                          <Badge variant="outline" className="inspection-comm-status gap-1 flex-shrink-0 text-xs">
-                            ⏳ {t('communicationPanel.pending')}
-                          </Badge>
-                        )}
+                      )
+                    }
+
+                    return (
+                      <div className={`rounded-lg border p-4 transition-colors ${
+                        isPending ? "border-amber-300 bg-amber-50/50" : "border-emerald-300 bg-emerald-50/40"
+                      }`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertCircle className="w-4 h-4 flex-shrink-0 text-primary" />
+                              <p className="font-semibold text-sm text-foreground">
+                                {qa.actionLabel}
+                              </p>
+                            </div>
+                            {qa.description && (
+                              <p className="text-sm p-2 rounded mb-2 border bg-background text-foreground/90">
+                                {qa.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <User className="w-3 h-3" />
+                              <span>{message.senderName}</span>
+                              <Clock className="w-3 h-3 ml-2" />
+                              <span>{formatMessageTime(message.createdAt)}</span>
+                            </div>
+                          </div>
+                          {qa.status === "completed" && (
+                            <Badge className="gap-1 flex-shrink-0 text-xs border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                              <CheckCircle2 className="w-3 h-3" />
+                              {t('communicationPanel.completed')}
+                            </Badge>
+                          )}
+                          {isPending && (
+                            <Badge variant="outline" className="gap-1 flex-shrink-0 text-xs border-amber-300 bg-amber-100 text-amber-800">
+                              ⏳ {t('communicationPanel.pending')}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Repair Offer Messages */}
                   {message.messageType === "repair_offer" && message.metadata && (() => {
@@ -864,26 +1114,119 @@ export function CommunicationPanel({
           </div>
         )}
       </div>
+  )
+
+  const compactPreview = (
+    <div className="rounded-xl border border-[#1a2a5e]/15 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45]">
+        <div className="flex items-center gap-2 text-white">
+          <MessageCircle className="w-4 h-4 text-[#f5b800]" />
+          <span className="text-sm font-semibold">
+            {t('communicationPanel.communicationAndFeedback')}
+          </span>
+        </div>
+        {pendingTotal > 0 && (
+          <span className="inline-flex items-center rounded-full bg-[#f5b800] px-2 py-0.5 text-[11px] font-semibold text-[#1a2a5e]">
+            {pendingTotal} {t('communicationPanel.pending')}
+          </span>
+        )}
+      </div>
+
+      <div className="p-3">
+        {lastMessage ? (
+          <div className="flex items-start gap-3">
+            <Avatar className="w-8 h-8 border border-[#1a2a5e]/15">
+              <AvatarImage src={lastMessage.senderId?.avatar} />
+              <AvatarFallback className="bg-[#1a2a5e]/10 text-[#1a2a5e] text-xs font-semibold">
+                {lastMessage.senderName?.split(' ').map((n: string) => n[0]).join('').substring(0, 2) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-[#1a2a5e] truncate">{lastMessage.senderName}</p>
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                  <Clock className="w-3 h-3" />
+                  {formatMessageTime(lastMessage.createdAt)}
+                </span>
+              </div>
+              {getMessageTypeLabel(lastMessage) && (
+                <span className="mt-0.5 inline-flex items-center rounded-full border border-[#1a2a5e]/20 bg-[#1a2a5e]/5 px-2 py-0.5 text-[10px] font-medium text-[#1a2a5e]">
+                  {getMessageTypeLabel(lastMessage)}
+                </span>
+              )}
+              <p className="mt-1 text-xs text-gray-600 line-clamp-2 break-words whitespace-pre-wrap">
+                {getMessageSnippet(lastMessage)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+            <MessageCircle className="w-4 h-4" />
+            {t('communicationPanel.noCommunicationMessages')}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-[#1a2a5e]/10 bg-[#f8f9fc] px-3 py-2">
+        <span className="text-[11px] text-muted-foreground">
+          {communicationMessages.length > 1
+            ? `+${communicationMessages.length - 1} weitere Nachrichten`
+            : 'Nur die letzte Nachricht wird angezeigt'}
+        </span>
+        <Button
+          size="sm"
+          onClick={() => setShowFullChatDialog(true)}
+          className="h-8 gap-1.5 bg-[#1a2a5e] hover:bg-[#0f1d45] text-white text-xs font-semibold"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          Gesamten Chatverlauf öffnen
+        </Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      {variant === "compact" ? compactPreview : panelBody}
+
+      {variant === "compact" && (
+        <Dialog open={showFullChatDialog} onOpenChange={setShowFullChatDialog}>
+          <DialogContent className="order-dialog-content inspection-comm-dialog w-[calc(100vw-12px)] sm:max-w-3xl max-h-[92dvh] overflow-hidden flex flex-col p-0 gap-0">
+            <DialogHeader className="space-y-1 border-b border-[#0f1d45] px-4 py-3 bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45]">
+              <DialogTitle className="text-base flex items-center gap-2 text-white">
+                <MessageCircle className="w-5 h-5 text-[#f5b800]" />
+                Kundenkommunikation
+              </DialogTitle>
+              <DialogDescription className="text-xs text-white/80">
+                Vollständiger Chatverlauf mit allen Nachrichten, Rückfragen und Aktionen.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              {panelBody}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Feedback Request Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-        <DialogContent className="inspection-comm-dialog max-w-md">
-          <DialogHeader>
-            <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
-              <HelpCircle className="inspection-comm-dialog-icon w-5 h-5" />
+        <DialogContent className="order-dialog-content inspection-comm-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-hidden flex flex-col">
+          <DialogHeader className="order-dialog-header space-y-1 border-b pb-3">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-primary" />
               {t('communicationPanel.sendFeedbackRequest')}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs">
               {t('communicationPanel.askCustomerFeedback')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-2">
-              <Label htmlFor="question" className="flex items-center gap-2">
+          <div className="space-y-4 pt-1 overflow-y-auto flex-1 pr-1">
+            <section className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <Label htmlFor="question" className="flex items-center justify-between gap-2 text-xs font-medium">
                 <span>{t('communicationPanel.question')}</span>
-                <span className={`inspection-comm-required text-xs ${feedbackQuestion.trim() ? "is-valid" : "is-empty"}`}>
-                  {feedbackQuestion.trim() ? "✓" : "erforderlich"}
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${feedbackQuestion.trim() ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                  {feedbackQuestion.trim() ? 'Ausgefüllt' : 'Pflichtfeld'}
                 </span>
               </Label>
               <Textarea
@@ -891,35 +1234,35 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.exampleQuestion')}
                 value={feedbackQuestion}
                 onChange={(e) => setFeedbackQuestion(e.target.value)}
-                className={`inspection-comm-input min-h-[80px] resize-none transition-colors ${
+                className={`min-h-[88px] resize-none text-xs ${
                   feedbackQuestion.trim()
-                    ? "is-valid"
-                    : "is-empty"
+                    ? 'border-emerald-300 focus-visible:ring-emerald-500/30'
+                    : 'border-amber-300 focus-visible:ring-amber-500/30'
                 }`}
               />
-              <p className="inspection-comm-help text-xs">
+              <p className="text-xs text-muted-foreground">
                 Stellen Sie eine klare Frage, die eine Ja/Nein- oder Multiple-Choice-Antwort erfordert. Beispiel: "Genehmigen Sie den Austausch der Batterie für 45 €?"
               </p>
-            </div>
+            </section>
 
-            <div className="inspection-comm-tips border rounded-lg p-3">
-              <p className="inspection-comm-tips-title text-xs font-medium mb-2">Tipps für effektive Rückmeldungen:</p>
-              <ul className="inspection-comm-tips-list text-xs space-y-1 list-disc list-inside">
+            <section className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+              <p className="text-xs font-medium text-blue-900 mb-2">Tipps für effektive Rückmeldungen:</p>
+              <ul className="text-xs space-y-1 list-disc list-inside text-blue-900/90">
                 <li>Seien Sie spezifisch, was Sie vom Kunden brauchen</li>
                 <li>Bieten Sie 2-4 klare Antwortoptionen an</li>
                 <li>Vermeiden Sie offene Fragen</li>
               </ul>
-            </div>
+            </section>
 
             {/* Dynamic Feedback Options */}
-            <div className="space-y-3">
+            <section className="space-y-3 rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Antwortoptionen ({feedbackOptions.filter(opt => opt.label.trim()).length} von {feedbackOptions.length})</Label>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleAddFeedbackOption}
-                  className="h-6 text-xs gap-1"
+                  className="h-7 text-xs gap-1"
                   disabled={feedbackOptions.length >= 5}
                 >
                   <Plus className="w-3 h-3" />
@@ -928,10 +1271,10 @@ export function CommunicationPanel({
               </div>
 
               {feedbackOptions.map((option, index) => (
-                <div key={index} className="space-y-1 pb-2 border-b">
-                  <Label htmlFor={`option-${index}`} className="text-xs flex items-center gap-2">
+                <div key={index} className="space-y-1 rounded-md border bg-background p-2">
+                  <Label htmlFor={`option-${index}`} className="text-xs flex items-center gap-2 font-medium">
                     <span>Option {index + 1}</span>
-                    {option.label.trim() && <span className="text-green-600">✓</span>}
+                    {option.label.trim() && <span className="text-emerald-600">✓</span>}
                   </Label>
                   <div className="flex gap-2">
                     <Input
@@ -946,41 +1289,42 @@ export function CommunicationPanel({
                         size="sm"
                         variant="ghost"
                         onClick={() => handleRemoveFeedbackOption(index)}
-                        className="h-8 w-8 p-0"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         title="Option entfernen"
                       >
-                        <Trash2 className="w-3 h-3 text-red-500" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
                 </div>
               ))}
-            </div>
+            </section>
 
             {/* Preview Section */}
             {feedbackQuestion.trim() && feedbackOptions.filter(opt => opt.label.trim()).length >= 2 && (
-              <div className="inspection-comm-preview border rounded-lg p-3">
-                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Vorschau:</p>
-                <div className="inspection-comm-preview-content space-y-2 border-l-4 p-3 rounded bg-gray-50">
+              <section className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-medium mb-2">Vorschau:</p>
+                <div className="space-y-2 border-l-2 border-primary/30 p-3 rounded bg-background">
                   <p className="font-medium text-sm">{feedbackQuestion}</p>
                   <div className="space-y-1 text-xs">
                     {feedbackOptions.filter(opt => opt.label.trim()).map((option, idx) => (
-                      <div key={idx} className="inspection-comm-preview-option flex items-center gap-2 p-2 rounded border bg-white">
-                        <div className="inspection-comm-preview-dot w-3 h-3 rounded-full border" />
+                      <div key={idx} className="flex items-center gap-2 p-2 rounded border bg-background">
+                        <div className="w-3 h-3 rounded-full border border-muted-foreground/50" />
                         <span>{option.label}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </div>
+              </section>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3 mt-2 bg-background sticky bottom-0 z-10">
             <Button
               variant="outline"
               onClick={() => setShowFeedbackDialog(false)}
               disabled={sendingFeedback}
+              size="sm"
             >
               {t('common.cancel')}
             </Button>
@@ -988,6 +1332,7 @@ export function CommunicationPanel({
               onClick={handleSendFeedback}
               disabled={sendingFeedback || !feedbackQuestion.trim() || feedbackOptions.filter(opt => opt.label.trim()).length < 2}
               className="gap-2"
+              size="sm"
             >
               {sendingFeedback ? (
                 <>
@@ -1007,28 +1352,30 @@ export function CommunicationPanel({
 
       {/* Quick Action Dialog */}
       <Dialog open={showQuickActionDialog} onOpenChange={setShowQuickActionDialog}>
-        <DialogContent className="inspection-comm-dialog max-w-md">
-          <DialogHeader>
-            <DialogTitle className="inspection-comm-dialog-title flex items-center gap-2">
-              <AlertCircle className="inspection-comm-dialog-icon danger w-5 h-5" />
+        <DialogContent className="order-dialog-content inspection-comm-dialog w-[calc(100vw-12px)] sm:max-w-2xl max-h-[92dvh] overflow-hidden flex flex-col">
+          <DialogHeader className="order-dialog-header space-y-1 border-b pb-3">
+            <DialogTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-primary" />
               {t('communicationPanel.sendQuickAction')}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs">
               {t('communicationPanel.notifyCustomerAction')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-2">
-              <Label htmlFor="actionType" className="flex items-center gap-2">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-1 pt-1">
+            <section className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <Label htmlFor="actionType" className="flex items-center justify-between gap-2 text-xs font-medium">
                 <span>{t('communicationPanel.actionType')}</span>
-                <span className="inspection-comm-required text-xs is-empty">required</span>
+                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] border-amber-300 bg-amber-50 text-amber-700">
+                  {t('communicationPanel.required')}
+                </span>
               </Label>
               <select
                 id="actionType"
                 value={quickActionType}
                 onChange={(e) => setQuickActionType(e.target.value as any)}
-                className="inspection-comm-select w-full px-3 py-2 border rounded-md bg-white text-sm transition-colors"
+                className="w-full px-3 py-2 border rounded-md bg-background text-xs transition-colors"
               >
                 {quickActionOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -1036,25 +1383,23 @@ export function CommunicationPanel({
                   </option>
                 ))}
               </select>
-            </div>
+            </section>
 
             {/* Action Type Info Box */}
-            <div className={`inspection-comm-action-type-box border rounded-lg p-3 text-xs transition-colors ${
-              selectedQuickActionOption?.tone || 'is-cost'
-            }`}>
-              <p className="font-medium mb-2">
+            <section className="border rounded-lg p-3 text-xs transition-colors bg-muted/20">
+              <p className="font-medium mb-2 text-sm">
                 {selectedQuickActionOption?.title}
               </p>
-              <p className="opacity-75">
+              <p className="text-muted-foreground">
                 {selectedQuickActionOption?.description}
               </p>
-            </div>
+            </section>
 
-            <div className="space-y-2">
-              <Label htmlFor="description" className="flex items-center gap-2">
+            <section className="space-y-2 rounded-lg border p-3">
+              <Label htmlFor="description" className="flex items-center justify-between gap-2 text-xs font-medium">
                 <span>{t('communicationPanel.description')}</span>
-                <span className={`inspection-comm-required text-xs ${quickActionDescription.trim() ? "is-valid" : "is-empty"}`}>
-                  {quickActionDescription.trim() ? "✓" : "required"}
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${quickActionDescription.trim() ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                  {quickActionDescription.trim() ? 'Ausgefüllt' : t('communicationPanel.required')}
                 </span>
               </Label>
               <Textarea
@@ -1062,51 +1407,44 @@ export function CommunicationPanel({
                 placeholder={t('communicationPanel.describeAction')}
                 value={quickActionDescription}
                 onChange={(e) => setQuickActionDescription(e.target.value)}
-                className={`inspection-comm-input min-h-[100px] resize-none transition-colors ${
+                className={`min-h-[100px] resize-none text-xs transition-colors ${
                   quickActionDescription.trim()
-                    ? "is-valid"
-                    : "is-empty"
+                    ? 'border-emerald-300 focus-visible:ring-emerald-500/30'
+                    : 'border-amber-300 focus-visible:ring-amber-500/30'
                 }`}
               />
-              <p className="inspection-comm-help text-xs">
-                Provide clear, specific details about the action and any next steps the customer needs to take. Be professional but friendly.
+              <p className="inspection-comm-help text-xs text-muted-foreground">
+                {t('communicationPanel.actionDescriptionHelp')}
               </p>
-            </div>
+            </section>
 
             {/* Preview Section */}
             {quickActionDescription.trim() && (
-              <div className="inspection-comm-preview border rounded-lg p-3">
-                <p className="inspection-comm-preview-title text-xs font-medium mb-2">Preview:</p>
-                <div className={`inspection-comm-action-preview space-y-2 border-l-4 rounded p-3 ${
-                  selectedQuickActionOption?.tone || 'is-cost'
-                }`}>
+              <section className="inspection-comm-preview border rounded-lg bg-muted/20 p-3">
+                <p className="inspection-comm-preview-title text-xs font-medium mb-2">{t('communicationPanel.preview')}</p>
+                <div className="space-y-2 border-l-2 border-primary/30 rounded p-3 bg-background">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 inspection-comm-preview-icon ${
-                      selectedQuickActionOption?.tone || 'is-cost'
-                    }`} />
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
                     <div className="flex-1">
-                      <p className={`font-medium text-sm mb-1 inspection-comm-preview-heading ${
-                        selectedQuickActionOption?.tone || 'is-cost'
-                      }`}>
+                      <p className="font-medium text-sm mb-1 text-foreground">
                         {selectedQuickActionOption?.title}
                       </p>
-                      <p className={`text-xs inspection-comm-preview-copy ${
-                        selectedQuickActionOption?.tone || 'is-cost'
-                      }`}>
+                      <p className="text-xs text-muted-foreground">
                         {quickActionDescription}
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-3 mt-2 bg-background sticky bottom-0 z-10">
             <Button
               variant="outline"
               onClick={() => setShowQuickActionDialog(false)}
               disabled={sendingQuickAction}
+              size="sm"
             >
               {t('common.cancel')}
             </Button>
@@ -1114,6 +1452,7 @@ export function CommunicationPanel({
               onClick={handleSendQuickAction}
               disabled={sendingQuickAction || !quickActionDescription.trim()}
               className="gap-2"
+              size="sm"
             >
               {sendingQuickAction ? (
                 <>

@@ -30,6 +30,9 @@ import {
   CreditCard,
   Home,
   Wrench,
+  Receipt,
+  AlertCircle,
+  Euro,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,7 +70,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings";
+import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel, getBookingInvoices } from "@/api/bookings";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
@@ -96,6 +99,20 @@ interface Booking {
     invoiceAddress?: AddressFields;
     paymentAddress?: AddressFields & { sameAsInvoice?: boolean };
   };
+  guestInfo?: {
+    billingAddress?: AddressFields;
+    shippingAddress?: AddressFields;
+  };
+  billingAddress?: AddressFields;
+  shippingAddress?: AddressFields;
+  orderIds?: Array<{
+    billingAddress?: AddressFields;
+    shippingAddress?: AddressFields;
+    guestInfo?: {
+      billingAddress?: AddressFields;
+      shippingAddress?: AddressFields;
+    };
+  }>;
   items: Array<{
     _id?: string;
     type: string;
@@ -120,6 +137,7 @@ interface Booking {
   totalCost: number;
   status: string;
   billingStatus: string;
+  paymentStatus?: string;
   overallProgress: number;
   createdAt: string;
   updatedAt: string;
@@ -462,6 +480,16 @@ export function CustomerBookings() {
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'badge badge-pending';
+      case 'sent':
+        return 'badge badge-processing';
+      case 'viewed':
+        return 'badge badge-processing';
+      case 'overdue':
+        return 'badge badge-unpaid';
+      case 'partially_paid':
+        return 'badge badge-partially-paid';
       case 'unpaid':
         return 'badge badge-unpaid';
       case 'partially-paid':
@@ -470,6 +498,35 @@ export function CustomerBookings() {
         return 'badge badge-paid';
       default:
         return 'badge';
+    }
+  };
+
+  const getEffectivePaymentStatus = (booking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
+    const candidate = String(booking.paymentStatus || '');
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus;
+  };
+
+  const getBillingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'Vorlage';
+      case 'sent':
+        return 'Gesendet';
+      case 'viewed':
+        return 'Angesehen';
+      case 'partially_paid':
+        return 'Teilweise Bezahlt';
+      case 'overdue':
+        return 'Ueberfaellig';
+      case 'unpaid':
+        return 'Offen';
+      case 'partially-paid':
+        return 'Teilbezahlt';
+      case 'paid':
+        return 'Bezahlt';
+      default:
+        return status;
     }
   };
 
@@ -667,8 +724,8 @@ export function CustomerBookings() {
                           </Badge>
                         </TableCell>
                         <TableCell className="py-5" data-label="Billing">
-                          <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                            {t(`billingStatus.${booking.billingStatus}`)}
+                          <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                            {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                           </Badge>
                         </TableCell>
                         <TableCell className="py-5" data-label="Progress">
@@ -770,8 +827,8 @@ export function CustomerBookings() {
                                 <div className="info-grid">
                                   <div className="info-item">
                                     <div className="info-label">{t('bookings.billing')}</div>
-                                    <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                                      {t(`billingStatus.${booking.billingStatus}`)}
+                                    <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                                      {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                                     </Badge>
                                   </div>
                                   {booking.returnShipmentStatus && (
@@ -1299,7 +1356,96 @@ function BookingDetailDialog({
   const [detailOrders, setDetailOrders] = useState<any[]>([]);
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(false);;
 
+  const [bookingInvoices, setBookingInvoices] = useState<any[]>([]);
+  const [loadingBookingInvoices, setLoadingBookingInvoices] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoadingBookingInvoices(true);
+      try {
+        const data = await getBookingInvoices(booking._id);
+        if (!cancelled) setBookingInvoices(data.invoices || []);
+      } catch {
+        if (!cancelled) setBookingInvoices([]);
+      } finally {
+        if (!cancelled) setLoadingBookingInvoices(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [open, booking._id]);
+
+  const getInvoiceStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft': return 'Vorlage';
+      case 'pending_approval': return 'Ausstehend';
+      case 'sent': return 'Gesendet';
+      case 'viewed': return 'Angesehen';
+      case 'partially_paid': return 'Teilbezahlt';
+      case 'paid': return 'Bezahlt';
+      case 'overdue': return 'Überfällig';
+      case 'cancelled': return 'Storniert';
+      case 'credited': return 'Gutgeschrieben';
+      default: return status;
+    }
+  };
+
+  const getInvoiceStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'paid': return 'bg-green-100 text-green-700 border border-green-200';
+      case 'partially_paid': return 'bg-blue-100 text-blue-700 border border-blue-200';
+      case 'overdue': return 'bg-red-100 text-red-700 border border-red-200';
+      case 'sent': return 'bg-purple-100 text-purple-700 border border-purple-200';
+      case 'viewed': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+      case 'cancelled': return 'bg-gray-100 text-gray-500 border border-gray-200';
+      case 'draft': return 'bg-gray-100 text-gray-600 border border-gray-200';
+      default: return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+    }
+  };
+
+  const getPaymentMethodLabel = (method?: string) => {
+    switch (method) {
+      case 'stripe': return 'Stripe';
+      case 'paypal': return 'PayPal';
+      case 'bank_transfer': return 'Überweisung';
+      case 'cash': return 'Bar';
+      case 'manual': return 'Manuell';
+      default: return method || 'Unbekannt';
+    }
+  };
+
   const repairItems = (booking.items || []).filter((item) => item.type === 'repair');
+
+  const getEffectivePaymentStatus = (currentBooking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
+    const candidate = String(currentBooking.paymentStatus || '');
+    return invoiceStatuses.includes(candidate) ? candidate : currentBooking.billingStatus;
+  };
+
+  const getBillingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'Vorlage';
+      case 'sent':
+        return 'Gesendet';
+      case 'viewed':
+        return 'Angesehen';
+      case 'partially_paid':
+        return 'Teilweise Bezahlt';
+      case 'overdue':
+        return 'Ueberfaellig';
+      case 'unpaid':
+        return 'Offen';
+      case 'partially-paid':
+        return 'Teilbezahlt';
+      case 'paid':
+        return 'Bezahlt';
+      default:
+        return status;
+    }
+  };
 
   const getRepairImageKey = (item: Booking['items'][number], index: number) => {
     return String(item.orderId || item._id || `${item.device || 'repair'}-${index}`);
@@ -1560,7 +1706,7 @@ function BookingDetailDialog({
               Versand
             </TabsTrigger>
             <TabsTrigger value="timeline" className="booking-detail-tab-trigger" style={tabStyle("timeline")}>
-              Verlauf
+              {t('bookings.timeline')}
             </TabsTrigger>
           </TabsList>
             );
@@ -1595,8 +1741,18 @@ function BookingDetailDialog({
 
                   {/* Billing address */}
                   {(() => {
-                    const addr = booking.customerId.invoiceAddress;
-                    const hasAddr = addr && (addr.street || addr.city || addr.zipCode || addr.state);
+                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
+                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+                    );
+                    const firstOrder = Array.isArray(booking.orderIds)
+                      ? booking.orderIds.find((order) => order && typeof order === 'object')
+                      : undefined;
+                    const addr = booking.customerId?.invoiceAddress
+                      || booking.billingAddress
+                      || booking.guestInfo?.billingAddress
+                      || firstOrder?.billingAddress
+                      || firstOrder?.guestInfo?.billingAddress;
+                    const hasAddr = hasAddressData(addr);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -1618,10 +1774,26 @@ function BookingDetailDialog({
 
                   {/* Delivery address */}
                   {(() => {
-                    const payAddr = booking.customerId.paymentAddress;
-                    const billAddr = booking.customerId.invoiceAddress;
-                    const hasBillAddr = billAddr && (billAddr.street || billAddr.city || billAddr.zipCode || billAddr.state);
-                    const sameAsInvoice = payAddr?.sameAsInvoice !== false;
+                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
+                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
+                    );
+                    const firstOrder = Array.isArray(booking.orderIds)
+                      ? booking.orderIds.find((order) => order && typeof order === 'object')
+                      : undefined;
+                    const payAddr = booking.customerId?.paymentAddress;
+                    const billAddr = booking.customerId?.invoiceAddress
+                      || booking.billingAddress
+                      || booking.guestInfo?.billingAddress
+                      || firstOrder?.billingAddress
+                      || firstOrder?.guestInfo?.billingAddress;
+                    const deliveryAddr = payAddr?.sameAsInvoice === false
+                      ? payAddr
+                      : booking.shippingAddress
+                        || booking.guestInfo?.shippingAddress
+                        || firstOrder?.shippingAddress
+                        || firstOrder?.guestInfo?.shippingAddress;
+                    const hasBillAddr = hasAddressData(billAddr);
+                    const sameAsInvoice = payAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr);
                     if (sameAsInvoice) {
                       return (
                         <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
@@ -1637,7 +1809,7 @@ function BookingDetailDialog({
                         </div>
                       );
                     }
-                    const hasPayAddr = payAddr && (payAddr.street || payAddr.city || payAddr.zipCode || payAddr.state);
+                    const hasPayAddr = hasAddressData(deliveryAddr);
                     return (
                       <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -1646,9 +1818,9 @@ function BookingDetailDialog({
                         </div>
                         {hasPayAddr ? (
                           <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                            {payAddr!.street && <p>{payAddr!.street}</p>}
-                            {(payAddr!.zipCode || payAddr!.city) && <p>{[payAddr!.zipCode, payAddr!.city].filter(Boolean).join(' ')}</p>}
-                            {payAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{payAddr!.country}</p>}
+                            {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
+                            {(deliveryAddr!.zipCode || deliveryAddr!.city) && <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>}
+                            {deliveryAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{deliveryAddr!.country}</p>}
                           </div>
                         ) : (
                           <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
@@ -1671,7 +1843,7 @@ function BookingDetailDialog({
                   </div>
                   <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
                     <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Abrechnung</p>
-                    <Badge className={`${getBillingStatusColor(booking.billingStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{t(`status.${booking.billingStatus}`)}</Badge>
+                    <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{getBillingStatusLabel(getEffectivePaymentStatus(booking))}</Badge>
                   </div>
                 </div>
               </div>
@@ -1710,6 +1882,109 @@ function BookingDetailDialog({
                 </div>
               </div>
             </div>
+
+            {/* Rechnungen */}
+            <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+              <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
+                <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                Rechnungen
+              </p>
+              {loadingBookingInvoices ? (
+                <div className="flex items-center gap-2 py-3">
+                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary-blue,#1a2a5e)] border-t-transparent" />
+                  <span className="text-xs text-[var(--gray-400,#8892a8)]">Rechnungen werden geladen...</span>
+                </div>
+              ) : bookingInvoices.length === 0 ? (
+                <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Keine Rechnungen vorhanden</p>
+              ) : (
+                <div className="space-y-2">
+                  {bookingInvoices.map((inv: any) => {
+                    const openAmount = Math.max(0, Number(inv.total || 0) - Number(inv.paidAmount || inv.amountPaid || 0));
+                    const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'paid';
+                    return (
+                      <div
+                        key={inv._id}
+                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)] hover:bg-[var(--gray-100,#eef0f5)] cursor-pointer transition-colors border border-transparent hover:border-[var(--accent-yellow,#f5b800)]"
+                        onClick={() => {
+                          onClose();
+                          navigate('/invoices', { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
+                        }}
+                      >
+                        <Receipt className="h-4 w-4 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-[var(--gray-800,#1a202c)]">{inv.invoiceNumber}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${getInvoiceStatusBadgeClass(inv.status)}`}>
+                              {getInvoiceStatusLabel(inv.status)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            <span className="text-xs text-[var(--gray-600,#4a5568)]">
+                              Gesamt: <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatCurrency(inv.total)}</span>
+                            </span>
+                            {Number(inv.paidAmount || inv.amountPaid || 0) > 0 && (
+                              <span className="text-xs text-green-600 font-semibold">
+                                Bezahlt: {formatCurrency(Number(inv.paidAmount || inv.amountPaid || 0))}
+                              </span>
+                            )}
+                            {openAmount > 0 && (
+                              <span className={`text-xs font-semibold ${isOverdue ? 'text-red-600' : 'text-[var(--gray-600,#4a5568)]'}`}>
+                                Offen: {formatCurrency(openAmount)}
+                              </span>
+                            )}
+                            {inv.dueDate && (
+                              <span className={`text-[10px] ${isOverdue ? 'text-red-500 font-semibold' : 'text-[var(--gray-400,#8892a8)]'}`}>
+                                {isOverdue && <AlertCircle className="inline h-3 w-3 mr-0.5" />}
+                                Fällig: {formatDate(inv.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-[var(--gray-400,#8892a8)] flex-shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Zahlungsprozesse */}
+            {(() => {
+              const allPayments = bookingInvoices.flatMap((inv: any) =>
+                (inv.paymentHistory || []).map((p: any) => ({ ...p, invoiceNumber: inv.invoiceNumber }))
+              ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+              if (loadingBookingInvoices || allPayments.length === 0) return null;
+              return (
+                <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
+                  <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
+                    <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
+                    Zahlungsprozesse
+                  </p>
+                  <div className="space-y-2">
+                    {allPayments.map((p: any, i: number) => (
+                      <div key={p._id || i} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)]">
+                        <Euro className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-green-700">{formatCurrency(p.amount)}</span>
+                            {p.method && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 font-semibold">
+                                {getPaymentMethodLabel(p.method)}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[var(--gray-400,#8892a8)]">{p.invoiceNumber}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-[var(--gray-500,#636e85)]">{formatDateTime(p.date)}</span>
+                            {p.note && <span className="text-[10px] text-[var(--gray-400,#8892a8)] truncate">{p.note}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="repairs" className="space-y-3 mt-3 sm:mt-5">

@@ -86,32 +86,58 @@ class ServiceCategoryService {
     try {
       console.log('ServiceCategoryService: Updating category:', categoryId);
 
-      // Check if updating name would create a duplicate
-      if (updateData.name) {
-        const category = await ServiceCategory.findById(categoryId);
-        if (!category) {
-          throw new Error('Category not found');
-        }
+      // Extract migrateFromName before passing data to DB
+      const { migrateFromName, ...dbUpdateData } = updateData;
 
-        const existingCategory = await ServiceCategory.findOne({
-          name: updateData.name,
-          type: category.type,
+      const existingCategory = await ServiceCategory.findById(categoryId);
+      if (!existingCategory) {
+        throw new Error('Category not found');
+      }
+
+      const oldName = existingCategory.name;
+      const nameIsChanging = dbUpdateData.name && dbUpdateData.name !== oldName;
+
+      // Check if updating name would create a duplicate
+      if (nameIsChanging) {
+        const duplicate = await ServiceCategory.findOne({
+          name: dbUpdateData.name,
+          type: existingCategory.type,
           _id: { $ne: categoryId }
         });
 
-        if (existingCategory) {
-          throw new Error(`Category with name "${updateData.name}" already exists for this type`);
+        if (duplicate) {
+          throw new Error(`Category with name "${dbUpdateData.name}" already exists for this type`);
         }
       }
 
       const category = await ServiceCategory.findByIdAndUpdate(
         categoryId,
-        { ...updateData, updatedAt: Date.now() },
+        { ...dbUpdateData, updatedAt: Date.now() },
         { new: true, runValidators: true }
       );
 
       if (!category) {
         throw new Error('Category not found');
+      }
+
+      const cascadeUpdate = async (fromName, toName) => {
+        if (existingCategory.type === 'repair') {
+          const result = await Service.updateMany({ category: fromName }, { $set: { category: toName } });
+          console.log(`ServiceCategoryService: Updated ${result.modifiedCount} services from "${fromName}" to "${toName}"`);
+        } else if (existingCategory.type === 'addon') {
+          const result = await AddOnService.updateMany({ category: fromName }, { $set: { category: toName } });
+          console.log(`ServiceCategoryService: Updated ${result.modifiedCount} add-on services from "${fromName}" to "${toName}"`);
+        }
+      };
+
+      // Cascade automatic name change
+      if (nameIsChanging) {
+        await cascadeUpdate(oldName, category.name);
+      }
+
+      // Cascade manual migration from a previously renamed category
+      if (migrateFromName && migrateFromName.trim() && migrateFromName.trim() !== category.name) {
+        await cascadeUpdate(migrateFromName.trim(), category.name);
       }
 
       console.log('ServiceCategoryService: Category updated successfully');

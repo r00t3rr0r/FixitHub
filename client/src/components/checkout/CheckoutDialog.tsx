@@ -2022,18 +2022,22 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                           <span className="font-semibold text-[#15803d]">{t("checkout.shippingFreeShort")}</span>
                         </div>
 
-                        <div className="flex justify-between">
-                          <span className="text-[#5f6d86]">{t("cart.tax")}</span>
-                          <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.tax)}</span>
+                        <div className="border-t border-[#d8dce6] pt-2 space-y-1.5">
+                          <div className="flex justify-between">
+                            <span className="text-[#5f6d86]">{t("cart.netto")}</span>
+                            <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.total - totals.tax)}</span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span className="text-[#5f6d86]">{t("cart.tax")}</span>
+                            <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.tax)}</span>
+                          </div>
                         </div>
 
                         <div className="mt-1 flex items-center justify-between rounded-lg bg-[#f0f4ff] px-2.5 py-2 text-base border-t border-[#d8e3ff]">
                           <span className="font-bold text-[#1a2a5e]">{t("cart.grandTotal")}</span>
                           <div className="text-right">
                             <span className="text-lg font-extrabold text-[#1a2a5e]">{formatEUR(totals.total)}</span>
-                            {totals.tax > 0 && (
-                              <p className="text-[10px] font-normal text-[#5f6d86]">{t("checkout.inclTax")}</p>
-                            )}
                           </div>
                         </div>
 

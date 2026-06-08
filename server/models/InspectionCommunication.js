@@ -40,7 +40,7 @@ const feedbackRequestSchema = new mongoose.Schema({
 const quickActionSchema = new mongoose.Schema({
   actionType: {
     type: String,
-    enum: ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs'],
+    enum: ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs', 'update_unlock_info'],
     required: true,
   },
   actionLabel: {

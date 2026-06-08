@@ -4,6 +4,76 @@ const User = require('../models/User');
 const { sendNotification } = require('./notificationService');
 
 class DeviceChangeService {
+  static normalizeDeviceTypeCandidates(deviceType) {
+    const candidates = [String(deviceType || '').trim()].filter(Boolean);
+    const normalized = candidates[0]?.toLowerCase();
+
+    if (normalized === 'wearable' && !candidates.includes('smartwatch')) {
+      candidates.push('smartwatch');
+    }
+    if (normalized === 'smartwatch' && !candidates.includes('wearable')) {
+      candidates.push('wearable');
+    }
+
+    return candidates;
+  }
+
+  static isServiceCompatibleWithDeviceType(serviceDetails, deviceType) {
+    const compatibleTypes = DeviceChangeService.normalizeDeviceTypeCandidates(deviceType).map((entry) =>
+      String(entry || '').trim().toLowerCase()
+    );
+
+    const declaredTypes = [
+      ...(Array.isArray(serviceDetails.supportedDeviceTypes) ? serviceDetails.supportedDeviceTypes : []),
+      ...(Array.isArray(serviceDetails.deviceTypes) ? serviceDetails.deviceTypes : []),
+      serviceDetails.deviceType,
+    ]
+      .filter(Boolean)
+      .map((entry) => String(entry).trim().toLowerCase());
+
+    if (declaredTypes.length === 0) {
+      return true;
+    }
+
+    return declaredTypes.some((entry) => compatibleTypes.includes(entry));
+  }
+
+  static getServicePriceForDevice(serviceDetails, deviceType, fallbackPrice = 0) {
+    if (
+      serviceDetails.priceByDeviceType &&
+      serviceDetails.priceByDeviceType[deviceType] !== undefined
+    ) {
+      return Number(serviceDetails.priceByDeviceType[deviceType]) || 0;
+    }
+
+    if (serviceDetails.price !== undefined && serviceDetails.price !== null) {
+      return Number(serviceDetails.price) || 0;
+    }
+
+    return Number(fallbackPrice) || 0;
+  }
+
+  static doesServiceMatchDeviceSelection(serviceDetails, deviceBrand, deviceModel) {
+    const expectedBrand = String(deviceBrand || '').trim().toLowerCase();
+    const expectedModel = String(deviceModel || '').trim().toLowerCase();
+
+    if (!expectedBrand && !expectedModel) {
+      return true;
+    }
+
+    const candidateBrands = [serviceDetails.manufacturerPrecise, serviceDetails.manufacturer]
+      .filter(Boolean)
+      .map((entry) => String(entry).trim().toLowerCase());
+    const candidateModels = [serviceDetails.modelPrecise, serviceDetails.model]
+      .filter(Boolean)
+      .map((entry) => String(entry).trim().toLowerCase());
+
+    const matchesBrand = expectedBrand ? candidateBrands.includes(expectedBrand) : true;
+    const matchesModel = expectedModel ? candidateModels.includes(expectedModel) : true;
+
+    return matchesBrand && matchesModel;
+  }
+
   /**
    * Change device in an order and recalculate repair services
    * @param {string} orderId - Order ID
@@ -39,83 +109,172 @@ class DeviceChangeService {
         [changedByUser?.firstName, changedByUser?.lastName].filter(Boolean).join(' ') ||
         'System';
 
-      const originalServices = JSON.parse(JSON.stringify(order.services || []));
-      const originalTotalCost = order.totalCost;
+      const originalTotalCost =
+        (order.services || []).reduce((sum, service) => sum + (Number(service.price) || 0), 0) +
+        (order.addOns || []).reduce((sum, addon) => sum + (Number(addon.price) || 0), 0);
 
       // Update device information
       order.deviceBrand = newDeviceInfo.deviceBrand;
       order.deviceModel = newDeviceInfo.deviceModel;
       order.deviceType = newDeviceInfo.deviceType;
 
+      const selectedServiceReplacement =
+        newDeviceInfo.serviceReplacement &&
+        newDeviceInfo.serviceReplacement.oldOrderServiceId &&
+        newDeviceInfo.serviceReplacement.newServiceId
+          ? {
+              oldOrderServiceId: String(newDeviceInfo.serviceReplacement.oldOrderServiceId),
+              newServiceId: String(newDeviceInfo.serviceReplacement.newServiceId),
+            }
+          : null;
+
       // Get current services and recalculate prices for new device
       const recalculatedServices = [];
       const pricingChanges = [];
+      let selectedServiceSwap = null;
 
       if (order.services && order.services.length > 0) {
-        for (const orderService of order.services) {
-          // Fetch the service details from database
-          const serviceDetails = await Service.findById(orderService.serviceId);
+        if (selectedServiceReplacement) {
+          const serviceIndex = order.services.findIndex(
+            (service) => String(service._id) === selectedServiceReplacement.oldOrderServiceId
+          );
 
-          if (!serviceDetails) {
-            console.warn(
-              `[DeviceChange] Service ${orderService.serviceId} not found, skipping recalculation`
-            );
-            recalculatedServices.push(orderService);
-            continue;
+          if (serviceIndex === -1) {
+            throw new Error('Selected existing repair service is not part of this order');
           }
 
-          // Check if service is compatible with new device type
-          const isCompatible =
-            !serviceDetails.supportedDeviceTypes ||
-            serviceDetails.supportedDeviceTypes.length === 0 ||
-            serviceDetails.supportedDeviceTypes.includes(newDeviceInfo.deviceType);
+          const existingOrderService = order.services[serviceIndex];
+          const existingServiceDetails = await Service.findById(existingOrderService.serviceId);
+          const newServiceDetails = await Service.findById(selectedServiceReplacement.newServiceId);
+
+          if (!newServiceDetails) {
+            throw new Error('Selected replacement repair service was not found');
+          }
+
+          const isCompatible = DeviceChangeService.isServiceCompatibleWithDeviceType(
+            newServiceDetails,
+            newDeviceInfo.deviceType
+          );
 
           if (!isCompatible) {
-            console.warn(
-              `[DeviceChange] Service ${serviceDetails.name} not compatible with ${newDeviceInfo.deviceType}`
-            );
             throw new Error(
-              `Service "${serviceDetails.name}" is not compatible with ${newDeviceInfo.deviceType}`
+              `Service "${newServiceDetails.name}" is not compatible with ${newDeviceInfo.deviceType}`
             );
           }
 
-          // Get new price for the service (may vary by device type)
-          let newPrice = serviceDetails.price;
-          if (
-            serviceDetails.priceByDeviceType &&
-            serviceDetails.priceByDeviceType[newDeviceInfo.deviceType]
-          ) {
-            newPrice = serviceDetails.priceByDeviceType[newDeviceInfo.deviceType];
+          const modelCompatible = DeviceChangeService.doesServiceMatchDeviceSelection(
+            newServiceDetails,
+            newDeviceInfo.deviceBrand,
+            newDeviceInfo.deviceModel
+          );
+
+          if (!modelCompatible) {
+            throw new Error(
+              `Service "${newServiceDetails.name}" is not available for ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}`
+            );
           }
 
-          const originalPrice = orderService.price;
+          const originalPrice = Number(existingOrderService.price) || 0;
+          const newPrice = DeviceChangeService.getServicePriceForDevice(
+            newServiceDetails,
+            newDeviceInfo.deviceType,
+            originalPrice
+          );
           const priceDifference = newPrice - originalPrice;
           const percentageChange = originalPrice > 0 ? (priceDifference / originalPrice) * 100 : 0;
 
-          // Update service with new price
-          orderService.price = newPrice;
+          existingOrderService.serviceId = newServiceDetails._id;
+          existingOrderService.price = newPrice;
 
-          recalculatedServices.push(orderService);
+          const numericEstimatedTime = Number(newServiceDetails.estimatedTime);
+          if (!Number.isNaN(numericEstimatedTime) && numericEstimatedTime >= 0) {
+            existingOrderService.estimatedTime = numericEstimatedTime;
+          }
+
+          selectedServiceSwap = {
+            previousServiceName: existingServiceDetails?.name || 'Vorheriger Service',
+            previousServicePrice: originalPrice,
+            newServiceName: newServiceDetails.name,
+            newServicePrice: newPrice,
+            difference: priceDifference,
+            status: priceDifference > 0 ? 'increase' : priceDifference < 0 ? 'decrease' : 'no-change',
+          };
 
           pricingChanges.push({
-            serviceName: serviceDetails.name,
-            serviceId: serviceDetails._id,
-            originalPrice: originalPrice,
-            newPrice: newPrice,
+            serviceName: `${selectedServiceSwap.previousServiceName} -> ${selectedServiceSwap.newServiceName}`,
+            serviceId: newServiceDetails._id,
+            originalPrice,
+            newPrice,
             difference: priceDifference,
-            percentageChange: Math.round(percentageChange * 10) / 10, // Round to 1 decimal place
-            status: priceDifference > 0 ? 'increase' : priceDifference < 0 ? 'decrease' : 'no-change',
+            percentageChange: Math.round(percentageChange * 10) / 10,
+            status: selectedServiceSwap.status,
           });
 
+          recalculatedServices.push(existingOrderService);
+
           console.log(
-            `[DeviceChange] Service ${serviceDetails.name}: ${originalPrice} -> ${newPrice} (${priceDifference > 0 ? '+' : ''}${priceDifference})`
+            `[DeviceChange] Replaced service ${selectedServiceSwap.previousServiceName} with ${selectedServiceSwap.newServiceName}: ${originalPrice} -> ${newPrice}`
           );
+        } else {
+          for (const orderService of order.services) {
+            const serviceDetails = await Service.findById(orderService.serviceId);
+
+            if (!serviceDetails) {
+              console.warn(
+                `[DeviceChange] Service ${orderService.serviceId} not found, skipping recalculation`
+              );
+              recalculatedServices.push(orderService);
+              continue;
+            }
+
+            const isCompatible = DeviceChangeService.isServiceCompatibleWithDeviceType(
+              serviceDetails,
+              newDeviceInfo.deviceType
+            );
+
+            if (!isCompatible) {
+              console.warn(
+                `[DeviceChange] Service ${serviceDetails.name} not compatible with ${newDeviceInfo.deviceType}`
+              );
+              throw new Error(
+                `Service "${serviceDetails.name}" is not compatible with ${newDeviceInfo.deviceType}`
+              );
+            }
+
+            const newPrice = DeviceChangeService.getServicePriceForDevice(
+              serviceDetails,
+              newDeviceInfo.deviceType,
+              orderService.price
+            );
+            const originalPrice = Number(orderService.price) || 0;
+            const priceDifference = newPrice - originalPrice;
+            const percentageChange = originalPrice > 0 ? (priceDifference / originalPrice) * 100 : 0;
+
+            orderService.price = newPrice;
+
+            recalculatedServices.push(orderService);
+
+            pricingChanges.push({
+              serviceName: serviceDetails.name,
+              serviceId: serviceDetails._id,
+              originalPrice: originalPrice,
+              newPrice: newPrice,
+              difference: priceDifference,
+              percentageChange: Math.round(percentageChange * 10) / 10,
+              status: priceDifference > 0 ? 'increase' : priceDifference < 0 ? 'decrease' : 'no-change',
+            });
+
+            console.log(
+              `[DeviceChange] Service ${serviceDetails.name}: ${originalPrice} -> ${newPrice} (${priceDifference > 0 ? '+' : ''}${priceDifference})`
+            );
+          }
         }
       }
 
       // Recalculate total cost
       const newTotalCost = order.services.reduce((sum, s) => sum + (s.price || 0), 0) +
         (order.addOns ? order.addOns.reduce((sum, addon) => sum + (addon.price || 0), 0) : 0);
+      order.totalCost = newTotalCost;
 
       const totalCostDifference = newTotalCost - originalTotalCost;
 
@@ -136,6 +295,7 @@ class DeviceChangeService {
         totalCostAfter: newTotalCost,
         totalCostDifference: totalCostDifference,
         totalCostStatus: totalCostDifference > 0 ? 'increase' : totalCostDifference < 0 ? 'decrease' : 'no-change',
+        selectedServiceSwap,
         requiresConfirmation: totalCostDifference !== 0, // Confirmation needed if price changed
         changedAt: new Date(),
         changedBy: userId,
@@ -220,11 +380,12 @@ class DeviceChangeService {
   }
 
   /**
-   * Get compatible services for a device type
+   * Get compatible services for a device selection.
    * @param {string} deviceType - Device type to check
+   * @param {{ deviceBrand?: string, deviceModel?: string }} options - Optional brand/model filters
    * @returns {Promise<Array>} List of compatible services
    */
-  static async getCompatibleServices(deviceType) {
+  static async getCompatibleServices(deviceType, options = {}) {
     try {
       const normalizedType = String(deviceType || '').trim().toLowerCase();
       const compatibleTypes = [String(deviceType || '').trim()].filter(Boolean);
@@ -236,19 +397,45 @@ class DeviceChangeService {
         compatibleTypes.push('wearable');
       }
 
-      const services = await Service.find({
-        $or: [
-          { supportedDeviceTypes: { $size: 0 } },
-          { supportedDeviceTypes: { $in: compatibleTypes } },
-          { supportedDeviceTypes: { $exists: false } },
-          { deviceTypes: { $in: compatibleTypes } },
-          { deviceType: { $in: compatibleTypes } },
-        ],
+      const andConditions = [
+        {
+          $or: [
+            { supportedDeviceTypes: { $size: 0 } },
+            { supportedDeviceTypes: { $in: compatibleTypes } },
+            { supportedDeviceTypes: { $exists: false } },
+            { deviceTypes: { $in: compatibleTypes } },
+            { deviceType: { $in: compatibleTypes } },
+          ],
+        },
+      ];
+
+      const deviceBrand = String(options.deviceBrand || '').trim();
+      if (deviceBrand) {
+        const escapedBrand = deviceBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const brandRegex = new RegExp(`^${escapedBrand}$`, 'i');
+        andConditions.push({
+          $or: [{ manufacturerPrecise: brandRegex }, { manufacturer: brandRegex }],
+        });
+      }
+
+      const deviceModel = String(options.deviceModel || '').trim();
+      if (deviceModel) {
+        const escapedModel = deviceModel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const modelRegex = new RegExp(`^${escapedModel}$`, 'i');
+        andConditions.push({
+          $or: [{ modelPrecise: modelRegex }, { model: modelRegex }],
+        });
+      }
+
+      const query = {
         isActive: true,
-      });
+        $and: andConditions,
+      };
+
+      const services = await Service.find(query);
 
       console.log(
-        `[DeviceChange] Found ${services.length} compatible services for device type ${deviceType}`
+        `[DeviceChange] Found ${services.length} compatible services for device ${options.deviceBrand || '-'} ${options.deviceModel || '-'} (${deviceType})`
       );
 
       return services;

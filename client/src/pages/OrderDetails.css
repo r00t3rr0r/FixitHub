@@ -129,6 +129,18 @@
   border-radius: 10px;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollable body: keeps the dialog header pinned at the top and the footer
+   pinned at the bottom while only the content in between scrolls. Prevents the
+   action buttons from being pushed out of reach when selecting a service grows
+   the dialog beyond its max height. */
+.order-details-page .order-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .order-details-page .order-dialog-header,
@@ -139,6 +151,7 @@
   padding: 10px 12px;
   margin: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
 }
 
 .order-details-page .order-dialog-header h2,
@@ -165,6 +178,9 @@
 .order-details-page [data-slot="dialog-content"] [data-slot="dialog-footer"] {
   padding: 8px 12px 12px;
   gap: 5px;
+  flex-shrink: 0;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
 .order-details-page .order-repair-service-dialog,
@@ -1279,7 +1295,7 @@
 @media (min-width: 1200px) {
   .order-nested-top-grid {
     display: grid;
-    grid-template-columns: minmax(320px, 1.35fr) minmax(420px, 1.7fr) minmax(340px, 1.45fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     align-items: start;
     grid-auto-flow: row;
@@ -1377,11 +1393,11 @@
 /* ── PROGRESS INDICATOR ── */
 .order-progress-bar {
   width: 100%;
-  height: 8px;
+  height: 5px;
   background: var(--gray-200, #d8dce6);
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .order-progress-fill {
@@ -1398,6 +1414,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(248, 250, 252, 0.65));
+  width: 100%;
 }
 
 .repair-info-subsection-header {
@@ -1730,6 +1747,11 @@
   padding: 14px;
   background: rgba(248, 251, 255, 0.9);
   border-color: #dde5f2;
+}
+
+.customer-device-section {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .customer-device-lock-card {
@@ -2883,7 +2905,11 @@
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested {
   grid-template-columns: minmax(320px, 1.35fr) minmax(420px, 1.7fr) minmax(340px, 1.45fr);
-  align-items: start;
+  /* Equal-height columns via grid stretch (NOT percentage `min-height: 100%`, which
+     WebKit re-resolves on every hover repaint). The cards are isolated with
+     `contain: layout` below so inner hover transitions can't make Safari recompute
+     the stretched row height — that feedback was causing the cards to jump vertically. */
+  align-items: stretch;
   grid-auto-flow: row;
 }
 
@@ -2942,7 +2968,16 @@
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-staff,
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-progress,
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-workflows {
-  min-height: 100%;
+  /* Root cause of the Safari-only vertical jitter: these cards are stretched to fill
+     the auto-sized grid row. When the pointer moves, hover transitions inside a card
+     (buttons, the card border, etc.) trigger a repaint, and WebKit re-resolves the
+     stretched grid-item height during that repaint — feeding back into the row track
+     and making every card in the row jump (~70px). Chromium/Firefox resolve it once.
+     `contain: layout` isolates each card's internal layout so inner repaints no longer
+     force the grid to recompute, which removes the jitter while keeping equal heights.
+     `min-height: 0` removes the percentage min-height that previously drove the same loop. */
+  contain: layout;
+  min-height: 0;
 }
 
 .admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-staff {
@@ -2951,7 +2986,9 @@
 }
 
 .admin-order-workspace .order-nested-block .order-section-card {
-  min-height: 100%;
+  /* No percentage min-height (see the contain:layout note above) — equal heights come
+     from grid stretch, not from a percentage that Safari would re-resolve on hover. */
+  min-height: 0;
 }
 
 .admin-order-workspace .order-nested-block .order-section-header {
@@ -3003,7 +3040,7 @@
   margin-bottom: 0;
   padding: 6px 8px 5px;
   border-bottom-width: 1px;
-  min-height: 0;
+  min-height: 46px;
 }
 
 .admin-order-workspace .order-section-title {
@@ -3101,6 +3138,12 @@
   min-height: 30px;
 }
 
+.admin-order-workspace .order-nested-top-grid.is-admin-nested > #order-quick-actions {
+  margin-top: 14px;
+  padding-top: 0;
+  min-height: 0;
+}
+
 .admin-order-workspace #order-communication {
   margin-top: 0;
 }
@@ -3173,8 +3216,12 @@
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
   background: var(--white, #ffffff);
   font-family: var(--font-main, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
-  width: min(96vw, 860px) !important;
-  max-height: calc(100vh - 56px) !important;
+  width: min(99vw, 1460px) !important;
+  height: min(92dvh, 1040px);
+  max-height: 92dvh !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   margin-top: 28px;
   margin-bottom: 28px;
 }
@@ -3184,6 +3231,7 @@
   color: var(--white, #ffffff);
   padding: 16px 18px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  flex-shrink: 0;
 }
 
 .order-device-change-title {
@@ -3249,6 +3297,7 @@
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-shrink: 0;
 }
 
 .order-device-change-step {
@@ -3300,15 +3349,22 @@
 
 .order-device-change-body {
   padding: 12px;
-  max-height: calc(100vh - 292px);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--off-white, #f8f9fc);
 }
 
 .order-device-change-select-grid {
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.order-device-change-select-grid > * {
+  min-width: 0;
 }
 
 .order-device-change-side-panel {
@@ -3431,7 +3487,7 @@
 }
 
 .order-device-change-results-list {
-  max-height: 240px;
+  max-height: min(30dvh, 320px);
   overflow-y: auto;
 }
 
@@ -3499,7 +3555,7 @@
 }
 
 .order-device-change-service-list {
-  max-height: 240px;
+  max-height: min(32dvh, 340px);
   overflow-y: auto;
   display: grid;
   gap: 6px;
@@ -3514,6 +3570,118 @@
 .order-device-change-service-prices {
   font-size: 0.66rem;
   color: var(--gray-500, #636e85);
+}
+
+.order-device-change-option-list {
+  display: grid;
+  gap: 6px;
+  max-height: min(26dvh, 260px);
+  overflow-y: auto;
+}
+
+.order-device-change-option-item {
+  width: 100%;
+  border: 1px solid var(--gray-200, #d8dce6);
+  border-radius: 8px;
+  padding: 7px 9px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-size: 0.72rem;
+  color: var(--gray-700, #2d3748);
+  background: #ffffff;
+  transition: var(--transition, all 0.2s ease);
+}
+
+.order-device-change-option-item strong {
+  font-size: 0.72rem;
+  color: var(--gray-800, #1a202c);
+}
+
+.order-device-change-option-item:hover {
+  border-color: var(--primary-blue, #1a2a5e);
+  background: rgba(26, 42, 94, 0.04);
+}
+
+.order-device-change-option-item.is-selected {
+  border-color: var(--primary-blue, #1a2a5e);
+  background: rgba(26, 42, 94, 0.1);
+}
+
+.order-device-change-option-meta {
+  margin-top: 1px;
+  font-size: 0.64rem;
+  color: var(--gray-500, #636e85);
+}
+
+.order-device-change-swap-preview {
+  margin-top: 10px;
+  border-top: 1px dashed var(--gray-200, #d8dce6);
+  padding-top: 8px;
+}
+
+.order-device-change-swap-preview-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--gray-600, #4a5568);
+}
+
+.order-device-change-swap-preview-values {
+  margin-top: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.66rem;
+  color: var(--gray-700, #2d3748);
+}
+
+.order-device-change-swap-preview-diff {
+  margin-top: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.order-device-change-swap-preview-diff.is-increase {
+  color: #b42318;
+}
+
+.order-device-change-swap-preview-diff.is-decrease {
+  color: #027a48;
+}
+
+.order-device-change-swap-preview-diff.is-neutral {
+  color: var(--gray-600, #4a5568);
+}
+
+.order-device-change-review-swap {
+  margin-top: 12px;
+  border-top: 1px dashed rgba(26, 42, 94, 0.28);
+  padding-top: 10px;
+}
+
+.order-device-change-review-swap-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a2a5e;
+  margin-bottom: 4px;
+}
+
+.order-device-change-review-swap-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: #2f4678;
+  line-height: 1.35;
+}
+
+.order-device-change-review-swap-row.is-total {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(26, 42, 94, 0.18);
+  font-weight: 700;
 }
 
 .order-device-change-diff {
@@ -3565,6 +3733,7 @@
   padding: 10px 12px 12px;
   gap: 6px;
   background: #ffffff;
+  flex-shrink: 0;
 }
 
 .order-device-change-btn {
@@ -3656,22 +3825,25 @@
 
 @media (max-width: 1024px) {
   .order-device-change-dialog {
-    width: min(95vw, 760px) !important;
-    max-height: calc(100vh - 36px) !important;
+    width: min(98vw, 1240px) !important;
+    height: min(93dvh, 900px);
+    max-height: 93dvh !important;
     margin-top: 18px;
     margin-bottom: 18px;
   }
 
-  .order-device-change-body {
-    max-height: calc(100vh - 258px);
-  }
-
   .order-device-change-select-grid {
-    grid-template-columns: minmax(0, 1fr) 210px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 768px) {
+  .order-device-change-dialog {
+    width: 96vw !important;
+    height: min(94dvh, 860px);
+    max-height: 94dvh !important;
+  }
+
   .order-device-change-header {
     padding: 16px 14px 14px;
   }
@@ -3712,7 +3884,7 @@
 
   .order-device-change-body {
     padding: 10px;
-    max-height: calc(100vh - 252px);
+    max-height: none;
   }
 
   .order-device-change-select-grid {
@@ -3737,7 +3909,7 @@
   }
 
   .order-device-change-service-list {
-    max-height: 220px;
+    max-height: min(34dvh, 320px);
   }
 
   .order-device-change-total-diff-row {
@@ -3758,7 +3930,8 @@
   .order-device-change-dialog {
     width: 96vw !important;
     border-radius: 14px;
-    max-height: calc(100vh - 24px) !important;
+    height: min(95dvh, 760px);
+    max-height: 95dvh !important;
     margin-top: 12px;
     margin-bottom: 12px;
   }
@@ -3773,10 +3946,6 @@
 
   .order-device-change-step {
     min-height: 38px;
-  }
-
-  .order-device-change-body {
-    max-height: calc(100vh - 270px);
   }
 
   .order-device-change-btn {
@@ -3948,6 +4117,15 @@
   font-weight: 500;
 }
 .cudlg-nolock-icon { color: #16a34a; flex-shrink: 0; }
+
+.cudlg-unlock-row--pattern {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.cudlg-unlock-row--pattern .cudlg-unlock-type-badge {
+  align-self: flex-start;
+}
 
 /* ── Section heading ── */
 .cudlg-section { display: flex; flex-direction: column; gap: 8px; }
@@ -4138,6 +4316,25 @@
 .cudlg-contact-btn:hover { background: #1a2a5e; color: #fff; }
 .cudlg-contact-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.cudlg-request-update-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-main, 'Inter', sans-serif);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(220,38,38,0.25);
+}
+.cudlg-request-update-btn:hover { background: #b91c1c; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
+.cudlg-request-update-btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
 .cudlg-request-label {
   display: inline-flex;
   align-items: center;
@@ -4223,7 +4420,7 @@
   .cudlg-body { max-height: 70vh; }
   .cudlg-unlock-value { font-size: 1rem; }
   .cudlg-action-panel-btns { flex-direction: column; align-items: stretch; }
-  .cudlg-contact-btn, .cudlg-request-label { justify-content: center; }
+  .cudlg-contact-btn, .cudlg-request-label, .cudlg-request-update-btn { justify-content: center; }
   .cudlg-footer { flex-direction: column-reverse; }
   .cudlg-btn-cancel, .cudlg-btn-confirm { width: 100%; justify-content: center; }
 }
@@ -4257,5 +4454,504 @@
     font-size: 0.84rem;
     line-height: 1.25;
     word-break: break-word;
+  }
+}
+
+/* ============================================================
+   Admin Order Details – Workflow-driven Redesign (Phase 1)
+   ============================================================
+   Goals:
+   1. Visually number sections to mirror the standard processing
+      workflow (Header → Device → Inspection → Services/Parts →
+      Workflow → Personnel) so admins can scan the page top-down.
+   2. Apply consistent McRepair brand styling to every nested
+      section header (blue background, yellow title) and to every
+      dialog header on the page.
+   3. Make all action buttons more legible by giving header
+      buttons the yellow/blue brand pairing and adding subtle
+      shadows / borders to all admin buttons.
+   ============================================================ */
+
+/* ---------- Step 1: Page header emphasis ---------- */
+.admin-order-workspace .order-details-header {
+  position: relative;
+  border-left: 6px solid var(--accent-yellow, #f5b800);
+}
+
+.admin-order-workspace .order-details-header::before {
+  content: "Schritt 1 · Status & Übersicht prüfen";
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  background: var(--accent-yellow, #f5b800);
+  color: var(--primary-blue, #1a2a5e);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  z-index: 1;
+}
+
+.admin-order-workspace .order-admin-kpi-card {
+  background: rgba(245, 184, 0, 0.14);
+  border-color: rgba(245, 184, 0, 0.55);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-order-workspace .order-admin-kpi-card:hover {
+  background: rgba(245, 184, 0, 0.24);
+}
+
+.admin-order-workspace .order-admin-kpi-card strong {
+  color: var(--accent-yellow, #f5b800);
+}
+
+/* ---------- Branded section headers (steps 2-6) ---------- */
+.admin-order-workspace .order-section-card {
+  overflow: hidden;
+  border: 1px solid #d4dae7;
+}
+
+.admin-order-workspace .order-section-card > [data-slot="card-header"].order-section-header,
+.admin-order-workspace .order-section-header {
+  background: var(--primary-blue, #1a2a5e) !important;
+  color: var(--accent-yellow, #f5b800);
+  border-bottom: 2px solid var(--accent-yellow, #f5b800);
+  padding: 8px 12px 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  min-height: 46px;
+}
+
+.admin-order-workspace #order-quick-actions > [data-slot="card-header"].order-section-header,
+.admin-order-workspace #order-repair-info > [data-slot="card-header"].order-section-header,
+.admin-order-workspace #order-quick-actions .order-section-header,
+.admin-order-workspace #order-repair-info .order-section-header {
+  margin-top: -1px;
+  margin-left: -1px;
+  margin-right: -1px;
+  width: calc(100% + 2px);
+}
+
+.admin-order-workspace .order-section-card .order-section-title {
+  color: var(--accent-yellow, #f5b800) !important;
+  font-weight: 800;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+  letter-spacing: 0.01em;
+}
+
+.admin-order-workspace .order-section-card .order-section-title svg {
+  color: var(--accent-yellow, #f5b800) !important;
+}
+
+.admin-order-workspace .order-section-card .order-section-description {
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
+  flex-basis: 100%;
+}
+
+/* Header action buttons – yellow on blue */
+.admin-order-workspace .order-section-header .button,
+.admin-order-workspace .order-section-header button,
+.admin-order-workspace .order-section-header [role="button"],
+.admin-order-workspace .order-section-header [data-slot="button"] {
+  background: var(--accent-yellow, #f5b800) !important;
+  color: var(--primary-blue, #1a2a5e) !important;
+  border: 1px solid var(--accent-yellow-hover, #e5ab00) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.admin-order-workspace .order-section-header button:hover,
+.admin-order-workspace .order-section-header [role="button"]:hover,
+.admin-order-workspace .order-section-header [data-slot="button"]:hover {
+  background: var(--accent-yellow-hover, #e5ab00) !important;
+  color: var(--primary-blue-dark, #0f1d45) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28) !important;
+}
+
+.admin-order-workspace .order-section-header button:disabled,
+.admin-order-workspace .order-section-header [data-slot="button"]:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.admin-order-workspace .order-section-header button svg,
+.admin-order-workspace .order-section-header [data-slot="button"] svg {
+  color: var(--primary-blue, #1a2a5e) !important;
+}
+
+/* Some headers (repair-info) had amber backgrounds – neutralise them */
+.admin-order-workspace #order-repair-info > [data-slot="card-header"] {
+  background: var(--primary-blue, #1a2a5e) !important;
+  background-image: none !important;
+}
+
+/* ---------- Step badges on workflow sections ---------- */
+.admin-order-workspace .order-section-card[id="order-device-info"],
+.admin-order-workspace .order-section-card[id="order-device-inspection"],
+.admin-order-workspace .order-section-card[id="order-eparts"],
+.admin-order-workspace .order-section-card[id="order-workflows"],
+.admin-order-workspace .order-section-card[id="order-progress"],
+.admin-order-workspace .order-section-card[id="order-staff"] {
+  position: relative;
+  border-left: 4px solid var(--accent-yellow, #f5b800);
+  overflow: visible;
+}
+
+.admin-order-workspace .order-section-card[id="order-device-info"] .order-section-title::before,
+.admin-order-workspace .order-section-card[id="order-device-inspection"] .order-section-title::before,
+.admin-order-workspace .order-section-card[id="order-eparts"] .order-section-title::before,
+.admin-order-workspace .order-section-card[id="order-workflows"] .order-section-title::before,
+.admin-order-workspace .order-section-card[id="order-progress"] .order-section-title::before,
+.admin-order-workspace .order-section-card[id="order-staff"] .order-section-title::before {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 999px;
+  background: var(--accent-yellow, #f5b800);
+  color: var(--primary-blue, #1a2a5e);
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-right: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+}
+
+.admin-order-workspace #order-device-info .order-section-title::before { content: "2"; }
+.admin-order-workspace #order-device-inspection .order-section-title::before { content: "3"; }
+.admin-order-workspace #order-eparts .order-section-title::before { content: "4"; }
+.admin-order-workspace #order-workflows .order-section-title::before { content: "5"; }
+.admin-order-workspace #order-progress .order-section-title::before { content: "5"; }
+.admin-order-workspace #order-staff .order-section-title::before { content: "6"; }
+
+/* Subtle step hint label above each card */
+.admin-order-workspace #order-device-info,
+.admin-order-workspace #order-device-inspection,
+.admin-order-workspace #order-eparts,
+.admin-order-workspace #order-workflows,
+.admin-order-workspace #order-staff {
+  margin-top: 14px !important;
+}
+
+.admin-order-workspace #order-device-info::before,
+.admin-order-workspace #order-device-inspection::before,
+.admin-order-workspace #order-eparts::before,
+.admin-order-workspace #order-workflows::before,
+.admin-order-workspace #order-staff::before {
+  position: absolute;
+  top: -9px;
+  left: 12px;
+  background: var(--accent-yellow, #f5b800);
+  color: var(--primary-blue, #1a2a5e);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.admin-order-workspace #order-device-info::before { content: "Schritt 2 · Gerät & Sperre verifizieren"; }
+.admin-order-workspace #order-device-inspection::before { content: "Schritt 3 · Inspektion durchführen"; }
+.admin-order-workspace #order-eparts::before { content: "Schritt 4 · Leistungen & Teile bearbeiten"; }
+.admin-order-workspace #order-workflows::before { content: "Schritt 5 · Workflow zuweisen & starten"; }
+.admin-order-workspace #order-staff::before { content: "Schritt 6 · Personalzuordnung pflegen"; }
+
+/* ---------- General admin button polish ---------- */
+.admin-order-workspace .order-section-card [data-slot="card-content"] button,
+.admin-order-workspace .order-section-card [data-slot="card-content"] [data-slot="button"],
+.admin-order-workspace .order-section-card [data-slot="card-content"] [role="button"] {
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 29, 69, 0.12);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.admin-order-workspace .order-section-card [data-slot="card-content"] button:hover,
+.admin-order-workspace .order-section-card [data-slot="card-content"] [data-slot="button"]:hover {
+  box-shadow: 0 3px 8px rgba(15, 29, 69, 0.22);
+  transform: translateY(-1px);
+}
+
+/* Primary CTA buttons inside content – emphasise with brand colours */
+.admin-order-workspace .order-section-card [data-slot="card-content"] button[data-variant="default"],
+.admin-order-workspace .order-section-card [data-slot="card-content"] .btn-primary {
+  background: var(--primary-blue, #1a2a5e);
+  color: var(--white, #ffffff);
+  border: 1px solid var(--primary-blue-dark, #0f1d45);
+}
+
+/* ---------- Dialogs (admin context only) ---------- */
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-header"],
+body.order-details-admin .order-dialog-header {
+  background: var(--primary-blue, #1a2a5e) !important;
+  border-bottom: 2px solid var(--accent-yellow, #f5b800) !important;
+}
+
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-header"] [data-slot="dialog-title"],
+body.order-details-admin .order-dialog-header [data-slot="dialog-title"],
+body.order-details-admin .order-dialog-header h2 {
+  color: var(--accent-yellow, #f5b800) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.01em;
+}
+
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-header"] [data-slot="dialog-title"] svg,
+body.order-details-admin .order-dialog-header svg {
+  color: var(--accent-yellow, #f5b800) !important;
+}
+
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-header"] [data-slot="dialog-description"],
+body.order-details-admin .order-dialog-header [data-slot="dialog-description"],
+body.order-details-admin .order-dialog-header p {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+/* Dialog close button (top-right X) – yellow on blue */
+body.order-details-admin [data-slot="dialog-content"] > button[aria-label],
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-close"] {
+  color: var(--accent-yellow, #f5b800) !important;
+  opacity: 1 !important;
+}
+
+body.order-details-admin [data-slot="dialog-content"] > button[aria-label]:hover {
+  background: rgba(245, 184, 0, 0.18) !important;
+}
+
+/* Buttons inside the dialog header (yellow on blue) */
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-header"] button,
+body.order-details-admin .order-dialog-header button {
+  background: var(--accent-yellow, #f5b800) !important;
+  color: var(--primary-blue, #1a2a5e) !important;
+  border: 1px solid var(--accent-yellow-hover, #e5ab00) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-header"] button:hover,
+body.order-details-admin .order-dialog-header button:hover {
+  background: var(--accent-yellow-hover, #e5ab00) !important;
+}
+
+/* Dialog footer primary action – use brand blue */
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"] button {
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(15, 29, 69, 0.2) !important;
+}
+
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"] button:not([data-variant="outline"]):not([data-variant="ghost"]):not([data-variant="secondary"]):not([data-variant="destructive"]) {
+  background: var(--primary-blue, #1a2a5e) !important;
+  color: var(--white, #ffffff) !important;
+  border: 1px solid var(--primary-blue-dark, #0f1d45) !important;
+}
+
+body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"] button:not([data-variant="outline"]):not([data-variant="ghost"]):not([data-variant="secondary"]):not([data-variant="destructive"]):hover {
+  background: var(--primary-blue-dark, #0f1d45) !important;
+}
+
+/* Small responsive tweaks so the step ribbons don't overflow */
+@media (max-width: 640px) {
+  .admin-order-workspace .order-details-header::before,
+  .admin-order-workspace #order-device-info::before,
+  .admin-order-workspace #order-device-inspection::before,
+  .admin-order-workspace #order-eparts::before,
+  .admin-order-workspace #order-workflows::before,
+  .admin-order-workspace #order-staff::before {
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    left: 8px;
+  }
+
+  .admin-order-workspace #order-device-info,
+  .admin-order-workspace #order-device-inspection,
+  .admin-order-workspace #order-eparts,
+  .admin-order-workspace #order-workflows,
+  .admin-order-workspace #order-staff {
+    margin-top: 12px !important;
+  }
+}
+
+/* ============================================================
+   Admin Order Details – Redesign Phase 2 (refinements)
+   ============================================================
+   - Tie the Repair-Info card (with Shop products, add-ons,
+     services subsections) explicitly into Step 4 styling.
+   - Brand the "Confirm Unlock" CTA so it stands out as part
+     of Step 2.
+   - Brand subsection mini-headers (Shop-Produkte etc.) for
+     scannability.
+   - Lift the order status dropdown trigger so the header
+     status is the first thing the eye catches in Step 1.
+   - Header layout robustness on narrow screens.
+   ============================================================ */
+
+/* ----- Step 4 also wraps the Repair-Info card ----- */
+.admin-order-workspace #order-repair-info {
+  position: relative;
+  border-left: 4px solid var(--accent-yellow, #f5b800);
+  border-color: #d4dae7;
+  margin-top: 14px !important;
+  overflow: visible;
+}
+
+.admin-order-workspace #order-repair-info::before {
+  content: "Schritt 4 · Leistungen, Zusatzleistungen & Shop-Produkte";
+  position: absolute;
+  top: -9px;
+  left: 12px;
+  background: var(--accent-yellow, #f5b800);
+  color: var(--primary-blue, #1a2a5e);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.admin-order-workspace #order-repair-info .order-section-title::before {
+  content: "4";
+}
+
+.admin-order-workspace .repair-info-subsection {
+  border: 1px solid #d4dae7;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  background: #ffffff;
+  margin: 0 0 10px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-order-workspace .repair-info-subsection-header {
+  border-bottom: 1px solid rgba(26, 42, 94, 0.18);
+  padding: 6px 10px;
+  margin: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-order-workspace .repair-info-subsection-header h4 {
+  color: var(--primary-blue, #1a2a5e);
+  font-weight: 700;
+}
+
+.admin-order-workspace .repair-info-subsection-header h4 svg {
+  color: var(--primary-blue, #1a2a5e) !important;
+}
+
+.admin-order-workspace .repair-info-subsection-header button {
+  background: var(--accent-yellow, #f5b800) !important;
+  color: var(--primary-blue, #1a2a5e) !important;
+  border: 1px solid var(--accent-yellow-hover, #e5ab00) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.admin-order-workspace .repair-info-subsection-header button:hover {
+  background: var(--accent-yellow-hover, #e5ab00) !important;
+}
+
+/* ----- Step 2: brand the Confirm-Unlock primary action ----- */
+.admin-order-workspace .unlock-confirm-btn {
+  background: var(--primary-blue, #1a2a5e) !important;
+  color: var(--accent-yellow, #f5b800) !important;
+  margin: 10px 0 0 0;
+  border: 1px solid var(--primary-blue-dark, #0f1d45) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 5px rgba(15, 29, 69, 0.25) !important;
+}
+
+.admin-order-workspace .unlock-confirm-btn:hover {
+  background: var(--primary-blue-dark, #0f1d45) !important;
+  color: var(--accent-yellow-light, #ffd54f) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 29, 69, 0.32) !important;
+}
+
+.admin-order-workspace .unlock-confirm-btn .unlock-confirm-btn-icon-wrap,
+.admin-order-workspace .unlock-confirm-btn svg {
+  color: var(--accent-yellow, #f5b800) !important;
+}
+
+/* ----- Step 1: emphasise the order status dropdown trigger ----- */
+.admin-order-workspace .order-header-meta-block > [data-slot="dropdown-menu-trigger"],
+.admin-order-workspace .order-header-meta-block button {
+  border: 1.5px solid var(--accent-yellow, #f5b800) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+  font-weight: 700 !important;
+}
+
+/* Header layout: keep step ribbons + buttons readable when wrapping */
+.admin-order-workspace .order-section-header {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.admin-order-workspace .order-section-header > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Make sure the number badge in a wrapped title doesn't clip */
+.admin-order-workspace .order-section-title {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* ----- Step 5: Workflow card visibility ----- */
+.admin-order-workspace #order-progress .order-section-title::before {
+  content: "5"; /* same step as workflows */
+}
+
+/* Mark the OrderProgressTimeline wrapper as the visible Step 1 anchor end */
+.admin-order-workspace > .order-section-card:has(.order-progress-timeline) {
+  border-left: 4px solid var(--primary-blue-light, #2a3f7e);
+}
+
+/* Improve focus rings for admin buttons (accessibility) */
+.admin-order-workspace button:focus-visible,
+body.order-details-admin [data-slot="dialog-content"] button:focus-visible {
+  outline: 2px solid var(--accent-yellow, #f5b800) !important;
+  outline-offset: 2px !important;
+}
+
+/* When a card's header buttons wrap to a new row, give them a small
+   top divider so they don't visually merge with the title row */
+.admin-order-workspace .order-section-header > button + button {
+  margin-left: 4px;
+}
+
+@media (max-width: 640px) {
+  .admin-order-workspace #order-repair-info::before {
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    left: 8px;
+  }
+
+  .admin-order-workspace .order-section-title {
+    white-space: normal;
   }
 }

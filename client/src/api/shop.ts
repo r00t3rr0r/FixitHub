@@ -193,11 +193,11 @@ const isAuthenticated = () => {
   return !!localStorage.getItem('accessToken');
 };
 
-// Helper function to calculate cart totals correctly (Tax 19% on subtotal after discount)
+// Prices are already gross (brutto) — extract VAT, do NOT add on top
 const calculateCartTotals = (subtotal: number, discount: number = 0) => {
-  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
-  const tax = Number((subtotalAfterDiscount * 0.19).toFixed(2));
-  const total = Number((subtotalAfterDiscount + tax).toFixed(2));
+  const grossAfterDiscount = Math.max(0, subtotal - discount);
+  const tax = Number((grossAfterDiscount * (19 / 119)).toFixed(2));
+  const total = Number(grossAfterDiscount.toFixed(2));
   return { subtotal: Number(subtotal.toFixed(2)), tax, total, discount };
 };
 

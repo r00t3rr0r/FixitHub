@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import "./BookingsManagement.css"
@@ -22,7 +22,8 @@ import {
   getReturnTracking,
   updateReturnStatus,
   downloadBookingShippingLabel,
-  downloadBookingReturnLabel
+  downloadBookingReturnLabel,
+  bulkUpdateBookingShippingStatuses
 } from "@/api/bookings"
 import {
   createComplaint,
@@ -33,7 +34,8 @@ import {
   getRemindersByBooking
 } from "@/api/reminders"
 import {
-  getUnreadMessageCounts
+  getUnreadMessageCounts,
+  markMessagesAsRead as markInspectionMessagesAsRead
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
@@ -118,6 +120,7 @@ interface AddressFields {
   street?: string
   city?: string
   state?: string
+  zip?: string
   zipCode?: string
   country?: string
 }
@@ -145,6 +148,8 @@ interface Booking {
     billingAddress?: AddressFields
     shippingAddress?: AddressFields
   }
+  billingAddress?: AddressFields
+  shippingAddress?: AddressFields
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
   hasComplaintOrders?: boolean
@@ -184,6 +189,10 @@ interface Booking {
     staffId?: string
   }>
   paymentStatus?: string
+  finalCost?: number
+  invoiceOpenAmount?: number
+  customerCreditOpenAmount?: number
+  netOpenAmount?: number
   // DHL Returns information
   trackingNumber?: string
   carrier?: string
@@ -256,6 +265,10 @@ const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
   return customer.name || customer.email || 'Unknown customer'
 }
 
+const hasAddressData = (addr?: AddressFields | null) => Boolean(
+  addr && (addr.street || addr.city || addr.zipCode || addr.zip || addr.state || addr.country)
+)
+
 export function BookingsManagement() {
   console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
@@ -266,8 +279,11 @@ export function BookingsManagement() {
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [billingStatusFilter, setBillingStatusFilter] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [updateStatusDialog, setUpdateStatusDialog] = useState(false)
@@ -285,6 +301,9 @@ export function BookingsManagement() {
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
+  const [quickPayBookingId, setQuickPayBookingId] = useState<string | null>(null)
+  const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
+  const [detailInvoiceStatusFocus, setDetailInvoiceStatusFocus] = useState<string | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -294,15 +313,32 @@ export function BookingsManagement() {
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
   const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false)
+  const [loadingBulkShippingUpdate, setLoadingBulkShippingUpdate] = useState(false)
+  // Track order IDs that were optimistically marked as read so periodic fetches don't restore their badges
+  const locallyReadOrderIds = useRef<Set<string>>(new Set())
+  const communicationDialogOpenRef = useRef(false)
   const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
   const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber?: string } | null>(null)
+  const [activeHighlightedBookingId, setActiveHighlightedBookingId] = useState<string | null>(null)
 
   const { toast } = useToast()
+  const highlightBookingIdFromQuery = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search)
+    return searchParams.get("highlightBookingId")
+  }, [location.search])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setCurrentPage(1)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   useEffect(() => {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
-  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter])
+  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter, debouncedSearch, dateFrom, dateTo])
 
   useEffect(() => {
     const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog
@@ -324,6 +360,87 @@ export function BookingsManagement() {
   }, [location.state])
 
   useEffect(() => {
+    const openByOrderId = (location.state as { openBookingByOrderId?: string } | null)?.openBookingByOrderId
+    if (!openByOrderId || filteredBookings.length === 0) {
+      return
+    }
+
+    const match = filteredBookings.find((b) =>
+      Array.isArray(b.orderIds) && b.orderIds.some((o: string | { _id: string }) =>
+        (typeof o === 'string' ? o : o._id) === openByOrderId
+      )
+    )
+    if (!match) return
+
+    const openDialog = async () => {
+      try {
+        setStatusFilter('all')
+        setBillingStatusFilter('all')
+        setSearchTerm('')
+        setDebouncedSearch('')
+        setDateFrom('')
+        setDateTo('')
+        setCurrentPage(1)
+        setActiveHighlightedBookingId(match._id)
+        await new Promise((r) => window.setTimeout(r, 400))
+        const response = await getBooking(match._id)
+        setSelectedBooking(response.booking)
+        setShowDetailDialog(true)
+      } catch (error) {
+        console.error('BookingsManagement: Error opening booking by orderId:', error)
+      }
+    }
+
+    openDialog()
+  }, [location.state, filteredBookings])
+
+  useEffect(() => {
+    if (!highlightBookingIdFromQuery) {
+      return
+    }
+
+    // Start from a neutral list state so the highlighted booking can be shown.
+    setSearchTerm("")
+    setStatusFilter("all")
+    setBillingStatusFilter("all")
+    setCurrentPage(1)
+    setActiveHighlightedBookingId(highlightBookingIdFromQuery)
+  }, [highlightBookingIdFromQuery])
+
+  useEffect(() => {
+    if (!activeHighlightedBookingId || filteredBookings.length === 0) {
+      return
+    }
+
+    const highlightedBooking = filteredBookings.find((booking) => booking._id === activeHighlightedBookingId)
+    if (!highlightedBooking) {
+      return
+    }
+
+    const rowSelector = `[data-booking-row-id="${activeHighlightedBookingId}"]`
+    const timer = window.setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(rowSelector)
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }, 50)
+
+    return () => window.clearTimeout(timer)
+  }, [activeHighlightedBookingId, filteredBookings])
+
+  useEffect(() => {
+    if (!activeHighlightedBookingId) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setActiveHighlightedBookingId(null)
+    }, 6000)
+
+    return () => window.clearTimeout(timer)
+  }, [activeHighlightedBookingId])
+
+  useEffect(() => {
     // Ensure admins always land on the full booking list by default.
     if (user?.role === 'admin' && statusFilter === 'pending') {
       setStatusFilter('all')
@@ -337,8 +454,9 @@ export function BookingsManagement() {
       console.log('BookingsManagement: Bookings available, fetching unread counts')
       fetchUnreadCounts()
 
-      // Set up periodic refresh every 10 seconds
+      // Set up periodic refresh every 10 seconds, skip while chat dialog is open
       const intervalId = setInterval(() => {
+        if (communicationDialogOpenRef.current) return
         console.log('BookingsManagement: Auto-refreshing unread counts (periodic)')
         fetchUnreadCounts()
       }, 10000) // 10 seconds
@@ -370,6 +488,18 @@ export function BookingsManagement() {
         filters.billingStatus = billingStatusFilter
       }
 
+      if (debouncedSearch) {
+        filters.search = debouncedSearch
+      }
+
+      if (dateFrom) {
+        filters.startDate = dateFrom
+      }
+
+      if (dateTo) {
+        filters.endDate = dateTo
+      }
+
       console.log('Fetching bookings with filters:', filters)
       const response = await getAdminBookings(filters)
 
@@ -393,11 +523,31 @@ export function BookingsManagement() {
     }
   }
 
+  const handleBulkShippingUpdate = async () => {
+    try {
+      setLoadingBulkShippingUpdate(true)
+      const result = await bulkUpdateBookingShippingStatuses()
+      toast({
+        title: 'Versandstatus aktualisiert',
+        description: `${result.updated} Sendung(en) aktualisiert, ${result.skipped} unverändert${result.errors > 0 ? `, ${result.errors} Fehler` : ''}.`,
+        variant: result.errors > 0 ? 'destructive' : 'default',
+      })
+      fetchBookings()
+    } catch (error: any) {
+      toast({
+        title: 'Fehler beim Aktualisieren',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingBulkShippingUpdate(false)
+    }
+  }
+
   // Fetch unread message counts for all visible bookings
   const fetchUnreadCounts = async () => {
     try {
       setLoadingUnreadCounts(true)
-
       console.log(`BookingsManagement: fetchUnreadCounts called with ${bookings.length} bookings`)
 
       // Collect all order IDs from all bookings' items
@@ -433,8 +583,27 @@ export function BookingsManagement() {
 
       // Ensure we have an object to work with
       const countsToSet = counts && typeof counts === 'object' ? counts : {}
-      console.log('BookingsManagement: Setting unread counts state:', countsToSet)
-      setUnreadCounts(countsToSet)
+
+      // Remove entries for orders the user already opened (optimistically marked as read).
+      // If the server no longer reports unread for a locally-read order, it's confirmed read —
+      // remove from local set so future new messages show up again.
+      const filtered: typeof countsToSet = {}
+      for (const [id, val] of Object.entries(countsToSet)) {
+        if (locallyReadOrderIds.current.has(id)) {
+          // Server still reports unread — keep suppressing the badge (markAsRead may not have propagated yet)
+        } else {
+          filtered[id] = val
+        }
+      }
+      // Clean up local set for orders the server no longer reports as unread
+      for (const id of locallyReadOrderIds.current) {
+        if (!(id in countsToSet)) {
+          locallyReadOrderIds.current.delete(id)
+        }
+      }
+
+      console.log('BookingsManagement: Setting unread counts state:', filtered)
+      setUnreadCounts(filtered)
 
       // Log booking-to-order mapping for debugging
       let totalUnreadAcrossAllBookings = 0
@@ -458,34 +627,40 @@ export function BookingsManagement() {
     }
   }
 
-  // Client-side search filtering (API filters are handled on server)
+  // Search and date filtering are handled server-side; just mirror bookings into filteredBookings
   useEffect(() => {
-    let filtered = bookings
-
-    if (searchTerm) {
-      filtered = filtered.filter(booking => {
-        const customer = getSafeBookingCustomer(booking)
-        const customerName = getCustomerDisplayName(customer)
-        return (
-          booking._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (booking.bookingNumber && booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.phone.includes(searchTerm)
-        )
-      })
-    }
-
-    setFilteredBookings(filtered)
-  }, [bookings, searchTerm])
+    setFilteredBookings(bookings)
+  }, [bookings])
 
   const openOrderCommunication = (orderId: string, orderNumber?: string) => {
     if (!orderId) return
+    // Mark as read on the server immediately — don't wait for CommunicationPanel to mount and load
+    markInspectionMessagesAsRead(orderId).catch((err) =>
+      console.error('BookingsManagement: Error marking messages as read:', err)
+    )
+    // Optimistically clear the unread count for this order so the badge disappears immediately
+    locallyReadOrderIds.current.add(orderId)
+    setUnreadCounts((prev) => {
+      if (!prev[orderId]) return prev
+      const updated = { ...prev }
+      delete updated[orderId]
+      return updated
+    })
+    communicationDialogOpenRef.current = true
     setSelectedCommunicationOrder({ orderId, orderNumber })
     setCommunicationDialogOpen(true)
   }
 
-  const handleViewDetails = async (booking: Booking) => {
+  const handleViewDetails = async (
+    booking: Booking,
+    options?: {
+      initialTab?: "overview" | "invoices"
+      invoiceStatusFocus?: string | null
+    }
+  ) => {
+    setDetailInitialTab(options?.initialTab || "overview")
+    setDetailInvoiceStatusFocus(options?.invoiceStatusFocus || null)
+
     try {
       const response = await getBooking(booking._id)
       setSelectedBooking(response.booking)
@@ -565,6 +740,33 @@ export function BookingsManagement() {
       })
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const handleQuickSetPaid = async (booking: Booking) => {
+    if (quickPayBookingId) return
+
+    const effectivePaymentStatus = getEffectivePaymentStatus(booking)
+    if (effectivePaymentStatus === 'paid') {
+      return
+    }
+
+    try {
+      setQuickPayBookingId(booking._id)
+      await updateBookingBillingStatus(booking._id, 'paid', 'paid')
+      toast({
+        title: t('common.success'),
+        description: 'Zahlungsstatus auf Bezahlt gesetzt'
+      })
+      await fetchBookings()
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: 'Zahlungsstatus konnte nicht auf Bezahlt gesetzt werden',
+        variant: 'destructive'
+      })
+    } finally {
+      setQuickPayBookingId(null)
     }
   }
 
@@ -733,6 +935,16 @@ export function BookingsManagement() {
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200'
+      case 'sent':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'viewed':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+      case 'overdue':
+        return 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+      case 'partially_paid':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
       case 'unpaid':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
       case 'partially-paid':
@@ -763,15 +975,31 @@ export function BookingsManagement() {
 
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Vorlage'
+      case 'sent':
+        return 'Gesendet'
+      case 'viewed':
+        return 'Angesehen'
+      case 'partially_paid':
+        return 'Teilweise Bezahlt'
+      case 'overdue':
+        return 'Ueberfaellig'
       case 'unpaid':
-        return 'Unbezahlt'
+        return 'Offen'
       case 'partially-paid':
-        return 'Teilweise bezahlt'
+        return 'Teilbezahlt'
       case 'paid':
         return 'Bezahlt'
       default:
         return status
     }
+  }
+
+  const getEffectivePaymentStatus = (booking: Booking) => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue']
+    const candidate = String(booking.paymentStatus || '')
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
   }
 
   const getShippingStatusLabel = (status?: string) => {
@@ -839,7 +1067,41 @@ export function BookingsManagement() {
     })
   }
 
-  if (loading) {
+  const getBookingOpenAmountInfo = (booking: Booking) => {
+    const hasInvoiceSummary = Number.isFinite(Number(booking.netOpenAmount))
+    if (hasInvoiceSummary) {
+      const netOpen = Number(booking.netOpenAmount || 0)
+      if (netOpen > 0.009) {
+        return { amount: netOpen, type: 'open' as const }
+      }
+      if (netOpen < -0.009) {
+        return { amount: Math.abs(netOpen), type: 'credit' as const }
+      }
+      return { amount: 0, type: 'settled' as const }
+    }
+
+    const dueTotal = Number(booking.finalCost ?? booking.totalCost ?? 0)
+    const paidAmountFallback = Number((booking as any).amountPaid ?? (booking as any).paidAmount ?? 0)
+
+    if (Number.isFinite(paidAmountFallback) && paidAmountFallback > 0) {
+      const netOpen = dueTotal - paidAmountFallback
+      if (netOpen > 0.009) {
+        return { amount: netOpen, type: 'open' as const }
+      }
+      if (netOpen < -0.009) {
+        return { amount: Math.abs(netOpen), type: 'credit' as const }
+      }
+      return { amount: 0, type: 'settled' as const }
+    }
+
+    if (booking.billingStatus === 'paid') {
+      return { amount: 0, type: 'settled' as const }
+    }
+
+    return { amount: Math.max(0, dueTotal), type: 'open' as const }
+  }
+
+  if (loading && filteredBookings.length === 0) {
     return (
       <div className="section" style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="container">
@@ -910,22 +1172,22 @@ export function BookingsManagement() {
       </div>
 
       {/* Filters and Search */}
-      <div style={{ 
-        background: 'var(--white)', 
-        border: '1px solid var(--gray-200)', 
-        borderRadius: 'var(--radius-lg)', 
+      <div style={{
+        background: 'var(--white)',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-lg)',
         padding: '14px',
         boxShadow: 'var(--shadow-sm)',
         marginBottom: '14px'
       }}>
         <h2 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--gray-800)', marginBottom: '10px' }}>Filter</h2>
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1">
+        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
             <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Suche</label>
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: 'var(--gray-400)' }} />
               <Input
-                placeholder="Suche nach Buchungs-ID, Kundenname, E-Mail oder Telefon..."
+                placeholder="Buchungs-ID, Kundenname, E-Mail oder Telefon..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -975,12 +1237,75 @@ export function BookingsManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Zahlungsstatus</SelectItem>
-                <SelectItem value="unpaid">Unbezahlt</SelectItem>
-                <SelectItem value="partially-paid">Teilweise bezahlt</SelectItem>
+                <SelectItem value="unpaid">Offen</SelectItem>
+                <SelectItem value="partially-paid">Teilbezahlt</SelectItem>
                 <SelectItem value="paid">Bezahlt</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          <div className="w-full md:w-40">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+              <Calendar className="inline-block h-3 w-3 mr-1" />
+              Von
+            </label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value)
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px',
+                fontSize: '0.82rem',
+                width: '100%'
+              }}
+            />
+          </div>
+          <div className="w-full md:w-40">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+              <Calendar className="inline-block h-3 w-3 mr-1" />
+              Bis
+            </label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setCurrentPage(1)
+              }}
+              style={{
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px',
+                fontSize: '0.82rem',
+                width: '100%'
+              }}
+            />
+          </div>
+          {(searchTerm || statusFilter !== 'all' || billingStatusFilter !== 'all' || dateFrom || dateTo) && (
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('')
+                  setDebouncedSearch('')
+                  setStatusFilter('all')
+                  setBillingStatusFilter('all')
+                  setDateFrom('')
+                  setDateTo('')
+                  setCurrentPage(1)
+                }}
+                style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Filter zurücksetzen
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -995,7 +1320,9 @@ export function BookingsManagement() {
         <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-blue)', marginBottom: '2px' }}>Buchungsliste</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>{filteredBookings.length} Buchungen gefunden</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+              {loading ? 'Wird geladen…' : `${filteredBookings.length} Buchungen gefunden`}
+            </p>
           </div>
           <Button
             variant="outline"
@@ -1018,6 +1345,28 @@ export function BookingsManagement() {
           >
             <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkShippingUpdate}
+            disabled={loadingBulkShippingUpdate}
+            title="Versandstatus aller aktiven Sendungen über DHL API prüfen und aktualisieren"
+            style={{
+              border: '1px solid var(--gray-200)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--white)',
+              color: 'var(--gray-700)',
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '500',
+              gap: '6px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Truck className={`h-4 w-4 ${loadingBulkShippingUpdate ? 'animate-pulse' : ''}`} />
+            Versandstatus prüfen
+          </Button>
         </div>
         <div style={{ padding: '10px 12px' }}>
           {filteredBookings.length === 0 ? (
@@ -1035,6 +1384,7 @@ export function BookingsManagement() {
                     <TableHead className="min-w-[150px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Kunde</TableHead>
                     <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Status</TableHead>
                     <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Zahlungsstatus</TableHead>
+                    <TableHead className="min-w-[120px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Offener Betrag</TableHead>
                     <TableHead className="min-w-[110px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Versandstatus</TableHead>
                     <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Fortschritt</TableHead>
                     <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Gesamtkosten</TableHead>
@@ -1050,11 +1400,13 @@ export function BookingsManagement() {
                     const customer = getSafeBookingCustomer(booking)
                     const customerDisplayName = getCustomerDisplayName(customer)
                     const customerInitial = (customer.firstName || customer.name || customer.email || 'U').charAt(0).toUpperCase()
+                    const openAmountInfo = getBookingOpenAmountInfo(booking)
 
                     return (
                     <React.Fragment key={booking._id}>
                     <TableRow
-                      className="hover:bg-muted/50 cursor-pointer"
+                      data-booking-row-id={booking._id}
+                      className={`hover:bg-muted/50 cursor-pointer ${activeHighlightedBookingId === booking._id ? 'booking-row-highlight' : ''}`}
                       onClick={() => handleViewDetails(booking)}
                     >
                       <TableCell className="w-12">
@@ -1102,9 +1454,52 @@ export function BookingsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getBillingStatusColor(booking.billingStatus)}>
-                          {getBillingStatusLabel(booking.billingStatus)}
-                        </Badge>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="booking-payment-status-anchor"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleViewDetails(booking, {
+                                initialTab: "invoices",
+                                invoiceStatusFocus: getEffectivePaymentStatus(booking)
+                              })
+                            }}
+                            title="Zum passenden Rechnungsstatus springen"
+                          >
+                            <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
+                              {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
+                            </Badge>
+                          </button>
+
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {openAmountInfo.type === 'settled' ? (
+                          <div className="flex flex-col leading-tight">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500)' }}>
+                              Ausgeglichen
+                            </span>
+                            <span className="text-xs font-semibold" style={{ color: 'var(--gray-500)' }}>
+                              {formatCurrency(0)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col leading-tight">
+                            <span
+                              className="text-[11px] font-semibold uppercase tracking-wide"
+                              style={{ color: openAmountInfo.type === 'credit' ? '#047857' : '#dc2626' }}
+                            >
+                              {openAmountInfo.type === 'credit' ? 'Gutschrift' : 'Offen'}
+                            </span>
+                            <span
+                              className="text-sm font-semibold"
+                              style={{ color: openAmountInfo.type === 'credit' ? '#047857' : '#dc2626' }}
+                            >
+                              {openAmountInfo.type === 'credit' ? '-' : ''}{formatCurrency(openAmountInfo.amount)}
+                            </span>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {booking.returnShipmentStatus ? (
@@ -1197,8 +1592,39 @@ export function BookingsManagement() {
                               <Eye className="h-4 w-4 mr-2" />
                               Details anzeigen
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
+                            <DropdownMenuItem
+                              disabled={booking.status !== 'completed'}
+                              onClick={async () => {
+                              if (booking.status !== 'completed') {
+                                toast({
+                                  title: 'Rechnung nicht moeglich',
+                                  description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+                                  variant: 'destructive'
+                                })
+                                return
+                              }
+
+                              try {
+                                const existingInvoicesResponse = await getBookingInvoices(booking._id)
+                                if ((existingInvoicesResponse?.invoices || []).length > 0) {
+                                  toast({
+                                    title: 'Rechnung bereits vorhanden',
+                                    description: 'Pro Buchung kann nur eine Rechnung erstellt werden.',
+                                    variant: 'destructive'
+                                  })
+                                  return
+                                }
+                              } catch (error) {
+                                console.error('BookingsManagement: Failed to check existing booking invoices:', error)
+                              }
+
+                              try {
+                                const response = await getBooking(booking._id)
+                                setSelectedBooking(response?.booking || booking)
+                              } catch (error) {
+                                console.error('BookingsManagement: Failed to load full booking for invoice dialog:', error)
+                                setSelectedBooking(booking)
+                              }
                               setShowInvoiceDialog(true)
                             }}>
                               <FileText className="h-4 w-4 mr-2" />
@@ -1250,15 +1676,21 @@ export function BookingsManagement() {
                           if (!open) {
                             setShowDetailDialog(false)
                             setSelectedBooking(null)
+                            setDetailInitialTab("overview")
+                            setDetailInvoiceStatusFocus(null)
                           }
                         }}>
                           {selectedBooking?._id === booking._id && (
                             <BookingDetailDialog
                               booking={selectedBooking}
                               navigate={navigate}
+                              initialTab={detailInitialTab}
+                              invoiceStatusFocus={detailInvoiceStatusFocus}
                               onStatusUpdate={() => {
                                 setSelectedBooking(null)
                                 setShowDetailDialog(false)
+                                setDetailInitialTab("overview")
+                                setDetailInvoiceStatusFocus(null)
                                 fetchBookings()
                               }}
                             />
@@ -1270,7 +1702,7 @@ export function BookingsManagement() {
                     {/* Expanded Row with Orders/Repair Jobs */}
                     {expandedBookings.has(booking._id) && (
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={12}>
+                        <TableCell colSpan={13}>
                           <div className="p-4 space-y-4">
                             {/* Booking Status Summary */}
                             <div className="bg-muted/50 p-3 rounded-lg border">
@@ -1283,8 +1715,8 @@ export function BookingsManagement() {
                               <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                                 <div>
                                   <span className="text-foreground/60">Zahlungsstatus:</span>
-                                  <Badge className={`${getBillingStatusColor(booking.billingStatus)} ml-2`}>
-                                    {getBillingStatusLabel(booking.billingStatus)}
+                                  <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} ml-2`}>
+                                    {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                                   </Badge>
                                 </div>
                                 <div className="text-right">
@@ -1553,10 +1985,14 @@ export function BookingsManagement() {
           <Dialog
             open={communicationDialogOpen && !!selectedCommunicationOrder}
             onOpenChange={(open) => {
+              communicationDialogOpenRef.current = open
               setCommunicationDialogOpen(open)
               if (!open) {
                 setSelectedCommunicationOrder(null)
-                fetchUnreadCounts()
+                // Delay refetch so the backend markAsRead has time to complete.
+                // Do NOT clear locallyReadOrderIds here — let fetchUnreadCounts handle
+                // cleanup when the server confirms 0 unread for that order.
+                setTimeout(() => fetchUnreadCounts(), 2000)
               }
             }}
           >
@@ -1698,17 +2134,21 @@ export function BookingsManagement() {
 function BookingDetailDialog({
   booking,
   navigate,
+  initialTab,
+  invoiceStatusFocus,
   onStatusUpdate
 }: {
   booking: Booking;
   navigate: any;
+  initialTab?: "overview" | "invoices";
+  invoiceStatusFocus?: string | null;
   onStatusUpdate: () => void
 }) {
   const { t } = useTranslation()
   const location = useLocation()
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState(initialTab || "overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
   const [newBillingStatus, setNewBillingStatus] = useState(booking.billingStatus)
@@ -1717,6 +2157,10 @@ function BookingDetailDialog({
   const [detailOrders, setDetailOrders] = useState<any[]>([])
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(true)
   const { toast } = useToast()
+
+  useEffect(() => {
+    setActiveTab(initialTab || "overview")
+  }, [booking._id, initialTab])
 
   useEffect(() => {
     let isMounted = true
@@ -1838,6 +2282,16 @@ function BookingDetailDialog({
 
   const getBillingStatusColor = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'bg-slate-100 text-slate-800'
+      case 'sent':
+        return 'bg-blue-100 text-blue-800'
+      case 'viewed':
+        return 'bg-indigo-100 text-indigo-800'
+      case 'overdue':
+        return 'bg-rose-100 text-rose-800'
+      case 'partially_paid':
+        return 'bg-orange-100 text-orange-800'
       case 'unpaid':
         return 'bg-red-100 text-red-800'
       case 'partially-paid':
@@ -1868,16 +2322,32 @@ function BookingDetailDialog({
 
   const getBillingStatusLabel = (status: string) => {
     switch (status) {
+      case 'draft':
+        return 'Vorlage'
+      case 'sent':
+        return 'Gesendet'
+      case 'viewed':
+        return 'Angesehen'
+      case 'partially_paid':
+        return 'Teilweise Bezahlt'
+      case 'overdue':
+        return 'Ueberfaellig'
       case 'unpaid':
-        return 'Unbezahlt'
+        return 'Offen'
       case 'partially-paid':
-        return 'Teilweise bezahlt'
+        return 'Teilbezahlt'
       case 'paid':
         return 'Bezahlt'
       default:
         return status
     }
   }
+
+  const effectivePaymentStatus = (() => {
+    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue']
+    const candidate = String(booking.paymentStatus || '')
+    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
+  })()
 
   const getShippingStatusLabel = (status?: string) => {
     switch (status) {
@@ -1975,6 +2445,93 @@ function BookingDetailDialog({
   const hasAnyShippingInfo = hasOutboundShippingInfo || hasReturnShippingInfo
   const repairJobs = (detailOrders.length > 0 ? detailOrders : booking.items || []).filter((item: any) => item.type === 'repair')
 
+  const bookingItemsForFinance = Array.isArray(booking.items) ? booking.items : []
+  const detailedFinanceOrders = Array.isArray(detailOrders) && detailOrders.length > 0
+    ? detailOrders.filter((item: any) => item && typeof item.cost === 'number')
+    : bookingItemsForFinance
+
+  const financialAdjustments = detailedFinanceOrders
+    .map((item: any) => {
+      const baselineCostRaw =
+        item.bookingItemCost !== undefined && item.bookingItemCost !== null
+          ? Number(item.bookingItemCost)
+          : Number(item.cost || 0)
+      const currentCost = Number(item.cost || 0)
+      const baselineCost = Number.isFinite(baselineCostRaw) ? baselineCostRaw : 0
+      const delta = currentCost - baselineCost
+
+      return {
+        orderId: String(item.orderId || item._id || ''),
+        orderNumber: item.orderNumber || String(item.orderId || item._id || '').slice(-8).toUpperCase(),
+        label: item.device || item.type || 'Order',
+        baselineCost,
+        currentCost,
+        delta,
+        hasDeviceChangeHistory: Boolean(item.hasDeviceChangeHistory),
+      }
+    })
+    .filter((entry) => Math.abs(entry.delta) > 0.009)
+
+  const baselineTotalFromOrders = detailedFinanceOrders.reduce((sum: number, item: any) => {
+    const value = item.bookingItemCost !== undefined && item.bookingItemCost !== null
+      ? Number(item.bookingItemCost)
+      : Number(item.cost || 0)
+    return sum + (Number.isFinite(value) ? value : 0)
+  }, 0)
+
+  const currentTotalFromOrders = detailedFinanceOrders.reduce((sum: number, item: any) => {
+    const value = Number(item.cost || 0)
+    return sum + (Number.isFinite(value) ? value : 0)
+  }, 0)
+
+  const financeBaselineTotal = detailedFinanceOrders.length > 0 ? baselineTotalFromOrders : Number(booking.totalCost || 0)
+  const financeCurrentTotal = detailedFinanceOrders.length > 0 ? currentTotalFromOrders : Number(booking.totalCost || 0)
+  const financeDeltaTotal = financeCurrentTotal - financeBaselineTotal
+  const financeCreditAmount = financeDeltaTotal < 0 ? Math.abs(financeDeltaTotal) : 0
+  const financeOutstandingAmount = financeDeltaTotal > 0 ? financeDeltaTotal : 0
+  const deviceChangeRelatedCount = financialAdjustments.filter((entry) => entry.hasDeviceChangeHistory).length
+
+  const financeBillingStatusConfig = (() => {
+    switch (booking.billingStatus) {
+      case 'paid':
+        return {
+          label: 'Bezahlt',
+          border: '#86efac',
+          background: '#ecfdf5',
+          text: '#065f46',
+          creditHint: 'Als Rueckzahlung oder Kundenguthaben verbuchen.',
+          outstandingHint: 'Als Nachbelastung nach bereits erfolgter Zahlung ausweisen.'
+        }
+      case 'partially-paid':
+        return {
+          label: 'Teilbezahlt',
+          border: '#fdba74',
+          background: '#fff7ed',
+          text: '#9a3412',
+          creditHint: 'Mit dem offenen Restbetrag verrechnen.',
+          outstandingHint: 'Zum verbleibenden Restbetrag addieren.'
+        }
+      case 'unpaid':
+        return {
+          label: 'Offen',
+          border: '#fcd34d',
+          background: '#fffbeb',
+          text: '#92400e',
+          creditHint: 'Reduziert den noch offenen Rechnungsbetrag.',
+          outstandingHint: 'Erhoeht den bei Abrechnung faelligen Betrag.'
+        }
+      default:
+        return {
+          label: 'Unbekannt',
+          border: '#d1d5db',
+          background: '#f9fafb',
+          text: '#374151',
+          creditHint: 'Als Gutschrift in der Buchhaltung pruefen.',
+          outstandingHint: 'Als offenen Teilbetrag in der Buchhaltung pruefen.'
+        }
+    }
+  })()
+
   return (
     <DialogContent 
       className="bookings-detail-dialog max-w-3xl max-h-[90vh] overflow-y-auto"
@@ -1990,7 +2547,7 @@ function BookingDetailDialog({
         <DialogTitle style={{ 
           fontSize: '1.15rem', 
           fontWeight: '700', 
-          color: 'var(--white, #ffffff)',
+          color: '#f5c800',
           marginBottom: '2px',
           letterSpacing: '-0.5px'
         }}>
@@ -1998,7 +2555,7 @@ function BookingDetailDialog({
         </DialogTitle>
         <DialogDescription style={{ 
           fontSize: '0.78rem', 
-          color: 'rgba(255,255,255,0.88)',
+          color: '#c8d0e7',
           fontWeight: '500'
         }}>
           Buchungs-ID: #{booking._id.slice(-8).toUpperCase()}
@@ -2081,7 +2638,7 @@ function BookingDetailDialog({
               transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
             }}
           >
-            Verlauf
+            {t('bookings.timeline')}
           </TabsTrigger>
         </TabsList>
 
@@ -2097,11 +2654,11 @@ function BookingDetailDialog({
             }}
           >
             {/* Header row */}
-            <div className="flex items-center gap-2 mb-4">
-              <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
-                <User className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+            <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+              <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                <User className="h-4 w-4" style={{ color: '#f5c800' }} />
               </div>
-              <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+              <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                 Kundeninformationen
               </h3>
               {booking.guestInfo?.isGuest && (
@@ -2148,8 +2705,15 @@ function BookingDetailDialog({
 
               {/* Billing address */}
               {(() => {
-                const addr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
-                const hasAddr = addr && (addr.street || addr.city || addr.zipCode)
+                const firstOrder = Array.isArray(booking.orderIds)
+                  ? booking.orderIds.find((order) => order && typeof order === 'object')
+                  : undefined
+                const addr = booking.customerId?.invoiceAddress
+                  || booking.billingAddress
+                  || booking.guestInfo?.billingAddress
+                  || firstOrder?.billingAddress
+                  || firstOrder?.guestInfo?.billingAddress
+                const hasAddr = hasAddressData(addr)
                 return (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
@@ -2161,8 +2725,8 @@ function BookingDetailDialog({
                     {hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
                         {addr!.street && <p>{addr!.street}</p>}
-                        {(addr!.zipCode || addr!.city) && (
-                          <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>
+                        {(addr!.zipCode || addr!.zip || addr!.city) && (
+                          <p>{[addr!.zipCode || addr!.zip, addr!.city].filter(Boolean).join(' ')}</p>
                         )}
                         {addr!.state && <p>{addr!.state}</p>}
                         {addr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{addr!.country}</p>}
@@ -2176,12 +2740,23 @@ function BookingDetailDialog({
 
               {/* Shipping/delivery address */}
               {(() => {
-                const billingAddr = booking.customerId?.invoiceAddress || booking.guestInfo?.billingAddress
-                const deliveryAddr = booking.customerId?.paymentAddress?.sameAsInvoice === false
-                  ? booking.customerId.paymentAddress
-                  : booking.guestInfo?.shippingAddress
-                const hasAddr = deliveryAddr && (deliveryAddr.street || deliveryAddr.city || deliveryAddr.zipCode)
-                const sameAsBilling = booking.customerId?.paymentAddress?.sameAsInvoice !== false && !booking.guestInfo?.shippingAddress
+                const firstOrder = Array.isArray(booking.orderIds)
+                  ? booking.orderIds.find((order) => order && typeof order === 'object')
+                  : undefined
+                const billingAddr = booking.customerId?.invoiceAddress
+                  || booking.billingAddress
+                  || booking.guestInfo?.billingAddress
+                  || firstOrder?.billingAddress
+                  || firstOrder?.guestInfo?.billingAddress
+                const customerPaymentAddr = booking.customerId?.paymentAddress
+                const deliveryAddr = customerPaymentAddr?.sameAsInvoice === false
+                  ? customerPaymentAddr
+                  : booking.shippingAddress
+                    || booking.guestInfo?.shippingAddress
+                    || firstOrder?.shippingAddress
+                    || firstOrder?.guestInfo?.shippingAddress
+                const hasAddr = hasAddressData(deliveryAddr)
+                const sameAsBilling = customerPaymentAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr)
 
                 return (
                   <div>
@@ -2191,13 +2766,13 @@ function BookingDetailDialog({
                         Lieferadresse
                       </p>
                     </div>
-                    {sameAsBilling && (billingAddr?.street || billingAddr?.city) ? (
+                    {sameAsBilling && hasAddressData(billingAddr) ? (
                       <p className="text-sm italic" style={{ color: 'var(--gray-400, #8892a8)' }}>Identisch mit Rechnungsadresse</p>
                     ) : hasAddr ? (
                       <div className="space-y-0.5 text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>
                         {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
-                        {(deliveryAddr!.zipCode || deliveryAddr!.city) && (
-                          <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
+                        {(deliveryAddr!.zipCode || deliveryAddr!.zip || deliveryAddr!.city) && (
+                          <p>{[deliveryAddr!.zipCode || deliveryAddr!.zip, deliveryAddr!.city].filter(Boolean).join(' ')}</p>
                         )}
                         {deliveryAddr!.state && <p>{deliveryAddr!.state}</p>}
                         {deliveryAddr!.country && <p style={{ color: 'var(--gray-500, #636e85)', fontSize: '0.8rem' }}>{deliveryAddr!.country}</p>}
@@ -2222,11 +2797,11 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
               }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <div style={{ background: 'var(--primary-blue, #1a2a5e)', borderRadius: '8px', padding: '6px' }}>
-                  <Activity className="h-4 w-4" style={{ color: 'var(--white, #ffffff)' }} />
+              <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                  <Activity className="h-4 w-4" style={{ color: '#f5c800' }} />
                 </div>
-                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                   Buchungsstatus
                 </h3>
               </div>
@@ -2241,7 +2816,7 @@ function BookingDetailDialog({
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
                     Zahlungsstatus
                   </p>
-                  <Badge className={getBillingStatusColor(booking.billingStatus)}>{getBillingStatusLabel(booking.billingStatus)}</Badge>
+                  <Badge className={getBillingStatusColor(effectivePaymentStatus)}>{getBillingStatusLabel(effectivePaymentStatus)}</Badge>
                 </div>
                 <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--gray-100, #eceef3)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500, #636e85)' }}>
@@ -2273,11 +2848,11 @@ function BookingDetailDialog({
                 boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))',
               }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <div style={{ background: 'var(--accent-yellow, #f5b800)', borderRadius: '8px', padding: '6px' }}>
-                  <DollarSign className="h-4 w-4" style={{ color: 'var(--gray-900, #111827)' }} />
+              <div className="flex items-center gap-2" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                <div style={{ background: 'rgba(245,200,0,0.18)', borderRadius: '8px', padding: '6px' }}>
+                  <DollarSign className="h-4 w-4" style={{ color: '#f5c800' }} />
                 </div>
-                <h3 style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1rem', fontWeight: '700' }}>
+                <h3 style={{ color: '#f5c800', fontSize: '1rem', fontWeight: '700' }}>
                   Finanzen
                 </h3>
               </div>
@@ -2308,6 +2883,88 @@ function BookingDetailDialog({
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>Endbetrag</span>
                     <span className="font-bold text-lg" style={{ color: 'var(--success, #38a169)' }}>{formatCurrency(booking.finalCost)}</span>
+                  </div>
+                )}
+
+                {financialAdjustments.length > 0 && (
+                  <div
+                    className="mt-3 pt-3 space-y-2"
+                    style={{ borderTop: '1px dashed var(--gray-200, #d8dce6)' }}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span style={{ color: 'var(--gray-500, #636e85)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Aenderungen seit Buchung
+                      </span>
+                      <span style={{ color: 'var(--gray-500, #636e85)' }}>
+                        {financialAdjustments.length} Position(en)
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                      {financialAdjustments.map((entry) => (
+                        <div key={`${entry.orderId}-${entry.orderNumber}`} className="flex items-start justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate" style={{ color: 'var(--gray-700, #2d3748)' }}>
+                              #{entry.orderNumber} - {entry.label}
+                            </p>
+                            <p style={{ color: 'var(--gray-500, #636e85)' }}>
+                              {formatCurrency(entry.baselineCost)} {'->'} {formatCurrency(entry.currentCost)}
+                              {entry.hasDeviceChangeHistory ? ' • Geraete-/Servicewechsel' : ''}
+                            </p>
+                          </div>
+                          <span
+                            className="font-semibold shrink-0"
+                            style={{ color: entry.delta > 0 ? '#b45309' : '#047857' }}
+                          >
+                            {entry.delta > 0 ? '+' : '-'}{formatCurrency(Math.abs(entry.delta))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-md px-2.5 py-2 text-xs" style={{ background: 'var(--off-white, #f8f9fc)', border: '1px solid var(--gray-200, #d8dce6)' }}>
+                      <div className="flex items-center justify-between">
+                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Urspruenglicher Buchungswert</span>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatCurrency(financeBaselineTotal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Aktueller Auftragswert</span>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatCurrency(financeCurrentTotal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: '1px solid var(--gray-200, #d8dce6)' }}>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>Saldo Aenderung</span>
+                        <span className="font-bold" style={{ color: financeDeltaTotal > 0 ? '#b45309' : financeDeltaTotal < 0 ? '#047857' : 'var(--gray-700, #2d3748)' }}>
+                          {financeDeltaTotal > 0 ? '+' : financeDeltaTotal < 0 ? '-' : ''}{formatCurrency(Math.abs(financeDeltaTotal))}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(financeCreditAmount > 0 || financeOutstandingAmount > 0) && (
+                      <div className="rounded-md px-2.5 py-2 text-xs" style={{
+                        border: `1px solid ${financeBillingStatusConfig.border}`,
+                        background: financeBillingStatusConfig.background
+                      }}>
+                        <p className="mb-1" style={{ color: '#6b7280', fontWeight: 600 }}>
+                          Zahlungsstatus-Logik: {financeBillingStatusConfig.label}
+                        </p>
+                        {financeCreditAmount > 0 ? (
+                          <p style={{ color: financeBillingStatusConfig.text, fontWeight: 600 }}>
+                            Gutschrift ersichtlich: {formatCurrency(financeCreditAmount)}
+                            {' '}{financeBillingStatusConfig.creditHint}
+                          </p>
+                        ) : (
+                          <p style={{ color: financeBillingStatusConfig.text, fontWeight: 600 }}>
+                            Ausstehender Teilbetrag ersichtlich: {formatCurrency(financeOutstandingAmount)}
+                            {' '}{financeBillingStatusConfig.outstandingHint}
+                          </p>
+                        )}
+                        {deviceChangeRelatedCount > 0 && (
+                          <p className="mt-1" style={{ color: '#6b7280' }}>
+                            Davon betreffen {deviceChangeRelatedCount} Position(en) dokumentierte Geraetewechsel.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2414,8 +3071,8 @@ function BookingDetailDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unpaid">Unbezahlt</SelectItem>
-                  <SelectItem value="partially-paid">Teilweise bezahlt</SelectItem>
+                  <SelectItem value="unpaid">Offen</SelectItem>
+                  <SelectItem value="partially-paid">Teilbezahlt</SelectItem>
                   <SelectItem value="paid">Bezahlt</SelectItem>
                 </SelectContent>
               </Select>
@@ -2644,8 +3301,8 @@ function BookingDetailDialog({
                   }}
                   className="hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.1rem', fontWeight: '700' }}>
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 16px -20px', borderBottom: '1px solid #0f1d45' }}>
+                    <h4 className="font-semibold" style={{ color: '#f5c800', fontSize: '1.1rem', fontWeight: '700' }}>
                       Produktposition
                     </h4>
                     <Badge className={getStatusColor(item.status || 'pending')}>
@@ -2722,12 +3379,12 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '12px 18px', borderRadius: '16px 16px 0 0', margin: '-24px -24px 16px -24px', borderBottom: '1px solid #0f1d45' }}>
                     <h3
                       className="font-semibold text-lg flex items-center gap-2"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                      style={{ color: '#f5c800', fontWeight: '700' }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
                       Versandinformationen (Hinweg)
                     </h3>
                     {booking.shippingStatus && (
@@ -2871,12 +3528,12 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', padding: '12px 18px', borderRadius: '16px 16px 0 0', margin: '-24px -24px 16px -24px', borderBottom: '1px solid #0f1d45' }}>
                     <h3
                       className="font-semibold text-lg flex items-center gap-2"
-                      style={{ color: 'var(--primary-blue, #1a2a5e)', fontWeight: '700' }}
+                      style={{ color: '#f5c800', fontWeight: '700' }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                      <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
                       Ruecksendungsinformationen
                     </h3>
                     {booking.returnShipmentStatus && (
@@ -3000,7 +3657,7 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <h4 className="font-semibold mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem' }}>Ruecksendehinweise</h4>
+                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Ruecksendehinweise</h4>
                   <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--gray-600, #4a5568)', fontSize: '0.9rem' }}>
                     <li>Ruecksende-Label ausdrucken oder den QR-Code am Handy speichern</li>
                     <li>Artikel sicher in einem geeigneten Karton verpacken</li>
@@ -3043,7 +3700,11 @@ function BookingDetailDialog({
         </TabsContent>
 
         <TabsContent value="invoices" className="space-y-4 mt-4">
-          <InvoicesTabContent booking={booking} />
+          <InvoicesTabContent
+            booking={booking}
+            navigate={navigate}
+            highlightStatus={activeTab === 'invoices' ? invoiceStatusFocus : null}
+          />
         </TabsContent>
 
         <TabsContent value="timeline" className="space-y-4 mt-4">
@@ -3126,13 +3787,14 @@ function BookingDetailDialog({
 
 // Invoices Tab Content Component
 // Description: Display invoices for a booking with reminder actions
-function InvoicesTabContent({ booking }: { booking: Booking }) {
+function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: Booking; navigate: any; highlightStatus?: string | null }) {
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -3160,6 +3822,49 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
     setSelectedInvoice(invoice)
     setReminderDialogOpen(true)
   }
+
+  useEffect(() => {
+    if (!highlightStatus || invoices.length === 0) {
+      return
+    }
+
+    const normalizedStatus = String(highlightStatus)
+    const statusCandidates = (() => {
+      switch (normalizedStatus) {
+        case 'unpaid':
+          return ['draft', 'sent', 'viewed', 'overdue', 'pending']
+        case 'partially-paid':
+          return ['partially_paid']
+        case 'paid':
+          return ['paid']
+        default:
+          return [normalizedStatus]
+      }
+    })()
+
+    const targetInvoice = invoices.find((invoice) => statusCandidates.includes(String(invoice.status)))
+    if (!targetInvoice?._id) {
+      return
+    }
+
+    setHighlightedInvoiceId(targetInvoice._id)
+
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-invoice-id="${targetInvoice._id}"]`)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 40)
+
+    const clearTimer = window.setTimeout(() => {
+      setHighlightedInvoiceId(null)
+    }, 4500)
+
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(clearTimer)
+    }
+  }, [highlightStatus, invoices])
 
   const getInvoiceStatusColor = (status: string) => {
     switch (status) {
@@ -3212,7 +3917,13 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
     <>
       <div className="space-y-3">
         {invoices.map((invoice) => (
-          <div key={invoice._id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+          <div
+            key={invoice._id}
+            data-invoice-id={invoice._id}
+            className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${highlightedInvoiceId === invoice._id ? 'invoice-card-highlight' : ''}`}
+            onClick={() => navigate(`/admin/financial?tab=overview&highlightInvoiceId=${invoice._id}`)}
+            title="Zur Finanzverwaltung und dieser Rechnung wechseln"
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
@@ -3252,7 +3963,10 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleSendReminder(invoice)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleSendReminder(invoice)
+                    }}
                   >
                     <Bell className="h-4 w-4 mr-1" />
                     Erinnerung senden
@@ -3261,7 +3975,8 @@ function InvoicesTabContent({ booking }: { booking: Booking }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation()
                     // Open invoice in new tab or download
                     window.open(`/api/invoices/${invoice._id}/pdf`, '_blank')
                   }}
@@ -3369,8 +4084,44 @@ function InvoiceDialog({
   const [loading, setLoading] = useState(false)
   const [preview, setPreview] = useState<any>(null)
   const [notes, setNotes] = useState('')
-  const [sendImmediately, setSendImmediately] = useState(false)
+  const [sendImmediately, setSendImmediately] = useState(true)
   const { toast } = useToast()
+
+  const firstOrder = useMemo(() => {
+    if (!Array.isArray(booking.orderIds)) {
+      return undefined
+    }
+    return booking.orderIds.find((order) => order && typeof order === 'object')
+  }, [booking.orderIds])
+
+  const bookingBillingAddress =
+    booking.customerId?.invoiceAddress ||
+    booking.billingAddress ||
+    booking.guestInfo?.billingAddress ||
+    firstOrder?.billingAddress ||
+    firstOrder?.guestInfo?.billingAddress
+
+  const customerPaymentAddress = booking.customerId?.paymentAddress
+  const bookingShippingAddress =
+    customerPaymentAddress?.sameAsInvoice === false
+      ? customerPaymentAddress
+      : booking.shippingAddress ||
+        booking.guestInfo?.shippingAddress ||
+        firstOrder?.shippingAddress ||
+        firstOrder?.guestInfo?.shippingAddress
+
+  const resolvedBillingAddress = hasAddressData(preview?.billingAddress)
+    ? preview.billingAddress
+    : bookingBillingAddress
+
+  const resolvedShippingAddress = hasAddressData(preview?.shippingAddress)
+    ? preview.shippingAddress
+    : bookingShippingAddress
+
+  const shippingSameAsBilling =
+    !hasAddressData(resolvedShippingAddress) && hasAddressData(resolvedBillingAddress)
+
+  const canCreateInvoice = booking.status === 'completed'
 
   useEffect(() => {
     if (open && booking) {
@@ -3379,14 +4130,20 @@ function InvoiceDialog({
   }, [open, booking])
 
   const loadPreview = async () => {
+    if (!canCreateInvoice) {
+      setPreview(null)
+      return
+    }
+
     try {
       setLoading(true)
       const response = await previewBookingInvoice(booking._id)
       setPreview(response.invoicePreview)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rechnungsvorschau konnte nicht geladen werden'
       toast({
         title: "Fehler",
-        description: "Rechnungsvorschau konnte nicht geladen werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -3395,6 +4152,15 @@ function InvoiceDialog({
   }
 
   const handleCreate = async () => {
+    if (!canCreateInvoice) {
+      toast({
+        title: 'Rechnung nicht moeglich',
+        description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     try {
       setLoading(true)
       await createBookingInvoice(booking._id, {
@@ -3403,9 +4169,10 @@ function InvoiceDialog({
       })
       onSuccess()
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rechnung konnte nicht erstellt werden'
       toast({
         title: "Fehler",
-        description: "Rechnung konnte nicht erstellt werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -3414,110 +4181,186 @@ function InvoiceDialog({
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value)
+  }
+
+  const renderAddressBlock = (title: string, address?: AddressFields | null, fallback?: string) => {
+    const hasAddress = hasAddressData(address)
+
+    return (
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-[#1a2a5e] px-4 py-2">
+          <h3 className="font-semibold text-[#f5b800] text-sm">{title}</h3>
+        </div>
+        <div className="p-4 bg-white dark:bg-muted/10">
+          {hasAddress ? (
+            <div className="space-y-0.5 text-sm text-foreground/80">
+              {address?.street && <p>{address.street}</p>}
+              {(address?.zipCode || address?.zip || address?.city) && (
+                <p>{[address?.zipCode || address?.zip, address?.city].filter(Boolean).join(' ')}</p>
+              )}
+              {address?.state && <p>{address.state}</p>}
+              {address?.country && <p>{address.country}</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-foreground/50">{fallback || 'Nicht angegeben'}</p>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Rechnung fuer Buchung erstellen</DialogTitle>
-          <DialogDescription>Rechnungsdetails pruefen und bestaetigen</DialogDescription>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+        {/* Header */}
+        <DialogHeader className="bg-[#1a2a5e] px-6 py-4 flex-shrink-0">
+          <DialogTitle className="text-[#f5b800] text-lg font-bold">
+            Rechnung fuer Buchung erstellen
+          </DialogTitle>
+          <DialogDescription className="text-white/70 text-sm">
+            Rechnungsdetails pruefen und bestaetigen
+          </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : preview ? (
-          <div className="space-y-4">
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <h3 className="font-semibold mb-2">Kundeninformationen</h3>
-              <p className="text-sm">{preview.customerName}</p>
-              <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f5b800]"></div>
             </div>
+          ) : !canCreateInvoice ? (
+            <div className="text-center py-8">
+              <p className="text-sm font-medium text-[#1a2a5e]">Rechnungserstellung noch nicht verfuegbar</p>
+              <p className="text-sm text-foreground/60 mt-1">
+                Diese Buchung hat den Status "{booking.status}". Eine Rechnung kann erst bei Status "Abgeschlossen" erstellt werden.
+              </p>
+            </div>
+          ) : preview ? (
+            <div className="space-y-4">
+              {/* Kundeninformationen */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Kundeninformationen</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10">
+                  <p className="text-sm font-medium">{preview.customerName}</p>
+                  <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+                </div>
+              </div>
 
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-3">Rechnungspositionen</h3>
-              <div className="space-y-2">
-                {preview.items.map((item: any) => (
-                  <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
-                    <div className="flex-1">
-                      <p className="font-medium">{item.description}</p>
-                      <p className="text-xs text-foreground/60">
-                        Menge: {item.quantity} × {formatCurrency(item.unitPrice)}
-                      </p>
+              {/* Adressen */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
+                {shippingSameAsBilling
+                  ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
+                  : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
+              </div>
+
+              {/* Rechnungspositionen */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungspositionen</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                  {preview.items.map((item: any) => (
+                    <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                      <div className="flex-1">
+                        <p className="font-medium text-[#1a2a5e]">{item.description}</p>
+                        <p className="text-xs text-foreground/60">
+                          Menge: {item.quantity} × {formatCurrency(item.unitPrice)}
+                        </p>
+                      </div>
+                      <p className="font-semibold text-[#1a2a5e]">{formatCurrency(item.total)}</p>
                     </div>
-                    <p className="font-semibold">{formatCurrency(item.total)}</p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Zusammenfassung */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungszusammenfassung</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70">Nettobetrag:</span>
+                    <span className="font-medium">{formatCurrency(preview.subtotal)}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Zwischensumme:</span>
-                  <span>{formatCurrency(preview.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Steuer:</span>
-                  <span>{formatCurrency(preview.tax)}</span>
-                </div>
-                {preview.discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Rabatt:</span>
-                    <span>-{formatCurrency(preview.discount)}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70">Enthaltene MwSt.:</span>
+                    <span className="font-medium">{formatCurrency(preview.tax)}</span>
                   </div>
-                )}
-                <Separator />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Gesamt:</span>
-                  <span>{formatCurrency(preview.total)}</span>
+                  {preview.discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Rabatt:</span>
+                      <span>-{formatCurrency(preview.discount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between text-base font-bold text-[#1a2a5e]">
+                    <span>Gesamtbetrag (Brutto):</span>
+                    <span>{formatCurrency(preview.total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notizen & Optionen */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-[#1a2a5e] px-4 py-2">
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Optionen</h3>
+                </div>
+                <div className="p-4 bg-white dark:bg-muted/10 space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-[#1a2a5e]">Notizen (optional)</label>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Weitere Notizen hinzufuegen..."
+                      rows={3}
+                      className="mt-2 border-[#1a2a5e]/20 focus-visible:ring-[#f5b800]"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sendImmediately"
+                      checked={sendImmediately}
+                      onChange={(e) => setSendImmediately(e.target.checked)}
+                      className="rounded accent-[#f5b800]"
+                    />
+                    <label htmlFor="sendImmediately" className="text-sm text-[#1a2a5e] font-medium cursor-pointer">
+                      Rechnung sofort an den Kunden senden
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium">Notizen (optional)</label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Weitere Notizen hinzufuegen..."
-                  rows={3}
-                  className="mt-2"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="sendImmediately"
-                  checked={sendImmediately}
-                  onChange={(e) => setSendImmediately(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="sendImmediately" className="text-sm">
-                  Rechnung sofort an den Kunden senden
-                </label>
-              </div>
+          ) : (
+            <div className="text-center py-8 text-foreground/60">
+              Keine Vorschau verfuegbar
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-foreground/60">
-            Keine Vorschau verfuegbar
-          </div>
-        )}
+          )}
+        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        {/* Footer */}
+        <DialogFooter className="px-6 py-4 border-t bg-gray-50 dark:bg-muted/20 flex-shrink-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
+          >
             Abbrechen
           </Button>
-          <Button onClick={handleCreate} disabled={loading || !preview}>
+          <Button
+            onClick={handleCreate}
+            disabled={loading || !preview || !canCreateInvoice}
+            className="bg-[#f5b800] text-[#1a2a5e] font-bold hover:bg-[#e5ab00] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Rechnung erstellen
           </Button>
         </DialogFooter>

@@ -180,7 +180,7 @@ router.post('/:orderId/quick-action', requireUser, async (req, res) => {
       return res.status(400).json({ error: 'actionType is required' });
     }
 
-    const validActions = ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs'];
+    const validActions = ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs', 'update_unlock_info'];
     if (!validActions.includes(actionType)) {
       return res.status(400).json({ error: `Invalid action type. Must be one of: ${validActions.join(', ')}` });
     }
@@ -273,6 +273,37 @@ router.get('/:orderId/pending-actions', requireUser, async (req, res) => {
     res.status(200).json({ count });
   } catch (error) {
     console.error(`InspectionCommunicationRoutes: Error getting pending actions count: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Description: Customer submits updated unlock information
+// Endpoint: POST /api/inspection-communication/:orderId/update-unlock-info
+// Request: { unlockCode?: string, unlockPattern?: string[], noLock?: boolean }
+// Response: { order: Object }
+router.post('/:orderId/update-unlock-info', requireUser, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { unlockCode, unlockPattern, noLock } = req.body;
+
+    console.log(`InspectionCommunicationRoutes: POST /${orderId}/update-unlock-info - Customer updating unlock info`);
+
+    const order = await InspectionCommunicationService.submitUnlockInfoUpdate(
+      orderId,
+      req.user._id,
+      req.user.name || req.user.email,
+      { unlockCode, unlockPattern, noLock }
+    );
+
+    res.status(200).json({ order });
+  } catch (error) {
+    console.error(`InspectionCommunicationRoutes: Error updating unlock info: ${error}`);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error.message === 'Unauthorized') {
+      return res.status(403).json({ error: error.message });
+    }
     res.status(500).json({ error: error.message });
   }
 });

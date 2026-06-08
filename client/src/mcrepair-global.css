@@ -1426,6 +1426,20 @@ ul, ol {
   margin-top: 2px;
 }
 
+.repair-card .repair-price.repair-price-on-request {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(26, 42, 94, 0.14);
+  background: linear-gradient(135deg, rgba(26, 42, 94, 0.06), rgba(245, 184, 0, 0.14));
+  color: var(--primary-blue);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 /* Result section */
 .config-result {
   background: #ffffff;

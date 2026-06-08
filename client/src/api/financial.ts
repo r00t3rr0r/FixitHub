@@ -14,7 +14,7 @@ export interface Payment {
   amount: number;
   currency: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'disputed';
-  paymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer';
+  paymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer' | 'prepayment' | 'cash';
   transactionId: string;
   gatewayResponse: string;
   createdAt: string;
@@ -34,8 +34,9 @@ export interface Invoice {
   _id: string;
   invoiceNumber: string;
   numberPrefix?: string;
-  orderId?: string;
-  repairOrderIds?: string[];
+  orderId?: string | { _id: string; orderNumber?: string; status?: string; deviceType?: string; deviceBrand?: string; deviceModel?: string };
+  repairOrderIds?: (string | { _id: string; orderNumber?: string; status?: string; deviceType?: string; deviceBrand?: string; deviceModel?: string })[];
+  bookingId?: string;
   creditNoteOf?: string;
   isCreditNote?: boolean;
   customerId: string;

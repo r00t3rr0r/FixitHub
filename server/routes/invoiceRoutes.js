@@ -18,6 +18,20 @@ const getGatewayFromRequest = async (gatewayId, gatewayProvider) => {
   return gateway;
 };
 
+const loadInvoicePaymentHistory = async (invoiceId) => {
+  const payments = await Payment.find({ invoiceId })
+    .sort({ processedAt: -1, createdAt: -1 })
+    .lean();
+
+  return payments.map((payment) => ({
+    _id: String(payment._id),
+    date: payment.processedAt || payment.createdAt || new Date(),
+    amount: Number(payment.amount || 0),
+    method: payment.paymentMethod,
+    note: payment.gatewayResponse || payment.metadata?.providerReference || payment.transactionId || ''
+  }));
+};
+
 const assertInvoiceOwner = (invoice, user) => {
   if (!invoice) throw new Error('Invoice not found');
 
@@ -40,6 +54,14 @@ const validatePaymentAmount = (invoice, amount) => {
     throw new Error(`Payment amount exceeds remaining balance (${remaining.toFixed(2)}).`);
   }
   return { numericAmount, remaining };
+};
+
+const buildPaypalInvoiceId = (invoice) => {
+  const rawBase = String(invoice?.invoiceNumber || invoice?._id || 'invoice')
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 90);
+  // Ensure uniqueness across retries/partial payments so PayPal does not reject with DUPLICATE_INVOICE_ID.
+  return `${rawBase}-${Date.now().toString(36)}`;
 };
 
 const getPaypalAccessToken = async (gateway) => {
@@ -104,6 +126,7 @@ router.get('/', requireUser, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(parseInt(skip))
+      .populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
       .populate('orderId', 'orderNumber deviceBrand deviceModel status')
       .lean();
 
@@ -228,7 +251,7 @@ router.get('/payment-gateways', requireUser, async (req, res) => {
 // Response: { success: boolean, provider, gatewayId, redirectUrl, providerReference }
 router.post('/:id/payments/initialize', requireUser, async (req, res) => {
   try {
-    const { amount, gatewayId, gatewayProvider, paymentData = {} } = req.body;
+    const { amount, gatewayId, gatewayProvider, paymentData = {}, isJsSdk = false } = req.body;
 
     if (!['stripe', 'paypal'].includes(gatewayProvider)) {
       return res.status(400).json({ success: false, error: 'Only Stripe and PayPal support redirect initialization.' });
@@ -291,8 +314,16 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
       const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
       const currencyCode = (gateway.configuration?.default_currency || 'EUR').toUpperCase();
 
-      const returnUrl = `${frontendBase}${returnPath}?paymentStatus=success&paymentProvider=paypal&invoiceId=${invoice._id}&gatewayId=${gateway._id}`;
-      const cancelUrl = `${frontendBase}${returnPath}?paymentStatus=cancel&paymentProvider=paypal&invoiceId=${invoice._id}&gatewayId=${gateway._id}`;
+      // When called from the PayPal JS SDK (createOrder callback), use a neutral return_url so that
+      // PayPal's popup/redirect landing does not trigger the URL-param confirm flow a second time.
+      // The JS SDK's onApprove callback handles confirmation directly; the redirect flow uses the
+      // full URL with trigger params.
+      const returnUrl = isJsSdk
+        ? `${frontendBase}${returnPath}`
+        : `${frontendBase}${returnPath}?paymentStatus=success&paymentProvider=paypal&invoiceId=${invoice._id}&gatewayId=${gateway._id}`;
+      const cancelUrl = isJsSdk
+        ? `${frontendBase}${returnPath}`
+        : `${frontendBase}${returnPath}?paymentStatus=cancel&paymentProvider=paypal&invoiceId=${invoice._id}&gatewayId=${gateway._id}`;
 
       const orderResponse = await axios.post(
         `${baseUrl}/v2/checkout/orders`,
@@ -302,17 +333,14 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
             {
               reference_id: String(invoice._id),
               custom_id: String(invoice._id),
-              invoice_id: invoice.invoiceNumber,
-              description: `Invoice ${invoice.invoiceNumber}`,
+              invoice_id: buildPaypalInvoiceId(invoice),
+              description: `Invoice ${invoice.invoiceNumber || invoice._id}`,
               amount: {
                 currency_code: currencyCode,
                 value: numericAmount.toFixed(2)
               }
             }
           ],
-          payer: {
-            email_address: paymentData.paypalEmail || paymentData.payerEmail || invoice.customerEmail
-          },
           application_context: {
             return_url: returnUrl,
             cancel_url: cancelUrl,
@@ -377,11 +405,16 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     });
 
     if (existingPayment) {
+      const paymentHistory = await loadInvoicePaymentHistory(invoice._id);
       return res.json({
         success: true,
         alreadyRecorded: true,
         payment: existingPayment,
-        invoice,
+        invoice: {
+          ...invoice,
+          paymentHistory,
+          amountPaid: invoice.paidAmount,
+        },
         remainingAmount: Number(invoice.total || 0) - Number(invoice.paidAmount || 0)
       });
     }
@@ -425,25 +458,56 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
 
     if (gatewayProvider === 'paypal') {
       const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
-      const captureResponse = await axios.post(
-        `${baseUrl}/v2/checkout/orders/${providerReference}/capture`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 15000
-        }
-      );
 
-      const order = captureResponse.data;
+      const paypalHeaders = {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      };
+
+      const fetchOrder = async () => {
+        const orderResponse = await axios.get(
+          `${baseUrl}/v2/checkout/orders/${providerReference}`,
+          {
+            headers: paypalHeaders,
+            timeout: 15000
+          }
+        );
+        return orderResponse.data;
+      };
+
+      // Check order status first to avoid sending an unnecessary capture request that would return 422.
+      let order = await fetchOrder();
+      if (order.status !== 'COMPLETED') {
+        try {
+          const captureResponse = await axios.post(
+            `${baseUrl}/v2/checkout/orders/${providerReference}/capture`,
+            {},
+            {
+              headers: paypalHeaders,
+              timeout: 15000
+            }
+          );
+          order = captureResponse.data;
+        } catch (captureError) {
+          // If PayPal returns 422 UNPROCESSABLE_ENTITY the order may already be captured.
+          const errName = captureError?.response?.data?.name;
+          if (captureError?.response?.status === 422 || errName === 'UNPROCESSABLE_ENTITY') {
+            order = await fetchOrder();
+            if (order.status !== 'COMPLETED') {
+              return res.status(400).json({ success: false, error: 'PayPal payment could not be completed.' });
+            }
+          } else {
+            throw captureError;
+          }
+        }
+      }
+
       if (order.status !== 'COMPLETED') {
         return res.status(400).json({ success: false, error: 'PayPal payment is not completed yet.' });
       }
 
       const capture = order.purchase_units?.[0]?.payments?.captures?.[0];
-      finalAmount = Number(capture?.amount?.value || 0);
+      finalAmount = Number(capture?.amount?.value || order.purchase_units?.[0]?.amount?.value || 0);
       gatewayResponse = `PayPal order ${order.id} captured`;
       providerDetails = {
         orderId: order.id,
@@ -470,6 +534,13 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       }
     });
 
+    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id);
+    const invoiceWithHistory = {
+      ...result.invoice,
+      paymentHistory,
+      amountPaid: result.invoice.paidAmount,
+    };
+
     // Notify customer of successful payment
     setImmediate(async () => {
       try {
@@ -490,7 +561,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     return res.status(201).json({
       success: true,
       payment: result.payment,
-      invoice: result.invoice,
+      invoice: invoiceWithHistory,
       remainingAmount: Number(result.invoice.total || 0) - Number(result.invoice.paidAmount || 0)
     });
   } catch (error) {
@@ -609,6 +680,13 @@ router.post('/:id/pay', requireUser, async (req, res) => {
       metadata: safePaymentMetadata
     });
 
+    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id);
+    const invoiceWithHistory = {
+      ...result.invoice,
+      paymentHistory,
+      amountPaid: result.invoice.paidAmount,
+    };
+
     // Notify customer of successful payment
     setImmediate(async () => {
       try {
@@ -627,7 +705,7 @@ router.post('/:id/pay', requireUser, async (req, res) => {
       success: true,
       message: 'Invoice payment processed successfully',
       payment: result.payment,
-      invoice: result.invoice,
+      invoice: invoiceWithHistory,
       remainingAmount: Number(result.invoice.total || 0) - Number(result.invoice.paidAmount || 0)
     });
   } catch (error) {
@@ -648,6 +726,7 @@ router.get('/:id', requireUser, async (req, res) => {
     console.log('InvoiceRoutes: Getting invoice:', req.params.id);
 
     const invoice = await Invoice.findById(req.params.id)
+      .populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
       .populate('orderId', 'orderNumber deviceBrand deviceModel status')
       .lean();
 
@@ -660,7 +739,8 @@ router.get('/:id', requireUser, async (req, res) => {
     }
 
     const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
-    const isOwner = invoice.customerId.toString() === req.user._id.toString();
+    const invoiceCustomerId = invoice.customerId?._id || invoice.customerId;
+    const isOwner = invoiceCustomerId.toString() === req.user._id.toString();
 
     // Verify ownership
     if (!isOwner && !isPrivilegedUser) {
@@ -680,9 +760,16 @@ router.get('/:id', requireUser, async (req, res) => {
 
     console.log('InvoiceRoutes: Invoice retrieved successfully');
 
+    const paymentHistory = await loadInvoicePaymentHistory(invoice._id);
+    const invoiceWithHistory = {
+      ...invoice,
+      paymentHistory,
+      amountPaid: invoice.paidAmount,
+    };
+
     res.json({
       success: true,
-      invoice: invoice,
+      invoice: invoiceWithHistory,
     });
   } catch (error) {
     console.error('InvoiceRoutes: Error getting invoice:', error);
@@ -712,7 +799,8 @@ router.put('/:id/view', requireUser, async (req, res) => {
     }
 
     // Verify ownership
-    if (invoice.customerId.toString() !== req.user._id.toString()) {
+    const viewCustomerId = invoice.customerId?._id || invoice.customerId;
+    if (viewCustomerId.toString() !== req.user._id.toString()) {
       console.log('InvoiceRoutes: Unauthorized access to invoice');
       return res.status(403).json({
         success: false,
@@ -724,6 +812,7 @@ router.put('/:id/view', requireUser, async (req, res) => {
     if (invoice.status === 'sent') {
       invoice.status = 'viewed';
       await invoice.save();
+      await FinancialService.syncBookingPaymentStatus(invoice);
       console.log('InvoiceRoutes: Invoice status updated to viewed');
     }
 

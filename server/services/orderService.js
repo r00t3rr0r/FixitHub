@@ -376,6 +376,26 @@ class OrderService {
     }
   }
 
+  // Auto-assign a staff member to the order if not already assigned
+  static async _autoAssignStaff(order, staffId) {
+    if (!staffId || staffId === 'system') return;
+
+    const alreadyAssigned = order.assignedStaff.some(
+      s => s.staffId && s.staffId.toString() === staffId.toString()
+    );
+    if (alreadyAssigned) return;
+
+    const staff = await User.findById(staffId);
+    if (!staff || !['staff', 'admin'].includes(staff.role)) return;
+
+    order.assignedStaff.push({
+      staffId: staff._id,
+      name: staff.name,
+      avatar: staff.avatar || '',
+      assignedAt: new Date()
+    });
+  }
+
   // Update order status
   static async updateStatus(orderId, status, note = null, staffId = null) {
     console.log('OrderService: Updating order status:', orderId, 'to', status);
@@ -402,10 +422,12 @@ class OrderService {
       };
       
       order.progress = progressMap[status] || order.progress;
-      
+
       if (status === 'completed') {
         order.actualCompletion = new Date();
       }
+
+      await OrderService._autoAssignStaff(order, staffId);
 
       // Add timeline entry
       let staffName = 'System';
@@ -508,6 +530,8 @@ class OrderService {
       if (!staff) {
         throw new Error('Staff member not found');
       }
+
+      await OrderService._autoAssignStaff(order, staffId);
 
       const newNote = {
         staffId,
@@ -626,6 +650,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Assigned',
         description: `${part.itemName} (${version.versionType}) x${quantity} assigned to order`,
@@ -680,6 +705,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Removed',
         description: `${partName} (${versionType}) x${ePart.quantity} removed from order`,
@@ -721,6 +747,7 @@ class OrderService {
       const part = await Inventory.findById(ePart.partId);
       const partName = part ? part.itemName : 'Unknown Part';
 
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Status Updated',
         description: `${partName} status changed from ${oldStatus} to ${status}`,
@@ -780,6 +807,7 @@ class OrderService {
       });
 
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Need List Added',
         description: `${part.itemName} x${entryData.quantity} added to need list "${resolvedNeedListName}"`,
@@ -825,6 +853,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Add-on Service Added',
         description: `${addonData.name} added to order (+$${addonData.price})`,
@@ -878,6 +907,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Add-on Service Updated',
         description: `${addon.name} updated`,
@@ -923,6 +953,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Add-on Service Removed',
         description: `${addonName} removed from order (-$${addonPrice})`,
@@ -1378,6 +1409,7 @@ class OrderService {
       const timingSummary = step.estimatedDurationMinutes > 0
         ? ` (actual ${step.actualDurationMinutes} min vs estimated ${step.estimatedDurationMinutes} min)`
         : ` (actual ${step.actualDurationMinutes} min)`;
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Workflow Step Completed',
         description: `Step "${step.stepName}" completed in workflow "${workflow.workflowName}"${timingSummary}`,
@@ -1515,6 +1547,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Workflow Step Skipped',
         description: `Step "${step.stepName}" skipped in workflow "${workflow.workflowName}". Reason: ${reason || 'Not provided'}`,
@@ -1705,6 +1738,8 @@ class OrderService {
       const staff = await User.findById(staffId);
       const staffName = staff ? staff.name : 'Staff Member';
 
+      await OrderService._autoAssignStaff(order, staffId);
+
       // Add timeline entry for workflow status change
       let timelineDescription = `Workflow "${workflow.workflowName}" status changed from ${oldStatus} to ${status}`;
       if (status === 'on-hold' && pauseReason) {
@@ -1823,6 +1858,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Workflow Navigation',
         description: `Navigated back to step "${step.stepName}" in workflow "${workflow.workflowName}"`,
@@ -2378,6 +2414,7 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'Workflow Removed',
         description: `Workflow "${removedWorkflow.workflowName}" removed from order`,

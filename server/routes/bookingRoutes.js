@@ -12,11 +12,14 @@ router.get('/', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting bookings for user:', req.user._id, 'Role:', req.user.role);
 
-    const { status, billingStatus, limit = 20, skip = 0 } = req.query;
+    const { status, billingStatus, search, startDate, endDate, limit = 20, skip = 0 } = req.query;
 
     const filters = {};
     if (status) filters.status = status;
     if (billingStatus) filters.billingStatus = billingStatus;
+    if (search) filters.search = search;
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
     filters.limit = parseInt(limit);
     filters.skip = parseInt(skip);
 
@@ -32,6 +35,9 @@ router.get('/', requireUser, async (req, res) => {
       const countFilters = {};
       if (status) countFilters.status = status;
       if (billingStatus) countFilters.billingStatus = billingStatus;
+      if (search) countFilters.search = search;
+      if (startDate) countFilters.startDate = startDate;
+      if (endDate) countFilters.endDate = endDate;
       total = await BookingService.getBookingsCount(countFilters);
     } else {
       console.log('BookingRoutes: Regular user requesting their own bookings');
@@ -378,7 +384,7 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error previewing invoice:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
     });
@@ -410,7 +416,7 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error creating invoice:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
     });
@@ -569,6 +575,21 @@ router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
     })
   } catch (error) {
     console.error('BookingRoutes: Error getting booking shipping tracking:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Description: Bulk update shipping statuses for all active bookings from DHL API (admin/staff only)
+// Endpoint: PUT /api/bookings/shipping-status/bulk-update
+// Request: {}
+// Response: { success: boolean, updated: number, skipped: number, errors: number, results: Array }
+router.put('/shipping-status/bulk-update', requireStaff, async (req, res) => {
+  try {
+    console.log('BookingRoutes: Bulk updating shipping statuses, user:', req.user._id)
+    const result = await BookingService.bulkUpdateShippingStatuses()
+    res.json(result)
+  } catch (error) {
+    console.error('BookingRoutes: Error bulk updating shipping statuses:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

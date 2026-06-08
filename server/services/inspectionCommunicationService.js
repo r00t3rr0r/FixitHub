@@ -496,6 +496,7 @@ class InspectionCommunicationService {
         incorrect_device: 'Falsches Geraet angegeben',
         incorrect_unlock_code: 'Falscher Entsperrcode angegeben',
         additional_costs: 'Zusaetzliche Kosten erforderlich',
+        update_unlock_info: 'Entsperrinformation aktualisieren',
       };
 
       const message = {
@@ -630,6 +631,101 @@ class InspectionCommunicationService {
     }
   }
 
+  // Customer submits updated unlock information
+  static async submitUnlockInfoUpdate(orderId, customerId, customerName, unlockData) {
+    try {
+      console.log(`InspectionCommunicationService: Customer submitting unlock info update for order ${orderId}`);
+
+      const PAUSE_REASON = 'Entsperrinformationen Falsch - Nutzerrückmeldung erwartet';
+
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      if (order.customerId.toString() !== customerId.toString()) {
+        throw new Error('Unauthorized');
+      }
+
+      if (typeof unlockData.noLock === 'boolean' && unlockData.noLock) {
+        order.unlockPattern = [];
+        order.unlockCode = '';
+        order.noLock = true;
+      } else if (Array.isArray(unlockData.unlockPattern) && unlockData.unlockPattern.length > 0) {
+        order.unlockPattern = unlockData.unlockPattern;
+        order.unlockCode = '';
+        order.noLock = false;
+      } else if (unlockData.unlockCode && unlockData.unlockCode.trim()) {
+        order.unlockCode = unlockData.unlockCode.trim();
+        order.unlockPattern = [];
+        order.noLock = false;
+      } else {
+        throw new Error('Ungültige Entsperrinformation angegeben');
+      }
+
+      // Clear the previous confirmation so admin can re-verify
+      order.unlockConfirmation = undefined;
+
+      // Resume from paused state if paused for this reason
+      if (order.status === 'paused' && order.pauseReason === PAUSE_REASON) {
+        order.status = 'in-progress';
+        order.pauseReason = '';
+      }
+
+      await order.save();
+
+      // Mark pending update_unlock_info quick actions as completed
+      const communication = await InspectionCommunication.findOne({ orderId });
+      if (communication) {
+        let actionsCompleted = 0;
+        communication.messages.forEach((msg) => {
+          if (
+            msg.messageType === 'quick_action' &&
+            msg.quickAction?.actionType === 'update_unlock_info' &&
+            msg.quickAction?.status === 'pending'
+          ) {
+            msg.quickAction.status = 'completed';
+            msg.quickAction.completedAt = new Date();
+            actionsCompleted++;
+          }
+        });
+        if (actionsCompleted > 0) {
+          communication.pendingActionsCount = Math.max(0, (communication.pendingActionsCount || 0) - actionsCompleted);
+          communication.lastMessageAt = new Date();
+          await communication.save();
+        }
+      }
+
+      // Notify all assigned staff — fetch fresh lean copy so staffId ObjectIds are raw strings
+      const freshOrder = await Order.findById(orderId).select('assignedStaff orderNumber').lean();
+      const assignedStaff = freshOrder?.assignedStaff || [];
+      const orderRef = freshOrder?.orderNumber ? `#${freshOrder.orderNumber}` : 'dem Auftrag';
+
+      await Promise.all(
+        assignedStaff
+          .map((entry) => (entry?.staffId ? String(entry.staffId) : null))
+          .filter(Boolean)
+          .map((staffId) =>
+            NotificationService.createNotification({
+              userId: staffId,
+              title: 'Entsperrinformation aktualisiert',
+              message: `${customerName} hat die Entsperrinformation für Auftrag ${orderRef} aktualisiert. Bitte erneut überprüfen.`,
+              type: 'message',
+              orderId,
+              actionUrl: `/orders/${orderId}`,
+              metadata: { senderType: 'customer', actionType: 'unlock_info_updated' },
+            })
+          )
+      );
+
+      console.log(`InspectionCommunicationService: Unlock info updated and staff notified for order ${orderId}`);
+      return order;
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error submitting unlock info update: ${error}`);
+      throw error;
+    }
+  }
+
   // Get communication thread with all messages
   static async getCommunicationThread(orderId) {
     try {
@@ -672,15 +768,23 @@ class InspectionCommunicationService {
         throw new Error('Communication thread not found');
       }
 
+      const now = new Date();
       let markedCount = 0;
       communication.messages.forEach(message => {
-        const hasUserRead = message.readBy.some(read => read.userId.toString() === userId.toString());
-        if (!hasUserRead) {
-          message.readBy.push({
-            userId,
-            readAt: new Date(),
-          });
+        const existingEntry = message.readBy.find(read => read.userId.toString() === userId.toString());
+
+        if (!existingEntry) {
+          // First time reading this message
+          message.readBy.push({ userId, readAt: now });
           markedCount++;
+        } else {
+          // For feedback-responded messages: if the customer responded AFTER the admin last read,
+          // update readAt so the unread check (readAt >= respondedAt) passes correctly.
+          const respondedAt = message.feedbackRequest?.respondedAt;
+          if (respondedAt && new Date(existingEntry.readAt) < new Date(respondedAt)) {
+            existingEntry.readAt = now;
+            markedCount++;
+          }
         }
       });
 
