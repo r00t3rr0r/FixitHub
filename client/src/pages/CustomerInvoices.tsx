@@ -758,6 +758,7 @@ export function CustomerInvoices() {
       const right = pageWidth - 12;
       const strictTemplateMode = true;
       const logoUrl = "https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png";
+      const reviewUrl = "https://search.google.com/local/writereview?placeid=ChIJVVVVlf1QqEcRtHn-0ehLwpk&source=g.page.m.dd._&laa=lu-desktop-reviews-dialog-review-solicitation";
       const lineSoft: [number, number, number] = [203, 210, 222];
       const lineStrong: [number, number, number] = [138, 149, 170];
 
@@ -806,7 +807,27 @@ export function CustomerInvoices() {
 
       const normalizeAmount = (value: number | undefined | null) => Number(value || 0);
 
-      const loadLogoDataUrl = async (url: string): Promise<string | null> => {
+      const createQrDataUrl = async (value: string): Promise<string | null> => {
+        try {
+          const qrModule = await import("qrcode");
+          const toDataURL = (qrModule as any).toDataURL || (qrModule as any).default?.toDataURL;
+          if (!toDataURL) return null;
+
+          return await toDataURL(value, {
+            errorCorrectionLevel: "M",
+            margin: 1,
+            width: 300,
+            color: {
+              dark: "#0b1220",
+              light: "#FFFFFF",
+            },
+          });
+        } catch {
+          return null;
+        }
+      };
+
+      const loadImageData = async (url: string): Promise<{ dataUrl: string; width: number; height: number } | null> => {
         return new Promise((resolve) => {
           const image = new Image();
           image.crossOrigin = "anonymous";
@@ -821,13 +842,21 @@ export function CustomerInvoices() {
                 return;
               }
               context.drawImage(image, 0, 0);
-              resolve(canvas.toDataURL("image/png"));
+              resolve({
+                dataUrl: canvas.toDataURL("image/png"),
+                width: image.naturalWidth,
+                height: image.naturalHeight,
+              });
             } catch {
               resolve(null);
             }
           };
           image.onerror = () => resolve(null);
-          image.src = `${url}?v=1`;
+          if (url.startsWith("data:")) {
+            image.src = url;
+          } else {
+            image.src = url.includes("?") ? `${url}&v=1` : `${url}?v=1`;
+          }
         });
       };
 
@@ -966,14 +995,32 @@ export function CustomerInvoices() {
 
       const baseline = 4;
 
-      const logoDataUrl = await loadLogoDataUrl(logoUrl);
+      const logoAsset = await loadImageData(logoUrl);
+      const qrDataUrl = await createQrDataUrl(reviewUrl);
+      const qrAsset = qrDataUrl ? await loadImageData(qrDataUrl) : null;
+      let logoLeftBoundary = right;
 
-      if (logoDataUrl) {
-        pdf.addImage(logoDataUrl, "PNG", right - 40, 10, 28, 10.5, undefined, "FAST");
+      if (logoAsset) {
+        const maxLogoWidth = 38;
+        const maxLogoHeight = 14;
+        const logoRatio = logoAsset.width / Math.max(logoAsset.height, 1);
+        let logoWidth = maxLogoWidth;
+        let logoHeight = logoWidth / logoRatio;
+
+        if (logoHeight > maxLogoHeight) {
+          logoHeight = maxLogoHeight;
+          logoWidth = logoHeight * logoRatio;
+        }
+
+        const logoX = right - logoWidth;
+        const logoY = 9.5;
+        logoLeftBoundary = logoX;
+        pdf.addImage(logoAsset.dataUrl, "PNG", logoX, logoY, logoWidth, logoHeight, undefined, "FAST");
       } else {
         pdf.setDrawColor(28, 43, 92);
         pdf.setLineWidth(0.35);
-        pdf.rect(right - 43, 9, 31, 12.5);
+        pdf.rect(right - 43, 9, 31, 13.5);
+        logoLeftBoundary = right - 43;
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(28, 43, 92);
         pdf.setFontSize(8.8);
@@ -984,21 +1031,25 @@ export function CustomerInvoices() {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
       pdf.text("Online Point GmbH, Kurfuerstenstrasse 106, 10787 Berlin", left, 14);
-      drawLine(left, 16, right, 16);
+      drawLine(left, 16, Math.max(left + 30, logoLeftBoundary - 2), 16);
 
       // Recipient block
       const recipientTop = 19;
-      const recipientHeight = Math.max(customerLines.length * 4.4 + 13, 24);
-      drawRect(left, recipientTop, 85, recipientHeight);
+      const recipientWidth = 76;
+      const recipientTextWidth = recipientWidth - 5.2;
+      const recipientLines = (customerLines.length ? customerLines : ["-"])
+        .flatMap((line) => pdf.splitTextToSize(String(line), recipientTextWidth));
+      const recipientHeight = Math.max(19, recipientLines.length * 4 + 10.5);
+      drawRect(left, recipientTop, recipientWidth, recipientHeight);
 
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
+      pdf.setFontSize(8.8);
       pdf.text("Rechnungsadresse", left + 2.4, recipientTop + 5.2);
-      drawLine(left + 2, recipientTop + 6.8, left + 83, recipientTop + 6.8);
+      drawLine(left + 2, recipientTop + 6.8, left + recipientWidth - 2, recipientTop + 6.8);
 
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9.6);
-      pdf.text(customerLines.length ? customerLines : ["-"], left + 2.4, recipientTop + 11.2);
+      pdf.setFontSize(9.1);
+      pdf.text(recipientLines, left + 2.4, recipientTop + 10.8);
 
       // Headline
       pdf.setFont("helvetica", "bold");
@@ -1117,10 +1168,10 @@ export function CustomerInvoices() {
         `Leistungsdatum: ${invoiceDate}`,
         `Zahlungsart: ${paymentMethod}`,
         `Faelligkeitsdatum: ${dueDate}`,
-        `E-Mail: ${cleanText(invoice.customerEmail, "-")}`,
+        `E-Mail: ${cleanText(sourceInvoice.customerEmail, "-")}`,
       ];
 
-      const notes = cleanText(invoice.notes, "");
+      const notes = cleanText(sourceInvoice.notes, "");
       const rawNoteLines = notes ? pdf.splitTextToSize(notes, infoWidth - 8) : [];
 
       let noteLines = rawNoteLines.slice(0, 7);
@@ -1154,6 +1205,42 @@ export function CustomerInvoices() {
       const infoHeight = computeInfoHeight();
       const summaryHeight = computeSummaryHeight();
       const cardHeight = Math.max(infoHeight, summaryHeight, 24);
+
+      const qrSize = 17;
+      const feedbackTextLines = [
+        "Wenn Sie mit der Reparatur zufrieden",
+        "waren, bewerten Sie uns gern.",
+        "Wir freuen uns auf Ihr Feedback!",
+      ];
+      const feedbackTextBlockHeight = 11.5;
+      const feedbackBoxHeight = qrSize + feedbackTextBlockHeight + 11;
+      const feedbackGap = 4;
+      const requiredBottomSectionHeight = cardHeight + feedbackGap + feedbackBoxHeight;
+
+      if (y + requiredBottomSectionHeight > footerTop - 2) {
+        pdf.addPage();
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(13.5);
+        pdf.text("Rechnung - Fortsetzung", left, 18);
+        drawLine(left, 21, right, 21, true);
+
+        if (logoAsset) {
+          const maxLogoWidth = 34;
+          const maxLogoHeight = 12;
+          const logoRatio = logoAsset.width / Math.max(logoAsset.height, 1);
+          let logoWidth = maxLogoWidth;
+          let logoHeight = logoWidth / logoRatio;
+          if (logoHeight > maxLogoHeight) {
+            logoHeight = maxLogoHeight;
+            logoWidth = logoHeight * logoRatio;
+          }
+          const logoX = right - logoWidth;
+          pdf.addImage(logoAsset.dataUrl, "PNG", logoX, 9, logoWidth, logoHeight, undefined, "FAST");
+        }
+
+        y = 26;
+      }
 
       pdf.setFillColor(250, 252, 254);
       pdf.rect(infoX, y, infoWidth, cardHeight, "F");
@@ -1208,21 +1295,45 @@ export function CustomerInvoices() {
         summaryCursor += rowHeight;
       });
 
-      // Feedback callout (collision-safe placement oberhalb Footer)
+      // Feedback callout + QR (collision-safe placement oberhalb Footer)
       const postCardY = y + cardHeight;
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.8);
-      const feedbackX = right - 42;
-      const feedbackBoxHeight = 17.5;
+      const feedbackX = right - 46;
+      const feedbackWidth = 48;
       const feedbackTopPreferred = postCardY + 4;
       const feedbackTopMax = footerTop - feedbackBoxHeight - 5;
       const feedbackTop = Math.min(feedbackTopPreferred, feedbackTopMax);
       if (feedbackTop >= postCardY + 1.5) {
-        drawRect(feedbackX - 3, feedbackTop, 45, feedbackBoxHeight);
-        const feedbackTextY = feedbackTop + 5.5;
-        pdf.text("Wenn Sie mit der Reparatur zufrieden", feedbackX, feedbackTextY);
-        pdf.text("waren, bewerten Sie uns gern.", feedbackX + 6, feedbackTextY + 5);
-        pdf.text("Wir freuen uns auf Ihr Feedback!", feedbackX + 2, feedbackTextY + 10);
+        pdf.setFillColor(248, 251, 255);
+        pdf.rect(feedbackX - 2, feedbackTop, feedbackWidth, feedbackBoxHeight, "F");
+        drawRect(feedbackX - 2, feedbackTop, feedbackWidth, feedbackBoxHeight);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(26, 42, 94);
+        pdf.text("Bewertung", feedbackX + (feedbackWidth - 4) / 2, feedbackTop + 4.8, { align: "center" });
+        drawLine(feedbackX + 2, feedbackTop + 6.2, feedbackX + feedbackWidth - 4, feedbackTop + 6.2);
+
+        const qrX = feedbackX + (feedbackWidth - 4 - qrSize) / 2;
+        const qrY = feedbackTop + 7.4;
+        if (qrAsset) {
+          pdf.addImage(qrAsset.dataUrl, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
+        } else {
+          drawRect(qrX, qrY, qrSize, qrSize);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7.4);
+          pdf.text("QR", qrX + qrSize / 2, qrY + qrSize / 2 + 0.8, { align: "center" });
+        }
+
+        const feedbackTextY = qrY + qrSize + 4.3;
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.6);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(feedbackTextLines[0], feedbackX + feedbackWidth / 2 - 2, feedbackTextY, { align: "center" });
+        pdf.text(feedbackTextLines[1], feedbackX + feedbackWidth / 2 - 2, feedbackTextY + 3.7, { align: "center" });
+        pdf.text(feedbackTextLines[2], feedbackX + feedbackWidth / 2 - 2, feedbackTextY + 7.4, { align: "center" });
+        pdf.setTextColor(0, 0, 0);
       }
 
       drawLine(left, footerY - 4, right, footerY - 4, true);
