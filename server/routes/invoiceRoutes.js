@@ -88,6 +88,47 @@ const validatePaymentAmount = (invoice, amount) => {
   return { numericAmount, remaining };
 };
 
+const hasAddressContent = (address) => {
+  if (!address || typeof address !== 'object') return false;
+  const value = (field) => String(address[field] || '').trim();
+  return Boolean(
+    value('street')
+    || value('city')
+    || value('zip')
+    || value('zipCode')
+    || value('postalCode')
+    || value('country')
+    || value('state')
+  );
+};
+
+const withProfileBillingAddress = (invoice) => {
+  if (!invoice || hasAddressContent(invoice.billingAddress) || !invoice.customerId || typeof invoice.customerId !== 'object') {
+    return invoice;
+  }
+
+  const customer = invoice.customerId;
+  const invoiceAddress = customer.invoiceAddress;
+  const paymentAddress = customer.paymentAddress;
+  const profileAddress = hasAddressContent(invoiceAddress)
+    ? invoiceAddress
+    : (hasAddressContent(paymentAddress) ? paymentAddress : null);
+
+  if (!profileAddress) return invoice;
+
+  return {
+    ...invoice,
+    billingAddress: {
+      street: profileAddress.street || '',
+      city: profileAddress.city || '',
+      state: profileAddress.state || '',
+      zip: profileAddress.zip || profileAddress.zipCode || profileAddress.postalCode || '',
+      zipCode: profileAddress.zipCode || profileAddress.zip || profileAddress.postalCode || '',
+      country: profileAddress.country || customer.country || '',
+    },
+  };
+};
+
 const buildPaypalInvoiceId = (invoice) => {
   const rawBase = String(invoice?.invoiceNumber || invoice?._id || 'invoice')
     .replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -163,12 +204,13 @@ router.get('/', requireUser, async (req, res) => {
       .lean();
 
     const count = await Invoice.countDocuments(filters);
+    const hydratedInvoices = invoices.map((invoice) => withProfileBillingAddress(invoice));
 
     console.log('InvoiceRoutes: Retrieved', invoices.length, 'invoices for user');
 
     res.json({
       success: true,
-      invoices: invoices,
+      invoices: hydratedInvoices,
       count: count,
     });
   } catch (error) {
@@ -815,11 +857,12 @@ router.get('/:id', requireUser, async (req, res) => {
 
     console.log('InvoiceRoutes: Invoice retrieved successfully');
 
+    const enrichedInvoice = withProfileBillingAddress(invoice);
     const paymentHistory = await loadInvoicePaymentHistory(invoice._id);
     const invoiceWithHistory = {
-      ...invoice,
+      ...enrichedInvoice,
       paymentHistory,
-      amountPaid: invoice.paidAmount,
+      amountPaid: enrichedInvoice.paidAmount,
     };
 
     res.json({

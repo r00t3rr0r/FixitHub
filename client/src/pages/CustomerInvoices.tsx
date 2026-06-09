@@ -369,22 +369,30 @@ export function CustomerInvoices() {
       console.log('CustomerInvoices: Viewing invoice:', invoice._id);
       const detailedResponse = await getInvoice(invoice._id);
       const detailedInvoice = detailedResponse.invoice || invoice;
-      setSelectedInvoice(detailedInvoice);
+      const mergedInvoice = {
+        ...invoice,
+        ...detailedInvoice,
+        customerId:
+          (typeof detailedInvoice.customerId === 'object' && detailedInvoice.customerId)
+            ? detailedInvoice.customerId
+            : invoice.customerId,
+      } as Invoice;
+      setSelectedInvoice(mergedInvoice);
       setShowInvoiceDialog(true);
-      setPayerName(detailedInvoice.customerName || invoice.customerName || "");
-      setPayerEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
+      setPayerName(mergedInvoice.customerName || invoice.customerName || "");
+      setPayerEmail(mergedInvoice.customerEmail || invoice.customerEmail || "");
 
-      const openAmount = Math.max(0, Number(detailedInvoice.total || 0) - Number(detailedInvoice.paidAmount || detailedInvoice.amountPaid || 0));
+      const openAmount = Math.max(0, Number(mergedInvoice.total || 0) - Number(mergedInvoice.paidAmount || mergedInvoice.amountPaid || 0));
       setPaymentAmount(openAmount.toFixed(2));
 
       setSelectedGatewayId("");
       setAcceptedTerms(false);
       setTermsError(false);
-      setPaypalEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
-      setBankAccountHolder(detailedInvoice.customerName || invoice.customerName || "");
+      setPaypalEmail(mergedInvoice.customerEmail || invoice.customerEmail || "");
+      setBankAccountHolder(mergedInvoice.customerName || invoice.customerName || "");
       setBankIban("");
       setBankBic("");
-      setBankTransferReference(detailedInvoice.invoiceNumber || invoice.invoiceNumber || "");
+      setBankTransferReference(mergedInvoice.invoiceNumber || invoice.invoiceNumber || "");
       setBillingStreet("");
       setBillingCity("");
       setBillingZipCode("");
@@ -393,12 +401,12 @@ export function CustomerInvoices() {
       await fetchPaymentGateways();
 
       // Mark as viewed if it was sent
-      if (detailedInvoice.status === 'sent') {
-        await markInvoiceAsViewed(detailedInvoice._id);
+      if (mergedInvoice.status === 'sent') {
+        await markInvoiceAsViewed(mergedInvoice._id);
         // Update local state
         setInvoices((prev) =>
           prev.map((inv) =>
-            inv._id === detailedInvoice._id ? { ...inv, status: 'viewed' as const } : inv
+            inv._id === mergedInvoice._id ? { ...inv, status: 'viewed' as const } : inv
           )
         );
       }
@@ -436,6 +444,98 @@ export function CustomerInvoices() {
   const outstandingAmount = selectedInvoice
     ? Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || selectedInvoice.amountPaid || 0))
     : 0;
+
+  const normalizeAddressLines = (addressInput: unknown, fallbackCountry = "", fallbackAddition = "") => {
+    const readText = (value: unknown) => String(value ?? "").trim();
+    const pickField = (source: Record<string, unknown>, keys: string[]) => {
+      for (const key of keys) {
+        const candidate = readText(source[key]);
+        if (candidate) return candidate;
+      }
+      return "";
+    };
+
+    if (!addressInput) return [] as string[];
+
+    if (typeof addressInput === "string") {
+      return addressInput
+        .split(/\n|,/) 
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    if (typeof addressInput !== "object") return [] as string[];
+
+    const source = addressInput as Record<string, unknown>;
+    const street = pickField(source, ["street", "line1", "addressLine1", "address1"]);
+    const street2 = pickField(source, ["line2", "addressLine2", "address2"]);
+    const zip = pickField(source, ["zip", "postalCode", "postcode", "zipCode"]);
+    const city = pickField(source, ["city", "town"]);
+    const state = pickField(source, ["state", "province"]);
+    const country = pickField(source, ["country"]) || fallbackCountry;
+    const addition = pickField(source, ["addressAddition", "addition"]) || fallbackAddition;
+    const zipCity = [zip, city].filter(Boolean).join(" ").trim();
+
+    return [addition, street, street2, zipCity, state, country].filter(Boolean);
+  };
+
+  const resolveInvoiceBillingAddressLines = (invoice: Invoice) => {
+    const invoiceAny = invoice as Invoice & {
+      customerId?: string | {
+        country?: string;
+        addressAddition?: string;
+        invoiceAddress?: unknown;
+        paymentAddress?: { sameAsInvoice?: boolean } & Record<string, unknown>;
+        address?: unknown;
+      };
+    };
+
+    const customerProfileFromInvoice = typeof invoiceAny.customerId === "object" ? invoiceAny.customerId : undefined;
+    const fallbackInvoice = invoices.find((inv) => inv._id === invoice._id) as (Invoice & { customerId?: unknown }) | undefined;
+    const customerProfileFromList =
+      fallbackInvoice && typeof fallbackInvoice.customerId === "object"
+        ? (fallbackInvoice.customerId as {
+            country?: string;
+            addressAddition?: string;
+            invoiceAddress?: unknown;
+            paymentAddress?: { sameAsInvoice?: boolean } & Record<string, unknown>;
+            address?: unknown;
+          })
+        : undefined;
+    const customerProfile = customerProfileFromInvoice || customerProfileFromList;
+    const fallbackCountry = String(customerProfile?.country ?? "").trim();
+    const fallbackAddition = String(customerProfile?.addressAddition ?? "").trim();
+
+    const profileInvoiceAddress = normalizeAddressLines(
+      customerProfile?.invoiceAddress,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (profileInvoiceAddress.length) return profileInvoiceAddress;
+
+    const profileGenericAddress = normalizeAddressLines(
+      customerProfile?.address,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (profileGenericAddress.length) return profileGenericAddress;
+
+    const profileRootAddress = normalizeAddressLines(
+      customerProfile,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (profileRootAddress.length) return profileRootAddress;
+
+    const paymentProfileAddress = normalizeAddressLines(
+      customerProfile?.paymentAddress,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (paymentProfileAddress.length) return paymentProfileAddress;
+
+    return normalizeAddressLines(invoice.billingAddress);
+  };
 
   const handlePayInvoice = async () => {
     if (!selectedInvoice) return;
@@ -648,6 +748,9 @@ export function CustomerInvoices() {
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
     try {
+      const detailedResponse = await getInvoice(invoice._id);
+      const sourceInvoice = (detailedResponse?.invoice || invoice) as Invoice;
+
       const pdf = new jsPDF({ unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -728,7 +831,7 @@ export function CustomerInvoices() {
         });
       };
 
-      const rawInvoice = invoice as Invoice & {
+      const rawInvoice = sourceInvoice as Invoice & {
         customerId?: string | {
           _id?: string;
           customerNumber?: string;
@@ -803,21 +906,21 @@ export function CustomerInvoices() {
         );
         if (paymentProfileAddress.length) return paymentProfileAddress;
 
-        const invoiceAddress = toAddressLines(invoice.billingAddress);
+        const invoiceAddress = toAddressLines(sourceInvoice.billingAddress);
         if (invoiceAddress.length) return invoiceAddress;
 
-        if (typeof invoice.billingAddress === "string") {
-          return invoice.billingAddress
+        if (typeof sourceInvoice.billingAddress === "string") {
+          return sourceInvoice.billingAddress
             .split(/\n|,/)
             .map((line) => line.trim())
             .filter(Boolean);
         }
 
-        if (invoice.billingAddress && typeof invoice.billingAddress === "object") {
-          const addressAny = invoice.billingAddress as Record<string, unknown>;
+        if (sourceInvoice.billingAddress && typeof sourceInvoice.billingAddress === "object") {
+          const addressAny = sourceInvoice.billingAddress as Record<string, unknown>;
           const street = pickAddressField(addressAny, ["street", "line1", "addressLine1", "address1"]);
           const street2 = pickAddressField(addressAny, ["line2", "addressLine2", "address2"]);
-          const zip = pickAddressField(addressAny, ["zip", "postalCode", "postcode"]);
+          const zip = pickAddressField(addressAny, ["zip", "postalCode", "postcode", "zipCode"]);
           const city = pickAddressField(addressAny, ["city", "town"]);
           const state = pickAddressField(addressAny, ["state", "province"]);
           const country = pickAddressField(addressAny, ["country"]);
@@ -829,14 +932,14 @@ export function CustomerInvoices() {
       })();
 
       const customerIdentityLines = [
-        cleanText(invoice.customerName),
-        cleanText(invoice.contactPerson, ""),
+        cleanText(sourceInvoice.customerName),
+        cleanText(sourceInvoice.contactPerson, ""),
       ].filter(Boolean);
       const invoiceAddressLines = billingAddressLines.length ? billingAddressLines : ["Rechnungsadresse nicht hinterlegt"];
       const customerLines = [...customerIdentityLines, ...invoiceAddressLines];
 
-      const orderNumber = cleanText(invoice.orderId?.orderNumber);
-      const invoiceNumber = cleanText(invoice.invoiceNumber);
+      const orderNumber = cleanText(sourceInvoice.orderId?.orderNumber);
+      const invoiceNumber = cleanText(sourceInvoice.invoiceNumber);
       const customerIdRaw = typeof rawInvoice.customerId === "string"
         ? rawInvoice.customerId
         : rawInvoice.customerId?._id;
@@ -846,19 +949,20 @@ export function CustomerInvoices() {
         (customerIdRaw ? `KD${String(customerIdRaw).slice(-6).toUpperCase()}` : ""),
       );
 
-      const invoiceDate = formatDate(invoice.createdAt);
-      const dueDate = formatDate(invoice.dueDate);
-      const paymentMethod = cleanText(invoice.paymentMethod || "-");
+      const invoiceDate = formatDate(sourceInvoice.createdAt);
+      const dueDate = formatDate(sourceInvoice.dueDate);
+      const paymentMethod = cleanText(sourceInvoice.paymentMethod || "-");
 
-      const amountPaid = normalizeAmount(invoice.amountPaid ?? invoice.paidAmount ?? 0);
-      const subtotal = normalizeAmount(invoice.subtotal);
-      const total = normalizeAmount(invoice.total);
-      const taxAmount = normalizeAmount(invoice.tax);
+      const amountPaid = normalizeAmount(sourceInvoice.amountPaid ?? sourceInvoice.paidAmount ?? 0);
+      const subtotal = normalizeAmount(sourceInvoice.subtotal);
+      const total = normalizeAmount(sourceInvoice.total);
+      const taxAmount = normalizeAmount(sourceInvoice.tax);
+      const discountAmount = normalizeAmount(sourceInvoice.discount);
       const openAmount = total - amountPaid;
-      const defaultTaxRate = invoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0);
+      const defaultTaxRate = sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0);
 
-      const latestPayment = invoice.paymentHistory && invoice.paymentHistory.length > 0 ? invoice.paymentHistory[0] : undefined;
-      const paymentDate = formatDate(latestPayment?.date || invoice.createdAt);
+      const latestPayment = sourceInvoice.paymentHistory && sourceInvoice.paymentHistory.length > 0 ? sourceInvoice.paymentHistory[0] : undefined;
+      const paymentDate = formatDate(latestPayment?.date || sourceInvoice.createdAt);
 
       const baseline = 4;
 
@@ -1024,8 +1128,12 @@ export function CustomerInvoices() {
       const totalsRows = [
         { label: "Gesamt Netto", value: formatMoney(subtotal), emphasize: false },
         { label: `zzgl. ${formatTax(defaultTaxRate)} MwSt. ${groupedTaxLabel}`, value: formatMoney(taxAmount), emphasize: false },
-        { label: "Gesamtbetrag", value: formatMoney(total), emphasize: true },
       ];
+      if (discountAmount > 0) {
+        totalsRows.push({ label: "Betrag vor Rabatt", value: formatMoney(subtotal + taxAmount), emphasize: false });
+        totalsRows.push({ label: "Rabatt", value: `- ${formatMoney(discountAmount)}`, emphasize: false });
+      }
+      totalsRows.push({ label: "Gesamtbetrag", value: formatMoney(total), emphasize: true });
       if (amountPaid > 0) {
         totalsRows.push({ label: `Zahlung (${paymentMethod})`, value: formatMoney(amountPaid), emphasize: false });
       }
@@ -1125,7 +1233,7 @@ export function CustomerInvoices() {
       pdf.text(["Commerzbank AG", "IBAN: DE95100400000501905400", "BIC: COBADEFFXXX"], pageWidth / 2 - 18, footerY);
       pdf.text(["Amtsgericht Charlottenburg", "HRB 136735 B", "Geschaeftsfuehrer: Julian Szymansky", "Ust-IdNr.: DE318981969"], right - 58, footerY);
 
-      const safeInvoiceNumber = cleanText(invoice.invoiceNumber).replace(/[^a-zA-Z0-9_-]/g, "_");
+      const safeInvoiceNumber = cleanText(sourceInvoice.invoiceNumber).replace(/[^a-zA-Z0-9_-]/g, "_");
       pdf.save(`Rechnung_${safeInvoiceNumber}.pdf`);
 
       toast({
@@ -1434,22 +1542,15 @@ export function CustomerInvoices() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zahlungsart</p>
                       <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || '-'}</p>
                     </div>
-                    {selectedInvoice.billingAddress && (
-                      <div className="col-span-3">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rechnungsadresse</p>
-                        <p className="text-xs font-semibold text-slate-700 mt-0.5">
-                          {typeof selectedInvoice.billingAddress === 'string'
-                            ? selectedInvoice.billingAddress
-                            : [
-                                selectedInvoice.billingAddress.street,
-                                selectedInvoice.billingAddress.zip && selectedInvoice.billingAddress.city
-                                  ? `${selectedInvoice.billingAddress.zip} ${selectedInvoice.billingAddress.city}`
-                                  : selectedInvoice.billingAddress.city,
-                                selectedInvoice.billingAddress.country,
-                              ].filter(Boolean).join(', ')}
-                        </p>
-                      </div>
-                    )}
+                    <div className="col-span-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rechnungsadresse</p>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                        {(() => {
+                          const addressLines = resolveInvoiceBillingAddressLines(selectedInvoice);
+                          return addressLines.length ? addressLines.join(', ') : 'Rechnungsadresse nicht hinterlegt';
+                        })()}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Line Items */}

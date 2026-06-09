@@ -226,7 +226,7 @@ invoiceSchema.pre('save', function(next) {
 
 // Populate customer and order info
 invoiceSchema.pre(/^find/, function(next) {
-  this.populate('customerId', 'name email')
+  this.populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
       .populate('orderId', 'orderNumber deviceBrand deviceModel');
   next();
 });
