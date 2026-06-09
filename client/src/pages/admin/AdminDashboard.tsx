@@ -171,6 +171,16 @@ const toCurrency = (value: number) => {
   }).format(amount)
 }
 
+const toEuroCurrency = (value: number) => {
+  const amount = Number.isFinite(value) ? value : 0
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
 const capitalize = (value?: string) => {
   if (!value) return "Unbekannt"
   return value.charAt(0).toUpperCase() + value.slice(1)
@@ -609,7 +619,7 @@ export function AdminDashboard() {
                       </div>
                       <div className="compact-list-side">
                         <Badge variant="outline" className="compact-badge">{String(booking.status || t('adminDashboard.unknown'))}</Badge>
-                        <span>{toCurrency(amount)}</span>
+                        <span>{toEuroCurrency(amount)}</span>
                         <small>{timeAgo(booking.createdAt || booking.bookingTime)}</small>
                       </div>
                     </button>
