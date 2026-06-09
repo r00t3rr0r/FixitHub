@@ -276,6 +276,37 @@ const getWorkflowSortWeight = (status?: string) => {
   }
 }
 
+const isWorkflowAssignedToStaff = (workflow: any, staffId?: string) => {
+  if (!staffId || !workflow) return false
+
+  const normalizedStaffId = String(staffId)
+  const workflowAssignedIds = [
+    workflow?.assignedStaffId?._id,
+    workflow?.assignedStaffId,
+    ...(Array.isArray(workflow?.assignedStaff)
+      ? workflow.assignedStaff.map((assignment: any) => assignment?.staffId?._id || assignment?.staffId)
+      : []),
+  ]
+    .filter(Boolean)
+    .map((value: any) => String(value))
+
+  if (workflowAssignedIds.includes(normalizedStaffId)) return true
+
+  const stepAssignments = Array.isArray(workflow?.steps) ? workflow.steps : []
+  return stepAssignments.some((step: any) => {
+    const stepAssignedIds = [
+      step?.assignedStaffId?._id,
+      step?.assignedStaffId,
+      ...(Array.isArray(step?.assignedStaff)
+        ? step.assignedStaff.map((assignment: any) => assignment?.staffId?._id || assignment?.staffId)
+        : []),
+    ]
+      .filter(Boolean)
+      .map((value: any) => String(value))
+    return stepAssignedIds.includes(normalizedStaffId)
+  })
+}
+
 const statusDot = (status: string) => {
   const s = String(status || "").toLowerCase()
   if (s === "in-progress" || s === "in_progress" || s === "active") return "staff-dash-dot--blue"
@@ -312,6 +343,7 @@ interface DashboardWorkflowItem {
   orderNumber: string
   workflowId: string
   workflowName: string
+  isDirectWorkflowAssignment: boolean
   workflowStatus: string
   workflowStatusLabel: string
   workflowMode: "start" | "resume" | "execute" | "view"
@@ -574,10 +606,22 @@ export function StaffDashboard() {
         ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || t('staffDashboard.device')
         : `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || order.deviceType || t('staffDashboard.device')
 
-      return safeArray(order?.workflows).map((workflow: any) => {
+      return safeArray(order?.workflows)
+        .filter((workflow: any) => isWorkflowAssignedToStaff(workflow, myStaffId))
+        .map((workflow: any) => {
         const workflowStatus = normalizeWorkflowStatus(workflow?.status)
         const currentStep = getWorkflowCurrentStep(workflow)
         const progress = getWorkflowProgress(workflow)
+        const workflowAssignedIds = [
+          workflow?.assignedStaffId?._id,
+          workflow?.assignedStaffId,
+          ...(Array.isArray(workflow?.assignedStaff)
+            ? workflow.assignedStaff.map((assignment: any) => assignment?.staffId?._id || assignment?.staffId)
+            : []),
+        ]
+          .filter(Boolean)
+          .map((value: any) => String(value))
+        const isDirectWorkflowAssignment = Boolean(myStaffId) && workflowAssignedIds.includes(String(myStaffId))
 
         return {
           id: `${orderId}-${toId(workflow?._id || workflow?.workflowTemplateId || workflow?.workflowName)}`,
@@ -585,6 +629,7 @@ export function StaffDashboard() {
           orderNumber: order.orderNumber || orderId.slice(-6) || "–",
           workflowId: toId(workflow?._id),
           workflowName: workflow?.workflowName || workflow?.workflowTemplateId?.name || "Workflow",
+          isDirectWorkflowAssignment,
           workflowStatus,
           workflowStatusLabel: getWorkflowStatusLabel(workflowStatus),
           workflowMode: getWorkflowMode(workflow),
@@ -925,6 +970,11 @@ export function StaffDashboard() {
                     >
                       <div style={{ display: "grid", gap: "0.2rem", minWidth: 0 }}>
                         <p className="staff-dash-title">{workflow.workflowName}</p>
+                        {workflow.isDirectWorkflowAssignment && (
+                          <div>
+                            <Badge className="staff-dash-badge-new">Dir zugewiesen</Badge>
+                          </div>
+                        )}
                         <p className="staff-dash-sub">Order #{workflow.orderNumber} · {workflow.customerName}</p>
                         <p className="staff-dash-sub">{workflow.deviceLabel}</p>
                         <p className="staff-dash-sub">{t('staffDashboard.firstStep')}: {workflow.activeStepLabel}</p>
@@ -985,6 +1035,11 @@ export function StaffDashboard() {
                     >
                       <div style={{ display: "grid", gap: "0.2rem", minWidth: 0 }}>
                         <p className="staff-dash-title">{workflow.workflowName}</p>
+                        {workflow.isDirectWorkflowAssignment && (
+                          <div>
+                            <Badge className="staff-dash-badge-new">Dir zugewiesen</Badge>
+                          </div>
+                        )}
                         <p className="staff-dash-sub">Order #{workflow.orderNumber} · {workflow.customerName}</p>
                         <p className="staff-dash-sub">{t('staffDashboard.activeStep')}: {workflow.activeStepLabel}</p>
                         <p className="staff-dash-sub">{t('staffDashboard.orderStatus')}: {capitalize(workflow.orderStatus)}</p>

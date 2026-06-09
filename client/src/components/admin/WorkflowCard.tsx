@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   Trash2, Play, Pause, CheckCircle2, Clock, AlertTriangle,
-  FileText, RotateCcw, ChevronRight, Loader2
+  FileText, RotateCcw, ChevronRight, Loader2, User
 } from "lucide-react"
 import { WorkflowReportModal } from "./WorkflowReportModal"
 
@@ -66,6 +66,11 @@ export function WorkflowCard({
 
   const statusCfg = STATUS_CONFIG[workflow.status] ?? STATUS_CONFIG['not-started']
   const estimatedMin = workflow.estimatedCompletionTime ? Math.round(workflow.estimatedCompletionTime) : null
+  const workflowAssignedStaffNames = Array.isArray(workflow?.assignedStaff)
+    ? workflow.assignedStaff
+      .map((assignment: any) => assignment?.name || assignment?.staffId?.name)
+      .filter((name: any) => Boolean(name))
+    : []
 
   const handleDelete = () => {
     setShowDeleteConfirm(false)
@@ -117,6 +122,15 @@ export function WorkflowCard({
         </div>
 
         <div className="px-4 py-3 space-y-3">
+
+          {workflowAssignedStaffNames.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <User className="h-3.5 w-3.5 text-slate-500" />
+              <p className="text-xs text-slate-700">
+                <span className="font-semibold">Zugewiesenes Personal:</span> {workflowAssignedStaffNames.join(', ')}
+              </p>
+            </div>
+          )}
 
           {/* ── Pause notice ───────────────────────────────────────── */}
           {workflow.status === 'on-hold' && workflow.pauseReason && (

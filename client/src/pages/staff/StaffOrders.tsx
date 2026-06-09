@@ -63,6 +63,11 @@ interface AssignedOrder {
   workflows?: Array<{
     _id: string
     workflowName?: string
+    assignedStaffId?: string | { _id?: string }
+    assignedStaff?: Array<{
+      staffId?: string | { _id?: string }
+      name?: string
+    }>
     status?: 'not-started' | 'in_progress' | 'in-progress' | 'on-hold' | 'completed'
     currentStepIndex?: number
     startedAt?: string
@@ -72,6 +77,11 @@ interface AssignedOrder {
       _id?: string
       stepName?: string
       name?: string
+      assignedStaffId?: string | { _id?: string }
+      assignedStaff?: Array<{
+        staffId?: string | { _id?: string }
+        name?: string
+      }>
       status?: 'not-started' | 'in_progress' | 'in-progress' | 'on-hold' | 'completed'
     }>
   }>
@@ -85,6 +95,7 @@ interface ActionableWorkflowItem {
   orderStatus: string
   orderPriority: string
   workflowName: string
+  isDirectWorkflowAssignment: boolean
   workflowStatus: string
   activeStepLabel: string
   pausedAt?: string
@@ -204,14 +215,63 @@ export function StaffOrders() {
     return formatDuration(nowTimestamp - pausedTimestamp)
   }
 
+  const toId = (value: any): string => {
+    if (!value) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'object' && value._id) return String(value._id)
+    return String(value)
+  }
+
+  const isWorkflowAssignedToCurrentStaff = (workflow: AssignedOrder['workflows'][number]) => {
+    const myStaffId = String(user?._id || '')
+    if (!myStaffId || !workflow) return false
+
+    const workflowAssignedIds = [
+      toId(workflow.assignedStaffId),
+      ...(Array.isArray(workflow.assignedStaff)
+        ? workflow.assignedStaff.map((assignment) => toId(assignment?.staffId))
+        : []),
+    ]
+      .filter(Boolean)
+      .map(String)
+
+    if (workflowAssignedIds.includes(myStaffId)) return true
+
+    const steps = Array.isArray(workflow.steps) ? workflow.steps : []
+    return steps.some((step) => {
+      const stepAssignedIds = [
+        toId(step?.assignedStaffId),
+        ...(Array.isArray(step?.assignedStaff)
+          ? step.assignedStaff.map((assignment) => toId(assignment?.staffId))
+          : []),
+      ]
+        .filter(Boolean)
+        .map(String)
+
+      return stepAssignedIds.includes(myStaffId)
+    })
+  }
+
   const actionableWorkflows: ActionableWorkflowItem[] = filteredOrders
     .flatMap((order) => {
       const workflows = Array.isArray(order.workflows) ? order.workflows : []
 
-      return workflows.map((workflow) => {
+      return workflows
+        .filter((workflow) => isWorkflowAssignedToCurrentStaff(workflow))
+        .map((workflow) => {
         const workflowStatus = normalizeWorkflowStatus(workflow?.status)
         const currentStep = getWorkflowCurrentStep(workflow)
         const progress = getWorkflowProgress(workflow)
+        const myStaffId = String(user?._id || '')
+        const workflowAssignedIds = [
+          toId(workflow.assignedStaffId),
+          ...(Array.isArray(workflow.assignedStaff)
+            ? workflow.assignedStaff.map((assignment) => toId(assignment?.staffId))
+            : []),
+        ]
+          .filter(Boolean)
+          .map(String)
+        const isDirectWorkflowAssignment = Boolean(myStaffId) && workflowAssignedIds.includes(myStaffId)
 
         return {
           id: `${order._id}-${String(workflow?._id || workflow?.workflowName || 'workflow')}`,
@@ -220,6 +280,7 @@ export function StaffOrders() {
           orderStatus: order.status,
           orderPriority: order.priority,
           workflowName: workflow?.workflowName || 'Workflow',
+          isDirectWorkflowAssignment,
           workflowStatus,
           activeStepLabel: currentStep?.stepName || currentStep?.name || 'No step assigned',
           pausedAt: workflow?.pausedAt,
@@ -622,7 +683,12 @@ export function StaffOrders() {
                         onClick={() => handleViewOrder(workflow.orderId)}
                       >
                         <TableCell className="px-2 py-2 align-middle">
-                          <p className="text-xs font-semibold">{workflow.workflowName}</p>
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold">{workflow.workflowName}</p>
+                            {workflow.isDirectWorkflowAssignment && (
+                              <Badge className="h-5 px-1.5 text-[10px] bg-green-600 text-white">Dir zugewiesen</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="px-2 py-2 align-middle">
                           <div>

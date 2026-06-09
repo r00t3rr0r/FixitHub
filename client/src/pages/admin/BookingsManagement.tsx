@@ -320,6 +320,8 @@ export function BookingsManagement() {
   const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
   const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber?: string } | null>(null)
   const [activeHighlightedBookingId, setActiveHighlightedBookingId] = useState<string | null>(null)
+  const [orderSearchMatches, setOrderSearchMatches] = useState<Record<string, string[]>>({})
+  const [autoExpandedBookingIds, setAutoExpandedBookingIds] = useState<Set<string>>(new Set())
 
   const { toast } = useToast()
   const highlightBookingIdFromQuery = useMemo(() => {
@@ -334,6 +336,126 @@ export function BookingsManagement() {
     }, 500)
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  useEffect(() => {
+    const normalizedSearch = String(debouncedSearch || '').trim().toLowerCase().replace(/^#/, '')
+    if (!normalizedSearch) {
+      setOrderSearchMatches({})
+      setExpandedBookings((prev) => {
+        if (autoExpandedBookingIds.size === 0) {
+          return prev
+        }
+        const next = new Set(prev)
+        autoExpandedBookingIds.forEach((bookingId) => next.delete(bookingId))
+        return next
+      })
+      setAutoExpandedBookingIds(new Set())
+      return
+    }
+
+    let isCancelled = false
+
+    const loadOrdersAndHighlightMatches = async () => {
+      let mergedOrdersData: Record<string, any[]> = expandedOrdersData
+      let mergedCalculatedProgress: Record<string, number> = calculatedProgress
+
+      const bookingsNeedingOrders = filteredBookings.filter(
+        (booking) => !Array.isArray(mergedOrdersData[booking._id])
+      )
+
+      if (bookingsNeedingOrders.length > 0) {
+        const fetchedOrders = await Promise.all(
+          bookingsNeedingOrders.map(async (booking) => {
+            try {
+              const response = await getBookingOrders(booking._id)
+              const orders = response.orders || []
+              const totalProgress = orders.reduce((sum: number, order: any) => sum + (order.progress || 0), 0)
+              const averageProgress = orders.length > 0 ? Math.round(totalProgress / orders.length) : 0
+
+              return {
+                bookingId: booking._id,
+                orders,
+                averageProgress,
+              }
+            } catch (error) {
+              console.error(`BookingsManagement: Error loading orders for booking ${booking._id}`, error)
+              return null
+            }
+          })
+        )
+
+        if (isCancelled) {
+          return
+        }
+
+        const successfulFetches = fetchedOrders.filter(Boolean) as Array<{
+          bookingId: string
+          orders: any[]
+          averageProgress: number
+        }>
+
+        if (successfulFetches.length > 0) {
+          mergedOrdersData = { ...expandedOrdersData }
+          mergedCalculatedProgress = { ...calculatedProgress }
+
+          successfulFetches.forEach(({ bookingId, orders, averageProgress }) => {
+            mergedOrdersData[bookingId] = orders
+            mergedCalculatedProgress[bookingId] = averageProgress
+          })
+
+          setExpandedOrdersData(mergedOrdersData)
+          setCalculatedProgress(mergedCalculatedProgress)
+        }
+      }
+
+      const nextMatches: Record<string, string[]> = {}
+      const bookingsToExpand = new Set<string>()
+
+      filteredBookings.forEach((booking) => {
+        const bookingOrders = mergedOrdersData[booking._id] || []
+        const matchingOrderIds = bookingOrders
+          .filter((order: any) =>
+            String(order.orderNumber || '')
+              .trim()
+              .toLowerCase()
+              .replace(/^#/, '')
+              .includes(normalizedSearch)
+          )
+          .map((order: any) => String(order.orderId || order._id || ''))
+          .filter(Boolean)
+
+        if (matchingOrderIds.length > 0) {
+          nextMatches[booking._id] = matchingOrderIds
+          bookingsToExpand.add(booking._id)
+        }
+      })
+
+      if (isCancelled) {
+        return
+      }
+
+      setOrderSearchMatches(nextMatches)
+
+      if (bookingsToExpand.size > 0) {
+        setExpandedBookings((prev) => {
+          const next = new Set(prev)
+          bookingsToExpand.forEach((bookingId) => next.add(bookingId))
+          return next
+        })
+        setAutoExpandedBookingIds((prev) => {
+          const next = new Set(prev)
+          bookingsToExpand.forEach((bookingId) => next.add(bookingId))
+          return next
+        })
+      }
+    }
+
+    void loadOrdersAndHighlightMatches()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [debouncedSearch, filteredBookings])
 
   useEffect(() => {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
@@ -1187,7 +1309,7 @@ export function BookingsManagement() {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: 'var(--gray-400)' }} />
               <Input
-                placeholder="Buchungs-ID, Kundenname, E-Mail oder Telefon..."
+                placeholder="Buchungs-ID, Auftragsnummer, Kundenname, E-Mail oder Telefon..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1762,13 +1884,18 @@ export function BookingsManagement() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {expandedOrdersData[booking._id].map((item: any) => (
+                                      {expandedOrdersData[booking._id].map((item: any) => {
+                                        const isOrderSearchMatch = (orderSearchMatches[booking._id] || []).includes(
+                                          String(item.orderId || item._id || '')
+                                        )
+
+                                        return (
                                         <TableRow
                                           key={item.orderId || item._id}
                                           className="hover:bg-muted/50 cursor-pointer transition-colors"
                                           onClick={() => item.orderId && navigate(`/orders/${item.orderId}`)}
                                         >
-                                          <TableCell className="font-medium">
+                                          <TableCell className={`font-medium ${isOrderSearchMatch ? 'booking-order-search-match' : ''}`}>
                                             <div className="text-sm font-semibold">
                                               {item.orderNumber}
                                             </div>
@@ -1869,7 +1996,8 @@ export function BookingsManagement() {
                                             ${item.cost?.toFixed(2) || '0.00'}
                                           </TableCell>
                                         </TableRow>
-                                      ))}
+                                        )
+                                      })}
                                     </TableBody>
                                   </Table>
                                 </div>

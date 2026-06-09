@@ -10,6 +10,7 @@ const EmailService = require('../services/emailService');
 const FinancialService = require('../services/financialService');
 const Service = require('../models/Service');
 const Payment = require('../models/Payment');
+const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
 
@@ -65,6 +66,80 @@ const sanitizeMoney = (value) => {
 const formatMoney = (value) => sanitizeMoney(value).toFixed(2);
 
 const getFrontendBaseUrl = () => process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+
+const roundCurrency = (value) => Number(Number(value || 0).toFixed(2));
+
+const normalizeAllowedPaymentMethods = (methods) => {
+  if (!Array.isArray(methods)) return [];
+  const normalized = methods
+    .map((method) => String(method || '').trim().toLowerCase())
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
+
+const checkoutMethodAliases = {
+  card: ['credit_card', 'debit_card', 'stripe'],
+  paypal: ['paypal'],
+  invoice: ['invoice', 'bank_transfer'],
+};
+
+const loadAllowedCheckoutMethodsForUser = async (userId) => {
+  const userWithGroup = await User.findById(userId)
+    .populate('primaryCustomerGroupId', 'financeProfile.allowedPaymentMethods')
+    .select('primaryCustomerGroupId')
+    .lean();
+
+  return normalizeAllowedPaymentMethods(
+    userWithGroup?.primaryCustomerGroupId?.financeProfile?.allowedPaymentMethods
+  );
+};
+
+const isCheckoutPaymentMethodAllowed = ({ paymentMethod, allowedMethods }) => {
+  if (!paymentMethod) return true;
+  if (!Array.isArray(allowedMethods) || allowedMethods.length === 0) return true;
+
+  const normalizedMethod = String(paymentMethod).trim().toLowerCase();
+  const aliases = checkoutMethodAliases[normalizedMethod] || [normalizedMethod];
+  return aliases.some((alias) => allowedMethods.includes(alias));
+};
+
+const buildCheckoutPricing = async ({ cart, userId }) => {
+  const financialProfile = await FinancialService.resolveFinancialProfile({ customerId: userId });
+
+  const subtotal = roundCurrency(cart?.subtotal || CartService.calculateCartSubtotal(cart));
+  const promoDiscount = roundCurrency(cart?.discount || 0);
+  const discountBase = Math.max(0, subtotal - promoDiscount);
+  const groupDiscountPercent = Math.max(0, Math.min(100, Number(financialProfile?.defaultDiscountPercent || 0)));
+  const groupDiscountAmount = roundCurrency(discountBase * (groupDiscountPercent / 100));
+  const totalDiscount = roundCurrency(promoDiscount + groupDiscountAmount);
+  const grossAfterDiscount = Math.max(0, subtotal - totalDiscount);
+  const taxRatePercent = Math.max(0, Number(financialProfile?.taxRate || 0));
+  // Cart prices are gross (VAT included): extract VAT from gross instead of adding VAT on top.
+  const taxAmount = taxRatePercent > 0
+    ? roundCurrency(grossAfterDiscount * (taxRatePercent / (100 + taxRatePercent)))
+    : 0;
+  const payableTotal = roundCurrency(grossAfterDiscount);
+  const normalTotal = roundCurrency(payableTotal + totalDiscount);
+
+  return {
+    currency: String(financialProfile?.currency || 'EUR').toUpperCase(),
+    taxMode: financialProfile?.taxMode || 'default',
+    taxRatePercent,
+    paymentDueDays: Number(financialProfile?.paymentDueDays || 0),
+    paymentTerms: financialProfile?.paymentTerms || '',
+    cashDiscountPercent: Number(financialProfile?.cashDiscountPercent || 0),
+    cashDiscountDays: Number(financialProfile?.cashDiscountDays || 0),
+    creditLimit: Number(financialProfile?.creditLimit || 0),
+    subtotal,
+    promoDiscount,
+    groupDiscountPercent,
+    groupDiscountAmount,
+    totalDiscount,
+    taxAmount,
+    normalTotal,
+    payableTotal,
+  };
+};
 
 const getActivePaypalGateway = async () => {
   const gateways = await FinancialService.getPaymentGateways();
@@ -564,6 +639,14 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
 
     validateCheckoutAddress(user);
 
+    const allowedMethods = await loadAllowedCheckoutMethodsForUser(req.user._id);
+    if (!isCheckoutPaymentMethodAllowed({ paymentMethod: 'paypal', allowedMethods })) {
+      return res.status(403).json({
+        success: false,
+        error: 'PayPal ist für Ihre Kundengruppe nicht freigegeben.'
+      });
+    }
+
     const cart = await CartService.getCart(req.user._id);
     const hasRepairOrders = cart && Array.isArray(cart.repairOrders) && cart.repairOrders.length > 0;
     const hasShopProducts = cart && Array.isArray(cart.items) && cart.items.length > 0;
@@ -575,29 +658,42 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
       });
     }
 
+    const checkoutPricing = await buildCheckoutPricing({ cart, userId: req.user._id });
+
     const gateway = await getActivePaypalGateway();
     const config = gateway.configuration || {};
-    const currencyCode = (config.default_currency || config.currency || 'EUR').toUpperCase();
+    const currencyCode = String(checkoutPricing.currency || config.default_currency || config.currency || 'EUR').toUpperCase();
     const lineItems = buildPaypalLineItems(cart, currencyCode);
-    const amount = buildPaypalAmount(cart, lineItems, currencyCode, config.send_breakdown !== false);
+    const discountedTotal = sanitizeMoney(checkoutPricing.payableTotal);
+    const hasGroupDiscount = Number(checkoutPricing.groupDiscountAmount || 0) > 0;
+    const amount = {
+      currency_code: currencyCode,
+      value: formatMoney(discountedTotal)
+    };
 
     const { accessToken, baseUrl } = await getPaypalAccessToken(gateway);
     const frontendBase = getFrontendBaseUrl();
     const returnPath = String(req.body?.returnPath || '/checkout').trim();
     const safeReturnPath = returnPath.startsWith('/') ? returnPath : '/checkout';
 
+    const purchaseUnit = {
+      reference_id: `checkout-${req.user._id}`,
+      description: (config.description_template || 'FixitHub Bestellung').replace('{{orderId}}', String(cart._id || 'cart')),
+      amount,
+      custom_id: String(req.user._id)
+    };
+
+    if (!hasGroupDiscount && config.send_breakdown !== false) {
+      purchaseUnit.amount = buildPaypalAmount(cart, lineItems, currencyCode, true);
+      purchaseUnit.items = lineItems;
+    }
+
     const paypalOrderResponse = await axios.post(
       `${baseUrl}/v2/checkout/orders`,
       {
         intent: (config.payment_intent || 'CAPTURE').toUpperCase(),
         purchase_units: [
-          {
-            reference_id: `checkout-${req.user._id}`,
-            description: (config.description_template || 'FixitHub Bestellung').replace('{{orderId}}', String(cart._id || 'cart')),
-            amount,
-            items: lineItems,
-            custom_id: String(req.user._id)
-          }
+          purchaseUnit
         ],
         payer: {
           email_address: user.email
@@ -626,7 +722,7 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
       customerId: req.user._id,
       customerName,
       orderNumber: '',
-      amount: sanitizeMoney(cart.total),
+      amount: discountedTotal,
       currency: currencyCode,
       paymentMethod: 'paypal',
       status: 'processing',
@@ -643,6 +739,7 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
           discount: sanitizeMoney(cart.discount),
           total: sanitizeMoney(cart.total)
         },
+        checkoutPricing,
         createdAt: new Date().toISOString()
       }
     });
@@ -650,7 +747,7 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
     return res.status(201).json({
       success: true,
       orderId: paypalOrderResponse.data.id,
-      amount: sanitizeMoney(cart.total),
+      amount: discountedTotal,
       currency: currencyCode
     });
   } catch (error) {
@@ -1187,6 +1284,9 @@ router.post('/initialize', requireUser, async (req, res) => {
 
     // Get user information
     const user = await UserService.get(req.user._id);
+  const allowedPaymentMethods = await loadAllowedCheckoutMethodsForUser(req.user._id);
+  const checkoutPricing = await buildCheckoutPricing({ cart, userId: req.user._id });
+
 
     if (!user) {
       console.log('CheckoutRoutes: User not found');
@@ -1229,7 +1329,9 @@ router.post('/initialize', requireUser, async (req, res) => {
     res.json({
       success: true,
       cart,
-      userInfo
+      userInfo,
+      availablePaymentMethods: allowedPaymentMethods,
+      checkoutPricing
     });
   } catch (error) {
     console.error('CheckoutRoutes: Error initializing checkout:', error);
@@ -1385,6 +1487,13 @@ router.post('/complete', requireUser, async (req, res) => {
 
     // Get user information to validate invoice address
     const user = await UserService.get(req.user._id);
+    const allowedMethods = await loadAllowedCheckoutMethodsForUser(req.user._id);
+    if (!isCheckoutPaymentMethodAllowed({ paymentMethod, allowedMethods })) {
+      return res.status(403).json({
+        success: false,
+        error: 'Die gewählte Zahlungsart ist für Ihre Kundengruppe nicht freigegeben.'
+      });
+    }
 
     if (!user) {
       console.log('CheckoutRoutes: User not found');
@@ -1452,6 +1561,15 @@ router.post('/complete', requireUser, async (req, res) => {
         cart.discount = appliedPromoData.discountAmount;
         await cart.save();
       }
+    }
+
+    const checkoutPricing = await buildCheckoutPricing({ cart, userId: req.user._id });
+    const isInvoiceCheckout = String(paymentMethod || '').toLowerCase() === 'invoice';
+    if (isInvoiceCheckout && Number(checkoutPricing.creditLimit || 0) > 0 && Number(checkoutPricing.payableTotal || 0) > Number(checkoutPricing.creditLimit || 0)) {
+      return res.status(400).json({
+        success: false,
+        error: `Kreditlimit überschritten. Offener Betrag: ${checkoutPricing.payableTotal.toFixed(2)} ${checkoutPricing.currency}, Limit: ${Number(checkoutPricing.creditLimit).toFixed(2)} ${checkoutPricing.currency}`
+      });
     }
 
     // Helper function to parse estimated time string to minutes
@@ -1655,6 +1773,7 @@ router.post('/complete', requireUser, async (req, res) => {
         customerId: req.user._id,
         orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
         discount: cart.discount || 0,
+        discount: Number((cart.discount || 0) + (checkoutPricing.groupDiscountAmount || 0)),
         appliedPromoCode: cart.promoCode || '',
         status: 'pending',
         billingStatus: resolvedBillingStatus,
@@ -1719,7 +1838,8 @@ router.post('/complete', requireUser, async (req, res) => {
       booking: booking || { orderIds: orderIds },
       bookingId: booking?._id?.toString() || null,
       orders: createdOrders,
-      orderIds: orderIds
+      orderIds: orderIds,
+      checkoutPricing
     });
   } catch (error) {
     console.error('CheckoutRoutes: Error completing checkout:', error);

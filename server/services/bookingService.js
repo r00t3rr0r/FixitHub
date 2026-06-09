@@ -973,7 +973,11 @@ class BookingService {
 
   // Build search $or clause matching bookingNumber, guestInfo fields, and registered customers
   static async buildSearchClause(search) {
-    const regex = new RegExp(search, 'i');
+    const normalizedSearch = String(search || '').trim();
+    const regex = new RegExp(normalizedSearch, 'i');
+    const orderSearch = normalizedSearch.replace(/^#/, '');
+    const orderRegex = new RegExp(orderSearch || normalizedSearch, 'i');
+
     const matchingUsers = await User.find({
       $or: [
         { firstName: regex },
@@ -983,6 +987,12 @@ class BookingService {
       ],
     }).select('_id');
     const matchingUserIds = matchingUsers.map((u) => u._id);
+
+    const matchingOrders = await Order.find({
+      orderNumber: orderRegex,
+    }).select('_id');
+    const matchingOrderIds = matchingOrders.map((order) => order._id);
+
     return [
       { bookingNumber: regex },
       { 'guestInfo.email': regex },
@@ -990,6 +1000,7 @@ class BookingService {
       { 'guestInfo.lastName': regex },
       { 'guestInfo.phone': regex },
       ...(matchingUserIds.length > 0 ? [{ customerId: { $in: matchingUserIds } }] : []),
+      ...(matchingOrderIds.length > 0 ? [{ orderIds: { $in: matchingOrderIds } }] : []),
     ];
   }
 

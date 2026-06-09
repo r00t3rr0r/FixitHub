@@ -144,6 +144,7 @@ export function OrderDetails() {
   const [workflows, setWorkflows] = useState<any[]>([])
   const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
+  const [workflowAssignedStaffId, setWorkflowAssignedStaffId] = useState<string>("__unassigned__")
   const [assigningWorkflow, setAssigningWorkflow] = useState(false)
   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null)
   const [workflowActionInProgress, setWorkflowActionInProgress] = useState<{
@@ -1356,7 +1357,12 @@ export function OrderDetails() {
       setAssigningWorkflow(true)
       console.log("OrderDetails: Assigning workflow:", workflowTemplateId)
 
-      await assignWorkflowToOrder(id, workflowTemplateId)
+      const selectedWorkflowAssignee =
+        workflowAssignedStaffId && workflowAssignedStaffId !== "__unassigned__"
+          ? workflowAssignedStaffId
+          : undefined
+
+      await assignWorkflowToOrder(id, workflowTemplateId, selectedWorkflowAssignee)
 
       toast({
         title: "Success",
@@ -1364,6 +1370,7 @@ export function OrderDetails() {
       })
 
       setWorkflowDialogOpen(false)
+      setWorkflowAssignedStaffId("__unassigned__")
 
       // Refresh workflows
       const workflowsResponse = await getOrderWorkflows(id)
@@ -2475,8 +2482,10 @@ export function OrderDetails() {
 
     // Workflow "X" assigned to order
     d = d.replace(
-      /^Workflow "(.+?)" assigned to order$/,
-      (_, wf) => `Workflow „${wf}" dem Auftrag zugewiesen`
+      /^Workflow "(.+?)" assigned to order(?: and (.+))?$/,
+      (_, wf, assignee) => assignee
+        ? `Workflow „${wf}" dem Auftrag zugewiesen (Personal: ${assignee})`
+        : `Workflow „${wf}" dem Auftrag zugewiesen`
     )
     if (d !== desc) return d
 
@@ -2697,6 +2706,23 @@ export function OrderDetails() {
     const timeline = Array.isArray(order?.timeline) ? order.timeline : []
     const toId = (v: unknown): string => {
       if (!v) return ''
+      if (typeof v === 'string') return v
+      if (typeof v === 'number') return String(v)
+
+      if (typeof v === 'object') {
+        const raw = v as any
+        if (raw._id) {
+          try { return String(raw._id) } catch { return '' }
+        }
+        if (raw.id) {
+          try { return String(raw.id) } catch { return '' }
+        }
+        if (raw.staffId) {
+          const nestedStaffId = toId(raw.staffId)
+          if (nestedStaffId) return nestedStaffId
+        }
+      }
+
       try { return String(v) } catch { return '' }
     }
     const lastActiveEntry = [...timeline]
@@ -5141,6 +5167,31 @@ export function OrderDetails() {
                     const staffUserId = staffLastActions.toId((staff as any).staffId) || staffLastActions.toId(staff._id)
                     const isLastActive = !!(staffLastActions.lastActiveUserId && staffUserId && staffLastActions.lastActiveUserId === staffUserId)
                     const lastEntry = staffLastActions.byStaff(staffUserId)[0]
+                    const normalizeWorkflowStaffId = (value: any) => {
+                      if (!value) return ''
+
+                      try {
+                        return staffLastActions.toId(value)
+                      } catch {
+                        return ''
+                      }
+                    }
+                    const assignedWorkflowLabels = workflows
+                      .filter((workflow: any) => {
+                        const workflowStaffIds = [
+                          workflow?.assignedStaffId?._id,
+                          workflow?.assignedStaffId,
+                          ...(Array.isArray(workflow?.assignedStaff)
+                            ? workflow.assignedStaff.map((assignment: any) => assignment?.staffId?._id || assignment?.staffId)
+                            : []),
+                        ]
+                          .filter(Boolean)
+                          .map((value: any) => normalizeWorkflowStaffId(value))
+                          .filter(Boolean)
+
+                        return staffUserId && workflowStaffIds.includes(String(staffUserId))
+                      })
+                      .map((workflow: any) => workflow?.workflowName || 'Workflow')
                     return (
                       <div
                         key={staff._id}
@@ -5176,6 +5227,16 @@ export function OrderDetails() {
                           ) : (
                             <p className="mt-1 text-xs text-muted-foreground/60 italic">Noch keine Aktivität</p>
                           )}
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {assignedWorkflowLabels.length > 0 ? (
+                              <>
+                                <span className="font-medium text-foreground/70">Workflows:</span>{' '}
+                                {assignedWorkflowLabels.join(', ')}
+                              </>
+                            ) : (
+                              <span className="italic text-muted-foreground/60">Kein Workflow direkt zugewiesen</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )
@@ -5887,7 +5948,15 @@ export function OrderDetails() {
       </Dialog>
 
       {/* Workflow Assignment Dialog */}
-      <Dialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
+      <Dialog
+        open={workflowDialogOpen}
+        onOpenChange={(open) => {
+          setWorkflowDialogOpen(open)
+          if (!open) {
+            setWorkflowAssignedStaffId("__unassigned__")
+          }
+        }}
+      >
         <DialogContent className="order-dialog-content sm:max-w-[600px]">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="flex items-center gap-2">
@@ -5899,6 +5968,24 @@ export function OrderDetails() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 max-h-[420px] overflow-y-auto py-1">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+              <Label htmlFor="workflow-assignee" className="text-xs font-medium text-slate-700">
+                Personal fuer diesen Workflow
+              </Label>
+              <Select value={workflowAssignedStaffId} onValueChange={setWorkflowAssignedStaffId}>
+                <SelectTrigger id="workflow-assignee" className="mt-2">
+                  <SelectValue placeholder="Personal waehlen (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Kein Personal zuweisen</SelectItem>
+                  {availableStaff.map((staff) => (
+                    <SelectItem key={staff._id} value={staff._id}>
+                      {staff.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {suggestedWorkflows.length > 0 ? (
               suggestedWorkflows.map((workflow: any) => (
                 <Card

@@ -157,7 +157,7 @@ const emptyRuleForm: RuleFormState = {
   excludedIf: [],
 };
 
-const paymentMethods = ['bank_transfer', 'paypal', 'credit_card', 'debit_card', 'stripe'];
+const paymentMethods = ['bank_transfer', 'invoice', 'paypal', 'credit_card', 'debit_card', 'stripe'];
 
 const badgeClassByStatus: Record<CustomerGroupStatus, string> = {
   draft: 'bg-slate-100 text-slate-700 border-slate-200',

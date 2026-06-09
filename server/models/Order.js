@@ -255,6 +255,11 @@ const orderWorkflowSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  assignedStaffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  assignedStaff: [workflowAssignedStaffSchema],
   steps: [workflowStepExecutionSchema],
   currentStepIndex: {
     type: Number,
@@ -797,6 +802,8 @@ orderSchema.pre(/^find/, function(next) {
       .populate('shopProducts.productId', 'name price images category brand stock')
       .populate('shopProducts.addedBy', 'name email')
       .populate('workflows.workflowTemplateId')
+      .populate('workflows.assignedStaffId', 'name avatar')
+      .populate('workflows.assignedStaff.staffId', 'name avatar')
       .populate('workflows.steps.assignedStaffId', 'name avatar')
       .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
   next();
