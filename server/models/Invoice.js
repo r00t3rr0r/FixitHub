@@ -218,8 +218,32 @@ invoiceSchema.pre('save', async function(next) {
 // Calculate totals before saving
 invoiceSchema.pre('save', function(next) {
   if (this.items && this.items.length > 0) {
-    this.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
-    this.total = this.subtotal + this.tax - this.discount;
+    const itemsTotal = this.items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const hasSubtotal = Number.isFinite(Number(this.subtotal));
+    const hasTax = Number.isFinite(Number(this.tax));
+    const hasDiscount = Number.isFinite(Number(this.discount));
+    const hasTotal = Number.isFinite(Number(this.total));
+
+    // Keep explicit values from services/routes. Only derive missing fields.
+    if (!hasSubtotal) {
+      if (hasTotal) {
+        this.subtotal = Number(this.total) - Number(this.tax || 0) + Number(this.discount || 0);
+      } else {
+        this.subtotal = itemsTotal;
+      }
+    }
+
+    if (!hasTax) {
+      this.tax = 0;
+    }
+
+    if (!hasDiscount) {
+      this.discount = 0;
+    }
+
+    if (!hasTotal) {
+      this.total = Number(this.subtotal || 0) + Number(this.tax || 0) - Number(this.discount || 0);
+    }
   }
   next();
 });

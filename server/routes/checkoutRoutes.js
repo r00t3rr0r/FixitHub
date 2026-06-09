@@ -112,10 +112,13 @@ const buildCheckoutPricing = async ({ cart, userId }) => {
   const groupDiscountPercent = Math.max(0, Math.min(100, Number(financialProfile?.defaultDiscountPercent || 0)));
   const groupDiscountAmount = roundCurrency(discountBase * (groupDiscountPercent / 100));
   const totalDiscount = roundCurrency(promoDiscount + groupDiscountAmount);
-  const taxableBase = Math.max(0, subtotal - totalDiscount);
+  const grossAfterDiscount = Math.max(0, subtotal - totalDiscount);
   const taxRatePercent = Math.max(0, Number(financialProfile?.taxRate || 0));
-  const taxAmount = roundCurrency(taxableBase * (taxRatePercent / 100));
-  const payableTotal = roundCurrency(taxableBase + taxAmount);
+  // Cart prices are gross (VAT included): extract VAT from gross instead of adding VAT on top.
+  const taxAmount = taxRatePercent > 0
+    ? roundCurrency(grossAfterDiscount * (taxRatePercent / (100 + taxRatePercent)))
+    : 0;
+  const payableTotal = roundCurrency(grossAfterDiscount);
   const normalTotal = roundCurrency(payableTotal + totalDiscount);
 
   return {

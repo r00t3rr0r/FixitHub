@@ -993,6 +993,37 @@ export function CustomerInvoices() {
       const latestPayment = sourceInvoice.paymentHistory && sourceInvoice.paymentHistory.length > 0 ? sourceInvoice.paymentHistory[0] : undefined;
       const paymentDate = formatDate(latestPayment?.date || sourceInvoice.createdAt);
 
+      const paymentHistoryRows = (() => {
+        const normalized = (sourceInvoice.paymentHistory || [])
+          .map((entry) => ({
+            date: entry?.date,
+            amount: normalizeAmount(entry?.amount),
+            method: cleanText(entry?.method || paymentMethod, "-"),
+            note: cleanText(entry?.note || "", ""),
+          }))
+          .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0)
+          .sort((a, b) => {
+            const tsA = a.date ? new Date(a.date).getTime() : 0;
+            const tsB = b.date ? new Date(b.date).getTime() : 0;
+            return tsB - tsA;
+          });
+
+        if (normalized.length > 0) {
+          return normalized;
+        }
+
+        if (amountPaid > 0) {
+          return [{
+            date: sourceInvoice.paidAt || sourceInvoice.createdAt,
+            amount: amountPaid,
+            method: cleanText(paymentMethod, "-"),
+            note: "Gesamtzahlung",
+          }];
+        }
+
+        return [] as Array<{ date?: string; amount: number; method: string; note: string }>;
+      })();
+
       const baseline = 4;
 
       const logoAsset = await loadImageData(logoUrl);
@@ -1215,7 +1246,18 @@ export function CustomerInvoices() {
       const feedbackTextBlockHeight = 11.5;
       const feedbackBoxHeight = qrSize + feedbackTextBlockHeight + 11;
       const feedbackGap = 4;
-      const requiredBottomSectionHeight = cardHeight + feedbackGap + feedbackBoxHeight;
+      const paymentSectionGap = 4;
+      const paymentHistoryVisibleRows = paymentHistoryRows.slice(0, 6);
+      const paymentHistoryHasMore = paymentHistoryRows.length > paymentHistoryVisibleRows.length;
+      const paymentHistoryHeaderHeight = 12.2;
+      const paymentHistoryRowHeight = 6.1;
+      const paymentHistoryEmptyHeight = 8.6;
+      const paymentHistoryMoreHintHeight = paymentHistoryHasMore ? 4.2 : 0;
+      const paymentHistoryBodyHeight = paymentHistoryVisibleRows.length > 0
+        ? paymentHistoryVisibleRows.length * paymentHistoryRowHeight
+        : paymentHistoryEmptyHeight;
+      const paymentHistoryHeight = paymentHistoryHeaderHeight + paymentHistoryBodyHeight + paymentHistoryMoreHintHeight;
+      const requiredBottomSectionHeight = cardHeight + paymentSectionGap + paymentHistoryHeight + feedbackGap + feedbackBoxHeight;
 
       if (y + requiredBottomSectionHeight > footerTop - 2) {
         pdf.addPage();
@@ -1295,8 +1337,76 @@ export function CustomerInvoices() {
         summaryCursor += rowHeight;
       });
 
+      // Payment history section (professionell strukturiert als kompaktes Journal)
+      const paymentHistoryY = y + cardHeight + paymentSectionGap;
+      const paymentHistoryX = left;
+      const paymentHistoryWidth = right - left;
+      const paymentDateColWidth = 25;
+      const paymentAmountColWidth = 30;
+      const paymentDetailColWidth = paymentHistoryWidth - paymentDateColWidth - paymentAmountColWidth - 5.6;
+      const paymentDetailMaxChars = 60;
+
+      pdf.setFillColor(250, 252, 254);
+      pdf.rect(paymentHistoryX, paymentHistoryY, paymentHistoryWidth, paymentHistoryHeight, "F");
+      drawRect(paymentHistoryX, paymentHistoryY, paymentHistoryWidth, paymentHistoryHeight);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(26, 42, 94);
+      pdf.text("Zahlungsverlauf", paymentHistoryX + 2.4, paymentHistoryY + 5.2);
+      drawLine(paymentHistoryX + 2, paymentHistoryY + 6.8, paymentHistoryX + paymentHistoryWidth - 2, paymentHistoryY + 6.8);
+
+      const paymentHeaderY = paymentHistoryY + 10.2;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.2);
+      pdf.setTextColor(76, 91, 121);
+      pdf.text("Datum", paymentHistoryX + 2.4, paymentHeaderY);
+      pdf.text("Methode / Notiz", paymentHistoryX + paymentDateColWidth + 2.2, paymentHeaderY);
+      pdf.text("Betrag", paymentHistoryX + paymentHistoryWidth - 2.4, paymentHeaderY, { align: "right" });
+      drawLine(paymentHistoryX + 2, paymentHeaderY + 1.6, paymentHistoryX + paymentHistoryWidth - 2, paymentHeaderY + 1.6);
+
+      let paymentRowY = paymentHeaderY + 4.5;
+      if (paymentHistoryVisibleRows.length > 0) {
+        paymentHistoryVisibleRows.forEach((row, index) => {
+          if (index % 2 === 1) {
+            pdf.setFillColor(253, 253, 255);
+            pdf.rect(paymentHistoryX + 1.2, paymentRowY - 3.9, paymentHistoryWidth - 2.4, paymentHistoryRowHeight, "F");
+          }
+
+          const methodAndNoteRaw = row.note ? `${row.method} • ${row.note}` : row.method;
+          const methodAndNote = methodAndNoteRaw.length > paymentDetailMaxChars
+            ? `${methodAndNoteRaw.slice(0, paymentDetailMaxChars - 1)}...`
+            : methodAndNoteRaw;
+
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8.4);
+          pdf.setTextColor(30, 41, 59);
+          pdf.text(formatDate(row.date), paymentHistoryX + 2.4, paymentRowY);
+          pdf.text(methodAndNote, paymentHistoryX + paymentDateColWidth + 2.2, paymentRowY, { maxWidth: paymentDetailColWidth });
+          pdf.setFont("helvetica", "bold");
+          pdf.text(formatMoney(row.amount), paymentHistoryX + paymentHistoryWidth - 2.4, paymentRowY, { align: "right" });
+
+          drawLine(paymentHistoryX + 2, paymentRowY + 2.1, paymentHistoryX + paymentHistoryWidth - 2, paymentRowY + 2.1);
+          paymentRowY += paymentHistoryRowHeight;
+        });
+      } else {
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(8.4);
+        pdf.setTextColor(107, 114, 128);
+        pdf.text("Noch keine Zahlungen erfasst", paymentHistoryX + 2.4, paymentRowY);
+      }
+
+      if (paymentHistoryHasMore) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(95, 109, 134);
+        pdf.text(`Weitere Zahlungen: ${paymentHistoryRows.length - paymentHistoryVisibleRows.length}`, paymentHistoryX + 2.4, paymentHistoryY + paymentHistoryHeight - 1.9);
+      }
+
+      pdf.setTextColor(0, 0, 0);
+
       // Feedback callout + QR (collision-safe placement oberhalb Footer)
-      const postCardY = y + cardHeight;
+      const postCardY = paymentHistoryY + paymentHistoryHeight;
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.8);
       const feedbackX = right - 46;
