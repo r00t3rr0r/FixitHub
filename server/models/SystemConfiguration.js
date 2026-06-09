@@ -334,7 +334,7 @@ const systemConfigurationSchema = new mongoose.Schema({
       },
       defaultPaymentMethod: {
         type: String,
-        enum: ['credit_card', 'debit_card', 'paypal', 'stripe', 'bank_transfer'],
+        enum: ['credit_card', 'debit_card', 'paypal', 'stripe', 'bank_transfer', 'invoice'],
         default: 'bank_transfer'
       }
     },

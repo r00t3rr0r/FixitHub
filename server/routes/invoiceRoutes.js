@@ -4,10 +4,42 @@ const axios = require('axios');
 const { requireUser } = require('./middleware/auth');
 const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
+const User = require('../models/User');
 const FinancialService = require('../services/financialService');
 const NotificationService = require('../services/notificationService');
 
 const getFrontendBaseUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
+
+const normalizeAllowedPaymentMethods = (methods) => {
+  if (!Array.isArray(methods)) return [];
+  const normalized = methods
+    .map((method) => String(method || '').trim().toLowerCase())
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
+
+const invoiceProviderAliases = {
+  stripe: ['stripe', 'credit_card', 'debit_card'],
+  paypal: ['paypal'],
+  bank_transfer: ['bank_transfer', 'invoice'],
+};
+
+const loadAllowedInvoiceMethodsForUser = async (userId) => {
+  const userWithGroup = await User.findById(userId)
+    .populate('primaryCustomerGroupId', 'financeProfile.allowedPaymentMethods')
+    .select('primaryCustomerGroupId')
+    .lean();
+
+  return normalizeAllowedPaymentMethods(
+    userWithGroup?.primaryCustomerGroupId?.financeProfile?.allowedPaymentMethods
+  );
+};
+
+const isInvoiceProviderAllowed = ({ provider, allowedMethods }) => {
+  if (!Array.isArray(allowedMethods) || allowedMethods.length === 0) return true;
+  const aliases = invoiceProviderAliases[String(provider || '').trim().toLowerCase()] || [];
+  return aliases.some((alias) => allowedMethods.includes(alias));
+};
 
 const getGatewayFromRequest = async (gatewayId, gatewayProvider) => {
   const gateways = await FinancialService.getPaymentGateways();
@@ -154,6 +186,11 @@ router.get('/', requireUser, async (req, res) => {
 // Response: { success: boolean, clientId, currency, intent, locale, gatewayId, environment, button }
 router.get('/paypal/config', requireUser, async (req, res) => {
   try {
+    const allowedMethods = await loadAllowedInvoiceMethodsForUser(req.user._id);
+    if (!isInvoiceProviderAllowed({ provider: 'paypal', allowedMethods })) {
+      return res.status(403).json({ success: false, error: 'PayPal ist für Ihre Kundengruppe nicht freigegeben.' });
+    }
+
     const { gatewayId } = req.query;
     const gateways = await FinancialService.getPaymentGateways();
 
@@ -204,9 +241,14 @@ router.get('/paypal/config', requireUser, async (req, res) => {
 router.get('/payment-gateways', requireUser, async (req, res) => {
   try {
     const gateways = await FinancialService.getPaymentGateways();
+    const allowedMethods = await loadAllowedInvoiceMethodsForUser(req.user._id);
 
     const customerGateways = gateways
-      .filter((gateway) => gateway.isActive && ['stripe', 'paypal', 'bank_transfer'].includes(gateway.provider))
+      .filter((gateway) => (
+        gateway.isActive
+        && ['stripe', 'paypal', 'bank_transfer'].includes(gateway.provider)
+        && isInvoiceProviderAllowed({ provider: gateway.provider, allowedMethods })
+      ))
       .map((gateway) => ({
         _id: gateway._id,
         name: gateway.name,
@@ -259,6 +301,10 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
 
     const invoice = await Invoice.findById(req.params.id);
     assertInvoiceOwner(invoice, req.user);
+    const allowedMethods = await loadAllowedInvoiceMethodsForUser(req.user._id);
+    if (!isInvoiceProviderAllowed({ provider: gatewayProvider, allowedMethods })) {
+      return res.status(403).json({ success: false, error: 'Diese Zahlungsart ist für Ihre Kundengruppe nicht freigegeben.' });
+    }
     const { numericAmount } = validatePaymentAmount(invoice, amount);
 
     const gateway = await getGatewayFromRequest(gatewayId, gatewayProvider);
@@ -398,6 +444,10 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
 
     const invoice = await Invoice.findById(req.params.id);
     assertInvoiceOwner(invoice, req.user);
+    const allowedMethods = await loadAllowedInvoiceMethodsForUser(req.user._id);
+    if (!isInvoiceProviderAllowed({ provider: gatewayProvider, allowedMethods })) {
+      return res.status(403).json({ success: false, error: 'Diese Zahlungsart ist für Ihre Kundengruppe nicht freigegeben.' });
+    }
 
     const existingPayment = await Payment.findOne({
       invoiceId: invoice._id,
@@ -595,6 +645,11 @@ router.post('/:id/pay', requireUser, async (req, res) => {
 
     if (invoice.customerId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, error: 'You do not have permission to pay this invoice' });
+    }
+
+    const allowedMethods = await loadAllowedInvoiceMethodsForUser(req.user._id);
+    if (!isInvoiceProviderAllowed({ provider: gatewayProvider, allowedMethods })) {
+      return res.status(403).json({ success: false, error: 'Diese Zahlungsart ist für Ihre Kundengruppe nicht freigegeben.' });
     }
 
     const gateways = await FinancialService.getPaymentGateways();

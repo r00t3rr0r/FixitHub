@@ -848,7 +848,7 @@ export function CustomerInvoices() {
 
       const invoiceDate = formatDate(invoice.createdAt);
       const dueDate = formatDate(invoice.dueDate);
-      const paymentMethod = cleanText(invoice.paymentMethod || invoice.paymentTerms);
+      const paymentMethod = cleanText(invoice.paymentMethod || "-");
 
       const amountPaid = normalizeAmount(invoice.amountPaid ?? invoice.paidAmount ?? 0);
       const subtotal = normalizeAmount(invoice.subtotal);
@@ -859,15 +859,6 @@ export function CustomerInvoices() {
 
       const latestPayment = invoice.paymentHistory && invoice.paymentHistory.length > 0 ? invoice.paymentHistory[0] : undefined;
       const paymentDate = formatDate(latestPayment?.date || invoice.createdAt);
-
-      const dueDays = (() => {
-        const start = new Date(invoice.createdAt);
-        const end = new Date(invoice.dueDate);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-        const dayMs = 1000 * 60 * 60 * 24;
-        const diff = Math.round((end.getTime() - start.getTime()) / dayMs);
-        return diff > 0 ? diff : null;
-      })();
 
       const baseline = 4;
 
@@ -1008,7 +999,6 @@ export function CustomerInvoices() {
       // Informations- und Summenbereich als 2-Spalten-Layout
       const footerY = pageHeight - 22;
       const footerTop = footerY - 4;
-      const dueDaysText = dueDays ? `${dueDays}` : "7";
       const groupedTaxLabel = taxAmount > 0
         ? `(${Number(defaultTaxRate).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
         : "(0,00%)";
@@ -1024,7 +1014,6 @@ export function CustomerInvoices() {
         `Zahlungsart: ${paymentMethod}`,
         `Faelligkeitsdatum: ${dueDate}`,
         `E-Mail: ${cleanText(invoice.customerEmail, "-")}`,
-        `Zahlungsziel: ${dueDaysText} Tage nach Geraeteeingang`,
       ];
 
       const notes = cleanText(invoice.notes, "");
@@ -1443,7 +1432,7 @@ export function CustomerInvoices() {
                     )}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zahlungsart</p>
-                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || selectedInvoice.paymentTerms}</p>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || '-'}</p>
                     </div>
                     {selectedInvoice.billingAddress && (
                       <div className="col-span-3">
@@ -1516,6 +1505,27 @@ export function CustomerInvoices() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Totals */}
                     <div className="border border-slate-200 rounded-lg p-3 space-y-1">
+                      {(() => {
+                        const subtotalValue = Number(selectedInvoice.subtotal || 0);
+                        const taxValue = Number(selectedInvoice.tax || 0);
+                        const discountValue = Number(selectedInvoice.discount || 0);
+                        const normalAmount = subtotalValue + taxValue;
+                        const discountedAmount = Math.max(0, Number(selectedInvoice.total || 0));
+                        return (
+                          <>
+                            <div className="flex justify-between text-xs rounded bg-slate-50 px-2 py-1.5 border border-slate-200">
+                              <span className="text-slate-500">Normaler Betrag</span>
+                              <span className="font-semibold text-slate-700">{formatEUR(normalAmount)}</span>
+                            </div>
+                            {discountValue > 0 && (
+                              <div className="flex justify-between text-xs rounded bg-emerald-50 px-2 py-1.5 border border-emerald-200">
+                                <span className="text-emerald-700">Rabattierter Zahlbetrag</span>
+                                <span className="font-bold text-emerald-700">{formatEUR(discountedAmount)}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       <h3 className="font-bold text-[10px] text-[#1a2a5e] uppercase tracking-wider mb-2">Finanzübersicht</h3>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Nettobetrag</span>
@@ -1724,7 +1734,7 @@ export function CustomerInvoices() {
                     </div>
                   )}
 
-                  {/* Notes & Payment Terms */}
+                  {/* Notes */}
                   <div className="space-y-2">
                     {selectedInvoice.notes && (
                       <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
@@ -1732,9 +1742,6 @@ export function CustomerInvoices() {
                         <p className="text-xs text-slate-600 leading-relaxed">{selectedInvoice.notes}</p>
                       </div>
                     )}
-                    <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-100">
-                      <p className="text-xs text-slate-500"><span className="font-bold text-slate-600">Zahlungsbedingungen:</span> {selectedInvoice.paymentTerms}</p>
-                    </div>
                   </div>
 
                   {/* Actions */}

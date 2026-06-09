@@ -28,6 +28,19 @@ function calculateDiscountAmount(subtotal, discountPercent) {
   return Number(((numericSubtotal * numericDiscountPercent) / 100).toFixed(2));
 }
 
+function composePaymentTerms(financialProfile) {
+  const baseTerms = String(financialProfile?.paymentTerms || '').trim();
+  const cashDiscountPercent = Number(financialProfile?.cashDiscountPercent || 0);
+  const cashDiscountDays = Number(financialProfile?.cashDiscountDays || 0);
+
+  if (cashDiscountPercent > 0 && cashDiscountDays > 0) {
+    const skontoText = `${cashDiscountPercent}% Skonto bei Zahlung innerhalb ${cashDiscountDays} Tagen`;
+    return baseTerms ? `${baseTerms} | ${skontoText}` : skontoText;
+  }
+
+  return baseTerms || 'Net 14';
+}
+
 function normalizeBillingAddress(address) {
   if (!address || typeof address !== 'object') return null;
 
@@ -1221,6 +1234,7 @@ class FinancialService {
       const taxRate = financialProfile.taxRate / 100;
       const dueDays = financialProfile.paymentDueDays || 30;
       const invoicePrefix = financialProfile.invoicePrefix;
+      const paymentTerms = composePaymentTerms(financialProfile);
 
       const invoice = new Invoice({
         orderId: order._id,
@@ -1237,7 +1251,7 @@ class FinancialService {
         total: subtotal + (subtotal * taxRate) - discount,
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
         numberPrefix: invoicePrefix,
-        paymentTerms: financialProfile.paymentTerms,
+        paymentTerms,
       });
 
       await invoice.save();
@@ -1347,7 +1361,7 @@ class FinancialService {
       total,
       numberPrefix:  options.numberPrefix || financialProfile.invoicePrefix || 'INV',
       dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
-      paymentTerms:  options.paymentTerms || financialProfile.paymentTerms || 'Net 30',
+      paymentTerms:  options.paymentTerms || composePaymentTerms(financialProfile),
       notes:         options.notes || '',
       status:        'draft'
     };
