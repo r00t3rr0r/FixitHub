@@ -253,6 +253,8 @@ class OrderService {
         andFilters.push({
           $or: [
             { 'assignedStaff.staffId': filters.assignedStaff },
+            { 'workflows.assignedStaffId': filters.assignedStaff },
+            { 'workflows.assignedStaff.staffId': filters.assignedStaff },
             { 'workflows.steps.assignedStaffId': filters.assignedStaff },
             { 'workflows.steps.assignedStaff.staffId': filters.assignedStaff },
           ],
@@ -1032,8 +1034,8 @@ class OrderService {
   }
 
   // Assign workflow to order
-  static async assignWorkflowToOrder(orderId, workflowTemplateId, staffId) {
-    console.log('OrderService: Assigning workflow to order:', { orderId, workflowTemplateId, staffId });
+  static async assignWorkflowToOrder(orderId, workflowTemplateId, staffId, assignedWorkflowStaffId = null) {
+    console.log('OrderService: Assigning workflow to order:', { orderId, workflowTemplateId, staffId, assignedWorkflowStaffId });
 
     try {
       const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
@@ -1044,6 +1046,15 @@ class OrderService {
       const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
       if (!workflowTemplate) {
         throw new Error('Workflow template not found');
+      }
+
+      let workflowAssignedStaffMembers = [];
+      if (assignedWorkflowStaffId) {
+        const assignedStaff = await User.findById(assignedWorkflowStaffId);
+        if (!assignedStaff || !['staff', 'admin'].includes(assignedStaff.role)) {
+          throw new Error('Assigned workflow staff member not found');
+        }
+        workflowAssignedStaffMembers = [assignedStaff];
       }
 
       // Check if workflow is already assigned
@@ -1068,17 +1079,23 @@ class OrderService {
       order.workflows.push({
         workflowTemplateId,
         workflowName: workflowTemplate.name,
+        assignedStaffId: workflowAssignedStaffMembers[0]?._id,
+        assignedStaff: buildWorkflowStepAssignments(workflowAssignedStaffMembers),
         steps: workflowSteps,
         currentStepIndex: 0,
         status: 'not-started',
         estimatedCompletionTime: workflowTemplate.estimatedTotalTime
       });
 
+      ensureOrderStaffAssignments(order, workflowAssignedStaffMembers);
+
       // Add timeline entry
       const staff = await User.findById(staffId);
       order.timeline.push({
         status: 'Workflow Assigned',
-        description: `Workflow "${workflowTemplate.name}" assigned to order`,
+        description: workflowAssignedStaffMembers.length > 0
+          ? `Workflow "${workflowTemplate.name}" assigned to order and ${workflowAssignedStaffMembers[0].name}`
+          : `Workflow "${workflowTemplate.name}" assigned to order`,
         completedAt: new Date(),
         staffId: staffId || 'system',
         staffName: staff ? staff.name : 'System'
@@ -1901,6 +1918,8 @@ class OrderService {
     try {
       const order = await Order.findById(orderId)
         .populate('workflows.workflowTemplateId')
+        .populate('workflows.assignedStaffId', 'name avatar')
+        .populate('workflows.assignedStaff.staffId', 'name avatar')
         .populate('workflows.steps.assignedStaffId', 'name avatar')
         .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
 

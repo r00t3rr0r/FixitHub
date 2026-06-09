@@ -605,7 +605,7 @@ router.post('/:id/workflows', requireUser, requireAdminOrStaff, async (req, res)
   console.log('Assign workflow to order request received:', req.params.id, req.body);
 
   try {
-    const { workflowTemplateId } = req.body;
+    const { workflowTemplateId, assignedWorkflowStaffId } = req.body;
 
     if (!workflowTemplateId) {
       return res.status(400).json({ error: 'Workflow template ID is required' });
@@ -614,7 +614,8 @@ router.post('/:id/workflows', requireUser, requireAdminOrStaff, async (req, res)
     const order = await OrderService.assignWorkflowToOrder(
       req.params.id,
       workflowTemplateId,
-      req.user._id
+      req.user._id,
+      assignedWorkflowStaffId
     );
 
     return res.status(200).json({
