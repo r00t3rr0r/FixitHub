@@ -10,37 +10,65 @@ import { RepairMainInterface } from '@/components/repair/RepairMainInterface';
 import './RepairWorkflow.css';
 
 export function RepairWorkflowPage() {
-  const { orderId } = useParams<{ orderId: string }>();
+  const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [workflow, setWorkflow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // First, resolve orderNumber to orderId
   useEffect(() => {
-    const loadWorkflow = async () => {
-      if (!orderId) {
-        setError('Order ID not provided');
+    const resolveOrderId = async () => {
+      if (!orderNumber) {
+        setError('Order number not provided');
         setLoading(false);
         return;
       }
 
       try {
+        // Get order by orderNumber to obtain orderId
+        const orderRes = await fetch(`/api/orders?orderNumber=${orderNumber}`);
+        if (!orderRes.ok) {
+          throw new Error('Order not found');
+        }
+
+        const orderData = await orderRes.json();
+        const order = Array.isArray(orderData) ? orderData[0] : orderData.order;
+
+        if (!order || !order._id) {
+          throw new Error('Invalid order data');
+        }
+
+        setOrderId(order._id);
+      } catch (err: any) {
+        console.error('Error resolving order:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    resolveOrderId();
+  }, [orderNumber]);
+
+  // Then load the workflow
+  useEffect(() => {
+    if (!orderId) return;
+
+    const loadWorkflow = async () => {
+      try {
         setLoading(true);
 
-        const initResponse = await fetch(`/api/repair-workflows/${orderId}/init`, {
-          method: 'POST',
+        const initResponse = await fetch(`/api/repair-workflows/${orderId}`, {
+          method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerId: null,
-            inspectionId: null,
-          }),
         });
 
         if (!initResponse.ok) {
-          throw new Error('Failed to initialize repair workflow');
+          throw new Error('Failed to load repair workflow');
         }
 
         const initData = await initResponse.json();
@@ -82,7 +110,7 @@ export function RepairWorkflowPage() {
     );
   }
 
-  if (!workflow) {
+  if (!workflow || !orderId) {
     return (
       <div className="repair-workflow-loading">
         <div className="repair-workflow-error-text">Workflow konnte nicht geladen werden</div>
@@ -104,13 +132,13 @@ export function RepairWorkflowPage() {
           </Button>
           <div>
             <h1 className="repair-workflow-title">Reparatur-Workflow</h1>
-            <p className="repair-workflow-subtitle">Auftrag: {orderId}</p>
+            <p className="repair-workflow-subtitle">Auftrag: {orderNumber}</p>
           </div>
         </div>
 
         {workflow.status === 'pending-confirmation' && (
           <DataOverviewScreen
-            orderId={orderId!}
+            orderId={orderId}
             workflow={workflow}
             onWorkflowUpdated={handleWorkflowUpdated}
           />
@@ -118,7 +146,7 @@ export function RepairWorkflowPage() {
 
         {['in-progress', 'paused', 'completed', 'incident'].includes(workflow.status) && (
           <RepairMainInterface
-            orderId={orderId!}
+            orderId={orderId}
             workflow={workflow}
             onWorkflowUpdated={handleWorkflowUpdated}
           />

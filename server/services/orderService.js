@@ -1042,19 +1042,24 @@ class OrderService {
       if (!order) {
         throw new Error('Order not found');
       }
+      console.log('OrderService: Order found:', { orderId, orderNumber: order.orderNumber });
 
       const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
       if (!workflowTemplate) {
+        console.error('OrderService: Workflow template not found:', workflowTemplateId);
         throw new Error('Workflow template not found');
       }
+      console.log('OrderService: Workflow template found:', { templateId: workflowTemplate._id, name: workflowTemplate.name });
 
       let workflowAssignedStaffMembers = [];
       if (assignedWorkflowStaffId) {
         const assignedStaff = await User.findById(assignedWorkflowStaffId);
         if (!assignedStaff || !['staff', 'admin'].includes(assignedStaff.role)) {
-          throw new Error('Assigned workflow staff member not found');
+          console.error('OrderService: Invalid assigned staff:', { assignedWorkflowStaffId, found: !!assignedStaff, role: assignedStaff?.role });
+          throw new Error('Assigned workflow staff member not found or invalid role');
         }
         workflowAssignedStaffMembers = [assignedStaff];
+        console.log('OrderService: Assigned staff validated:', { staffId: assignedStaff._id, name: assignedStaff.name, role: assignedStaff.role });
       }
 
       // Check if workflow is already assigned
@@ -1062,8 +1067,10 @@ class OrderService {
         w => w.workflowTemplateId.toString() === workflowTemplateId
       );
       if (existingWorkflow) {
+        console.error('OrderService: Workflow already assigned to order:', { workflowTemplateId, existingWorkflowId: existingWorkflow._id });
         throw new Error('This workflow is already assigned to this order');
       }
+      console.log('OrderService: Workflow not yet assigned, proceeding...');
 
       // Create workflow execution steps from template
       const workflowSteps = workflowTemplate.steps.map(step => ({
@@ -1071,7 +1078,7 @@ class OrderService {
         stepName: step.name,
         status: 'pending',
         formData: {},
-        checklistData: new Map(),
+        checklistData: {},
         photos: []
       }));
 

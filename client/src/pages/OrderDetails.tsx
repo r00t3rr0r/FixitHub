@@ -155,9 +155,6 @@ export function OrderDetails() {
   const [selectedWorkflowForExecution, setSelectedWorkflowForExecution] = useState<any | null>(null)
   const [workflowExecutionModalOpen, setWorkflowExecutionModalOpen] = useState(false)
   const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'execute' | 'view'>('view')
-  const [repairWorkflow, setRepairWorkflow] = useState<any>(null)
-  const [repairWorkflowDialogOpen, setRepairWorkflowDialogOpen] = useState(false)
-  const [startingRepairWorkflow, setStartingRepairWorkflow] = useState(false)
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
@@ -1361,6 +1358,29 @@ export function OrderDetails() {
       setAssigningWorkflow(true)
       console.log("OrderDetails: Assigning workflow:", workflowTemplateId)
 
+      // Handle Repair Workflow separately
+      if (workflowTemplateId === 'repair-workflow') {
+        console.log("OrderDetails: Initializing repair workflow for order:", id)
+        const response = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
+        const workflow = (response as any)?.workflow
+
+        toast({
+          title: "Erfolg",
+          description: "Reparatur-Workflow wurde zugewiesen. Navigiere zur Reparaturseite.",
+        })
+
+        // Redirect to repair workflow page
+        if (workflow?._id && order?.orderNumber) {
+          navigate(`/repair/workflow/${order.orderNumber}`, {
+            state: { workflowId: workflow._id }
+          })
+        }
+
+        setWorkflowDialogOpen(false)
+        return
+      }
+
+      // Handle regular workflows
       const selectedWorkflowAssignee =
         workflowAssignedStaffId && workflowAssignedStaffId !== "__unassigned__"
           ? workflowAssignedStaffId
@@ -1609,39 +1629,6 @@ export function OrderDetails() {
     }
   }
 
-  const handleStartRepairWorkflow = async () => {
-    if (!id) return
-
-    try {
-      setStartingRepairWorkflow(true)
-      console.log("OrderDetails: Initializing repair workflow for order:", id)
-
-      const response = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
-      const workflow = (response as any)?.workflow
-
-      setRepairWorkflow(workflow)
-      toast({
-        title: "Erfolg",
-        description: "Reparatur-Workflow wurde initialisiert. Navigiere zur Reparaturseite.",
-      })
-
-      // Redirect to repair workflow page
-      if (workflow?._id && order?.orderNumber) {
-        navigate(`/repair/workflow/${order.orderNumber}`, {
-          state: { workflowId: workflow._id }
-        })
-      }
-    } catch (error: any) {
-      console.error("OrderDetails: Error starting repair workflow:", error)
-      toast({
-        title: "Fehler",
-        description: error.message || "Reparatur-Workflow konnte nicht gestartet werden",
-        variant: "destructive"
-      })
-    } finally {
-      setStartingRepairWorkflow(false)
-    }
-  }
 
   const getVersionTypeColor = (versionType: string) => {
     switch (versionType) {
@@ -6041,30 +6028,38 @@ export function OrderDetails() {
             </div>
 
             {customerInspection && (
-              <Card className="border-emerald-200 bg-emerald-50/50">
+              <Card className="border-emerald-200 bg-emerald-50/50 transition-colors hover:border-emerald-400 hover:bg-emerald-50/70">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <CardTitle className="text-base text-slate-900">Reparatur-Workflow</CardTitle>
                       <CardDescription className="mt-1">
-                        Starten Sie den Reparatur-Ausführungs-Workflow für diese Inspektion
+                        Reparatur-Ausführungs-Workflow für diese Inspektion
                       </CardDescription>
                     </div>
                     <Button
                       size="sm"
-                      onClick={handleStartRepairWorkflow}
-                      disabled={startingRepairWorkflow}
+                      onClick={() => handleAssignWorkflow('repair-workflow')}
+                      disabled={assigningWorkflow}
                       className="flex-shrink-0 gap-1 bg-emerald-600 hover:bg-emerald-700"
                     >
-                      {startingRepairWorkflow ? (
+                      {assigningWorkflow ? (
                         <span className="inline-block animate-spin">⏳</span>
                       ) : (
                         <Plus className="h-3.5 w-3.5" />
                       )}
-                      Starten
+                      Zuweisen
                     </Button>
                   </div>
                 </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 font-medium text-emerald-800">
+                      <Wrench className="h-3.5 w-3.5" />
+                      Reparatur
+                    </span>
+                  </div>
+                </CardContent>
               </Card>
             )}
 

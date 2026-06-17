@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Smartphone, Package, Zap, CheckCircle2 } from 'lucide-react';
+import { Smartphone, Package, Zap, CheckCircle2, Info, Apple } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { CorrectionModal } from './CorrectionModal';
 
@@ -109,6 +109,103 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
           </Card>
         )}
 
+        {inspection?.modelVerification && (
+          <Card className="overview-card">
+            <CardHeader>
+              <CardTitle className="overview-card-header">
+                <Info className="overview-card-icon" />
+                Modellverifizierung
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overview-grid">
+                <div className="overview-item">
+                  <div className="overview-item-label">IMEI</div>
+                  <div className="overview-item-value">
+                    {inspection.modelVerification.imei || 'N/A'}
+                  </div>
+                </div>
+                <div className="overview-item">
+                  <div className="overview-item-label">Modell</div>
+                  <div className="overview-item-value">
+                    {inspection.modelVerification.modelNumber || 'N/A'}
+                  </div>
+                </div>
+                <div className="overview-item">
+                  <div className="overview-item-label">IMEI Gültig</div>
+                  <div className="overview-item-value">
+                    {inspection.modelVerification.imeiValid ? 'Ja' : 'Nein'}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {inspection?.identification && (
+          <Card className="overview-card">
+            <CardHeader>
+              <CardTitle className="overview-card-header">
+                <Package className="overview-card-icon" />
+                Identifikation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overview-grid">
+                <div className="overview-item">
+                  <div className="overview-item-label">Speicherplatz</div>
+                  <div className="overview-item-value">
+                    {inspection.identification.storage || 'N/A'}
+                  </div>
+                </div>
+                <div className="overview-item">
+                  <div className="overview-item-label">RAM</div>
+                  <div className="overview-item-value">
+                    {inspection.identification.ram || 'N/A'}
+                  </div>
+                </div>
+                <div className="overview-item">
+                  <div className="overview-item-label">Betriebssystem</div>
+                  <div className="overview-item-value">
+                    {inspection.identification.osVersion || 'N/A'}
+                  </div>
+                </div>
+                <div className="overview-item">
+                  <div className="overview-item-label">Aktivierungssperre</div>
+                  <div className="overview-item-value">
+                    {inspection.identification.activationLocked ? 'Aktiv' : 'Inaktiv'}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {inspection?.accessories && inspection.accessories.length > 0 && (
+          <Card className="overview-card">
+            <CardHeader>
+              <CardTitle className="overview-card-header">
+                <Package className="overview-card-icon" />
+                Zubehör
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overview-grid">
+                {inspection.accessories.map((acc: any, idx: number) => (
+                  <div key={idx} className="overview-item">
+                    <div className="overview-item-label">
+                      {acc.name || `Zubehör ${idx + 1}`}
+                    </div>
+                    <div className="overview-item-value">
+                      {acc.condition || 'Vorhanden'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {inspection?.externalInspection && (
           <Card className="overview-card">
             <CardHeader>
@@ -180,6 +277,33 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
                   <div className="overview-item-label">Hauptkamera</div>
                   <div className="overview-item-value">
                     {inspection.deviceTest.mainCamera?.status}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {inspection?.appleSpecific && (
+          <Card className="overview-card">
+            <CardHeader>
+              <CardTitle className="overview-card-header">
+                <Apple className="overview-card-icon" />
+                Apple-spezifische Informationen
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overview-grid">
+                <div className="overview-item">
+                  <div className="overview-item-label">Find My Status</div>
+                  <div className="overview-item-value">
+                    {inspection.appleSpecific.findMyEnabled ? 'Aktiviert' : 'Deaktiviert'}
+                  </div>
+                </div>
+                <div className="overview-item">
+                  <div className="overview-item-label">Touch ID</div>
+                  <div className="overview-item-value">
+                    {inspection.appleSpecific.touchIdStatus || 'N/A'}
                   </div>
                 </div>
               </div>
