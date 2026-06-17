@@ -47,9 +47,14 @@ interface WorkflowStep {
   status: 'completed' | 'in-progress' | 'skipped' | 'pending'
   estimatedTime?: number
   order: number
+  category?: 'diagnostic' | 'repair' | 'quality' | 'addon' | 'completion'
+  tools?: string[]
+  skills?: string[]
+  dependencies?: string[]
   checklistItems?: string[]
   formFields?: FormField[]
   requiresFormCompletion?: boolean
+  requiresApproval?: boolean
   canSkip?: boolean
   startedAt?: string
   completedAt?: string
@@ -470,13 +475,85 @@ export function WorkflowStepExecutionPanel({
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
 
+          {/* ── Step Requirements/Info ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {normalizedStep.category && (
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1">Kategorie</p>
+                <Badge className="bg-blue-600 text-white text-xs capitalize">
+                  {normalizedStep.category}
+                </Badge>
+              </div>
+            )}
+
+            {normalizedStep.requiresApproval && (
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Genehmigung</p>
+                <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50">
+                  ⚠️ Genehmigung erforderlich
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {/* ── Tools, Skills, Dependencies ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {normalizedStep.tools && normalizedStep.tools.length > 0 && (
+              <section className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#1a2a5e]" />
+                  Werkzeuge
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {normalizedStep.tools.map((tool, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-slate-300">
+                      {tool}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {normalizedStep.skills && normalizedStep.skills.length > 0 && (
+              <section className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#1a2a5e]" />
+                  Fertigkeiten
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {normalizedStep.skills.map((skill, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-slate-300">
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {normalizedStep.dependencies && normalizedStep.dependencies.length > 0 && (
+              <section className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#1a2a5e]" />
+                  Abhängigkeiten
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {normalizedStep.dependencies.map((dep, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-slate-300">
+                      {dep}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
           {/* ── Checklist ── */}
           {normalizedStep.checklistItems && normalizedStep.checklistItems.length > 0 && (
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                   <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-                  Checkliste <span className="text-red-500 text-xs">*</span>
+                  Inspektions-Checkliste <span className="text-red-500 text-xs">*</span>
                 </h3>
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                   completedChecklistItems === totalChecklistItems && totalChecklistItems > 0
@@ -530,7 +607,7 @@ export function WorkflowStepExecutionPanel({
             <section>
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
                 <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-                Formularfelder
+                Schritt-Daten erfassen
               </h3>
               {Object.keys(validationErrors).length > 0 && (
                 <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -750,14 +827,14 @@ export function WorkflowStepExecutionPanel({
             </section>
           )}
 
-          {/* ── Notes ── */}
-          <section>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+          {/* ── Observations & Documentation ── */}
+          <section className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-slate-50">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 mb-3">
               <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-              Notizen
+              Ergebnisse & Beobachtungen
             </h3>
             <Textarea
-              placeholder="Beobachtungen, Auffälligkeiten oder Hinweise für diesen Schritt …"
+              placeholder="Dokumentiere hier die Ergebnisse dieses Schrittes, Auffälligkeiten oder spezielle Beobachtungen …"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isSubmitting}
@@ -766,12 +843,13 @@ export function WorkflowStepExecutionPanel({
             />
           </section>
 
-          {/* ── Photo upload ── */}
-          <section>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+          {/* ── Documentation Photos ── */}
+          <section className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-slate-50 to-slate-50">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 mb-3">
               <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-              Fotos
+              Dokumentationsfotos
             </h3>
+            <p className="text-xs text-slate-600 mb-3">Fotografiere relevante Zustände, Fehler oder Ergebnisse für die Dokumentation.</p>
             <input
               type="file"
               multiple
