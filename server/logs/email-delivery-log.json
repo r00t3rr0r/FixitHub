@@ -10102,5 +10102,103 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1781698954147-2go4cu2ky",
+    "timestamp": "2026-06-17T12:22:34.147Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<1b574b29-3fe5-6e63-741e-b6e84e608930@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1047,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1781702253387-2ycb1s2bv",
+    "timestamp": "2026-06-17T13:17:33.387Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<647d56dd-2b86-4f22-8504-5a35a3e9ac9d@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1288,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1781706730317-23ic07enj",
+    "timestamp": "2026-06-17T14:32:10.317Z",
+    "to": "dieter.senf@protonmail.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-003 – Apple iPhone 11 Pro",
+    "messageId": "<3706ef03-3dc2-7f02-d4ed-88fe40726ca3@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1936,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

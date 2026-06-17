@@ -19,6 +19,7 @@ import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, 
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
+import { initializeRepairWorkflow, getRepairWorkflow } from "@/api/repairWorkflow"
 import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
 import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
@@ -154,6 +155,9 @@ export function OrderDetails() {
   const [selectedWorkflowForExecution, setSelectedWorkflowForExecution] = useState<any | null>(null)
   const [workflowExecutionModalOpen, setWorkflowExecutionModalOpen] = useState(false)
   const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'execute' | 'view'>('view')
+  const [repairWorkflow, setRepairWorkflow] = useState<any>(null)
+  const [repairWorkflowDialogOpen, setRepairWorkflowDialogOpen] = useState(false)
+  const [startingRepairWorkflow, setStartingRepairWorkflow] = useState(false)
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
@@ -1602,6 +1606,40 @@ export function OrderDetails() {
       })
     } finally {
       setWorkflowActionInProgress(null)
+    }
+  }
+
+  const handleStartRepairWorkflow = async () => {
+    if (!id) return
+
+    try {
+      setStartingRepairWorkflow(true)
+      console.log("OrderDetails: Initializing repair workflow for order:", id)
+
+      const response = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
+      const workflow = (response as any)?.workflow
+
+      setRepairWorkflow(workflow)
+      toast({
+        title: "Erfolg",
+        description: "Reparatur-Workflow wurde initialisiert. Navigiere zur Reparaturseite.",
+      })
+
+      // Redirect to repair workflow page
+      if (workflow?._id && order?.orderNumber) {
+        navigate(`/repair/workflow/${order.orderNumber}`, {
+          state: { workflowId: workflow._id }
+        })
+      }
+    } catch (error: any) {
+      console.error("OrderDetails: Error starting repair workflow:", error)
+      toast({
+        title: "Fehler",
+        description: error.message || "Reparatur-Workflow konnte nicht gestartet werden",
+        variant: "destructive"
+      })
+    } finally {
+      setStartingRepairWorkflow(false)
     }
   }
 
@@ -5534,6 +5572,15 @@ export function OrderDetails() {
                 <span className="inspection-dialog-context-chip">
                   <strong>Kunde:</strong> {(order as any)?.customerId?.name || "Gast"}
                 </span>
+                <span className="inspection-dialog-context-chip">
+                  <strong>Gebuchte Reparatur:</strong>{' '}
+                  {(repairServices && repairServices.length > 0)
+                    ? repairServices.map((service: any) => service?.name || service?.serviceName || 'Service').join(', ')
+                    : 'Nicht verfuegbar'}
+                </span>
+                <span className="inspection-dialog-context-chip">
+                  <strong>Summe:</strong> {safeToNumber((order as any)?.totalCost).toFixed(2)} EUR
+                </span>
               </div>
 
               <div className="inspection-dialog-form-column">
@@ -5543,6 +5590,12 @@ export function OrderDetails() {
                   deviceType={order.deviceType}
                   deviceBrand={(order as any)?.deviceBrand || ''}
                   deviceModel={(order as any)?.deviceModel || ''}
+                  bookedRepairs={(repairServices || []).map((service: any) => ({
+                    name: service?.name || service?.serviceName || 'Reparaturservice',
+                    price: safeToNumber(service?.finalPrice ?? service?.totalPrice ?? service?.price),
+                    quantity: Number(service?.quantity || 1),
+                  }))}
+                  orderTotalCost={safeToNumber((order as any)?.totalCost)}
                   onComplete={handleInspectionComplete}
                 />
               </div>
@@ -5986,6 +6039,42 @@ export function OrderDetails() {
                 </SelectContent>
               </Select>
             </div>
+
+            {customerInspection && (
+              <Card className="border-emerald-200 bg-emerald-50/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <CardTitle className="text-base text-slate-900">Reparatur-Workflow</CardTitle>
+                      <CardDescription className="mt-1">
+                        Starten Sie den Reparatur-Ausführungs-Workflow für diese Inspektion
+                      </CardDescription>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleStartRepairWorkflow}
+                      disabled={startingRepairWorkflow}
+                      className="flex-shrink-0 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {startingRepairWorkflow ? (
+                        <span className="inline-block animate-spin">⏳</span>
+                      ) : (
+                        <Plus className="h-3.5 w-3.5" />
+                      )}
+                      Starten
+                    </Button>
+                  </div>
+                </CardHeader>
+              </Card>
+            )}
+
+            {suggestedWorkflows.length > 0 && (
+              <div className="pt-2">
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-3">
+                  Verfügbare Workflows
+                </p>
+              </div>
+            )}
             {suggestedWorkflows.length > 0 ? (
               suggestedWorkflows.map((workflow: any) => (
                 <Card

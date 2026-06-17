@@ -8,6 +8,13 @@ const path = require('path');
 const fs = require('fs');
 
 class DeviceInspectionService {
+  static _markStepCompleted(inspection, stepNumber) {
+    const alreadyCompleted = (inspection.completedSteps || []).some((entry) => entry.step === stepNumber);
+    if (!alreadyCompleted) {
+      inspection.completedSteps.push({ step: stepNumber, completedAt: new Date() });
+    }
+  }
+
   // Create or get inspection for an order
   static async initializeInspection(orderId, customerId, technicianId) {
     console.log(`[DeviceInspection] Initializing inspection for order: ${orderId}`);
@@ -156,24 +163,22 @@ class DeviceInspectionService {
         throw new Error('Inspection not found');
       }
 
-      // Validate identification based on device type
+      // IMEI is optional for smartphones in this workflow.
       const identified =
-        (deviceType === 'Smartphone' && imei) ||
-        (['Laptop', 'Tablet'].includes(deviceType) && serialNumber);
-
-      if (!identified) {
-        throw new Error(`Missing required identification for ${deviceType}`);
-      }
+        (deviceType === 'Smartphone' && Boolean(imei || serialNumber)) ||
+        (['Laptop', 'Tablet'].includes(deviceType) && Boolean(serialNumber)) ||
+        (!['Smartphone', 'Laptop', 'Tablet'].includes(deviceType));
 
       inspection.identification = {
         deviceType,
         imei: deviceType === 'Smartphone' ? imei : null,
         serialNumber: ['Laptop', 'Tablet'].includes(deviceType) ? serialNumber : null,
-        identified: true,
+        imeiRequired: deviceType === 'Smartphone' && !imei,
+        identified,
         identifiedAt: new Date(),
       };
 
-      inspection.completedSteps.push({ step: 2, completedAt: new Date() });
+      this._markStepCompleted(inspection, 2);
 
       await inspection.save();
       console.log(`[DeviceInspection] Identification updated`);
@@ -196,12 +201,17 @@ class DeviceInspectionService {
         throw new Error('Inspection not found');
       }
 
+      const normalizedOtherAccessories = Array.isArray(accessoriesData.otherAccessories)
+        ? accessoriesData.otherAccessories
+        : [];
+
       inspection.accessories = {
         ...accessoriesData,
+        otherAccessories: normalizedOtherAccessories,
         checkedAt: new Date(),
       };
 
-      inspection.completedSteps.push({ step: 3, completedAt: new Date() });
+      this._markStepCompleted(inspection, 3);
 
       await inspection.save();
       console.log(`[DeviceInspection] Accessories updated`);
@@ -224,13 +234,23 @@ class DeviceInspectionService {
         throw new Error('Inspection not found');
       }
 
+      const isDamagedCategory = ['damaged'].includes(inspectionData?.display?.status)
+        || ['damaged'].includes(inspectionData?.frame?.status)
+        || ['damaged'].includes(inspectionData?.backCover?.status);
+
+      const normalizedVisibleDamages = {
+        hasDamage: Boolean(inspectionData?.visibleDamages?.hasDamage || isDamagedCategory),
+        description: inspectionData?.visibleDamages?.description || '',
+      };
+
       inspection.externalInspection = {
         ...inspectionData,
+        visibleDamages: normalizedVisibleDamages,
         photos,
         inspectedAt: new Date(),
       };
 
-      inspection.completedSteps.push({ step: 4, completedAt: new Date() });
+      this._markStepCompleted(inspection, 4);
 
       await inspection.save();
       console.log(`[DeviceInspection] External inspection updated`);
@@ -277,7 +297,7 @@ class DeviceInspectionService {
         await this._createCustomerNotification(inspection, technicianId);
       }
 
-      inspection.completedSteps.push({ step: 5, completedAt: new Date() });
+      this._markStepCompleted(inspection, 5);
 
       await inspection.save();
       console.log(`[DeviceInspection] Device test updated. Failed tests: ${failedTests.length}`);
@@ -305,7 +325,7 @@ class DeviceInspectionService {
         checkedAt: new Date(),
       };
 
-      inspection.completedSteps.push({ step: 6, completedAt: new Date() });
+      this._markStepCompleted(inspection, 6);
 
       await inspection.save();
       console.log(`[DeviceInspection] Apple-specific checks updated`);
@@ -352,7 +372,7 @@ class DeviceInspectionService {
   }
 
   // Complete inspection and generate report
-  static async completeInspection(orderId, isRepairable, repairOffer = null) {
+  static async completeInspection(orderId, isRepairable, repairOffer = null, completionAction = null, customerInformation = null) {
     console.log(`[DeviceInspection] Completing inspection for order: ${orderId}`);
 
     try {
@@ -367,8 +387,20 @@ class DeviceInspectionService {
       inspection.status = 'completed';
       inspection.completedAt = new Date();
       inspection.isRepairable = isRepairable;
+      inspection.completionAction = completionAction || (isRepairable ? 'repairable' : 'not-repairable');
 
-      if (repairOffer) {
+      if (customerInformation && typeof customerInformation === 'object') {
+        inspection.customerInformation = {
+          shouldInform: Boolean(customerInformation.shouldInform),
+          reason: customerInformation.reason || '',
+          note: customerInformation.note || '',
+          suggestedStatus: customerInformation.suggestedStatus || '',
+          mailTemplate: customerInformation.mailTemplate || '',
+          generatedAt: customerInformation.mailTemplate ? new Date() : null,
+        };
+      }
+
+      if (repairOffer && typeof repairOffer === 'object' && Number.isFinite(Number(repairOffer.cost))) {
         inspection.repairOffer = repairOffer;
         inspection.approvalStatus = 'awaiting-customer';
       }
@@ -383,6 +415,7 @@ class DeviceInspectionService {
         details: {
           isRepairable,
           hasFailedTests: inspection.hasFailedTests,
+          completionAction: inspection.completionAction,
         },
       });
 
@@ -418,7 +451,7 @@ class DeviceInspectionService {
               diagnosisCompletedAt: inspection.completedAt,
               deviceCondition: inspection.externalInspection?.overallCondition || null,
               recommendedAction: repairOffer
-                ? `Kostenvoranschlag: EUR ${Number(repairOffer.amount || 0).toFixed(2)}`
+                ? `Kostenvoranschlag: EUR ${Number(repairOffer.cost || 0).toFixed(2)}`
                 : (isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen')
             });
           }

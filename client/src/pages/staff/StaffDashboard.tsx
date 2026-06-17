@@ -288,7 +288,7 @@ const isWorkflowAssignedToStaff = (workflow: any, staffId?: string) => {
       : []),
   ]
     .filter(Boolean)
-    .map((value: any) => String(value))
+    .map(toId)
 
   if (workflowAssignedIds.includes(normalizedStaffId)) return true
 
@@ -302,7 +302,7 @@ const isWorkflowAssignedToStaff = (workflow: any, staffId?: string) => {
         : []),
     ]
       .filter(Boolean)
-      .map((value: any) => String(value))
+      .map(toId)
     return stepAssignedIds.includes(normalizedStaffId)
   })
 }

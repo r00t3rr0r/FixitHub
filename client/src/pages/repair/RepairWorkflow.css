@@ -1,0 +1,381 @@
+.repair-workflow-page {
+  min-height: 100vh;
+  background: #f5f6f8;
+  padding: 20px;
+}
+
+.repair-workflow-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.repair-workflow-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 0;
+}
+
+.repair-back-button {
+  flex-shrink: 0;
+}
+
+.repair-workflow-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1a2a5e;
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.repair-workflow-subtitle {
+  font-size: 14px;
+  color: #636e85;
+  margin: 4px 0 0 0;
+}
+
+.repair-workflow-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 600px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.repair-workflow-loading-text {
+  font-size: 16px;
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.repair-workflow-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 600px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  gap: 20px;
+  padding: 40px;
+}
+
+.repair-workflow-error-text {
+  font-size: 16px;
+  color: #d32f2f;
+  text-align: center;
+  max-width: 400px;
+}
+
+/* Data Overview Screen Styles */
+.data-overview-screen {
+  display: grid;
+  gap: 20px;
+}
+
+.overview-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+}
+
+.overview-card-header {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a2a5e;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overview-card-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.overview-item {
+  padding: 12px;
+  background: #f5f6f8;
+  border-radius: 8px;
+  border: 1px solid #d8dce6;
+}
+
+.overview-item-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #636e85;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.overview-item-value {
+  font-size: 14px;
+  color: #2d3748;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.overview-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: flex-end;
+}
+
+/* Repair Main Interface Styles */
+.repair-main-interface {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.repair-header-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.repair-timer-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.repair-timer-time {
+  font-size: 48px;
+  font-weight: 800;
+  color: #1a2a5e;
+  font-family: 'Courier New', monospace;
+}
+
+.repair-timer-status {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #636e85;
+}
+
+.repair-timer-paused {
+  color: #ff9800;
+}
+
+.repair-status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.repair-status-badge.in-progress {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.repair-status-badge.paused {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.repair-status-badge.incident {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.repair-actions-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.repair-action-button {
+  padding: 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.repair-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Incident Reporting */
+.incident-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.incident-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.incident-select-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a2a5e;
+}
+
+.incident-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.incident-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.incident-form-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #636e85;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.incident-form-input {
+  padding: 10px 12px;
+  border: 1px solid #d8dce6;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #2d3748;
+}
+
+.incident-form-input:focus {
+  outline: none;
+  border-color: #1a2a5e;
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
+}
+
+.incident-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Correction Modal */
+.correction-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.correction-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.correction-form-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #636e85;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.correction-form-textarea {
+  padding: 12px;
+  border: 1px solid #d8dce6;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #2d3748;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.correction-form-textarea:focus {
+  outline: none;
+  border-color: #1a2a5e;
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
+}
+
+.correction-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f5f6f8;
+  border-radius: 8px;
+}
+
+.correction-toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.correction-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .repair-workflow-page {
+    padding: 12px;
+  }
+
+  .repair-workflow-title {
+    font-size: 24px;
+  }
+
+  .repair-timer-time {
+    font-size: 36px;
+  }
+
+  .repair-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .repair-actions-panel {
+    grid-template-columns: 1fr;
+  }
+}
