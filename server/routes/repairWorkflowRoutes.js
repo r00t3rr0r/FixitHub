@@ -106,8 +106,10 @@ router.post('/:orderId/pause', requireUser, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { pauseReason } = req.body;
+    const technicianId = req.user._id;
+    const technicianName = req.user.name || req.user.email;
 
-    const workflow = await RepairWorkflowService.pauseRepair(orderId, pauseReason);
+    const workflow = await RepairWorkflowService.pauseRepair(orderId, pauseReason, technicianId, technicianName);
 
     res.json({
       success: true,
@@ -125,7 +127,10 @@ router.post('/:orderId/pause', requireUser, async (req, res) => {
 router.post('/:orderId/resume', requireUser, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const workflow = await RepairWorkflowService.resumeRepair(orderId);
+    const technicianId = req.user._id;
+    const technicianName = req.user.name || req.user.email;
+
+    const workflow = await RepairWorkflowService.resumeRepair(orderId, technicianId, technicianName);
 
     res.json({
       success: true,
@@ -143,7 +148,10 @@ router.post('/:orderId/resume', requireUser, async (req, res) => {
 router.post('/:orderId/complete', requireUser, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const workflow = await RepairWorkflowService.completeRepair(orderId);
+    const technicianId = req.user._id;
+    const technicianName = req.user.name || req.user.email;
+
+    const workflow = await RepairWorkflowService.completeRepair(orderId, technicianId, technicianName);
 
     res.json({
       success: true,

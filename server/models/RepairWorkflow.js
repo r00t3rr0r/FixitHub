@@ -5,6 +5,16 @@ const pauseHistorySchema = new mongoose.Schema({
   resumedAt: Date,
   durationMs: Number,
   reason: String,
+  pausedByTechnicianId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  pausedByTechnicianName: String,
+  resumedByTechnicianId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  resumedByTechnicianName: String,
 }, { _id: true });
 
 const incidentSchema = new mongoose.Schema({
@@ -82,7 +92,17 @@ const repairWorkflowSchema = new mongoose.Schema({
     pausedAt: Date,
     resumedAt: Date,
     completedAt: Date,
+    currentPauseReason: String,
+    currentPausedByTechnicianId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    currentPausedByTechnicianName: String,
     totalPausedMs: {
+      type: Number,
+      default: 0,
+    },
+    totalWorkMs: {
       type: Number,
       default: 0,
     },
@@ -98,6 +118,11 @@ const repairWorkflowSchema = new mongoose.Schema({
 
   metadata: {
     elapsedTimeMs: Number,
+    completedByTechnicianId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    completedByTechnicianName: String,
   },
 
   createdAt: {

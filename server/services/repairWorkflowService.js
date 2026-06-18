@@ -105,7 +105,7 @@ class RepairWorkflowService {
     }
   }
 
-  async pauseRepair(orderId, pauseReason) {
+  async pauseRepair(orderId, pauseReason, technicianId, technicianName) {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
@@ -119,6 +119,9 @@ class RepairWorkflowService {
       const now = new Date();
       workflow.status = 'paused';
       workflow.timerData.pausedAt = now;
+      workflow.timerData.currentPauseReason = pauseReason || undefined;
+      workflow.timerData.currentPausedByTechnicianId = technicianId || undefined;
+      workflow.timerData.currentPausedByTechnicianName = technicianName || undefined;
       workflow.lastStatusChangeAt = now;
 
       const order = await Order.findById(orderId);
@@ -150,7 +153,7 @@ class RepairWorkflowService {
     }
   }
 
-  async resumeRepair(orderId) {
+  async resumeRepair(orderId, technicianId, technicianName) {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
@@ -166,17 +169,28 @@ class RepairWorkflowService {
       const pauseDuration = pausedAt ? (now.getTime() - pausedAt.getTime()) : 0;
 
       if (pausedAt && pauseDuration > 0) {
+        const pauseReason = workflow.status === 'incident'
+          ? 'Zwischenfall'
+          : (workflow.timerData.currentPauseReason || undefined);
+
         workflow.timerData.pauseHistory.push({
           pausedAt: pausedAt,
           resumedAt: now,
           durationMs: pauseDuration,
-          reason: workflow.status === 'incident' ? 'Zwischenfall' : undefined,
+          reason: pauseReason,
+          pausedByTechnicianId: workflow.timerData.currentPausedByTechnicianId || undefined,
+          pausedByTechnicianName: workflow.timerData.currentPausedByTechnicianName || undefined,
+          resumedByTechnicianId: technicianId || undefined,
+          resumedByTechnicianName: technicianName || undefined,
         });
         workflow.timerData.totalPausedMs = (workflow.timerData.totalPausedMs || 0) + pauseDuration;
       }
 
       workflow.timerData.pausedAt = undefined;
       workflow.timerData.resumedAt = now;
+      workflow.timerData.currentPauseReason = undefined;
+      workflow.timerData.currentPausedByTechnicianId = undefined;
+      workflow.timerData.currentPausedByTechnicianName = undefined;
       workflow.status = 'in-progress';
       workflow.lastStatusChangeAt = now;
 
@@ -188,7 +202,7 @@ class RepairWorkflowService {
     }
   }
 
-  async completeRepair(orderId) {
+  async completeRepair(orderId, technicianId, technicianName) {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
@@ -196,12 +210,47 @@ class RepairWorkflowService {
       }
 
       const now = new Date();
+
+      // If currently paused/incident, finalize the active pause into history
+      if (workflow.timerData.pausedAt) {
+        const pausedAt = new Date(workflow.timerData.pausedAt);
+        const pauseDuration = now.getTime() - pausedAt.getTime();
+
+        if (pauseDuration > 0) {
+          const pauseReason = workflow.status === 'incident'
+            ? 'Zwischenfall'
+            : (workflow.timerData.currentPauseReason || 'Abschluss');
+
+          workflow.timerData.pauseHistory.push({
+            pausedAt: pausedAt,
+            resumedAt: now,
+            durationMs: pauseDuration,
+            reason: pauseReason,
+            pausedByTechnicianId: workflow.timerData.currentPausedByTechnicianId || undefined,
+            pausedByTechnicianName: workflow.timerData.currentPausedByTechnicianName || undefined,
+            resumedByTechnicianId: technicianId || undefined,
+            resumedByTechnicianName: technicianName || undefined,
+          });
+          workflow.timerData.totalPausedMs = (workflow.timerData.totalPausedMs || 0) + pauseDuration;
+        }
+
+        workflow.timerData.pausedAt = undefined;
+        workflow.timerData.currentPauseReason = undefined;
+        workflow.timerData.currentPausedByTechnicianId = undefined;
+        workflow.timerData.currentPausedByTechnicianName = undefined;
+      }
+
       workflow.status = 'completed';
       workflow.timerData.completedAt = now;
       workflow.lastStatusChangeAt = now;
 
       const elapsedTimeMs = this._calculateElapsedTime(workflow);
-      workflow.metadata = { elapsedTimeMs };
+      workflow.timerData.totalWorkMs = elapsedTimeMs;
+      workflow.metadata = {
+        elapsedTimeMs,
+        completedByTechnicianId: technicianId || undefined,
+        completedByTechnicianName: technicianName || undefined,
+      };
 
       await workflow.save();
       return workflow;
@@ -232,6 +281,9 @@ class RepairWorkflowService {
       workflow.incidents.push(incidentData);
       workflow.status = 'incident';
       workflow.timerData.pausedAt = new Date();
+      workflow.timerData.currentPauseReason = `Zwischenfall: ${reason}`;
+      workflow.timerData.currentPausedByTechnicianId = technicianId;
+      workflow.timerData.currentPausedByTechnicianName = technicianName;
       workflow.lastStatusChangeAt = new Date();
 
       const order = await Order.findById(orderId);
