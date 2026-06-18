@@ -92,7 +92,7 @@ class RepairWorkflowService {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
-        throw new Error('Repair workflow not found');
+        return null;
       }
 
       const elapsedTimeMs = this._calculateElapsedTime(workflow);

@@ -29,6 +29,7 @@ import { DeviceInspectionForm } from "@/components/inspection/DeviceInspectionFo
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
 import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModal"
+import { RepairWorkflowProcessDialog } from "@/components/admin/RepairWorkflowProcessDialog"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
@@ -113,6 +114,11 @@ import {
 } from "lucide-react"
 
 export function OrderDetails() {
+  const SPECIAL_REPAIR_WORKFLOW_NAME_MARKERS = [
+    'reparatur-workflow',
+    'standard repair process neu',
+  ]
+
   const { id } = useParams<{ id: string }>()
   const location = useLocation()
   const navigate = useNavigate()
@@ -153,7 +159,9 @@ export function OrderDetails() {
     action: 'start' | 'pause' | 'resume'
   } | null>(null)
   const [selectedWorkflowForExecution, setSelectedWorkflowForExecution] = useState<any | null>(null)
+  const [selectedRepairWorkflow, setSelectedRepairWorkflow] = useState<any | null>(null)
   const [workflowExecutionModalOpen, setWorkflowExecutionModalOpen] = useState(false)
+  const [repairWorkflowDialogOpen, setRepairWorkflowDialogOpen] = useState(false)
   const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'execute' | 'view'>('view')
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
@@ -244,6 +252,61 @@ export function OrderDetails() {
 
     return state?.workflowMode
   })()
+
+  const isSpecialRepairWorkflow = (workflow: any) => {
+    const workflowName = String(
+      workflow?.workflowName
+      || workflow?.name
+      || workflow?.workflowTemplateId?.name
+      || ''
+    )
+      .trim()
+      .toLowerCase()
+
+    return SPECIAL_REPAIR_WORKFLOW_NAME_MARKERS.some((marker) => workflowName.includes(marker))
+  }
+
+  const openSpecialRepairWorkflowDialog = async () => {
+    if (!id) return
+
+    try {
+      let repairWorkflowResponse = await getRepairWorkflow(id)
+      let repairWorkflow =
+        (repairWorkflowResponse as any)?.data?.workflow
+        || (repairWorkflowResponse as any)?.workflow
+        || null
+
+      if (!repairWorkflow) {
+        const initResponse = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
+        repairWorkflow =
+          (initResponse as any)?.data?.workflow
+          || (initResponse as any)?.workflow
+          || null
+
+        if (!repairWorkflow) {
+          repairWorkflowResponse = await getRepairWorkflow(id)
+          repairWorkflow =
+            (repairWorkflowResponse as any)?.data?.workflow
+            || (repairWorkflowResponse as any)?.workflow
+            || null
+        }
+      }
+
+      if (!repairWorkflow) {
+        throw new Error('Reparatur-Workflow konnte nicht geladen werden')
+      }
+
+      setSelectedRepairWorkflow(repairWorkflow)
+      setRepairWorkflowDialogOpen(true)
+    } catch (error: any) {
+      console.error('OrderDetails: Error opening special repair workflow dialog:', error)
+      toast({
+        title: 'Fehler',
+        description: error?.message || 'Reparatur-Workflow konnte nicht geladen werden',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Fetch user profile
   useEffect(() => {
@@ -556,6 +619,12 @@ export function OrderDetails() {
           : workflowStatus === 'in-progress'
             ? 'execute'
             : 'view')
+
+    if (isSpecialRepairWorkflow(matchedWorkflow)) {
+      void openSpecialRepairWorkflowDialog()
+      navigate(location.pathname, { replace: true })
+      return
+    }
 
     setSelectedWorkflowForExecution(matchedWorkflow)
     setWorkflowExecutionMode(safeMode)
@@ -1362,19 +1431,21 @@ export function OrderDetails() {
       if (workflowTemplateId === 'repair-workflow') {
         console.log("OrderDetails: Initializing repair workflow for order:", id)
         const response = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
-        const workflow = (response as any)?.workflow
+        const workflow = (response as any)?.data?.workflow || (response as any)?.workflow
+
+        let currentRepairWorkflow = workflow
+        if (!currentRepairWorkflow) {
+          const currentWorkflowResponse = await getRepairWorkflow(id)
+          currentRepairWorkflow = (currentWorkflowResponse as any)?.data?.workflow || (currentWorkflowResponse as any)?.workflow || null
+        }
 
         toast({
           title: "Erfolg",
-          description: "Reparatur-Workflow wurde zugewiesen. Navigiere zur Reparaturseite.",
+          description: "Reparatur-Workflow wurde zugewiesen.",
         })
 
-        // Redirect to repair workflow page
-        if (workflow?._id && order?.orderNumber) {
-          navigate(`/repair/workflow/${order.orderNumber}`, {
-            state: { workflowId: workflow._id }
-          })
-        }
+        setSelectedRepairWorkflow(currentRepairWorkflow)
+        setRepairWorkflowDialogOpen(true)
 
         setWorkflowDialogOpen(false)
         return
@@ -1464,6 +1535,11 @@ export function OrderDetails() {
   const handleStartWorkflow = (workflowId: string) => {
     const workflow = workflows.find((w: any) => w._id === workflowId)
     if (workflow) {
+      if (isSpecialRepairWorkflow(workflow)) {
+        void openSpecialRepairWorkflowDialog()
+        return
+      }
+
       setSelectedWorkflowForExecution(workflow)
       setWorkflowExecutionMode('start')
       setWorkflowExecutionModalOpen(true)
@@ -1546,6 +1622,11 @@ export function OrderDetails() {
   const handleResumeWorkflow = (workflowId: string) => {
     const workflow = workflows.find((w: any) => w._id === workflowId)
     if (workflow) {
+      if (isSpecialRepairWorkflow(workflow)) {
+        void openSpecialRepairWorkflowDialog()
+        return
+      }
+
       setSelectedWorkflowForExecution(workflow)
       setWorkflowExecutionMode('resume')
       setWorkflowExecutionModalOpen(true)
@@ -1583,6 +1664,32 @@ export function OrderDetails() {
       toast({
         title: "Error",
         description: error.message || "Failed to refresh workflow data",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleRepairWorkflowUpdated = async (updatedWorkflow: any) => {
+    setSelectedRepairWorkflow(updatedWorkflow)
+
+    if (!id) return
+
+    try {
+      const [workflowsResponse, refreshRepairResponse] = await Promise.all([
+        getOrderWorkflows(id),
+        getRepairWorkflow(id),
+      ])
+
+      setWorkflows((workflowsResponse as any).workflows || [])
+      const refreshedRepairWorkflow = (refreshRepairResponse as any)?.data?.workflow || (refreshRepairResponse as any)?.workflow || updatedWorkflow
+      setSelectedRepairWorkflow(refreshedRepairWorkflow)
+
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error refreshing repair workflow state:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh repair workflow data",
         variant: "destructive"
       })
     }
@@ -6181,6 +6288,23 @@ export function OrderDetails() {
           onStepComplete={handleWorkflowStepComplete}
           isLoading={workflowActionInProgress !== null}
           mode={workflowExecutionMode}
+        />
+      )}
+
+      {/* Repair Workflow Process Dialog */}
+      {selectedRepairWorkflow && id && (
+        <RepairWorkflowProcessDialog
+          open={repairWorkflowDialogOpen}
+          onOpenChange={(open) => {
+            setRepairWorkflowDialogOpen(open)
+            if (!open) {
+              setSelectedRepairWorkflow(null)
+            }
+          }}
+          orderId={id}
+          workflow={selectedRepairWorkflow}
+          order={order}
+          onWorkflowUpdated={handleRepairWorkflowUpdated}
         />
       )}
 

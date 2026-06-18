@@ -48,14 +48,14 @@ export interface RepairWorkflow {
 }
 
 export const initializeRepairWorkflow = async (orderId: string, customerId?: string, inspectionId?: string) => {
-  return api.post(`/repair-workflows/${orderId}/init`, {
+  return api.post(`/api/repair-workflows/${orderId}/init`, {
     customerId,
     inspectionId,
   });
 };
 
 export const getRepairWorkflow = async (orderId: string) => {
-  return api.get(`/repair-workflows/${orderId}`);
+  return api.get(`/api/repair-workflows/${orderId}`);
 };
 
 export const approveRepairStart = async (
@@ -64,7 +64,7 @@ export const approveRepairStart = async (
   orderChanges: string,
   notifyCustomer: boolean
 ) => {
-  return api.post(`/repair-workflows/${orderId}/approve`, {
+  return api.post(`/api/repair-workflows/${orderId}/approve`, {
     internalNotes,
     orderChanges,
     notifyCustomer,
@@ -72,17 +72,17 @@ export const approveRepairStart = async (
 };
 
 export const pauseRepair = async (orderId: string, pauseReason?: string) => {
-  return api.post(`/repair-workflows/${orderId}/pause`, {
+  return api.post(`/api/repair-workflows/${orderId}/pause`, {
     pauseReason,
   });
 };
 
 export const resumeRepair = async (orderId: string) => {
-  return api.post(`/repair-workflows/${orderId}/resume`);
+  return api.post(`/api/repair-workflows/${orderId}/resume`);
 };
 
 export const completeRepair = async (orderId: string) => {
-  return api.post(`/repair-workflows/${orderId}/complete`);
+  return api.post(`/api/repair-workflows/${orderId}/complete`);
 };
 
 export const reportIncident = async (
@@ -91,7 +91,7 @@ export const reportIncident = async (
   reason: string,
   additionalData?: any
 ) => {
-  return api.post(`/repair-workflows/${orderId}/incidents`, {
+  return api.post(`/api/repair-workflows/${orderId}/incidents`, {
     incidentType,
     reason,
     additionalData,
@@ -99,7 +99,7 @@ export const reportIncident = async (
 };
 
 export const getInactiveWorkflows = async (thresholdHours: number = 3) => {
-  return api.get('/repair-workflows/admin/inactive', {
+  return api.get('/api/repair-workflows/admin/inactive', {
     params: {
       thresholdHours,
     },

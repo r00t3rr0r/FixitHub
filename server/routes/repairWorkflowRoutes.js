@@ -91,7 +91,7 @@ router.get('/:orderId', requireUser, async (req, res) => {
 
     res.json({
       success: true,
-      workflow,
+      workflow: workflow || null,
     });
   } catch (error) {
     console.error('Error getting active workflow:', error);
