@@ -157,20 +157,24 @@ class RepairWorkflowService {
         throw new Error('Repair workflow not found');
       }
 
-      if (workflow.status !== 'paused') {
-        throw new Error('Repair is not paused');
+      if (workflow.status !== 'paused' && workflow.status !== 'incident') {
+        throw new Error('Repair is not paused or in incident state');
       }
 
       const now = new Date();
-      const pauseDuration = now - workflow.timerData.pausedAt;
+      const pausedAt = workflow.timerData.pausedAt ? new Date(workflow.timerData.pausedAt) : null;
+      const pauseDuration = pausedAt ? (now.getTime() - pausedAt.getTime()) : 0;
 
-      workflow.timerData.pauseHistory.push({
-        pausedAt: workflow.timerData.pausedAt,
-        resumedAt: now,
-        durationMs: pauseDuration,
-      });
+      if (pausedAt && pauseDuration > 0) {
+        workflow.timerData.pauseHistory.push({
+          pausedAt: pausedAt,
+          resumedAt: now,
+          durationMs: pauseDuration,
+          reason: workflow.status === 'incident' ? 'Zwischenfall' : undefined,
+        });
+        workflow.timerData.totalPausedMs = (workflow.timerData.totalPausedMs || 0) + pauseDuration;
+      }
 
-      workflow.timerData.totalPausedMs += pauseDuration;
       workflow.timerData.pausedAt = undefined;
       workflow.timerData.resumedAt = now;
       workflow.status = 'in-progress';
@@ -227,10 +231,11 @@ class RepairWorkflowService {
 
       workflow.incidents.push(incidentData);
       workflow.status = 'incident';
+      workflow.timerData.pausedAt = new Date();
       workflow.lastStatusChangeAt = new Date();
 
       const order = await Order.findById(orderId);
-      if (order) {
+      if (order && additionalData?.notifyCustomer) {
         const email = order.customerEmail || (typeof order.customerId === 'object' && order.customerId.email);
         if (email) {
           try {

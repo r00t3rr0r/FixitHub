@@ -522,34 +522,172 @@ class DeviceInspectionService {
       doc.text(`Inspection Date: ${inspection.completedAt?.toLocaleDateString() || 'Pending'}`);
       doc.moveDown();
 
-      // Inspection Results
-      doc.fontSize(14).font('Helvetica-Bold').text('Inspection Results');
+      // Step 1: Model Verification
+      doc.fontSize(14).font('Helvetica-Bold').text('1. Modellverifizierung');
       doc.fontSize(12).font('Helvetica');
-
       if (inspection.modelVerification) {
-        doc.text(`Model: ${inspection.modelVerification.actualModel}`);
-        doc.text(`Verified: ${inspection.modelVerification.verified ? 'Yes' : 'No'}`);
+        doc.text(`Gemeldetes Modell: ${inspection.modelVerification.reportedModel || 'N/A'}`);
+        doc.text(`Tatsaechliches Modell: ${inspection.modelVerification.actualModel || 'N/A'}`);
+        doc.text(`Verifizierungsstatus: ${inspection.modelVerification.verificationStatus || 'N/A'}`);
+        doc.text(`Verifiziert: ${inspection.modelVerification.verified ? 'Ja' : 'Nein'}`);
+        if (inspection.modelVerification.costDifference != null && inspection.modelVerification.costDifference !== 0) {
+          doc.text(`Preisdifferenz: ${inspection.modelVerification.costDifference > 0 ? '+' : ''}${inspection.modelVerification.costDifference} EUR`);
+        }
+        if (inspection.modelVerification.notes) {
+          doc.text(`Anmerkungen: ${inspection.modelVerification.notes}`);
+        }
       }
+      doc.moveDown();
 
+      // Step 2: Identification
+      doc.fontSize(14).font('Helvetica-Bold').text('2. Geraeteidentifikation');
+      doc.fontSize(12).font('Helvetica');
       if (inspection.identification) {
+        doc.text(`Geraetetyp: ${inspection.identification.deviceType || 'N/A'}`);
         if (inspection.identification.imei) {
           doc.text(`IMEI: ${inspection.identification.imei}`);
         }
         if (inspection.identification.serialNumber) {
-          doc.text(`Serial Number: ${inspection.identification.serialNumber}`);
+          doc.text(`Seriennummer: ${inspection.identification.serialNumber}`);
+        }
+      }
+      doc.moveDown();
+
+      // Step 3: Accessories
+      doc.fontSize(14).font('Helvetica-Bold').text('3. Zubehoer & Verpackung');
+      doc.fontSize(12).font('Helvetica');
+      if (inspection.accessories) {
+        const acc = inspection.accessories;
+        const items = [
+          { label: 'Originalverpackung', data: acc.originalPackaging },
+          { label: 'Schutzhuelle', data: acc.caseCover },
+          { label: 'Netzteil', data: acc.powerAdapter },
+          { label: 'SIM-Schublade', data: acc.simTray },
+          { label: 'Kabel', data: acc.cables },
+        ];
+        items.forEach(({ label, data }) => {
+          if (data && data.present !== undefined) {
+            doc.text(`${label}: ${data.present ? 'Vorhanden' : 'Nicht vorhanden'}${data.description ? ` (${data.description})` : ''}`);
+          }
+        });
+        if (Array.isArray(acc.otherAccessories)) {
+          acc.otherAccessories.forEach(item => {
+            if (item && item.name) {
+              doc.text(`${item.name}: ${item.present ? 'Vorhanden' : 'Nicht vorhanden'}${item.description ? ` (${item.description})` : ''}`);
+            }
+          });
+        }
+        if (acc.additionalAccessoriesText) {
+          doc.text(`Zusaetzliche Hinweise: ${acc.additionalAccessoriesText}`);
+        }
+      }
+      doc.moveDown();
+
+      // Step 4: External Inspection
+      doc.fontSize(14).font('Helvetica-Bold').text('4. Aeussere Inspektion');
+      doc.fontSize(12).font('Helvetica');
+      if (inspection.externalInspection) {
+        const ext = inspection.externalInspection;
+        const parts = [
+          { label: 'Display', data: ext.display },
+          { label: 'Rahmen', data: ext.frame },
+          { label: 'Rueckseite', data: ext.backCover },
+          { label: 'Tasten', data: ext.buttons },
+        ];
+        parts.forEach(({ label, data }) => {
+          if (data) {
+            doc.text(`${label}: ${data.status || 'N/A'}${data.notes ? ` - ${data.notes}` : ''}`);
+          }
+        });
+        if (ext.visibleDamages?.hasDamage) {
+          doc.text(`Sichtbare Schaeden: Ja${ext.visibleDamages.description ? ` - ${ext.visibleDamages.description}` : ''}`);
+        } else {
+          doc.text('Sichtbare Schaeden: Keine');
+        }
+        if (ext.uniqueNotes) {
+          doc.text(`Besondere Anmerkungen: ${ext.uniqueNotes}`);
+        }
+      }
+      doc.moveDown();
+
+      // Step 5: Device Tests
+      doc.fontSize(14).font('Helvetica-Bold').text('5. Geraetetests');
+      doc.fontSize(12).font('Helvetica');
+      if (inspection.deviceTest) {
+        const tests = [
+          { key: 'charging', label: 'Laden' },
+          { key: 'power', label: 'Einschalten' },
+          { key: 'wifi', label: 'WLAN' },
+          { key: 'frontCamera', label: 'Frontkamera' },
+          { key: 'mainCamera', label: 'Hauptkamera' },
+        ];
+        tests.forEach(({ key, label }) => {
+          const test = inspection.deviceTest[key];
+          if (test) {
+            let line = `${label}: ${test.status || 'N/A'}`;
+            if (key === 'charging' && test.current) line += ` (Ladestrom: ${test.current})`;
+            if (test.notes) line += ` - ${test.notes}`;
+            doc.text(line);
+          }
+        });
+      }
+      if (inspection.hasFailedTests && Array.isArray(inspection.failedTestDetails) && inspection.failedTestDetails.length > 0) {
+        doc.moveDown(0.5);
+        doc.font('Helvetica-Bold').text('Fehlgeschlagene Tests:');
+        doc.font('Helvetica');
+        inspection.failedTestDetails.forEach(test => {
+          doc.text(`  - ${test.testName}: ${test.reason}`);
+        });
+      }
+      doc.moveDown();
+
+      // Step 6: Apple-Specific
+      if (inspection.appleSpecific) {
+        doc.fontSize(14).font('Helvetica-Bold').text('6. Apple-spezifische Checks');
+        doc.fontSize(12).font('Helvetica');
+        const apple = inspection.appleSpecific;
+        if (apple.modemFirmware?.status) {
+          doc.text(`Modem-Firmware: ${apple.modemFirmware.status}${apple.modemFirmware.notes ? ` - ${apple.modemFirmware.notes}` : ''}`);
+        }
+        if (apple.touchIdFaceId?.status) {
+          doc.text(`Touch ID / Face ID: ${apple.touchIdFaceId.status}${apple.touchIdFaceId.notes ? ` - ${apple.touchIdFaceId.notes}` : ''}`);
+        }
+        if (apple.customerInfoAction?.requested && apple.customerInfoAction?.note) {
+          doc.text(`Kundeninfo angefordert: ${apple.customerInfoAction.note}`);
+        }
+        doc.moveDown();
+      }
+
+      // Repair Assessment
+      doc.fontSize(14).font('Helvetica-Bold').text('Reparatureinschaetzung');
+      doc.fontSize(12).font('Helvetica');
+      doc.text(`Reparierbar: ${inspection.isRepairable === true ? 'Ja' : inspection.isRepairable === false ? 'Nein' : 'Ausstehend'}`);
+      doc.text(`Abschlussaktion: ${inspection.completionAction || 'N/A'}`);
+      doc.text(`Status: ${inspection.status}`);
+
+      if (inspection.repairOffer && inspection.repairOffer.cost != null) {
+        doc.moveDown(0.5);
+        doc.font('Helvetica-Bold').text('Kostenvoranschlag:');
+        doc.font('Helvetica');
+        doc.text(`Kosten: ${inspection.repairOffer.cost} EUR`);
+        if (inspection.repairOffer.timeframe) {
+          doc.text(`Zeitrahmen: ${inspection.repairOffer.timeframe}`);
+        }
+        if (inspection.repairOffer.description) {
+          doc.text(`Beschreibung: ${inspection.repairOffer.description}`);
         }
       }
 
-      doc.moveDown();
-      doc.text(`Repairable: ${inspection.isRepairable ? 'Yes' : 'No'}`);
-      doc.text(`Status: ${inspection.status}`);
-
-      if (inspection.hasFailedTests) {
-        doc.fontSize(14).font('Helvetica-Bold').text('Failed Tests');
-        doc.fontSize(12).font('Helvetica');
-        inspection.failedTestDetails.forEach(test => {
-          doc.text(`- ${test.testName}: ${test.reason}`);
-        });
+      if (inspection.customerInformation?.shouldInform) {
+        doc.moveDown(0.5);
+        doc.font('Helvetica-Bold').text('Kundeninformation:');
+        doc.font('Helvetica');
+        if (inspection.customerInformation.reason) {
+          doc.text(`Grund: ${inspection.customerInformation.reason}`);
+        }
+        if (inspection.customerInformation.note) {
+          doc.text(`Notiz: ${inspection.customerInformation.note}`);
+        }
       }
 
       doc.moveDown();
