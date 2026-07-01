@@ -497,6 +497,7 @@ class InspectionCommunicationService {
         incorrect_unlock_code: 'Falscher Entsperrcode angegeben',
         additional_costs: 'Zusaetzliche Kosten erforderlich',
         update_unlock_info: 'Entsperrinformation aktualisieren',
+        customer_defect_info: 'Kunde ueber Defekt informieren',
       };
 
       const message = {

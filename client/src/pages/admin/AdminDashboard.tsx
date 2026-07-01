@@ -46,6 +46,7 @@ import {
 } from "lucide-react"
 import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
 import { getContactMessages, type ContactMessage } from "@/api/contactMessages"
+import { InactiveRepairsList } from "@/components/admin/InactiveRepairsList"
 import "./AdminDashboard.css"
 
 type NotificationMeta = {
@@ -901,6 +902,10 @@ export function AdminDashboard() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="compact-repair-monitoring">
+        <InactiveRepairsList />
       </div>
 
       <div className="compact-ops-grid">

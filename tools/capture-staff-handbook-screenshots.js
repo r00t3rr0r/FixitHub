@@ -75,21 +75,23 @@ async function findFirstOrderPath(page) {
   throw new Error('Kein Auftrag aus der Staff-Ansicht auffindbar');
 }
 
-async function scrollToText(page, text) {
-  const locator = page.locator(`text=${text}`).first();
+async function scrollToSelector(page, selector) {
+  const locator = page.locator(selector).first();
   if (!(await locator.count())) {
-    throw new Error(`Text nicht gefunden: ${text}`);
+    return false;
   }
-  await locator.scrollIntoViewIfNeeded();
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
   await page.waitForTimeout(700);
+  return true;
 }
 
 async function clickButtonByName(page, patterns) {
   for (const pattern of patterns) {
     const button = page.getByRole('button', { name: pattern }).first();
     if (await button.count()) {
+      await button.scrollIntoViewIfNeeded().catch(() => null);
       await button.click({ timeout: 5000 }).catch(() => null);
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(1100);
       return true;
     }
   }
@@ -98,7 +100,41 @@ async function clickButtonByName(page, patterns) {
 
 async function dismissOverlay(page) {
   await page.keyboard.press('Escape').catch(() => null);
+  await page.waitForTimeout(400);
+  // Some dialogs are nested; press a second time to be safe.
+  await page.keyboard.press('Escape').catch(() => null);
   await page.waitForTimeout(300);
+}
+
+async function shot(page, dir, file, targets) {
+  await page.screenshot({ path: path.join(dir, file), fullPage: false });
+  targets.push(file);
+  console.log(`OK  ${file}`);
+}
+
+// Capture a section by scrolling its anchor element into view.
+async function captureSection(page, selector, file, targets) {
+  const found = await scrollToSelector(page, selector);
+  if (!found) {
+    console.log(`SKIP ${file} (selector not found: ${selector})`);
+    return;
+  }
+  await shot(page, OUTPUT_ORDER_DIR, file, targets);
+}
+
+// Open a dialog via a trigger button, screenshot it, then close it.
+async function captureDialog(page, { anchor, buttons, file, targets, preWaitMs = 1200 }) {
+  if (anchor) {
+    await scrollToSelector(page, anchor);
+  }
+  const opened = await clickButtonByName(page, buttons);
+  if (!opened) {
+    console.log(`SKIP ${file} (trigger button not found)`);
+    return;
+  }
+  await page.waitForTimeout(preWaitMs);
+  await shot(page, OUTPUT_ORDER_DIR, file, targets);
+  await dismissOverlay(page);
 }
 
 async function captureOrderDetails(page, orderPath) {
@@ -106,57 +142,104 @@ async function captureOrderDetails(page, orderPath) {
   const orderUrl = `${BASE_URL}${orderPath}`;
 
   await page.goto(orderUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await waitForPage(page, 2600);
+  await waitForPage(page, 2800);
 
-  await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-overview.png'), fullPage: false });
-  targets.push('order-detail-overview.png');
+  // --- Section overviews (scroll through the whole order workspace) ---
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.waitForTimeout(400);
+  await shot(page, OUTPUT_ORDER_DIR, 'order-detail-overview.png', targets);
 
-  await scrollToText(page, 'Device Information');
-  await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-device-section.png'), fullPage: false });
-  targets.push('order-detail-device-section.png');
+  await captureSection(page, '#order-device-info', 'order-detail-device-section.png', targets);
+  await captureSection(page, '#order-device-inspection', 'order-detail-inspection-section.png', targets);
+  await captureSection(page, '#order-eparts', 'order-detail-eparts-section.png', targets);
+  await captureSection(page, '#order-progress', 'order-detail-progress-section.png', targets);
+  await captureSection(page, '#order-workflows', 'order-detail-workflows-section.png', targets);
+  await captureSection(page, '#order-repair-info', 'order-detail-repair-services.png', targets);
+  await captureSection(page, '#order-quick-actions', 'order-detail-quick-actions.png', targets);
+  await captureSection(page, '#order-staff', 'order-detail-staff-section.png', targets);
 
-  await scrollToText(page, 'Device Inspection');
-  await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-inspection-section.png'), fullPage: false });
-  targets.push('order-detail-inspection-section.png');
-
-  await scrollToText(page, 'Repair Services');
-  await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-repair-services.png'), fullPage: false });
-  targets.push('order-detail-repair-services.png');
-
-  await scrollToText(page, 'Repair Services');
-  if (await clickButtonByName(page, [/Add Add-On/i])) {
-    await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-addon-dialog.png'), fullPage: false });
-    targets.push('order-detail-addon-dialog.png');
+  // --- Header status dropdown ---
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.waitForTimeout(500);
+  if (await clickButtonByName(page, [/In Progress|Pending|In Bearbeitung|Ausstehend|Quality Check|Ready for Pickup|Completed|Paused|Cancelled/i])) {
+    await page.waitForTimeout(600);
+    await shot(page, OUTPUT_ORDER_DIR, 'order-detail-status-dropdown.png', targets);
     await dismissOverlay(page);
+  } else {
+    console.log('SKIP order-detail-status-dropdown.png (status button not found)');
   }
 
-  await scrollToText(page, 'Shop-Produkte');
-  if (await clickButtonByName(page, [/Produkt hinzufuegen/i, /Produkt hinzufügen/i])) {
-    await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-shop-product-dialog.png'), fullPage: false });
-    targets.push('order-detail-shop-product-dialog.png');
-    await dismissOverlay(page);
-  }
+  // --- Dialogs ---
+  await captureDialog(page, {
+    anchor: '#order-device-info',
+    buttons: [/^Edit$/i, /Bearbeiten/i],
+    file: 'order-detail-device-change-dialog.png',
+    targets,
+  });
 
-  await scrollToText(page, 'Repair Services');
-  if (await clickButtonByName(page, [/Add EPart/i])) {
-    await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-epart-dialog.png'), fullPage: false });
-    targets.push('order-detail-epart-dialog.png');
-    await dismissOverlay(page);
-  }
+  await captureDialog(page, {
+    anchor: '#order-device-inspection',
+    buttons: [/Start Device Inspection/i, /Continue Inspection/i, /Inspektion/i],
+    file: 'order-detail-inspection-dialog.png',
+    targets,
+    preWaitMs: 1600,
+  });
 
-  await scrollToText(page, 'Workflow');
-  if (await clickButtonByName(page, [/Assign Workflow/i])) {
-    await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-workflow-assign-dialog.png'), fullPage: false });
-    targets.push('order-detail-workflow-assign-dialog.png');
-    await dismissOverlay(page);
-  }
+  await captureDialog(page, {
+    anchor: '#order-eparts',
+    buttons: [/Add EPart/i],
+    file: 'order-detail-epart-dialog.png',
+    targets,
+  });
 
-  await scrollToText(page, 'Assigned Staff');
-  if (await clickButtonByName(page, [/Assign Staff/i])) {
-    await page.screenshot({ path: path.join(OUTPUT_ORDER_DIR, 'order-detail-staff-dialog.png'), fullPage: false });
-    targets.push('order-detail-staff-dialog.png');
-    await dismissOverlay(page);
-  }
+  await captureDialog(page, {
+    anchor: '#order-workflows',
+    buttons: [/Assign Workflow/i],
+    file: 'order-detail-workflow-assign-dialog.png',
+    targets,
+  });
+
+  await captureDialog(page, {
+    anchor: '#order-repair-info',
+    buttons: [/Add Service/i],
+    file: 'order-detail-service-dialog.png',
+    targets,
+  });
+
+  await captureDialog(page, {
+    anchor: '#order-repair-info',
+    buttons: [/Add Add-On/i],
+    file: 'order-detail-addon-dialog.png',
+    targets,
+  });
+
+  await captureDialog(page, {
+    anchor: '#order-repair-info',
+    buttons: [/Produkt hinzufügen/i, /Produkt hinzufuegen/i],
+    file: 'order-detail-shop-product-dialog.png',
+    targets,
+  });
+
+  await captureDialog(page, {
+    anchor: '#order-quick-actions-communication',
+    buttons: [/Rückmeldung/i, /Rueckmeldung/i],
+    file: 'order-detail-communication-feedback-dialog.png',
+    targets,
+  });
+
+  await captureDialog(page, {
+    anchor: '#order-quick-actions-communication',
+    buttons: [/^Aktion$/i],
+    file: 'order-detail-communication-action-dialog.png',
+    targets,
+  });
+
+  await captureDialog(page, {
+    anchor: '#order-staff',
+    buttons: [/Assign Staff/i],
+    file: 'order-detail-staff-dialog.png',
+    targets,
+  });
 
   return targets;
 }
@@ -186,7 +269,7 @@ async function capture() {
     }
 
     try {
-      const orderPath = await findFirstOrderPath(page);
+      const orderPath = process.env.ORDER_PATH || await findFirstOrderPath(page);
       const orderFiles = await captureOrderDetails(page, orderPath);
       orderFiles.forEach((file) => {
         results.push({ type: 'order-details', file, route: orderPath, ok: true });

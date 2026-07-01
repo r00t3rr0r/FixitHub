@@ -278,7 +278,7 @@ router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, r
   console.log('[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection');
 
   try {
-    const { isRepairable, repairOffer } = req.body;
+    const { isRepairable, repairOffer, completionAction, customerInformation } = req.body;
 
     if (isRepairable === undefined) {
       return res.status(400).json({ error: 'isRepairable is required' });
@@ -287,7 +287,9 @@ router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, r
     const inspection = await DeviceInspectionService.completeInspection(
       req.params.orderId,
       isRepairable,
-      repairOffer
+      repairOffer,
+      completionAction,
+      customerInformation
     );
 
     return res.status(200).json({ inspection });

@@ -2003,6 +2003,221 @@ function getDefaultNotificationTemplates() {
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
       isActive: true
+    },
+    {
+      name: 'Defektes Bauteil gemeldet',
+      type: 'email',
+      subject: 'Zwischenfall bei Reparatur: Defektes Bauteil – Auftrag {{orderNumber}}',
+      content: renderEmailTemplate({
+        preheader: 'Während der Reparatur wurde ein defektes Bauteil entdeckt.',
+        eyebrow: 'Reparaturupdate',
+        title: 'Defektes Bauteil entdeckt',
+        intro: 'Hallo {{customerName}}, während der Reparatur Ihres {{deviceBrand}} {{deviceModel}} wurde ein defektes Bauteil entdeckt. Dies führt zu einer Verzögerung in der Reparatur.',
+        highlights: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Problem', value: '{{reason}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Fehlerbeschreibung', value: '{{reason}}' },
+          { label: 'Techniker', value: '{{technicianName}}' }
+        ],
+        body: '<p style="margin:0;">Wir werden Kontakt mit Ihnen aufnehmen, um die nächsten Schritte zu besprechen. Üblicherweise bestellen wir das erforderliche Bauteil, was einige zusätzliche Tage in Anspruch nehmen kann.</p>',
+        ctaLabel: 'Auftrag überprüfen',
+        ctaUrl: '{{orderUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank für Ihre Geduld und Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde von unserem Reparaturteam generiert.'
+      }),
+      variables: [
+        createVariable('customerName', 'Name des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('reason', 'Begründung / Fehlerbeschreibung', true),
+        createVariable('technicianName', 'Name des Technikers', true),
+        createVariable('orderUrl', 'Link zum Auftrag', true)
+      ],
+      isActive: true
+    },
+    {
+      name: 'Ersatzteil benötigt',
+      type: 'email',
+      subject: 'Reparaturupdate: Ersatzteil erforderlich – Auftrag {{orderNumber}}',
+      content: renderEmailTemplate({
+        preheader: 'Für die Reparatur wird ein Ersatzteil benötigt.',
+        eyebrow: 'Reparaturupdate',
+        title: 'Ersatzteil wird benötigt',
+        intro: 'Hallo {{customerName}}, für die Reparatur Ihres {{deviceBrand}} {{deviceModel}} wird ein Ersatzteil benötigt. Wir kümmern uns um die Beschaffung.',
+        highlights: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Erforderliches Teil', value: '{{reason}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Beschreibung des Teils', value: '{{reason}}' },
+          { label: 'Techniker', value: '{{technicianName}}' }
+        ],
+        body: '<p style="margin:0;">Das Ersatzteil wird in der Regel innerhalb von 2-5 Werktagen verfügbar sein. Wir werden Sie informieren, sobald die Reparatur fortgesetzt werden kann.</p>',
+        ctaLabel: 'Auftrag überprüfen',
+        ctaUrl: '{{orderUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank für Ihre Geduld und Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde von unserem Reparaturteam generiert.'
+      }),
+      variables: [
+        createVariable('customerName', 'Name des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('reason', 'Beschreibung des benötigten Teils', true),
+        createVariable('technicianName', 'Name des Technikers', true),
+        createVariable('orderUrl', 'Link zum Auftrag', true)
+      ],
+      isActive: true
+    },
+    {
+      name: 'Info von Kunde benötigt',
+      type: 'email',
+      subject: 'Wir benötigen Ihre Hilfe – Auftrag {{orderNumber}}',
+      content: renderEmailTemplate({
+        preheader: 'Für die Reparatur benötigen wir zusätzliche Informationen von Ihnen.',
+        eyebrow: 'Reparaturupdate',
+        title: 'Zusätzliche Informationen benötigt',
+        intro: 'Hallo {{customerName}}, um die Reparatur Ihres {{deviceBrand}} {{deviceModel}} fortzuführen, benötigen wir noch einige Informationen von Ihnen.',
+        highlights: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Benötigte Information', value: '{{reason}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Anforderung', value: '{{reason}}' },
+          { label: 'Techniker', value: '{{technicianName}}' }
+        ],
+        body: '<p style="margin:0;">Bitte nehmen Sie Kontakt mit uns auf oder antworten Sie auf diese E-Mail mit den erforderlichen Informationen. Damit können wir die Reparatur schnellstmöglich abschließen.</p>',
+        ctaLabel: 'Auftrag überprüfen',
+        ctaUrl: '{{orderUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank für Ihre Zusammenarbeit.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde von unserem Reparaturteam generiert.'
+      }),
+      variables: [
+        createVariable('customerName', 'Name des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('reason', 'Beschreibung der benötigten Information', true),
+        createVariable('technicianName', 'Name des Technikers', true),
+        createVariable('orderUrl', 'Link zum Auftrag', true)
+      ],
+      isActive: true
+    },
+    {
+      name: 'Zusätzliche Reparatur notwendig',
+      type: 'email',
+      subject: 'Zusätzliche Reparatur erforderlich – Auftrag {{orderNumber}}',
+      content: renderEmailTemplate({
+        preheader: 'Während der Diagnostik wurde ein zusätzliches Problem gefunden.',
+        eyebrow: 'Reparaturupdate',
+        title: 'Zusätzliche Reparatur erforderlich',
+        intro: 'Hallo {{customerName}}, während der Reparatur Ihres {{deviceBrand}} {{deviceModel}} wurde ein zusätzliches Problem identifiziert, das ebenfalls behoben werden sollte.',
+        highlights: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Zusätzliche Reparatur', value: '{{reason}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Problem', value: '{{reason}}' },
+          { label: 'Geschätzte Dauer', value: '{{timeMinutes}} Minuten' },
+          { label: 'Zusätzliche Kosten', value: '{{priceEur}} EUR' }
+        ],
+        body: '<p style="margin:0;">Bitte teilen Sie uns mit, ob Sie die zusätzliche Reparatur durchführen lassen möchten. Wir warten auf Ihre Bestätigung.</p>',
+        ctaLabel: 'Auftrag überprüfen',
+        ctaUrl: '{{orderUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank für Ihre Aufmerksamkeit.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde von unserem Reparaturteam generiert.'
+      }),
+      variables: [
+        createVariable('customerName', 'Name des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('reason', 'Beschreibung der zusätzlichen Reparatur', true),
+        createVariable('timeMinutes', 'Geschätzte Reparaturdauer in Minuten', true),
+        createVariable('priceEur', 'Zusätzliche Kosten in EUR', true),
+        createVariable('technicianName', 'Name des Technikers', true),
+        createVariable('orderUrl', 'Link zum Auftrag', true)
+      ],
+      isActive: true
+    },
+    {
+      name: 'Übergabe an anderen Techniker',
+      type: 'email',
+      subject: 'Reparaturstatus Update – Auftrag {{orderNumber}}',
+      content: renderEmailTemplate({
+        preheader: 'Ihre Reparatur wurde an einen anderen Techniker übergeben.',
+        eyebrow: 'Reparaturupdate',
+        title: 'Reparatur in neuen Händen',
+        intro: 'Hallo {{customerName}}, um die Reparatur Ihres {{deviceBrand}} {{deviceModel}} zu optimieren, haben wir diese an einen anderen qualifizierten Techniker übergeben.',
+        highlights: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Neuer Techniker', value: '{{technicianName}}' }
+        ],
+        detailRows: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Zuständiger Techniker', value: '{{technicianName}}' }
+        ],
+        body: '<p style="margin:0;">Die Reparatur wird ohne Verzögerung fortgesetzt. Sie erhalten weitere Updates von unserem Team.</p>',
+        ctaLabel: 'Auftrag überprüfen',
+        ctaUrl: '{{orderUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank für Ihr Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde von unserem Reparaturteam generiert.'
+      }),
+      variables: [
+        createVariable('customerName', 'Name des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('technicianName', 'Name des neuen Technikers', true),
+        createVariable('orderUrl', 'Link zum Auftrag', true)
+      ],
+      isActive: true
+    },
+    {
+      name: 'Reparatur braucht Zeit',
+      type: 'email',
+      subject: 'Reparaturstatus Update – Auftrag {{orderNumber}}',
+      content: renderEmailTemplate({
+        preheader: 'Die Reparatur benötigt mehr Zeit als ursprünglich geplant.',
+        eyebrow: 'Reparaturupdate',
+        title: 'Reparatur dauert länger',
+        intro: 'Hallo {{customerName}}, die Reparatur Ihres {{deviceBrand}} {{deviceModel}} benötigt leider mehr Zeit als ursprünglich geschätzt.',
+        highlights: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Zusätzliche Zeit', value: '{{timeHours}} Stunden', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Geschätzte zusätzliche Dauer', value: '{{timeHours}} Stunden' }
+        ],
+        body: '<p style="margin:0;">Dies ist nicht ungewöhnlich bei komplexeren Reparaturen. Wir arbeiten sorgfältig, um Ihrem Gerät zu optimaler Funktionalität zurückzuverhelfen. Sie erhalten baldmöglich ein weiteres Update.</p>',
+        ctaLabel: 'Auftrag überprüfen',
+        ctaUrl: '{{orderUrl}}',
+        ctaTone: 'primary',
+        closing: 'Vielen Dank für Ihre Geduld und Vertrauen.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde von unserem Reparaturteam generiert.'
+      }),
+      variables: [
+        createVariable('customerName', 'Name des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätehersteller', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('timeHours', 'Zusätzliche Reparaturdauer in Stunden', true),
+        createVariable('orderUrl', 'Link zum Auftrag', true)
+      ],
+      isActive: true
     }
   ];
 }

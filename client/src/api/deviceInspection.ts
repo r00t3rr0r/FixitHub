@@ -152,12 +152,22 @@ export const updateAppleSpecific = async (orderId: string, appleData: any) => {
 export const completeInspection = async (
   orderId: string,
   isRepairable: boolean,
-  repairOffer?: any
+  repairOffer?: any,
+  completionAction?: 'repairable' | 'not-repairable' | 'inform-customer',
+  customerInformation?: {
+    shouldInform?: boolean;
+    reason?: string;
+    note?: string;
+    suggestedStatus?: string;
+    mailTemplate?: string;
+  }
 ) => {
   try {
     const response = await api.put(`/api/device-inspections/${orderId}/complete`, {
       isRepairable,
       repairOffer,
+      completionAction,
+      customerInformation,
     });
     return response.data;
   } catch (error: any) {

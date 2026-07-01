@@ -618,9 +618,14 @@ router.post('/:id/workflows', requireUser, requireAdminOrStaff, async (req, res)
       assignedWorkflowStaffId
     );
 
+    const alreadyAssigned = Boolean(order && order._workflowAlreadyAssigned);
+
     return res.status(200).json({
       success: true,
-      message: 'Workflow assigned to order successfully',
+      message: alreadyAssigned
+        ? 'Workflow is already assigned to this order'
+        : 'Workflow assigned to order successfully',
+      alreadyAssigned,
       order
     });
   } catch (error) {

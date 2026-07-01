@@ -70,6 +70,7 @@ import { MarketingPromoSegments } from "./pages/admin/marketing-promo/MarketingP
 import { MarketingPromoReports } from "./pages/admin/marketing-promo/MarketingPromoReports"
 import { MarketingPromoSettingsPage } from "./pages/admin/marketing-promo/MarketingPromoSettings"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
+import { RepairWorkflowPage } from "./pages/repair/RepairWorkflowPage"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
 import { Widerrufsrecht } from "./pages/Widerrufsrecht"
@@ -366,6 +367,11 @@ function App() {
             {/* Inspection route */}
             <Route path="/inspection/:orderId" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<InspectionWorkflow />} />
+            </Route>
+
+            {/* Repair Workflow route */}
+            <Route path="/repair/workflow/:orderNumber" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
+              <Route index element={<RepairWorkflowPage />} />
             </Route>
 
             {/* Catch-all route */}

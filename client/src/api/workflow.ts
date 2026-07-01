@@ -466,8 +466,14 @@ export const assignWorkflowToOrder = async (
     console.log("OrderWorkflowAPI: Workflow assigned successfully:", response.data);
     return response.data;
   } catch (error: any) {
-    console.error("OrderWorkflowAPI: Error assigning workflow:", error);
-    throw new Error(error?.response?.data?.error || error.message);
+    const errorMsg = error?.response?.data?.error || error?.message || "Unknown error";
+    console.error("OrderWorkflowAPI: Error assigning workflow:", {
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      error: errorMsg,
+      fullResponse: error?.response?.data
+    });
+    throw new Error(errorMsg);
   }
 };
 

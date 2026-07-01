@@ -816,11 +816,28 @@
 
 .order-details-page .inspection-dialog-content .inspection-step-card input,
 .order-details-page .inspection-dialog-content .inspection-step-card textarea,
-.order-details-page .inspection-dialog-content .inspection-step-card button,
+.order-details-page .inspection-dialog-content .inspection-step-card button:not([role="checkbox"]),
 .order-details-page .inspection-dialog-content .inspection-step-card [role="combobox"] {
   min-height: 32px;
   height: 32px;
   font-size: 0.74rem;
+}
+
+.order-details-page .inspection-dialog-content .inspection-step-card [role="checkbox"] {
+  min-height: 16px;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #4b5a83;
+  background: #ffffff;
+  color: #1a2a5e;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.order-details-page .inspection-dialog-content .inspection-step-card [role="checkbox"][data-state="checked"] {
+  background: #1a2a5e;
+  border-color: #1a2a5e;
+  color: #ffffff;
 }
 
 .order-details-page .inspection-dialog-content .inspection-step-card textarea {

@@ -1042,19 +1042,24 @@ class OrderService {
       if (!order) {
         throw new Error('Order not found');
       }
+      console.log('OrderService: Order found:', { orderId, orderNumber: order.orderNumber });
 
       const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
       if (!workflowTemplate) {
+        console.error('OrderService: Workflow template not found:', workflowTemplateId);
         throw new Error('Workflow template not found');
       }
+      console.log('OrderService: Workflow template found:', { templateId: workflowTemplate._id, name: workflowTemplate.name });
 
       let workflowAssignedStaffMembers = [];
       if (assignedWorkflowStaffId) {
         const assignedStaff = await User.findById(assignedWorkflowStaffId);
         if (!assignedStaff || !['staff', 'admin'].includes(assignedStaff.role)) {
-          throw new Error('Assigned workflow staff member not found');
+          console.error('OrderService: Invalid assigned staff:', { assignedWorkflowStaffId, found: !!assignedStaff, role: assignedStaff?.role });
+          throw new Error('Assigned workflow staff member not found or invalid role');
         }
         workflowAssignedStaffMembers = [assignedStaff];
+        console.log('OrderService: Assigned staff validated:', { staffId: assignedStaff._id, name: assignedStaff.name, role: assignedStaff.role });
       }
 
       // Check if workflow is already assigned
@@ -1062,8 +1067,17 @@ class OrderService {
         w => w.workflowTemplateId.toString() === workflowTemplateId
       );
       if (existingWorkflow) {
-        throw new Error('This workflow is already assigned to this order');
+        console.warn('OrderService: Workflow already assigned to order (idempotent return):', {
+          workflowTemplateId,
+          existingWorkflowId: existingWorkflow._id,
+        });
+
+        // Keep assignment API idempotent: if the template is already attached,
+        // return the current order instead of failing with 400.
+        order._workflowAlreadyAssigned = true;
+        return order;
       }
+      console.log('OrderService: Workflow not yet assigned, proceeding...');
 
       // Create workflow execution steps from template
       const workflowSteps = workflowTemplate.steps.map(step => ({
@@ -1071,7 +1085,7 @@ class OrderService {
         stepName: step.name,
         status: 'pending',
         formData: {},
-        checklistData: new Map(),
+        checklistData: {},
         photos: []
       }));
 
@@ -2033,8 +2047,32 @@ class OrderService {
         ]
       }).sort({ createdAt: -1 });
 
-      console.log('OrderService: Found', workflows.length, 'suggested workflows');
-      console.log('OrderService: Suggested workflows:', workflows.map(w => ({
+      const assignedTemplateIds = (order.workflows || [])
+        .map((assignedWorkflow) => toIdString(assignedWorkflow.workflowTemplateId))
+        .filter(Boolean);
+
+      const alwaysVisibleWorkflowNameMarkers = [
+        'standard repair process neu',
+        'reparatur-workflow',
+      ];
+
+      const suggestedWorkflows = workflows.filter(
+        (workflow) => {
+          const workflowName = String(workflow?.name || '').trim().toLowerCase();
+          const shouldAlwaysBeVisible = alwaysVisibleWorkflowNameMarkers.some((marker) =>
+            workflowName.includes(marker)
+          );
+
+          if (shouldAlwaysBeVisible) {
+            return true;
+          }
+
+          return !assignedTemplateIds.includes(toIdString(workflow._id));
+        }
+      );
+
+      console.log('OrderService: Found', suggestedWorkflows.length, 'suggested workflows');
+      console.log('OrderService: Suggested workflows:', suggestedWorkflows.map(w => ({
         id: w._id,
         name: w.name,
         deviceTypes: w.deviceTypes,
@@ -2042,7 +2080,7 @@ class OrderService {
         stepsCount: w.steps?.length || 0
       })));
 
-      return workflows;
+      return suggestedWorkflows;
     } catch (error) {
       console.error('OrderService: Error getting suggested workflows:', error);
       throw error;
