@@ -16,6 +16,8 @@ import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, ad
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
+import { createInvoiceFromOrder, getInvoices, Invoice as FinancialInvoice } from "@/api/financial"
+import { createShippingLabel } from "@/api/shipping"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -188,6 +190,11 @@ export function OrderDetails() {
   const [resolvedDeviceImage, setResolvedDeviceImage] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [confirmingPickup, setConfirmingPickup] = useState(false)
+  const [creatingOrderInvoice, setCreatingOrderInvoice] = useState(false)
+  const [creatingOrderShippingLabel, setCreatingOrderShippingLabel] = useState(false)
+  const [downloadingOrderShippingLabel, setDownloadingOrderShippingLabel] = useState(false)
+  const [orderInvoices, setOrderInvoices] = useState<FinancialInvoice[]>([])
+  const [loadingOrderInvoices, setLoadingOrderInvoices] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
@@ -258,6 +265,25 @@ export function OrderDetails() {
 
     return state?.workflowMode
   })()
+
+  const loadOrderInvoices = async (orderId: string) => {
+    if (!orderId || user?.role !== 'admin') {
+      setOrderInvoices([])
+      return
+    }
+
+    try {
+      setLoadingOrderInvoices(true)
+      const response = await getInvoices({ orderId, limit: 50 })
+      const invoices = Array.isArray((response as any)?.invoices) ? (response as any).invoices : []
+      setOrderInvoices(invoices)
+    } catch (error) {
+      console.error('OrderDetails: Failed to load related invoices:', error)
+      setOrderInvoices([])
+    } finally {
+      setLoadingOrderInvoices(false)
+    }
+  }
 
   const isSpecialRepairWorkflow = (workflow: any) => {
     const workflowName = String(
@@ -368,6 +394,12 @@ export function OrderDetails() {
 
         const fetchedOrder = (orderResponse as any).order
         setOrder(fetchedOrder)
+
+        if (user.role === 'admin') {
+          await loadOrderInvoices(fetchedOrder?._id || id)
+        } else {
+          setOrderInvoices([])
+        }
 
         // Log unlock information if present
         console.log("Unlock Pattern:", fetchedOrder?.unlockPattern)
@@ -866,6 +898,9 @@ export function OrderDetails() {
         orderResponse = await getOrderById(id)
       }
       setOrder((orderResponse as any).order)
+      if (user?.role === 'admin') {
+        await loadOrderInvoices(id)
+      }
     } catch (error) {
       console.error("Error refreshing order:", error)
     }
@@ -919,6 +954,115 @@ export function OrderDetails() {
       toast({ title: 'Fehler', description: error.message || 'Abholung konnte nicht bestätigt werden.', variant: 'destructive' })
     } finally {
       setConfirmingPickup(false)
+    }
+  }
+
+  const handleCreateOrderInvoice = async () => {
+    if (!id || creatingOrderInvoice) return
+
+    if (user?.role !== 'admin') {
+      toast({
+        title: 'Nicht erlaubt',
+        description: 'Nur Administratoren können Rechnungen erstellen.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setCreatingOrderInvoice(true)
+      const response = await createInvoiceFromOrder(id)
+      const invoiceNumber = (response as any)?.invoice?.invoiceNumber
+
+      toast({
+        title: 'Rechnung erstellt',
+        description: invoiceNumber
+          ? `Rechnung ${invoiceNumber} wurde erfolgreich erstellt.`
+          : 'Die Rechnung wurde erfolgreich erstellt.',
+      })
+
+      await loadOrderInvoices(id)
+    } catch (error: any) {
+      toast({
+        title: 'Rechnung konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Auftragsdaten und versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatingOrderInvoice(false)
+    }
+  }
+
+  const handleCreateOrderShippingLabel = async () => {
+    if (!id || !order || creatingOrderShippingLabel) return
+
+    try {
+      setCreatingOrderShippingLabel(true)
+      const response = await createShippingLabel(id, {
+        receiverName: customer?.name,
+        receiverEmail: customer?.email,
+        receiverPhone: customer?.phone,
+        shippingCost: safeToNumber(order.shippingCost),
+      })
+
+      await refreshOrder()
+
+      toast({
+        title: 'Versandetikett erstellt',
+        description: response?.trackingNumber
+          ? `Trackingnummer: ${response.trackingNumber}`
+          : 'Das Versandetikett wurde erfolgreich erstellt.',
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Versandetikett konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatingOrderShippingLabel(false)
+    }
+  }
+
+  const handleDownloadOrderShippingLabel = async () => {
+    if (!order?._id || downloadingOrderShippingLabel) return
+
+    try {
+      setDownloadingOrderShippingLabel(true)
+
+      const response = await fetch(`/api/orders/${order._id}/shipping-label`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/pdf',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Versandetikett konnte nicht geladen werden.')
+      }
+
+      const labelBlob = await response.blob()
+      const labelUrl = window.URL.createObjectURL(labelBlob)
+
+      const link = document.createElement('a')
+      link.href = labelUrl
+      link.download = `versandlabel-${order.orderNumber || order._id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(labelUrl)
+      }, 60000)
+    } catch (error: any) {
+      toast({
+        title: 'Versandetikett konnte nicht heruntergeladen werden',
+        description: error?.message || 'Bitte versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDownloadingOrderShippingLabel(false)
     }
   }
 
@@ -5051,6 +5195,76 @@ export function OrderDetails() {
                 <CardContent className="space-y-4 pt-2">
                   {isStaffOrAdmin ? (
                     <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Button
+                          size="sm"
+                          onClick={handleCreateOrderInvoice}
+                          disabled={creatingOrderInvoice || user?.role !== 'admin'}
+                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                        >
+                          <FileText className="h-4 w-4 mr-1.5" />
+                          {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={handleCreateOrderShippingLabel}
+                          disabled={creatingOrderShippingLabel}
+                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                        >
+                          <Send className="h-4 w-4 mr-1.5" />
+                          {creatingOrderShippingLabel ? 'Versand wird gestartet…' : 'Senden mit DHL/FedEx starten'}
+                        </Button>
+
+                        <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Erstellte Dokumente</p>
+                            {user?.role === 'admin' ? (
+                              loadingOrderInvoices ? (
+                                <p className="text-xs text-muted-foreground mt-1">Rechnungen werden geladen…</p>
+                              ) : orderInvoices.length > 0 ? (
+                                <div className="mt-2 space-y-1.5">
+                                  {orderInvoices.map((invoice) => (
+                                    <Link
+                                      key={invoice._id}
+                                      to={`/admin/financial?tab=overview&highlightInvoiceId=${encodeURIComponent(invoice._id)}`}
+                                      className="flex items-center justify-between rounded border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
+                                    >
+                                      <span className="flex items-center gap-1.5 min-w-0">
+                                        <FileText className="h-3.5 w-3.5 shrink-0" />
+                                        <span className="truncate">Rechnung {invoice.invoiceNumber || invoice._id}</span>
+                                      </span>
+                                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    </Link>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung für diesen Auftrag erstellt.</p>
+                              )
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-1">Rechnungslinks sind nur für Administratoren sichtbar.</p>
+                            )}
+                          </div>
+
+                          <div className="border-t pt-2">
+                            {order.shippingLabelUrl ? (
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleDownloadOrderShippingLabel}
+                                  disabled={downloadingOrderShippingLabel}
+                                >
+                                  <Download className="h-4 w-4 mr-1.5" />
+                                  {downloadingOrderShippingLabel ? 'Versandetikett wird heruntergeladen…' : 'Versandlabel herunterladen'}
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Noch kein Versandetikett verfügbar.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </>
                   ) : null}
 

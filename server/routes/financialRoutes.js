@@ -116,6 +116,7 @@ router.get('/invoices', requireUser, requireRole(['admin']), async (req, res) =>
     const filters = {
       status: req.query.status,
       customerId: req.query.customerId,
+      orderId: req.query.orderId,
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
       page: req.query.page,

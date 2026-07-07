@@ -430,6 +430,17 @@ export const createCreditNote = async (invoiceId: string, options: {
   }
 };
 
+// Utility: Create invoice from a specific order
+// Endpoint: POST /api/admin/financial/orders/:orderId/invoice
+export const createInvoiceFromOrder = async (orderId: string) => {
+  try {
+    const response = await api.post(`/api/admin/financial/orders/${orderId}/invoice`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 export const getOverdueInvoices = async () => {
   try {
     const response = await api.get('/api/admin/financial/invoices/overdue');

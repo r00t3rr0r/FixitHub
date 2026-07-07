@@ -438,6 +438,16 @@ class FinancialService {
         query.customerId = filters.customerId;
       }
 
+      if (filters.orderId) {
+        const normalizedOrderId = String(filters.orderId).trim();
+        if (normalizedOrderId) {
+          query.$or = [
+            { orderId: normalizedOrderId },
+            { repairOrderIds: normalizedOrderId }
+          ];
+        }
+      }
+
       if (filters.dateFrom || filters.dateTo) {
         query.createdAt = {};
         if (filters.dateFrom) {
