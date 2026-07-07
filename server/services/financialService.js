@@ -692,6 +692,7 @@ class FinancialService {
         orderId: invoice.orderId || undefined,
         actionUrl: '/customer/invoices',
         metadata: {
+          isInvoice: true,
           invoiceId: String(invoice._id),
           invoiceNumber: invoice.invoiceNumber
         }

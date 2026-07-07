@@ -520,6 +520,114 @@
   margin: 0;
 }
 
+.profile-notification-mode {
+  border: 1px solid #eceef3;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: #fafbfe;
+}
+
+.profile-notification-mode-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1a2a5e;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.profile-notification-mode-options {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-radio-option,
+.profile-checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-radio-label,
+.profile-checkbox-label {
+  font-size: 0.8125rem;
+  color: #1a2a5e;
+  cursor: pointer;
+}
+
+.profile-notification-event-group {
+  border: 1px solid #eceef3;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: -4px 0 12px;
+  background: #ffffff;
+}
+
+.profile-notification-events-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1a2a5e;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.profile-notification-events-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-notification-type-matrix {
+  border: 1px solid #eceef3;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+  background: #ffffff;
+}
+
+.profile-notification-type-grid {
+  margin-top: 8px;
+  border: 1px solid #eceef3;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.profile-notification-type-grid-header {
+  background: #f6f8fc;
+  color: #1a2a5e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eceef3;
+}
+
+.profile-notification-type-row-header .profile-notification-type-grid-header {
+  border-bottom: none;
+}
+
+.profile-notification-type-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  align-items: center;
+  border-bottom: 1px solid #f1f3f8;
+}
+
+.profile-notification-type-row:last-child {
+  border-bottom: none;
+}
+
+.profile-notification-type-label {
+  font-size: 0.8125rem;
+  color: #1a2a5e;
+  padding: 10px;
+}
+
+.profile-notification-type-cell {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+}
+
 /* Save Button Section */
 .profile-save-section {
   display: flex;

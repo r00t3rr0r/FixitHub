@@ -3315,7 +3315,30 @@
     "notificationPreferences": "Notification Preferences",
     "emailNotifications": "Email Notifications",
     "smsNotifications": "SMS Notifications",
-    "pushNotifications": "Push Notifications"
+    "pushNotifications": "Push Notifications",
+    "notificationMode": "Update mode",
+    "notificationModeStandard": "Standard (email only for 100% and completed)",
+    "notificationModeAll": "Every processing step",
+    "notificationModeHint": "In standard mode, intermediate steps are shown in your account feed and do not trigger an email.",
+    "emailEventSelection": "Send email for these actions",
+    "notificationEventSelection": "Show account notifications for these actions",
+    "channelByTypeTitle": "Channels per notification type",
+    "channelByTypeHint": "Choose for each type whether it should be delivered by email and/or in-app notification feed.",
+    "notificationTypeColumn": "Type",
+    "channelEmail": "Email",
+    "channelNotification": "Notification",
+    "invoiceAlwaysEmailHint": "Invoices are excluded and always trigger an email.",
+    "type": {
+      "order_update": "Order updates",
+      "payment": "Payments",
+      "message": "Messages",
+      "system": "System",
+      "assignment": "Assignments",
+      "reminder": "Reminders"
+    },
+    "eventInProgress": "In progress",
+    "eventReadyForPickup": "100% / ready",
+    "eventCompleted": "Completed"
   },
   "staffDashboard": {
     "active": "Active",
