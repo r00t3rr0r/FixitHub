@@ -252,11 +252,115 @@ export function AdminDashboard() {
     })
   }
 
+  const removeBookingFromDashboard = (bookingId?: string) => {
+    if (!bookingId) return
+
+    setDashboardData((prev) => {
+      const nextBookings = prev.bookings.filter((booking: any) => String(booking?._id || "") !== String(bookingId))
+      if (nextBookings.length === prev.bookings.length) return prev
+
+      return {
+        ...prev,
+        bookings: nextBookings,
+        sectionCounts: {
+          ...prev.sectionCounts,
+          bookings: Math.max(0, prev.sectionCounts.bookings - 1),
+        },
+      }
+    })
+  }
+
+  const clearBookingsFromDashboard = () => {
+    setDashboardData((prev) => ({
+      ...prev,
+      bookings: [],
+      sectionCounts: {
+        ...prev.sectionCounts,
+        bookings: 0,
+      },
+    }))
+  }
+
+  const removeRepairRequestFromDashboard = (requestId?: string) => {
+    if (!requestId) return
+
+    setDashboardData((prev) => {
+      const nextRequests = prev.repairRequests.filter((request: any) => String(request?._id || "") !== String(requestId))
+      if (nextRequests.length === prev.repairRequests.length) return prev
+
+      return {
+        ...prev,
+        repairRequests: nextRequests,
+        sectionCounts: {
+          ...prev.sectionCounts,
+          repairRequests: Math.max(0, prev.sectionCounts.repairRequests - 1),
+        },
+      }
+    })
+  }
+
+  const clearRepairRequestsFromDashboard = () => {
+    setDashboardData((prev) => ({
+      ...prev,
+      repairRequests: [],
+      sectionCounts: {
+        ...prev.sectionCounts,
+        repairRequests: 0,
+      },
+    }))
+  }
+
+  const clearNotificationsFromDashboard = () => {
+    setDashboardData((prev) => ({
+      ...prev,
+      notifications: [],
+      notificationMeta: {
+        ...prev.notificationMeta,
+        unreadCount: 0,
+        urgentCount: 0,
+        totalCount: 0,
+      },
+    }))
+  }
+
+  const removeCustomerMessageFromDashboard = (messageId?: string) => {
+    if (!messageId) return
+
+    setCustomerMessages((prev) => {
+      const nextMessages = prev.filter((message) => String(message?._id || "") !== String(messageId))
+      if (nextMessages.length === prev.length) return prev
+      setTotalUnreadMessages((current) => Math.max(0, current - 1))
+      return nextMessages
+    })
+  }
+
+  const clearCustomerMessagesFromDashboard = () => {
+    setCustomerMessages([])
+    setTotalUnreadMessages(0)
+  }
+
+  const removeOpenContactRequestFromDashboard = (requestId?: string) => {
+    if (!requestId) return
+
+    setOpenContactRequests((prev) => {
+      const nextRequests = prev.filter((request) => String(request?._id || "") !== String(requestId))
+      if (nextRequests.length === prev.length) return prev
+      setUnansweredContactCount((current) => Math.max(0, current - 1))
+      return nextRequests
+    })
+  }
+
+  const clearOpenContactRequestsFromDashboard = () => {
+    setOpenContactRequests([])
+    setUnansweredContactCount(0)
+  }
+
   const handleNotificationClick = async (notification: any, notificationPath: string) => {
     if (!notificationPath) return
 
     const notificationId = String(notification?._id || "")
-    const isUnlockUpdate = hasUnlockInfoUpdateAction(notification)
+    const isUnread = !notification?.isRead
+    const isUrgent = Boolean(notification?.isUrgent)
 
     if (notificationId && !notification?.isRead) {
       try {
@@ -267,17 +371,10 @@ export function AdminDashboard() {
     }
 
     setDashboardData((prev) => {
-      const nextNotifications = prev.notifications.filter((item: any) => {
-        if (String(item?._id || "") !== notificationId) return true
-        return !isUnlockUpdate
-      })
+      const nextNotifications = prev.notifications.filter((item: any) => String(item?._id || "") !== notificationId)
 
-      const nextUnreadCount = Math.max(
-        0,
-        prev.notificationMeta.unreadCount - (!notification?.isRead ? 1 : 0)
-      )
-
-      const nextUrgentCount = prev.notificationMeta.urgentCount - (notification?.isUrgent ? 1 : 0)
+      const nextUnreadCount = Math.max(0, prev.notificationMeta.unreadCount - (isUnread ? 1 : 0))
+      const nextUrgentCount = Math.max(0, prev.notificationMeta.urgentCount - (isUrgent ? 1 : 0))
 
       return {
         ...prev,
@@ -285,8 +382,8 @@ export function AdminDashboard() {
         notificationMeta: {
           ...prev.notificationMeta,
           unreadCount: nextUnreadCount,
-          urgentCount: Math.max(0, nextUrgentCount),
-          totalCount: Math.max(0, prev.notificationMeta.totalCount - (isUnlockUpdate ? 1 : 0)),
+          urgentCount: nextUrgentCount,
+          totalCount: Math.max(0, prev.notificationMeta.totalCount - 1),
         },
       }
     })
@@ -722,7 +819,11 @@ export function AdminDashboard() {
                       key={booking._id || bookingId}
                       type="button"
                       className="compact-list-item compact-list-item-button"
-                      onClick={() => booking?._id && navigate(`/admin/bookings?highlightBookingId=${booking._id}`)}
+                      onClick={() => {
+                        if (!booking?._id) return
+                        removeBookingFromDashboard(booking._id)
+                        navigate(`/admin/bookings?highlightBookingId=${booking._id}`)
+                      }}
                     >
                       <div>
                         <p className="compact-title">{customerName}</p>
@@ -739,7 +840,10 @@ export function AdminDashboard() {
               </div>
             </ScrollArea>
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/bookings")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearBookingsFromDashboard()
+              navigate("/admin/bookings")
+            }}>
               {t('adminDashboard.manageBookings')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -769,7 +873,10 @@ export function AdminDashboard() {
                       key={request._id || request.requestNumber}
                       type="button"
                       className="compact-list-item compact-list-item-button"
-                      onClick={() => navigate(`/admin/repair-requests?tab=repair-requests&requestId=${request._id}`)}
+                      onClick={() => {
+                        removeRepairRequestFromDashboard(request._id)
+                        navigate(`/admin/repair-requests?tab=repair-requests&requestId=${request._id}`)
+                      }}
                     >
                       <div>
                         <p className="compact-title">{customerName}</p>
@@ -785,7 +892,10 @@ export function AdminDashboard() {
               </div>
             </ScrollArea>
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/repair-requests")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearRepairRequestsFromDashboard()
+              navigate("/admin/repair-requests")
+            }}>
               {t('adminDashboard.viewRequests')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -850,7 +960,10 @@ export function AdminDashboard() {
               </div>
             </ScrollArea>
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/notifications")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearNotificationsFromDashboard()
+              navigate("/notifications")
+            }}>
               {t('adminDashboard.allNotices')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -889,7 +1002,10 @@ export function AdminDashboard() {
                       key={msg._id}
                       type="button"
                       className="compact-msg-item"
-                      onClick={() => navigate(msg.navigateTo)}
+                      onClick={() => {
+                        removeCustomerMessageFromDashboard(msg._id)
+                        navigate(msg.navigateTo)
+                      }}
                     >
                       <div className="compact-msg-avatar">
                         <MessageCircle className="h-3.5 w-3.5" />
@@ -929,7 +1045,10 @@ export function AdminDashboard() {
                       key={request._id}
                       type="button"
                       className="compact-nested-contact-item"
-                      onClick={() => navigate(`/admin/contact-requests?messageId=${request._id}`)}
+                      onClick={() => {
+                        removeOpenContactRequestFromDashboard(request._id)
+                        navigate(`/admin/contact-requests?messageId=${request._id}`)
+                      }}
                     >
                       <div>
                         <p className="compact-title compact-nested-title">
@@ -951,7 +1070,10 @@ export function AdminDashboard() {
                 size="sm"
                 variant="outline"
                 className="w-full"
-                onClick={() => navigate("/admin/contact-requests")}
+                onClick={() => {
+                  clearOpenContactRequestsFromDashboard()
+                  navigate("/admin/contact-requests")
+                }}
               >
                 {t('adminDashboard.allContactRequests')}
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -959,7 +1081,10 @@ export function AdminDashboard() {
             </div>
 
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/orders")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearCustomerMessagesFromDashboard()
+              navigate("/admin/orders")
+            }}>
               {t('adminDashboard.allOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>

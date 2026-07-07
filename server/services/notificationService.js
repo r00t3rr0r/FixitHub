@@ -5,6 +5,110 @@ const EmailService = require('./emailService');
 const NotificationTemplateService = require('./notificationTemplateService');
 
 class NotificationService {
+  static getSupportedNotificationTypes() {
+    return ['order_update', 'payment', 'message', 'system', 'assignment', 'reminder'];
+  }
+
+  static isInvoiceNotification(notificationData = {}) {
+    if (notificationData?.metadata?.isInvoice === true) {
+      return true;
+    }
+
+    const title = String(notificationData?.title || '');
+    const message = String(notificationData?.message || '');
+    return /(invoice|rechnung)/i.test(`${title} ${message}`);
+  }
+
+  static isTypeChannelEnabled(user, notificationType, channel) {
+    const normalizedType = String(notificationType || 'system').toLowerCase();
+    const supportedTypes = this.getSupportedNotificationTypes();
+    const resolvedType = supportedTypes.includes(normalizedType) ? normalizedType : 'system';
+
+    const notifications = user?.preferences?.notifications || {};
+
+    if (channel === 'email' && notifications.email === false) return false;
+    if (channel === 'push' && notifications.push === false) return false;
+
+    const channelMap = notifications.channelsByType || {};
+    const value = channelMap?.[resolvedType]?.[channel];
+    if (typeof value === 'boolean') return value;
+
+    return true;
+  }
+
+  static isOrderEventChannelEnabled(user, channel, notificationData = {}) {
+    if (String(notificationData?.type || '').toLowerCase() !== 'order_update') {
+      return true;
+    }
+
+    const eventStatus = notificationData?.metadata?.orderStatusEvent || notificationData?.status || null;
+    return this.isOrderStatusEventEnabled(user, channel, eventStatus);
+  }
+
+  static shouldSendEmailForNotification(user, notificationData = {}, options = {}) {
+    if (options.forceEmail) {
+      return true;
+    }
+
+    if (options.sendEmail === false) {
+      return false;
+    }
+
+    if (this.isInvoiceNotification(notificationData)) {
+      return true;
+    }
+
+    const typeEnabled = this.isTypeChannelEnabled(user, notificationData.type, 'email');
+    const eventEnabled = this.isOrderEventChannelEnabled(user, 'email', notificationData);
+    return typeEnabled && eventEnabled;
+  }
+
+  static shouldCreateInAppNotification(user, notificationData = {}, options = {}) {
+    if (options.sendInApp === false) {
+      return false;
+    }
+
+    const typeEnabled = this.isTypeChannelEnabled(user, notificationData.type, 'push');
+    const eventEnabled = this.isOrderEventChannelEnabled(user, 'push', notificationData);
+    return typeEnabled && eventEnabled;
+  }
+
+  static normalizeOrderStatusEventKey(status) {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'completed') return 'completed';
+    if (normalized === 'ready-for-pickup') return 'readyForPickup';
+    if (normalized === 'in-progress') return 'inProgress';
+    return null;
+  }
+
+  static isOrderStatusEventEnabled(user, channel, status) {
+    const eventKey = this.normalizeOrderStatusEventKey(status);
+    if (!eventKey) {
+      return channel === 'push';
+    }
+
+    const notifications = user?.preferences?.notifications || {};
+    const mode = String(notifications.mode || 'standard').toLowerCase();
+
+    if (channel === 'email') {
+      if (notifications.email === false) return false;
+      if (mode === 'all') return true;
+
+      const emailEvents = notifications.emailEvents || {};
+      const explicit = emailEvents[eventKey];
+      if (typeof explicit === 'boolean') return explicit;
+
+      return eventKey === 'readyForPickup' || eventKey === 'completed';
+    }
+
+    if (notifications.push === false) return false;
+    const pushEvents = notifications.pushEvents || {};
+    const explicit = pushEvents[eventKey];
+    if (typeof explicit === 'boolean') return explicit;
+
+    return true;
+  }
+
   // Delete all notifications
   static async deleteAllNotifications() {
     try {
@@ -79,7 +183,7 @@ class NotificationService {
   static async sendCustomerNotificationEmail(savedNotification, options = {}) {
     try {
       const user = await User.findById(savedNotification.userId)
-        .select('email firstName lastName name role preferences.notifications.email')
+        .select('email firstName lastName name role preferences.notifications')
         .lean();
 
       if (!user || !user.email) {
@@ -90,7 +194,7 @@ class NotificationService {
         return;
       }
 
-      const emailNotificationsEnabled = options.forceEmail || user?.preferences?.notifications?.email !== false;
+      const emailNotificationsEnabled = this.shouldSendEmailForNotification(user, savedNotification, options);
       if (!emailNotificationsEnabled) {
         return;
       }
@@ -183,10 +287,37 @@ class NotificationService {
     console.log('NotificationService: Creating notification for user:', notificationData.userId);
 
     try {
+      const user = await User.findById(notificationData.userId)
+        .select('email firstName lastName name role preferences.notifications')
+        .lean();
+
+      const isCustomer = String(user?.role || '').toLowerCase() === 'customer';
+      const sendInApp = isCustomer
+        ? this.shouldCreateInAppNotification(user, notificationData, options)
+        : options.sendInApp !== false;
+      const sendEmail = isCustomer
+        ? this.shouldSendEmailForNotification(user, notificationData, options)
+        : options.sendEmail !== false;
+
+      if (!sendInApp && sendEmail) {
+        await this.sendCustomerNotificationEmail({
+          ...notificationData,
+          createdAt: new Date(),
+        }, {
+          ...options,
+          forceEmail: true,
+        });
+        return null;
+      }
+
+      if (!sendInApp && !sendEmail) {
+        return null;
+      }
+
       const notification = new Notification(notificationData);
       const savedNotification = await notification.save();
 
-      if (options.sendEmail !== false) {
+      if (sendEmail) {
         await this.sendCustomerNotificationEmail(savedNotification, options);
       }
 
@@ -287,7 +418,12 @@ class NotificationService {
       message: message || 'Der Status Ihres Auftrags wurde aktualisiert.',
       type: 'order_update',
       orderId,
-      actionUrl: `/orders/${orderId}`
+      actionUrl: `/orders/${orderId}`,
+      metadata: {
+        orderStatusEvent: status,
+      },
+    }, {
+      sendInApp: true,
     });
   }
 

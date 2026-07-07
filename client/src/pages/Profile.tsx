@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getUserProfile, updateUserProfile, UserProfile } from "@/api/user"
@@ -37,6 +38,26 @@ import {
   X,
 } from "lucide-react"
 
+const NOTIFICATION_TYPE_KEYS = [
+  "order_update",
+  "payment",
+  "message",
+  "system",
+  "assignment",
+  "reminder",
+] as const
+
+type NotificationTypeKey = typeof NOTIFICATION_TYPE_KEYS[number]
+
+const defaultTypeChannels: Record<NotificationTypeKey, { email: boolean; push: boolean }> = {
+  order_update: { email: true, push: true },
+  payment: { email: true, push: true },
+  message: { email: true, push: true },
+  system: { email: true, push: true },
+  assignment: { email: true, push: true },
+  reminder: { email: true, push: true },
+}
+
 export function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,6 +72,21 @@ export function Profile() {
   const { t } = useTranslation()
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm()
+  const emailNotificationsEnabled = watch("preferences.notifications.email") !== false
+  const pushNotificationsEnabled = watch("preferences.notifications.push") !== false
+
+  const setDefaultTypeChannels = (profileData: any) => {
+    for (const key of NOTIFICATION_TYPE_KEYS) {
+      setValue(
+        `preferences.notifications.channelsByType.${key}.email`,
+        profileData?.preferences?.notifications?.channelsByType?.[key]?.email !== false
+      )
+      setValue(
+        `preferences.notifications.channelsByType.${key}.push`,
+        profileData?.preferences?.notifications?.channelsByType?.[key]?.push !== false
+      )
+    }
+  }
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -92,6 +128,11 @@ export function Profile() {
         } else {
           setDeliveryType('same')
         }
+
+        setValue("preferences.notifications.email", profileData.preferences?.notifications?.email !== false)
+        setValue("preferences.notifications.push", profileData.preferences?.notifications?.push !== false)
+
+        setDefaultTypeChannels(profileData)
       } catch (error) {
         console.error("Error fetching profile:", error)
         toast({
@@ -144,6 +185,22 @@ export function Profile() {
       const profileData = {
         ...data,
         paymentAddress,
+        preferences: {
+          ...(profile?.preferences || {}),
+          ...(data.preferences || {}),
+          notifications: {
+            ...(profile?.preferences?.notifications || {}),
+            ...(data.preferences?.notifications || {}),
+            email: data.preferences?.notifications?.email !== false,
+            push: data.preferences?.notifications?.push !== false,
+            channelsByType: NOTIFICATION_TYPE_KEYS.reduce((acc, key) => {
+              const email = data.preferences?.notifications?.channelsByType?.[key]?.email !== false
+              const push = data.preferences?.notifications?.channelsByType?.[key]?.push !== false
+              acc[key] = { email, push }
+              return acc
+            }, { ...(profile?.preferences?.notifications?.channelsByType || defaultTypeChannels) } as Record<NotificationTypeKey, { email: boolean; push: boolean }>),
+          },
+        },
       }
 
       const response = await updateUserProfile(profileData)
@@ -733,44 +790,108 @@ export function Profile() {
               </CardDescription>
             </CardHeader>
             <CardContent className="profile-card-content">
-              <div className="profile-notification-item">
-                <div>
-                  <Label htmlFor="email-notifications" className="profile-notification-label">{t('profile.emailNotifications')}</Label>
-                  <p className="profile-notification-desc">
-                    {t('profilePage.emailNotificationsDesc')}
-                  </p>
+              <div className="profile-channel-card">
+                <div className="profile-channel-header">
+                  <div>
+                    <Label className="profile-notification-label">{t('profile.emailNotifications')}</Label>
+                    <p className="profile-notification-desc">{t('profilePage.emailNotificationsDesc')}</p>
+                  </div>
+                  <RadioGroup
+                    value={emailNotificationsEnabled ? 'on' : 'off'}
+                    onValueChange={(value) => setValue('preferences.notifications.email', value === 'on')}
+                    className="profile-channel-radio-group"
+                  >
+                    <div className="profile-radio-option">
+                      <RadioGroupItem value="on" id="email-channel-on" />
+                      <Label htmlFor="email-channel-on" className="profile-radio-label">{t('profilePage.channelOn')}</Label>
+                    </div>
+                    <div className="profile-radio-option">
+                      <RadioGroupItem value="off" id="email-channel-off" />
+                      <Label htmlFor="email-channel-off" className="profile-radio-label">{t('profilePage.channelOff')}</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <Switch
-                  id="email-notifications"
-                  defaultChecked={profile.preferences.notifications.email}
-                />
+
+                {emailNotificationsEnabled && (
+                  <details className="profile-channel-dropdown" open>
+                    <summary className="profile-channel-dropdown-summary">{t('profilePage.channelTypeDropdown')}</summary>
+                    <div className="profile-channel-dropdown-content">
+                      <div className="profile-notification-events-grid">
+                        {NOTIFICATION_TYPE_KEYS.map((typeKey) => {
+                          const checked = watch(`preferences.notifications.channelsByType.${typeKey}.email`) !== false
+                          const isPaymentType = typeKey === 'payment'
+                          return (
+                            <div className="profile-checkbox-option" key={`email-${typeKey}`}>
+                              <Checkbox
+                                id={`type-email-${typeKey}`}
+                                checked={checked}
+                                disabled={isPaymentType}
+                                onCheckedChange={(checkedState) => setValue(`preferences.notifications.channelsByType.${typeKey}.email`, checkedState === true)}
+                              />
+                              <Label htmlFor={`type-email-${typeKey}`} className="profile-checkbox-label">
+                                {t(`profilePage.type.${typeKey}`)}
+                                {isPaymentType ? ` (${t('profilePage.invoiceAlwaysEmailShort')})` : ''}
+                              </Label>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                )}
               </div>
 
-              <div className="profile-notification-item">
-                <div>
-                  <Label htmlFor="sms-notifications" className="profile-notification-label">{t('profile.smsNotifications')}</Label>
-                  <p className="profile-notification-desc">
-                    {t('profilePage.smsNotificationsDesc')}
-                  </p>
+              <div className="profile-channel-card">
+                <div className="profile-channel-header">
+                  <div>
+                    <Label className="profile-notification-label">{t('profilePage.notificationChannel')}</Label>
+                    <p className="profile-notification-desc">{t('profilePage.notificationChannelDesc')}</p>
+                  </div>
+                  <RadioGroup
+                    value={pushNotificationsEnabled ? 'on' : 'off'}
+                    onValueChange={(value) => setValue('preferences.notifications.push', value === 'on')}
+                    className="profile-channel-radio-group"
+                  >
+                    <div className="profile-radio-option">
+                      <RadioGroupItem value="on" id="notification-channel-on" />
+                      <Label htmlFor="notification-channel-on" className="profile-radio-label">{t('profilePage.channelOn')}</Label>
+                    </div>
+                    <div className="profile-radio-option">
+                      <RadioGroupItem value="off" id="notification-channel-off" />
+                      <Label htmlFor="notification-channel-off" className="profile-radio-label">{t('profilePage.channelOff')}</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <Switch
-                  id="sms-notifications"
-                  defaultChecked={profile.preferences.notifications.sms}
-                />
+
+                {pushNotificationsEnabled && (
+                  <details className="profile-channel-dropdown" open>
+                    <summary className="profile-channel-dropdown-summary">{t('profilePage.channelTypeDropdown')}</summary>
+                    <div className="profile-channel-dropdown-content">
+                      <div className="profile-notification-events-grid">
+                        {NOTIFICATION_TYPE_KEYS.map((typeKey) => {
+                          const checked = watch(`preferences.notifications.channelsByType.${typeKey}.push`) !== false
+                          return (
+                            <div className="profile-checkbox-option" key={`push-${typeKey}`}>
+                              <Checkbox
+                                id={`type-push-${typeKey}`}
+                                checked={checked}
+                                onCheckedChange={(checkedState) => setValue(`preferences.notifications.channelsByType.${typeKey}.push`, checkedState === true)}
+                              />
+                              <Label htmlFor={`type-push-${typeKey}`} className="profile-checkbox-label">
+                                {t(`profilePage.type.${typeKey}`)}
+                              </Label>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                )}
               </div>
 
-              <div className="profile-notification-item">
-                <div>
-                  <Label htmlFor="push-notifications" className="profile-notification-label">{t('profile.pushNotifications')}</Label>
-                  <p className="profile-notification-desc">
-                    {t('profilePage.pushNotificationsDesc')}
-                  </p>
-                </div>
-                <Switch
-                  id="push-notifications"
-                  defaultChecked={profile.preferences.notifications.push}
-                />
-              </div>
+              <p className="profile-notification-desc">
+                {t('profilePage.invoiceAlwaysEmailHint')}
+              </p>
             </CardContent>
           </Card>
 
