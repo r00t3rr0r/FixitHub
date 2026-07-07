@@ -3,7 +3,6 @@ import { TopBar } from '@/components/home/TopBar'
 import { McRepairNav } from '@/components/home/McRepairNav'
 import { DeviceSelectionHero } from '@/components/home/DeviceSelectionHero'
 import { TrustRow } from '@/components/home/TrustRow'
-import { SpecialOffers } from '@/components/home/SpecialOffers'
 import { ServicesOverview } from '@/components/home/ServicesOverview'
 import { ShopSection } from '@/components/home/ShopSectionSimple'
 import { BlogSection } from '@/components/home/BlogSection'
@@ -60,7 +59,10 @@ export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, devi
   }, [device])
 
   const activeSections = useMemo(
-    () => [...sections].filter((section) => section.isActive).sort((a, b) => a.order - b.order),
+    () => [...sections]
+      .filter((section) => section.isActive)
+      .filter((section) => getSectionKind(section) !== 'offers')
+      .sort((a, b) => a.order - b.order),
     [sections]
   )
 
@@ -327,8 +329,6 @@ export const HomepagePreview: React.FC<HomepagePreviewProps> = ({ sections, devi
         return <DeviceSelectionHero />
       case 'trust':
         return <TrustRow />
-      case 'offers':
-        return <SpecialOffers />
       case 'services':
         return (
           <section id="process" className="section">
