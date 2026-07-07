@@ -63,8 +63,11 @@ interface DeviceInspectionFormProps {
   deviceType: string;
   deviceBrand?: string;
   deviceModel?: string;
+  reportedDeviceImage?: string;
   bookedRepairs?: Array<{ name: string; price?: number; quantity?: number }>;
   orderTotalCost?: number;
+  forceStartAtStepOne?: boolean;
+  onRequestDeviceChange?: () => void;
   onComplete?: () => void;
 }
 
@@ -74,8 +77,11 @@ export function DeviceInspectionForm({
   deviceType,
   deviceBrand,
   deviceModel,
+  reportedDeviceImage,
   bookedRepairs = [],
   orderTotalCost,
+  forceStartAtStepOne = false,
+  onRequestDeviceChange,
   onComplete,
 }: DeviceInspectionFormProps) {
   const { t } = useTranslation();
@@ -562,7 +568,9 @@ export function DeviceInspectionForm({
       ? insp.completedSteps.map((s: any) => Number(s.step)).filter((value: number) => Number.isFinite(value))
       : [];
 
-    const nextStep = Math.min(7, Math.max(1, completedStepIds.length + 1));
+    const nextStep = forceStartAtStepOne
+      ? 1
+      : Math.min(7, Math.max(1, completedStepIds.length + 1));
     setCurrentStep(nextStep);
     setExpandedSteps([nextStep]);
   };
@@ -662,7 +670,7 @@ export function DeviceInspectionForm({
     };
 
     init();
-  }, [orderId, customerId, deviceBrand, deviceModel]);
+  }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne]);
 
   useEffect(() => {
     if (orderReportedModel) {
@@ -848,7 +856,7 @@ export function DeviceInspectionForm({
       const actual = actualModel;
       const { reportedImage, actualImage } = await resolveImagesFromCatalog(reported, actual);
       if (active) {
-        setReportedModelImage(reportedImage);
+        setReportedModelImage(reportedImage || reportedDeviceImage || '');
         setActualModelImage(actualImage);
       }
     };
@@ -858,7 +866,7 @@ export function DeviceInspectionForm({
     return () => {
       active = false;
     };
-  }, [reportedModel, actualModel, deviceBrand]);
+  }, [reportedModel, actualModel, deviceBrand, reportedDeviceImage]);
 
   useEffect(() => {
     if (skipNextActualModelSearch) {
@@ -972,8 +980,16 @@ export function DeviceInspectionForm({
     if (submitting) return;
 
     try {
-      if (!reportedModel.trim() || !actualModel.trim()) {
-        toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Bitte gemeldetes und tatsaechliches Modell eintragen.' });
+      if (!reportedModel.trim()) {
+        toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Gemeldetes Modell fehlt im Auftrag.' });
+        return;
+      }
+
+      if (verificationStatus !== 'correct') {
+        toast({
+          title: t('inspection.toast.errorTitle', 'Fehler'),
+          description: 'Bitte zuerst ueber "Geraet aendern" das Modell im Auftrag aktualisieren.',
+        });
         return;
       }
 
@@ -981,7 +997,7 @@ export function DeviceInspectionForm({
       const result = await updateModelVerification(
         orderId,
         reportedModel,
-        actualModel,
+        reportedModel,
         verificationStatus,
         costDifference,
         modelNotes
@@ -1293,7 +1309,7 @@ export function DeviceInspectionForm({
         </CardHeader>
         {expandedSteps.includes(1) && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="reported-model">{t('inspection.fields.reportedModel', 'Gemeldetes Modell')}</Label>
                 <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3">
@@ -1317,119 +1333,38 @@ export function DeviceInspectionForm({
                   </div>
                 </div>
               </div>
-              <div>
-                <Label htmlFor="actual-model">{t('inspection.fields.actualModel', 'Tatsächliches Modell')}</Label>
-                <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="actual-device-type" className="text-xs text-slate-600">Geraetetyp</Label>
-                    <Select value={selectedActualDeviceType || undefined} onValueChange={handleActualDeviceTypeChange}>
-                      <SelectTrigger id="actual-device-type">
-                        <SelectValue placeholder="Geraetetyp waehlen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableDeviceTypes.map((entry) => (
-                          <SelectItem key={entry._id} value={entry.name}>{entry.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  <div>
-                    <Label htmlFor="actual-manufacturer" className="text-xs text-slate-600">Hersteller</Label>
-                    <Select
-                      value={selectedActualManufacturer || undefined}
-                      onValueChange={handleActualManufacturerChange}
-                      disabled={!selectedActualDeviceType}
-                    >
-                      <SelectTrigger id="actual-manufacturer">
-                        <SelectValue placeholder={selectedActualDeviceType ? 'Hersteller waehlen' : 'Zuerst Geraetetyp'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableManufacturers.map((entry) => (
-                          <SelectItem key={entry._id} value={entry.name}>{entry.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Input
-                  id="actual-model"
-                  value={actualModelSearchQuery}
-                  onChange={(e) => handleActualModelSearch(e.target.value)}
-                  onKeyDown={handleActualModelKeyDown}
-                  onFocus={() => {
-                    if (actualModelResults.length > 0) setShowActualModelResults(true);
-                  }}
-                  placeholder="Modell im Katalog suchen (z. B. iPhone 14 Pro)"
-                />
-                {searchingActualModel && (
-                  <p className="mt-1 text-xs text-slate-500">Suche Modelle...</p>
-                )}
-                {showActualModelResults && actualModelSearchQuery.trim().length >= 2 && (
-                  <div className="mt-2 max-h-56 overflow-auto rounded-md border border-slate-200 bg-white">
-                    {actualModelResults.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-slate-500">Keine Modelle gefunden.</p>
-                    ) : (
-                      actualModelResults.map((device) => (
-                        <button
-                          key={device._id}
-                          type="button"
-                          onClick={() => handleSelectActualModel(device)}
-                          className={`flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left hover:bg-slate-50 ${actualModelResults[actualModelHighlightedIndex]?._id === device._id ? 'bg-slate-100' : ''}`}
-                        >
-                          {device.image ? (
-                            <img
-                              src={resolveDeviceImageUrl(device.image)}
-                              alt={device.displayName || device.name}
-                              className="h-8 w-8 rounded border border-slate-200 object-cover"
-                            />
-                          ) : (
-                            <div className="h-8 w-8 rounded border border-slate-200 bg-slate-100" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-800">{device.displayName || device.name}</p>
-                            <p className="truncate text-xs text-slate-500">{device.manufacturer} · {device.deviceType}</p>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-                {actualModel && (
-                  <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2">
-                    <div className="flex items-center gap-2">
-                      {actualModelImage ? (
-                        <img
-                          src={actualModelImage}
-                          alt={actualModel}
-                          className="h-9 w-9 rounded border border-slate-200 object-cover"
-                          onError={() => setActualModelImage('')}
-                        />
-                      ) : (
-                        <div className="h-9 w-9 rounded border border-slate-200 bg-white text-[10px] text-slate-500 flex items-center justify-center">
-                          Kein Bild
-                        </div>
-                      )}
-                      <p className="text-xs font-medium text-slate-700">Ausgewaehlt: {actualModel}</p>
+              <div>
+                <Label>{t('inspection.fields.verificationStatus', 'Prüfstatus')}</Label>
+                <div className="mt-2 space-y-3 rounded-md border border-slate-200 bg-white p-3">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="verification-match"
+                      checked={verificationStatus === 'correct'}
+                      onCheckedChange={(checked) => setVerificationStatus(checked ? 'correct' : 'incorrect-same-cheaper')}
+                    />
+                    <div>
+                      <Label htmlFor="verification-match" className="text-sm font-medium">
+                        Uebereinstimmung OK
+                      </Label>
+                      <p className="text-xs text-slate-500">
+                        Aktiv lassen, wenn das Geraet mit dem Auftrag uebereinstimmt.
+                      </p>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
 
-            <div>
-              <Label htmlFor="verification-status">{t('inspection.fields.verificationStatus', 'Prüfstatus')}</Label>
-              <Select value={verificationStatus} onValueChange={(value: VerificationStatus) => setVerificationStatus(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="correct">{getVerificationStatusLabel('correct')}</SelectItem>
-                  <SelectItem value="incorrect-more-expensive">{getVerificationStatusLabel('incorrect-more-expensive')}</SelectItem>
-                  <SelectItem value="incorrect-same-cheaper">{getVerificationStatusLabel('incorrect-same-cheaper')}</SelectItem>
-                  <SelectItem value="unverifiable">{getVerificationStatusLabel('unverifiable')}</SelectItem>
-                </SelectContent>
-              </Select>
+                  {verificationStatus !== 'correct' && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                      <p className="mb-2">
+                        Modell stimmt nicht ueberein. Bitte den Auftrag ueber "Geraet aendern" aktualisieren.
+                      </p>
+                      <Button type="button" variant="outline" size="sm" onClick={onRequestDeviceChange}>
+                        Geraet aendern
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {verificationStatus !== 'correct' && (

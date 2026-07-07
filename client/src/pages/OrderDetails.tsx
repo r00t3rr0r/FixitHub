@@ -191,6 +191,8 @@ export function OrderDetails() {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
+  const [returnToInspectionAfterDeviceDialog, setReturnToInspectionAfterDeviceDialog] = useState(false)
+  const [forceInspectionStepOne, setForceInspectionStepOne] = useState(false)
   const [generatingInspectionReport, setGeneratingInspectionReport] = useState(false)
   const [deviceHistoryOpen, setDeviceHistoryOpen] = useState(false)
   const [customerInspection, setCustomerInspection] = useState<any>(null)
@@ -2075,6 +2077,7 @@ export function OrderDetails() {
   }
 
   const handleInspectionComplete = () => {
+    setForceInspectionStepOne(false)
     setInspectionDialogOpen(false)
     setInspectionRefreshKey((current) => current + 1)
     refreshOrder()
@@ -5764,7 +5767,15 @@ export function OrderDetails() {
 
       {/* Device Inspection Dialog */}
       {id && order && isStaffOrAdmin && (
-        <Dialog open={inspectionDialogOpen} onOpenChange={setInspectionDialogOpen}>
+        <Dialog
+          open={inspectionDialogOpen}
+          onOpenChange={(open) => {
+            setInspectionDialogOpen(open)
+            if (!open) {
+              setForceInspectionStepOne(false)
+            }
+          }}
+        >
           <DialogContent className="order-dialog-content inspection-dialog-content w-[96vw] max-w-[1180px]">
             <DialogHeader className="order-dialog-header inspection-dialog-header">
               <div className="inspection-dialog-title-row">
@@ -5810,7 +5821,9 @@ export function OrderDetails() {
                 <span className="inspection-dialog-context-chip">
                   <strong>Gebuchte Reparatur:</strong>{' '}
                   {(repairServices && repairServices.length > 0)
-                    ? repairServices.map((service: any) => service?.name || service?.serviceName || 'Service').join(', ')
+                    ? repairServices
+                      .map((service: any) => service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Service')
+                      .join(', ')
                     : 'Nicht verfuegbar'}
                 </span>
                 <span className="inspection-dialog-context-chip">
@@ -5820,17 +5833,25 @@ export function OrderDetails() {
 
               <div className="inspection-dialog-form-column">
                 <DeviceInspectionForm
+                  key={`inspection-form-${id}-${inspectionRefreshKey}-${forceInspectionStepOne ? 'step1' : 'default'}`}
                   orderId={id}
                   customerId={(order as any)?.customerId?._id || null}
                   deviceType={order.deviceType}
                   deviceBrand={(order as any)?.deviceBrand || ''}
                   deviceModel={(order as any)?.deviceModel || ''}
+                  reportedDeviceImage={getDeviceModelPreviewImage(order) || undefined}
                   bookedRepairs={(repairServices || []).map((service: any) => ({
-                    name: service?.name || service?.serviceName || 'Reparaturservice',
+                    name: service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Reparaturservice',
                     price: safeToNumber(service?.finalPrice ?? service?.totalPrice ?? service?.price),
                     quantity: Number(service?.quantity || 1),
                   }))}
                   orderTotalCost={safeToNumber((order as any)?.totalCost)}
+                  forceStartAtStepOne={forceInspectionStepOne}
+                  onRequestDeviceChange={() => {
+                    setReturnToInspectionAfterDeviceDialog(true)
+                    setInspectionDialogOpen(false)
+                    setDeviceChangeDialogOpen(true)
+                  }}
                   onComplete={handleInspectionComplete}
                 />
               </div>
@@ -6557,7 +6578,16 @@ export function OrderDetails() {
       {id && order && (
         <DeviceChangeDialog
           open={deviceChangeDialogOpen}
-          onOpenChange={setDeviceChangeDialogOpen}
+          onOpenChange={(open) => {
+            setDeviceChangeDialogOpen(open)
+
+            if (!open && returnToInspectionAfterDeviceDialog) {
+              setForceInspectionStepOne(true)
+              setInspectionRefreshKey((current) => current + 1)
+              setInspectionDialogOpen(true)
+              setReturnToInspectionAfterDeviceDialog(false)
+            }
+          }}
           orderId={id}
           currentDevice={{
             brand: order.deviceBrand,
