@@ -10794,5 +10794,107 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1783414318657-i59ktmvil",
+    "timestamp": "2026-07-07T08:51:58.657Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<178e0518-2103-0624-7b49-048839926a86@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1428,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1783414514255-wfkrgzilj",
+    "timestamp": "2026-07-07T08:55:14.255Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<22bd01e9-af54-a668-43bc-3dbb9ac7758f@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1067,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1783414514462-o9f3oofef",
+    "timestamp": "2026-07-07T08:55:14.462Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<d9e3ecdb-c73c-dba2-72d9-a201e7cdfdf0@fixithub.com>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1298,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]

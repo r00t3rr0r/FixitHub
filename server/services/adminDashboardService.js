@@ -189,6 +189,7 @@ class AdminDashboardService {
         orderId: notification.orderId?._id,
         orderNumber: notification.orderId?.orderNumber,
         actionUrl: notification.actionUrl,
+        metadata: notification.metadata || {},
         createdAt: notification.createdAt,
         readAt: notification.readAt
       }));
