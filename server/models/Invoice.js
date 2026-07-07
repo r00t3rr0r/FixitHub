@@ -169,6 +169,11 @@ const invoiceSchema = new mongoose.Schema({
   paidAt: {
     type: Date
   },
+  paymentMethod: {
+    type: String,
+    enum: ['credit_card', 'sepa', 'paypal', 'cash', null],
+    default: null
+  },
   cancelledAt: {
     type: Date
   },
