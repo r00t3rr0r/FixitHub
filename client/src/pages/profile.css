@@ -520,6 +520,53 @@
   margin: 0;
 }
 
+.profile-channel-card {
+  border: 1px solid #eceef3;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: #ffffff;
+}
+
+.profile-channel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-channel-radio-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.profile-channel-dropdown {
+  margin-top: 10px;
+  border: 1px solid #eceef3;
+  border-radius: 6px;
+  background: #fafbfe;
+}
+
+.profile-channel-dropdown-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1a2a5e;
+  padding: 10px 12px;
+}
+
+.profile-channel-dropdown-summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-channel-dropdown-content {
+  border-top: 1px solid #eceef3;
+  padding: 10px 12px;
+}
+
 .profile-notification-mode {
   border: 1px solid #eceef3;
   border-radius: 6px;
@@ -626,6 +673,17 @@
   display: flex;
   justify-content: center;
   padding: 10px;
+}
+
+@media (max-width: 768px) {
+  .profile-channel-header {
+    flex-direction: column;
+  }
+
+  .profile-channel-radio-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 /* Save Button Section */
