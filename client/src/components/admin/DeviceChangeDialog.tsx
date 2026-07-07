@@ -64,6 +64,14 @@ interface PricingChangesSummary {
     difference: number
     status: 'increase' | 'decrease' | 'no-change'
   }
+  selectedServiceSwaps?: Array<{
+    previousServiceName: string
+    previousServicePrice: number
+    newServiceName: string
+    newServicePrice: number
+    difference: number
+    status: 'increase' | 'decrease' | 'no-change'
+  }>
   requiresConfirmation: boolean
   changedAt: string
   changedBy: string
@@ -118,6 +126,7 @@ export function DeviceChangeDialog({
   const [compatibleServices, setCompatibleServices] = useState<CompatibleService[]>([])
   const [selectedCurrentServiceId, setSelectedCurrentServiceId] = useState("")
   const [selectedReplacementServiceId, setSelectedReplacementServiceId] = useState("")
+  const [serviceReplacementMap, setServiceReplacementMap] = useState<Record<string, string>>({})
   const [loadingCompatibleServices, setLoadingCompatibleServices] = useState(false)
   const [loading, setLoading] = useState(false)
   const [pricingChanges, setPricingChanges] = useState<PricingChangesSummary | null>(null)
@@ -136,6 +145,7 @@ export function DeviceChangeDialog({
       setCompatibleServices([])
       setSelectedCurrentServiceId(currentServices[0]?.id || "")
       setSelectedReplacementServiceId("")
+      setServiceReplacementMap({})
       setPricingChanges(null)
       setDensityMode('kompakt')
     }
@@ -237,21 +247,69 @@ export function DeviceChangeDialog({
   const handleSelectDevice = (device: any) => {
     setSelectedDevice(device)
     setSelectedReplacementServiceId("")
+    setServiceReplacementMap({})
     console.log("[DeviceChange] Selected device:", device)
   }
 
+  const assignServiceReplacement = () => {
+    if (!selectedCurrentServiceId || !selectedReplacementServiceId) return
+    setServiceReplacementMap((previousMap) => ({
+      ...previousMap,
+      [selectedCurrentServiceId]: selectedReplacementServiceId,
+    }))
+  }
+
+  const removeServiceReplacement = (currentServiceId: string) => {
+    setServiceReplacementMap((previousMap) => {
+      const nextMap = { ...previousMap }
+      delete nextMap[currentServiceId]
+      return nextMap
+    })
+  }
+
   const selectedCurrentService = currentServices.find((service) => service.id === selectedCurrentServiceId) || null
-  const selectedReplacementService = compatibleServices.find((service) => service._id === selectedReplacementServiceId) || null
   const hasCurrentServices = currentServices.length > 0
 
+  const selectedServiceReplacements = Object.entries(serviceReplacementMap)
+    .map(([oldOrderServiceId, newServiceId]) => {
+      const existingService = currentServices.find((service) => service.id === oldOrderServiceId)
+      const replacementService = compatibleServices.find((service) => service._id === newServiceId)
+
+      if (!existingService || !replacementService) {
+        return null
+      }
+
+      return {
+        oldOrderServiceId,
+        newServiceId,
+        existingService,
+        replacementService,
+      }
+    })
+    .filter(Boolean) as Array<{
+    oldOrderServiceId: string
+    newServiceId: string
+    existingService: CurrentOrderService
+    replacementService: CompatibleService
+  }>
+
+  const selectedCurrentServicesTotal = selectedServiceReplacements.reduce(
+    (sum, entry) => sum + (Number(entry.existingService.price) || 0),
+    0
+  )
+  const selectedReplacementServicesTotal = selectedServiceReplacements.reduce(
+    (sum, entry) => sum + (Number(entry.replacementService.price) || 0),
+    0
+  )
+
   const liveSwapDifference =
-    selectedCurrentService && selectedReplacementService
-      ? selectedReplacementService.price - selectedCurrentService.price
+    selectedServiceReplacements.length > 0
+      ? selectedReplacementServicesTotal - selectedCurrentServicesTotal
       : null
 
   const canProceedToRecalculation =
     Boolean(selectedDevice) &&
-    (!hasCurrentServices || (Boolean(selectedCurrentServiceId) && Boolean(selectedReplacementServiceId)))
+    (!hasCurrentServices || selectedServiceReplacements.length === currentServices.length)
 
   const formatCurrency = (value: number) => `$${(Number(value) || 0).toFixed(2)}`
 
@@ -265,10 +323,10 @@ export function DeviceChangeDialog({
       return
     }
 
-    if (hasCurrentServices && (!selectedCurrentServiceId || !selectedReplacementServiceId)) {
+    if (hasCurrentServices && selectedServiceReplacements.length !== currentServices.length) {
       toast({
         title: "Fehler",
-        description: "Bitte waehlen Sie den bisherigen und den neuen Reparaturservice aus.",
+        description: `Bitte ordnen Sie jeden bestehenden Reparaturservice genau einem neuen Reparaturservice zu (${selectedServiceReplacements.length}/${currentServices.length}).`,
         variant: "destructive",
       })
       return
@@ -288,10 +346,10 @@ export function DeviceChangeDialog({
         selectedDevice.deviceType,
         hasCurrentServices
           ? {
-              serviceReplacement: {
-                oldOrderServiceId: selectedCurrentServiceId,
-                newServiceId: selectedReplacementServiceId,
-              },
+              serviceReplacements: selectedServiceReplacements.map(({ oldOrderServiceId, newServiceId }) => ({
+                oldOrderServiceId,
+                newServiceId,
+              })),
             }
           : undefined
       )
@@ -355,7 +413,7 @@ export function DeviceChangeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`order-device-change-dialog order-device-change-dialog--${densityMode} overflow-hidden p-0`}>
+      <DialogContent className={`order-device-change-dialog order-device-change-dialog--${densityMode} !max-w-[1320px] w-[96vw] overflow-hidden p-0`}>
         <DialogHeader className="order-device-change-header">
           <DialogTitle className="order-device-change-title">
             <span className="order-device-change-title-icon" aria-hidden="true">
@@ -496,6 +554,11 @@ export function DeviceChangeDialog({
                     <CardContent className="space-y-3">
                       <div className="space-y-2">
                         <Label className="order-device-change-label">Bisheriger Reparaturservice</Label>
+                        <p className="order-device-change-side-subtitle">
+                          {selectedCurrentService
+                            ? `Ausgewaehlt: ${selectedCurrentService.name}`
+                            : 'Waehlen Sie einen bestehenden Service aus.'}
+                        </p>
                         <div className="order-device-change-option-list">
                           {currentServices.map((service) => (
                             <button
@@ -559,6 +622,52 @@ export function DeviceChangeDialog({
                             ))}
                           </div>
                         )}
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={assignServiceReplacement}
+                          disabled={!selectedCurrentServiceId || !selectedReplacementServiceId}
+                        >
+                          Zuordnung hinzufuegen / aktualisieren
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="order-device-change-label">Hinterlegte Zuordnungen</Label>
+                        <p className="order-device-change-side-subtitle">
+                          {selectedServiceReplacements.length}/{currentServices.length} Zuordnungen vollstaendig
+                        </p>
+                        {selectedServiceReplacements.length === 0 ? (
+                          <p className="order-device-change-side-empty">
+                            Noch keine Zuordnungen. Waehlen Sie je Service einen passenden neuen Reparaturservice.
+                          </p>
+                        ) : (
+                          <div className="order-device-change-option-list">
+                            {selectedServiceReplacements.map(({ oldOrderServiceId, existingService, replacementService }) => (
+                              <div key={`${oldOrderServiceId}-${replacementService._id}`} className="order-device-change-option-item is-selected">
+                                <div>
+                                  <span>{existingService.name}</span>
+                                  <p className="order-device-change-option-meta">→ {replacementService.name}</p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  <strong>{formatCurrency(replacementService.price - existingService.price)}</strong>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto p-0 text-xs"
+                                    onClick={() => removeServiceReplacement(oldOrderServiceId)}
+                                  >
+                                    Entfernen
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -587,11 +696,11 @@ export function DeviceChangeDialog({
                         <p className="order-device-change-swap-preview-label">Live-Gegenrechnung</p>
                         <div className="order-device-change-swap-preview-values">
                           <span>
-                            {selectedCurrentService?.name} ({formatCurrency(selectedCurrentService?.price || 0)})
+                            {selectedServiceReplacements.length} Zuordnung(en) alt ({formatCurrency(selectedCurrentServicesTotal)})
                           </span>
                           <span>→</span>
                           <span>
-                            {selectedReplacementService?.name} ({formatCurrency(selectedReplacementService?.price || 0)})
+                            neu ({formatCurrency(selectedReplacementServicesTotal)})
                           </span>
                         </div>
                         <p className={`order-device-change-swap-preview-diff ${liveSwapDifference > 0 ? 'is-increase' : liveSwapDifference < 0 ? 'is-decrease' : 'is-neutral'}`}>
@@ -616,6 +725,14 @@ export function DeviceChangeDialog({
           {/* Step 2: Review Pricing Changes */}
           {step === 'review' && pricingChanges && (
             <div className="space-y-4">
+              {(() => {
+                const reviewSwaps = pricingChanges.selectedServiceSwaps?.length
+                  ? pricingChanges.selectedServiceSwaps
+                  : pricingChanges.selectedServiceSwap
+                    ? [pricingChanges.selectedServiceSwap]
+                    : []
+
+                return (
               <Card className="order-device-change-info-card">
                 <CardContent className="pt-5">
                   <div className="flex items-start gap-3">
@@ -630,28 +747,34 @@ export function DeviceChangeDialog({
                     </div>
                   </div>
 
-                  {pricingChanges.selectedServiceSwap && (
+                  {reviewSwaps.length > 0 && (
                     <div className="order-device-change-review-swap">
                       <p className="order-device-change-review-swap-title">Gegenrechnung Reparaturservice</p>
-                      <div className="order-device-change-review-swap-row">
-                        <span>{pricingChanges.selectedServiceSwap.previousServiceName}</span>
-                        <strong>{formatCurrency(pricingChanges.selectedServiceSwap.previousServicePrice)}</strong>
-                      </div>
-                      <div className="order-device-change-review-swap-row">
-                        <span>{pricingChanges.selectedServiceSwap.newServiceName}</span>
-                        <strong>{formatCurrency(pricingChanges.selectedServiceSwap.newServicePrice)}</strong>
-                      </div>
-                      <div className="order-device-change-review-swap-row is-total">
-                        <span>Differenz</span>
-                        <strong>
-                          {pricingChanges.selectedServiceSwap.difference > 0 ? '+' : ''}
-                          {formatCurrency(pricingChanges.selectedServiceSwap.difference)}
-                        </strong>
-                      </div>
+                      {reviewSwaps.map((swap, idx) => (
+                        <div key={`${swap.previousServiceName}-${swap.newServiceName}-${idx}`}>
+                          <div className="order-device-change-review-swap-row">
+                            <span>{swap.previousServiceName}</span>
+                            <strong>{formatCurrency(swap.previousServicePrice)}</strong>
+                          </div>
+                          <div className="order-device-change-review-swap-row">
+                            <span>{swap.newServiceName}</span>
+                            <strong>{formatCurrency(swap.newServicePrice)}</strong>
+                          </div>
+                          <div className="order-device-change-review-swap-row is-total">
+                            <span>Differenz</span>
+                            <strong>
+                              {swap.difference > 0 ? '+' : ''}
+                              {formatCurrency(swap.difference)}
+                            </strong>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
+                )
+              })()}
 
               {/* New Device Info */}
               <Card className="order-device-change-new-device-card">

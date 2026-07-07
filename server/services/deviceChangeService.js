@@ -118,103 +118,133 @@ class DeviceChangeService {
       order.deviceModel = newDeviceInfo.deviceModel;
       order.deviceType = newDeviceInfo.deviceType;
 
-      const selectedServiceReplacement =
+      const selectedServiceReplacements = [];
+
+      if (Array.isArray(newDeviceInfo.serviceReplacements)) {
+        for (const replacement of newDeviceInfo.serviceReplacements) {
+          if (replacement?.oldOrderServiceId && replacement?.newServiceId) {
+            selectedServiceReplacements.push({
+              oldOrderServiceId: String(replacement.oldOrderServiceId),
+              newServiceId: String(replacement.newServiceId),
+            });
+          }
+        }
+      }
+
+      if (
+        selectedServiceReplacements.length === 0 &&
         newDeviceInfo.serviceReplacement &&
         newDeviceInfo.serviceReplacement.oldOrderServiceId &&
         newDeviceInfo.serviceReplacement.newServiceId
-          ? {
-              oldOrderServiceId: String(newDeviceInfo.serviceReplacement.oldOrderServiceId),
-              newServiceId: String(newDeviceInfo.serviceReplacement.newServiceId),
-            }
-          : null;
+      ) {
+        selectedServiceReplacements.push({
+          oldOrderServiceId: String(newDeviceInfo.serviceReplacement.oldOrderServiceId),
+          newServiceId: String(newDeviceInfo.serviceReplacement.newServiceId),
+        });
+      }
+
+      const seenOrderServiceIds = new Set();
+      for (const replacement of selectedServiceReplacements) {
+        if (seenOrderServiceIds.has(replacement.oldOrderServiceId)) {
+          throw new Error('Duplicate existing repair service selections are not allowed');
+        }
+        seenOrderServiceIds.add(replacement.oldOrderServiceId);
+      }
 
       // Get current services and recalculate prices for new device
       const recalculatedServices = [];
       const pricingChanges = [];
       let selectedServiceSwap = null;
+      const selectedServiceSwaps = [];
 
       if (order.services && order.services.length > 0) {
-        if (selectedServiceReplacement) {
-          const serviceIndex = order.services.findIndex(
-            (service) => String(service._id) === selectedServiceReplacement.oldOrderServiceId
-          );
+        if (selectedServiceReplacements.length > 0) {
+          for (const replacement of selectedServiceReplacements) {
+            const serviceIndex = order.services.findIndex(
+              (service) => String(service._id) === replacement.oldOrderServiceId
+            );
 
-          if (serviceIndex === -1) {
-            throw new Error('Selected existing repair service is not part of this order');
-          }
+            if (serviceIndex === -1) {
+              throw new Error('Selected existing repair service is not part of this order');
+            }
 
-          const existingOrderService = order.services[serviceIndex];
-          const existingServiceDetails = await Service.findById(existingOrderService.serviceId);
-          const newServiceDetails = await Service.findById(selectedServiceReplacement.newServiceId);
+            const existingOrderService = order.services[serviceIndex];
+            const existingServiceDetails = await Service.findById(existingOrderService.serviceId);
+            const newServiceDetails = await Service.findById(replacement.newServiceId);
 
-          if (!newServiceDetails) {
-            throw new Error('Selected replacement repair service was not found');
-          }
+            if (!newServiceDetails) {
+              throw new Error('Selected replacement repair service was not found');
+            }
 
-          const isCompatible = DeviceChangeService.isServiceCompatibleWithDeviceType(
-            newServiceDetails,
-            newDeviceInfo.deviceType
-          );
+            const isCompatible = DeviceChangeService.isServiceCompatibleWithDeviceType(
+              newServiceDetails,
+              newDeviceInfo.deviceType
+            );
 
-          if (!isCompatible) {
-            throw new Error(
-              `Service "${newServiceDetails.name}" is not compatible with ${newDeviceInfo.deviceType}`
+            if (!isCompatible) {
+              throw new Error(
+                `Service "${newServiceDetails.name}" is not compatible with ${newDeviceInfo.deviceType}`
+              );
+            }
+
+            const modelCompatible = DeviceChangeService.doesServiceMatchDeviceSelection(
+              newServiceDetails,
+              newDeviceInfo.deviceBrand,
+              newDeviceInfo.deviceModel
+            );
+
+            if (!modelCompatible) {
+              throw new Error(
+                `Service "${newServiceDetails.name}" is not available for ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}`
+              );
+            }
+
+            const originalPrice = Number(existingOrderService.price) || 0;
+            const newPrice = DeviceChangeService.getServicePriceForDevice(
+              newServiceDetails,
+              newDeviceInfo.deviceType,
+              originalPrice
+            );
+            const priceDifference = newPrice - originalPrice;
+            const percentageChange = originalPrice > 0 ? (priceDifference / originalPrice) * 100 : 0;
+
+            existingOrderService.serviceId = newServiceDetails._id;
+            existingOrderService.price = newPrice;
+
+            const numericEstimatedTime = Number(newServiceDetails.estimatedTime);
+            if (!Number.isNaN(numericEstimatedTime) && numericEstimatedTime >= 0) {
+              existingOrderService.estimatedTime = numericEstimatedTime;
+            }
+
+            const serviceSwap = {
+              previousServiceName: existingServiceDetails?.name || 'Vorheriger Service',
+              previousServicePrice: originalPrice,
+              newServiceName: newServiceDetails.name,
+              newServicePrice: newPrice,
+              difference: priceDifference,
+              status: priceDifference > 0 ? 'increase' : priceDifference < 0 ? 'decrease' : 'no-change',
+            };
+
+            selectedServiceSwaps.push(serviceSwap);
+
+            pricingChanges.push({
+              serviceName: `${serviceSwap.previousServiceName} -> ${serviceSwap.newServiceName}`,
+              serviceId: newServiceDetails._id,
+              originalPrice,
+              newPrice,
+              difference: priceDifference,
+              percentageChange: Math.round(percentageChange * 10) / 10,
+              status: serviceSwap.status,
+            });
+
+            recalculatedServices.push(existingOrderService);
+
+            console.log(
+              `[DeviceChange] Replaced service ${serviceSwap.previousServiceName} with ${serviceSwap.newServiceName}: ${originalPrice} -> ${newPrice}`
             );
           }
 
-          const modelCompatible = DeviceChangeService.doesServiceMatchDeviceSelection(
-            newServiceDetails,
-            newDeviceInfo.deviceBrand,
-            newDeviceInfo.deviceModel
-          );
-
-          if (!modelCompatible) {
-            throw new Error(
-              `Service "${newServiceDetails.name}" is not available for ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}`
-            );
-          }
-
-          const originalPrice = Number(existingOrderService.price) || 0;
-          const newPrice = DeviceChangeService.getServicePriceForDevice(
-            newServiceDetails,
-            newDeviceInfo.deviceType,
-            originalPrice
-          );
-          const priceDifference = newPrice - originalPrice;
-          const percentageChange = originalPrice > 0 ? (priceDifference / originalPrice) * 100 : 0;
-
-          existingOrderService.serviceId = newServiceDetails._id;
-          existingOrderService.price = newPrice;
-
-          const numericEstimatedTime = Number(newServiceDetails.estimatedTime);
-          if (!Number.isNaN(numericEstimatedTime) && numericEstimatedTime >= 0) {
-            existingOrderService.estimatedTime = numericEstimatedTime;
-          }
-
-          selectedServiceSwap = {
-            previousServiceName: existingServiceDetails?.name || 'Vorheriger Service',
-            previousServicePrice: originalPrice,
-            newServiceName: newServiceDetails.name,
-            newServicePrice: newPrice,
-            difference: priceDifference,
-            status: priceDifference > 0 ? 'increase' : priceDifference < 0 ? 'decrease' : 'no-change',
-          };
-
-          pricingChanges.push({
-            serviceName: `${selectedServiceSwap.previousServiceName} -> ${selectedServiceSwap.newServiceName}`,
-            serviceId: newServiceDetails._id,
-            originalPrice,
-            newPrice,
-            difference: priceDifference,
-            percentageChange: Math.round(percentageChange * 10) / 10,
-            status: selectedServiceSwap.status,
-          });
-
-          recalculatedServices.push(existingOrderService);
-
-          console.log(
-            `[DeviceChange] Replaced service ${selectedServiceSwap.previousServiceName} with ${selectedServiceSwap.newServiceName}: ${originalPrice} -> ${newPrice}`
-          );
+          selectedServiceSwap = selectedServiceSwaps[0] || null;
         } else {
           for (const orderService of order.services) {
             const serviceDetails = await Service.findById(orderService.serviceId);
@@ -296,6 +326,7 @@ class DeviceChangeService {
         totalCostDifference: totalCostDifference,
         totalCostStatus: totalCostDifference > 0 ? 'increase' : totalCostDifference < 0 ? 'decrease' : 'no-change',
         selectedServiceSwap,
+        selectedServiceSwaps,
         requiresConfirmation: totalCostDifference !== 0, // Confirmation needed if price changed
         changedAt: new Date(),
         changedBy: userId,
