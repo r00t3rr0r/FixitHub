@@ -284,8 +284,10 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   ]
 
   const filteredPaymentOptions = useMemo(() => {
-    if (mode !== "authenticated") return paymentOptions
-    if (!Array.isArray(availablePaymentMethods) || availablePaymentMethods.length === 0) return paymentOptions
+    const defaultOptions = paymentOptions.filter((option) => option.value !== "invoice")
+
+    if (mode !== "authenticated") return defaultOptions
+    if (!Array.isArray(availablePaymentMethods) || availablePaymentMethods.length === 0) return defaultOptions
 
     const normalized = availablePaymentMethods.map((method) => String(method || "").trim().toLowerCase())
 
@@ -302,7 +304,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   useEffect(() => {
     if (!filteredPaymentOptions.some((option) => option.value === paymentMethod)) {
-      const fallback = filteredPaymentOptions[0]?.value || "invoice"
+      const fallback = filteredPaymentOptions[0]?.value || "card"
       setPaymentMethod(fallback)
     }
   }, [filteredPaymentOptions, paymentMethod])

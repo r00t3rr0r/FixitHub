@@ -83,6 +83,13 @@ const checkoutMethodAliases = {
   invoice: ['invoice', 'bank_transfer'],
 };
 
+const DEFAULT_ALLOWED_CHECKOUT_METHODS = normalizeAllowedPaymentMethods([
+  'credit_card',
+  'debit_card',
+  'stripe',
+  'paypal',
+]);
+
 const loadAllowedCheckoutMethodsForUser = async (userId) => {
   const userWithGroup = await User.findById(userId)
     .populate('customerGroupIds', 'status financeProfile.allowedPaymentMethods')
@@ -102,9 +109,15 @@ const loadAllowedCheckoutMethodsForUser = async (userId) => {
     return assignedGroupMethods;
   }
 
-  return normalizeAllowedPaymentMethods(
+  const primaryGroupMethods = normalizeAllowedPaymentMethods(
     userWithGroup?.primaryCustomerGroupId?.financeProfile?.allowedPaymentMethods
   );
+
+  if (primaryGroupMethods.length > 0) {
+    return primaryGroupMethods;
+  }
+
+  return DEFAULT_ALLOWED_CHECKOUT_METHODS;
 };
 
 const isCheckoutPaymentMethodAllowed = ({ paymentMethod, allowedMethods }) => {
@@ -1927,6 +1940,12 @@ router.post('/guest-complete', async (req, res) => {
     console.log('CheckoutRoutes: Processing guest checkout');
 
     const { guestInfo, cartData, paymentMethod, paymentData } = req.body;
+    if (!isCheckoutPaymentMethodAllowed({ paymentMethod, allowedMethods: DEFAULT_ALLOWED_CHECKOUT_METHODS })) {
+      return res.status(403).json({
+        success: false,
+        error: 'Die gewählte Zahlungsart ist im Checkout standardmäßig nicht freigegeben.'
+      });
+    }
     const isCapturedPaypalPayment = paymentMethod === 'paypal' && !!paymentData?.paypalCaptureId;
     const resolvedPaymentStatus = isCapturedPaypalPayment ? 'paid' : 'pending';
     const resolvedBillingStatus = isCapturedPaypalPayment ? 'paid' : 'unpaid';
