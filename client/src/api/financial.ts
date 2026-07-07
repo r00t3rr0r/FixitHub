@@ -55,6 +55,7 @@ export interface Invoice {
   sentAt?: string;
   approvedAt?: string;
   paidAt?: string;
+  paymentMethod?: 'credit_card' | 'sepa' | 'paypal' | 'cash';
   cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -367,9 +368,22 @@ export const generateInvoiceFromRepairs = async (
   }
 };
 
-export const changeInvoiceStatus = async (invoiceId: string, status: InvoiceStatus, notes?: string) => {
+export const changeInvoiceStatus = async (
+  invoiceId: string,
+  status: InvoiceStatus,
+  payload?: {
+    notes?: string;
+    paymentMethod?: Invoice['paymentMethod'];
+    paidAt?: string;
+  }
+) => {
   try {
-    const response = await api.patch(`/api/admin/financial/invoices/${invoiceId}/status`, { status, notes });
+    const response = await api.patch(`/api/admin/financial/invoices/${invoiceId}/status`, {
+      status,
+      notes: payload?.notes,
+      paymentMethod: payload?.paymentMethod,
+      paidAt: payload?.paidAt,
+    });
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
@@ -410,6 +424,17 @@ export const createCreditNote = async (invoiceId: string, options: {
 }) => {
   try {
     const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/credit-note`, options);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Utility: Create invoice from a specific order
+// Endpoint: POST /api/admin/financial/orders/:orderId/invoice
+export const createInvoiceFromOrder = async (orderId: string) => {
+  try {
+    const response = await api.post(`/api/admin/financial/orders/${orderId}/invoice`);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

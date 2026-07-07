@@ -576,6 +576,15 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'refunded', 'partial'],
     default: 'pending',
   },
+  paymentMethod: {
+    type: String,
+    enum: ['credit_card', 'sepa', 'paypal', 'cash', null],
+    default: null,
+  },
+  paidAt: {
+    type: Date,
+    default: null,
+  },
   // Device unlock information
   unlockPattern: {
     type: [String],

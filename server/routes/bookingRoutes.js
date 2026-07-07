@@ -360,13 +360,16 @@ router.delete('/:id', requireAdmin, async (req, res) => {  // Keep this admin-on
 
 // Description: Preview invoice for a booking before creation
 // Endpoint: GET /api/bookings/:id/invoice/preview
-// Request: {}
+// Request: { invoiceMode?: 'booking' | 'order', orderId?: string }
 // Response: { success: boolean, invoicePreview: object }
 router.get('/:id/invoice/preview', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Previewing invoice for booking:', req.params.id);
 
-    const invoicePreview = await BookingService.previewInvoice(req.params.id);
+    const invoicePreview = await BookingService.previewInvoice(req.params.id, {
+      invoiceMode: req.query.invoiceMode,
+      orderId: req.query.orderId,
+    });
 
     if (!invoicePreview) {
       console.log('BookingRoutes: Could not generate invoice preview');
@@ -393,18 +396,20 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
 
 // Description: Create invoice from booking (admin/staff only)
 // Endpoint: POST /api/bookings/:id/invoice
-// Request: { dueDate?: string, notes?: string, sendImmediately?: boolean }
+// Request: { dueDate?: string, notes?: string, sendImmediately?: boolean, invoiceMode?: 'booking' | 'order', orderId?: string }
 // Response: { success: boolean, invoice: Invoice }
 router.post('/:id/invoice', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating invoice for booking:', req.params.id);
 
-    const { dueDate, notes, sendImmediately } = req.body;
+    const { dueDate, notes, sendImmediately, invoiceMode, orderId } = req.body;
 
     const invoiceData = {};
     if (dueDate) invoiceData.dueDate = new Date(dueDate);
     if (notes) invoiceData.notes = notes;
     if (sendImmediately !== undefined) invoiceData.sendImmediately = sendImmediately;
+    if (invoiceMode) invoiceData.invoiceMode = invoiceMode;
+    if (orderId) invoiceData.orderId = orderId;
 
     const invoice = await BookingService.createInvoice(req.params.id, invoiceData);
 

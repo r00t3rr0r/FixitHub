@@ -5,7 +5,6 @@ import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { DeviceSelectionHero } from '@/components/home/DeviceSelectionHero';
 import { TrustRow } from '@/components/home/TrustRow';
-import { SpecialOffers } from '@/components/home/SpecialOffers';
 import { ServicesOverview } from '@/components/home/ServicesOverview';
 import { ShopSection } from '@/components/home/ShopSectionSimple';
 import { SatisfiedCustomersSection } from '@/components/home/SatisfiedCustomersSection';
@@ -38,9 +37,6 @@ export function Home() {
 
       {/* Trust Row - 4 Trust Icons */}
       <TrustRow />
-
-      {/* Special Offers Section */}
-      <SpecialOffers />
 
       {/* Services Overview - Step by Step Process */}
       <section id="process" className="section">

@@ -1715,31 +1715,7 @@ export function BookingsManagement() {
                               Details anzeigen
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              disabled={booking.status !== 'completed'}
                               onClick={async () => {
-                              if (booking.status !== 'completed') {
-                                toast({
-                                  title: 'Rechnung nicht moeglich',
-                                  description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
-                                  variant: 'destructive'
-                                })
-                                return
-                              }
-
-                              try {
-                                const existingInvoicesResponse = await getBookingInvoices(booking._id)
-                                if ((existingInvoicesResponse?.invoices || []).length > 0) {
-                                  toast({
-                                    title: 'Rechnung bereits vorhanden',
-                                    description: 'Pro Buchung kann nur eine Rechnung erstellt werden.',
-                                    variant: 'destructive'
-                                  })
-                                  return
-                                }
-                              } catch (error) {
-                                console.error('BookingsManagement: Failed to check existing booking invoices:', error)
-                              }
-
                               try {
                                 const response = await getBooking(booking._id)
                                 setSelectedBooking(response?.booking || booking)
@@ -4213,14 +4189,28 @@ function InvoiceDialog({
   const [preview, setPreview] = useState<any>(null)
   const [notes, setNotes] = useState('')
   const [sendImmediately, setSendImmediately] = useState(true)
+  const [invoiceMode, setInvoiceMode] = useState<'booking' | 'order'>('booking')
+  const [selectedOrderId, setSelectedOrderId] = useState('')
   const { toast } = useToast()
 
-  const firstOrder = useMemo(() => {
+  const bookingOrders = useMemo(() => {
     if (!Array.isArray(booking.orderIds)) {
-      return undefined
+      return []
     }
-    return booking.orderIds.find((order) => order && typeof order === 'object')
+    return booking.orderIds.filter((order) => order && typeof order === 'object' && '_id' in order) as Array<any>
   }, [booking.orderIds])
+
+  const firstOrder = bookingOrders[0]
+  const allOrdersCompleted = useMemo(
+    () => bookingOrders.length > 0 && bookingOrders.every((order) => order.status === 'completed'),
+    [bookingOrders]
+  )
+  const completedOrders = useMemo(
+    () => bookingOrders.filter((order) => order.status === 'completed'),
+    [bookingOrders]
+  )
+  const canCreateAnyInvoice = allOrdersCompleted || completedOrders.length > 0
+  const canCreatePartialInvoice = completedOrders.length > 0
 
   const bookingBillingAddress =
     booking.customerId?.invoiceAddress ||
@@ -4249,23 +4239,49 @@ function InvoiceDialog({
   const shippingSameAsBilling =
     !hasAddressData(resolvedShippingAddress) && hasAddressData(resolvedBillingAddress)
 
-  const canCreateInvoice = booking.status === 'completed'
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const firstCompletedOrderId = completedOrders[0]?._id || ''
+    setInvoiceMode(allOrdersCompleted ? 'booking' : (firstCompletedOrderId ? 'order' : 'booking'))
+    setSelectedOrderId(firstCompletedOrderId)
+    setPreview(null)
+    setNotes('')
+    setSendImmediately(true)
+  }, [open, booking._id, allOrdersCompleted, completedOrders])
 
   useEffect(() => {
     if (open && booking) {
       loadPreview()
     }
-  }, [open, booking])
+  }, [open, booking, invoiceMode, selectedOrderId])
 
   const loadPreview = async () => {
-    if (!canCreateInvoice) {
+    if (!canCreateAnyInvoice) {
+      setPreview(null)
+      return
+    }
+
+    if (invoiceMode === 'booking' && !allOrdersCompleted) {
+      setPreview(null)
+      return
+    }
+
+    if (invoiceMode === 'order' && !selectedOrderId) {
       setPreview(null)
       return
     }
 
     try {
       setLoading(true)
-      const response = await previewBookingInvoice(booking._id)
+      const response = await previewBookingInvoice(
+        booking._id,
+        invoiceMode === 'order'
+          ? { invoiceMode: 'order', orderId: selectedOrderId }
+          : { invoiceMode: 'booking' }
+      )
       setPreview(response.invoicePreview)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Rechnungsvorschau konnte nicht geladen werden'
@@ -4280,10 +4296,28 @@ function InvoiceDialog({
   }
 
   const handleCreate = async () => {
-    if (!canCreateInvoice) {
+    if (!canCreateAnyInvoice) {
       toast({
         title: 'Rechnung nicht moeglich',
-        description: 'Rechnungen koennen erst erstellt werden, wenn die Buchung abgeschlossen ist.',
+        description: 'Es ist noch kein abgeschlossener Auftrag fuer die Rechnungserstellung verfuegbar.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (invoiceMode === 'booking' && !allOrdersCompleted) {
+      toast({
+        title: 'Gesamtrechnung nicht moeglich',
+        description: 'Eine Gesamtrechnung ist erst moeglich, wenn alle Auftraege abgeschlossen sind.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (invoiceMode === 'order' && !selectedOrderId) {
+      toast({
+        title: 'Teil-Rechnung nicht moeglich',
+        description: 'Bitte waehlen Sie einen abgeschlossenen Auftrag aus.',
         variant: 'destructive'
       })
       return
@@ -4293,7 +4327,9 @@ function InvoiceDialog({
       setLoading(true)
       await createBookingInvoice(booking._id, {
         notes,
-        sendImmediately
+        sendImmediately,
+        invoiceMode,
+        orderId: invoiceMode === 'order' ? selectedOrderId : undefined,
       })
       onSuccess()
     } catch (error) {
@@ -4360,113 +4396,174 @@ function InvoiceDialog({
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f5b800]"></div>
             </div>
-          ) : !canCreateInvoice ? (
+          ) : !canCreateAnyInvoice ? (
             <div className="text-center py-8">
               <p className="text-sm font-medium text-[#1a2a5e]">Rechnungserstellung noch nicht verfuegbar</p>
               <p className="text-sm text-foreground/60 mt-1">
-                Diese Buchung hat den Status "{booking.status}". Eine Rechnung kann erst bei Status "Abgeschlossen" erstellt werden.
+                Fuer diese Buchung ist noch kein Auftrag mit Status "completed" vorhanden.
               </p>
             </div>
-          ) : preview ? (
+          ) : canCreateAnyInvoice ? (
             <div className="space-y-4">
-              {/* Kundeninformationen */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-[#1a2a5e] px-4 py-2">
-                  <h3 className="font-semibold text-[#f5b800] text-sm">Kundeninformationen</h3>
-                </div>
-                <div className="p-4 bg-white dark:bg-muted/10">
-                  <p className="text-sm font-medium">{preview.customerName}</p>
-                  <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
-                </div>
-              </div>
-
-              {/* Adressen */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
-                {shippingSameAsBilling
-                  ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
-                  : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
-              </div>
-
-              {/* Rechnungspositionen */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-[#1a2a5e] px-4 py-2">
-                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungspositionen</h3>
-                </div>
-                <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
-                  {preview.items.map((item: any) => (
-                    <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
-                      <div className="flex-1">
-                        <p className="font-medium text-[#1a2a5e]">{item.description}</p>
-                        <p className="text-xs text-foreground/60">
-                          Menge: {item.quantity} × {formatCurrency(item.unitPrice)}
-                        </p>
-                      </div>
-                      <p className="font-semibold text-[#1a2a5e]">{formatCurrency(item.total)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Zusammenfassung */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-[#1a2a5e] px-4 py-2">
-                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungszusammenfassung</h3>
-                </div>
-                <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-foreground/70">Nettobetrag:</span>
-                    <span className="font-medium">{formatCurrency(preview.subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-foreground/70">Enthaltene MwSt.:</span>
-                    <span className="font-medium">{formatCurrency(preview.tax)}</span>
-                  </div>
-                  {preview.discount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Rabatt:</span>
-                      <span>-{formatCurrency(preview.discount)}</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between text-base font-bold text-[#1a2a5e]">
-                    <span>Gesamtbetrag (Brutto):</span>
-                    <span>{formatCurrency(preview.total)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notizen & Optionen */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-[#1a2a5e] px-4 py-2">
-                  <h3 className="font-semibold text-[#f5b800] text-sm">Optionen</h3>
+                  <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungsmodus</h3>
                 </div>
                 <div className="p-4 bg-white dark:bg-muted/10 space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-[#1a2a5e]">Notizen (optional)</label>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Weitere Notizen hinzufuegen..."
-                      rows={3}
-                      className="mt-2 border-[#1a2a5e]/20 focus-visible:ring-[#f5b800]"
-                    />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => allOrdersCompleted && setInvoiceMode('booking')}
+                      className={`rounded-lg border px-4 py-3 text-left transition-colors ${invoiceMode === 'booking' ? 'border-[#f5b800] bg-[#f5b800]/10' : 'border-border'} ${!allOrdersCompleted ? 'opacity-60 cursor-not-allowed' : 'hover:border-[#f5b800]'}`}
+                      disabled={!allOrdersCompleted}
+                    >
+                      <p className="text-sm font-semibold text-[#1a2a5e]">Gesamtrechnung</p>
+                      <p className="text-xs text-foreground/60 mt-1">Nur verfuegbar, wenn alle zugehoerigen Auftraege abgeschlossen sind.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => canCreatePartialInvoice && setInvoiceMode('order')}
+                      className={`rounded-lg border px-4 py-3 text-left transition-colors ${invoiceMode === 'order' ? 'border-[#f5b800] bg-[#f5b800]/10' : 'border-border'} ${!canCreatePartialInvoice ? 'opacity-60 cursor-not-allowed' : 'hover:border-[#f5b800]'}`}
+                      disabled={!canCreatePartialInvoice}
+                    >
+                      <p className="text-sm font-semibold text-[#1a2a5e]">Teil-Rechnung</p>
+                      <p className="text-xs text-foreground/60 mt-1">Erstellt eine Rechnung nur fuer einen bereits abgeschlossenen Auftrag.</p>
+                    </button>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="sendImmediately"
-                      checked={sendImmediately}
-                      onChange={(e) => setSendImmediately(e.target.checked)}
-                      className="rounded accent-[#f5b800]"
-                    />
-                    <label htmlFor="sendImmediately" className="text-sm text-[#1a2a5e] font-medium cursor-pointer">
-                      Rechnung sofort an den Kunden senden
-                    </label>
-                  </div>
+                  {!allOrdersCompleted && canCreatePartialInvoice && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      Nicht alle Auftraege sind abgeschlossen. Eine Gesamtrechnung bleibt gesperrt, Teil-Rechnungen fuer abgeschlossene Auftraege sind moeglich.
+                    </p>
+                  )}
+
+                  {invoiceMode === 'order' && (
+                    <div>
+                      <label className="text-sm font-medium text-[#1a2a5e]">Abgeschlossenen Auftrag waehlen</label>
+                      <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                        <SelectTrigger className="mt-2 border-[#1a2a5e]/20 focus:ring-[#f5b800]">
+                          <SelectValue placeholder="Auftrag auswaehlen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {completedOrders.map((order) => (
+                            <SelectItem key={order._id} value={order._id}>
+                              {(order.orderNumber || order._id)} - {[order.deviceBrand, order.deviceModel].filter(Boolean).join(' ') || 'Geraet'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {!preview ? (
+                <div className="text-center py-8 text-foreground/60 border rounded-lg bg-white dark:bg-muted/10">
+                  Vorschau wird geladen oder ist fuer die aktuelle Auswahl nicht verfuegbar.
+                </div>
+              ) : (
+                <>
+
+                  {/* Kundeninformationen */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-[#1a2a5e] px-4 py-2">
+                      <h3 className="font-semibold text-[#f5b800] text-sm">Kundeninformationen</h3>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-muted/10">
+                      <p className="text-sm font-medium">{preview.customerName}</p>
+                      <p className="text-sm text-foreground/60">{preview.customerEmail}</p>
+                    </div>
+                  </div>
+
+                  {/* Adressen */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderAddressBlock('Rechnungsadresse', resolvedBillingAddress)}
+                    {shippingSameAsBilling
+                      ? renderAddressBlock('Lieferadresse', resolvedBillingAddress, 'Identisch mit Rechnungsadresse')
+                      : renderAddressBlock('Lieferadresse', resolvedShippingAddress, 'Nicht angegeben')}
+                  </div>
+
+                  {/* Rechnungspositionen */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-[#1a2a5e] px-4 py-2">
+                      <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungspositionen</h3>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                      {(preview?.items || []).map((item: any) => (
+                        <div key={item._id || item.description} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                          <div className="flex-1">
+                            <p className="font-medium text-[#1a2a5e]">{item.description}</p>
+                            <p className="text-xs text-foreground/60">
+                              Menge: {item.quantity} × {formatCurrency(item.unitPrice)}
+                            </p>
+                          </div>
+                          <p className="font-semibold text-[#1a2a5e]">{formatCurrency(item.total)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Zusammenfassung */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-[#1a2a5e] px-4 py-2">
+                      <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungszusammenfassung</h3>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-foreground/70">Nettobetrag:</span>
+                        <span className="font-medium">{formatCurrency(preview?.subtotal || 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-foreground/70">Enthaltene MwSt.:</span>
+                        <span className="font-medium">{formatCurrency(preview?.tax || 0)}</span>
+                      </div>
+                      {(preview?.discount || 0) > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Rabatt:</span>
+                          <span>-{formatCurrency(preview?.discount || 0)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between text-base font-bold text-[#1a2a5e]">
+                        <span>Gesamtbetrag (Brutto):</span>
+                        <span>{formatCurrency(preview?.total || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notizen & Optionen */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-[#1a2a5e] px-4 py-2">
+                      <h3 className="font-semibold text-[#f5b800] text-sm">Optionen</h3>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-muted/10 space-y-3">
+                      <div>
+                        <label className="text-sm font-medium text-[#1a2a5e]">Notizen (optional)</label>
+                        <Textarea
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          placeholder="Weitere Notizen hinzufuegen..."
+                          rows={3}
+                          className="mt-2 border-[#1a2a5e]/20 focus-visible:ring-[#f5b800]"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="sendImmediately"
+                          checked={sendImmediately}
+                          onChange={(e) => setSendImmediately(e.target.checked)}
+                          className="rounded accent-[#f5b800]"
+                        />
+                        <label htmlFor="sendImmediately" className="text-sm text-[#1a2a5e] font-medium cursor-pointer">
+                          Rechnung sofort an den Kunden senden
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 text-foreground/60">
@@ -4486,7 +4583,7 @@ function InvoiceDialog({
           </Button>
           <Button
             onClick={handleCreate}
-            disabled={loading || !preview || !canCreateInvoice}
+            disabled={loading || !preview || !canCreateAnyInvoice}
             className="bg-[#f5b800] text-[#1a2a5e] font-bold hover:bg-[#e5ab00] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Rechnung erstellen

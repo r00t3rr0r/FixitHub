@@ -178,6 +178,20 @@ const DEFAULT_FINANCIAL_SETTINGS = {
   }
 };
 
+const MANUAL_PAYMENT_METHODS = ['credit_card', 'sepa', 'paypal', 'cash'];
+
+function normalizeTrackedPaymentMethod(value) {
+  if (value == null || value === '') return null;
+  const normalized = String(value).trim().toLowerCase();
+  return MANUAL_PAYMENT_METHODS.includes(normalized) ? normalized : null;
+}
+
+function normalizeTrackedPaidAt(value) {
+  if (value == null || value === '') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 class FinancialService {
   // Helper: Load financial settings from SystemConfiguration
   static async getFinancialSettings() {
@@ -422,6 +436,16 @@ class FinancialService {
 
       if (filters.customerId) {
         query.customerId = filters.customerId;
+      }
+
+      if (filters.orderId) {
+        const normalizedOrderId = String(filters.orderId).trim();
+        if (normalizedOrderId) {
+          query.$or = [
+            { orderId: normalizedOrderId },
+            { repairOrderIds: normalizedOrderId }
+          ];
+        }
       }
 
       if (filters.dateFrom || filters.dateTo) {
@@ -1386,6 +1410,26 @@ class FinancialService {
       throw new Error(`Cannot transition from "${invoice.status}" to "${newStatus}"`);
     }
 
+    const normalizedPaymentMethod = normalizeTrackedPaymentMethod(data.paymentMethod);
+    const normalizedPaidAt = normalizeTrackedPaidAt(data.paidAt);
+
+    if (data.paymentMethod && !normalizedPaymentMethod) {
+      throw new Error('Invalid payment method. Allowed values: credit_card, sepa, paypal, cash');
+    }
+
+    if (data.paidAt && !normalizedPaidAt) {
+      throw new Error('Invalid paidAt timestamp');
+    }
+
+    if (newStatus === 'paid') {
+      if (!normalizedPaymentMethod) {
+        throw new Error('Payment method is required when marking an invoice as paid');
+      }
+      if (!normalizedPaidAt) {
+        throw new Error('Paid timestamp is required when marking an invoice as paid');
+      }
+    }
+
     invoice.status = newStatus;
 
     if (newStatus === 'sent') {
@@ -1393,7 +1437,8 @@ class FinancialService {
     } else if (newStatus === 'pending_approval') {
       // no extra field
     } else if (newStatus === 'paid') {
-      invoice.paidAt = new Date();
+      invoice.paidAt = normalizedPaidAt;
+      invoice.paymentMethod = normalizedPaymentMethod;
       invoice.paidAmount = invoice.total;
     } else if (newStatus === 'cancelled') {
       invoice.cancelledAt = new Date();
@@ -1401,13 +1446,55 @@ class FinancialService {
       invoice.approvedAt = new Date();
     }
 
+    if (newStatus !== 'paid') {
+      invoice.paymentMethod = normalizedPaymentMethod;
+      if (normalizedPaidAt) {
+        invoice.paidAt = normalizedPaidAt;
+      }
+    }
+
     if (data.notes) invoice.notes = data.notes;
 
     await invoice.save();
 
+    await FinancialService.syncOrderPaymentTracking(invoice);
+
     await FinancialService.syncBookingPaymentStatus(invoice);
 
     return invoice;
+  }
+
+  static async syncOrderPaymentTracking(invoiceInput) {
+    const invoice = invoiceInput && typeof invoiceInput.toObject === 'function'
+      ? invoiceInput.toObject()
+      : invoiceInput;
+    if (!invoice) return;
+
+    const orderIds = [];
+    if (invoice.orderId) orderIds.push(invoice.orderId);
+    if (Array.isArray(invoice.repairOrderIds) && invoice.repairOrderIds.length > 0) {
+      orderIds.push(...invoice.repairOrderIds);
+    }
+
+    const uniqueOrderIds = [...new Set(orderIds.map((entry) => String(entry)).filter(Boolean))];
+    if (uniqueOrderIds.length === 0) return;
+
+    const paymentStatusMap = {
+      paid: 'paid',
+      partially_paid: 'partial',
+      credited: 'refunded',
+    };
+
+    await Order.updateMany(
+      { _id: { $in: uniqueOrderIds } },
+      {
+        $set: {
+          paymentStatus: paymentStatusMap[invoice.status] || 'pending',
+          paymentMethod: normalizeTrackedPaymentMethod(invoice.paymentMethod),
+          paidAt: normalizeTrackedPaidAt(invoice.paidAt),
+        }
+      }
+    );
   }
 
   static async syncBookingPaymentStatus(invoiceInput) {
@@ -1498,6 +1585,8 @@ class FinancialService {
     }
 
     await invoice.save();
+
+    await FinancialService.syncOrderPaymentTracking(invoice);
 
     await FinancialService.syncBookingPaymentStatus(invoice);
 

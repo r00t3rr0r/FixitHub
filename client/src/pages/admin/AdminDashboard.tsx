@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ToastAction } from "@/components/ui/toast"
 import {
   getAllComplaints,
   type Complaint,
@@ -46,6 +47,7 @@ import {
 } from "lucide-react"
 import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
 import { getContactMessages, type ContactMessage } from "@/api/contactMessages"
+import { markNotificationAsRead } from "@/api/notifications"
 import { InactiveRepairsList } from "@/components/admin/InactiveRepairsList"
 import "./AdminDashboard.css"
 
@@ -187,6 +189,24 @@ const capitalize = (value?: string) => {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
+const hasUnlockInfoUpdateAction = (notification: any) => {
+  const actionType = String(notification?.metadata?.actionType || "").toLowerCase()
+  if (actionType === "unlock_info_updated") return true
+
+  const text = `${notification?.title || ""} ${notification?.message || ""}`.toLowerCase()
+  return text.includes("entsperr") && text.includes("aktualisiert")
+}
+
+const resolveNotificationOrderPath = (notification: any) => {
+  if (typeof notification?.actionUrl === "string" && notification.actionUrl.trim()) {
+    return notification.actionUrl.trim()
+  }
+  if (notification?.orderId) {
+    return `/orders/${notification.orderId}`
+  }
+  return ""
+}
+
 export function AdminDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -204,6 +224,7 @@ export function AdminDashboard() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
   const dashboardDataSignatureRef = useRef<string>("")
+  const seenUnlockUpdateIdsRef = useRef<Set<string>>(new Set())
 
   const captureScrollPositions = () => {
     const windowScrollTop = window.scrollY
@@ -229,6 +250,48 @@ export function AdminDashboard() {
         viewport.scrollTop = saved
       }
     })
+  }
+
+  const handleNotificationClick = async (notification: any, notificationPath: string) => {
+    if (!notificationPath) return
+
+    const notificationId = String(notification?._id || "")
+    const isUnlockUpdate = hasUnlockInfoUpdateAction(notification)
+
+    if (notificationId && !notification?.isRead) {
+      try {
+        await markNotificationAsRead(notificationId)
+      } catch {
+        // Ignore read-sync failures; navigation should still work.
+      }
+    }
+
+    setDashboardData((prev) => {
+      const nextNotifications = prev.notifications.filter((item: any) => {
+        if (String(item?._id || "") !== notificationId) return true
+        return !isUnlockUpdate
+      })
+
+      const nextUnreadCount = Math.max(
+        0,
+        prev.notificationMeta.unreadCount - (!notification?.isRead ? 1 : 0)
+      )
+
+      const nextUrgentCount = prev.notificationMeta.urgentCount - (notification?.isUrgent ? 1 : 0)
+
+      return {
+        ...prev,
+        notifications: nextNotifications,
+        notificationMeta: {
+          ...prev.notificationMeta,
+          unreadCount: nextUnreadCount,
+          urgentCount: Math.max(0, nextUrgentCount),
+          totalCount: Math.max(0, prev.notificationMeta.totalCount - (isUnlockUpdate ? 1 : 0)),
+        },
+      }
+    })
+
+    navigate(notificationPath)
   }
 
   const fetchDashboardData = async (showToast = false, silent = true) => {
@@ -421,6 +484,53 @@ export function AdminDashboard() {
       document.removeEventListener("visibilitychange", refreshOnFocus)
     }
   }, [])
+
+  useEffect(() => {
+    const unlockNotifications = dashboardData.notifications.filter((notification: any) =>
+      hasUnlockInfoUpdateAction(notification)
+    )
+
+    if (unlockNotifications.length === 0) return
+
+    if (seenUnlockUpdateIdsRef.current.size === 0) {
+      unlockNotifications.forEach((notification: any) => {
+        if (notification?._id) {
+          seenUnlockUpdateIdsRef.current.add(String(notification._id))
+        }
+      })
+      return
+    }
+
+    const newestUnseen = unlockNotifications.find((notification: any) => {
+      const id = String(notification?._id || "")
+      return id && !seenUnlockUpdateIdsRef.current.has(id)
+    })
+
+    unlockNotifications.forEach((notification: any) => {
+      if (notification?._id) {
+        seenUnlockUpdateIdsRef.current.add(String(notification._id))
+      }
+    })
+
+    if (!newestUnseen) return
+
+    const orderPath = resolveNotificationOrderPath(newestUnseen)
+    const orderLabel = newestUnseen?.orderNumber
+      ? `#${newestUnseen.orderNumber}`
+      : t('adminDashboard.thisOrder', { defaultValue: 'diesen Auftrag' })
+
+    toast({
+      title: t('adminDashboard.unlockInfoResponseTitle', { defaultValue: 'Neue Antwort zu Entsperrinformation' }),
+      description: t('adminDashboard.unlockInfoResponseDescription', {
+        defaultValue: `Die Kund:innen-Antwort ist eingegangen (${orderLabel}).`,
+      }),
+      action: orderPath ? (
+        <ToastAction altText={t('adminDashboard.openOrder', { defaultValue: 'Auftrag öffnen' })} onClick={() => navigate(orderPath)}>
+          {t('adminDashboard.openOrder', { defaultValue: 'Auftrag öffnen' })}
+        </ToastAction>
+      ) : undefined,
+    })
+  }, [dashboardData.notifications, navigate, t, toast])
 
   const systemOverview = dashboardData.systemOverview
   const counts = safeObject(systemOverview.counts)
@@ -694,8 +804,13 @@ export function AdminDashboard() {
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
                 {dashboardData.notifications.length === 0 && <p className="compact-empty">{t('adminDashboard.noNotices')}</p>}
-                {dashboardData.notifications.slice(0, 8).map((notification: any) => (
-                  <div key={notification._id} className="compact-list-item">
+                {dashboardData.notifications.slice(0, 8).map((notification: any) => {
+                  const isUnlockUpdate = hasUnlockInfoUpdateAction(notification)
+                  const notificationPath = resolveNotificationOrderPath(notification)
+                  const clickable = Boolean(notificationPath)
+
+                  const itemContent = (
+                    <>
                     <div>
                       <p className="compact-title">
                         {notification?.isUrgent ? <AlertCircle className="h-3.5 w-3.5 text-[#c53030]" /> : null}
@@ -704,11 +819,34 @@ export function AdminDashboard() {
                       <p className="compact-sub line-clamp-2">{notification?.message || "-"}</p>
                     </div>
                     <div className="compact-list-side">
+                      {isUnlockUpdate && (
+                        <Badge className="compact-badge-unread">{t('adminDashboard.unlockInfoBadge', { defaultValue: 'Neue Entsperrinformationen eingegangen' })}</Badge>
+                      )}
                       {!notification?.isRead && <Badge className="compact-badge-unread">{t('common.new')}</Badge>}
                       <small>{timeAgo(notification?.createdAt)}</small>
                     </div>
-                  </div>
-                ))}
+                    </>
+                  )
+
+                  if (!clickable) {
+                    return (
+                      <div key={notification._id} className="compact-list-item">
+                        {itemContent}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <button
+                      key={notification._id}
+                      type="button"
+                      className="compact-list-item compact-list-item-button"
+                      onClick={() => handleNotificationClick(notification, notificationPath)}
+                    >
+                      {itemContent}
+                    </button>
+                  )
+                })}
               </div>
             </ScrollArea>
             <Separator />
