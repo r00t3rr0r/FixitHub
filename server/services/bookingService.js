@@ -46,6 +46,10 @@ class BookingService {
     return `EUR ${numericValue.toFixed(2)}`;
   }
 
+  static roundCurrency(amount) {
+    return Math.round(Number(amount || 0) * 100) / 100;
+  }
+
   static parseDeviceLabel(deviceLabel = '') {
     const normalized = String(deviceLabel || '').replace(/\s+/g, ' ').trim();
     if (!normalized) {
@@ -1633,13 +1637,29 @@ class BookingService {
   // Build invoice line items from actual (current) Order documents for a booking.
   // Produces one InvoiceItem per service / addOn / shop-product so the invoice
   // reflects the latest repair data, not the stale booking.items snapshot.
-  static async _buildInvoiceItems(booking) {
-    const orderIds = booking.orderIds || [];
+  static async _loadInvoiceOrders(booking) {
+    const orderIds = Array.isArray(booking.orderIds)
+      ? booking.orderIds.map((orderId) => String(orderId?._id || orderId)).filter(Boolean)
+      : [];
+
     if (orderIds.length === 0) return [];
 
     const orders = await Order.find({ _id: { $in: orderIds } })
       .populate('services.serviceId', 'name')
       .populate('shopProducts.productId', 'name');
+
+    const orderPositionById = new Map(orderIds.map((orderId, index) => [orderId, index]));
+    orders.sort((left, right) => {
+      const leftIndex = orderPositionById.get(String(left._id)) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = orderPositionById.get(String(right._id)) ?? Number.MAX_SAFE_INTEGER;
+      return leftIndex - rightIndex;
+    });
+
+    return orders;
+  }
+
+  static _buildInvoiceItemsFromOrders(booking, orders = []) {
+    if (!Array.isArray(orders) || orders.length === 0) return [];
 
     const bookingItemByOrderId = new Map();
     (booking.items || []).forEach((item) => {
@@ -1719,6 +1739,145 @@ class BookingService {
     return invoiceItems;
   }
 
+  static async _buildInvoiceItems(booking, orders = null) {
+    const resolvedOrders = Array.isArray(orders) ? orders : await BookingService._loadInvoiceOrders(booking);
+    return BookingService._buildInvoiceItemsFromOrders(booking, resolvedOrders);
+  }
+
+  static _createInvoiceEligibilityError(message, details = {}) {
+    const error = new Error(message);
+    error.statusCode = 400;
+    error.details = details;
+    return error;
+  }
+
+  static _normalizeSelectedOrderIds(orderIds = []) {
+    return orderIds.map((orderId) => String(orderId?._id || orderId)).filter(Boolean);
+  }
+
+  static _resolveInvoiceSelection(booking, orders, invoiceData = {}) {
+    const bookingOrderIds = BookingService._normalizeSelectedOrderIds(booking.orderIds || []);
+    if (bookingOrderIds.length === 0) {
+      throw BookingService._createInvoiceEligibilityError('Invoice creation requires at least one associated order.');
+    }
+
+    const orderById = new Map(orders.map((order) => [String(order._id), order]));
+    const requestedOrderId = String(invoiceData.orderId || '').trim();
+    const invoiceMode = requestedOrderId || invoiceData.invoiceMode === 'order' ? 'order' : 'booking';
+
+    if (invoiceMode === 'order') {
+      if (!requestedOrderId) {
+        throw BookingService._createInvoiceEligibilityError('A completed order must be selected for a partial invoice.');
+      }
+
+      if (!bookingOrderIds.includes(requestedOrderId)) {
+        throw BookingService._createInvoiceEligibilityError('The selected order does not belong to this booking.');
+      }
+
+      const selectedOrder = orderById.get(requestedOrderId);
+      if (!selectedOrder) {
+        throw BookingService._createInvoiceEligibilityError('The selected order could not be loaded.');
+      }
+
+      if (selectedOrder.status !== 'completed') {
+        throw BookingService._createInvoiceEligibilityError(
+          `Partial invoice is only allowed for completed orders. Order ${selectedOrder.orderNumber || requestedOrderId} is currently "${selectedOrder.status}".`
+        );
+      }
+
+      return {
+        invoiceMode,
+        selectedOrders: [selectedOrder],
+        selectedOrderIds: [requestedOrderId],
+      };
+    }
+
+    const incompleteOrders = orders.filter((order) => order.status !== 'completed');
+    if (incompleteOrders.length > 0) {
+      const incompleteOrderLabels = incompleteOrders
+        .map((order) => `${order.orderNumber || order._id} (${order.status})`)
+        .join(', ');
+
+      throw BookingService._createInvoiceEligibilityError(
+        `A booking invoice can only be created after all related orders are completed. Pending orders: ${incompleteOrderLabels}.`,
+        {
+          incompleteOrders: incompleteOrders.map((order) => ({
+            _id: String(order._id),
+            orderNumber: order.orderNumber,
+            status: order.status,
+          })),
+        }
+      );
+    }
+
+    return {
+      invoiceMode,
+      selectedOrders: orders,
+      selectedOrderIds: bookingOrderIds,
+    };
+  }
+
+  static async _assertNoExistingInvoiceForSelection(bookingId, invoiceMode, selectedOrderIds) {
+    const duplicateQuery = invoiceMode === 'order'
+      ? { bookingId, repairOrderIds: { $in: selectedOrderIds } }
+      : { bookingId };
+
+    const existingInvoice = await Invoice.findOne(duplicateQuery)
+      .select('_id invoiceNumber status repairOrderIds')
+      .lean();
+
+    if (!existingInvoice) return;
+
+    const duplicateMessage = invoiceMode === 'order'
+      ? `An invoice already exists for the selected order (${existingInvoice.invoiceNumber || existingInvoice._id}).`
+      : `An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id}).`;
+
+    const duplicateError = new Error(duplicateMessage);
+    duplicateError.statusCode = 409;
+    throw duplicateError;
+  }
+
+  static async _resolveInvoiceDiscount({ booking, invoiceMode, selectedOrderIds, allInvoiceItems, selectedInvoiceItems }) {
+    const bookingDiscount = Number(booking.discount || 0);
+    if (bookingDiscount <= 0) return 0;
+
+    const selectedGross = selectedInvoiceItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    if (selectedGross <= 0) return 0;
+
+    const bookingOrderIds = BookingService._normalizeSelectedOrderIds(booking.orderIds || []);
+    if (invoiceMode !== 'order' || selectedOrderIds.length === bookingOrderIds.length) {
+      return Math.min(BookingService.roundCurrency(bookingDiscount), selectedGross);
+    }
+
+    const existingInvoices = await Invoice.find({ bookingId: booking._id })
+      .select('discount repairOrderIds')
+      .lean();
+
+    const alreadyAppliedDiscount = BookingService.roundCurrency(
+      existingInvoices.reduce((sum, invoice) => sum + Number(invoice.discount || 0), 0)
+    );
+    const remainingDiscount = Math.max(0, BookingService.roundCurrency(bookingDiscount - alreadyAppliedDiscount));
+    if (remainingDiscount <= 0) return 0;
+
+    const invoicedOrderIds = new Set(
+      existingInvoices.flatMap((invoice) => BookingService._normalizeSelectedOrderIds(invoice.repairOrderIds || []))
+    );
+    const remainingOrderIds = bookingOrderIds.filter((orderId) => !invoicedOrderIds.has(orderId));
+    const selectedOrderIdSet = new Set(selectedOrderIds);
+    const coversAllRemainingOrders = remainingOrderIds.length === selectedOrderIds.length
+      && remainingOrderIds.every((orderId) => selectedOrderIdSet.has(orderId));
+
+    if (coversAllRemainingOrders) {
+      return Math.min(remainingDiscount, selectedGross);
+    }
+
+    const bookingGross = allInvoiceItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    if (bookingGross <= 0) return 0;
+
+    const proratedDiscount = BookingService.roundCurrency((bookingDiscount * selectedGross) / bookingGross);
+    return Math.min(remainingDiscount, selectedGross, proratedDiscount);
+  }
+
   // Compute invoice financial totals for gross-priced items (VAT is included in prices,
   // not added on top). Extracts the tax portion using the configured tax rate.
   static async _computeInvoiceTotals(invoiceItems, discount = 0) {
@@ -1738,7 +1897,7 @@ class BookingService {
   }
 
   // Preview invoice for a booking
-  static async previewInvoice(bookingId) {
+  static async previewInvoice(bookingId, invoiceData = {}) {
     console.log('BookingService: Previewing invoice for booking:', bookingId);
 
     try {
@@ -1749,25 +1908,12 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
-      if (booking.status !== 'completed') {
-        const statusError = new Error('Invoice preview is only allowed for completed bookings');
-        statusError.statusCode = 400;
-        throw statusError;
-      }
+      const allOrders = await BookingService._loadInvoiceOrders(booking);
+      const { invoiceMode, selectedOrders, selectedOrderIds } = BookingService._resolveInvoiceSelection(booking, allOrders, invoiceData);
+      await BookingService._assertNoExistingInvoiceForSelection(booking._id, invoiceMode, selectedOrderIds);
 
-      const existingInvoice = await Invoice.findOne({ bookingId: booking._id })
-        .select('_id invoiceNumber status')
-        .lean();
-
-      if (existingInvoice) {
-        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
-        duplicateError.statusCode = 409;
-        throw duplicateError;
-      }
-
-      const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
-      const primaryOrder = primaryOrderId
-        ? await Order.findById(primaryOrderId)
+      const primaryOrder = selectedOrders[0]
+        ? await Order.findById(selectedOrders[0]._id)
           .select('billingAddress shippingAddress guestInfo.billingAddress guestInfo.shippingAddress')
           .lean()
         : null;
@@ -1801,10 +1947,19 @@ class BookingService {
         );
 
       // Build invoice preview from current order data (not stale booking.items snapshot)
-      const previewItems = await BookingService._buildInvoiceItems(booking);
-      const previewTotals = await BookingService._computeInvoiceTotals(previewItems, booking.discount || 0);
+      const previewItems = BookingService._buildInvoiceItemsFromOrders(booking, selectedOrders);
+      const previewDiscount = await BookingService._resolveInvoiceDiscount({
+        booking,
+        invoiceMode,
+        selectedOrderIds,
+        allInvoiceItems: BookingService._buildInvoiceItemsFromOrders(booking, allOrders),
+        selectedInvoiceItems: previewItems,
+      });
+      const previewTotals = await BookingService._computeInvoiceTotals(previewItems, previewDiscount);
 
       const invoicePreview = {
+        invoiceMode,
+        selectedOrderIds,
         customerName: `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim() || booking.customerId?.name || `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim() || 'N/A',
         customerEmail: booking.customerId?.email || booking.guestInfo?.email || 'N/A',
         billingAddress,
@@ -1836,23 +1991,11 @@ class BookingService {
         throw new Error('Booking not found');
       }
 
-      if (booking.status !== 'completed') {
-        const statusError = new Error('Invoice creation is only allowed for completed bookings');
-        statusError.statusCode = 400;
-        throw statusError;
-      }
+      const allOrders = await BookingService._loadInvoiceOrders(booking);
+      const { invoiceMode, selectedOrders, selectedOrderIds } = BookingService._resolveInvoiceSelection(booking, allOrders, invoiceData);
+      await BookingService._assertNoExistingInvoiceForSelection(booking._id, invoiceMode, selectedOrderIds);
 
-      const existingInvoice = await Invoice.findOne({ bookingId: booking._id })
-        .select('_id invoiceNumber status')
-        .lean();
-
-      if (existingInvoice) {
-        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
-        duplicateError.statusCode = 409;
-        throw duplicateError;
-      }
-
-      const primaryOrderId = booking.orderIds && booking.orderIds.length > 0 ? booking.orderIds[0] : null;
+      const primaryOrderId = selectedOrders.length > 0 ? selectedOrders[0]._id : null;
       const primaryOrder = primaryOrderId
         ? await Order.findById(primaryOrderId)
           .select('billingAddress shippingAddress guestInfo.billingAddress guestInfo.shippingAddress')
@@ -1900,8 +2043,15 @@ class BookingService {
 
       // Build invoice items from current order data and compute correct totals.
       // Prices are gross (VAT inclusive) – VAT is extracted, NOT added on top again.
-      const invoiceItems = await BookingService._buildInvoiceItems(booking);
-      const invoiceTotals = await BookingService._computeInvoiceTotals(invoiceItems, booking.discount || 0);
+      const invoiceItems = BookingService._buildInvoiceItemsFromOrders(booking, selectedOrders);
+      const invoiceDiscount = await BookingService._resolveInvoiceDiscount({
+        booking,
+        invoiceMode,
+        selectedOrderIds,
+        allInvoiceItems: BookingService._buildInvoiceItemsFromOrders(booking, allOrders),
+        selectedInvoiceItems: invoiceItems,
+      });
+      const invoiceTotals = await BookingService._computeInvoiceTotals(invoiceItems, invoiceDiscount);
 
       console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
@@ -1915,7 +2065,7 @@ class BookingService {
         billingAddress: billingAddress || undefined,
         shippingAddress: shippingAddress || undefined,
         orderId: primaryOrderId,
-        repairOrderIds: booking.orderIds || [],
+        repairOrderIds: selectedOrderIds,
         bookingId: booking._id,
         items: invoiceItems,
         subtotal: invoiceTotals.subtotal,
