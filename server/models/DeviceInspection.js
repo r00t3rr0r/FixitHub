@@ -102,6 +102,7 @@ const externalInspectionSchema = new mongoose.Schema({
     status: {
       type: String,
       enum: [
+        '--',
         'OK',
         'Not OK',
         'light-wear',
@@ -117,6 +118,7 @@ const externalInspectionSchema = new mongoose.Schema({
     status: {
       type: String,
       enum: [
+        '--',
         'OK',
         'Not OK',
         'light-wear',
@@ -132,6 +134,7 @@ const externalInspectionSchema = new mongoose.Schema({
     status: {
       type: String,
       enum: [
+        '--',
         'OK',
         'Not OK',
         'light-wear',

@@ -38,7 +38,7 @@ import {
 } from '@/api/devices';
 
 type VerificationStatus = 'correct' | 'incorrect-more-expensive' | 'incorrect-same-cheaper' | 'unverifiable';
-type ConditionStatus = 'light-wear' | 'scratches-wear' | 'heavy-scratches-wear' | 'damaged';
+type ConditionStatus = '--' | 'light-wear' | 'scratches-wear' | 'heavy-scratches-wear' | 'damaged';
 type ButtonsStatus = 'working' | 'not-working';
 type ChecklistStatus = 'OK' | 'Not OK';
 type CompletionAction = 'repairable' | 'not-repairable' | 'inform-customer';
@@ -90,7 +90,7 @@ export function DeviceInspectionForm({
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [expandedSteps, setExpandedSteps] = useState<number[]>([1]);
-  const [initializing, setInitializing] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   // Step 1: Model Verification
   const [reportedModel, setReportedModel] = useState('');
@@ -126,9 +126,9 @@ export function DeviceInspectionForm({
   const [accessoriesNotes, setAccessoriesNotes] = useState('');
 
   // Step 4: External Inspection
-  const [displayStatus, setDisplayStatus] = useState<ConditionStatus>('light-wear');
-  const [frameStatus, setFrameStatus] = useState<ConditionStatus>('light-wear');
-  const [backCoverStatus, setBackCoverStatus] = useState<ConditionStatus>('light-wear');
+  const [displayStatus, setDisplayStatus] = useState<ConditionStatus>('--');
+  const [frameStatus, setFrameStatus] = useState<ConditionStatus>('--');
+  const [backCoverStatus, setBackCoverStatus] = useState<ConditionStatus>('--');
   const [buttonsStatus, setButtonsStatus] = useState<ButtonsStatus>('working');
   const [buttonsDescription, setButtonsDescription] = useState('');
   const [hasDamage, setHasDamage] = useState(false);
@@ -169,13 +169,13 @@ export function DeviceInspectionForm({
   ].filter(Boolean).join(' ').trim();
 
   const normalizeCondition = (value?: string): ConditionStatus => {
-    if (!value) return 'light-wear';
-    if (value === 'OK') return 'light-wear';
+    if (!value) return '--';
+    if (value === 'OK') return '--';
     if (value === 'Not OK') return 'damaged';
-    if (['light-wear', 'scratches-wear', 'heavy-scratches-wear', 'damaged'].includes(value)) {
+    if (['--', 'light-wear', 'scratches-wear', 'heavy-scratches-wear', 'damaged'].includes(value)) {
       return value as ConditionStatus;
     }
-    return 'light-wear';
+    return '--';
   };
 
   const searchModelCandidates = async (
@@ -438,6 +438,7 @@ export function DeviceInspectionForm({
 
   const getConditionLabel = (value: ConditionStatus) => {
     const labels: Record<ConditionStatus, string> = {
+      '--': 'Keine optischen Auffaelligkeiten',
       'light-wear': 'Leichte Gebrauchspuren',
       'scratches-wear': 'Kratzer und Gebrauchspuren',
       'heavy-scratches-wear': 'Schwere Kratzer und Gebrauchspuren',
@@ -583,10 +584,26 @@ export function DeviceInspectionForm({
     setModelNotes(draft.modelNotes ?? modelNotes);
     setImei(draft.imei ?? imei);
     setSerialNumber(draft.serialNumber ?? serialNumber);
-    setImeiRequiredAtCompletion(Boolean(draft.imeiRequiredAtCompletion));
-    setHasOriginalPackaging(Boolean(draft.hasOriginalPackaging));
-    setHasCaseCover(Boolean(draft.hasCaseCover));
-    setHasPowerAdapter(Boolean(draft.hasPowerAdapter));
+    setImeiRequiredAtCompletion(
+      typeof draft.imeiRequiredAtCompletion === 'boolean'
+        ? draft.imeiRequiredAtCompletion
+        : imeiRequiredAtCompletion
+    );
+    setHasOriginalPackaging(
+      typeof draft.hasOriginalPackaging === 'boolean'
+        ? draft.hasOriginalPackaging
+        : hasOriginalPackaging
+    );
+    setHasCaseCover(
+      typeof draft.hasCaseCover === 'boolean'
+        ? draft.hasCaseCover
+        : hasCaseCover
+    );
+    setHasPowerAdapter(
+      typeof draft.hasPowerAdapter === 'boolean'
+        ? draft.hasPowerAdapter
+        : hasPowerAdapter
+    );
     setSimTrayPresent(typeof draft.simTrayPresent === 'boolean' ? draft.simTrayPresent : simTrayPresent);
     setAdditionalAccessories(draft.additionalAccessories ?? additionalAccessories);
     setAccessoriesNotes(draft.accessoriesNotes ?? accessoriesNotes);
@@ -595,7 +612,7 @@ export function DeviceInspectionForm({
     setBackCoverStatus(draft.backCoverStatus ?? backCoverStatus);
     setButtonsStatus(draft.buttonsStatus ?? buttonsStatus);
     setButtonsDescription(draft.buttonsDescription ?? buttonsDescription);
-    setHasDamage(Boolean(draft.hasDamage));
+    setHasDamage(typeof draft.hasDamage === 'boolean' ? draft.hasDamage : hasDamage);
     setDamageDescription(draft.damageDescription ?? damageDescription);
     setExternalNotes(draft.externalNotes ?? externalNotes);
     setChargingStatus(draft.chargingStatus ?? chargingStatus);
@@ -606,14 +623,18 @@ export function DeviceInspectionForm({
     setChargingCurrent(draft.chargingCurrent ?? chargingCurrent);
     setModemFirmwareStatus(draft.modemFirmwareStatus ?? modemFirmwareStatus);
     setTouchIdFaceIdStatus(draft.touchIdFaceIdStatus ?? touchIdFaceIdStatus);
-    setDefectActionRequested(Boolean(draft.defectActionRequested));
+    setDefectActionRequested(
+      typeof draft.defectActionRequested === 'boolean'
+        ? draft.defectActionRequested
+        : defectActionRequested
+    );
     setDefectActionNote(draft.defectActionNote ?? defectActionNote);
     setCompletionAction(draft.completionAction ?? completionAction);
     setIsRepairable(typeof draft.isRepairable === 'boolean' ? draft.isRepairable : isRepairable);
     setRepairCost(draft.repairCost ?? repairCost);
     setRepairTimeframe(draft.repairTimeframe ?? repairTimeframe);
     setRepairDescription(draft.repairDescription ?? repairDescription);
-    setInformCustomer(Boolean(draft.informCustomer));
+    setInformCustomer(typeof draft.informCustomer === 'boolean' ? draft.informCustomer : informCustomer);
     setCustomerInfoReason(draft.customerInfoReason ?? customerInfoReason);
     setCustomerInfoNote(draft.customerInfoNote ?? customerInfoNote);
     setCustomerInfoMailTemplate(draft.customerInfoMailTemplate ?? customerInfoMailTemplate);
@@ -648,7 +669,7 @@ export function DeviceInspectionForm({
         }
 
         try {
-          const rawDraft = localStorage.getItem(draftKey);
+          const rawDraft = localStorage.getItem(draftKey) || sessionStorage.getItem(draftKey);
           if (rawDraft && existingInspection?.status !== 'completed') {
             hydrateFromDraft(JSON.parse(rawDraft));
           }
@@ -800,7 +821,9 @@ export function DeviceInspectionForm({
       updatedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem(draftKey, JSON.stringify(draftPayload));
+    const serializedDraft = JSON.stringify(draftPayload);
+    localStorage.setItem(draftKey, serializedDraft);
+    sessionStorage.setItem(draftKey, serializedDraft);
   }, [
     initializing,
     reportedModel,
@@ -1247,6 +1270,7 @@ export function DeviceInspectionForm({
       }
 
       localStorage.removeItem(draftKey);
+      sessionStorage.removeItem(draftKey);
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.completed', 'Inspektion abgeschlossen'),
@@ -1563,6 +1587,7 @@ export function DeviceInspectionForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="--">{getConditionLabel('--')}</SelectItem>
                       <SelectItem value="light-wear">{getConditionLabel('light-wear')}</SelectItem>
                       <SelectItem value="scratches-wear">{getConditionLabel('scratches-wear')}</SelectItem>
                       <SelectItem value="heavy-scratches-wear">{getConditionLabel('heavy-scratches-wear')}</SelectItem>
