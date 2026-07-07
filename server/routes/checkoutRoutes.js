@@ -85,9 +85,22 @@ const checkoutMethodAliases = {
 
 const loadAllowedCheckoutMethodsForUser = async (userId) => {
   const userWithGroup = await User.findById(userId)
+    .populate('customerGroupIds', 'status financeProfile.allowedPaymentMethods')
     .populate('primaryCustomerGroupId', 'financeProfile.allowedPaymentMethods')
-    .select('primaryCustomerGroupId')
+    .select('primaryCustomerGroupId customerGroupIds')
     .lean();
+
+  const activeAssignedGroups = Array.isArray(userWithGroup?.customerGroupIds)
+    ? userWithGroup.customerGroupIds.filter((group) => String(group?.status || '').toLowerCase() === 'active')
+    : [];
+
+  const assignedGroupMethods = normalizeAllowedPaymentMethods(
+    activeAssignedGroups.flatMap((group) => group?.financeProfile?.allowedPaymentMethods || [])
+  );
+
+  if (assignedGroupMethods.length > 0) {
+    return assignedGroupMethods;
+  }
 
   return normalizeAllowedPaymentMethods(
     userWithGroup?.primaryCustomerGroupId?.financeProfile?.allowedPaymentMethods
