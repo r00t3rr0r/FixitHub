@@ -17,7 +17,7 @@ Disallow: /dist/
 Crawl-delay: 1
 
 # Sitemap
-Sitemap: https://www.fixithub.de/sitemap.xml
+Sitemap: https://www.mcrepair.de/sitemap.xml
 
 # Spezifische Bot-Richtlinien
 User-agent: Googlebot

@@ -186,6 +186,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Serve public assets (including brand logos)
 app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
 
+// Serve robots.txt from frontend public folder for crawlers hitting backend directly
+app.get('/robots.txt', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/public/robots.txt'));
+});
+
 // Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
   // Get the content-length header to track request payload size
@@ -413,9 +418,17 @@ const SITEMAP_CACHE_TTL = 15 * 60 * 1000; // 15 min
 
 app.get('/sitemap.xml', async (req, res) => {
   try {
-    const BASE_URL = process.env.CLIENT_URL
-      ? process.env.CLIENT_URL.replace(/\/$/, '')
-      : 'https://www.mcrepair.de';
+    const configuredBaseUrl = (
+      process.env.PUBLIC_SITE_URL ||
+      process.env.SITE_URL ||
+      process.env.CLIENT_URL ||
+      ''
+    ).replace(/\/$/, '');
+    const configuredIsLocal = /localhost|127\.0\.0\.1/i.test(configuredBaseUrl);
+    const BASE_URL =
+      !configuredBaseUrl || (process.env.NODE_ENV === 'production' && configuredIsLocal)
+        ? 'https://www.mcrepair.de'
+        : configuredBaseUrl;
 
     // Serve from cache when fresh
     if (sitemapCache && Date.now() - sitemapCacheAt < SITEMAP_CACHE_TTL) {
@@ -434,8 +447,8 @@ app.get('/sitemap.xml', async (req, res) => {
       { loc: `${BASE_URL}/annahmestellen`, priority: '0.7', changefreq: 'monthly' },
       { loc: `${BASE_URL}/faq`, priority: '0.7', changefreq: 'monthly' },
       { loc: `${BASE_URL}/blog`, priority: '0.6', changefreq: 'weekly' },
-      { loc: `${BASE_URL}/about`, priority: '0.5', changefreq: 'monthly' },
-      { loc: `${BASE_URL}/kontakt`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/ueber-uns`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/contact`, priority: '0.5', changefreq: 'monthly' },
       { loc: `${BASE_URL}/partner-werden`, priority: '0.5', changefreq: 'monthly' },
     ];
 
