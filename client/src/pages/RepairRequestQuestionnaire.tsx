@@ -52,6 +52,9 @@ import {
   Clock3,
   ShieldCheck,
   Eye,
+  HelpCircle,
+  MessageSquare,
+  Star,
 } from "lucide-react"
 
 interface SelectedDevice {
@@ -64,6 +67,163 @@ interface SelectedDevice {
 }
 
 const DEVICE_TYPES = ["Smartphone", "Tablet", "Laptop", "Anderes"]
+
+/* ─────────────────────────────────────────────
+   JSON-LD structured data (rendered in <head>)
+───────────────────────────────────────────── */
+const repairRequestJsonLd = [
+  /* 1 — WebPage --------------------------------------------------- */
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': 'https://www.mcrepair.de/repair-request',
+    url: 'https://www.mcrepair.de/repair-request',
+    name: 'Reparaturanfrage stellen – Smartphone, Tablet & Laptop | McRepair.de',
+    description:
+      'Individuelle Reparaturanfrage für Smartphones, Tablets und Laptops online stellen. Kostenlose Ersteinschätzung innerhalb von 24 Werktags-Stunden. Für alle Marken: Apple, Samsung, Huawei, Xiaomi u. v. m.',
+    inLanguage: 'de-DE',
+    breadcrumb: {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://www.mcrepair.de/' },
+        { '@type': 'ListItem', position: 2, name: 'Reparaturanfrage', item: 'https://www.mcrepair.de/repair-request' },
+      ],
+    },
+    publisher: {
+      '@type': 'Organization',
+      '@id': 'https://www.mcrepair.de/#business',
+      name: 'McRepair.de',
+    },
+  },
+  /* 2 — Service --------------------------------------------------- */
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: 'Individuelle Reparaturanfrage – Smartphone, Tablet & Laptop',
+    serviceType: 'Gerätereparatur',
+    provider: {
+      '@type': 'LocalBusiness',
+      '@id': 'https://www.mcrepair.de/#business',
+      name: 'McRepair.de',
+      url: 'https://www.mcrepair.de',
+    },
+    description:
+      'Online-Reparaturanfrage für Smartphones (iPhone, Samsung, Huawei, Xiaomi), Tablets und Laptops. Unser Technik-Team prüft jeden individuellen Fall und antwortet innerhalb von 24 Werktags-Stunden mit einer konkreten Ersteinschätzung und einem Kostenvoranschlag.',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'EUR',
+      description: 'Kostenlose Ersteinschätzung – keine Registrierung erforderlich, auch als Gast nutzbar',
+    },
+    areaServed: { '@type': 'Country', name: 'Deutschland' },
+    availableChannel: {
+      '@type': 'ServiceChannel',
+      serviceUrl: 'https://www.mcrepair.de/repair-request',
+      serviceType: 'Online-Formular',
+    },
+    termsOfService: 'https://www.mcrepair.de/terms',
+  },
+  /* 3 — HowTo ----------------------------------------------------- */
+  {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: 'Reparaturanfrage bei McRepair.de stellen – in 3 Schritten',
+    description:
+      'So erhalten Sie innerhalb von 24 Werktags-Stunden eine individuelle Einschätzung Ihres Geräteschadens.',
+    totalTime: 'PT5M',
+    step: [
+      {
+        '@type': 'HowToStep',
+        position: 1,
+        name: 'Gerät auswählen',
+        text: 'Wählen Sie Ihr Gerät (Smartphone, Tablet oder Laptop) aus unserer Gerätedatenbank oder geben Sie Hersteller und Modellbezeichnung manuell ein. Optional: Modellnummer für präzisere Diagnose.',
+      },
+      {
+        '@type': 'HowToStep',
+        position: 2,
+        name: 'Problem und Schadenbild beschreiben',
+        text: 'Beschreiben Sie den Defekt so genau wie möglich: Was passiert? Wann tritt das Problem auf? Geben Sie an, ob ein Flüssigkeitsschaden vorliegt oder frühere Reparaturversuche stattfanden, und laden Sie optional bis zu 5 Fotos des Schadens hoch.',
+      },
+      {
+        '@type': 'HowToStep',
+        position: 3,
+        name: 'Anfrage absenden & Antwort erhalten',
+        text: 'Nach dem Absenden prüft unser Technik-Team Ihre Anfrage und kontaktiert Sie innerhalb von 24 Werktags-Stunden. Sie erhalten eine Einschätzung des Schadens und, sofern möglich, einen konkreten Kostenvoranschlag per E-Mail. Eine Reparatur beginnt erst nach Ihrer ausdrücklichen Zustimmung.',
+      },
+    ],
+  },
+  /* 4 — FAQPage --------------------------------------------------- */
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'Kostet die Reparaturanfrage etwas?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Nein. Die Reparaturanfrage und die erste Einschätzung durch unser Team sind vollständig kostenlos. Kosten entstehen erst, wenn Sie einem konkreten Kostenvoranschlag ausdrücklich zustimmen.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Wie lange dauert es, bis ich eine Antwort auf meine Reparaturanfrage erhalte?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Unser Team antwortet in der Regel innerhalb von 24 Stunden an Werktagen. Sie erhalten eine E-Mail mit einer ersten Einschätzung und – wenn möglich – einem Kostenvoranschlag.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Welche Geräte kann ich zur Reparatur anfragen?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Sie können Reparaturanfragen für Smartphones (z. B. iPhone, Samsung Galaxy, Huawei, Xiaomi), Tablets und Laptops stellen. Für andere Gerätekategorien wählen Sie „Anderes" und beschreiben das Gerät manuell.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Muss ich ein Konto erstellen, um eine Reparaturanfrage zu stellen?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Nein. Sie können die Anfrage auch als Gast absenden. In diesem Fall erhalten Sie einen persönlichen Tracking-Link per E-Mail, über den Sie den Status Ihrer Anfrage jederzeit einsehen können.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Kann ich Fotos des Schadens mit der Anfrage hochladen?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Ja, Sie können bis zu 5 Fotos (JPG, PNG oder GIF, max. 5 MB pro Bild) hochladen. Bilder helfen unserem Team, den Schaden bereits vorab präziser einzuschätzen und schneller zu antworten.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Was passiert, nachdem ich die Reparaturanfrage abgesendet habe?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Unser Technik-Team prüft Ihre Anfrage und kontaktiert Sie innerhalb von 24 Werktags-Stunden mit einer Einschätzung und, falls möglich, einem Kostenvoranschlag. Die Reparatur wird erst nach Ihrer ausdrücklichen Zustimmung durchgeführt.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Was soll ich angeben, wenn mein Gerät nicht in der Datenbank ist?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Kein Problem – wählen Sie den Gerätetyp (Smartphone, Tablet, Laptop oder Anderes) und geben Sie Hersteller, Modellbezeichnung und – besonders bei Laptops – die Modellnummer manuell ein. Unser Team kann so die passende Einschätzung vornehmen.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Ist die Reparatur garantiert?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Alle bei McRepair.de durchgeführten Reparaturen sind mit 12 Monaten Garantie auf Teile und Arbeit abgesichert.',
+        },
+      },
+    ],
+  },
+]
 
 export function RepairRequestQuestionnaire() {
   const navigate = useNavigate()
@@ -410,12 +570,14 @@ export function RepairRequestQuestionnaire() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_-10%,rgba(245,184,0,0.16),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(26,42,94,0.2),transparent_48%),linear-gradient(180deg,#f8fbff_0%,#eef3fb_42%,#f5f8fe_100%)]">
       <SEO
-        title="Reparaturanfrage stellen – McRepair.de"
-        description="Beschreiben Sie das Problem Ihres Geräts und erhalten Sie schnell eine Antwort. Kostenlose Voranfrage – jetzt Reparaturanfrage starten."
+        title="Reparaturanfrage stellen – Smartphone, Tablet & Laptop | McRepair.de"
+        description="Reparaturanfrage für Smartphone, Tablet oder Laptop online stellen – kostenlos & unverbindlich. Antwort innerhalb von 24 Stunden. Alle Marken: Apple, Samsung, Huawei, Xiaomi u. v. m."
         canonical="/repair-request"
+        keywords="Reparaturanfrage, Handy reparieren lassen, Smartphone Reparatur anfragen, iPhone Reparatur Anfrage, Samsung Reparatur, Tablet Reparatur, Laptop Reparatur anfragen, Gerätereparatur Anfrage, Reparaturservice online, Kostenvoranschlag Reparatur, McRepair Reparatur"
+        jsonLd={repairRequestJsonLd}
       />
       {/* Hero Banner */}
-      <section className="relative overflow-hidden border-b border-white/20 bg-[linear-gradient(132deg,#1a2a5e_0%,#21408e_54%,#2e5cc1_100%)] px-6 py-14 text-white md:px-12 md:py-20">
+      <section aria-label="Reparaturanfrage – Übersicht" className="relative overflow-hidden border-b border-white/20 bg-[linear-gradient(132deg,#1a2a5e_0%,#21408e_54%,#2e5cc1_100%)] px-6 py-14 text-white md:px-12 md:py-20">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 left-12 h-56 w-56 rounded-full bg-yellow-300/15 blur-3xl" />
 
@@ -448,7 +610,7 @@ export function RepairRequestQuestionnaire() {
         </div>
       </section>
 
-      <form onSubmit={handleSubmit} className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-10 md:px-12 md:py-14 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <form onSubmit={handleSubmit} aria-label="Reparaturanfrage Formular" className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-10 md:px-12 md:py-14 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
 
         {/* Card 1: Device */}
@@ -916,6 +1078,171 @@ export function RepairRequestQuestionnaire() {
           </Card>
         </aside>
       </form>
+
+      {/* ── SEO content: How it works ── */}
+      <section
+        aria-label="So funktioniert Ihre Reparaturanfrage"
+        className="border-t border-slate-200/60 bg-white/70 px-6 py-14 md:px-12"
+      >
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 text-center">
+            <span
+              className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+              style={{ borderColor: "rgba(26,42,94,0.18)", color: "#1a2a5e", background: "rgba(26,42,94,0.05)" }}
+            >
+              <Wrench className="h-3.5 w-3.5" /> Ablauf
+            </span>
+            <h2 className="text-2xl font-extrabold tracking-tight text-[#1a2a5e] md:text-3xl">
+              So funktioniert Ihre Reparaturanfrage
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+              In nur drei Schritten erhalten Sie von unserem Technik-Team eine individuelle Einschätzung
+              und einen konkreten Kostenvoranschlag – kostenlos und unverbindlich.
+            </p>
+          </div>
+
+          <ol className="grid gap-6 sm:grid-cols-3" aria-label="Reparaturanfrage Schritte">
+            {[
+              {
+                step: 1,
+                icon: Smartphone,
+                title: "Gerät auswählen",
+                desc: "Wählen Sie Ihr Smartphone, Tablet oder Laptop aus unserer Gerätedatenbank, oder geben Sie Hersteller und Modell manuell ein. Alle Marken werden akzeptiert: Apple iPhone, Samsung Galaxy, Huawei, Xiaomi, Lenovo, HP u. v. m.",
+              },
+              {
+                step: 2,
+                icon: Edit2,
+                title: "Problem beschreiben",
+                desc: "Schildern Sie den Defekt so genau wie möglich: Was passiert? Wann tritt es auf? Geben Sie optional an, ob ein Flüssigkeitsschaden vorliegt oder Vorrepara­turen stattfanden, und laden Sie bis zu 5 Fotos des Schadens hoch.",
+              },
+              {
+                step: 3,
+                icon: ShieldCheck,
+                title: "Antwort in 24 Stunden*",
+                desc: "Unser Team prüft Ihre Anfrage und antwortet innerhalb von 24 Werktags-Stunden mit einer ersten Einschätzung und – sofern möglich – einem Kostenvoranschlag. Die Reparatur beginnt erst nach Ihrer ausdrücklichen Zustimmung.",
+              },
+            ].map(({ step, icon: Icon, title, desc }) => (
+              <li
+                key={step}
+                className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <div
+                  className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl text-white text-sm font-extrabold"
+                  style={{ background: "linear-gradient(135deg,#1a2a5e 0%,#2f57b0 100%)" }}
+                  aria-hidden="true"
+                >
+                  {step}
+                </div>
+                <Icon className="mb-3 h-5 w-5" style={{ color: "#1a2a5e" }} aria-hidden="true" />
+                <h3 className="mb-2 text-base font-bold text-[#1a2a5e]">{title}</h3>
+                <p className="text-sm leading-6 text-slate-600">{desc}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-4 text-center text-xs text-slate-400">* werktags</p>
+        </div>
+      </section>
+
+      {/* ── SEO content: Trust signals ── */}
+      <section
+        aria-label="Vorteile der McRepair Reparaturanfrage"
+        className="border-t border-slate-200/60 bg-[#f8fbff] px-6 py-10 md:px-12"
+      >
+        <div className="mx-auto max-w-6xl">
+          <ul className="mx-auto grid max-w-6xl gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Vorteile">
+            {[
+              { icon: CheckCircle, title: "100 % kostenlos & unverbindlich", desc: "Die Anfrage und Ersteinschätzung sind völlig gratis. Kosten entstehen erst nach Ihrer Zustimmung zum Kostenvoranschlag." },
+              { icon: Clock3, title: "Antwort innerhalb von 24 h*", desc: "Unser Technik-Team meldet sich werktags innerhalb von 24 Stunden mit einer konkreten Einschätzung." },
+              { icon: Star, title: "12 Monate Garantie", desc: "Alle durchgeführten Reparaturen sind mit 12 Monaten Garantie auf Teile und Arbeitsleistung abgesichert." },
+              { icon: MessageSquare, title: "Auch als Gast nutzbar", desc: "Keine Registrierung nötig. Als Gast erhalten Sie einen persönlichen Tracking-Link per E-Mail." },
+            ].map(({ icon: Icon, title, desc }) => (
+              <li key={title} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <span
+                  className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: "rgba(26,42,94,0.07)", color: "#1a2a5e" }}
+                  aria-hidden="true"
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-bold text-[#1a2a5e]">{title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-600">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ── SEO content: FAQ ── */}
+      <section
+        aria-label="Häufige Fragen zur Reparaturanfrage"
+        className="border-t border-slate-200/60 bg-white px-6 py-14 md:px-12"
+      >
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-10 text-center">
+            <span
+              className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+              style={{ borderColor: "rgba(26,42,94,0.18)", color: "#1a2a5e", background: "rgba(26,42,94,0.05)" }}
+            >
+              <HelpCircle className="h-3.5 w-3.5" /> FAQ
+            </span>
+            <h2 className="text-2xl font-extrabold tracking-tight text-[#1a2a5e] md:text-3xl">
+              Häufige Fragen zur Reparaturanfrage
+            </h2>
+          </div>
+
+          <dl className="space-y-5">
+            {[
+              {
+                q: "Kostet die Reparaturanfrage etwas?",
+                a: "Nein. Die Reparaturanfrage und die erste Einschätzung durch unser Team sind vollständig kostenlos und unverbindlich. Kosten entstehen erst, wenn Sie einem konkreten Kostenvoranschlag ausdrücklich zustimmen.",
+              },
+              {
+                q: "Wie lange dauert es, bis ich eine Antwort erhalte?",
+                a: "Unser Technik-Team antwortet in der Regel innerhalb von 24 Stunden an Werktagen. Sie erhalten eine E-Mail mit einer ersten Einschätzung und – wenn möglich – einem Kostenvoranschlag.",
+              },
+              {
+                q: "Welche Geräte kann ich zur Reparatur anfragen?",
+                a: 'Sie können Anfragen für Smartphones (z. B. Apple iPhone, Samsung Galaxy, Huawei, Xiaomi), Tablets und Laptops stellen. Für andere Gerätekategorien wählen Sie \u201EAnderes\u201C und beschreiben das Gerät manuell.',
+              },
+              {
+                q: "Muss ich ein Konto erstellen?",
+                a: "Nein. Sie können die Anfrage als registrierter Nutzer oder als Gast absenden. Als Gast erhalten Sie einen persönlichen Tracking-Link per E-Mail, über den Sie den Status Ihrer Anfrage jederzeit einsehen können.",
+              },
+              {
+                q: "Kann ich Fotos des Schadens hochladen?",
+                a: "Ja, Sie können bis zu 5 Fotos (JPG, PNG oder GIF, max. 5 MB pro Bild) hochladen. Bilder helfen unserem Team, den Schaden bereits vorab präziser einzuschätzen und schneller zu antworten.",
+              },
+              {
+                q: "Was passiert, wenn mein Gerät nicht in der Datenbank ist?",
+                a: "Kein Problem. Wählen Sie den passenden Gerätetyp (Smartphone, Tablet, Laptop oder Anderes) und geben Sie Hersteller sowie Modellbezeichnung manuell ein. Bei Laptops ist auch die Modellnummer hilfreich.",
+              },
+              {
+                q: "Ist die Reparatur garantiert?",
+                a: "Alle bei McRepair.de durchgeführten Reparaturen sind mit 12 Monaten Garantie auf Teile und Arbeitsleistung abgesichert.",
+              },
+            ].map(({ q, a }) => (
+              <div
+                key={q}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5"
+                itemScope
+                itemType="https://schema.org/Question"
+              >
+                <dt className="text-sm font-bold text-[#1a2a5e] md:text-base" itemProp="name">{q}</dt>
+                <dd
+                  className="mt-2 text-sm leading-6 text-slate-600"
+                  itemScope
+                  itemType="https://schema.org/Answer"
+                  itemProp="acceptedAnswer"
+                >
+                  <span itemProp="text">{a}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
 
       {/* DB Selection Dialog */}
       <Dialog open={showDeviceDialog} onOpenChange={setShowDeviceDialog}>
