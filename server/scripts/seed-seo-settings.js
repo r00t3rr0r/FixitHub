@@ -277,31 +277,95 @@ const seoData = [
   {
     pageType: 'page',
     pageId: 'privacy',
-    title: 'Datenschutzerklärung | McRepair.de',
-    description: 'Informationen zum Datenschutz und zur Verarbeitung Ihrer personenbezogenen Daten bei McRepair.de. DSGVO-konform.',
-    keywords: ['Datenschutz', 'DSGVO', 'Datenschutzerklärung', 'Datensicherheit'],
-    canonicalUrl: 'https://mcrepair.de/privacy',
+    title: 'Datenschutzerklärung – DSGVO-konforme Datenschutzinformationen | McRepair.de',
+    description: 'Vollständige Datenschutzerklärung von McRepair.de: Welche Daten wir verarbeiten, auf welcher Rechtsgrundlage und wie Sie Ihre Rechte nach DSGVO geltend machen können.',
+    keywords: ['Datenschutz', 'DSGVO', 'Datenschutzerklärung', 'Datensicherheit', 'personenbezogene Daten', 'Betroffenenrechte', 'Cookies', 'Google Analytics Opt-out', 'Datenschutzbeauftragter'],
+    canonicalUrl: 'https://www.mcrepair.de/datenschutz',
     openGraph: {
-      title: 'Datenschutzerklärung | McRepair.de',
-      description: 'Informationen zum Datenschutz',
-      image: 'https://mcrepair.de/og-image-legal.jpg',
+      title: 'Datenschutzerklärung – DSGVO | McRepair.de',
+      description: 'Vollständige Datenschutzerklärung von McRepair.de gemäß DSGVO. Rechte als Betroffener, Cookies, Datenverarbeitung und Kontaktdaten des Verantwortlichen.',
+      image: 'https://www.mcrepair.de/og-legal.jpg',
       type: 'website',
-      url: 'https://mcrepair.de/privacy'
+      url: 'https://www.mcrepair.de/datenschutz'
     },
     twitterCard: {
       card: 'summary',
-      title: 'Datenschutz | McRepair.de',
-      description: 'Datenschutzerklärung',
-      image: 'https://mcrepair.de/twitter-legal.jpg'
+      title: 'Datenschutzerklärung | McRepair.de',
+      description: 'DSGVO-konforme Datenschutzinformationen – Ihre Rechte, unsere Pflichten.',
+      image: 'https://www.mcrepair.de/og-legal.jpg'
     },
-    schemaMarkup: {},
+    schemaMarkup: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'WebPage',
+          name: 'Datenschutzerklärung – McRepair.de',
+          description: 'Vollständige Datenschutzerklärung gemäß DSGVO',
+          url: 'https://www.mcrepair.de/datenschutz',
+          inLanguage: 'de',
+          isPartOf: { '@type': 'WebSite', name: 'McRepair.de', url: 'https://www.mcrepair.de' }
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://www.mcrepair.de/' },
+            { '@type': 'ListItem', position: 2, name: 'Datenschutzerklärung', item: 'https://www.mcrepair.de/datenschutz' }
+          ]
+        },
+        {
+          '@type': 'Organization',
+          name: 'Online Point GmbH',
+          alternateName: 'McRepair.de',
+          url: 'https://www.mcrepair.de',
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: 'Kurfürstenstr. 106',
+            addressLocality: 'Berlin',
+            postalCode: '10787',
+            addressCountry: 'DE'
+          },
+          telephone: '+493040368895',
+          email: 'kontakt@mcrepair.de'
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: [
+            {
+              '@type': 'Question',
+              name: 'Welche Datenschutzrechte habe ich als Kunde?',
+              acceptedAnswer: { '@type': 'Answer', text: 'Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16 DSGVO), Löschung (Art. 17 DSGVO), Einschränkung der Verarbeitung (Art. 18 DSGVO) und Datenübertragbarkeit (Art. 20 DSGVO).' }
+            },
+            {
+              '@type': 'Question',
+              name: 'Wer ist verantwortlich für die Datenverarbeitung bei McRepair.de?',
+              acceptedAnswer: { '@type': 'Answer', text: 'Verantwortlich ist die Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin. Telefon: 030 403 688 951, E-Mail: kontakt@mcrepair.de.' }
+            },
+            {
+              '@type': 'Question',
+              name: 'Wie lange werden meine Daten bei McRepair.de gespeichert?',
+              acceptedAnswer: { '@type': 'Answer', text: 'Handelsbriefe werden 6 Jahre, steuerrelevante Buchungsbelege 10 Jahre aufbewahrt. Danach erfolgt routinemäßige Löschung.' }
+            },
+            {
+              '@type': 'Question',
+              name: 'Wie kann ich Cookies bei McRepair.de deaktivieren?',
+              acceptedAnswer: { '@type': 'Answer', text: 'Cookies können in den Browsereinstellungen verwaltet werden: Chrome → Datenschutz; Firefox → Datenschutz & Sicherheit; Safari → Datenschutz.' }
+            },
+            {
+              '@type': 'Question',
+              name: 'Wo kann ich mich über Datenschutzverstöße beschweren?',
+              acceptedAnswer: { '@type': 'Answer', text: 'Bei der Berliner Beauftragten für Datenschutz und Informationsfreiheit: Friedrichstr. 219, 10969 Berlin, 030 13889-0, mailbox@datenschutz-berlin.de.' }
+            }
+          ]
+        }
+      ]
+    },
     robots: {
       index: true,
-      follow: false,
-      noarchive: true,
+      follow: true,
+      noarchive: false,
       nosnippet: false
     },
-    priority: 0.3,
+    priority: 0.5,
     changeFreq: 'yearly',
     isActive: true
   },

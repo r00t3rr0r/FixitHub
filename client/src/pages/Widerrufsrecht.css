@@ -8,6 +8,38 @@
   padding: 80px 0 60px;
 }
 
+/* ── Breadcrumb ── */
+.widerrufsrecht-breadcrumb {
+  max-width: 900px;
+  margin: 0 auto 16px;
+  padding: 0 4px;
+}
+
+.widerrufsrecht-breadcrumb ol {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--gray-500, #636e85);
+}
+
+.widerrufsrecht-breadcrumb ol li a {
+  color: var(--primary-blue, #1a2a5e);
+  text-decoration: none;
+}
+
+.widerrufsrecht-breadcrumb ol li a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-separator {
+  color: var(--gray-400, #9aa3b5);
+}
+
 .widerrufsrecht-content {
   max-width: 900px;
   margin: 0 auto;
@@ -237,4 +269,73 @@
   .widerrufsrecht-section p {
     font-size: 0.875rem;
   }
+}
+
+/* ── Page Subtitle ── */
+.widerrufsrecht-subtitle {
+  font-size: 0.9rem;
+  color: var(--gray-500, #636e85);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* ── Contact Address Block ── */
+.widerrufs-contact-address {
+  font-style: normal;
+  background: var(--gray-50, #f5f6f8);
+  border-left: 4px solid var(--primary-blue, #1a2a5e);
+  padding: 16px 20px;
+  border-radius: var(--radius-sm, 6px);
+  margin: 20px 0;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--gray-700, #2d3748);
+}
+
+.widerrufs-contact-address a {
+  color: var(--primary-blue, #1a2a5e);
+  text-decoration: none;
+}
+
+.widerrufs-contact-address a:hover {
+  text-decoration: underline;
+}
+
+/* ── Related Legal Links ── */
+.widerrufsrecht-related-links {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--gray-200, #d8dce6);
+}
+
+.related-links-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-blue, #1a2a5e);
+  margin-bottom: 14px;
+}
+
+.widerrufsrecht-related-links ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.widerrufsrecht-related-links ul li a {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid var(--primary-blue, #1a2a5e);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: var(--primary-blue, #1a2a5e);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.widerrufsrecht-related-links ul li a:hover {
+  background: var(--primary-blue, #1a2a5e);
+  color: #fff;
 }
