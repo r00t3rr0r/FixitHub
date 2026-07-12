@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, useLocation, matchPath } from "react-router-dom"
 import { useEffect } from "react"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
@@ -122,6 +122,120 @@ function ScrollToTop() {
   return null
 }
 
+function getCustomerSeoTopic(pathname: string): string {
+  if (pathname === "/" || pathname === "/home") return "Smartphone-, Tablet- und Laptop-Reparatur"
+  if (pathname.startsWith("/shop") || pathname === "/cart") return "Ersatzteile und Zubehoer"
+  if (pathname.startsWith("/blog")) return "Reparaturtipps und Servicewissen"
+  if (pathname.startsWith("/track-order") || pathname.startsWith("/orders")) return "Auftragsverfolgung"
+  if (pathname.startsWith("/repair-request") || pathname.startsWith("/new-order")) return "Reparaturanfrage"
+  if (pathname.startsWith("/contact") || pathname.startsWith("/kontakt")) return "Kundenservice"
+  if (pathname.startsWith("/faq")) return "Hilfe und haeufige Fragen"
+  if (pathname.startsWith("/privacy") || pathname.startsWith("/datenschutz")) return "Datenschutzinformationen"
+  if (pathname.startsWith("/terms") || pathname.startsWith("/agb")) return "AGB und Vertragsbedingungen"
+  return "Reparaturservice"
+}
+
+const CUSTOMER_SEMANTIC_ROUTE_PATTERNS = [
+  "/",
+  "/home",
+  "/newsletter",
+  "/sitemap",
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+  "/debug",
+  "/track-order",
+  "/track-order/booking",
+  "/guest-repair-tracking",
+  "/new-order",
+  "/repair-request",
+  "/shop",
+  "/cart",
+  "/order-success",
+  "/blog",
+  "/blog/:id",
+  "/vorabdiagnose",
+  "/annahmestellen",
+  "/faq",
+  "/contact",
+  "/kontakt",
+  "/partner-werden",
+  "/partner",
+  "/widerrufsrecht",
+  "/privacy",
+  "/datenschutz",
+  "/imprint",
+  "/impressum",
+  "/hinweise-zur-batterieentsorgung",
+  "/battery-disposal-notice",
+  "/terms",
+  "/agb",
+  "/zahlung-und-versand",
+  "/shipping-and-payment",
+  "/about",
+  "/ueber-uns",
+  "/orders",
+  "/orders/:id",
+  "/messages",
+  "/notifications",
+  "/profile",
+  "/bookings",
+  "/invoices",
+  "/my-repair-requests",
+  "/my-complaints",
+  "/my-complaints/:complaintId"
+]
+
+function isKnownCustomerSemanticRoute(pathname: string): boolean {
+  return CUSTOMER_SEMANTIC_ROUTE_PATTERNS.some((pattern) =>
+    Boolean(matchPath({ path: pattern, end: true }, pathname))
+  )
+}
+
+function CustomerSemanticSeoBlock() {
+  const { pathname } = useLocation()
+
+  const isBackofficeRoute =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/staff") ||
+    pathname.startsWith("/inspection") ||
+    pathname.startsWith("/repair/workflow")
+
+  if (isBackofficeRoute) {
+    return null
+  }
+
+  if (!isKnownCustomerSemanticRoute(pathname)) {
+    return null
+  }
+
+  const seoTopic = getCustomerSeoTopic(pathname)
+
+  return (
+    <aside className="sr-only" aria-label="Semantische SEO-Inhalte fuer Kundenseiten">
+      <p>FixitHub bietet professionelle {seoTopic} mit transparenten Preisen und klaren Prozessen.</p>
+      <p><strong>Express-Service mit Garantie:</strong> Reparaturen werden schnell, sicher und nachvollziehbar umgesetzt.</p>
+      <ul>
+        <li>Diagnose durch erfahrene Techniker.</li>
+        <li>Nachvollziehbarer Status waehrend des gesamten Auftrags.</li>
+        <li>Kundenfreundlicher Support vor und nach der Reparatur.</li>
+      </ul>
+      <ol>
+        <li>Defekt melden oder Auftrag starten.</li>
+        <li>Geraet einsenden oder vor Ort abgeben.</li>
+        <li>Reparaturstatus verfolgen und Ergebnis erhalten.</li>
+      </ol>
+      <blockquote>
+        "Wir reparieren Geraete so, wie wir unsere eigenen reparieren lassen wollen: transparent, fair und verlaesslich."
+        <cite> FixitHub Service Team</cite>
+      </blockquote>
+      <p><em>Hinweis:</em> Je nach Defekt werden <b>qualitativ gepruefte Ersatzteile</b> verwendet, damit die <i>Service-Qualitaet</i> langfristig erhalten bleibt.</p>
+    </aside>
+  )
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -130,6 +244,7 @@ function App() {
           <ScrollToTop />
           <PageTracker />
           <GlobalScrollToTopButton />
+          <CustomerSemanticSeoBlock />
           {/* Public routes - accessible to all users */}
           <Routes>
             {/* Home page as default landing page for all users */}
