@@ -5,6 +5,7 @@ const SEOService = require('../services/seoService');
 const DeviceService = require('../services/deviceService');
 const ServiceService = require('../services/serviceService');
 const AddOnServiceService = require('../services/addOnServiceService');
+const FAQService = require('../services/faqService');
 
 // Slugify: "iPhone 14 Pro Max" → "iphone-14-pro-max"
 function toSlug(str) {
@@ -273,6 +274,53 @@ router.get('/metadata', async (req, res) => {
     const settings = await SEOService.getSEOSettings(pageType, pageId || '');
     res.json({ success: true, settings });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/seo/faq-data
+// Public endpoint – returns all active FAQs grouped by category for JSON-LD
+// pre-rendering, sitemap enrichment, and external SEO tooling.
+// Cached for 10 minutes to reduce DB load.
+let faqSeoCache = null;
+let faqSeoCacheAt = 0;
+
+router.get('/faq-data', async (req, res) => {
+  try {
+    if (faqSeoCache && Date.now() - faqSeoCacheAt < CACHE_TTL_MS) {
+      return res.json({ success: true, ...faqSeoCache });
+    }
+
+    const result = await FAQService.getFAQs({ isActive: true, limit: 500 });
+
+    const faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      '@id': 'https://www.mcrepair.de/faq#faqpage',
+      url: 'https://www.mcrepair.de/faq',
+      name: 'Häufig gestellte Fragen | McRepair.de',
+      mainEntity: result.faqs.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.answer,
+        },
+      })),
+    };
+
+    const payload = {
+      groupedFAQs: result.groupedFAQs,
+      totalFAQs: result.totalFAQs,
+      jsonLd: faqJsonLd,
+    };
+
+    faqSeoCache = payload;
+    faqSeoCacheAt = Date.now();
+
+    res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('SEORoutes: Error building FAQ SEO data:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
