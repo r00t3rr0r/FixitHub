@@ -1,0 +1,35 @@
+# McRepair.de – Robots.txt
+# Suchmaschinen-Crawling-Richtlinien
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /customer/
+Disallow: /staff/
+Disallow: /api/
+Disallow: /private/
+Disallow: /*.json$
+Disallow: /node_modules/
+Disallow: /dist/
+
+# Crawler-Verzögerung
+Crawl-delay: 1
+
+# Sitemap
+Sitemap: https://www.mcrepair.de/sitemap.xml
+
+# Spezifische Bot-Richtlinien
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: MJ12bot
+Crawl-delay: 10
+
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10
