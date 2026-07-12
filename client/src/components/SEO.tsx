@@ -7,6 +7,10 @@ interface SEOProps {
   noindex?: boolean
   ogType?: 'website' | 'article'
   ogImage?: string
+  /** Comma-separated keywords for the <meta name="keywords"> tag */
+  keywords?: string
+  /** One or more schema.org JSON-LD objects. Arrays are merged under @graph. */
+  jsonLd?: object | object[]
 }
 
 const BASE_URL = 'https://www.mcrepair.de'
@@ -20,14 +24,28 @@ export function SEO({
   noindex = false,
   ogType = 'website',
   ogImage = DEFAULT_OG_IMAGE,
+  keywords,
+  jsonLd,
 }: SEOProps) {
   const fullTitle = title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`
   const canonicalUrl = canonical ? `${BASE_URL}${canonical}` : undefined
+
+  let jsonLdScript: string | null = null
+  if (jsonLd) {
+    if (Array.isArray(jsonLd)) {
+      // Strip per-item @context and wrap in a single @graph block
+      const graph = jsonLd.map(({ '@context': _ctx, ...rest }: any) => rest)
+      jsonLdScript = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph })
+    } else {
+      jsonLdScript = JSON.stringify(jsonLd)
+    }
+  }
 
   return (
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {keywords && <meta name="keywords" content={keywords} />}
       {noindex && <meta name="robots" content="noindex, nofollow" />}
       {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
 
@@ -45,6 +63,11 @@ export function SEO({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
+
+      {/* JSON-LD Structured Data */}
+      {jsonLdScript && (
+        <script type="application/ld+json">{jsonLdScript}</script>
+      )}
     </Helmet>
   )
 }
