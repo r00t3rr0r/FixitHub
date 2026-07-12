@@ -495,7 +495,24 @@ app.get('/sitemap.xml', async (req, res) => {
       }));
     } catch (_) { /* skip if products collection unavailable */ }
 
-    const allUrls = [...staticUrls, ...catalogUrls, ...productUrls];
+    // Blog post pages: /blog/:slug
+    let blogUrls = [];
+    try {
+      const BlogPost = require('./models/BlogPost');
+      const blogPosts = await BlogPost.find({ status: 'published' })
+        .select('slug _id updatedAt publishedAt')
+        .lean();
+      blogUrls = blogPosts.map((p) => ({
+        loc: `${BASE_URL}/blog/${p.slug || p._id}`,
+        priority: '0.65',
+        changefreq: 'monthly',
+        lastmod: (p.updatedAt || p.publishedAt)
+          ? new Date(p.updatedAt || p.publishedAt).toISOString().slice(0, 10)
+          : today,
+      }));
+    } catch (_) { /* skip if blog collection unavailable */ }
+
+    const allUrls = [...staticUrls, ...catalogUrls, ...productUrls, ...blogUrls];
     const urlEntries = allUrls
       .map(
         ({ loc, priority, changefreq, lastmod }) =>

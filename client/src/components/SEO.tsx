@@ -23,6 +23,12 @@ interface SEOProps {
   publishedTime?: string
   /** ISO-8601 timestamp for article:modified_time */
   modifiedTime?: string
+  /** Author name for article:author */
+  articleAuthor?: string
+  /** Category / section for article:section */
+  articleSection?: string
+  /** Tag names for article:tag (one meta per tag) */
+  articleTags?: string[]
 }
 
 const BASE_URL = 'https://www.mcrepair.de'
@@ -44,6 +50,9 @@ export function SEO({
   productAvailability,
   publishedTime,
   modifiedTime,
+  articleAuthor,
+  articleSection,
+  articleTags,
 }: SEOProps) {
   const fullTitle = title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`
   const canonicalUrl = canonical ? `${BASE_URL}${canonical}` : undefined
@@ -108,6 +117,11 @@ export function SEO({
       {/* Timestamps */}
       {publishedTime && <meta property="article:published_time" content={publishedTime} />}
       {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+      {articleAuthor && <meta property="article:author" content={articleAuthor} />}
+      {articleSection && <meta property="article:section" content={articleSection} />}
+      {articleTags && articleTags.map((tag) => (
+        <meta key={tag} property="article:tag" content={tag} />
+      ))}
 
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
