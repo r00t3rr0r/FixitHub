@@ -144,8 +144,8 @@ export function Contact() {
       }}
     >
       <SEO
-        title="Kontakt – FixitHub Reparaturservice"
-        description="Haben Sie Fragen? Erreichen Sie das FixitHub-Team per Telefon, E-Mail oder Kontaktformular. Wir helfen Ihnen schnell weiter."
+        title="Kontakt – McRepair.de Reparaturservice"
+        description="Haben Sie Fragen? Erreichen Sie das McRepair.de-Team per Telefon, E-Mail oder Kontaktformular. Wir helfen Ihnen schnell weiter."
         canonical="/kontakt"
       />
       <TopBar />

@@ -11,8 +11,8 @@ export function Privacy() {
   return (
     <>
       <SEO
-        title="Datenschutzerklärung – FixitHub"
-        description="Erfahren Sie, wie FixitHub Ihre Daten schützt und verarbeitet. Transparente Datenschutzerklärung gemäß DSGVO."
+        title="Datenschutzerklärung – McRepair.de"
+        description="Erfahren Sie, wie McRepair.de Ihre Daten schützt und verarbeitet. Transparente Datenschutzerklärung gemäß DSGVO."
         canonical="/datenschutz"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

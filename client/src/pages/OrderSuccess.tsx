@@ -50,8 +50,8 @@ export function OrderSuccessPage() {
   return (
     <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SEO
-        title="Bestellung erfolgreich – FixitHub"
-        description="Vielen Dank für Ihre Bestellung! Alle Details finden Sie in Ihrer Bestätigungs-E-Mail. FixitHub kümmert sich um Ihren Auftrag."
+        title="Bestellung erfolgreich – McRepair.de"
+        description="Vielen Dank für Ihre Bestellung! Alle Details finden Sie in Ihrer Bestätigungs-E-Mail. McRepair.de kümmert sich um Ihren Auftrag."
         canonical="/order-success"
         noindex={true}
       />

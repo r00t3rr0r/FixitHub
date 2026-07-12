@@ -48,8 +48,8 @@ export default function Newsletter() {
   return (
     <div style={{ background: 'linear-gradient(180deg, var(--off-white, #f8f9fc) 0%, var(--white, #ffffff) 24%, var(--gray-50, #f5f6f8) 100%)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SEO
-        title="Newsletter abonnieren – FixitHub Updates"
-        description="Jetzt FixitHub-Newsletter abonnieren und keine Angebote, Reparaturtipps und News mehr verpassen. Kostenlos & jederzeit kündbar."
+        title="Newsletter abonnieren – McRepair.de Updates"
+        description="Jetzt McRepair.de-Newsletter abonnieren und keine Angebote, Reparaturtipps und News mehr verpassen. Kostenlos & jederzeit kündbar."
         canonical="/newsletter"
       />
       <TopBar />

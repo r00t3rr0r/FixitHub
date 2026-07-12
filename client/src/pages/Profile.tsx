@@ -291,8 +291,8 @@ export function Profile() {
   return (
     <>
     <SEO
-      title="Mein Profil – FixitHub Kundenportal"
-      description="Verwalten Sie Ihre persönlichen Daten, Passwort und Kommunikationseinstellungen im FixitHub Kundenportal."
+      title="Mein Profil – McRepair.de Kundenportal"
+      description="Verwalten Sie Ihre persönlichen Daten, Passwort und Kommunikationseinstellungen im McRepair.de Kundenportal."
       canonical="/profile"
       noindex={true}
     />

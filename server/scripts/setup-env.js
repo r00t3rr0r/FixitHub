@@ -3,7 +3,7 @@
 /**
  * Environment Setup Script
  *
- * This script helps set up the environment for the FixitHub application.
+ * This script helps set up the environment for the McRepair.de application.
  * It checks for MongoDB connectivity and generates secure secrets.
  */
 
@@ -97,7 +97,7 @@ async function updateEnvFile(envPath, updates) {
 
 async function main() {
   log('='.repeat(60), 'cyan');
-  log('   FixitHub Environment Setup', 'cyan');
+  log('   McRepair.de Environment Setup', 'cyan');
   log('='.repeat(60), 'cyan');
 
   const envPath = path.join(__dirname, '../../.env');

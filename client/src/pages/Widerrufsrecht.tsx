@@ -37,8 +37,8 @@ export function Widerrufsrecht() {
   return (
     <>
       <SEO
-        title="Widerrufsrecht & Widerrufsformular – FixitHub"
-        description="Informationen zu Ihrem gesetzlichen Widerrufsrecht bei FixitHub. Widerrufsformular zum Download und Kontaktdaten."
+        title="Widerrufsrecht & Widerrufsformular – McRepair.de"
+        description="Informationen zu Ihrem gesetzlichen Widerrufsrecht bei McRepair.de. Widerrufsformular zum Download und Kontaktdaten."
         canonical="/widerrufsrecht"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

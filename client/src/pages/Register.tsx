@@ -184,8 +184,8 @@ export function Register() {
   return (
     <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh' }}>
       <SEO
-        title="Konto erstellen – FixitHub Registrierung"
-        description="Jetzt kostenlos bei FixitHub registrieren. Aufträge online verwalten, Reparaturstatus verfolgen und exklusive Vorteile genießen."
+        title="Konto erstellen – McRepair.de Registrierung"
+        description="Jetzt kostenlos bei McRepair.de registrieren. Aufträge online verwalten, Reparaturstatus verfolgen und exklusive Vorteile genießen."
         canonical="/register"
       />
       {/* Top Bar */}

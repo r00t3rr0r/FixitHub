@@ -37,7 +37,7 @@ class InspectionCommunicationService {
         effectiveDate: new Date().toLocaleDateString('de-DE'),
         ctaLabel: 'Auftrag ansehen',
         ctaUrl: trackingPath,
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
       });
     } catch (guestEmailError) {

@@ -587,8 +587,8 @@ export function CustomerBookings() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
       <SEO
-        title="Meine Buchungen – FixitHub Kundenportal"
-        description="Alle Reparaturbuchungen auf einen Blick: Termine, Status und Details im FixitHub Kundenportal einsehen und verwalten."
+        title="Meine Buchungen – McRepair.de Kundenportal"
+        description="Alle Reparaturbuchungen auf einen Blick: Termine, Status und Details im McRepair.de Kundenportal einsehen und verwalten."
         canonical="/bookings"
         noindex={true}
       />

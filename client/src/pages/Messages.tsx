@@ -382,8 +382,8 @@ export function Messages() {
   return (
     <div className={`messages-page${mobileMenuOpen ? ' mobile-menu-open' : ''}`}>
       <SEO
-        title="Nachrichten – FixitHub Kundenportal"
-        description="Direkter Kontakt mit Ihrem FixitHub-Techniker. Nachrichten lesen und antworten – schnell und unkompliziert im Kundenportal."
+        title="Nachrichten – McRepair.de Kundenportal"
+        description="Direkter Kontakt mit Ihrem McRepair.de-Techniker. Nachrichten lesen und antworten – schnell und unkompliziert im Kundenportal."
         canonical="/messages"
         noindex={true}
       />

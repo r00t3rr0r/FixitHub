@@ -182,12 +182,12 @@ router.post('/notification-templates/:id/send-test', requireUser, requireRole(['
         estimatedCost: '89,00 €',
         totalAmount: '89,00 €',
         amountPaid: '89,00 €',
-        technician: 'FixitHub Service',
+        technician: 'McRepair.de Service',
         notes: 'Ihr Gerät wird gerade geprüft.',
         completionDate: new Date().toLocaleDateString('de-DE'),
-        shopName: 'FixitHub',
+        shopName: 'McRepair.de',
         shopAddress: 'Musterstraße 1, 12345 Musterstadt',
-        supportEmail: 'support@fixithub.de',
+        supportEmail: 'support@mcrepair.de',
         supportPhone: '+49 123 456789',
         trackingUrl: sampleTrackingUrl,
         verificationUrl: sampleVerificationUrl,
@@ -427,9 +427,9 @@ router.post('/email/send-test', requireUser, requireRole(['admin']), async (req,
       from: senderAddress,
       to,
       subject,
-      text: body || 'FixitHub SMTP Test',
+      text: body || 'McRepair.de SMTP Test',
       html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-        <h2 style="color:#2563eb">FixitHub SMTP Test</h2>
+        <h2 style="color:#2563eb">McRepair.de SMTP Test</h2>
         <p>${(body || '').replace(/\n/g, '<br>')}</p>
         <hr style="margin:24px 0;border-color:#e5e7eb">
         <p style="color:#6b7280;font-size:12px">Gesendet über ${smtpHost}:${smtpPort} · ${new Date().toLocaleString('de-DE')}</p>

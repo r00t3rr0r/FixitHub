@@ -24,7 +24,7 @@ class ContactService {
     });
     const transporter = await EmailService.getTransporter();
     const subjectLabel = SUBJECT_LABELS[data.subject] || SUBJECT_LABELS.other;
-    const supportEmail = process.env.SUPPORT_EMAIL || process.env.SMTP_FROM || 'support@fixithub.com';
+    const supportEmail = process.env.SUPPORT_EMAIL || process.env.SMTP_FROM || 'support@mcrepair.de';
     const submittedAt = new Date().toLocaleString('de-DE', {
       dateStyle: 'medium',
       timeStyle: 'short',
@@ -54,7 +54,7 @@ class ContactService {
     const textDetails = details.map(([label, value]) => `${label}: ${value}`).join('\n');
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@fixithub.com',
+      from: process.env.SMTP_FROM || 'noreply@mcrepair.de',
       to: supportEmail,
       replyTo: data.email,
       subject: `[Kontaktformular] ${subjectLabel} - ${data.name}`,
@@ -62,7 +62,7 @@ class ContactService {
         <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
           <div style="max-width:720px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.12);">
             <div style="background:linear-gradient(135deg,#1a2a5e 0%,#2f57b0 100%);padding:28px 32px;color:#ffffff;">
-              <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">FixitHub Kontaktformular</div>
+              <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.8;">McRepair.de Kontaktformular</div>
               <h1 style="margin:10px 0 6px;font-size:28px;line-height:1.2;">Neue Kontaktanfrage</h1>
               <p style="margin:0;font-size:15px;opacity:0.88;">Eine neue Anfrage wurde ueber die oeffentliche Kontaktseite eingereicht.</p>
             </div>

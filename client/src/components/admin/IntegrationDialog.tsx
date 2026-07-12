@@ -36,7 +36,7 @@ export function IntegrationDialog({
     accountNumber: '',
     profile: 'STANDARD_GRUPPENPROFIL',
     product: 'V01PAK',
-    shipperCompany: 'FixitHub GmbH',
+    shipperCompany: 'McRepair.de GmbH',
     shipperStreet: '',
     shipperNumber: '',
     shipperPostalCode: '',
@@ -786,7 +786,7 @@ export function IntegrationDialog({
                           shipperCompany: e.target.value
                         }
                       }))}
-                      placeholder="FixitHub GmbH"
+                      placeholder="McRepair.de GmbH"
                       className="h-9 text-sm"
                     />
                   </div>
@@ -894,7 +894,7 @@ export function IntegrationDialog({
                           shipperEmail: e.target.value
                         }
                       }))}
-                      placeholder="logistics@fixithub.com"
+                      placeholder="logistics@mcrepair.de"
                       className="h-9 text-sm"
                     />
                   </div>

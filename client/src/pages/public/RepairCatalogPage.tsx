@@ -24,7 +24,7 @@ import {
   type RepairCatalogAddOn,
 } from '@/api/seo'
 
-const BASE_URL = 'https://www.fixithub.de'
+const BASE_URL = 'https://www.mcrepair.de'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -65,8 +65,8 @@ function DeviceTypePage({
 }) {
   const navigate = useNavigate()
   const canonical = `/reparatur/${deviceTypeSlug}`
-  const title = `${dtEntry.name} Reparatur | FixitHub`
-  const description = `Professionelle ${dtEntry.name}-Reparatur bei FixitHub. ${dtEntry.manufacturers.length} Hersteller verfügbar – wähle deinen Hersteller und starte jetzt deine Reparaturanfrage.`
+  const title = `${dtEntry.name} Reparatur | McRepair.de`
+  const description = `Professionelle ${dtEntry.name}-Reparatur bei McRepair.de. ${dtEntry.manufacturers.length} Hersteller verfügbar – wähle deinen Hersteller und starte jetzt deine Reparaturanfrage.`
 
   const serviceJsonLd = {
     '@context': 'https://schema.org',
@@ -74,7 +74,7 @@ function DeviceTypePage({
     name: `${dtEntry.name} Reparatur`,
     provider: {
       '@type': 'LocalBusiness',
-      name: 'FixitHub',
+      name: 'McRepair.de',
       url: BASE_URL,
     },
     areaServed: { '@type': 'Country', name: 'Deutschland' },
@@ -97,7 +97,7 @@ function DeviceTypePage({
       <SEO title={title} description={description} canonical={canonical} />
       <BreadcrumbJsonLd
         items={[
-          { name: 'FixitHub', url: BASE_URL },
+          { name: 'McRepair.de', url: BASE_URL },
           { name: `${dtEntry.name} Reparatur`, url: `${BASE_URL}${canonical}` },
         ]}
       />
@@ -109,7 +109,7 @@ function DeviceTypePage({
         {/* Breadcrumb */}
         <nav aria-label="Brotkrumennavigation" className="text-sm text-muted-foreground mb-6">
           <ol className="flex flex-wrap gap-1">
-            <li><Link to="/" className="hover:underline">FixitHub</Link></li>
+            <li><Link to="/" className="hover:underline">McRepair.de</Link></li>
             <li aria-hidden="true">›</li>
             <li aria-current="page">{dtEntry.name} Reparatur</li>
           </ol>
@@ -117,7 +117,7 @@ function DeviceTypePage({
 
         <h1 className="text-3xl font-bold mb-3">{dtEntry.name} Reparatur</h1>
         <p className="text-muted-foreground mb-8 max-w-2xl">
-          Bei FixitHub reparieren wir dein {dtEntry.name} schnell, fair und mit Garantie.
+          Bei McRepair.de reparieren wir dein {dtEntry.name} schnell, fair und mit Garantie.
           Wähle deinen Hersteller, um alle verfügbaren Modelle und Reparaturservices zu sehen.
         </p>
 
@@ -172,8 +172,8 @@ function ManufacturerPage({
 }) {
   const navigate = useNavigate()
   const canonical = `/reparatur/${deviceTypeSlug}/${manufacturerSlug}`
-  const title = `${mfrEntry.name} ${dtEntry.name} Reparatur | FixitHub`
-  const description = `Professionelle ${mfrEntry.name} ${dtEntry.name}-Reparatur bei FixitHub. ${mfrEntry.models.length} Modelle verfügbar – wähle dein Modell und starte die Reparaturanfrage.`
+  const title = `${mfrEntry.name} ${dtEntry.name} Reparatur | McRepair.de`
+  const description = `Professionelle ${mfrEntry.name} ${dtEntry.name}-Reparatur bei McRepair.de. ${mfrEntry.models.length} Modelle verfügbar – wähle dein Modell und starte die Reparaturanfrage.`
 
   const itemListJsonLd = {
     '@context': 'https://schema.org',
@@ -194,7 +194,7 @@ function ManufacturerPage({
       <SEO title={title} description={description} canonical={canonical} />
       <BreadcrumbJsonLd
         items={[
-          { name: 'FixitHub', url: BASE_URL },
+          { name: 'McRepair.de', url: BASE_URL },
           { name: `${dtEntry.name} Reparatur`, url: `${BASE_URL}/reparatur/${deviceTypeSlug}` },
           { name: mfrEntry.name, url: `${BASE_URL}${canonical}` },
         ]}
@@ -207,7 +207,7 @@ function ManufacturerPage({
         {/* Breadcrumb */}
         <nav aria-label="Brotkrumennavigation" className="text-sm text-muted-foreground mb-6">
           <ol className="flex flex-wrap gap-1">
-            <li><Link to="/" className="hover:underline">FixitHub</Link></li>
+            <li><Link to="/" className="hover:underline">McRepair.de</Link></li>
             <li aria-hidden="true">›</li>
             <li><Link to={`/reparatur/${deviceTypeSlug}`} className="hover:underline">{dtEntry.name} Reparatur</Link></li>
             <li aria-hidden="true">›</li>
@@ -281,7 +281,7 @@ function ModelPage({
   const navigate = useNavigate()
   const canonical = `/reparatur/${deviceTypeSlug}/${manufacturerSlug}/${modelSlug}`
   const fullName = `${mfrEntry.name} ${modelEntry.name}`
-  const title = `${fullName} Reparatur – Preise & Services | FixitHub`
+  const title = `${fullName} Reparatur – Preise & Services | McRepair.de`
 
   const [services, setServices] = useState<RepairCatalogService[]>([])
   const [addOns, setAddOns] = useState<RepairCatalogAddOn[]>([])
@@ -303,8 +303,8 @@ function ModelPage({
 
   const description =
     services.length > 0
-      ? `${fullName} Reparatur bei FixitHub: ${services.slice(0, 3).map((s) => s.seoName || s.name).join(', ')} und mehr. Jetzt Preise vergleichen und Reparatur starten.`
-      : `Professionelle ${fullName} Reparatur bei FixitHub. Schnell, fair und mit Garantie.`
+      ? `${fullName} Reparatur bei McRepair.de: ${services.slice(0, 3).map((s) => s.seoName || s.name).join(', ')} und mehr. Jetzt Preise vergleichen und Reparatur starten.`
+      : `Professionelle ${fullName} Reparatur bei McRepair.de. Schnell, fair und mit Garantie.`
 
   // JSON-LD: ItemList of repair offers
   const offersJsonLd = {
@@ -327,11 +327,11 @@ function ModelPage({
           availability: 'https://schema.org/InStock',
           seller: {
             '@type': 'LocalBusiness',
-            name: 'FixitHub',
+            name: 'McRepair.de',
             url: BASE_URL,
           },
         },
-        provider: { '@type': 'LocalBusiness', name: 'FixitHub', url: BASE_URL },
+        provider: { '@type': 'LocalBusiness', name: 'McRepair.de', url: BASE_URL },
       },
     })),
   }
@@ -341,7 +341,7 @@ function ModelPage({
       <SEO title={title} description={description} canonical={canonical} />
       <BreadcrumbJsonLd
         items={[
-          { name: 'FixitHub', url: BASE_URL },
+          { name: 'McRepair.de', url: BASE_URL },
           { name: `${dtEntry.name} Reparatur`, url: `${BASE_URL}/reparatur/${deviceTypeSlug}` },
           { name: mfrEntry.name, url: `${BASE_URL}/reparatur/${deviceTypeSlug}/${manufacturerSlug}` },
           { name: modelEntry.name, url: `${BASE_URL}${canonical}` },
@@ -357,7 +357,7 @@ function ModelPage({
         {/* Breadcrumb */}
         <nav aria-label="Brotkrumennavigation" className="text-sm text-muted-foreground mb-6">
           <ol className="flex flex-wrap gap-1">
-            <li><Link to="/" className="hover:underline">FixitHub</Link></li>
+            <li><Link to="/" className="hover:underline">McRepair.de</Link></li>
             <li aria-hidden="true">›</li>
             <li><Link to={`/reparatur/${deviceTypeSlug}`} className="hover:underline">{dtEntry.name} Reparatur</Link></li>
             <li aria-hidden="true">›</li>
@@ -378,7 +378,7 @@ function ModelPage({
           <div>
             <h1 className="text-3xl font-bold mb-2">{fullName} Reparatur</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Professionelle {fullName}-Reparatur bei FixitHub — schnell, fair und mit Garantie.
+              Professionelle {fullName}-Reparatur bei McRepair.de — schnell, fair und mit Garantie.
               Alle verfügbaren Reparaturservices und Add-ons auf einem Blick.
             </p>
           </div>

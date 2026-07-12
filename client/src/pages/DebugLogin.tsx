@@ -211,7 +211,7 @@ export function DebugLogin() {
         <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            FixitHub Deployment Debug
+            McRepair.de Deployment Debug
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Use this page to diagnose and fix login issues in deployment

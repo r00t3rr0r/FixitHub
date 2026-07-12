@@ -1550,8 +1550,8 @@ export function CustomerInvoices() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
       <SEO
-        title="Meine Rechnungen – FixitHub Kundenportal"
-        description="Rechnungen für Reparaturen und Einkäufe einsehen und herunterladen. Transparente Abrechnung in Ihrem FixitHub Kundenportal."
+        title="Meine Rechnungen – McRepair.de Kundenportal"
+        description="Rechnungen für Reparaturen und Einkäufe einsehen und herunterladen. Transparente Abrechnung in Ihrem McRepair.de Kundenportal."
         canonical="/invoices"
         noindex={true}
       />

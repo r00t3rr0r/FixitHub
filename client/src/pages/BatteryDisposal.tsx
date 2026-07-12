@@ -11,8 +11,8 @@ export function BatteryDisposal() {
   return (
     <>
       <SEO
-        title="Batterieentsorgung – Hinweise von FixitHub"
-        description="Wichtige Hinweise zur gesetzeskonformen Entsorgung von Akkus und Batterien gemäß ElektroG. FixitHub informiert über Rücknahme."
+        title="Batterieentsorgung – Hinweise von McRepair.de"
+        description="Wichtige Hinweise zur gesetzeskonformen Entsorgung von Akkus und Batterien gemäß ElektroG. McRepair.de informiert über Rücknahme."
         canonical="/hinweise-zur-batterieentsorgung"
       />
       <TopBar />

@@ -131,7 +131,7 @@ export function VerifyEmail() {
     <>
       <SEO
         title="E-Mail-Verifizierung"
-        description="Bestaetigen Sie Ihre E-Mail-Adresse fuer Ihr FixitHub Kundenkonto und schliessen Sie die sichere Kontoaktivierung ab."
+        description="Bestaetigen Sie Ihre E-Mail-Adresse fuer Ihr McRepair.de Kundenkonto und schliessen Sie die sichere Kontoaktivierung ab."
         canonical="/verify-email"
         noindex
       />

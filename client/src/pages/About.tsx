@@ -12,8 +12,8 @@ export function About() {
   return (
     <>
       <SEO
-        title="Über uns – FixitHub Reparatur-Experten"
-        description="Wir reparieren Smartphones, Tablets & Notebooks mit Leidenschaft. Lernen Sie das FixitHub-Team kennen und erfahren Sie mehr über uns."
+        title="Über uns – McRepair.de Reparatur-Experten"
+        description="Wir reparieren Smartphones, Tablets & Notebooks mit Leidenschaft. Lernen Sie das McRepair.de-Team kennen und erfahren Sie mehr über uns."
         canonical="/ueber-uns"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

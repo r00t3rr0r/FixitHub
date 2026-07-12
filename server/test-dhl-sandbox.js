@@ -32,8 +32,8 @@ async function testDHLSandbox() {
       console.log('⚠️  Systemkonfiguration existiert nicht, erstelle neue...');
       config = new SystemConfiguration({
         companyInfo: {
-          name: 'FixitHub Test',
-          email: 'test@fixithub.de'
+          name: 'McRepair.de Test',
+          email: 'test@mcrepair.de'
         },
         integrations: []
       });
@@ -78,12 +78,12 @@ async function testDHLSandbox() {
           parcelDeReturns: false
         },
         shipper: {
-          company: 'FixitHub Test Company',
+          company: 'McRepair.de Test Company',
           country: 'DE',
           street: 'Teststraße 1',
           city: 'Berlin',
           postalCode: '10115',
-          email: 'shipping@fixithub.de',
+          email: 'shipping@mcrepair.de',
           phone: '+49 30 123456'
         }
       }

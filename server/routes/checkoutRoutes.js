@@ -371,7 +371,7 @@ const buildPaypalLineItems = (cart, currencyCode) => {
   if (lineItems.length === 0) {
     const fallbackAmount = sanitizeMoney(cart?.total || 0);
     lineItems.push({
-      name: 'FixitHub Bestellung',
+      name: 'McRepair.de Bestellung',
       quantity: '1',
       unit_amount: {
         currency_code: currencyCode,
@@ -704,7 +704,7 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
 
     const purchaseUnit = {
       reference_id: `checkout-${req.user._id}`,
-      description: (config.description_template || 'FixitHub Bestellung').replace('{{orderId}}', String(cart._id || 'cart')),
+      description: (config.description_template || 'McRepair.de Bestellung').replace('{{orderId}}', String(cart._id || 'cart')),
       amount,
       custom_id: String(req.user._id)
     };
@@ -725,7 +725,7 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
           email_address: user.email
         },
         application_context: {
-          brand_name: 'FixitHub',
+          brand_name: 'McRepair.de',
           locale: config.locale || 'de-DE',
           user_action: 'PAY_NOW',
           shipping_preference: 'NO_SHIPPING',
@@ -819,7 +819,7 @@ router.post('/paypal/guest/create-order', async (req, res) => {
         purchase_units: [
           {
             reference_id: `guest-checkout-${Date.now()}`,
-            description: 'FixitHub Gastbestellung',
+            description: 'McRepair.de Gastbestellung',
             amount: guestPayload.amount,
             items: guestPayload.lineItems,
             custom_id: normalizeEmailAddress(guestInfo.email)
@@ -833,7 +833,7 @@ router.post('/paypal/guest/create-order', async (req, res) => {
           }
         },
         application_context: {
-          brand_name: 'FixitHub',
+          brand_name: 'McRepair.de',
           locale: config.locale || 'de-DE',
           user_action: 'PAY_NOW',
           shipping_preference: 'NO_SHIPPING',
@@ -2288,7 +2288,7 @@ router.post('/guest-complete', async (req, res) => {
         trackingUrl: bookingTrackingPath,
         bookingUrl: bookingTrackingPath,
         shippingLabelUrl: booking?.shippingLabelUrl ? bookingTrackingPath : '',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       }, emailOptions);
 

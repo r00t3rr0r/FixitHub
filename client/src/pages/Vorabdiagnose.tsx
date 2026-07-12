@@ -11,7 +11,7 @@ export function Vorabdiagnose() {
   return (
     <>
       <SEO
-        title="Kostenlose Vorab-Diagnose – FixitHub"
+        title="Kostenlose Vorab-Diagnose – McRepair.de"
         description="Ermitteln Sie kostenlos, welche Reparatur Ihr Gerät benötigt. Diagnose-Assistent starten und direkt Kosten abschätzen."
         canonical="/vorabdiagnose"
       />

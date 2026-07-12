@@ -288,7 +288,7 @@
     "by": "by"
   },
   "login": {
-    "title": "Login to FixitHub",
+    "title": "Login to McRepair.de",
     "email": "Email Address",
     "password": "Password",
     "submit": "Sign In",
@@ -1690,7 +1690,7 @@
       "learnMore": "Learn More"
     },
     "features": {
-      "title": "Why Choose FixitHub?",
+      "title": "Why Choose McRepair.de?",
       "qualityGuarantee": "Quality Guarantee",
       "qualityDesc": "90-day warranty on all repairs",
       "fastTurnaround": "Fast Turnaround",
@@ -1784,7 +1784,7 @@
     },
     "cta": {
       "title": "Ready to Get Your Device Fixed?",
-      "subtitle": "Join thousands of satisfied customers who trust FixitHub with their device repairs.",
+      "subtitle": "Join thousands of satisfied customers who trust McRepair.de with their device repairs.",
       "emailPlaceholder": "Enter your email",
       "getStarted": "Get Started"
     },

@@ -458,7 +458,7 @@ export function GuestBookingTracking() {
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
       <SEO
-        title="Buchung verfolgen – FixitHub Buchungsstatus"
+        title="Buchung verfolgen – McRepair.de Buchungsstatus"
         description="Prüfen Sie den Status Ihrer Reparaturbuchung mit Ihrer Buchungsnummer. Schnell und einfach online nachverfolgen."
         canonical="/track-order/booking"
       />

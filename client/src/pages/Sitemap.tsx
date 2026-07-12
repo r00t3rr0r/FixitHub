@@ -99,8 +99,8 @@ export function Sitemap() {
   return (
     <>
       <SEO
-        title="Sitemap – FixitHub Seitenübersicht"
-        description="Übersicht aller Seiten auf FixitHub – von Reparaturservice über Shop bis Kundenportal. Finden Sie schnell, was Sie suchen."
+        title="Sitemap – McRepair.de Seitenübersicht"
+        description="Übersicht aller Seiten auf McRepair.de – von Reparaturservice über Shop bis Kundenportal. Finden Sie schnell, was Sie suchen."
         canonical="/sitemap"
         noindex={true}
       />

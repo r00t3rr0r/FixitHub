@@ -174,7 +174,7 @@
     "by": "by"
   },
   "login": {
-    "title": "Login to FixitHub",
+    "title": "Login to McRepair.de",
     "email": "Email Address",
     "password": "Password",
     "submit": "Sign In",
@@ -837,7 +837,7 @@
     "robots": "Robots",
     "basicSettings": "Basic Settings",
     "basicSettingsHelp": "These settings are the foundation of your search engine optimization.",
-    "titlePlaceholder": "e.g. FixitHub - Professional Phone & Tablet Repair",
+    "titlePlaceholder": "e.g. McRepair.de - Professional Phone & Tablet Repair",
     "titleHelp": "This title appears in search results and browser tabs. Optimal length is 50-60 characters.",
     "descriptionPlaceholder": "A short, compelling description that encourages clicks",
     "descriptionHelp": "This description appears below the title in search results. Optimal length is 150-160 characters.",
@@ -845,7 +845,7 @@
     "keywordsHelp": "Relevant search terms separated by commas. Focus on 3-5 main keywords.",
     "canonicalUrl": "Canonical URL",
     "canonicalUrlHelp": "The preferred URL for this page. Prevents duplicate content issues with multiple URLs.",
-    "canonicalUrlPlaceholder": "https://fixithub.com/repair/screen",
+    "canonicalUrlPlaceholder": "https://mcrepair.de/repair/screen",
     "openGraph": "Open Graph (Social Media)",
     "openGraphHelp": "These settings control how your page appears when shared on Facebook, LinkedIn, and other platforms.",
     "ogTitle": "Social Media Title",
@@ -854,7 +854,7 @@
     "ogDescriptionPlaceholder": "Leave empty to use meta description",
     "ogImage": "Social Media Preview Image",
     "ogImageHelp": "Recommended size: 1200×630 pixels. Format: JPG or PNG.",
-    "ogImagePlaceholder": "https://fixithub.com/images/og-image.jpg",
+    "ogImagePlaceholder": "https://mcrepair.de/images/og-image.jpg",
     "twitterCard": "Twitter (X) Card",
     "twitterCardHelp": "Controls how your page appears when shared on Twitter/X.",
     "twitterCardType": "Card Type",
@@ -865,7 +865,7 @@
     "twitterDescriptionPlaceholder": "Leave empty to use meta description",
     "twitterImage": "Twitter Preview Image",
     "twitterImageHelp": "Recommended size: 1200×675 pixels for large images, 120×120 for small.",
-    "twitterImagePlaceholder": "https://fixithub.com/images/twitter-image.jpg",
+    "twitterImagePlaceholder": "https://mcrepair.de/images/twitter-image.jpg",
     "robotsAndSitemap": "Search Engines & Sitemap",
     "robotsHelp": "Controls how search engines interact with this page.",
     "allowIndex": "Show in search results",
@@ -1482,7 +1482,7 @@
       "subscribeSuccessDesc": "Thank you for subscribing! Check your email at"
     },
     "features": {
-      "title": "Why Choose FixitHub?",
+      "title": "Why Choose McRepair.de?",
       "qualityGuarantee": "Quality Guarantee",
       "qualityDesc": "90-day warranty on all repairs",
       "fastTurnaround": "Fast Turnaround",
@@ -1497,7 +1497,7 @@
     },
     "cta": {
       "title": "Ready to Get Your Device Fixed?",
-      "subtitle": "Join thousands of satisfied customers who trust FixitHub with their device repairs.",
+      "subtitle": "Join thousands of satisfied customers who trust McRepair.de with their device repairs.",
       "emailPlaceholder": "Enter your email",
       "getStarted": "Get Started"
     },
@@ -1513,7 +1513,7 @@
       "warranty": "Warranty",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service",
-      "copyright": "© 2024 FixitHub. All rights reserved."
+      "copyright": "© 2024 McRepair.de. All rights reserved."
     }
   },
   "blogPage": {

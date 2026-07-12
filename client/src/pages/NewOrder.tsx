@@ -783,7 +783,7 @@ export function NewOrder() {
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-8">
       <SEO
-        title="Reparatur beauftragen – Auftrag bei FixitHub"
+        title="Reparatur beauftragen – Auftrag bei McRepair.de"
         description="Reparaturauftrag einfach online stellen: Gerät wählen, Problem beschreiben, Termin buchen. Jetzt starten und Ihr Gerät reparieren lassen."
         canonical="/new-order"
       />

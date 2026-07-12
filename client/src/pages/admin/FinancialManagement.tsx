@@ -274,10 +274,10 @@ const DEFAULT_FINANCIAL_SETTINGS: FinancialSettingsState = {
     lateFeePercent: 5,
   },
   invoiceMetadata: {
-    sellerName: 'FixitHub',
+    sellerName: 'McRepair.de',
     sellerVatId: '',
     sellerRegistrationNumber: '',
-    issuerEmail: 'billing@fixithub.com',
+    issuerEmail: 'billing@mcrepair.de',
     issuerPhone: '',
     invoiceFooter: 'Vielen Dank fuer Ihr Vertrauen.',
     legalFooter: 'Diese Nachricht wurde automatisch erstellt.',
@@ -2952,7 +2952,7 @@ export function FinancialManagement() {
                 {financialSettings.paymentPreferences.sendInternalCopy && (
                   <div>
                     <Label>Interne Kopie an</Label>
-                    <Input value={financialSettings.paymentPreferences.internalCopyEmail} onChange={(e) => updateFinancialSetting('paymentPreferences', 'internalCopyEmail', e.target.value)} placeholder="finance@fixithub.com" />
+                    <Input value={financialSettings.paymentPreferences.internalCopyEmail} onChange={(e) => updateFinancialSetting('paymentPreferences', 'internalCopyEmail', e.target.value)} placeholder="finance@mcrepair.de" />
                   </div>
                 )}
               </CardContent>
@@ -5364,7 +5364,7 @@ export function FinancialManagement() {
                         <Input
                           value={getConfigString('statement_descriptor', '')}
                           onChange={(e) => updateGatewayConfiguration('statement_descriptor', e.target.value)}
-                          placeholder="FixitHub Repair"
+                          placeholder="McRepair.de Repair"
                           maxLength={22}
                         />
                       </div>

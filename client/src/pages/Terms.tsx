@@ -502,8 +502,8 @@ export function Terms() {
   return (
     <>
       <SEO
-        title="AGB – Allgemeine Geschäftsbedingungen | FixitHub"
-        description="Lesen Sie die Allgemeinen Geschäftsbedingungen von FixitHub. Transparente Nutzungsbedingungen für Reparaturen und Online-Käufe."
+        title="AGB – Allgemeine Geschäftsbedingungen | McRepair.de"
+        description="Lesen Sie die Allgemeinen Geschäftsbedingungen von McRepair.de. Transparente Nutzungsbedingungen für Reparaturen und Online-Käufe."
         canonical="/agb"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

@@ -50,8 +50,8 @@ export function PartnerWerden() {
       }}
     >
       <SEO
-        title="Partner werden – Mit FixitHub Geld verdienen"
-        description="Werden Sie FixitHub-Annahmepartner und profitieren Sie von unserem Netzwerk. Jetzt Partnerschaft anfragen und gemeinsam wachsen."
+        title="Partner werden – Mit McRepair.de Geld verdienen"
+        description="Werden Sie McRepair.de-Annahmepartner und profitieren Sie von unserem Netzwerk. Jetzt Partnerschaft anfragen und gemeinsam wachsen."
         canonical="/partner-werden"
       />
       <TopBar />

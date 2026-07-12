@@ -4953,8 +4953,8 @@ export function OrderDetails() {
   return (
     <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : 'customer-order-workspace'}`}>
       <SEO
-        title="Auftragsdetails – FixitHub Kundenportal"
-        description="Detailansicht Ihres Reparaturauftrags: Status, Fotos, Nachrichten und Rechnung – alles in Ihrem FixitHub Kundenportal."
+        title="Auftragsdetails – McRepair.de Kundenportal"
+        description="Detailansicht Ihres Reparaturauftrags: Status, Fotos, Nachrichten und Rechnung – alles in Ihrem McRepair.de Kundenportal."
         canonical="/orders"
         noindex={true}
       />

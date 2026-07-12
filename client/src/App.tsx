@@ -261,7 +261,7 @@ function isKnownCustomerSemanticRoute(pathname: string): boolean {
 
 function CustomerSemanticSeoBlock() {
   const { pathname } = useLocation()
-  const baseUrl = "https://www.fixithub.de"
+  const baseUrl = "https://www.mcrepair.de"
 
   const isBackofficeRoute =
     pathname.startsWith("/admin") ||
@@ -280,7 +280,7 @@ function CustomerSemanticSeoBlock() {
   const seoTopic = getCustomerSeoTopic(pathname)
   const seoFeatures = getCustomerSeoFeatures(pathname)
   const canonicalUrl = `${baseUrl}${pathname || "/"}`
-  const seoPageName = `FixitHub - ${seoTopic}`
+  const seoPageName = `McRepair.de - ${seoTopic}`
   const customerPageStructuredData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
@@ -289,10 +289,10 @@ function CustomerSemanticSeoBlock() {
     inLanguage: "de-DE",
     isPartOf: {
       "@type": "WebSite",
-      name: "FixitHub",
+      name: "McRepair.de",
       url: baseUrl,
     },
-    description: `FixitHub bietet ${seoTopic} inklusive digitaler Prozesse fuer Modellauswahl, Serviceauswahl und Auftragsabwicklung.`,
+    description: `McRepair.de bietet ${seoTopic} inklusive digitaler Prozesse fuer Modellauswahl, Serviceauswahl und Auftragsabwicklung.`,
     mainEntity: {
       "@type": "ItemList",
       itemListElement: seoFeatures.map((feature, index) => ({
@@ -309,7 +309,7 @@ function CustomerSemanticSeoBlock() {
         <script type="application/ld+json">{JSON.stringify(customerPageStructuredData)}</script>
       </Helmet>
       <aside className="sr-only" aria-label="Semantische SEO-Inhalte fuer Kundenseiten">
-        <p>FixitHub bietet professionelle {seoTopic} mit transparenten Preisen und klaren Prozessen.</p>
+        <p>McRepair.de bietet professionelle {seoTopic} mit transparenten Preisen und klaren Prozessen.</p>
         <p><strong>Express-Service mit Garantie:</strong> Reparaturen werden schnell, sicher und nachvollziehbar umgesetzt.</p>
         <ul>
           {seoFeatures.map((feature) => (
@@ -323,7 +323,7 @@ function CustomerSemanticSeoBlock() {
         </ol>
         <blockquote>
           "Wir reparieren Geraete so, wie wir unsere eigenen reparieren lassen wollen: transparent, fair und verlaesslich."
-          <cite> FixitHub Service Team</cite>
+          <cite> McRepair.de Service Team</cite>
         </blockquote>
         <p><em>Hinweis:</em> Je nach Defekt werden <b>qualitativ gepruefte Ersatzteile</b> verwendet, damit die <i>Service-Qualitaet</i> langfristig erhalten bleibt.</p>
       </aside>

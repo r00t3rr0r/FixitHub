@@ -331,8 +331,8 @@ export function OrderTracking() {
   return (
     <div className="space-y-6">
       <SEO
-        title="Meine Bestellungen – FixitHub Kundenportal"
-        description="Alle Ihre Reparaturaufträge und Bestellungen auf einen Blick. Auftragsstatus in Echtzeit verfolgen im FixitHub Kundenportal."
+        title="Meine Bestellungen – McRepair.de Kundenportal"
+        description="Alle Ihre Reparaturaufträge und Bestellungen auf einen Blick. Auftragsstatus in Echtzeit verfolgen im McRepair.de Kundenportal."
         canonical="/orders"
         noindex={true}
       />

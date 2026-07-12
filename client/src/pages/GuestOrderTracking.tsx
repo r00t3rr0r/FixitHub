@@ -170,7 +170,7 @@ export function GuestOrderTracking() {
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
       <SEO
-        title="Bestellung verfolgen – FixitHub Auftragsstatus"
+        title="Bestellung verfolgen – McRepair.de Auftragsstatus"
         description="Verfolgen Sie Ihren Reparaturauftrag in Echtzeit. Geben Sie Ihre Auftragsnummer ein und sehen Sie den aktuellen Status."
         canonical="/track-order"
       />

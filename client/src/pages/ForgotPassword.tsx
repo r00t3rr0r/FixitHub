@@ -53,7 +53,7 @@ export function ForgotPassword() {
   return (
     <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SEO
-        title="Passwort vergessen – FixitHub"
+        title="Passwort vergessen – McRepair.de"
         description="Passwort zurücksetzen leicht gemacht. Geben Sie Ihre E-Mail-Adresse ein und erhalten Sie einen Link zum Zurücksetzen."
         canonical="/forgot-password"
         noindex={true}

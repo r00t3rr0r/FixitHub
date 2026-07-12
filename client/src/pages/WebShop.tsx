@@ -268,8 +268,8 @@ export function WebShop() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: OFF_WHITE }}>
       <SEO
-        title="Ersatzteile & Zubehör kaufen – FixitHub Shop"
-        description="Hochwertige Ersatzteile & Zubehör für Smartphones und Tablets. Jetzt im FixitHub Shop entdecken und bestellen."
+        title="Ersatzteile & Zubehör kaufen – McRepair.de Shop"
+        description="Hochwertige Ersatzteile & Zubehör für Smartphones und Tablets. Jetzt im McRepair.de Shop entdecken und bestellen."
         canonical="/shop"
       />
       <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6 space-y-6">

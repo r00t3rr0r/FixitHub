@@ -1802,12 +1802,12 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const repairConfiguratorStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'Service',
-    name: 'FixitHub Reparaturkonfigurator',
+    name: 'McRepair.de Reparaturkonfigurator',
     serviceType: 'Elektronikreparatur',
     provider: {
       '@type': 'Organization',
-      name: 'FixitHub',
-      url: 'https://www.fixithub.de',
+      name: 'McRepair.de',
+      url: 'https://www.mcrepair.de',
     },
     ...(selectedDeviceTypeName || seoDeviceLabel
       ? {
@@ -1864,7 +1864,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     <script type="application/ld+json">{JSON.stringify(repairConfiguratorStructuredData)}</script>
 
     <aside className="sr-only" aria-label="SEO Reparaturkonfigurator Auswahl">
-      <p>Reparaturkonfigurator fuer Geraetereparaturen bei FixitHub.</p>
+      <p>Reparaturkonfigurator fuer Geraetereparaturen bei McRepair.de.</p>
       <p>Ausgewaehlter Geraetetyp: {selectedDeviceTypeName || 'Nicht ausgewaehlt'}.</p>
       <p>Ausgewaehltes Geraetemodell: {seoDeviceLabel || 'Nicht ausgewaehlt'}.</p>
       <p>Ausgewaehlte Reparaturservices: {selectedRepairNames.length > 0 ? selectedRepairNames.join(', ') : 'Keine Auswahl'}.</p>

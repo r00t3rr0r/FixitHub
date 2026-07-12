@@ -1,5 +1,5 @@
 /**
- * Advanced structured logging utility for FixitHub
+ * Advanced structured logging utility for McRepair.de
  * Provides context-rich logging with severity levels and error tracking
  */
 

@@ -94,7 +94,7 @@ export function MarketingPromoNewsletters() {
     return {
       customerName: fullName,
       firstName,
-      companyName: 'FixitHub',
+      companyName: 'McRepair.de',
       newsletterSubject: form.subject || 'Ihr Newsletter-Betreff',
       currentDate: new Date().toLocaleDateString('de-DE'),
       currentYear: String(new Date().getFullYear()),
@@ -479,7 +479,7 @@ export function MarketingPromoNewsletters() {
                       <div className="h-2 bg-amber-400" />
                       <div className="bg-slate-900 px-5 py-5 text-white">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Newsletter</p>
-                        <p className="mt-2 text-xl font-bold">FixitHub</p>
+                        <p className="mt-2 text-xl font-bold">McRepair.de</p>
                         <div className="mt-4 h-1 w-16 rounded-full bg-amber-400" />
                       </div>
 

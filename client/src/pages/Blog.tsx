@@ -117,8 +117,8 @@ export function Blog() {
   return (
     <section className="section py-4 sm:py-6">
       <SEO
-        title="Reparatur-Blog & Ratgeber – FixitHub"
-        description="Tipps, Anleitungen und News rund um Smartphone- & Tablet-Reparatur. Im FixitHub Blog immer gut informiert."
+        title="Reparatur-Blog & Ratgeber – McRepair.de"
+        description="Tipps, Anleitungen und News rund um Smartphone- & Tablet-Reparatur. Im McRepair.de Blog immer gut informiert."
         canonical="/blog"
         ogType="article"
       />

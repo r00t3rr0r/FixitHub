@@ -486,7 +486,7 @@ class MarketingPromoService {
     return {
       customerName: normalizedRecipientName,
       firstName,
-      companyName: process.env.COMPANY_NAME || 'FixitHub',
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
       newsletterName: newsletter.internalName || '',
       newsletterSubject: newsletter.subject || '',
       currentDate: nowLabel,
@@ -529,7 +529,7 @@ class MarketingPromoService {
     const resolvedBody = this.applyNewsletterPlaceholders(contentTemplate, placeholders);
 
     const result = await EmailService.sendTemplateEmail(NEWSLETTER_TEMPLATE_NAME, testEmail, {
-      companyName: process.env.COMPANY_NAME || 'FixitHub',
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
       customerName: 'Test Empfaenger',
       firstName: placeholders.firstName,
       notificationTitle: resolvedSubject,
@@ -546,7 +546,7 @@ class MarketingPromoService {
       primaryPromoCode: promoCodeData.primary,
       promoCodes: promoCodeData.text,
       promoCodesHtml: promoCodeData.html,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
     });
 
@@ -660,7 +660,7 @@ class MarketingPromoService {
         const resolvedBody = this.applyNewsletterPlaceholders(contentTemplate, placeholders);
 
         const result = await EmailService.sendTemplateEmail(NEWSLETTER_TEMPLATE_NAME, recipient.email, {
-          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
           customerName: recipient.customerName,
           firstName: placeholders.firstName,
           notificationTitle: resolvedSubject,
@@ -677,7 +677,7 @@ class MarketingPromoService {
           primaryPromoCode: promoCodeData.primary,
           promoCodes: promoCodeData.text,
           promoCodesHtml: promoCodeData.html,
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
         });
 

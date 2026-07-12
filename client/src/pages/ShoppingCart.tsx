@@ -508,8 +508,8 @@ export function ShoppingCartPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--off-white, #f8f9fc)' }}>
       <SEO
-        title="Warenkorb – FixitHub Shop"
-        description="Ihr FixitHub Warenkorb auf einen Blick. Produkte prüfen, Menge anpassen und sicher zur Kasse gehen."
+        title="Warenkorb – McRepair.de Shop"
+        description="Ihr McRepair.de Warenkorb auf einen Blick. Produkte prüfen, Menge anpassen und sicher zur Kasse gehen."
         canonical="/cart"
         noindex={true}
       />

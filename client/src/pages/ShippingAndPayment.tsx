@@ -11,8 +11,8 @@ export function ShippingAndPayment() {
   return (
     <>
       <SEO
-        title="Zahlung & Versand – FixitHub"
-        description="Alle Zahlungsmethoden und Versandoptionen bei FixitHub auf einen Blick. Sicher bezahlen, schnell geliefert – jetzt informieren."
+        title="Zahlung & Versand – McRepair.de"
+        description="Alle Zahlungsmethoden und Versandoptionen bei McRepair.de auf einen Blick. Sicher bezahlen, schnell geliefert – jetzt informieren."
         canonical="/zahlung-und-versand"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

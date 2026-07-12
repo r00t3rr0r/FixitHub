@@ -161,7 +161,7 @@ const DEFAULT_FINANCIAL_SETTINGS = {
     lateFeePercent: 5
   },
   invoiceMetadata: {
-    sellerName: 'FixitHub',
+    sellerName: 'McRepair.de',
     sellerVatId: '',
     registrationNumber: '',
     issuerEmail: '',
@@ -669,7 +669,7 @@ class FinancialService {
         paymentMethod: invoice.paymentMethod || 'Ueberweisung',
         invoiceUrl,
         customMessage: String(message || '').trim(),
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
 
@@ -861,7 +861,7 @@ class FinancialService {
             use_stripe_checkout: true,
             payment_mode: 'payment',
             capture_method: 'automatic',
-            statement_descriptor: 'FixitHub Repair',
+            statement_descriptor: 'McRepair.de Repair',
             success_url: 'https://shop.de/stripe/success',
             cancel_url: 'https://shop.de/stripe/cancel',
             allowed_payment_methods: ['card', 'paypal', 'klarna'],

@@ -3,7 +3,7 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // Add startup logging
-console.log('=== FixitHub Server Starting ===');
+console.log('=== McRepair.de Server Starting ===');
 console.log('Environment variables check:');
 console.log('- PORT:', process.env.PORT || 3000);
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Missing');
@@ -415,7 +415,7 @@ app.get('/sitemap.xml', async (req, res) => {
   try {
     const BASE_URL = process.env.CLIENT_URL
       ? process.env.CLIENT_URL.replace(/\/$/, '')
-      : 'https://www.fixithub.de';
+      : 'https://www.mcrepair.de';
 
     // Serve from cache when fresh
     if (sitemapCache && Date.now() - sitemapCacheAt < SITEMAP_CACHE_TTL) {
@@ -539,7 +539,7 @@ app.use((err, req, res, next) => {
 console.log(`Attempting to start server on port ${port}...`);
 const server = app.listen(port, () => {
   console.log(`✅ Server running successfully at http://localhost:${port}`);
-  console.log('=== FixitHub Server Ready ===');
+  console.log('=== McRepair.de Server Ready ===');
 });
 
 server.on('error', (error) => {

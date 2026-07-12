@@ -292,8 +292,8 @@ export function Annahmestellen() {
   return (
     <>
       <SEO
-        title="Annahmestellen finden – FixitHub in Ihrer Nähe"
-        description="Finden Sie den nächsten FixitHub-Standort in Ihrer Nähe. Karte öffnen und Annahmestelle direkt anfahren – schnell & einfach."
+        title="Annahmestellen finden – McRepair.de in Ihrer Nähe"
+        description="Finden Sie den nächsten McRepair.de-Standort in Ihrer Nähe. Karte öffnen und Annahmestelle direkt anfahren – schnell & einfach."
         canonical="/annahmestellen"
       />
       <McRepairNav />

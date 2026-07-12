@@ -410,7 +410,7 @@ export function RepairRequestQuestionnaire() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_-10%,rgba(245,184,0,0.16),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(26,42,94,0.2),transparent_48%),linear-gradient(180deg,#f8fbff_0%,#eef3fb_42%,#f5f8fe_100%)]">
       <SEO
-        title="Reparaturanfrage stellen – FixitHub"
+        title="Reparaturanfrage stellen – McRepair.de"
         description="Beschreiben Sie das Problem Ihres Geräts und erhalten Sie schnell eine Antwort. Kostenlose Voranfrage – jetzt Reparaturanfrage starten."
         canonical="/repair-request"
       />

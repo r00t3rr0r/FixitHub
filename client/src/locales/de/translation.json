@@ -288,7 +288,7 @@
     "by": "von"
   },
   "login": {
-    "title": "Bei FixitHub anmelden",
+    "title": "Bei McRepair.de anmelden",
     "email": "E-Mail-Adresse",
     "password": "Passwort",
     "submit": "Anmelden",
@@ -1690,7 +1690,7 @@
       "learnMore": "Mehr erfahren"
     },
     "features": {
-      "title": "Warum FixitHub wählen?",
+      "title": "Warum McRepair.de wählen?",
       "qualityGuarantee": "Qualitätsgarantie",
       "qualityDesc": "90 Tage Garantie auf alle Reparaturen",
       "fastTurnaround": "Schnelle Bearbeitung",
@@ -1784,7 +1784,7 @@
     },
     "cta": {
       "title": "Bereit, Ihr Gerät reparieren zu lassen?",
-      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die FixitHub mit ihren Gerätereparaturen vertrauen.",
+      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die McRepair.de mit ihren Gerätereparaturen vertrauen.",
       "emailPlaceholder": "E-Mail eingeben",
       "getStarted": "Loslegen"
     },

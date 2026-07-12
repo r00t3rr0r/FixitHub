@@ -207,8 +207,8 @@ export function Notifications() {
   return (
     <div className="notifications-page">
       <SEO
-        title="Benachrichtigungen – FixitHub Kundenportal"
-        description="Alle Benachrichtigungen zu Ihren Aufträgen und Buchungen auf einen Blick. Immer up to date im FixitHub Kundenportal."
+        title="Benachrichtigungen – McRepair.de Kundenportal"
+        description="Alle Benachrichtigungen zu Ihren Aufträgen und Buchungen auf einen Blick. Immer up to date im McRepair.de Kundenportal."
         canonical="/notifications"
         noindex={true}
       />

@@ -135,7 +135,7 @@ export function ResetPassword() {
     <>
       <SEO
         title="Passwort zuruecksetzen"
-        description="Setzen Sie Ihr FixitHub Passwort sicher zurueck und stellen Sie den Zugang zu Ihrem Kundenkonto wieder her."
+        description="Setzen Sie Ihr McRepair.de Passwort sicher zurueck und stellen Sie den Zugang zu Ihrem Kundenkonto wieder her."
         canonical="/reset-password"
         noindex
       />

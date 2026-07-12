@@ -202,7 +202,7 @@ export function ContactMessageReplyDialog({
     orderNumber: { name: 'orderNumber', label: 'Auftragsnummer', value: message?.orderNumber },
     messageContent: { name: 'messageContent', label: 'Inhalt der Anfrage', value: message?.message },
     requestDate: { name: 'requestDate', label: 'Anfragedatum', value: message?.createdAt ? new Date(message.createdAt).toLocaleDateString('de-DE') : '' },
-    supportEmail: { name: 'supportEmail', label: 'Support Email', value: 'support@fixithub.com' },
+    supportEmail: { name: 'supportEmail', label: 'Support Email', value: 'support@mcrepair.de' },
     supportPhone: { name: 'supportPhone', label: 'Support Telefon', value: '+49 30 40368895' },
     companyName: { name: 'companyName', label: 'Unternehmensname', value: 'McRepair.de' },
     replyMessage: { name: 'replyMessage', label: 'Antworttext (roh)', value: messageText },
@@ -225,7 +225,7 @@ export function ContactMessageReplyDialog({
         orderNumber: message.orderNumber,
         messageContent: message.message,
         requestDate: formatGermanDate(message.createdAt),
-        supportEmail: 'support@fixithub.com',
+        supportEmail: 'support@mcrepair.de',
         supportPhone: '+49 30 40368895',
         companyName: 'McRepair.de',
       });

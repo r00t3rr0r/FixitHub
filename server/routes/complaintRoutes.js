@@ -84,7 +84,7 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
           statusMessage: notificationText,
           statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
           trackingUrl: await EmailService.buildSystemUrl('/admin/complaints'),
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });
       }
@@ -142,7 +142,7 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
         decisionReason: message,
         decidedAt: new Date().toLocaleDateString('de-DE'),
         complaintUrl: await EmailService.buildSystemUrl(`/my-complaints/${complaint._id}`),
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
     }
@@ -887,7 +887,7 @@ router.post('/', requireUser, async (req, res) => {
           priority: complaint.priority || 'medium',
           submittedAt: new Date(complaint.createdAt || Date.now()).toLocaleDateString('de-DE'),
           complaintUrl: await EmailService.buildSystemUrl(`/my-complaints/${complaint._id}`),
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });
       }

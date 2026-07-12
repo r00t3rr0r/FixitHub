@@ -46,9 +46,9 @@ export function Home() {
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           "itemListElement": [
-            { "@type": "ListItem", "position": 1, "name": "Startseite", "item": "https://www.fixithub.de/" },
-            { "@type": "ListItem", "position": 2, "name": "Smartphone Reparatur", "item": "https://www.fixithub.de/#hero" },
-            { "@type": "ListItem", "position": 3, "name": "Reparaturprozess", "item": "https://www.fixithub.de/#process" }
+            { "@type": "ListItem", "position": 1, "name": "Startseite", "item": "https://www.mcrepair.de/" },
+            { "@type": "ListItem", "position": 2, "name": "Smartphone Reparatur", "item": "https://www.mcrepair.de/#hero" },
+            { "@type": "ListItem", "position": 3, "name": "Reparaturprozess", "item": "https://www.mcrepair.de/#process" }
           ]
         })}</script>
       </Helmet>

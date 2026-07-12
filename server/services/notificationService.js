@@ -270,7 +270,7 @@ class NotificationService {
         deviceBrand: orderContext?.deviceBrand || '',
         deviceModel: orderContext?.deviceModel || '',
         orderDeviceVisual,
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
       });
 

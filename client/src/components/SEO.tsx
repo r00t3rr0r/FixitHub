@@ -9,8 +9,8 @@ interface SEOProps {
   ogImage?: string
 }
 
-const BASE_URL = 'https://www.fixithub.de'
-const SITE_NAME = 'FixitHub'
+const BASE_URL = 'https://www.mcrepair.de'
+const SITE_NAME = 'McRepair.de'
 const DEFAULT_OG_IMAGE = `${BASE_URL}/og-default.jpg`
 
 export function SEO({

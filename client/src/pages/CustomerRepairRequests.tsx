@@ -329,8 +329,8 @@ export function CustomerRepairRequests() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
       <SEO
-        title="Meine Reparaturanfragen – FixitHub"
-        description="Alle Ihre Reparaturanfragen im Überblick. Status einsehen, Nachrichten lesen und Anfragen verwalten im FixitHub Kundenportal."
+        title="Meine Reparaturanfragen – McRepair.de"
+        description="Alle Ihre Reparaturanfragen im Überblick. Status einsehen, Nachrichten lesen und Anfragen verwalten im McRepair.de Kundenportal."
         canonical="/my-repair-requests"
         noindex={true}
       />

@@ -175,7 +175,7 @@
     "newsletter": "Newsletter"
   },
   "login": {
-    "title": "Bei FixitHub anmelden",
+    "title": "Bei McRepair.de anmelden",
     "email": "E-Mail-Adresse",
     "password": "Passwort",
     "submit": "Anmelden",
@@ -838,7 +838,7 @@
     "robots": "Robots",
     "basicSettings": "Grundeinstellungen",
     "basicSettingsHelp": "Diese Einstellungen sind die Basis für Ihre Suchmaschinenoptimierung.",
-    "titlePlaceholder": "z.B. FixitHub - Professionelle Handy & Tablet Reparatur",
+    "titlePlaceholder": "z.B. McRepair.de - Professionelle Handy & Tablet Reparatur",
     "titleHelp": "Der Titel erscheint in Suchergebnissen und Browser-Tabs. Optimal sind 50-60 Zeichen.",
     "descriptionPlaceholder": "Eine kurze, prägnante Beschreibung die zum Klicken einlädt",
     "descriptionHelp": "Diese Beschreibung erscheint unter dem Titel in Suchergebnissen. Optimal sind 150-160 Zeichen.",
@@ -846,7 +846,7 @@
     "keywordsHelp": "Relevante Suchbegriffe durch Komma getrennt. Konzentrieren Sie sich auf 3-5 Hauptbegriffe.",
     "canonicalUrl": "Canonical URL",
     "canonicalUrlHelp": "Die bevorzugte URL für diese Seite. Verhindert doppelte Inhalte bei mehreren URLs.",
-    "canonicalUrlPlaceholder": "https://fixithub.de/reparatur/display",
+    "canonicalUrlPlaceholder": "https://mcrepair.de/reparatur/display",
     "openGraph": "Open Graph (Social Media)",
     "openGraphHelp": "Diese Einstellungen steuern, wie Ihre Seite auf Facebook, LinkedIn und anderen Plattformen geteilt wird.",
     "ogTitle": "Social Media Titel",
@@ -855,7 +855,7 @@
     "ogDescriptionPlaceholder": "Leer lassen um die Meta-Beschreibung zu verwenden",
     "ogImage": "Social Media Vorschaubild",
     "ogImageHelp": "Empfohlene Größe: 1200×630 Pixel. Format: JPG oder PNG.",
-    "ogImagePlaceholder": "https://fixithub.de/images/og-image.jpg",
+    "ogImagePlaceholder": "https://mcrepair.de/images/og-image.jpg",
     "twitterCard": "Twitter (X) Karte",
     "twitterCardHelp": "Steuert die Darstellung Ihrer Seite wenn sie auf Twitter/X geteilt wird.",
     "twitterCardType": "Karten-Typ",
@@ -866,7 +866,7 @@
     "twitterDescriptionPlaceholder": "Leer lassen um die Meta-Beschreibung zu verwenden",
     "twitterImage": "Twitter Vorschaubild",
     "twitterImageHelp": "Empfohlene Größe: 1200×675 Pixel für große Bilder, 120×120 für kleine.",
-    "twitterImagePlaceholder": "https://fixithub.de/images/twitter-image.jpg",
+    "twitterImagePlaceholder": "https://mcrepair.de/images/twitter-image.jpg",
     "robotsAndSitemap": "Suchmaschinen & Sitemap",
     "robotsHelp": "Steuert, wie Suchmaschinen mit dieser Seite umgehen.",
     "allowIndex": "In Suchergebnissen anzeigen",
@@ -1438,7 +1438,7 @@
       "loadError": "Fehler beim Laden der Blog-Beiträge"
     },
     "features": {
-      "title": "Warum FixitHub Wählen?",
+      "title": "Warum McRepair.de Wählen?",
       "qualityGuarantee": "Qualitätsgarantie",
       "qualityDesc": "90 Tage Garantie auf alle Reparaturen",
       "fastTurnaround": "Schnelle Bearbeitung",
@@ -1493,7 +1493,7 @@
     },
     "cta": {
       "title": "Bereit, Ihr Gerät Reparieren Zu Lassen?",
-      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die FixitHub mit ihren Gerätereparaturen vertrauen.",
+      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die McRepair.de mit ihren Gerätereparaturen vertrauen.",
       "emailPlaceholder": "E-Mail eingeben",
       "getStarted": "Loslegen"
     },
@@ -1509,7 +1509,7 @@
       "warranty": "Garantie",
       "privacyPolicy": "Datenschutzerklärung",
       "termsOfService": "Nutzungsbedingungen",
-      "copyright": "© 2024 FixitHub. Alle Rechte vorbehalten."
+      "copyright": "© 2024 McRepair.de. Alle Rechte vorbehalten."
     }
   },
   "blogPage": {

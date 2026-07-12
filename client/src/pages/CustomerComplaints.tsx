@@ -370,8 +370,8 @@ export function CustomerComplaints() {
   return (
     <div className="customer-complaints">
       <SEO
-        title="Meine Reklamationen – FixitHub"
-        description="Reklamation einreichen oder bestehende Vorgänge verfolgen. Zuverlässige Bearbeitung durch das FixitHub-Team im Kundenportal."
+        title="Meine Reklamationen – McRepair.de"
+        description="Reklamation einreichen oder bestehende Vorgänge verfolgen. Zuverlässige Bearbeitung durch das McRepair.de-Team im Kundenportal."
         canonical="/my-complaints"
         noindex={true}
       />

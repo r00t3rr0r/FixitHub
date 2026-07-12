@@ -11,8 +11,8 @@ export function Imprint() {
   return (
     <>
       <SEO
-        title="Impressum – FixitHub"
-        description="Gesetzlich vorgeschriebene Angaben zum Anbieter: FixitHub Reparaturservice – Kontaktdaten, Handelsregister und verantwortliche Person."
+        title="Impressum – McRepair.de"
+        description="Gesetzlich vorgeschriebene Angaben zum Anbieter: McRepair.de Reparaturservice – Kontaktdaten, Handelsregister und verantwortliche Person."
         canonical="/impressum"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

@@ -97,8 +97,8 @@ export function FAQ() {
       }}
     >
       <SEO
-        title="Häufige Fragen zur Reparatur – FixitHub FAQ"
-        description="Antworten auf alle Fragen zu Reparatur, Preisen, Versand und Garantie. Schnell informiert – direkt im FixitHub FAQ."
+        title="Häufige Fragen zur Reparatur – McRepair.de FAQ"
+        description="Antworten auf alle Fragen zu Reparatur, Preisen, Versand und Garantie. Schnell informiert – direkt im McRepair.de FAQ."
         canonical="/faq"
       />
       <TopBar />

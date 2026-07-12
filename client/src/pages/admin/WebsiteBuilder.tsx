@@ -453,7 +453,7 @@ const GeneralSettingsTab: React.FC<{
                 onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
                 placeholder="mysite"
               />
-              <p className="text-xs text-muted-foreground">yoursite.fixithub.com</p>
+              <p className="text-xs text-muted-foreground">yoursite.mcrepair.de</p>
             </div>
 
             <div className="space-y-2">
