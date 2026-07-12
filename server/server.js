@@ -389,6 +389,118 @@ app.use('/api/proxy', proxyRoutes);
 const dhlRoutes = require('./routes/dhlRoutes');
 app.use('/api/dhl', dhlRoutes);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC XML SITEMAP  –  /sitemap.xml
+// Dynamically generated from device types / manufacturers / models.
+// ─────────────────────────────────────────────────────────────────────────────
+const DeviceService = require('./services/deviceService');
+
+function toSitemapSlug(str) {
+  return String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[äÄ]/g, 'ae')
+    .replace(/[öÖ]/g, 'oe')
+    .replace(/[üÜ]/g, 'ue')
+    .replace(/[ß]/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+let sitemapCache = null;
+let sitemapCacheAt = 0;
+const SITEMAP_CACHE_TTL = 15 * 60 * 1000; // 15 min
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const BASE_URL = process.env.CLIENT_URL
+      ? process.env.CLIENT_URL.replace(/\/$/, '')
+      : 'https://www.fixithub.de';
+
+    // Serve from cache when fresh
+    if (sitemapCache && Date.now() - sitemapCacheAt < SITEMAP_CACHE_TTL) {
+      res.header('Content-Type', 'application/xml; charset=utf-8');
+      return res.send(sitemapCache);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Static high-priority pages
+    const staticUrls = [
+      { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily' },
+      { loc: `${BASE_URL}/new-order`, priority: '0.9', changefreq: 'weekly' },
+      { loc: `${BASE_URL}/shop`, priority: '0.8', changefreq: 'daily' },
+      { loc: `${BASE_URL}/vorabdiagnose`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/annahmestellen`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/faq`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/blog`, priority: '0.6', changefreq: 'weekly' },
+      { loc: `${BASE_URL}/about`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/kontakt`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/partner-werden`, priority: '0.5', changefreq: 'monthly' },
+    ];
+
+    // Repair catalog pages: /reparatur/:deviceType  /reparatur/:dt/:mfr  /reparatur/:dt/:mfr/:model
+    const deviceTypes = await DeviceService.getDeviceTypes();
+    const catalogUrls = [];
+
+    for (const dt of deviceTypes) {
+      const dtSlug = toSitemapSlug(dt.name);
+      catalogUrls.push({
+        loc: `${BASE_URL}/reparatur/${dtSlug}`,
+        priority: '0.9',
+        changefreq: 'weekly',
+      });
+
+      let manufacturers = [];
+      try {
+        manufacturers = await DeviceService.getManufacturersByDeviceType(dt.name);
+      } catch (_) { /* skip */ }
+
+      for (const mfr of manufacturers) {
+        const mfrSlug = toSitemapSlug(mfr.name);
+        catalogUrls.push({
+          loc: `${BASE_URL}/reparatur/${dtSlug}/${mfrSlug}`,
+          priority: '0.85',
+          changefreq: 'weekly',
+        });
+
+        let models = [];
+        try {
+          models = await DeviceService.getModelsByTypeAndManufacturer(dt.name, String(mfr._id));
+        } catch (_) { /* skip */ }
+
+        for (const model of models) {
+          const modelSlug = toSitemapSlug(model.name);
+          catalogUrls.push({
+            loc: `${BASE_URL}/reparatur/${dtSlug}/${mfrSlug}/${modelSlug}`,
+            priority: '0.8',
+            changefreq: 'weekly',
+          });
+        }
+      }
+    }
+
+    const allUrls = [...staticUrls, ...catalogUrls];
+    const urlEntries = allUrls
+      .map(
+        ({ loc, priority, changefreq }) =>
+          `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`
+      )
+      .join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries}\n</urlset>`;
+
+    sitemapCache = xml;
+    sitemapCacheAt = Date.now();
+
+    res.header('Content-Type', 'application/xml; charset=utf-8');
+    res.send(xml);
+  } catch (error) {
+    console.error('sitemap.xml generation error:', error);
+    res.status(500).send('<?xml version="1.0"?><error>Sitemap generation failed</error>');
+  }
+});
+
 console.log('Routes configured successfully');
 
 // If no routes handled the request, it's a 404

@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
@@ -15,15 +16,22 @@ import { CookieBanner } from '@/components/CookieBanner';
 import { ScrollToTopButton } from '@/components/home/ScrollToTopButton';
 import { saveDeviceInfo } from '@/utils/deviceDetection';
 import { SEO } from '@/components/SEO'
+import { getRepairCatalog, type RepairCatalogDeviceType } from '@/api/seo'
 
 export function Home() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
+  const [repairCatalog, setRepairCatalog] = useState<RepairCatalogDeviceType[]>([]);
 
   // Detect and save device information on homepage load
   useEffect(() => {
     console.log('Home: Detecting and saving device information...');
     saveDeviceInfo();
+  }, []);
+
+  // Fetch repair catalog for crawlable link structure (no loading spinner needed)
+  useEffect(() => {
+    getRepairCatalog().then(setRepairCatalog).catch(() => {});
   }, []);
 
   return (
@@ -78,6 +86,42 @@ export function Home() {
 
       {/* Footer with McRepair Design */}
       <Footer />
+
+      {/*
+        Crawlable repair catalog navigation (screen-reader only, not shown visually).
+        Search engines follow these links to discover all device-type, manufacturer
+        and model landing pages, which carry full structured data and service prices.
+      */}
+      {repairCatalog.length > 0 && (
+        <nav aria-label="Reparaturkatalog – alle Gerätetypen und Hersteller" className="sr-only">
+          <h2>Reparaturkatalog</h2>
+          {repairCatalog.map((dt) => (
+            <section key={dt.slug}>
+              <h3>
+                <Link to={`/reparatur/${dt.slug}`}>{dt.name} Reparatur</Link>
+              </h3>
+              <ul>
+                {dt.manufacturers.map((mfr) => (
+                  <li key={mfr.slug}>
+                    <Link to={`/reparatur/${dt.slug}/${mfr.slug}`}>
+                      {mfr.name} {dt.name} Reparatur
+                    </Link>
+                    <ul>
+                      {mfr.models.map((model) => (
+                        <li key={model.slug}>
+                          <Link to={`/reparatur/${dt.slug}/${mfr.slug}/${model.slug}`}>
+                            {mfr.name} {model.name} Reparatur
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </nav>
+      )}
 
       {/* Cookie Consent Banner */}
       <CookieBanner />

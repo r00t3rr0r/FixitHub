@@ -1,8 +1,9 @@
-# McRepair.de – Robots.txt
+# FixitHub – Robots.txt
 # Suchmaschinen-Crawling-Richtlinien
 
 User-agent: *
 Allow: /
+Allow: /reparatur/
 Disallow: /admin/
 Disallow: /customer/
 Disallow: /staff/
@@ -16,7 +17,7 @@ Disallow: /dist/
 Crawl-delay: 1
 
 # Sitemap
-Sitemap: https://www.mcrepair.de/sitemap.xml
+Sitemap: https://www.fixithub.de/sitemap.xml
 
 # Spezifische Bot-Richtlinien
 User-agent: Googlebot

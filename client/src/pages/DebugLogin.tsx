@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { Loader2, Database, Server, Users, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 import { seedAllData, seedTestUsers, verifyTestUsers, checkDatabaseHealth, checkServerHealth } from "@/api/seed"
+import { SEO } from "@/components/SEO"
 
 interface HealthStatus {
   server?: any;
@@ -199,8 +200,15 @@ export function DebugLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <>
+      <SEO
+        title="Deployment Debug"
+        description="Interne Diagnose- und Debug-Seite fuer Deployment- und Login-Pruefungen."
+        canonical="/debug"
+        noindex
+      />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+        <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             FixitHub Deployment Debug
@@ -420,7 +428,8 @@ export function DebugLogin() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
