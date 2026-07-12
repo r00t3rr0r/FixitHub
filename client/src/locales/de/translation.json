@@ -69,10 +69,16 @@
     "description": "McRepair ist einer der führenden Dienstleister für die professionelle Reparatur von Smartphones, Tablets und Notebooks. Unsere Zentralwerkstatt mit Sitz in Berlin arbeitet bundesweit mit über 350 Annahmestellen zusammen und hilft Ihnen mit absoluten zuverlässigen und professionellen Fachkräften. Werden auch Sie ein McRepair-Partner!",
     "facts": {
       "centralWorkshop": "Zentrale in Berlin",
-      "locations": "350+ Annahmestellen bundesweit"
+      "locations": "350+ Annahmestellen bundesweit",
+      "experience": "Über 10 Jahre Erfahrung",
+      "brands": "Alle Marken reparierbar"
+    },
+    "intro": {
+      "heading": "Ihr Reparaturpartner für den stationären Handel",
+      "text": "Als McRepair-Annahmepartner erweitern Sie Ihr Serviceangebot ohne eigenes Reparaturrisiko. Kunden geben ihr defektes Smartphone, Tablet oder Notebook bei Ihnen ab – McRepair übernimmt die professionelle Reparatur in unserer Berliner Zentralwerkstatt und schickt das fertig reparierte Gerät zurück an Sie. Sie profitieren von attraktiven Provisionen, markenunabhängigem Reparaturservice für Apple, Samsung, Huawei, Xiaomi und alle weiteren gängigen Hersteller sowie einem bewährten Logistikkonzept. Mit über 350 aktiven Annahmestellen bundesweit sind wir Deutschlands etablierter Reparaturpartner für stationäre Händler."
     },
     "advantages": {
-      "title": "Ihre Vorteile",
+      "title": "Ihre Vorteile als McRepair-Partner",
       "item1": "Profitieren Sie von attraktiven Rabatten",
       "item2": "Nutzen Sie zusätzliche Ertragschancen",
       "item3": "Gewinnen Sie mehr Präsenzgeschäft",
@@ -82,15 +88,32 @@
     },
     "steps": {
       "title": "So funktioniert's",
+      "schemaName": "So werden Sie McRepair-Annahmepartner",
+      "schemaDescription": "In vier einfachen Schritten zum McRepair-Partner",
       "item1": "Sie füllen das Kontaktformular aus.",
+      "item1Short": "Kontaktformular ausfüllen",
       "item2": "Unser(e) Key-Account-Manager(in) kontaktiert Sie.",
+      "item2Short": "Persönliche Beratung",
       "item3": "Sie erhalten ein Willkommens-Partnerpaket mit Werbematerialien.",
-      "item4": "Profit!"
+      "item3Short": "Partnerpaket erhalten",
+      "item4": "Profit!",
+      "item4Short": "Partnerschaft starten"
     },
     "cta": {
       "description": "Sie möchten direkt starten? Kontaktieren Sie uns und wir melden uns schnellstmöglich bei Ihnen.",
       "contactButton": "Zur Kontaktseite",
       "locationsButton": "Annahmestellen ansehen"
+    },
+    "faq": {
+      "title": "Häufig gestellte Fragen zum Partnerprogramm",
+      "q1Question": "Wer kann McRepair-Annahmepartner werden?",
+      "q1Answer": "Grundsätzlich jedes Unternehmen oder jede Einzelperson mit einem stationären Standort und Kundenkontakt – zum Beispiel Elektronikfachhändler, Telekommunikationsläden, Kioske oder Bürodienstleister. Sie benötigen lediglich einen Empfangsbereich, an dem Kunden ihr Gerät abgeben können.",
+      "q2Question": "Was kostet die Teilnahme am McRepair Partnerprogramm?",
+      "q2Answer": "Die Anmeldung als McRepair-Annahmestelle ist vollständig kostenfrei. Sie erhalten eine attraktive Provision für jede Reparatur, die über Ihren Standort abgewickelt wird – ohne Vorabinvestition oder laufende Gebühren.",
+      "q3Question": "Wie läuft eine Reparatur über meine Annahmestelle ab?",
+      "q3Answer": "Kunden geben ihr defektes Gerät bei Ihnen ab. Sie senden es an unsere Zentralwerkstatt in Berlin. Nach der professionellen Reparatur liefern wir das Gerät direkt zurück an Ihre Annahmestelle – fertig repariert und geprüft.",
+      "q4Question": "Welche Geräte und Marken werden repariert?",
+      "q4Answer": "McRepair repariert Smartphones, Tablets und Notebooks aller gängigen Marken, darunter Apple (iPhone, iPad, MacBook), Samsung, Huawei, Xiaomi, Sony und viele weitere. Ob Display-Tausch, Akku-Wechsel, Wasserschaden oder Softwareproblem – wir bieten ein breites Reparaturspektrum."
     }
   },
   "orderTracking": {
