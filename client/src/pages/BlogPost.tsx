@@ -146,7 +146,10 @@ export function BlogPostPage() {
       {(() => {
         const BASE_URL = 'https://www.mcrepair.de'
         const seoTitle = post.seoTitle || post.title
-        const seoDesc = post.seoDescription || post.excerpt
+        const rawDesc = post.seoDescription || post.excerpt
+        const seoDesc = rawDesc.length > 160
+          ? rawDesc.slice(0, 157).replace(/\s+\S*$/, '') + '…'
+          : rawDesc
         const categoryName = post.category?.name || 'Allgemein'
         const canonicalPath = `/blog/${post.slug || post._id}`
         const canonicalUrl = `${BASE_URL}${canonicalPath}`
@@ -166,7 +169,7 @@ export function BlogPostPage() {
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
           headline: seoTitle.slice(0, 110),
-          description: seoDesc.slice(0, 300),
+          description: seoDesc,
           image: imageUrl,
           url: canonicalUrl,
           mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
@@ -201,7 +204,7 @@ export function BlogPostPage() {
         return (
           <SEO
             title={`${seoTitle.slice(0, 60)} – McRepair.de Blog`}
-            description={seoDesc.slice(0, 155)}
+            description={seoDesc}
             canonical={canonicalPath}
             ogType="article"
             ogImage={imageUrl}
