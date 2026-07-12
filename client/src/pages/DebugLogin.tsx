@@ -203,7 +203,7 @@ export function DebugLogin() {
     <>
       <SEO
         title="Deployment Debug"
-        description="Interne Diagnose- und Debug-Seite fuer Deployment- und Login-Pruefungen."
+        description="Interne Diagnose- und Debug-Seite für Deployment- und Login-Prüfungen."
         canonical="/debug"
         noindex
       />

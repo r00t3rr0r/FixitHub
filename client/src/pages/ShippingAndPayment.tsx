@@ -91,7 +91,7 @@ export function ShippingAndPayment() {
     <>
       <SEO
         title="Zahlung & Versand – Versandkosten, Zahlungsarten & Lieferzeiten"
-        description="Kostenloser DHL-Versand in Deutschland ✓ Zahlung per Kreditkarte, SEPA & Rechnung ✓ 1–3 Werktage Lieferung ✓ Sendungsverfolgung inklusive. Alle Infos zu Versand & Zahlung bei McRepair."
+        description="Kostenloser DHL-Versand ✓ Zahlung per Kreditkarte, SEPA & Rechnung ✓ 1–3 Werktage Lieferzeit ✓ Sendungsverfolgung inklusive. Alle Versand- & Zahlungsinfos bei McRepair."
         canonical="/zahlung-und-versand"
         keywords="Versand McRepair, Zahlungsarten, Lieferzeiten, kostenloser DHL-Versand, Kreditkarte, SEPA Lastschrift, Reparatur einsenden, Sendungsverfolgung, Expressreparatur, Versandkosten"
         jsonLd={SHIPPING_PAYMENT_JSON_LD}

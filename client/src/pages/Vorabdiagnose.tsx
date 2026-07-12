@@ -304,7 +304,7 @@ export function Vorabdiagnose() {
     <>
       <SEO
         title="Kostenlose Vorab-Diagnose – Smartphone, iPhone & Handy Problem erkennen"
-        description="Starten Sie jetzt die kostenlose Online-Diagnose für Ihr Smartphone, iPhone, Samsung oder Tablet. In 3 Schritten zum Reparaturergebnis – Displayschaden, Akku, Kamera & mehr."
+        description="Kostenlose Online-Diagnose für Smartphone, iPhone, Samsung & Tablet. In 3 Schritten zum Reparaturergebnis – Displayschaden, Akku, Kamera & mehr."
         canonical="/vorabdiagnose"
         keywords="Vorabdiagnose Smartphone, Handy Diagnose kostenlos, iPhone Diagnose, Samsung Diagnose, Displayschaden erkennen, Akku Diagnose, Gerät geht nicht an, Handyreparatur Diagnose, Smartphone Problem erkennen, Display gebrochen Diagnose"
         jsonLd={vorabdiagnoseJsonLd}

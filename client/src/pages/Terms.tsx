@@ -503,7 +503,7 @@ export function Terms() {
     <>
       <SEO
         title="AGB – Allgemeine Geschäftsbedingungen | McRepair.de"
-        description="Lesen Sie die Allgemeinen Geschäftsbedingungen von McRepair.de. Transparente Nutzungsbedingungen für Reparaturen und Online-Käufe."
+        description="AGB von McRepair.de: Nutzungsbedingungen für Reparaturaufträge & Online-Käufe, Gewährleistungsrecht, Zahlungs- und Versandbedingungen – transparent & verständlich."
         canonical="/agb"
       />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}

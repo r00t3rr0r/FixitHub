@@ -193,7 +193,7 @@ export default function Newsletter() {
     <div style={{ background: 'linear-gradient(180deg, var(--off-white, #f8f9fc) 0%, var(--white, #ffffff) 24%, var(--gray-50, #f5f6f8) 100%)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SEO
         title="Newsletter abonnieren – Reparaturtipps & Exklusivangebote | McRepair.de"
-        description="Jetzt den kostenlosen McRepair-Newsletter abonnieren: exklusive Rabattcodes, Reparaturtipps für Smartphone & Tablet, neue Services und aktuelle Sonderaktionen. Kostenlos, unverbindlich & jederzeit kündbar."
+        description="Kostenlosen McRepair-Newsletter abonnieren: exklusive Rabattcodes, Reparaturtipps für Smartphone & Tablet sowie aktuelle Sonderaktionen. Unverbindlich & jederzeit kündbar."
         canonical="/newsletter"
         keywords="McRepair Newsletter, Newsletter Reparatur, Smartphone Reparatur Newsletter, Handy Reparatur Angebote, Reparaturtipps Newsletter, Rabattcode Reparatur, McRepair Gutschein, Newsletter abonnieren, Newsletter abmelden"
         jsonLd={jsonLd}

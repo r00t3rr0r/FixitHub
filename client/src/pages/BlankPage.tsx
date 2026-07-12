@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Construction, ArrowLeft, Home } from "lucide-react"
+import { SEO } from '@/components/SEO'
 
 export function BlankPage() {
   const navigate = useNavigate()
@@ -11,6 +12,12 @@ export function BlankPage() {
   }
 
   return (
+    <>
+      <SEO
+        title="Seite nicht gefunden | McRepair.de"
+        description="Die gesuchte Seite existiert nicht oder wurde verschoben. Zurück zur Startseite von McRepair.de – Ihr Smartphone-Reparatur-Service."
+        noindex={true}
+      />
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-2xl">
         <CardHeader className="text-center">
@@ -48,5 +55,6 @@ export function BlankPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   )
 }

@@ -293,7 +293,7 @@ export function Annahmestellen() {
     <>
       <SEO
         title="Annahmestellen finden – McRepair.de in Ihrer Nähe"
-        description="Finden Sie den nächsten McRepair.de-Standort in Ihrer Nähe. Karte öffnen und Annahmestelle direkt anfahren – schnell & einfach."
+        description="McRepair.de Annahmestellen in ganz Deutschland – über 350 Standorte. Finden Sie den nächsten Standort auf der Karte und bringen Sie Ihr Gerät direkt vorbei."
         canonical="/annahmestellen"
       />
       <McRepairNav />

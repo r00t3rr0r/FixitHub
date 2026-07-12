@@ -145,7 +145,7 @@ export function Privacy() {
     <>
       <SEO
         title="Datenschutzerklärung – DSGVO-konforme Datenschutzinformationen"
-        description="Vollständige Datenschutzerklärung von McRepair.de: Erfahren Sie, welche Daten wir verarbeiten, auf welcher Rechtsgrundlage und wie Sie Ihre Rechte nach DSGVO geltend machen können."
+        description="Datenschutzerklärung McRepair.de: Welche Daten wir verarbeiten, auf welcher Rechtsgrundlage und wie Sie Ihre DSGVO-Rechte geltend machen können."
         canonical="/datenschutz"
         keywords="Datenschutzerklärung, DSGVO, Datenschutz McRepair, personenbezogene Daten, Datenschutzrechte, Cookies, Google Analytics Opt-out, Betroffenenrechte, Datenschutzbeauftragter"
         jsonLd={PRIVACY_JSON_LD}

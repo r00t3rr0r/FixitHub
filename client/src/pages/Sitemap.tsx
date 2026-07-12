@@ -100,7 +100,7 @@ export function Sitemap() {
     <>
       <SEO
         title="Sitemap – McRepair.de Seitenübersicht"
-        description="Übersicht aller Seiten auf McRepair.de – von Reparaturservice über Shop bis Kundenportal. Finden Sie schnell, was Sie suchen."
+        description="Vollständige Seitenstruktur von McRepair.de: Reparaturservice, Webshop, Blog, Kundenportal, rechtliche Seiten und mehr – schnell finden, was Sie suchen."
         canonical="/sitemap"
         noindex={true}
       />

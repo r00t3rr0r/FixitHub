@@ -96,7 +96,7 @@ export function BatteryDisposal() {
     <>
       <SEO
         title="Hinweise zur Batterieentsorgung – McRepair.de"
-        description="Gesetzliche Rücknahme- und Entsorgungspflichten für Batterien und Akkus gemäß BattG und ElektroG. Bedeutung der Batteriesymbole (Pb, Cd, Hg) und kostenlose Rückgabemöglichkeiten bei McRepair.de."
+        description="Batterieentsorgung gemäß BattG & ElektroG: Rücknahmepflichten, Batteriesymbole (Pb, Cd, Hg) erklärt und kostenlose Rückgabe bei McRepair.de."
         canonical="/hinweise-zur-batterieentsorgung"
         keywords="Batterieentsorgung, Akkuentsorgung, BattG, ElektroG, Batterierücknahme, Pb Symbol Batterie, Cd Symbol Batterie, Hg Symbol Batterie, durchgekreuzte Mülltonne Batterie, Altbatterien entsorgen, McRepair Akkurücknahme"
         jsonLd={batteryJsonLd}

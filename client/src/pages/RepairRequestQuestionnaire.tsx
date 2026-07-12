@@ -571,7 +571,7 @@ export function RepairRequestQuestionnaire() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_-10%,rgba(245,184,0,0.16),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(26,42,94,0.2),transparent_48%),linear-gradient(180deg,#f8fbff_0%,#eef3fb_42%,#f5f8fe_100%)]">
       <SEO
         title="Reparaturanfrage stellen – Smartphone, Tablet & Laptop | McRepair.de"
-        description="Reparaturanfrage für Smartphone, Tablet oder Laptop online stellen – kostenlos & unverbindlich. Antwort innerhalb von 24 Stunden. Alle Marken: Apple, Samsung, Huawei, Xiaomi u. v. m."
+        description="Kostenlose Reparaturanfrage für Smartphone, Tablet & Laptop – unverbindlich, Antwort in 24 Std. Alle Marken: Apple, Samsung, Huawei, Xiaomi u. v. m."
         canonical="/repair-request"
         keywords="Reparaturanfrage, Handy reparieren lassen, Smartphone Reparatur anfragen, iPhone Reparatur Anfrage, Samsung Reparatur, Tablet Reparatur, Laptop Reparatur anfragen, Gerätereparatur Anfrage, Reparaturservice online, Kostenvoranschlag Reparatur, McRepair Reparatur"
         jsonLd={repairRequestJsonLd}

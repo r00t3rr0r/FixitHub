@@ -289,7 +289,7 @@ export function Contact() {
     >
       <SEO
         title="Kontakt – McRepair.de | Smartphone & Tablet Reparaturservice Berlin"
-        description="McRepair.de Reparaturservice kontaktieren: Tel. +49 30 403 688 951, E-Mail kontakt@mcrepair.de oder Kontaktformular. Reparaturanfragen, Statusanfragen & Reklamationen – Antwort innerhalb eines Werktages."
+        description="McRepair.de kontaktieren – per Telefon, E-Mail oder Kontaktformular. Reparaturanfragen, Auftragsstatus & Reklamationen. Antwort garantiert binnen eines Werktages."
         canonical="/contact"
         keywords="McRepair Kontakt, Reparaturservice Berlin Kontakt, Smartphone Reparatur Anfrage, Tablet Reparatur Kontakt, Handy Reparatur Berlin, Kontaktformular Reparatur, Reparatur Statusanfrage, Reklamation Reparatur"
         jsonLd={CONTACT_JSON_LD}

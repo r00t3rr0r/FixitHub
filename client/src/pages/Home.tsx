@@ -38,7 +38,7 @@ export function Home() {
     <>
       <SEO
         title="Smartphone Reparatur – Express-Service mit Garantie"
-        description="Ihr Smartphone kaputt? Professionelle Smartphone Reparatur mit 12 Monaten Garantie – Displaytausch, Akkuwechsel, Wasserschaden & mehr. Express in 24h. Jetzt online buchen!"
+        description="Ihr Smartphone kaputt? Professionelle Reparatur mit 12 Monaten Garantie – Displaytausch, Akkuwechsel, Wasserschaden & mehr. Express in 24h. Jetzt buchen!"
         canonical="/"
       />
       <Helmet>

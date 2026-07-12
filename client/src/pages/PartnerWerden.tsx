@@ -126,7 +126,7 @@ export function PartnerWerden() {
     >
       <SEO
         title="Partner werden – Mit McRepair.de Geld verdienen"
-        description="Werden Sie McRepair.de-Annahmepartner und profitieren Sie von unserem bundesweiten Netzwerk mit 350+ Standorten. Kostenfreie Anmeldung, attraktive Provisionen, professioneller Support."
+        description="Werden Sie McRepair.de-Partner: 350+ Standorte bundesweit, attraktive Provisionen, kostenfreie Anmeldung & professioneller Support für Ihre Annahmestelle."
         canonical="/partner-werden"
         keywords="McRepair Partner, Annahmestelle werden, Smartphone Reparatur Partner, Handyreparatur Franchise, Reparatur Partnerprogramm Deutschland, Annahmepartner Reparatur, McRepair Partnerprogramm"
         jsonLd={jsonLd}

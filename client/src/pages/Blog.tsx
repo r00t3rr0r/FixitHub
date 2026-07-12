@@ -158,7 +158,7 @@ export function Blog() {
         return (
           <SEO
             title="Reparatur-Blog & Ratgeber – McRepair.de"
-            description="Tipps, Anleitungen und News rund um Smartphone- & Tablet-Reparatur. Im McRepair.de Blog immer gut informiert."
+            description="Reparatur-Tipps, Anleitungen und aktuelle News rund um Smartphones, iPhones & Tablets. Im McRepair.de Blog immer gut über Reparatur, Pflege & Technik informiert."
             canonical="/blog"
             ogType="website"
             keywords={keywords}

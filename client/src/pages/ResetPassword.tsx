@@ -134,8 +134,8 @@ export function ResetPassword() {
   return (
     <>
       <SEO
-        title="Passwort zuruecksetzen"
-        description="Setzen Sie Ihr McRepair.de Passwort sicher zurueck und stellen Sie den Zugang zu Ihrem Kundenkonto wieder her."
+        title="Passwort zurücksetzen"
+        description="Setzen Sie Ihr McRepair.de Passwort sicher zurück und stellen Sie den Zugang zu Ihrem Kundenkonto wieder her."
         canonical="/reset-password"
         noindex
       />

@@ -220,7 +220,7 @@ export function About() {
     <>
       <SEO
         title="Über uns – McRepair.de | Smartphone- & Tablet-Reparatur Experten"
-        description="McRepair.de – professionelle Reparatur von Smartphones, Tablets & Notebooks. Über 350 Annahmestellen, zertifizierte Techniker, 1 Jahr Garantie & kostenloser Versand."
+        description="Professionelle Smartphone-, Tablet- & Notebook-Reparatur bei McRepair.de. 350+ Annahmestellen, zertifizierte Techniker, 12 Monate Garantie & kostenloser Versand."
         canonical="/ueber-uns"
         keywords="McRepair, Smartphone Reparatur, Handy Reparatur, Tablet Reparatur, Notebook Reparatur, Display Reparatur, Akkutausch, Wasserschaden, Datenrettung, Berlin, Deutschland, Annahmestellen, Reparatur Service, Apple Reparatur, Samsung Reparatur"
         ogImage={`${BASE_URL}/bilder/ueberuns/galerie/mcrepair_werkstatt.jpg`}

@@ -159,7 +159,7 @@ export function FAQ() {
     >
       <SEO
         title="Häufig gestellte Fragen – Reparatur, Preise, Versand & Garantie | McRepair.de"
-        description="Alle Antworten rund um Smartphone- und Tablet-Reparatur bei McRepair.de: Reparaturablauf, Kostenvoranschlag, Garantie, Versand, Konto & Datenschutz. Schnell & übersichtlich."
+        description="Alle Antworten zu Smartphone- & Tablet-Reparatur bei McRepair.de: Reparaturablauf, Kostenvoranschlag, Garantie, Versand, Konto & Datenschutz – schnell & übersichtlich."
         canonical="/faq"
         keywords="FAQ, häufige Fragen, Reparatur FAQ, Smartphone Reparatur Fragen, Tablet Reparatur, Garantie Reparatur, Versand Reparatur, Kosten Reparatur, McRepair FAQ, Reparaturservice Fragen"
         jsonLd={faqJsonLd}
