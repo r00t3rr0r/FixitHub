@@ -23,30 +23,90 @@ const BASE_URL = "https://www.mcrepair.de"
 
 function buildProductJsonLd(product: Product) {
   const productUrl = `${BASE_URL}/shop/product/${product._id}`
+
+  const additionalProperty: any[] = []
+  product.features?.forEach((f) =>
+    additionalProperty.push({ "@type": "PropertyValue", name: "Merkmal", value: f })
+  )
+  product.compatibility?.forEach((c) =>
+    additionalProperty.push({ "@type": "PropertyValue", name: "Kompatibilität", value: c })
+  )
+
   const jsonLd: any = {
     "@context": "https://schema.org",
     "@type": "Product",
-    "@id": productUrl,
+    "@id": `${productUrl}#product`,
     name: product.seoName || product.name,
     description: product.seoMetaDescription || product.description,
     sku: product.sku,
+    ...(product.sku && { mpn: product.sku }),
     brand: { "@type": "Brand", name: product.brand },
     category: product.category,
-    image: product.images.filter(Boolean),
+    image: product.images.filter(Boolean).map((url, i) => ({
+      "@type": "ImageObject",
+      "@id": `${productUrl}#image${i}`,
+      url,
+      name: `${product.seoName || product.name}${i > 0 ? ` – Ansicht ${i + 1}` : ""}`,
+    })),
     url: productUrl,
+    ...(additionalProperty.length > 0 && { additionalProperty }),
+    ...(product.weight && {
+      weight: { "@type": "QuantitativeValue", value: product.weight, unitCode: "GRM" },
+    }),
+    ...(product.dimensions && {
+      depth:  { "@type": "QuantitativeValue", value: product.dimensions.length, unitCode: "CMT" },
+      width:  { "@type": "QuantitativeValue", value: product.dimensions.width,  unitCode: "CMT" },
+      height: { "@type": "QuantitativeValue", value: product.dimensions.height, unitCode: "CMT" },
+    }),
     offers: {
       "@type": "Offer",
+      "@id": `${productUrl}#offer`,
       url: productUrl,
       priceCurrency: "EUR",
       price: product.price.toFixed(2),
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      priceSpecification: {
+        "@type": "PriceSpecification",
+        price: product.price.toFixed(2),
+        priceCurrency: "EUR",
+        valueAddedTaxIncluded: true,
+      },
       availability: product.inStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
       seller: { "@type": "Organization", name: "McRepair.de", url: BASE_URL },
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: { "@type": "MonetaryAmount", value: "4.99", currency: "EUR" },
+        shippingDestination: { "@type": "DefinedRegion", addressCountry: "DE" },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },
+          transitTime:  { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+          businessDays: {
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: [
+              "https://schema.org/Monday",
+              "https://schema.org/Tuesday",
+              "https://schema.org/Wednesday",
+              "https://schema.org/Thursday",
+              "https://schema.org/Friday",
+            ],
+          },
+        },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "DE",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 14,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/FreeReturn",
+      },
     },
   }
+
   if (product.reviewCount > 0) {
     jsonLd.aggregateRating = {
       "@type": "AggregateRating",
@@ -69,6 +129,37 @@ function buildBreadcrumbJsonLd(product: Product) {
       { "@type": "ListItem", position: 3, name: product.category, item: `${BASE_URL}/shop?category=${encodeURIComponent(product.category)}` },
       { "@type": "ListItem", position: 4, name: product.seoName || product.name, item: `${BASE_URL}/shop/product/${product._id}` },
     ],
+  }
+}
+
+function buildItemPageJsonLd(product: Product) {
+  const productUrl = `${BASE_URL}/shop/product/${product._id}`
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemPage",
+    "@id": `${productUrl}#webpage`,
+    url: productUrl,
+    name: product.seoTitleTag || product.seoName || product.name,
+    description: product.seoMetaDescription || product.description,
+    inLanguage: "de-DE",
+    isPartOf: {
+      "@type": "WebSite",
+      "@id": `${BASE_URL}/#website`,
+      url: BASE_URL,
+      name: "McRepair.de",
+      inLanguage: "de-DE",
+    },
+    ...(product.images[0] && {
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+        "@id": `${productUrl}#image0`,
+        url: product.images[0],
+        caption: product.seoName || product.name,
+      },
+    }),
+    datePublished: product.createdAt,
+    dateModified: product.updatedAt,
+    potentialAction: { "@type": "ReadAction", target: [productUrl] },
   }
 }
 
@@ -189,7 +280,13 @@ export function ProductDetail() {
         keywords={seoKeywords}
         ogType="website"
         ogImage={images[0] || undefined}
-        jsonLd={[buildProductJsonLd(product), buildBreadcrumbJsonLd(product)]}
+        ogImageAlt={product.seoName || product.name}
+        productPrice={product.price}
+        productCurrency="EUR"
+        productAvailability={product.inStock ? "InStock" : "OutOfStock"}
+        publishedTime={product.createdAt}
+        modifiedTime={product.updatedAt}
+        jsonLd={[buildProductJsonLd(product), buildBreadcrumbJsonLd(product), buildItemPageJsonLd(product)]}
       />
 
       {/* ── Page header – matches shop header style ──────────────────────── */}
@@ -297,6 +394,8 @@ export function ProductDetail() {
                       src={primaryImage}
                       alt={product.name}
                       className="h-[260px] w-full object-contain p-4 sm:h-[400px] sm:p-6"
+                      loading="eager"
+                      fetchPriority="high"
                       onError={(e) => { e.currentTarget.src = "/placeholder-product.png" }}
                     />
                   </div>
@@ -329,6 +428,7 @@ export function ProductDetail() {
                           src={img}
                           alt={`${product.name} Ansicht ${i + 1}`}
                           className="h-16 w-full rounded-xl object-cover sm:h-20"
+                          loading="lazy"
                           onError={(e) => { e.currentTarget.src = "/placeholder-product.png" }}
                         />
                       </button>
