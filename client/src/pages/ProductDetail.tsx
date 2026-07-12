@@ -354,7 +354,7 @@ export function ProductDetail() {
               asChild
               variant="outline"
               size="sm"
-              className="self-start shrink-0 border-white/30 bg-white/10 text-white text-xs font-semibold hover:bg-white hover:text-[#1a2a5e] transition-all h-9 px-3 mt-0.5"
+              className="self-start shrink-0 border-white/30 bg-white/10 text-white text-xs font-semibold hover:bg-white hover:text-[#1a2a5e] transition-all h-9 px-3 mt-0.5 mb-2"
               style={{ borderWidth: "1px", borderColor: "rgba(255,255,255,0.3)" }}
             >
               <Link to="/shop">
