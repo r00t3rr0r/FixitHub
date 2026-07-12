@@ -278,6 +278,124 @@ router.get('/metadata', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC SHOP PRODUCTS SEO ENDPOINT
+// Returns all active products as JSON-LD structured data (schema.org/Product)
+// for search engine indexing. Cached 10 minutes.
+// ─────────────────────────────────────────────────────────────────────────────
+const Product = require('../models/Product');
+let shopProductsCache = null;
+let shopProductsCacheAt = 0;
+
+// Helper: convert product name to URL slug
+function toProductSlug(str) {
+  return String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[äÄ]/g, 'ae')
+    .replace(/[öÖ]/g, 'oe')
+    .replace(/[üÜ]/g, 'ue')
+    .replace(/[ß]/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+const SHOP_BASE_URL = 'https://www.mcrepair.de';
+
+// GET /api/seo/shop-products
+// Public, cached – all active products formatted for JSON-LD
+router.get('/shop-products', async (req, res) => {
+  try {
+    if (shopProductsCache && Date.now() - shopProductsCacheAt < CACHE_TTL_MS) {
+      return res.json({ success: true, ...shopProductsCache });
+    }
+
+    const products = await Product.find({ isActive: true })
+      .select('_id name description price originalPrice images category brand rating reviewCount inStock stockCount features compatibility sku seoName seoTitleTag seoMetaDescription seoMetaKeywords updatedAt createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Build schema.org/ItemList wrapping individual Product offers
+    const itemListJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      '@id': `${SHOP_BASE_URL}/shop#product-list`,
+      name: 'Ersatzteile & Zubehör – McRepair.de Shop',
+      description: 'Hochwertige Ersatzteile und Zubehör für Smartphones, Tablets und weitere Geräte. Direkt bestellen bei McRepair.de.',
+      url: `${SHOP_BASE_URL}/shop`,
+      numberOfItems: products.length,
+      itemListElement: products.map((p, index) => {
+        const productUrl = `${SHOP_BASE_URL}/shop/product/${p._id}`;
+        const productEntry = {
+          '@type': 'ListItem',
+          position: index + 1,
+          url: productUrl,
+          item: {
+            '@type': 'Product',
+            '@id': productUrl,
+            name: p.seoName || p.name,
+            description: p.seoMetaDescription || p.description,
+            sku: p.sku,
+            brand: { '@type': 'Brand', name: p.brand },
+            category: p.category,
+            image: p.images.filter(Boolean),
+            url: productUrl,
+            offers: {
+              '@type': 'Offer',
+              url: productUrl,
+              priceCurrency: 'EUR',
+              price: p.price.toFixed(2),
+              priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+              availability: p.inStock
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+              itemCondition: 'https://schema.org/NewCondition',
+              seller: {
+                '@type': 'Organization',
+                name: 'McRepair.de',
+                url: SHOP_BASE_URL,
+              },
+            },
+          },
+        };
+        if (p.reviewCount > 0) {
+          productEntry.item.aggregateRating = {
+            '@type': 'AggregateRating',
+            ratingValue: p.rating.toFixed(1),
+            reviewCount: p.reviewCount,
+            bestRating: '5',
+            worstRating: '1',
+          };
+        }
+        return productEntry;
+      }),
+    };
+
+    // Slim product list for sitemap generation
+    const sitemapProducts = products.map((p) => ({
+      id: String(p._id),
+      sku: p.sku,
+      slug: toProductSlug(p.seoName || p.name),
+      updatedAt: p.updatedAt,
+    }));
+
+    const payload = {
+      totalProducts: products.length,
+      sitemapProducts,
+      jsonLd: itemListJsonLd,
+    };
+
+    shopProductsCache = payload;
+    shopProductsCacheAt = Date.now();
+
+    res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('SEORoutes: Error building shop-products SEO data:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/seo/faq-data
 // Public endpoint – returns all active FAQs grouped by category for JSON-LD
 // pre-rendering, sitemap enrichment, and external SEO tooling.

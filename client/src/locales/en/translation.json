@@ -3927,5 +3927,22 @@
       "samsung": "The brand Samsung is a registered trademark of Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
       "sonyEricsson": "The brand Sony Ericsson is a registered trademark of Sony Ericsson Mobile Communications AB, London, UK."
     }
+  },
+  "batteryDisposal": {
+    "title": "Battery Disposal Information",
+    "intro": "In connection with the sale of batteries or devices containing batteries, we are legally obligated under the German Battery Act (BattG) to inform you of the following:",
+    "returnInfo": "As an end user, you are legally required to return used batteries. You may return used batteries from our product range free of charge to our shipping warehouse (return address) or drop them off at any municipal collection point or retailer carrying batteries.",
+    "returnAddressTitle": "Return Address",
+    "returnAddress": "Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin",
+    "symbolsTitle": "Battery Symbols and Their Meaning",
+    "symbolsIntro": "The symbols printed on batteries have the following meaning under the Battery Act (BattG):",
+    "symbolBin": "The crossed-out wheeled bin symbol means that the battery must not be disposed of in household waste. Used batteries must be collected and recycled separately.",
+    "symbolPb": "Pb = Battery contains more than 0.004 percent lead by mass",
+    "symbolCd": "Cd = Battery contains more than 0.002 percent cadmium by mass",
+    "symbolHg": "Hg = Battery contains more than 0.0005 percent mercury by mass",
+    "collectionTitle": "Additional Return Options",
+    "collectionInfo": "Used batteries may also be returned free of charge at any municipal collection point (e.g. recycling centres) or at retailers that carry batteries in their range, regardless of a purchase obligation.",
+    "legalBasis": "Legal basis: German Battery Act (BattG), ElektroG",
+    "finalNote": "Please observe the above instructions for the proper disposal of batteries and rechargeable batteries."
   }
 }

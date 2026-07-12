@@ -3939,5 +3939,22 @@
       "samsung": "Die Marke Samsung ist ein eingetragenes Warenzeichen von Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
       "sonyEricsson": "Die Marke Sony Ericsson ist ein eingetragenes Warenzeichen von Sony Ericsson Mobile Communications AB, London, UK."
     }
+  },
+  "batteryDisposal": {
+    "title": "Hinweise zur Batterieentsorgung",
+    "intro": "Im Zusammenhang mit dem Vertrieb von Batterien oder mit der Lieferung von Geräten, die Batterien enthalten, sind wir gemäß Batteriegesetz (BattG) verpflichtet, Sie auf folgendes hinzuweisen:",
+    "returnInfo": "Als Endnutzer sind Sie zur Rückgabe von Altbatterien gesetzlich verpflichtet. Sie können bei uns im Sortiment geführte oder geführte Altbatterien nach Gebrauch unentgeltlich an unser Versandlager (Versandadresse) zurücksenden oder kostenlos in einer kommunalen Sammelstelle bzw. im Handel abgeben.",
+    "returnAddressTitle": "Rücksendeadresse",
+    "returnAddress": "Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin",
+    "symbolsTitle": "Batteriesymbole und ihre Bedeutung",
+    "symbolsIntro": "Die auf den Batterien abgebildeten Symbole haben gemäß BattG folgende Bedeutung:",
+    "symbolBin": "Das Symbol der durchgekreuzten Mülltonne bedeutet, dass die Batterie nicht in den Hausmüll gegeben werden darf. Altbatterien müssen einer gesonderten Entsorgung zugeführt werden.",
+    "symbolPb": "Pb = Batterie enthält mehr als 0,004 Masseprozent Blei",
+    "symbolCd": "Cd = Batterie enthält mehr als 0,002 Masseprozent Cadmium",
+    "symbolHg": "Hg = Batterie enthält mehr als 0,0005 Masseprozent Quecksilber",
+    "collectionTitle": "Weitere Rückgabemöglichkeiten",
+    "collectionInfo": "Altbatterien können unabhängig von einer Kaufverpflichtung auch kostenlos bei allen kommunalen Sammelstellen (z. B. Wertstoffhöfe) sowie im stationären Handel zurückgegeben werden, sofern der Händler Batterien im Sortiment führt.",
+    "legalBasis": "Gesetzliche Grundlage: Batteriegesetz (BattG), ElektroG",
+    "finalNote": "Bitte beachten Sie die vorstehenden Hinweise zur ordnungsgemäßen Entsorgung von Batterien und Akkus."
   }
 }

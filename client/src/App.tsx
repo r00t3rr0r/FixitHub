@@ -22,6 +22,7 @@ import { OrderDetails } from "./pages/OrderDetails"
 import { Messages } from "./pages/Messages"
 import { Notifications } from "./pages/Notifications"
 import { WebShop } from "./pages/WebShop"
+import { ProductDetail } from "./pages/ProductDetail"
 import { ShoppingCartPage } from "./pages/ShoppingCart"
 import { Profile } from "./pages/Profile"
 import { Blog } from "./pages/Blog"
@@ -385,6 +386,7 @@ function App() {
             </Route>
             <Route path="/shop" element={<CustomerLayout />}>
               <Route index element={<WebShop />} />
+              <Route path="product/:id" element={<ProductDetail />} />
             </Route>
             <Route path="/cart" element={<CustomerLayout />}>
               <Route index element={<ShoppingCartPage />} />

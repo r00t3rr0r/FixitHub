@@ -480,11 +480,26 @@ app.get('/sitemap.xml', async (req, res) => {
       }
     }
 
-    const allUrls = [...staticUrls, ...catalogUrls];
+    // Shop product pages: /shop/product/:id
+    let productUrls = [];
+    try {
+      const Product = require('./models/Product');
+      const products = await Product.find({ isActive: true })
+        .select('_id updatedAt')
+        .lean();
+      productUrls = products.map((p) => ({
+        loc: `${BASE_URL}/shop/product/${p._id}`,
+        priority: '0.75',
+        changefreq: 'weekly',
+        lastmod: p.updatedAt ? p.updatedAt.toISOString().slice(0, 10) : today,
+      }));
+    } catch (_) { /* skip if products collection unavailable */ }
+
+    const allUrls = [...staticUrls, ...catalogUrls, ...productUrls];
     const urlEntries = allUrls
       .map(
-        ({ loc, priority, changefreq }) =>
-          `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`
+        ({ loc, priority, changefreq, lastmod }) =>
+          `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod || today}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`
       )
       .join('\n');
 
