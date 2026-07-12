@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { useParams, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -142,6 +143,11 @@ export function BlogPostPage() {
 
   return (
     <section className="section py-4 sm:py-6">
+      <SEO
+        title={post.title ? `${post.title.slice(0, 50)} – FixitHub Blog` : 'Blog – FixitHub'}
+        description={post.excerpt ? post.excerpt.slice(0, 155) : 'Tipps und News rund um Smartphone- & Tablet-Reparatur im FixitHub Blog.'}
+        ogType="article"
+      />
       <div className="container max-w-4xl">
         <Button
           variant="ghost"

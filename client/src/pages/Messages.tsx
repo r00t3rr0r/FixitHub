@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
@@ -380,6 +381,12 @@ export function Messages() {
 
   return (
     <div className={`messages-page${mobileMenuOpen ? ' mobile-menu-open' : ''}`}>
+      <SEO
+        title="Nachrichten – FixitHub Kundenportal"
+        description="Direkter Kontakt mit Ihrem FixitHub-Techniker. Nachrichten lesen und antworten – schnell und unkompliziert im Kundenportal."
+        canonical="/messages"
+        noindex={true}
+      />
       {/* Header */}
       <div className="messages-header">
         <div className="container">

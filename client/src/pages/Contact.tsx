@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SEO } from '@/components/SEO'
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -142,6 +143,11 @@ export function Contact() {
         background: 'linear-gradient(180deg, rgba(245,197,24,0.08) 0%, var(--off-white, #f8f9fc) 20%, #ffffff 58%, rgba(26,42,94,0.06) 100%)',
       }}
     >
+      <SEO
+        title="Kontakt – FixitHub Reparaturservice"
+        description="Haben Sie Fragen? Erreichen Sie das FixitHub-Team per Telefon, E-Mail oder Kontaktformular. Wir helfen Ihnen schnell weiter."
+        canonical="/kontakt"
+      />
       <TopBar />
       <McRepairNav />
 

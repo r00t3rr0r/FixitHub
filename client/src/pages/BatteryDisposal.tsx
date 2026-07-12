@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { SEO } from '@/components/SEO'
 import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
@@ -9,6 +10,11 @@ export function BatteryDisposal() {
 
   return (
     <>
+      <SEO
+        title="Batterieentsorgung – Hinweise von FixitHub"
+        description="Wichtige Hinweise zur gesetzeskonformen Entsorgung von Akkus und Batterien gemäß ElektroG. FixitHub informiert über Rücknahme."
+        canonical="/hinweise-zur-batterieentsorgung"
+      />
       <TopBar />
       <McRepairNav />
 

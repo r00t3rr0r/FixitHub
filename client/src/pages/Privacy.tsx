@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/home/TopBar';
+import { SEO } from '@/components/SEO'
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +10,11 @@ export function Privacy() {
 
   return (
     <>
+      <SEO
+        title="Datenschutzerklärung – FixitHub"
+        description="Erfahren Sie, wie FixitHub Ihre Daten schützt und verarbeitet. Transparente Datenschutzerklärung gemäß DSGVO."
+        canonical="/datenschutz"
+      />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
       <TopBar />
 

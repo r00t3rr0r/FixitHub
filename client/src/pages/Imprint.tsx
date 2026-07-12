@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { SEO } from '@/components/SEO'
 import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
@@ -9,6 +10,11 @@ export function Imprint() {
 
   return (
     <>
+      <SEO
+        title="Impressum – FixitHub"
+        description="Gesetzlich vorgeschriebene Angaben zum Anbieter: FixitHub Reparaturservice – Kontaktdaten, Handelsregister und verantwortliche Person."
+        canonical="/impressum"
+      />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
       <TopBar />
 

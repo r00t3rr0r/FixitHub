@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react'
+import { SEO } from '@/components/SEO'
 import { Link } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { forgotPassword } from '@/api/auth'
@@ -51,6 +52,12 @@ export function ForgotPassword() {
 
   return (
     <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <SEO
+        title="Passwort vergessen – FixitHub"
+        description="Passwort zurücksetzen leicht gemacht. Geben Sie Ihre E-Mail-Adresse ein und erhalten Sie einen Link zum Zurücksetzen."
+        canonical="/forgot-password"
+        noindex={true}
+      />
       <TopBar />
       <McRepairNav />
 

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SEO } from '@/components/SEO'
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
@@ -97,6 +98,12 @@ export function Sitemap() {
 
   return (
     <>
+      <SEO
+        title="Sitemap – FixitHub Seitenübersicht"
+        description="Übersicht aller Seiten auf FixitHub – von Reparaturservice über Shop bis Kundenportal. Finden Sie schnell, was Sie suchen."
+        canonical="/sitemap"
+        noindex={true}
+      />
       <TopBar />
       <McRepairNav />
 

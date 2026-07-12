@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { SEO } from '@/components/SEO'
 import { useNavigate, useLocation } from "react-router-dom"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
@@ -408,6 +409,11 @@ export function RepairRequestQuestionnaire() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_-10%,rgba(245,184,0,0.16),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(26,42,94,0.2),transparent_48%),linear-gradient(180deg,#f8fbff_0%,#eef3fb_42%,#f5f8fe_100%)]">
+      <SEO
+        title="Reparaturanfrage stellen – FixitHub"
+        description="Beschreiben Sie das Problem Ihres Geräts und erhalten Sie schnell eine Antwort. Kostenlose Voranfrage – jetzt Reparaturanfrage starten."
+        canonical="/repair-request"
+      />
       {/* Hero Banner */}
       <section className="relative overflow-hidden border-b border-white/20 bg-[linear-gradient(132deg,#1a2a5e_0%,#21408e_54%,#2e5cc1_100%)] px-6 py-14 text-white md:px-12 md:py-20">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />

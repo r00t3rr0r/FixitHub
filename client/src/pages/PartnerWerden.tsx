@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SEO } from '@/components/SEO'
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
@@ -48,6 +49,11 @@ export function PartnerWerden() {
           'linear-gradient(180deg, rgba(245,197,24,0.1) 0%, rgba(255,255,255,1) 24%, rgba(248,249,252,1) 66%, rgba(26,42,94,0.08) 100%)',
       }}
     >
+      <SEO
+        title="Partner werden – Mit FixitHub Geld verdienen"
+        description="Werden Sie FixitHub-Annahmepartner und profitieren Sie von unserem Netzwerk. Jetzt Partnerschaft anfragen und gemeinsam wachsen."
+        canonical="/partner-werden"
+      />
       <TopBar />
       <McRepairNav />
 

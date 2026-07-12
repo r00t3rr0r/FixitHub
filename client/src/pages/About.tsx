@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { SEO } from '@/components/SEO'
 import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
@@ -10,6 +11,11 @@ export function About() {
 
   return (
     <>
+      <SEO
+        title="Über uns – FixitHub Reparatur-Experten"
+        description="Wir reparieren Smartphones, Tablets & Notebooks mit Leidenschaft. Lernen Sie das FixitHub-Team kennen und erfahren Sie mehr über uns."
+        canonical="/ueber-uns"
+      />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
       <TopBar />
 

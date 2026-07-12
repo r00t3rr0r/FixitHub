@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { SEO } from '@/components/SEO'
 import { TopBar } from '@/components/home/TopBar';
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
@@ -9,6 +10,11 @@ export function ShippingAndPayment() {
 
   return (
     <>
+      <SEO
+        title="Zahlung & Versand – FixitHub"
+        description="Alle Zahlungsmethoden und Versandoptionen bei FixitHub auf einen Blick. Sicher bezahlen, schnell geliefert – jetzt informieren."
+        canonical="/zahlung-und-versand"
+      />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
       <TopBar />
 

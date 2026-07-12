@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { SEO } from '@/components/SEO'
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -456,6 +457,11 @@ export function GuestBookingTracking() {
 
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
+      <SEO
+        title="Buchung verfolgen – FixitHub Buchungsstatus"
+        description="Prüfen Sie den Status Ihrer Reparaturbuchung mit Ihrer Buchungsnummer. Schnell und einfach online nachverfolgen."
+        canonical="/track-order/booking"
+      />
       <div className="container max-w-6xl py-6 sm:py-10">
         <div className="mb-8">
           <div className="mb-6 w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-8 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px] max-[360px]:py-5">

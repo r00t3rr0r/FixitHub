@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { Link } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -266,6 +267,11 @@ export function WebShop() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: OFF_WHITE }}>
+      <SEO
+        title="Ersatzteile & Zubehör kaufen – FixitHub Shop"
+        description="Hochwertige Ersatzteile & Zubehör für Smartphones und Tablets. Jetzt im FixitHub Shop entdecken und bestellen."
+        canonical="/shop"
+      />
       <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6 space-y-6">
         {/* Header */}
         <div className="mb-5">

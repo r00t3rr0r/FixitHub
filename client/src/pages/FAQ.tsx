@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SEO } from '@/components/SEO'
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { TopBar } from '@/components/home/TopBar';
@@ -95,6 +96,11 @@ export function FAQ() {
           'linear-gradient(180deg, rgba(245,197,24,0.1) 0%, rgba(255,255,255,1) 24%, rgba(248,249,252,1) 66%, rgba(26,42,94,0.08) 100%)',
       }}
     >
+      <SEO
+        title="Häufige Fragen zur Reparatur – FixitHub FAQ"
+        description="Antworten auf alle Fragen zu Reparatur, Preisen, Versand und Garantie. Schnell informiert – direkt im FixitHub FAQ."
+        canonical="/faq"
+      />
       <TopBar />
       <McRepairNav />
 

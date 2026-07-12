@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { Link } from "react-router-dom"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -115,6 +116,12 @@ export function Blog() {
 
   return (
     <section className="section py-4 sm:py-6">
+      <SEO
+        title="Reparatur-Blog & Ratgeber – FixitHub"
+        description="Tipps, Anleitungen und News rund um Smartphone- & Tablet-Reparatur. Im FixitHub Blog immer gut informiert."
+        canonical="/blog"
+        ogType="article"
+      />
       <div className="container max-w-7xl">
         <div className="mb-4 overflow-hidden rounded-2xl border border-[#1a2a5e] bg-[#1a2a5e] p-4 shadow-sm sm:mb-6 sm:p-6">
           <div className="flex items-start justify-between gap-3">

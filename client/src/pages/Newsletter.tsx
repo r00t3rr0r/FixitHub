@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SEO } from '@/components/SEO'
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,11 @@ export default function Newsletter() {
 
   return (
     <div style={{ background: 'linear-gradient(180deg, var(--off-white, #f8f9fc) 0%, var(--white, #ffffff) 24%, var(--gray-50, #f5f6f8) 100%)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <SEO
+        title="Newsletter abonnieren – FixitHub Updates"
+        description="Jetzt FixitHub-Newsletter abonnieren und keine Angebote, Reparaturtipps und News mehr verpassen. Kostenlos & jederzeit kündbar."
+        canonical="/newsletter"
+      />
       <TopBar />
       <McRepairNav />
       <main className="flex-1 flex flex-col items-center justify-center py-10 px-4">

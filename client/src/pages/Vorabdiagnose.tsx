@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { SEO } from '@/components/SEO'
 import { ClipboardCheck, Phone, MapPin, Wrench } from 'lucide-react'
 import { McRepairNav } from '@/components/home/McRepairNav'
 import { Footer } from '@/components/Footer'
@@ -9,9 +10,12 @@ export function Vorabdiagnose() {
 
   return (
     <>
+      <SEO
+        title="Kostenlose Vorab-Diagnose – FixitHub"
+        description="Ermitteln Sie kostenlos, welche Reparatur Ihr Gerät benötigt. Diagnose-Assistent starten und direkt Kosten abschätzen."
+        canonical="/vorabdiagnose"
+      />
       <McRepairNav />
-
-      {/* Hero */}
       <section className="diagnose-hero">
         <div className="container">
           <div className="diagnose-hero-content">

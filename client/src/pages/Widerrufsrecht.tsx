@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/home/TopBar';
+import { SEO } from '@/components/SEO'
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,11 @@ export function Widerrufsrecht() {
 
   return (
     <>
+      <SEO
+        title="Widerrufsrecht & Widerrufsformular – FixitHub"
+        description="Informationen zu Ihrem gesetzlichen Widerrufsrecht bei FixitHub. Widerrufsformular zum Download und Kontaktdaten."
+        canonical="/widerrufsrecht"
+      />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
       <TopBar />
 

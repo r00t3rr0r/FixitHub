@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { SEO } from '@/components/SEO'
 import type { MouseEvent as ReactMouseEvent } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -4951,6 +4952,12 @@ export function OrderDetails() {
 
   return (
     <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : 'customer-order-workspace'}`}>
+      <SEO
+        title="Auftragsdetails – FixitHub Kundenportal"
+        description="Detailansicht Ihres Reparaturauftrags: Status, Fotos, Nachrichten und Rechnung – alles in Ihrem FixitHub Kundenportal."
+        canonical="/orders"
+        noindex={true}
+      />
       {/* Back Button */}
       <button
         type="button"

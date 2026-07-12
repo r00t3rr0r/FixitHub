@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/home/TopBar';
+import { SEO } from '@/components/SEO'
 import { McRepairNav } from '@/components/home/McRepairNav';
 import { Footer } from '@/components/Footer';
 import { useTranslation } from 'react-i18next';
@@ -500,6 +501,11 @@ export function Terms() {
 
   return (
     <>
+      <SEO
+        title="AGB – Allgemeine Geschäftsbedingungen | FixitHub"
+        description="Lesen Sie die Allgemeinen Geschäftsbedingungen von FixitHub. Transparente Nutzungsbedingungen für Reparaturen und Online-Käufe."
+        canonical="/agb"
+      />
       {/* Top Bar - Info bar with Hotline, Locations, Login */}
       <TopBar />
 

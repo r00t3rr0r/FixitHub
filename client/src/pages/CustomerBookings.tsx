@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { SEO } from '@/components/SEO'
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./CustomerBookings.css";
@@ -585,6 +586,12 @@ export function CustomerBookings() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
+      <SEO
+        title="Meine Buchungen – FixitHub Kundenportal"
+        description="Alle Reparaturbuchungen auf einen Blick: Termine, Status und Details im FixitHub Kundenportal einsehen und verwalten."
+        canonical="/bookings"
+        noindex={true}
+      />
       <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-8 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
         {/* Header Section */}
         <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
