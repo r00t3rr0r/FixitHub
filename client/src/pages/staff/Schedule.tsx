@@ -7,9 +7,21 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getAdminOrders, getAssignedOrders, updateOrderStatus } from "@/api/adminOrders"
+import { getCommunicationThread as getInspectionCommunication, getPendingFeedbackCount, getUnreadMessageCounts } from "@/api/inspectionCommunication"
+import { getInspection } from "@/api/deviceInspection"
+import { getRepairWorkflow } from "@/api/repairWorkflow"
+import { getManufacturersByDeviceType, getModelsByTypeAndManufacturer } from "@/api/devices"
 import { getRepairRequests, updateRepairRequestStatus } from "@/api/repairRequests"
 import { startWorkflow, updateWorkflowStatus } from "@/api/workflow"
-import { Calendar, Eye, Loader2, RefreshCw, Search, Workflow } from "lucide-react"
+import { Calendar, Eye, Loader2, MessageSquare, RefreshCw, Search, Smartphone, Workflow } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 
 type OrderStatus = "pending" | "in-progress" | "quality-check" | "ready-for-pickup" | "completed"
 type RepairRequestStatus = "pending" | "reviewing" | "approved" | "converted" | "rejected"
@@ -18,12 +30,20 @@ type WorkflowStatus = "not-started" | "in-progress" | "on-hold" | "completed"
 interface AssignedOrder {
   _id: string
   orderNumber: string
+  services?: Array<string | { name?: string; title?: string; serviceName?: string }>
   deviceBrand?: string
   deviceModel?: string
+  deviceType?: string
+  createdAt?: string
   customerId?: { name?: string }
   priority?: "low" | "normal" | "high" | "urgent"
   status?: OrderStatus
   estimatedCompletion?: string
+  timeline?: Array<{
+    status?: string
+    description?: string
+    completedAt?: string
+  }>
   workflows?: Array<{
     _id?: string
     workflowName?: string
@@ -164,6 +184,167 @@ const getStatusColor = (status?: string) => {
   }
 }
 
+const getStatusBorderColor = (status?: string) => {
+  switch (status) {
+    case "completed":
+    case "approved":
+    case "converted":
+      return "border-l-green-500"
+    case "in-progress":
+    case "reviewing":
+      return "border-l-blue-500"
+    case "quality-check":
+      return "border-l-yellow-500"
+    case "ready-for-pickup":
+      return "border-l-purple-500"
+    case "on-hold":
+    case "rejected":
+      return "border-l-orange-500"
+    default:
+      return "border-l-slate-400"
+  }
+}
+
+const getStatusCardBackgroundColor = (status?: string) => {
+  switch (status) {
+    case "completed":
+    case "approved":
+    case "converted":
+      return "bg-green-50"
+    case "in-progress":
+    case "reviewing":
+      return "bg-blue-50"
+    case "quality-check":
+      return "bg-yellow-50"
+    case "ready-for-pickup":
+      return "bg-purple-50"
+    case "on-hold":
+    case "rejected":
+      return "bg-orange-50"
+    case "pending":
+      return "bg-amber-50"
+    default:
+      return "bg-background"
+  }
+}
+
+const getOrderStatusLabel = (status?: string) => {
+  switch (String(status || "").toLowerCase()) {
+    case "pending":
+      return "Pending"
+    case "in-progress":
+      return "In Progress"
+    case "quality-check":
+      return "Quality Check"
+    case "ready-for-pickup":
+      return "Ready Pickup"
+    case "completed":
+      return "Completed"
+    case "approved":
+      return "Approved"
+    case "converted":
+      return "Converted"
+    case "reviewing":
+      return "Reviewing"
+    case "on-hold":
+      return "On Hold"
+    case "rejected":
+      return "Rejected"
+    default:
+      return String(status || "Unknown")
+  }
+}
+
+const formatDuration = (durationMs: number) => {
+  const totalMinutes = Math.max(0, Math.floor(durationMs / 60000))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  const parts = []
+  if (days > 0) parts.push(`${days} Tag${days === 1 ? "" : "e"}`)
+  if (hours > 0) parts.push(`${hours} Std.`)
+  if (parts.length === 0 && minutes > 0) parts.push(`${minutes} Min.`)
+  if (parts.length === 0) parts.push("weniger als 1 Min.")
+  return parts.join(" ")
+}
+
+const getLatestOrderAction = (order: AssignedOrder) => {
+  const timeline = Array.isArray(order.timeline) ? order.timeline : []
+  const latestEntry = [...timeline].sort((a, b) => {
+    const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+    const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+    return timeB - timeA
+  })[0]
+
+  return latestEntry?.description || latestEntry?.status || "Auftrag erstellt"
+}
+
+const getBookedServiceLabels = (order: AssignedOrder) => {
+  const services = Array.isArray(order.services) ? order.services : []
+  if (services.length === 0) return []
+
+  return services
+    .map((service) =>
+      typeof service === "string"
+        ? service
+        : service?.name || service?.title || service?.serviceName || "Service"
+    )
+    .filter((serviceLabel) => Boolean(serviceLabel?.trim()))
+}
+
+const getOrderDeviceImage = (order: AssignedOrder) => {
+  const orderAny = order as any
+  const imageCandidates = [
+    orderAny.deviceImage,
+    orderAny.deviceModelImage,
+    orderAny.device?.image,
+    orderAny.deviceModel?.image,
+    orderAny.deviceModel?.images?.[0]?.url,
+    orderAny.deviceModel?.images?.[0]?.base64,
+    orderAny.deviceModelId?.image,
+    orderAny.deviceModelId?.images?.[0]?.url,
+    orderAny.deviceModelId?.images?.[0]?.base64,
+  ]
+
+  const image = imageCandidates.find((value) => typeof value === "string" && value.trim())
+  return typeof image === "string" ? image : null
+}
+
+const getDeviceLabel = (order: AssignedOrder) => {
+  const deviceLabel = `${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim()
+  return deviceLabel || "Gerät unbekannt"
+}
+
+const getPendingDuration = (order: AssignedOrder) => {
+  if (String(order.status || "").toLowerCase() !== "pending") return null
+
+  const timeline = Array.isArray(order.timeline) ? order.timeline : []
+  const latestPendingEntry = [...timeline]
+    .filter((entry) => String(entry.status || "").toLowerCase() === "pending")
+    .sort((a, b) => {
+      const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+      const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+      return timeB - timeA
+    })[0]
+
+  const startTime = latestPendingEntry?.completedAt || order.createdAt
+  if (!startTime) return null
+
+  const elapsed = Date.now() - new Date(startTime).getTime()
+  if (!Number.isFinite(elapsed) || elapsed < 0) return null
+
+  return formatDuration(elapsed)
+}
+
+const getPendingCustomerResponseCount = (communication: { messages?: Array<{ messageType?: string; feedbackRequest?: { status?: string } }> } | null | undefined) => {
+  const messages = Array.isArray(communication?.messages) ? communication.messages : []
+  return messages.filter(
+    (message) => String(message.messageType || "").toLowerCase() === "feedback_request"
+      && String(message.feedbackRequest?.status || "").toLowerCase() === "pending"
+  ).length
+}
+
 export function Schedule() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -176,6 +357,13 @@ export function Schedule() {
   const [repairRequests, setRepairRequests] = useState<AssignedRepairRequest[]>([])
   const [dragItem, setDragItem] = useState<DragItem | null>(null)
   const [activeDropZone, setActiveDropZone] = useState<string | null>(null)
+  const [pendingFeedbackCounts, setPendingFeedbackCounts] = useState<Record<string, number>>({})
+  const [unreadMessageCounts, setUnreadMessageCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
+  const [deviceImageByOrderId, setDeviceImageByOrderId] = useState<Record<string, string | null>>({})
+  const [inspectionDataByOrderId, setInspectionDataByOrderId] = useState<Record<string, any>>({})
+  const [repairWorkflowDataByOrderId, setRepairWorkflowDataByOrderId] = useState<Record<string, any>>({})
+  const [communicationDialogOpen, setCommunicationDialogOpen] = useState(false)
+  const [selectedCommunicationOrder, setSelectedCommunicationOrder] = useState<{ orderId: string; orderNumber: string } | null>(null)
 
   const fetchData = useCallback(async (manualRefresh = false) => {
     try {
@@ -217,7 +405,50 @@ export function Schedule() {
         adminOrdersResult?.orders ?? adminOrdersResult?.data ?? adminOrdersResult
       )
       const fallbackAssignedOrders = adminOrders.filter((order) => isAssignedToStaff(order, user?._id))
-      setOrders(assignedOrders.length > 0 ? assignedOrders : fallbackAssignedOrders)
+      const nextOrders = assignedOrders.length > 0 ? assignedOrders : fallbackAssignedOrders
+      setOrders(nextOrders)
+
+      if (nextOrders.length > 0) {
+        const unreadCounts = await getUnreadMessageCounts(nextOrders.map((order) => order._id))
+        setUnreadMessageCounts(unreadCounts || {})
+      } else {
+        setUnreadMessageCounts({})
+      }
+
+      const pendingCountsEntries = await Promise.allSettled(
+        nextOrders.map(async (order) => [order._id, await getPendingFeedbackCount(order._id)] as const)
+      )
+      const pendingCountsFallbackOrders = nextOrders.filter((order, index) => {
+        const settled = pendingCountsEntries[index]
+        return settled?.status !== "fulfilled" || Number(settled.value?.[1] || 0) <= 0
+      })
+
+      const communicationFallbackEntries = await Promise.allSettled(
+        pendingCountsFallbackOrders.map(async (order) => {
+          const communication = await getInspectionCommunication(order._id)
+          const count = getPendingCustomerResponseCount(communication?.communication || communication)
+          return [order._id, count] as const
+        })
+      )
+
+      const nextPendingCounts = pendingCountsEntries.reduce<Record<string, number>>((accumulator, result) => {
+        if (result.status === "fulfilled") {
+          const [orderId, count] = result.value
+          accumulator[orderId] = Number(count || 0)
+        }
+        return accumulator
+      }, {})
+
+      communicationFallbackEntries.forEach((result) => {
+        if (result.status === "fulfilled") {
+          const [orderId, count] = result.value
+          if ((nextPendingCounts[orderId] || 0) <= 0 && Number(count || 0) > 0) {
+            nextPendingCounts[orderId] = Number(count || 0)
+          }
+        }
+      })
+
+      setPendingFeedbackCounts(nextPendingCounts)
 
       const assignedRepairs = safeArray<AssignedRepairRequest>(
         assignedRepairResult?.requests ??
@@ -248,6 +479,212 @@ export function Schedule() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const normalize = (value: string = "") => value.toLowerCase().replace(/\s+/g, " ").trim()
+    const pickImageUrl = (value: unknown): string | null => {
+      return typeof value === "string" && value.trim() ? value.trim() : null
+    }
+
+    const resolveImages = async () => {
+      if (!orders.length) {
+        setDeviceImageByOrderId({})
+        return
+      }
+
+      const directImages: Record<string, string | null> = {}
+      const unresolvedByKey: Record<string, AssignedOrder[]> = {}
+      const manufacturerIdsByType: Record<string, Record<string, string>> = {}
+
+      const uniqueDeviceTypes = [...new Set(orders.map((order) => normalize(order.deviceType || "smartphone") || "smartphone"))]
+
+      await Promise.all(
+        uniqueDeviceTypes.map(async (deviceType) => {
+          try {
+            const response = await getManufacturersByDeviceType(deviceType)
+            const manufacturers = Array.isArray((response as any)?.manufacturers) ? (response as any).manufacturers : []
+            manufacturerIdsByType[deviceType] = manufacturers.reduce<Record<string, string>>((accumulator, manufacturer) => {
+              const normalizedName = normalize(manufacturer.name || manufacturer.displayName || manufacturer.slug || "")
+              const manufacturerId = String(manufacturer._id || manufacturer.id || "")
+              if (normalizedName && manufacturerId) {
+                accumulator[normalizedName] = manufacturerId
+              }
+              return accumulator
+            }, {})
+          } catch (error) {
+            console.error("Schedule: Failed to load manufacturers:", error)
+            manufacturerIdsByType[deviceType] = {}
+          }
+        })
+      )
+
+      orders.forEach((order) => {
+        const orderAny = order as any
+        const directCandidates: unknown[] = [
+          orderAny.deviceImage,
+          orderAny.deviceModelImage,
+          orderAny.device?.image,
+          orderAny.deviceModel?.image,
+          orderAny.deviceModelId?.image,
+          orderAny.deviceModelId?.images?.[0]?.url,
+          orderAny.deviceModelId?.images?.[0]?.base64,
+        ]
+
+        const directImage = directCandidates
+          .map((candidate) => pickImageUrl(candidate))
+          .find((candidate): candidate is string => Boolean(candidate))
+
+        if (directImage) {
+          directImages[order._id] = directImage
+          return
+        }
+
+        const key = `${normalize(order.deviceType || "smartphone")}|${normalize(order.deviceBrand)}|${normalize(order.deviceModel)}`
+        if (!unresolvedByKey[key]) {
+          unresolvedByKey[key] = []
+        }
+        unresolvedByKey[key].push(order)
+      })
+
+      const resolvedByKey: Record<string, string | null> = {}
+
+      await Promise.all(
+        Object.entries(unresolvedByKey).map(async ([key, keyOrders]) => {
+          const sample = keyOrders[0]
+          const deviceType = normalize(sample.deviceType || "smartphone") || "smartphone"
+          const manufacturerKey = normalize(sample.deviceBrand)
+          const manufacturerId = manufacturerIdsByType[deviceType]?.[manufacturerKey]
+
+          try {
+            if (manufacturerId) {
+              const response = await getModelsByTypeAndManufacturer(deviceType, manufacturerId)
+              const models = Array.isArray((response as any)?.models) ? (response as any).models : []
+              const modelName = normalize(sample.deviceModel)
+
+              const exactModel = models.find((model) => {
+                const name = normalize(model.name)
+                const displayName = normalize(model.displayName)
+                return Boolean(model.image) && (name === modelName || displayName === modelName)
+              })
+
+              const fuzzyModel = models.find((model) => {
+                const name = normalize(model.name)
+                const displayName = normalize(model.displayName)
+                return Boolean(model.image) && (displayName.includes(modelName) || modelName.includes(name))
+              })
+
+              const bestMatch = exactModel || fuzzyModel || models.find((model) => Boolean(model.image))
+              resolvedByKey[key] = bestMatch?.image || null
+              return
+            }
+
+            resolvedByKey[key] = null
+          } catch (error) {
+            console.error("Schedule: Failed to resolve model image:", error)
+            resolvedByKey[key] = null
+          }
+        })
+      )
+
+      const nextByOrderId: Record<string, string | null> = {}
+      orders.forEach((order) => {
+        const key = `${normalize(order.deviceType || "smartphone")}|${normalize(order.deviceBrand)}|${normalize(order.deviceModel)}`
+        nextByOrderId[order._id] = directImages[order._id] || resolvedByKey[key] || null
+      })
+
+      if (!isCancelled) {
+        setDeviceImageByOrderId(nextByOrderId)
+      }
+    }
+
+    resolveImages()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [orders])
+
+  // Load inspection data for all orders
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadInspections = async () => {
+      if (!orders.length) {
+        setInspectionDataByOrderId({})
+        return
+      }
+
+      const inspectionData: Record<string, any> = {}
+      
+      await Promise.all(
+        orders.map(async (order) => {
+          try {
+            const result = await getInspection(order._id)
+            if (!isCancelled && result?.inspection) {
+              inspectionData[order._id] = result.inspection
+            }
+          } catch (error) {
+            // Silently handle inspection load errors
+            inspectionData[order._id] = null
+          }
+        })
+      )
+
+      if (!isCancelled) {
+        setInspectionDataByOrderId(inspectionData)
+      }
+    }
+
+    loadInspections()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [orders])
+
+  // Load repair workflow data for all orders
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadRepairWorkflows = async () => {
+      if (!orders.length) {
+        setRepairWorkflowDataByOrderId({})
+        return
+      }
+
+      const workflowData: Record<string, any> = {}
+      
+      await Promise.all(
+        orders.map(async (order) => {
+          try {
+            const result = await getRepairWorkflow(order._id)
+            if (!isCancelled) {
+              // Handle both response formats: { workflow: {...} } or direct {...}
+              const workflow = (result as any)?.workflow || result
+              if (workflow && workflow._id) {
+                workflowData[order._id] = workflow
+              }
+            }
+          } catch (error) {
+            // Silently handle repair workflow load errors
+            workflowData[order._id] = null
+          }
+        })
+      )
+
+      if (!isCancelled) {
+        setRepairWorkflowDataByOrderId(workflowData)
+      }
+    }
+
+    loadRepairWorkflows()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [orders])
 
   const assignedWorkflows = useMemo<WorkflowCardItem[]>(() => {
     const myStaffId = String(user?._id || "")
@@ -477,6 +914,14 @@ export function Schedule() {
       : "border-2 border-red-500/60 bg-red-500/10"
   }
 
+  const openCommunicationDialog = (order: AssignedOrder) => {
+    setSelectedCommunicationOrder({
+      orderId: order._id,
+      orderNumber: order.orderNumber || order._id.slice(-6),
+    })
+    setCommunicationDialogOpen(true)
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -571,38 +1016,476 @@ export function Schedule() {
                 {groupedOrders[column.key].length === 0 ? (
                   <p className="text-xs text-muted-foreground">Keine Einträge</p>
                 ) : (
-                  groupedOrders[column.key].map((order) => (
-                    <button
-                      key={order._id}
-                      type="button"
-                      draggable
-                      onDragStart={() =>
-                        setDragItem({ type: "order", id: order._id, fromStatus: column.key })
-                      }
-                      onDragEnd={() => {
-                        setDragItem(null)
-                        setActiveDropZone(null)
-                      }}
-                      className="w-full rounded-md border bg-background p-3 text-left transition hover:border-primary/40"
-                      onClick={() => navigate(`/orders/${order._id}`)}
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold">{order.orderNumber || order._id.slice(-6)}</p>
-                        <Badge className={getPriorityColor(order.priority)}>{order.priority || "normal"}</Badge>
+                  groupedOrders[column.key].map((order) => {
+                    const pendingDuration = getPendingDuration(order)
+                    const bookedServices = getBookedServiceLabels(order)
+                    const deviceImage = deviceImageByOrderId[order._id] || getOrderDeviceImage(order)
+                    const visibleServices = bookedServices.slice(0, 3)
+                    const hiddenServicesCount = Math.max(0, bookedServices.length - visibleServices.length)
+                    const pendingFeedbackCount = Number(pendingFeedbackCounts[order._id] || 0)
+                    const hasPendingCustomerResponse = pendingFeedbackCount > 0
+                    const unreadInfo = unreadMessageCounts[order._id]
+                    const unreadCount = Number(unreadInfo?.unread || 0)
+                    const hasCustomerReply = unreadCount > 0 && String(unreadInfo?.senderType || "").toLowerCase() === "customer"
+
+                    return (
+                      <div
+                        key={order._id}
+                        role="button"
+                        tabIndex={0}
+                        draggable
+                        onDragStart={() =>
+                          setDragItem({ type: "order", id: order._id, fromStatus: column.key })
+                        }
+                        onDragEnd={() => {
+                          setDragItem(null)
+                          setActiveDropZone(null)
+                        }}
+                        onClick={() => navigate(`/orders/${order._id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            navigate(`/orders/${order._id}`)
+                          }
+                        }}
+                        className={`w-full rounded-md border-l-4 p-3 text-left transition hover:border-primary/40 ${getStatusBorderColor(order.status)} ${getStatusCardBackgroundColor(order.status)}`}
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold leading-none">{order.orderNumber || order._id.slice(-6)}</p>
+                            <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">Auftrag</p>
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted/40 p-2">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Letzte Aktion</p>
+                          <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
+                            {getLatestOrderAction(order)}
+                          </p>
+                        </div>
+
+                        {/* Status-Übersicht: Inspection, Ersatzteile, Workflows */}
+                        <div className="mt-2 grid grid-cols-3 gap-1.5">
+                          {/* Device Inspection Status */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/orders/${order._id}#order-device-inspection`)
+                            }}
+                            className="rounded-md p-2 text-left transition border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 group"
+                            title="Zur Geräteprüfung"
+                          >
+                            <p className="text-[9px] font-semibold uppercase text-slate-500 truncate">Prüfung</p>
+                            <div className="mt-0.5 space-y-1">
+                              {(() => {
+                                const inspection = inspectionDataByOrderId[order._id]
+                                const status = inspection?.status || "not-started"
+                                const isCompleted = status === "completed"
+                                const isInProgress = status === "in-progress"
+                                const bgColor = isCompleted ? "bg-emerald-100" : isInProgress ? "bg-blue-100" : "bg-slate-100"
+                                const textColor = isCompleted ? "text-emerald-700" : isInProgress ? "text-blue-700" : "text-slate-600"
+                                const label = isCompleted ? "✓" : isInProgress ? "→" : "○"
+                                
+                                return (
+                                  <>
+                                    <div className="flex items-center gap-1">
+                                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${bgColor} ${textColor} text-[10px] font-bold`}>
+                                        {label}
+                                      </span>
+                                      <span className="text-[10px] font-medium text-slate-700 truncate">
+                                        {isCompleted ? "Fertig" : isInProgress ? "Läuft" : "Offen"}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Progress indicator for in-progress */}
+                                    {isInProgress && inspection && (
+                                      <div className="text-[9px] text-muted-foreground space-y-0.5">
+                                        {inspection.modelVerification && (
+                                          <div className="truncate">Modell: {inspection.modelVerification.actualModel?.slice(0, 12)}…</div>
+                                        )}
+                                        {inspection.deviceTest && (
+                                          <div className="truncate">
+                                            Tests: {[inspection.deviceTest.charging, inspection.deviceTest.power, inspection.deviceTest.wifi]
+                                              .filter(t => t?.status === 'OK').length}/3 ✓
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Completion summary */}
+                                    {isCompleted && inspection && (
+                                      <div className="text-[9px] text-muted-foreground space-y-0.5">
+                                        {inspection.isRepairable !== undefined && (
+                                          <div className="truncate">
+                                            {inspection.isRepairable ? "♻ Reparierbar" : "✗ Nicht reparierbar"}
+                                          </div>
+                                        )}
+                                        {inspection.hasFailedTests && (
+                                          <div className="truncate text-red-600 font-medium">Fehler gefunden</div>
+                                        )}
+                                        {!inspection.hasFailedTests && (
+                                          <div className="truncate text-emerald-600">Alle Tests bestanden</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )
+                              })()}
+                            </div>
+                          </button>
+
+                          {/* Ersatzteile Status */}
+                          {(() => {
+                            const eparts = (order as any)?.eParts || []
+                            const needListEntries = (order as any)?.ePartNeedListEntries || []
+                            if (eparts.length === 0 && needListEntries.length === 0) {
+                              return null
+                            }
+                            
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/orders/${order._id}#order-eparts`)
+                                }}
+                                className="rounded-md p-2 text-left transition border border-slate-200 hover:border-amber-300 hover:bg-amber-50/50"
+                                title="Zu den Ersatzteilen"
+                              >
+                                <p className="text-[9px] font-semibold uppercase text-slate-500 truncate">Teile</p>
+                                <div className="mt-0.5 space-y-1">
+                                  {(() => {
+                                    // Count by status
+                                    const used = eparts.filter((p: any) => p.status === 'used').length
+                                    const allocated = eparts.filter((p: any) => p.status === 'allocated').length
+                                    const inStock = eparts.filter((p: any) => !p.status || (p.status !== 'used' && p.status !== 'allocated')).length
+                                    const onOrder = needListEntries.length
+                                    
+                                    const totalParts = eparts.length
+                                    
+                                    return (
+                                      <>
+                                        <div className="flex items-center gap-1">
+                                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                                            {(totalParts + onOrder) > 9 ? "+" : (totalParts + onOrder)}
+                                          </span>
+                                          <span className="text-[10px] font-medium text-slate-700 truncate">
+                                            {(totalParts + onOrder) === 1 ? "1 Teil" : `${totalParts + onOrder} Teile`}
+                                          </span>
+                                        </div>
+                                        
+                                        {/* Status breakdown */}
+                                        <div className="text-[9px] text-muted-foreground space-y-0.5">
+                                          {used > 0 && (
+                                            <div className="truncate">✓ {used} verwendet</div>
+                                          )}
+                                          {allocated > 0 && (
+                                            <div className="truncate">→ {allocated} reserviert</div>
+                                          )}
+                                          {inStock > 0 && (
+                                            <div className="truncate">✓ {inStock} vorhanden</div>
+                                          )}
+                                          {onOrder > 0 && (
+                                            <div className="truncate text-amber-600">◆ {onOrder} bestellt</div>
+                                          )}
+                                        </div>
+                                      </>
+                                    )
+                                  })()}
+                                </div>
+                              </button>
+                            )
+                          })()}
+
+                          {/* Workflow Status */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/orders/${order._id}#order-workflow`)
+                            }}
+                            className="rounded-md p-2 text-left transition border border-slate-200 hover:border-purple-300 hover:bg-purple-50/50"
+                            title="Zu den Workflows"
+                          >
+                            <p className="text-[9px] font-semibold uppercase text-slate-500 truncate">Workflow</p>
+                            <div className="mt-0.5 space-y-1">
+                              {(() => {
+                                const repairWorkflow = repairWorkflowDataByOrderId[order._id]
+                                
+                                if (!repairWorkflow) {
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">-</span>
+                                      <span className="text-[10px] font-medium text-slate-600 truncate">Keine</span>
+                                    </div>
+                                  )
+                                }
+
+                                const status = repairWorkflow.status || "not-started"
+                                let statusLabel = ""
+                                let statusColor = ""
+                                let statusBgColor = ""
+                                let statusIcon = ""
+
+                                if (status === "pending-confirmation") {
+                                  statusLabel = "Freigabe erforderlich"
+                                  statusColor = "text-slate-600"
+                                  statusBgColor = "bg-slate-100"
+                                  statusIcon = "○"
+                                } else if (status === "in-progress") {
+                                  statusLabel = "In Bearbeitung"
+                                  statusColor = "text-purple-700"
+                                  statusBgColor = "bg-purple-100"
+                                  statusIcon = "→"
+                                } else if (status === "paused") {
+                                  statusLabel = "Pausiert"
+                                  statusColor = "text-amber-700"
+                                  statusBgColor = "bg-amber-100"
+                                  statusIcon = "⏸"
+                                } else if (status === "incident") {
+                                  statusLabel = "Zwischenfall"
+                                  statusColor = "text-red-700"
+                                  statusBgColor = "bg-red-100"
+                                  statusIcon = "!"
+                                } else if (status === "completed") {
+                                  statusLabel = "Fertig"
+                                  statusColor = "text-emerald-700"
+                                  statusBgColor = "bg-emerald-100"
+                                  statusIcon = "✓"
+                                }
+
+                                return (
+                                  <>
+                                    <div className="flex items-center gap-1">
+                                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${statusBgColor} ${statusColor} text-[10px] font-bold`}>
+                                        {statusIcon}
+                                      </span>
+                                      <span className="text-[10px] font-medium text-slate-700 truncate">
+                                        {statusLabel}
+                                      </span>
+                                    </div>
+
+                                    {/* Duration info */}
+                                    {repairWorkflow.timerData?.startedAt && (
+                                      <div className="text-[9px] text-muted-foreground space-y-0.5">
+                                        {status === "in-progress" && (
+                                          <>
+                                            {(() => {
+                                              const startedAt = new Date(repairWorkflow.timerData.startedAt).getTime()
+                                              const endTime = Date.now()
+                                              const totalMs = endTime - startedAt - (repairWorkflow.timerData.totalPausedMs || 0)
+                                              const hrs = Math.floor(totalMs / 3600000)
+                                              const mins = Math.floor((totalMs % 3600000) / 60000)
+                                              return (
+                                                <div className="truncate">
+                                                  ⏱ {hrs > 0 ? `${hrs}h ${mins}min` : `${mins}min`}
+                                                </div>
+                                              )
+                                            })()}
+                                            {repairWorkflow.timerData?.pauseHistory?.length > 0 && (
+                                              <div className="truncate text-amber-600">
+                                                ⏸ {repairWorkflow.timerData.pauseHistory.length}x pausiert
+                                              </div>
+                                            )}
+                                            {repairWorkflow.incidents?.length > 0 && (
+                                              <div className="truncate text-red-600">
+                                                ! {repairWorkflow.incidents.length} Zwischenfall{repairWorkflow.incidents.length > 1 ? 'e' : ''}
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+                                        {status === "paused" && (
+                                          <>
+                                            <div className="truncate">
+                                              ⏸ Pausiert seit {repairWorkflow.timerData.pausedAt 
+                                                ? new Date(repairWorkflow.timerData.pausedAt).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                                                : "—"
+                                              }
+                                            </div>
+                                            {repairWorkflow.timerData?.pauseHistory?.length > 0 && (
+                                              <div className="truncate text-amber-600">
+                                                {repairWorkflow.timerData.pauseHistory.length}x pausiert
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+                                        {status === "incident" && (
+                                          <div className="truncate text-red-600">
+                                            {repairWorkflow.incidents?.length || 1} Zwischenfall{(repairWorkflow.incidents?.length || 1) > 1 ? 'e' : ''}
+                                          </div>
+                                        )}
+                                        {status === "completed" && (
+                                          <div className="truncate text-emerald-600">
+                                            Fertig: {new Date(repairWorkflow.timerData.completedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )
+                              })()}
+                            </div>
+                          </button>
+                        </div>
+
+                        <div className="mt-2 space-y-2">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm">
+                            <div className="flex gap-2">
+                              {deviceImage ? (
+                                <img
+                                  src={deviceImage}
+                                  alt={`${order.deviceBrand || ""} ${order.deviceModel || ""}`.trim() || "Gerät"}
+                                  className="h-14 w-14 shrink-0 rounded-md border border-slate-200 bg-white object-cover shadow-sm"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = "none"
+                                    const fallback = event.currentTarget.nextElementSibling as HTMLElement | null
+                                    if (fallback) fallback.style.display = "flex"
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-slate-200 text-slate-500"
+                                style={{ display: deviceImage ? "none" : "flex" }}
+                              >
+                                <Smartphone className="h-6 w-6" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Geräteinformationen</p>
+                                <p className="mt-0.5 truncate text-xs font-semibold text-foreground">{getDeviceLabel(order)}</p>
+                                <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Repair Services</p>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {visibleServices.length > 0 ? (
+                                    <>
+                                      {visibleServices.map((serviceLabel, index) => (
+                                        <Badge
+                                          key={`${order._id}-device-service-${index}`}
+                                          variant="outline"
+                                          className="border-blue-300 bg-white/90 px-2 py-0.5 text-[10px] font-medium text-blue-900"
+                                        >
+                                          {serviceLabel}
+                                        </Badge>
+                                      ))}
+                                      {hiddenServicesCount > 0 && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                                        >
+                                          +{hiddenServicesCount}
+                                        </Badge>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <p className="text-xs font-medium text-muted-foreground">Kein Service hinterlegt</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {pendingDuration && (
+                            <Badge className="bg-amber-500 text-white hover:bg-amber-500">
+                              Pending seit {pendingDuration}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-2 flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            className={`relative inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${hasCustomerReply
+                              ? "border-green-300 bg-green-50 text-green-700 hover:bg-green-100"
+                              : hasPendingCustomerResponse
+                                ? "border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                                : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
+                            title={hasCustomerReply
+                              ? `Kundenantwort eingegangen (${unreadCount})`
+                              : hasPendingCustomerResponse
+                              ? `Kundenantwort erwartet (${pendingFeedbackCount})`
+                              : "Kundenkommunikation öffnen"
+                            }
+                            aria-label={hasCustomerReply
+                              ? `Kundenantwort eingegangen (${unreadCount})`
+                              : hasPendingCustomerResponse
+                              ? `Kundenantwort erwartet (${pendingFeedbackCount})`
+                              : "Kundenkommunikation öffnen"
+                            }
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              openCommunicationDialog(order)
+                            }}
+                          >
+                            <MessageSquare className={`h-3.5 w-3.5 ${hasPendingCustomerResponse || hasCustomerReply ? "animate-pulse" : ""}`} />
+                            {(hasCustomerReply || hasPendingCustomerResponse) && (
+                              <span className={`absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-4 text-white ${hasCustomerReply ? "bg-green-600" : "bg-amber-500"}`}>
+                                {(hasCustomerReply ? unreadCount : pendingFeedbackCount) > 99 ? "99+" : (hasCustomerReply ? unreadCount : pendingFeedbackCount)}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                            title="Auftrag öffnen"
+                            aria-label="Auftrag öffnen"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              navigate(`/orders/${order._id}`)
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">{order.customerId?.name || "Unbekannt"}</p>
-                      <p className="text-xs text-muted-foreground">{order.deviceBrand || "-"} {order.deviceModel || ""}</p>
-                      <div className="mt-2 flex justify-end">
-                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                    </button>
-                  ))
+                    )
+                  })
                 )}
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={communicationDialogOpen && !!selectedCommunicationOrder}
+        onOpenChange={(open) => {
+          setCommunicationDialogOpen(open)
+          if (!open) {
+            setSelectedCommunicationOrder(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle className="sr-only">Kundenkommunikation</DialogTitle>
+            <DialogDescription className="sr-only">
+              Kundenkommunikation des ausgewählten Auftrags einsehen und verwalten.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedCommunicationOrder && (
+            <div className="px-6 pb-6">
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-medium text-sm">Kundenkommunikation</h4>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {selectedCommunicationOrder.orderNumber}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Kundenfeedback, Anfragen und Rückfragen zentral verwalten.
+                </p>
+                <div className="rounded-lg border p-2 bg-background">
+                  <CommunicationPanel
+                    orderId={selectedCommunicationOrder.orderId}
+                    inspectionId={selectedCommunicationOrder.orderId}
+                    entityType="order"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
