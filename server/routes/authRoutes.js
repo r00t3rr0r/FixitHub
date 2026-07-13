@@ -14,9 +14,38 @@ const {
   setAuthCookies,
   clearAuthCookies,
 } = require('../utils/authCookies');
+const { createRateLimitMiddleware, getClientIp } = require('./middleware/rateLimit');
 
 const router = express.Router();
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
+const isValidEmail = (value) => /^\S+@\S+\.\S+$/.test(value);
+const getJwtSecret = () => process.env.JWT_SECRET;
+const getRefreshJwtSecret = () => process.env.REFRESH_TOKEN_SECRET;
+
+const authLoginRateLimit = createRateLimitMiddleware({
+  key: 'auth-login',
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 8,
+  keyGenerator: (req) => `${getClientIp(req)}:${normalizeEmailAddress(req.body?.email || '')}`,
+  message: 'Zu viele Login-Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.',
+});
+
+const authSensitiveRateLimit = createRateLimitMiddleware({
+  key: 'auth-sensitive',
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 10,
+  keyGenerator: (req) => `${getClientIp(req)}:${normalizeEmailAddress(req.body?.email || '')}`,
+  message: 'Zu viele sicherheitsrelevante Anfragen. Bitte versuchen Sie es spaeter erneut.',
+});
+
+const refreshRateLimit = createRateLimitMiddleware({
+  key: 'auth-refresh',
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 30,
+  keyGenerator: (req) => getClientIp(req),
+  message: 'Zu viele Token-Aktualisierungen. Bitte versuchen Sie es spaeter erneut.',
+});
+
 const serializeAuthUser = (user) => ({
   _id: user._id,
   email: user.email,
@@ -25,7 +54,7 @@ const serializeAuthUser = (user) => ({
   role: user.role,
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLoginRateLimit, async (req, res) => {
   console.log('Login request received:', { 
     body: { email: req.body.email, password: '[HIDDEN]' }, 
     headers: { 
@@ -45,6 +74,10 @@ router.post('/login', async (req, res) => {
 
   const { email, password, rememberMe = false } = req.body;
   const normalizedEmail = normalizeEmailAddress(email);
+
+  if (!isValidEmail(normalizedEmail)) {
+    return sendError('Please provide a valid email address');
+  }
 
   if (!normalizedEmail || !password) {
     console.log('Missing email or password');
@@ -156,8 +189,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/register', async (req, res, next) => {
-  console.log('Register request received:', { body: req.body });
+router.post('/register', authSensitiveRateLimit, async (req, res, next) => {
+  console.log('Register request received:', {
+    body: {
+      ...req.body,
+      password: req.body?.password ? '[HIDDEN]' : undefined,
+    }
+  });
 
   if (req.user) {
     console.log('User already logged in, returning user');
@@ -165,8 +203,12 @@ router.post('/register', async (req, res, next) => {
   }
 
   try {
-    const { email, password, firstName, lastName, phone, role } = req.body;
+    const { email, password, firstName, lastName, phone } = req.body;
     const normalizedEmail = normalizeEmailAddress(email);
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
 
     let user;
     const existingUser = await UserService.getByEmail(normalizedEmail);
@@ -201,7 +243,7 @@ router.post('/register', async (req, res, next) => {
         firstName: firstName || '',
         lastName: lastName || '',
         phone: phone || '',
-        role: role || 'customer',
+        role: 'customer',
         status: 'inactive', // New users start as inactive until email is verified
         isActive: false
       });
@@ -211,9 +253,14 @@ router.post('/register', async (req, res, next) => {
 
     // Send registration email with template
     try {
+      const jwtSecret = getJwtSecret();
+      if (!jwtSecret) {
+        throw new Error('JWT secret is not configured');
+      }
+
       const verificationToken = jwt.sign(
         { userId: user._id, email: user.email },
-        process.env.JWT_SECRET || 'default_secret',
+        jwtSecret,
         { expiresIn: '7d' }
       );
       
@@ -267,7 +314,7 @@ router.post('/logout', async (req, res) => {
 });
 
 // Verify email and activate account endpoint
-router.post('/verify-email', async (req, res) => {
+router.post('/verify-email', authSensitiveRateLimit, async (req, res) => {
   const requestId = `verify-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const dbName = mongoose?.connection?.name || mongoose?.connection?.db?.databaseName || 'unknown';
   console.log(`[${requestId}] Verify email request received (env=${process.env.NODE_ENV || 'unknown'}, db=${dbName})`);
@@ -286,9 +333,20 @@ router.post('/verify-email', async (req, res) => {
 
     let decoded;
     try {
+      const jwtSecret = getJwtSecret();
+      if (!jwtSecret) {
+        console.error(`[${requestId}] JWT secret missing`);
+        return res.status(500).json({
+          success: false,
+          code: 'CONFIG_ERROR',
+          message: 'Server authentication configuration is invalid.'
+        });
+      }
+
       decoded = jwt.verify(
         token,
-        process.env.JWT_SECRET || 'default_secret'
+        jwtSecret,
+        { algorithms: ['HS256'] }
       );
     } catch (verifyError) {
       console.error(`[${requestId}] Token verification failed (${verifyError.name}): ${verifyError.message}`);
@@ -375,7 +433,7 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshRateLimit, async (req, res) => {
   console.log('Token refresh request received');
 
   const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
@@ -389,8 +447,17 @@ router.post('/refresh', async (req, res) => {
   }
 
   try {
+    const refreshSecret = getRefreshJwtSecret();
+    if (!refreshSecret) {
+      console.error('Token refresh rejected: REFRESH_TOKEN_SECRET missing');
+      return res.status(500).json({
+        success: false,
+        message: 'Server authentication configuration is invalid'
+      });
+    }
+
     // Verify the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const decoded = jwt.verify(refreshToken, refreshSecret, { algorithms: ['HS256'] });
     console.log('Refresh token verified for user:', decoded.sub);
 
     // Find the user
@@ -477,13 +544,17 @@ router.get('/password-policy', async (req, res) => {
  * POST /api/auth/forgot-password
  * Send password reset email to user
  */
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', authSensitiveRateLimit, async (req, res) => {
   console.log('Forgot password request received');
 
   const email = (req.body?.email || '').trim().toLowerCase();
 
   if (!email) {
     return res.status(400).json({ success: false, message: 'Email is required' });
+  }
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
   }
 
   try {
@@ -546,7 +617,7 @@ router.post('/forgot-password', async (req, res) => {
  * POST /api/auth/reset-password
  * Reset user password with token
  */
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', authSensitiveRateLimit, async (req, res) => {
   console.log('Reset password request received');
 
   const { token, newPassword, confirmPassword } = req.body;
