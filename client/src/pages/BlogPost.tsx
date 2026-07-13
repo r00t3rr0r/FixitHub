@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { useParams, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -142,6 +143,82 @@ export function BlogPostPage() {
 
   return (
     <section className="section py-4 sm:py-6">
+      {(() => {
+        const BASE_URL = 'https://www.mcrepair.de'
+        const seoTitle = post.seoTitle || post.title
+        const rawDesc = post.seoDescription || post.excerpt
+        const seoDesc = rawDesc.length > 160
+          ? rawDesc.slice(0, 157).replace(/\s+\S*$/, '') + '…'
+          : rawDesc
+        const categoryName = post.category?.name || 'Allgemein'
+        const canonicalPath = `/blog/${post.slug || post._id}`
+        const canonicalUrl = `${BASE_URL}${canonicalPath}`
+        const imageUrl = post.featuredImage || `${BASE_URL}/og-default.jpg`
+        const publishedAt = post.publishedAt || post.createdAt
+        const tagNames = post.tags.map((t) => (typeof t === 'string' ? t : t.name))
+        const keywords = post.seoKeywords?.length
+          ? post.seoKeywords.join(', ')
+          : tagNames.join(', ')
+
+        // Estimate word count from HTML content (strip tags)
+        const wordCount = post.content
+          ? post.content.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length
+          : undefined
+
+        const blogPostingSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: seoTitle.slice(0, 110),
+          description: seoDesc,
+          image: imageUrl,
+          url: canonicalUrl,
+          mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
+          datePublished: publishedAt,
+          dateModified: post.updatedAt || publishedAt,
+          author: {
+            '@type': 'Person',
+            name: post.author.name,
+            description: post.author.bio || undefined,
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'McRepair.de',
+            logo: { '@type': 'ImageObject', url: `${BASE_URL}/logo.png` },
+          },
+          articleSection: categoryName,
+          keywords: keywords || undefined,
+          ...(wordCount ? { wordCount } : {}),
+          ...(post.readTime ? { timeRequired: `PT${post.readTime}M` } : {}),
+        }
+
+        const breadcrumbSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
+            { '@type': 'ListItem', position: 2, name: 'Blog', item: `${BASE_URL}/blog` },
+            { '@type': 'ListItem', position: 3, name: seoTitle.slice(0, 80), item: canonicalUrl },
+          ],
+        }
+
+        return (
+          <SEO
+            title={`${seoTitle.slice(0, 60)} – McRepair.de Blog`}
+            description={seoDesc}
+            canonical={canonicalPath}
+            ogType="article"
+            ogImage={imageUrl}
+            ogImageAlt={post.title}
+            keywords={keywords || undefined}
+            publishedTime={publishedAt}
+            modifiedTime={post.updatedAt || publishedAt}
+            articleAuthor={post.author.name}
+            articleSection={categoryName}
+            articleTags={tagNames.length ? tagNames : undefined}
+            jsonLd={[blogPostingSchema, breadcrumbSchema]}
+          />
+        )
+      })()}
       <div className="container max-w-4xl">
         <Button
           variant="ghost"
@@ -171,6 +248,7 @@ export function BlogPostPage() {
                 src={post.featuredImage}
                 alt={post.title}
                 className="h-full w-full object-cover"
+                decoding="async"
               />
             ) : (
               <div className="flex h-full items-center justify-center text-slate-400">

@@ -1,6 +1,7 @@
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { HelmetProvider } from 'react-helmet-async'
 import './styles/tokens.css'
 import './index.css'
 import './mcrepair-global.css'
@@ -17,7 +18,9 @@ initMcRepair();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
   </StrictMode>,
 )
 

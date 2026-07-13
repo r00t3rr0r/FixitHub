@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SEO } from '@/components/SEO'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '@/components/home/TopBar'
 import { McRepairNav } from '@/components/home/McRepairNav'
@@ -48,6 +49,12 @@ export function OrderSuccessPage() {
 
   return (
     <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <SEO
+        title="Bestellung erfolgreich – McRepair.de"
+        description="Vielen Dank für Ihre Bestellung! Alle Details finden Sie in Ihrer Bestätigungs-E-Mail. McRepair.de kümmert sich um Ihren Auftrag."
+        canonical="/order-success"
+        noindex={true}
+      />
       <TopBar />
       <McRepairNav />
 

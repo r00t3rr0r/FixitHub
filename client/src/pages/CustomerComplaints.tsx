@@ -1,4 +1,5 @@
  import { useState, useEffect } from "react"
+import { SEO } from '@/components/SEO'
 import { formatEUR } from '@/lib/utils'
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
@@ -368,6 +369,12 @@ export function CustomerComplaints() {
   /* ────────────────────── RENDER ────────────────────── */
   return (
     <div className="customer-complaints">
+      <SEO
+        title="Meine Reklamationen – McRepair.de"
+        description="Reklamation einreichen oder bestehende Vorgänge verfolgen. Zuverlässige Bearbeitung durch das McRepair.de-Team im Kundenportal."
+        canonical="/my-complaints"
+        noindex={true}
+      />
       {/* ── Page Header ── */}
       <div className="mb-8 w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
         <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">

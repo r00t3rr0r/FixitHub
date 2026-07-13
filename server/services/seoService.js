@@ -141,28 +141,33 @@ class SEOService {
     console.log('SEOService: Generating sitemap data');
 
     try {
-      // Mock sitemap data - in real app this would generate from actual pages
-      const sitemapData = [
-        {
-          url: '/',
-          lastModified: new Date(),
-          changeFrequency: 'daily',
-          priority: 1.0
-        },
-        {
-          url: '/shop',
-          lastModified: new Date(),
-          changeFrequency: 'daily',
-          priority: 0.8
-        },
-        {
-          url: '/blog',
-          lastModified: new Date(),
-          changeFrequency: 'weekly',
-          priority: 0.7
-        }
+      const staticPages = [
+        { url: '/', lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
+        { url: '/shop', lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+        { url: '/new-order', lastModified: new Date(), changeFrequency: 'weekly', priority: 0.9 },
+        { url: '/faq', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+        { url: '/blog', lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+        { url: '/about', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+        { url: '/kontakt', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
       ];
 
+      // Include individual product pages
+      let productPages = [];
+      try {
+        const Product = require('../models/Product');
+        const products = await Product.find({ isActive: true }).select('_id updatedAt').lean();
+        productPages = products.map((p) => ({
+          url: `/shop/product/${p._id}`,
+          lastModified: p.updatedAt || new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.75,
+        }));
+        console.log('SEOService: Added', productPages.length, 'product URLs to sitemap');
+      } catch (err) {
+        console.warn('SEOService: Could not load products for sitemap:', err.message);
+      }
+
+      const sitemapData = [...staticPages, ...productPages];
       console.log('SEOService: Generated sitemap with', sitemapData.length, 'URLs');
       return sitemapData;
     } catch (error) {

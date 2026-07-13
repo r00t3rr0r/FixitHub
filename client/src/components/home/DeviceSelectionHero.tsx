@@ -66,8 +66,8 @@ export function DeviceSelectionHero({
                 className="hero-helper-card"
                 style={{ textDecoration: 'none', color: 'inherit', flex: '1 1 100%', width: '100%' }}
               >
-                <h4>Gerät nicht dabei? Reparatur nicht gefunden?</h4>
-                <p style={{ whiteSpace: 'nowrap' }}>Stellen Sie uns eine individuelle Reparaturanfrage über unser Reparaturanfrageformular.</p>
+                <h4>Individuelle Smartphone Reparatur anfragen</h4>
+                <p style={{ whiteSpace: 'nowrap' }}>Gerät nicht gefunden? Senden Sie uns eine Reparaturanfrage – wir helfen Ihnen weiter.</p>
               </Link>
             </div>
 

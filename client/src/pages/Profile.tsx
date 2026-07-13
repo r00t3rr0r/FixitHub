@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -289,6 +290,12 @@ export function Profile() {
 
   return (
     <>
+    <SEO
+      title="Mein Profil – McRepair.de Kundenportal"
+      description="Verwalten Sie Ihre persönlichen Daten, Passwort und Kommunikationseinstellungen im McRepair.de Kundenportal."
+      canonical="/profile"
+      noindex={true}
+    />
     {/* DHL Location Finder Dialog */}
     <Dialog open={dhlFinderOpen} onOpenChange={(v) => { setDhlFinderOpen(v); if (!v) { setDhlFinderResults([]); setDhlFinderError("") } }}>
       <DialogContent className="max-h-[80vh] w-[96vw] max-w-md overflow-hidden rounded-xl border border-[#d8dce6] p-0 [&>button]:text-[#5f6d86]">

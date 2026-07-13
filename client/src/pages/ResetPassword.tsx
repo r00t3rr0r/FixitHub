@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/useToast'
+import { SEO } from '@/components/SEO'
 
 interface PasswordPolicy {
   minLength: number
@@ -131,9 +132,16 @@ export function ResetPassword() {
   }
 
   return (
-    <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <TopBar />
-      <McRepairNav />
+    <>
+      <SEO
+        title="Passwort zurücksetzen"
+        description="Setzen Sie Ihr McRepair.de Passwort sicher zurück und stellen Sie den Zugang zu Ihrem Kundenkonto wieder her."
+        canonical="/reset-password"
+        noindex
+      />
+      <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <TopBar />
+        <McRepairNav />
 
       <section style={{ flex: 1, padding: '80px 24px', maxWidth: '720px', width: '100%', margin: '0 auto' }}>
         <Card className="w-full shadow-xl border-0" style={{ borderRadius: 'var(--radius-lg)' }}>
@@ -224,7 +232,8 @@ export function ResetPassword() {
         </Card>
       </section>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </>
   )
 }

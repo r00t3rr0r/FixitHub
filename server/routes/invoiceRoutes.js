@@ -376,7 +376,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
       params.append('line_items[0][price_data][currency]', currency);
       params.append('line_items[0][price_data][unit_amount]', String(Math.round(numericAmount * 100)));
       params.append('line_items[0][price_data][product_data][name]', `Invoice ${invoice.invoiceNumber}`);
-      params.append('line_items[0][price_data][product_data][description]', 'Invoice payment via FixitHub');
+      params.append('line_items[0][price_data][product_data][description]', 'Invoice payment via McRepair.de');
       params.append('metadata[invoiceId]', String(invoice._id));
       params.append('metadata[invoiceNumber]', invoice.invoiceNumber);
       params.append('metadata[userId]', String(req.user._id));
@@ -433,7 +433,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
             return_url: returnUrl,
             cancel_url: cancelUrl,
             user_action: 'PAY_NOW',
-            brand_name: 'FixitHub'
+            brand_name: 'McRepair.de'
           }
         },
         {

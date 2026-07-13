@@ -1171,17 +1171,17 @@ export function SystemConfiguration() {
                           estimatedCost: '89,00 €',
                           totalAmount: '89,00 €',
                           amountPaid: '89,00 €',
-                          technician: 'FixitHub Service',
+                          technician: 'McRepair.de Service',
                           notes: 'Ihr Gerät wird gerade geprüft.',
                           completionDate: new Date().toLocaleDateString('de-DE'),
-                          shopName: 'FixitHub',
+                          shopName: 'McRepair.de',
                           shopAddress: 'Musterstraße 1, 12345 Musterstadt',
-                          supportEmail: 'support@fixithub.de',
+                          supportEmail: 'support@mcrepair.de',
                           supportPhone: '+49 123 456789',
-                          trackingUrl: 'https://fixithub.de/tracking/REP-2026-0001',
-                          verificationUrl: 'https://fixithub.de/verify/example-token',
-                          passwordResetUrl: 'https://fixithub.de/reset/example-token',
-                          invoiceUrl: 'https://fixithub.de/invoice/INV-2026-0001',
+                          trackingUrl: 'https://mcrepair.de/tracking/REP-2026-0001',
+                          verificationUrl: 'https://mcrepair.de/verify/example-token',
+                          passwordResetUrl: 'https://mcrepair.de/reset/example-token',
+                          invoiceUrl: 'https://mcrepair.de/invoice/INV-2026-0001',
                         };
                         // Replace all {{variable}} placeholders
                         return content.replace(/{{(\w+)}}/g, (match, key) => sampleValues[key] || `[${key}]`);
@@ -1663,7 +1663,7 @@ export function SystemConfiguration() {
                     <Label htmlFor="heroTitle">Hero Title</Label>
                     <Input
                       id="heroTitle"
-                      placeholder="Welcome to FixitHub"
+                      placeholder="Welcome to McRepair.de"
                       defaultValue="Professional Device Repair Services"
                     />
                   </div>
@@ -1893,7 +1893,7 @@ export function SystemConfiguration() {
                     <Input
                       id="blogMetaTitle"
                       placeholder="{{title}} | {{siteName}}"
-                      defaultValue="{{title}} - FixitHub Blog"
+                      defaultValue="{{title}} - McRepair.de Blog"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1901,7 +1901,7 @@ export function SystemConfiguration() {
                     <Input
                       id="blogMetaDescription"
                       placeholder="{{excerpt}}"
-                      defaultValue="Read {{title}} on FixitHub blog. {{excerpt}}"
+                      defaultValue="Read {{title}} on McRepair.de blog. {{excerpt}}"
                     />
                   </div>
                 </div>
@@ -2293,8 +2293,8 @@ export function SystemConfiguration() {
                   <Input
                     id="approvalNotifyEmail"
                     type="email"
-                    placeholder="content@fixithub.com"
-                    defaultValue="admin@fixithub.com"
+                    placeholder="content@mcrepair.de"
+                    defaultValue="admin@mcrepair.de"
                   />
                 </div>
               </div>
@@ -2320,7 +2320,7 @@ export function SystemConfiguration() {
                     <Input
                       id="seoTitle"
                       placeholder="{{title}} | {{siteName}}"
-                      defaultValue="{{title}} - FixitHub"
+                      defaultValue="{{title}} - McRepair.de"
                     />
                   </div>
                   <div className="space-y-2">
@@ -2393,7 +2393,7 @@ export function SystemConfiguration() {
                     <Label htmlFor="cdnUrl">CDN URL</Label>
                     <Input
                       id="cdnUrl"
-                      placeholder="https://cdn.fixithub.com"
+                      placeholder="https://cdn.mcrepair.de"
                     />
                   </div>
                 </div>

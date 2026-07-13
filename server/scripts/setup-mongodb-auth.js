@@ -3,7 +3,7 @@
 /**
  * MongoDB Authentication Setup Script
  *
- * This script helps set up MongoDB authentication for the FixitHub application.
+ * This script helps set up MongoDB authentication for the McRepair.de application.
  * It provides multiple options for configuring MongoDB credentials.
  */
 
@@ -88,13 +88,13 @@ async function updateEnvFile(databaseUrl) {
 
 async function main() {
   console.log('╔═══════════════════════════════════════════════════════╗');
-  console.log('║   MongoDB Authentication Setup for FixitHub          ║');
+  console.log('║   MongoDB Authentication Setup for McRepair.de          ║');
   console.log('╚═══════════════════════════════════════════════════════╝\n');
 
   console.log('This script will help you configure MongoDB authentication.\n');
   console.log('Options:');
   console.log('1. Use existing MongoDB with authentication');
-  console.log('2. Create a new MongoDB user for FixitHub');
+  console.log('2. Create a new MongoDB user for McRepair.de');
   console.log('3. Use MongoDB without authentication (development only)');
   console.log('4. Exit\n');
 
@@ -107,7 +107,7 @@ async function main() {
       const port = await question('MongoDB port (default: 27017): ') || '27017';
       const username = await question('MongoDB username: ');
       const password = await question('MongoDB password: ');
-      const database = await question('Database name (default: FixitHub): ') || 'FixitHub';
+      const database = await question('Database name (default: McRepair.de): ') || 'McRepair.de';
       const authSource = await question('Auth source (default: admin): ') || 'admin';
 
       const connectionString = `mongodb://${username}:${password}@${host}:${port}/${database}?authSource=${authSource}`;
@@ -124,7 +124,7 @@ async function main() {
     }
 
     case '2': {
-      console.log('\n📝 Creating a new MongoDB user for FixitHub:\n');
+      console.log('\n📝 Creating a new MongoDB user for McRepair.de:\n');
       console.log('⚠️  Note: You need admin access to MongoDB to create users.\n');
 
       const host = await question('MongoDB host (default: localhost): ') || 'localhost';
@@ -132,9 +132,9 @@ async function main() {
       const adminUsername = await question('MongoDB admin username (default: admin): ') || 'admin';
       const adminPassword = await question('MongoDB admin password: ');
 
-      const newUsername = await question('New username for FixitHub (default: fixithub): ') || 'fixithub';
-      const newPassword = await question('New password for FixitHub: ');
-      const database = await question('Database name (default: FixitHub): ') || 'FixitHub';
+      const newUsername = await question('New username for McRepair.de (default: fixithub): ') || 'fixithub';
+      const newPassword = await question('New password for McRepair.de: ');
+      const database = await question('Database name (default: McRepair.de): ') || 'McRepair.de';
 
       const adminConnectionString = `mongodb://${adminUsername}:${adminPassword}@${host}:${port}/admin?authSource=admin`;
 
@@ -157,7 +157,7 @@ async function main() {
       console.log('\n⚠️  Using MongoDB without authentication (development only):\n');
       const host = await question('MongoDB host (default: localhost): ') || 'localhost';
       const port = await question('MongoDB port (default: 27017): ') || '27017';
-      const database = await question('Database name (default: FixitHub): ') || 'FixitHub';
+      const database = await question('Database name (default: McRepair.de): ') || 'McRepair.de';
 
       const connectionString = `mongodb://${host}:${port}/${database}`;
 

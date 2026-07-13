@@ -218,7 +218,7 @@ class BookingService {
       'BT',
       '/F1 18 Tf',
       '50 770 Td',
-      '(FixitHub DHL Dummy Shipping Label) Tj',
+      '(McRepair.de DHL Dummy Shipping Label) Tj',
       '0 -28 Td',
       '/F1 12 Tf',
       `(Booking: ${this.escapePdfText(booking.bookingNumber || String(booking._id))}) Tj`,
@@ -290,7 +290,7 @@ class BookingService {
       events: [
         {
           timestamp: createdAt,
-          location: 'FixitHub',
+          location: 'McRepair.de',
           status: 'label-created',
           description: 'Dummy DHL shipping label prepared for booking creation',
         },
@@ -549,7 +549,7 @@ class BookingService {
             deviceModel: primaryDevice.deviceModel,
             bookingUrl: await EmailService.buildSystemUrl('/bookings'),
             shippingLabelUrl,
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           }, emailOptions);
         } catch (notificationError) {
@@ -686,13 +686,13 @@ class BookingService {
       receiverCountry: receiverAddress.country,
       receiverEmail,
       receiverPhone,
-      shipperName: dhlConfig?.settings?.shipperCompany || shipper.company || 'FixitHub GmbH',
+      shipperName: dhlConfig?.settings?.shipperCompany || shipper.company || 'McRepair.de GmbH',
       shipperStreet: dhlConfig?.settings?.shipperStreet || shipper.street || 'Company Street',
       shipperNumber: dhlConfig?.settings?.shipperNumber || shipper.number || '1',
       shipperCity: dhlConfig?.settings?.shipperCity || shipper.city || 'Berlin',
       shipperPostalCode: dhlConfig?.settings?.shipperPostalCode || shipper.postalCode || '10115',
       shipperCountry: dhlConfig?.settings?.shipperCountry || shipper.country || 'DE',
-      shipperEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@fixithub.com',
+      shipperEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
       shipperPhone: dhlConfig?.settings?.shipperPhone || shipper.phone || '+49301234567',
       profile: dhlConfig?.settings?.profile || dhlConfig?.metadata?.profile || parcelDeConfig.profile,
       product: dhlConfig?.settings?.product || dhlConfig?.metadata?.product || parcelDeConfig.product,
@@ -1384,7 +1384,7 @@ class BookingService {
             workshopAddress: process.env.WORKSHOP_ADDRESS || 'Service Center',
             readySince: new Date().toLocaleDateString('de-DE'),
             holdUntil: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('de-DE'),
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
         } catch (notificationError) {
@@ -1515,7 +1515,7 @@ class BookingService {
             cancelledAt: new Date().toLocaleDateString('de-DE'),
             cancelledBy: 'System',
             newBookingUrl: await EmailService.buildSystemUrl('/bookings/new'),
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
         } catch (notificationError) {
@@ -2104,7 +2104,7 @@ class BookingService {
               dueDate: new Date(savedInvoice.dueDate).toLocaleDateString('de-DE'),
               paymentMethod: savedInvoice.paymentMethod || 'Ueberweisung',
               invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${savedInvoice._id}`),
-              supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+              supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
               supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
             });
           } catch (notificationError) {

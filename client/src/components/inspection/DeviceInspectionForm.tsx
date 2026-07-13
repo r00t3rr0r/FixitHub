@@ -1217,7 +1217,7 @@ export function DeviceInspectionForm({
       'Bitte teilen Sie uns mit, wie wir weiter vorgehen sollen.',
       '',
       'Viele Gruesse',
-      'Ihr FixitHub Team',
+      'Ihr McRepair.de Team',
     ].filter(Boolean).join('\n');
 
     try {

@@ -611,7 +611,7 @@ class EmailService {
       const emailHtml = this.buildGuestOrderConfirmationEmail(orderData, trackingUrl);
 
       const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@fixithub.com',
+        from: process.env.SMTP_FROM || 'noreply@mcrepair.de',
         to: orderData.guestEmail,
         subject: `Buchungsbestaetigung - ${orderData.orderNumbers.join(', ')}`,
         html: emailHtml,
@@ -760,10 +760,10 @@ class EmailService {
       <p>Wenn Sie Fragen haben, kontaktieren Sie bitte jederzeit unser Support-Team.</p>
 
       <p>Freundliche Gruesse,<br>
-      Ihr FixitHub Team</p>
+      Ihr McRepair.de Team</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} FixitHub. Alle Rechte vorbehalten.</p>
+      <p>&copy; ${new Date().getFullYear()} McRepair.de. Alle Rechte vorbehalten.</p>
       <p>Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese Nachricht.</p>
     </div>
   </div>
@@ -800,10 +800,10 @@ Wichtig: Bitte bewahren Sie diese E-Mail auf!
 Wenn Sie Fragen haben, kontaktieren Sie bitte unser Support-Team.
 
 Freundliche Gruesse,
-Ihr FixitHub Team
+Ihr McRepair.de Team
 
 ---
-© ${new Date().getFullYear()} FixitHub. Alle Rechte vorbehalten.
+© ${new Date().getFullYear()} McRepair.de. Alle Rechte vorbehalten.
 Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese Nachricht.
     `;
   }
@@ -896,12 +896,12 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       const operation = async () => {
         const transporter = await this.getTransporter();
         const mailOptions = {
-          from: process.env.SMTP_FROM || 'noreply@fixithub.com',
+          from: process.env.SMTP_FROM || 'noreply@mcrepair.de',
           to: toEmail,
           subject: rendered.subject,
           html: rendered.content,
           text: rendered.text,
-          replyTo: process.env.SUPPORT_EMAIL || 'support@fixithub.com'
+          replyTo: process.env.SUPPORT_EMAIL || 'support@mcrepair.de'
         };
 
         if (options.attachments && Array.isArray(options.attachments) && options.attachments.length > 0) {
@@ -1011,7 +1011,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       customerName,
       customerEmail: toEmail,
       verificationUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1026,7 +1026,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       customerEmail: toEmail,
       passwordResetUrl,
       resetExpiresAt,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1046,7 +1046,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       serviceName: orderData.serviceName,
       estimatedCompletion: orderData.estimatedCompletion,
       trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1067,7 +1067,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       deviceCondition: orderData.deviceCondition || 'Wird im Bericht beschrieben',
       recommendedAction: orderData.recommendedAction || (orderData.isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen'),
       orderUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1085,7 +1085,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       statusMessage: orderData.statusMessage,
       statusUpdatedAt: new Date(orderData.statusUpdatedAt || Date.now()).toLocaleDateString('de-DE'),
       trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1103,7 +1103,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       deviceModel: orderData.deviceModel,
       receivedAt: new Date(orderData.receivedAt || Date.now()).toLocaleDateString('de-DE'),
       trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1123,7 +1123,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       quoteAmount: this.formatCurrencyEUR(orderData.quoteAmount || 0),
       approvalDeadline: orderData.approvalDeadline || 'innerhalb von 5 Werktagen',
       approvalUrl: orderData.approvalUrl || defaultApprovalUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1142,7 +1142,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       returnShipmentStatus: orderData.returnShipmentStatus || 'versendet',
       returnTrackingNumber: orderData.returnTrackingNumber || 'Sendungsdaten werden in Kuerze aktualisiert',
       trackingUrl: orderData.trackingUrl || defaultTrackingUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1169,7 +1169,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       }),
       invoiceNumber: paymentData.invoiceNumber,
       invoiceUrl: paymentData.invoiceUrl || defaultInvoiceUrl,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
   }
@@ -1197,7 +1197,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
     };
 
     const subjectLabel = subjectLabels[contactData.subject] || subjectLabels.other;
-    const supportEmail = process.env.SUPPORT_EMAIL || 'support@fixithub.com';
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@mcrepair.de';
     const supportPhone = process.env.SUPPORT_PHONE || '+49 (0) 123/456789';
     const contactUrl = await this.buildSystemUrl('/contact');
 

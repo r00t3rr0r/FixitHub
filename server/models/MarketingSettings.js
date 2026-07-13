@@ -4,7 +4,7 @@ const marketingSettingsSchema = new mongoose.Schema(
   {
     defaultFromName: {
       type: String,
-      default: 'FixitHub Marketing',
+      default: 'McRepair.de Marketing',
       trim: true,
       maxlength: 160,
     },

@@ -3,7 +3,7 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // Add startup logging
-console.log('=== FixitHub Server Starting ===');
+console.log('=== McRepair.de Server Starting ===');
 console.log('Environment variables check:');
 console.log('- PORT:', process.env.PORT || 3000);
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Missing');
@@ -185,6 +185,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve public assets (including brand logos)
 app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
+
+// Serve robots.txt from frontend public folder for crawlers hitting backend directly
+app.get('/robots.txt', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/public/robots.txt'));
+});
 
 // Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
@@ -389,6 +394,158 @@ app.use('/api/proxy', proxyRoutes);
 const dhlRoutes = require('./routes/dhlRoutes');
 app.use('/api/dhl', dhlRoutes);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC XML SITEMAP  –  /sitemap.xml
+// Dynamically generated from device types / manufacturers / models.
+// ─────────────────────────────────────────────────────────────────────────────
+const DeviceService = require('./services/deviceService');
+
+function toSitemapSlug(str) {
+  return String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[äÄ]/g, 'ae')
+    .replace(/[öÖ]/g, 'oe')
+    .replace(/[üÜ]/g, 'ue')
+    .replace(/[ß]/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+let sitemapCache = null;
+let sitemapCacheAt = 0;
+const SITEMAP_CACHE_TTL = 15 * 60 * 1000; // 15 min
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const configuredBaseUrl = (
+      process.env.PUBLIC_SITE_URL ||
+      process.env.SITE_URL ||
+      process.env.CLIENT_URL ||
+      ''
+    ).replace(/\/$/, '');
+    const configuredIsLocal = /localhost|127\.0\.0\.1/i.test(configuredBaseUrl);
+    const BASE_URL =
+      !configuredBaseUrl || (process.env.NODE_ENV === 'production' && configuredIsLocal)
+        ? 'https://www.mcrepair.de'
+        : configuredBaseUrl;
+
+    // Serve from cache when fresh
+    if (sitemapCache && Date.now() - sitemapCacheAt < SITEMAP_CACHE_TTL) {
+      res.header('Content-Type', 'application/xml; charset=utf-8');
+      return res.send(sitemapCache);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Static high-priority pages
+    const staticUrls = [
+      { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily' },
+      { loc: `${BASE_URL}/new-order`, priority: '0.9', changefreq: 'weekly' },
+      { loc: `${BASE_URL}/shop`, priority: '0.8', changefreq: 'daily' },
+      { loc: `${BASE_URL}/vorabdiagnose`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/annahmestellen`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/faq`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/blog`, priority: '0.6', changefreq: 'weekly' },
+      { loc: `${BASE_URL}/ueber-uns`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/contact`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/partner-werden`, priority: '0.5', changefreq: 'monthly' },
+    ];
+
+    // Repair catalog pages: /reparatur/:deviceType  /reparatur/:dt/:mfr  /reparatur/:dt/:mfr/:model
+    const deviceTypes = await DeviceService.getDeviceTypes();
+    const catalogUrls = [];
+
+    for (const dt of deviceTypes) {
+      const dtSlug = toSitemapSlug(dt.name);
+      catalogUrls.push({
+        loc: `${BASE_URL}/reparatur/${dtSlug}`,
+        priority: '0.9',
+        changefreq: 'weekly',
+      });
+
+      let manufacturers = [];
+      try {
+        manufacturers = await DeviceService.getManufacturersByDeviceType(dt.name);
+      } catch (_) { /* skip */ }
+
+      for (const mfr of manufacturers) {
+        const mfrSlug = toSitemapSlug(mfr.name);
+        catalogUrls.push({
+          loc: `${BASE_URL}/reparatur/${dtSlug}/${mfrSlug}`,
+          priority: '0.85',
+          changefreq: 'weekly',
+        });
+
+        let models = [];
+        try {
+          models = await DeviceService.getModelsByTypeAndManufacturer(dt.name, String(mfr._id));
+        } catch (_) { /* skip */ }
+
+        for (const model of models) {
+          const modelSlug = toSitemapSlug(model.name);
+          catalogUrls.push({
+            loc: `${BASE_URL}/reparatur/${dtSlug}/${mfrSlug}/${modelSlug}`,
+            priority: '0.8',
+            changefreq: 'weekly',
+          });
+        }
+      }
+    }
+
+    // Shop product pages: /shop/product/:id
+    let productUrls = [];
+    try {
+      const Product = require('./models/Product');
+      const products = await Product.find({ isActive: true })
+        .select('_id updatedAt')
+        .lean();
+      productUrls = products.map((p) => ({
+        loc: `${BASE_URL}/shop/product/${p._id}`,
+        priority: '0.75',
+        changefreq: 'weekly',
+        lastmod: p.updatedAt ? p.updatedAt.toISOString().slice(0, 10) : today,
+      }));
+    } catch (_) { /* skip if products collection unavailable */ }
+
+    // Blog post pages: /blog/:slug
+    let blogUrls = [];
+    try {
+      const BlogPost = require('./models/BlogPost');
+      const blogPosts = await BlogPost.find({ status: 'published' })
+        .select('slug _id updatedAt publishedAt')
+        .lean();
+      blogUrls = blogPosts.map((p) => ({
+        loc: `${BASE_URL}/blog/${p.slug || p._id}`,
+        priority: '0.65',
+        changefreq: 'monthly',
+        lastmod: (p.updatedAt || p.publishedAt)
+          ? new Date(p.updatedAt || p.publishedAt).toISOString().slice(0, 10)
+          : today,
+      }));
+    } catch (_) { /* skip if blog collection unavailable */ }
+
+    const allUrls = [...staticUrls, ...catalogUrls, ...productUrls, ...blogUrls];
+    const urlEntries = allUrls
+      .map(
+        ({ loc, priority, changefreq, lastmod }) =>
+          `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod || today}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`
+      )
+      .join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries}\n</urlset>`;
+
+    sitemapCache = xml;
+    sitemapCacheAt = Date.now();
+
+    res.header('Content-Type', 'application/xml; charset=utf-8');
+    res.send(xml);
+  } catch (error) {
+    console.error('sitemap.xml generation error:', error);
+    res.status(500).send('<?xml version="1.0"?><error>Sitemap generation failed</error>');
+  }
+});
+
 console.log('Routes configured successfully');
 
 // If no routes handled the request, it's a 404
@@ -427,7 +584,7 @@ app.use((err, req, res, next) => {
 console.log(`Attempting to start server on port ${port}...`);
 const server = app.listen(port, () => {
   console.log(`✅ Server running successfully at http://localhost:${port}`);
-  console.log('=== FixitHub Server Ready ===');
+  console.log('=== McRepair.de Server Ready ===');
 });
 
 server.on('error', (error) => {

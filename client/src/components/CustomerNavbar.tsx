@@ -42,7 +42,7 @@ export function CustomerNavbar() {
           >
             <img
               src="https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png"
-              alt="FixitHub Logo"
+              alt="McRepair.de Logo"
               className="h-12 w-auto object-contain"
               onError={(e) => {
                 console.error('CustomerNavbar: Logo image failed to load');
@@ -55,14 +55,14 @@ export function CustomerNavbar() {
               className="w-12 h-12 bg-yellow-400 rounded-lg flex items-center justify-center"
               style={{ display: 'none' }}
             >
-              <span className="text-gray-900 font-bold text-lg">FH</span>
+              <span className="text-gray-900 font-bold text-lg">MR</span>
             </div>
 
             {/* Subtle glow effect on hover */}
             <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-30 transition-opacity duration-300 bg-yellow-400 blur-md -z-10" />
           </div>
           <span className="text-xl font-bold text-gray-900 hidden sm:inline-block group-hover:text-yellow-600 transition-colors duration-200">
-            FixitHub
+            McRepair.de
           </span>
         </Link>
 

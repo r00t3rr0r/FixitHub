@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { Link, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -506,6 +507,12 @@ export function ShoppingCartPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--off-white, #f8f9fc)' }}>
+      <SEO
+        title="Warenkorb – McRepair.de Shop"
+        description="Ihr McRepair.de Warenkorb auf einen Blick. Produkte prüfen, Menge anpassen und sicher zur Kasse gehen."
+        canonical="/cart"
+        noindex={true}
+      />
       <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6">
         {/* Header */}
         <div className="mb-5">

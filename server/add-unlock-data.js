@@ -7,7 +7,7 @@ const Order = require('./models/Order');
 
 async function addUnlockData() {
   try {
-    await mongoose.connect(process.env.DATABASE_URL || 'mongodb://localhost:27017/FixitHub');
+    await mongoose.connect(process.env.DATABASE_URL || 'mongodb://localhost:27017/McRepair.de');
     console.log('Connected to MongoDB');
 
     // Find the most recent order

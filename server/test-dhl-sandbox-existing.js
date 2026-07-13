@@ -81,12 +81,12 @@ async function testDHLSandbox() {
           parcelDeReturns: false
         },
         shipper: {
-          company: 'FixitHub Test Company',
+          company: 'McRepair.de Test Company',
           country: 'DE',
           street: 'Teststraße 1',
           city: 'Berlin',
           postalCode: '10115',
-          email: 'shipping@fixithub.de',
+          email: 'shipping@mcrepair.de',
           phone: '+49 30 123456'
         }
       }

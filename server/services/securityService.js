@@ -113,7 +113,7 @@ class SecurityService {
       },
       {
         _id: '2',
-        email: 'admin@fixithub.com',
+        email: 'admin@mcrepair.de',
         ipAddress: '192.168.1.2',
         success: true,
         timestamp: new Date(Date.now() - 1000 * 60 * 10),
@@ -211,7 +211,7 @@ class SecurityService {
         {
           _id: '1',
           action: 'user_created',
-          performedBy: 'admin@fixithub.com',
+          performedBy: 'admin@mcrepair.de',
           targetUser: 'newuser@example.com',
           timestamp: new Date(Date.now() - 1000 * 60 * 60),
           ipAddress: '192.168.1.2',
@@ -220,7 +220,7 @@ class SecurityService {
         {
           _id: '2',
           action: 'password_policy_updated',
-          performedBy: 'admin@fixithub.com',
+          performedBy: 'admin@mcrepair.de',
           timestamp: new Date(Date.now() - 1000 * 60 * 120),
           ipAddress: '192.168.1.2',
           details: 'Password policy requirements updated'

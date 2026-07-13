@@ -38,10 +38,10 @@ export function CreateShippingLabelDialog({
     shipperCity: 'Berlin',
     shipperPostalCode: '10115',
     shipperCountry: 'DE',
-    shipperEmail: 'info@fixithub.com',
+    shipperEmail: 'info@mcrepair.de',
     shipperPhone: '+49 30 1234567',
-    shipperCompany: 'FixitHub',
-    shipperName: 'FixitHub Logistics',
+    shipperCompany: 'McRepair.de',
+    shipperName: 'McRepair.de Logistics',
     // Receiver fields - will be pre-filled from order
     receiverName: '',
     receiverAddress: '',

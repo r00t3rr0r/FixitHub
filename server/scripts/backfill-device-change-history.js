@@ -81,7 +81,7 @@ function buildBackfillDescription(order) {
 
 async function main() {
   const args = parseArgs(process.argv);
-  const dbUrl = process.env.DATABASE_URL || 'mongodb://localhost:27017/FixitHub';
+  const dbUrl = process.env.DATABASE_URL || 'mongodb://localhost:27017/McRepair.de';
 
   if (!args.all && !args.orderId && !args.orderNumber) {
     console.log('Bitte Ziel einschränken: --order-id <id> oder --order-number <nr>.');

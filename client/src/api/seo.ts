@@ -139,3 +139,61 @@ export const getSEOAnalytics = async () => {
     throw error;
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC REPAIR CATALOG (no auth required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RepairCatalogModel {
+  name: string;
+  slug: string;
+  image: string;
+}
+
+export interface RepairCatalogManufacturer {
+  name: string;
+  slug: string;
+  models: RepairCatalogModel[];
+}
+
+export interface RepairCatalogDeviceType {
+  name: string;
+  slug: string;
+  manufacturers: RepairCatalogManufacturer[];
+}
+
+export interface RepairCatalogService {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  estimatedTime: string;
+  category: string;
+  seoName: string;
+}
+
+export interface RepairCatalogAddOn {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
+// GET /api/seo/repair-catalog
+export const getRepairCatalog = async (): Promise<RepairCatalogDeviceType[]> => {
+  const response = await api.get('/api/seo/repair-catalog');
+  return response.data?.catalog ?? [];
+};
+
+// GET /api/seo/repair-catalog/:deviceTypeSlug/services
+export const getRepairCatalogServices = async (
+  deviceTypeSlug: string,
+  manufacturerSlug?: string,
+  modelSlug?: string
+): Promise<{ deviceType: string; services: RepairCatalogService[]; addOns: RepairCatalogAddOn[] }> => {
+  const params: Record<string, string> = {};
+  if (manufacturerSlug) params.manufacturer = manufacturerSlug;
+  if (modelSlug) params.model = modelSlug;
+  const response = await api.get(`/api/seo/repair-catalog/${deviceTypeSlug}/services`, { params });
+  return response.data;
+};

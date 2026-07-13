@@ -93,11 +93,11 @@ const systemConfigurationSchema = new mongoose.Schema({
   // General Settings
   siteName: {
     type: String,
-    default: 'FixitHub'
+    default: 'McRepair.de'
   },
   adminEmail: {
     type: String,
-    default: 'admin@fixithub.com'
+    default: 'admin@mcrepair.de'
   },
   timezone: {
     type: String,
@@ -359,7 +359,7 @@ const systemConfigurationSchema = new mongoose.Schema({
     invoiceMetadata: {
       sellerName: {
         type: String,
-        default: 'FixitHub'
+        default: 'McRepair.de'
       },
       sellerVatId: {
         type: String,
@@ -371,7 +371,7 @@ const systemConfigurationSchema = new mongoose.Schema({
       },
       issuerEmail: {
         type: String,
-        default: 'billing@fixithub.com'
+        default: 'billing@mcrepair.de'
       },
       issuerPhone: {
         type: String,

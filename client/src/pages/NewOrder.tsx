@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { SEO } from '@/components/SEO'
 import { useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -781,6 +782,11 @@ export function NewOrder() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-8">
+      <SEO
+        title="Reparatur beauftragen – Auftrag bei McRepair.de"
+        description="Reparaturauftrag einfach online stellen: Gerät wählen, Problem beschreiben, Termin buchen. Jetzt starten und Ihr Gerät reparieren lassen."
+        canonical="/new-order"
+      />
       {/* Enhanced Progress Header with Refined Design */}
       <Card className="bg-gradient-to-br from-yellow-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-2 border-yellow-200/50 dark:border-yellow-600/20 shadow-xl backdrop-blur-sm sticky top-4 z-40 animate-in slide-in-from-top duration-700">
         <CardHeader className="pb-2">

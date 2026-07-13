@@ -71,7 +71,7 @@ const connectDB = async () => {
       console.error('   2. Set MONGODB_USERNAME, MONGODB_PASSWORD, and MONGODB_AUTH_SOURCE environment variables');
       console.error('   3. Disable authentication in MongoDB for development');
       console.error('   4. Create a MongoDB user with proper permissions:');
-      console.error('      mongosh admin --eval "db.createUser({user: \'fixithub\', pwd: \'yourpassword\', roles: [{role: \'readWrite\', db: \'FixitHub\'}]})"');
+      console.error('      mongosh admin --eval "db.createUser({user: \'fixithub\', pwd: \'yourpassword\', roles: [{role: \'readWrite\', db: \'McRepair.de\'}]})"');
     }
 
     if (error.message.includes('ETIMEDOUT') || error.message.includes('timed out')) {

@@ -15,7 +15,7 @@ const path = require('path');
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/FixitHub';
+const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/McRepair.de';
 
 async function resetDatabase() {
   try {

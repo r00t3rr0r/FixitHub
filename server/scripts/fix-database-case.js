@@ -28,7 +28,7 @@ async function fixDatabaseCase() {
   log('   Fix Database Case Issue', 'cyan');
   log('='.repeat(60), 'cyan');
 
-  const url = process.env.DATABASE_URL || 'mongodb://localhost:27017/FixitHub';
+  const url = process.env.DATABASE_URL || 'mongodb://localhost:27017/McRepair.de';
   log(`\nConnecting to: ${url}`, 'cyan');
 
   const client = new MongoClient(url);
@@ -47,11 +47,11 @@ async function fixDatabaseCase() {
     });
 
     // Check for the problematic database
-    const fixitHubDb = databases.find(db => db.name === 'FixitHub');
+    const fixitHubDb = databases.find(db => db.name === 'McRepair.de');
     const fixithubDb = databases.find(db => db.name === 'fixithub');
 
     if (fixitHubDb && fixithubDb) {
-      log('\n⚠️  Found both FixitHub and fixithub databases!', 'yellow');
+      log('\n⚠️  Found both McRepair.de and fixithub databases!', 'yellow');
       log('   This is causing the case sensitivity issue.', 'yellow');
 
       // Drop the lowercase one since we want to use the uppercase version
@@ -67,13 +67,13 @@ async function fixDatabaseCase() {
       const envPath = require('path').join(__dirname, '../../.env');
       let envContent = fs.readFileSync(envPath, 'utf8');
       envContent = envContent.replace(
-        /DATABASE_URL=mongodb:\/\/localhost:27017\/FixitHub/g,
+        /DATABASE_URL=mongodb:\/\/localhost:27017\/McRepair.de/g,
         'DATABASE_URL=mongodb://localhost:27017/fixithub'
       );
       fs.writeFileSync(envPath, envContent);
       log('✅ Updated .env file to use lowercase database name', 'green');
     } else if (fixitHubDb && !fixithubDb) {
-      log('\n📝 Found "FixitHub" database, keeping it', 'cyan');
+      log('\n📝 Found "McRepair.de" database, keeping it', 'cyan');
     } else {
       log('\n✅ No conflicting databases found', 'green');
     }

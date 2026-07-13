@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { Link } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -329,6 +330,12 @@ export function OrderTracking() {
 
   return (
     <div className="space-y-6">
+      <SEO
+        title="Meine Bestellungen – McRepair.de Kundenportal"
+        description="Alle Ihre Reparaturaufträge und Bestellungen auf einen Blick. Auftragsstatus in Echtzeit verfolgen im McRepair.de Kundenportal."
+        canonical="/orders"
+        noindex={true}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

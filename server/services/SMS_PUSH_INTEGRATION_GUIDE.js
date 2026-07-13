@@ -3,7 +3,7 @@
  * ================================================
  * 
  * This document describes how to use SMS and Push notifications
- * alongside the Email templates in your FixitHub system.
+ * alongside the Email templates in your McRepair.de system.
  */
 
 // ========== 1. SENDING SMS NOTIFICATIONS ==========

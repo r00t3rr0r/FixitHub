@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { SEO } from '@/components/SEO'
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { TopBar } from '@/components/home/TopBar';
@@ -87,6 +88,67 @@ export function FAQ() {
     });
   };
 
+  /* ─────────────────────────────────────────────────────────────
+     JSON-LD structured data – rebuilt whenever FAQs change
+  ───────────────────────────────────────────────────────────── */
+  const faqJsonLd = useMemo(() => {
+    const allFAQs = Object.values(groupedFAQs).flat();
+
+    const webPage = {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      '@id': 'https://www.mcrepair.de/faq',
+      url: 'https://www.mcrepair.de/faq',
+      name: 'Häufig gestellte Fragen – Reparatur, Preise, Versand & Garantie | McRepair.de',
+      description:
+        'Antworten auf alle wichtigen Fragen rund um Smartphone- und Tablet-Reparatur bei McRepair.de: Reparaturablauf, Kosten, Garantie, Versand, Konto & mehr.',
+      inLanguage: 'de-DE',
+      breadcrumb: {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://www.mcrepair.de/' },
+          { '@type': 'ListItem', position: 2, name: 'FAQ', item: 'https://www.mcrepair.de/faq' },
+        ],
+      },
+      publisher: {
+        '@type': 'Organization',
+        '@id': 'https://www.mcrepair.de/#business',
+        name: 'McRepair.de',
+        url: 'https://www.mcrepair.de',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://www.mcrepair.de/logo.png',
+        },
+        contactPoint: {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          availableLanguage: 'German',
+          areaServed: 'DE',
+        },
+      },
+    };
+
+    if (allFAQs.length === 0) return [webPage];
+
+    const faqPage = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      '@id': 'https://www.mcrepair.de/faq#faqpage',
+      url: 'https://www.mcrepair.de/faq',
+      name: 'Häufig gestellte Fragen | McRepair.de',
+      mainEntity: allFAQs.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.answer,
+        },
+      })),
+    };
+
+    return [webPage, faqPage];
+  }, [groupedFAQs]);
+
   return (
     <div
       style={{
@@ -95,6 +157,13 @@ export function FAQ() {
           'linear-gradient(180deg, rgba(245,197,24,0.1) 0%, rgba(255,255,255,1) 24%, rgba(248,249,252,1) 66%, rgba(26,42,94,0.08) 100%)',
       }}
     >
+      <SEO
+        title="Häufig gestellte Fragen – Reparatur, Preise, Versand & Garantie | McRepair.de"
+        description="Alle Antworten zu Smartphone- & Tablet-Reparatur bei McRepair.de: Reparaturablauf, Kostenvoranschlag, Garantie, Versand, Konto & Datenschutz – schnell & übersichtlich."
+        canonical="/faq"
+        keywords="FAQ, häufige Fragen, Reparatur FAQ, Smartphone Reparatur Fragen, Tablet Reparatur, Garantie Reparatur, Versand Reparatur, Kosten Reparatur, McRepair FAQ, Reparaturservice Fragen"
+        jsonLd={faqJsonLd}
+      />
       <TopBar />
       <McRepairNav />
 
@@ -160,7 +229,11 @@ export function FAQ() {
         </section>
 
         {/* FAQ Content */}
-        <section className="mt-8">
+        <section
+          className="mt-8"
+          itemScope
+          itemType="https://schema.org/FAQPage"
+        >
           {loading ? (
             <div className="faq-loading">
               <Loader2 className="h-8 w-8 animate-spin text-mcrepair-accent" />
@@ -212,7 +285,9 @@ export function FAQ() {
                         return (
                           <div
                             key={faq._id}
-                            className="overflow-hidden rounded-lg border border-gray-200 transition-all duration-300 ease-out hover:border-gray-300 hover:shadow-md"
+                            className="rounded-lg border border-gray-200 transition-all duration-300 ease-out hover:border-gray-300 hover:shadow-md"
+                            itemScope
+                            itemType="https://schema.org/Question"
                             style={{
                               boxShadow: isExpanded
                                 ? '0 8px 30px rgba(26, 42, 94, 0.12)'
@@ -226,6 +301,8 @@ export function FAQ() {
                               className="w-full text-left p-5 md:p-6 flex items-start justify-between gap-4 transition-colors duration-200"
                               onClick={() => toggleFAQ(faq._id)}
                               aria-expanded={isExpanded}
+                              aria-controls={`faq-answer-${faq._id}`}
+                              id={`faq-question-${faq._id}`}
                               style={{
                                 background: isExpanded
                                   ? 'linear-gradient(135deg, var(--primary-blue, #1a2a5e) 0%, var(--primary-blue-light, #2f57b0) 100%)'
@@ -234,10 +311,9 @@ export function FAQ() {
                             >
                               <span
                                 className={`font-semibold leading-6 transition-colors duration-200 text-sm md:text-base ${
-                                  isExpanded
-                                    ? 'text-white'
-                                    : 'text-gray-900'
+                                  isExpanded ? 'text-white' : 'text-gray-900'
                                 }`}
+                                itemProp="name"
                               >
                                 {faq.question}
                               </span>
@@ -245,22 +321,33 @@ export function FAQ() {
                                 className={`h-5 w-5 flex-shrink-0 transition-transform duration-300 ${
                                   isExpanded ? 'rotate-180' : ''
                                 }`}
-                                style={{
-                                  color: isExpanded ? 'white' : 'currentColor',
-                                }}
+                                aria-hidden="true"
+                                style={{ color: isExpanded ? 'white' : 'currentColor' }}
                               />
                             </button>
 
-                            {isExpanded && (
+                            {/*
+                              Always rendered in DOM so search-engine crawlers can index
+                              the answer text even without executing JavaScript.
+                              Visual open/close is handled via CSS classes only.
+                            */}
+                            <div
+                              id={`faq-answer-${faq._id}`}
+                              role="region"
+                              aria-labelledby={`faq-question-${faq._id}`}
+                              className={`faq-answer-panel border-t ${
+                                isExpanded ? 'faq-answer-expanded' : 'faq-answer-collapsed'
+                              }`}
+                              itemScope
+                              itemType="https://schema.org/Answer"
+                              style={{ borderColor: 'rgba(26, 42, 94, 0.1)' }}
+                            >
                               <div
-                                className="faq-answer-container px-5 md:px-6 py-5 md:py-6 border-t animate-in slide-in-from-top-2 duration-300"
-                                style={{
-                                  borderColor: 'rgba(26, 42, 94, 0.1)',
-                                  background: 'var(--mcrepair-gray-50, #f5f6f8)',
-                                }}
+                                className="px-5 md:px-6 py-5 md:py-6"
+                                style={{ background: 'var(--mcrepair-gray-50, #f5f6f8)' }}
                               >
                                 <div className="text-gray-700 leading-relaxed text-sm md:text-base space-y-4">
-                                  <p>{faq.answer}</p>
+                                  <p itemProp="text">{faq.answer}</p>
                                   {faq.tags && faq.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
                                       {faq.tags.map((tag, index) => (
@@ -279,7 +366,7 @@ export function FAQ() {
                                   )}
                                 </div>
                               </div>
-                            )}
+                            </div>
                           </div>
                         );
                       })}

@@ -69,10 +69,16 @@
     "description": "McRepair ist einer der führenden Dienstleister für die professionelle Reparatur von Smartphones, Tablets und Notebooks. Unsere Zentralwerkstatt mit Sitz in Berlin arbeitet bundesweit mit über 350 Annahmestellen zusammen und hilft Ihnen mit absoluten zuverlässigen und professionellen Fachkräften. Werden auch Sie ein McRepair-Partner!",
     "facts": {
       "centralWorkshop": "Zentrale in Berlin",
-      "locations": "350+ Annahmestellen bundesweit"
+      "locations": "350+ Annahmestellen bundesweit",
+      "experience": "Über 10 Jahre Erfahrung",
+      "brands": "Alle Marken reparierbar"
+    },
+    "intro": {
+      "heading": "Ihr Reparaturpartner für den stationären Handel",
+      "text": "Als McRepair-Annahmepartner erweitern Sie Ihr Serviceangebot ohne eigenes Reparaturrisiko. Kunden geben ihr defektes Smartphone, Tablet oder Notebook bei Ihnen ab – McRepair übernimmt die professionelle Reparatur in unserer Berliner Zentralwerkstatt und schickt das fertig reparierte Gerät zurück an Sie. Sie profitieren von attraktiven Provisionen, markenunabhängigem Reparaturservice für Apple, Samsung, Huawei, Xiaomi und alle weiteren gängigen Hersteller sowie einem bewährten Logistikkonzept. Mit über 350 aktiven Annahmestellen bundesweit sind wir Deutschlands etablierter Reparaturpartner für stationäre Händler."
     },
     "advantages": {
-      "title": "Ihre Vorteile",
+      "title": "Ihre Vorteile als McRepair-Partner",
       "item1": "Profitieren Sie von attraktiven Rabatten",
       "item2": "Nutzen Sie zusätzliche Ertragschancen",
       "item3": "Gewinnen Sie mehr Präsenzgeschäft",
@@ -82,15 +88,32 @@
     },
     "steps": {
       "title": "So funktioniert's",
+      "schemaName": "So werden Sie McRepair-Annahmepartner",
+      "schemaDescription": "In vier einfachen Schritten zum McRepair-Partner",
       "item1": "Sie füllen das Kontaktformular aus.",
+      "item1Short": "Kontaktformular ausfüllen",
       "item2": "Unser(e) Key-Account-Manager(in) kontaktiert Sie.",
+      "item2Short": "Persönliche Beratung",
       "item3": "Sie erhalten ein Willkommens-Partnerpaket mit Werbematerialien.",
-      "item4": "Profit!"
+      "item3Short": "Partnerpaket erhalten",
+      "item4": "Profit!",
+      "item4Short": "Partnerschaft starten"
     },
     "cta": {
       "description": "Sie möchten direkt starten? Kontaktieren Sie uns und wir melden uns schnellstmöglich bei Ihnen.",
       "contactButton": "Zur Kontaktseite",
       "locationsButton": "Annahmestellen ansehen"
+    },
+    "faq": {
+      "title": "Häufig gestellte Fragen zum Partnerprogramm",
+      "q1Question": "Wer kann McRepair-Annahmepartner werden?",
+      "q1Answer": "Grundsätzlich jedes Unternehmen oder jede Einzelperson mit einem stationären Standort und Kundenkontakt – zum Beispiel Elektronikfachhändler, Telekommunikationsläden, Kioske oder Bürodienstleister. Sie benötigen lediglich einen Empfangsbereich, an dem Kunden ihr Gerät abgeben können.",
+      "q2Question": "Was kostet die Teilnahme am McRepair Partnerprogramm?",
+      "q2Answer": "Die Anmeldung als McRepair-Annahmestelle ist vollständig kostenfrei. Sie erhalten eine attraktive Provision für jede Reparatur, die über Ihren Standort abgewickelt wird – ohne Vorabinvestition oder laufende Gebühren.",
+      "q3Question": "Wie läuft eine Reparatur über meine Annahmestelle ab?",
+      "q3Answer": "Kunden geben ihr defektes Gerät bei Ihnen ab. Sie senden es an unsere Zentralwerkstatt in Berlin. Nach der professionellen Reparatur liefern wir das Gerät direkt zurück an Ihre Annahmestelle – fertig repariert und geprüft.",
+      "q4Question": "Welche Geräte und Marken werden repariert?",
+      "q4Answer": "McRepair repariert Smartphones, Tablets und Notebooks aller gängigen Marken, darunter Apple (iPhone, iPad, MacBook), Samsung, Huawei, Xiaomi, Sony und viele weitere. Ob Display-Tausch, Akku-Wechsel, Wasserschaden oder Softwareproblem – wir bieten ein breites Reparaturspektrum."
     }
   },
   "orderTracking": {
@@ -288,7 +311,7 @@
     "by": "von"
   },
   "login": {
-    "title": "Bei FixitHub anmelden",
+    "title": "Bei McRepair.de anmelden",
     "email": "E-Mail-Adresse",
     "password": "Passwort",
     "submit": "Anmelden",
@@ -1506,10 +1529,10 @@
       "mobileRepair": "Smartphone-Reparatur",
       "tabletRepair": "Tablet-Reparatur",
       "notebookRepair": "Notebook-Reparatur",
-      "badge": "Nr. 1 Reparaturwerkstatt in Deutschland",
+      "badge": "Nr. 1 Smartphone-Reparatur in Deutschland",
       "imageAlt": "Kundin mit Smartphone",
       "titleLine1": "Smartphone kaputt?",
-      "titleLine2": "Wir reparieren es.",
+      "titleLine2": "Wir reparieren es – schnell & günstig.",
       "helperDeviceTitle": "Welches Gerät habe ich?",
       "helperDeviceDesc": "Rausfinden in 3 Minuten",
       "helperRepairTitle": "Welche Reparatur brauche ich?",
@@ -1522,20 +1545,20 @@
       "warranty": "Qualitätsgarantie:",
       "warrantyDesc": "12 Monate auf unsere Reparaturen*",
       "warrantyNote": "*Ausnahmen gekennzeichnet",
-      "fastService": "Schnell & professionell:",
-      "fastServiceDesc": "Taggleiche Bearbeitung bei Express-Buchung",
+      "fastService": "Express-Reparatur:",
+      "fastServiceDesc": "Taggleiche Handy-Reparatur – Ihr Smartphone oft noch am selben Tag fertig",
       "quality": "Top-Qualität",
       "qualityDesc": "Dank zertifizierter Ersatzteile",
       "certified": "Kompetenz & Fähigkeiten",
-      "certifiedDesc": "Unsere fachkundigen Techniker haben 20 Jahre Reparatur-Erfahrung"
+      "certifiedDesc": "Zertifizierte Techniker mit 20 Jahren Erfahrung in Smartphone- & Tablet-Reparatur"
     },
     "servicesOverview": {
-      "title": "So einfach geht's",
-      "subtitle": "In 4 Schritten zum reparierten Gerät",
+      "title": "So läuft Ihre Smartphone Reparatur ab",
+      "subtitle": "In 4 einfachen Schritten zum reparierten Gerät",
       "step1Title": "Gerät und Reparatur auswählen",
-      "step1Description": "",
+      "step1Description": "Display defekt, Akku leer oder Wasserschaden? Gerät und passenden Reparaturservice wählen.",
       "step2Title": "Gerät kostenlos einsenden oder vorbeibringen",
-      "step2Description": "",
+      "step2Description": "Kostenloser Versand oder persönliche Abgabe an einer unserer Annahmestellen in Deutschland.",
       "step3Title": "Wir reparieren es schnell und zuverlässig",
       "step3Description": "24h bei Express",
       "step4Title": "Sie erhalten Ihr Gerät repariert zurück",
@@ -1595,8 +1618,8 @@
       "specialFeatures": "Besondere Funktionen"
     },
     "shop": {
-      "title": "McRepair.de-Webshop",
-      "subtitle": "Passendes Zubehör für dein Gerät",
+      "title": "Zubehör & Ersatzteile für Smartphone und Tablet",
+      "subtitle": "Qualitäts-Zubehör passend zu Ihrem reparierten Gerät",
       "allProducts": "Alle Produkte",
       "featured": "Empfohlen",
       "inStock": "Auf Lager",
@@ -1690,7 +1713,7 @@
       "learnMore": "Mehr erfahren"
     },
     "features": {
-      "title": "Warum FixitHub wählen?",
+      "title": "Warum McRepair.de wählen?",
       "qualityGuarantee": "Qualitätsgarantie",
       "qualityDesc": "90 Tage Garantie auf alle Reparaturen",
       "fastTurnaround": "Schnelle Bearbeitung",
@@ -1784,7 +1807,7 @@
     },
     "cta": {
       "title": "Bereit, Ihr Gerät reparieren zu lassen?",
-      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die FixitHub mit ihren Gerätereparaturen vertrauen.",
+      "subtitle": "Schließen Sie sich Tausenden zufriedener Kunden an, die McRepair.de mit ihren Gerätereparaturen vertrauen.",
       "emailPlaceholder": "E-Mail eingeben",
       "getStarted": "Loslegen"
     },
@@ -3916,5 +3939,22 @@
       "samsung": "Die Marke Samsung ist ein eingetragenes Warenzeichen von Samsung Electronics Co., Ltd., Suwon Kyonggi, KR.",
       "sonyEricsson": "Die Marke Sony Ericsson ist ein eingetragenes Warenzeichen von Sony Ericsson Mobile Communications AB, London, UK."
     }
+  },
+  "batteryDisposal": {
+    "title": "Hinweise zur Batterieentsorgung",
+    "intro": "Im Zusammenhang mit dem Vertrieb von Batterien oder mit der Lieferung von Geräten, die Batterien enthalten, sind wir gemäß Batteriegesetz (BattG) verpflichtet, Sie auf folgendes hinzuweisen:",
+    "returnInfo": "Als Endnutzer sind Sie zur Rückgabe von Altbatterien gesetzlich verpflichtet. Sie können bei uns im Sortiment geführte oder geführte Altbatterien nach Gebrauch unentgeltlich an unser Versandlager (Versandadresse) zurücksenden oder kostenlos in einer kommunalen Sammelstelle bzw. im Handel abgeben.",
+    "returnAddressTitle": "Rücksendeadresse",
+    "returnAddress": "Online Point GmbH, Kurfürstenstr. 106, 10787 Berlin",
+    "symbolsTitle": "Batteriesymbole und ihre Bedeutung",
+    "symbolsIntro": "Die auf den Batterien abgebildeten Symbole haben gemäß BattG folgende Bedeutung:",
+    "symbolBin": "Das Symbol der durchgekreuzten Mülltonne bedeutet, dass die Batterie nicht in den Hausmüll gegeben werden darf. Altbatterien müssen einer gesonderten Entsorgung zugeführt werden.",
+    "symbolPb": "Pb = Batterie enthält mehr als 0,004 Masseprozent Blei",
+    "symbolCd": "Cd = Batterie enthält mehr als 0,002 Masseprozent Cadmium",
+    "symbolHg": "Hg = Batterie enthält mehr als 0,0005 Masseprozent Quecksilber",
+    "collectionTitle": "Weitere Rückgabemöglichkeiten",
+    "collectionInfo": "Altbatterien können unabhängig von einer Kaufverpflichtung auch kostenlos bei allen kommunalen Sammelstellen (z. B. Wertstoffhöfe) sowie im stationären Handel zurückgegeben werden, sofern der Händler Batterien im Sortiment führt.",
+    "legalBasis": "Gesetzliche Grundlage: Batteriegesetz (BattG), ElektroG",
+    "finalNote": "Bitte beachten Sie die vorstehenden Hinweise zur ordnungsgemäßen Entsorgung von Batterien und Akkus."
   }
 }
