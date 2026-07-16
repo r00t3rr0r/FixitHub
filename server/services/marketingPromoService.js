@@ -1356,6 +1356,56 @@ class MarketingPromoService {
 
     return updated;
   }
+
+  static async getAdcellConfig() {
+    const settings = await this.ensureSettings();
+    return {
+      enabled: settings.adcellEnabled ?? true,
+      pid: settings.adcellPid || '10419',
+      eventId: settings.adcellEventId || '13229',
+      conversionEnabled: settings.adcellConversionEnabled ?? true,
+      firstPartyEnabled: settings.adcellFirstPartyEnabled ?? true,
+      containerTagsEnabled: settings.adcellContainerTagsEnabled ?? true,
+    };
+  }
+
+  static async updateAdcellConfig(payload, context) {
+    const settings = await this.ensureSettings();
+
+    const pid = String(payload.pid || '').trim().replace(/[^0-9]/g, '');
+    const eventId = String(payload.eventId || '').trim().replace(/[^0-9]/g, '');
+
+    const updates = {
+      adcellEnabled: typeof payload.enabled === 'boolean' ? payload.enabled : settings.adcellEnabled,
+      adcellPid: pid || settings.adcellPid || '10419',
+      adcellEventId: eventId || settings.adcellEventId || '13229',
+      adcellConversionEnabled: typeof payload.conversionEnabled === 'boolean' ? payload.conversionEnabled : settings.adcellConversionEnabled,
+      adcellFirstPartyEnabled: typeof payload.firstPartyEnabled === 'boolean' ? payload.firstPartyEnabled : settings.adcellFirstPartyEnabled,
+      adcellContainerTagsEnabled: typeof payload.containerTagsEnabled === 'boolean' ? payload.containerTagsEnabled : settings.adcellContainerTagsEnabled,
+      updatedBy: context.user._id,
+    };
+
+    const updated = await MarketingSettings.findByIdAndUpdate(settings._id, updates, { new: true });
+
+    await this.logAudit({
+      action: 'adcell_config_updated',
+      entityType: 'settings',
+      entityId: updated._id,
+      entityLabel: 'adcell_tracking_config',
+      details: updates,
+      user: context.user,
+      req: context.req,
+    });
+
+    return {
+      enabled: updated.adcellEnabled,
+      pid: updated.adcellPid,
+      eventId: updated.adcellEventId,
+      conversionEnabled: updated.adcellConversionEnabled,
+      firstPartyEnabled: updated.adcellFirstPartyEnabled,
+      containerTagsEnabled: updated.adcellContainerTagsEnabled,
+    };
+  }
 }
 
 module.exports = MarketingPromoService;

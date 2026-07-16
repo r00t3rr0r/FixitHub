@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { generateAvatarPlaceholder } from "@/utils/placeholders"
 import { getAssignedOrders } from "@/api/adminOrders"
+import { getUnreadMessageCounts } from "@/api/inspectionCommunication"
+import { getUnreadMessageCount as getRepairRequestUnreadMessageCount } from "@/api/repairRequestCommunication"
 import { getRepairRequests } from "@/api/repairRequests"
 import {
   Search,
@@ -134,6 +136,8 @@ export function StaffOrders() {
   const [orders, setOrders] = useState<AssignedOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<AssignedOrder[]>([])
   const [repairRequests, setRepairRequests] = useState<AssignedRepairRequest[]>([])
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
+  const [repairUnreadCounts, setRepairUnreadCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -367,9 +371,36 @@ export function StaffOrders() {
 
         console.log('Assigned orders fetched:', ordersResult.orders)
 
-        setOrders(ordersResult.orders || [])
-        setFilteredOrders(ordersResult.orders || [])
+        const nextOrders = ordersResult.orders || []
+        setOrders(nextOrders)
+        setFilteredOrders(nextOrders)
         setRepairRequests(repairResult.requests || [])
+
+        if (nextOrders.length > 0) {
+          const counts = await getUnreadMessageCounts(nextOrders.map((order: AssignedOrder) => order._id))
+          setUnreadCounts(counts || {})
+        } else {
+          setUnreadCounts({})
+        }
+
+        const nextRepairRequests = repairResult.requests || []
+        if (nextRepairRequests.length > 0) {
+          const repairCountEntries = await Promise.allSettled(
+            nextRepairRequests.map(async (request: AssignedRepairRequest) => [request._id, await getRepairRequestUnreadMessageCount(request._id)] as const)
+          )
+
+          const nextRepairUnreadCounts = repairCountEntries.reduce<Record<string, number>>((accumulator, result) => {
+            if (result.status === "fulfilled") {
+              const [requestId, count] = result.value
+              accumulator[requestId] = Number(count || 0)
+            }
+            return accumulator
+          }, {})
+
+          setRepairUnreadCounts(nextRepairUnreadCounts)
+        } else {
+          setRepairUnreadCounts({})
+        }
       } catch (error: any) {
         console.error("Error fetching assigned orders:", error)
         toast({
@@ -868,11 +899,19 @@ export function StaffOrders() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
-                            title="Messages"
+                            className="relative h-7 w-7 p-0"
+                            title={unreadCounts[order._id]?.unread > 0
+                              ? `${unreadCounts[order._id].unread} new message${unreadCounts[order._id].unread > 1 ? "s" : ""}`
+                              : "Messages"
+                            }
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MessageSquare className="h-4 w-4" />
+                            {unreadCounts[order._id]?.unread > 0 && (
+                              <Badge className="absolute -right-1 -top-1 h-4 min-w-[16px] border-0 bg-red-500 px-1 text-[10px] font-semibold text-white shadow-sm">
+                                {unreadCounts[order._id].unread > 99 ? "99+" : unreadCounts[order._id].unread}
+                              </Badge>
+                            )}
                           </Button>
                         </div>
                       </TableCell>
@@ -955,18 +994,28 @@ export function StaffOrders() {
                         </Badge>
                       </TableCell>
                       <TableCell className="px-2 py-2 text-right align-middle">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewRepairRequest(request._id)
-                          }}
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="relative h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewRepairRequest(request._id)
+                            }}
+                            title={repairUnreadCounts[request._id] > 0
+                              ? `${repairUnreadCounts[request._id]} new message${repairUnreadCounts[request._id] > 1 ? "s" : ""}`
+                              : "View Details"
+                            }
+                          >
+                            <Eye className="h-4 w-4" />
+                            {repairUnreadCounts[request._id] > 0 && (
+                              <Badge className="absolute -right-1 -top-1 h-4 min-w-[16px] border-0 bg-red-500 px-1 text-[10px] font-semibold text-white shadow-sm">
+                                {repairUnreadCounts[request._id] > 99 ? "99+" : repairUnreadCounts[request._id]}
+                              </Badge>
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

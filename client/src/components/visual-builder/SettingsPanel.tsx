@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Palette, Layout, Code, Eye, Sparkles, Image as ImageIcon } from 'lucide-react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'quill/dist/quill.snow.css';
 import type { PageContent, Section, Component } from '@/api/pageContent';
 import { HOVER_EFFECTS, getApplicableEffects, getCategories } from '@/config/hoverEffects';
 

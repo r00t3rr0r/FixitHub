@@ -46,7 +46,7 @@ import {
   InvoicePaypalSdkConfig,
 } from "@/api/invoices";
 import { useToast } from "@/hooks/useToast";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 
 export function CustomerInvoices() {
   const { t } = useTranslation();

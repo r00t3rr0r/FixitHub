@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const Order = require('../models/Order');
 
@@ -455,7 +455,7 @@ class DHLService {
       console.log('DHLService: Shipping address validated successfully');
 
       // Generate unique shipment ID (UUID v4 as required by DHL Parcel API)
-      const shipmentId = uuidv4();
+      const shipmentId = crypto.randomUUID();
       console.log('DHLService: Generated shipment ID:', shipmentId);
 
       const parcelDeConfig = this.getParcelDEConfig(dhlConfig);

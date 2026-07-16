@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAdcellConfig } from '@/hooks/useAdcellConfig';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
@@ -22,6 +23,7 @@ export function Home() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [repairCatalog, setRepairCatalog] = useState<RepairCatalogDeviceType[]>([]);
+  const adcell = useAdcellConfig();
 
   // Detect and save device information on homepage load
   useEffect(() => {
@@ -33,6 +35,17 @@ export function Home() {
   useEffect(() => {
     getRepairCatalog().then(setRepairCatalog).catch(() => {});
   }, []);
+
+  // ADCELL Container Tag – Home/Startpage
+  useEffect(() => {
+    if (!adcell.enabled || !adcell.containerTagsEnabled) return
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.async = true
+    script.src = `https://t.adcell.com/js/inlineretarget.js?method=track&pid=${adcell.pid}&type=startpage`
+    document.body.appendChild(script)
+    return () => { script.remove() }
+  }, [adcell]);
 
   return (
     <>

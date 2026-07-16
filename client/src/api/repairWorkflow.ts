@@ -55,7 +55,16 @@ export const initializeRepairWorkflow = async (orderId: string, customerId?: str
 };
 
 export const getRepairWorkflow = async (orderId: string) => {
-  return api.get(`/api/repair-workflows/${orderId}`);
+  try {
+    const response = await api.get(`/api/repair-workflows/${orderId}`);
+    return response.data;
+  } catch (error: any) {
+    // If 404, no repair workflow exists yet (return null instead of error)
+    if (error?.response?.status === 404) {
+      return { workflow: null };
+    }
+    throw new Error(error?.response?.data?.error || error.message);
+  }
 };
 
 export const approveRepairStart = async (

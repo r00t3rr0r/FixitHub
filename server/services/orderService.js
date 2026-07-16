@@ -292,6 +292,7 @@ class OrderService {
 
       const orders = await Order.find(query)
         .populate('customerId', 'name email phone avatar role isActive createdAt')
+        .populate('workflows', 'workflowTemplateId workflowName status steps assignedStaffId startedAt completedAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);

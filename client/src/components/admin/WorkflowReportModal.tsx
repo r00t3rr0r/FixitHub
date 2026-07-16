@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Download, X } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
-import jsPDF from "jspdf"
+import { jsPDF } from "jspdf"
 
 interface WorkflowReportModalProps {
   isOpen: boolean

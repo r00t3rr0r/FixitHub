@@ -2,7 +2,7 @@ const { TimeEntry, WorkSession } = require('../models/TimeEntry');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Task = require('../models/Task');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const MS_PER_MINUTE = 1000 * 60;
 
@@ -109,7 +109,7 @@ class TimeTrackingService {
       }
 
       // Generate session ID
-      const sessionId = uuidv4();
+      const sessionId = crypto.randomUUID();
       const clockInTime = new Date();
 
       // Create time entry

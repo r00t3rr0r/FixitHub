@@ -160,6 +160,11 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- ADCELL 1st Party Tracking (mandatory) – fires on initial page load -->
+    <script type="text/javascript" src="https://t.adcell.com/js/trad.js"></script>
+    <script>if (typeof Adcell !== 'undefined' && Adcell.Tracking) { Adcell.Tracking.track(); }</script>
+
     <noscript>
       <nav aria-label="Interne Links">
         <ul>

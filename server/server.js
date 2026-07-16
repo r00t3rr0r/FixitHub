@@ -16,10 +16,6 @@ console.log('Loading express...');
 const express = require("express");
 console.log('Loading cookie parser...');
 const cookieParser = require('cookie-parser');
-console.log('Loading session...');
-const session = require("express-session");
-console.log('Loading MongoStore...');
-const MongoStore = require('connect-mongo');
 
 console.log('Loading basic routes...');
 const basicRoutes = require("./routes/index");
@@ -151,18 +147,37 @@ const SeedService = require("./services/seedService");
 console.log('Loading cors...');
 const cors = require("cors");
 const { requireCsrfProtection } = require('./routes/middleware/csrf');
+const { applySecurityHeaders } = require('./routes/middleware/securityHeaders');
 
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL variables in .env missing.");
   process.exit(-1);
 }
 
+if (!process.env.JWT_SECRET) {
+  console.error("Error: JWT_SECRET variable in .env missing.");
+  process.exit(-1);
+}
+
+if (!process.env.REFRESH_TOKEN_SECRET) {
+  console.error("Error: REFRESH_TOKEN_SECRET variable in .env missing.");
+  process.exit(-1);
+}
+
 console.log('Creating Express app...');
 const app = express();
 const port = process.env.PORT || 3000;
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const parsedRequestLimitMb = Number.parseInt(process.env.MAX_REQUEST_SIZE_MB || '', 10);
+const requestLimitMb = Number.isFinite(parsedRequestLimitMb) && parsedRequestLimitMb > 0 ? parsedRequestLimitMb : 50;
+const requestLimit = `${requestLimitMb}mb`;
+
+const allowedOrigins = String(process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 // Pretty-print JSON responses
 app.enable('json spaces');
@@ -171,13 +186,26 @@ app.enable('strict routing');
 
 console.log('Setting up middleware...');
 app.use(cors({
-  origin: clientUrl,
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('CORS origin denied'));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 }));
 // Increase payload size limits to handle large file uploads and data payloads
 app.use(cookieParser());
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ extended: true, limit: '200mb' }));
+app.use(applySecurityHeaders);
+app.use(express.json({ limit: requestLimit }));
+app.use(express.urlencoded({ extended: true, limit: requestLimit }));
 app.use(requireCsrfProtection);
 
 // Serve uploaded files
@@ -191,6 +219,22 @@ app.get('/robots.txt', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/public/robots.txt'));
 });
 
+const sanitizeHeadersForLogs = (headers = {}) => {
+  const sanitized = { ...headers };
+
+  if (sanitized.authorization) {
+    sanitized.authorization = '[REDACTED]';
+  }
+  if (sanitized.cookie) {
+    sanitized.cookie = '[REDACTED]';
+  }
+  if (sanitized['x-csrf-token']) {
+    sanitized['x-csrf-token'] = '[REDACTED]';
+  }
+
+  return sanitized;
+};
+
 // Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
   // Get the content-length header to track request payload size
@@ -201,7 +245,7 @@ app.use((req, res, next) => {
   } else {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   }
-  console.log('Request headers:', req.headers);
+  console.log('Request headers:', sanitizeHeadersForLogs(req.headers));
   if (req.body && Object.keys(req.body).length > 0) {
     const bodySize = JSON.stringify(req.body).length;
     const bodyMB = (bodySize / (1024 * 1024)).toFixed(2);
@@ -387,6 +431,19 @@ app.use('/api', trackingRoutes);
 app.use('/api/admin/live-tracking', adminLiveTrackingRoutes);
 // Marketing/Promo Admin Routes
 app.use('/api/admin/marketing-promo', marketingPromoRoutes);
+
+// Public ADCELL config endpoint (no auth – read-only, used by frontend tracking scripts)
+const MarketingPromoService = require('./services/marketingPromoService');
+app.get('/api/adcell-config', async (_req, res) => {
+  try {
+    const config = await MarketingPromoService.getAdcellConfig();
+    // Cache for 5 min to reduce DB load
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.status(200).json({ success: true, config });
+  } catch (error) {
+    return res.status(500).json({ success: false, config: { enabled: false } });
+  }
+});
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);
@@ -564,7 +621,7 @@ app.use((err, req, res, next) => {
     console.error('Payload size exceeded - Request entity too large');
     console.error(`Content-Length: ${req.headers['content-length']} bytes`);
     return res.status(413).json({
-      error: 'Request entity too large. Maximum payload size is 200MB.',
+      error: `Request entity too large. Maximum payload size is ${requestLimitMb}MB.`,
       details: err.message
     });
   }
@@ -572,9 +629,13 @@ app.use((err, req, res, next) => {
   if (err.code === 'PayloadTooLargeError' || err.type === 'entity.too.large') {
     console.error('Payload size error detected during body parsing');
     return res.status(413).json({
-      error: 'Request payload exceeds maximum size limit of 200MB.',
+      error: `Request payload exceeds maximum size limit of ${requestLimitMb}MB.`,
       details: err.message
     });
+  }
+
+  if (err.message === 'CORS origin denied') {
+    return res.status(403).json({ error: 'Origin is not allowed by CORS policy.' });
   }
 
   // Default error response

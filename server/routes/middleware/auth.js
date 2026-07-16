@@ -2,33 +2,42 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/User');
 const { ACCESS_COOKIE_NAME } = require('../../utils/authCookies');
 
+const getTokenFromRequest = (req) => {
+  const cookieToken = req.cookies?.[ACCESS_COOKIE_NAME];
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  const authorizationHeader = req.header('Authorization');
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+};
+
 const auth = async (req, res, next) => {
   try {
-    console.log('Auth middleware: Checking authentication');
-
-    const cookieToken = req.cookies?.[ACCESS_COOKIE_NAME];
-    const headerToken = req.header('Authorization')?.replace('Bearer ', '');
-    const token = cookieToken || headerToken;
+    const token = getTokenFromRequest(req);
 
     if (!token || token === 'null' || token === 'undefined') {
-      console.log('Auth middleware: No token provided');
       return res.status(401).json({ error: 'Access denied. No token provided.' });
     }
 
-    console.log('Auth middleware: Token found, verifying...');
+    if (!process.env.JWT_SECRET) {
+      console.error('Auth middleware: JWT_SECRET missing');
+      return res.status(500).json({ error: 'Server authentication configuration is invalid.' });
+    }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Auth middleware: Token decoded:', decoded);
-    console.log('Auth middleware: Token verified for user ID:', decoded.sub);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 
     const user = await User.findById(decoded.sub).select('-password');
 
     if (!user) {
-      console.log('Auth middleware: User not found for ID:', decoded.sub);
       return res.status(401).json({ error: 'Invalid token. User not found.' });
     }
 
-    console.log('Auth middleware: User authenticated:', user.email);
     req.user = user;
     next();
   } catch (error) {
@@ -51,35 +60,29 @@ const auth = async (req, res, next) => {
 // Middleware to optionally authenticate user (doesn't fail if no token)
 const optionalAuth = async (req, res, next) => {
   try {
-    console.log('OptionalAuth middleware: Checking for optional authentication');
-
-    const cookieToken = req.cookies?.[ACCESS_COOKIE_NAME];
-    const headerToken = req.header('Authorization')?.replace('Bearer ', '');
-    const token = cookieToken || headerToken;
+    const token = getTokenFromRequest(req);
 
     if (!token || token === 'null' || token === 'undefined') {
-      console.log('OptionalAuth middleware: No token provided, continuing as guest');
       return next(); // Continue without user
     }
 
-    console.log('OptionalAuth middleware: Token found, verifying...');
+    if (!process.env.JWT_SECRET) {
+      console.error('OptionalAuth middleware: JWT_SECRET missing');
+      return next();
+    }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('OptionalAuth middleware: Token decoded:', decoded);
-    console.log('OptionalAuth middleware: Token verified for user ID:', decoded.sub);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 
     const user = await User.findById(decoded.sub).select('-password');
 
     if (!user) {
-      console.log('OptionalAuth middleware: User not found for ID:', decoded.sub);
       return next(); // Continue without user
     }
 
-    console.log('OptionalAuth middleware: User authenticated:', user.email);
     req.user = user;
     next();
   } catch (error) {
-    console.warn('OptionalAuth middleware: Authentication failed:', error.message);
+    console.warn('OptionalAuth middleware: Authentication failed');
     // Continue without user even if auth fails
     next();
   }

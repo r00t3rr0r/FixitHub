@@ -72,6 +72,7 @@ import { MarketingPromoPromoCodes } from "./pages/admin/marketing-promo/Marketin
 import { MarketingPromoSegments } from "./pages/admin/marketing-promo/MarketingPromoSegments"
 import { MarketingPromoReports } from "./pages/admin/marketing-promo/MarketingPromoReports"
 import { MarketingPromoSettingsPage } from "./pages/admin/marketing-promo/MarketingPromoSettings"
+import { AdcellTrackingPage } from "./pages/admin/marketing-promo/AdcellTracking"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
 import { RepairWorkflowPage } from "./pages/repair/RepairWorkflowPage"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
@@ -554,6 +555,9 @@ function App() {
             </Route>
             <Route path="/admin/marketing-promo/settings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<MarketingPromoSettingsPage />} />
+            </Route>
+            <Route path="/admin/marketing-promo/adcell" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<AdcellTrackingPage />} />
             </Route>
             <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />

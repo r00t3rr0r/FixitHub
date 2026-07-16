@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react"
+import { useAdcellConfig } from "@/hooks/useAdcellConfig"
 import { SEO } from '@/components/SEO'
 import { Link } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -70,6 +71,7 @@ export function WebShop() {
   const [quickViewOpen, setQuickViewOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const { toast } = useToast()
+  const adcell = useAdcellConfig()
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -170,6 +172,39 @@ export function WebShop() {
     const endIndex = startIndex + itemsPerPage
     setPaginatedProducts(filteredProducts.slice(startIndex, endIndex))
   }, [filteredProducts, currentPage, itemsPerPage])
+
+  // ADCELL Container Tag – Category/Search Page
+  useEffect(() => {
+    if (paginatedProducts.length === 0 || !adcell.enabled || !adcell.containerTagsEnabled) return
+    const productIds = paginatedProducts.map((p) => p._id).join(',')
+    const categoryId = categoryFilter !== 'all' ? categoryFilter : ''
+    const categoryName = categoryFilter !== 'all' ? categoryFilter : ''
+    const method = searchTerm ? 'search' : 'category'
+
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.async = true
+
+    if (searchTerm) {
+      script.src =
+        `https://t.adcell.com/js/inlineretarget.js?method=search` +
+        `&pid=${adcell.pid}` +
+        `&search=${encodeURIComponent(searchTerm)}` +
+        `&productIds=${encodeURIComponent(productIds)}` +
+        `&productSeparator=,`
+    } else {
+      script.src =
+        `https://t.adcell.com/js/inlineretarget.js?method=category` +
+        `&pid=${adcell.pid}` +
+        `&categoryName=${encodeURIComponent(categoryName)}` +
+        `&categoryId=${encodeURIComponent(categoryId)}` +
+        `&productIds=${encodeURIComponent(productIds)}` +
+        `&productSeparator=,`
+    }
+
+    document.body.appendChild(script)
+    return () => { script.remove() }
+  }, [paginatedProducts, categoryFilter, searchTerm, adcell])
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
 

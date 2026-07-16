@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useAdcellConfig } from "@/hooks/useAdcellConfig"
 import { useParams, Link } from "react-router-dom"
 import { SEO } from "@/components/SEO"
 import { Button } from "@/components/ui/button"
@@ -171,6 +172,7 @@ export function ProductDetail() {
   const [activeImage, setActiveImage] = useState<string | null>(null)
   const [addingToCart, setAddingToCart] = useState(false)
   const { toast } = useToast()
+  const adcell = useAdcellConfig()
 
   useEffect(() => {
     if (!id) return
@@ -186,6 +188,24 @@ export function ProductDetail() {
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false))
   }, [id])
+
+  // ADCELL Container Tag – Product Page
+  useEffect(() => {
+    if (!product || !adcell.enabled || !adcell.containerTagsEnabled) return
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.async = true
+    script.src =
+      `https://t.adcell.com/js/inlineretarget.js?method=product` +
+      `&pid=${adcell.pid}` +
+      `&productId=${encodeURIComponent(product._id)}` +
+      `&productName=${encodeURIComponent(product.seoName || product.name)}` +
+      `&categoryId=${encodeURIComponent(product.category)}` +
+      `&productIds=${encodeURIComponent(product._id)}` +
+      `&productSeparator=,`
+    document.body.appendChild(script)
+    return () => { script.remove() }
+  }, [product, adcell])
 
   const handleAddToCart = async () => {
     if (!product) return

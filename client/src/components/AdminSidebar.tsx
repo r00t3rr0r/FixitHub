@@ -31,7 +31,8 @@ import {
   BookMarked,
   Mail,
   Activity,
-  Megaphone
+  Megaphone,
+  Radio,
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
@@ -278,6 +279,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
           </NavItem>
           <NavItem to="/admin/marketing-promo/settings" icon={Settings}>
             Einstellungen
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/adcell" icon={Radio}>
+            ADCELL Tracking
           </NavItem>
         </CollapsibleSection>
 
