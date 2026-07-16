@@ -3,6 +3,35 @@ const SEOSettings = require('../models/SEOSettings');
 const LEGACY_CANONICAL_URL_PREFIX = 'https://fixithub.de';
 const CURRENT_CANONICAL_URL_PREFIX = 'https://mcrepair.de';
 
+function normalizeSeoText(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return value
+    .replace(/https:\/\/fixithub\.de\//gi, 'https://mcrepair.de/')
+    .replace(/https:\/\/fixithub\.de/gi, 'https://mcrepair.de')
+    .replace(/FixitHub/gi, 'McRepair');
+}
+
+function normalizeSeoValueDeep(value) {
+  if (typeof value === 'string') {
+    return normalizeSeoText(normalizeSiteUrl(value));
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeSeoValueDeep(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizeSeoValueDeep(entry)])
+    );
+  }
+
+  return value;
+}
+
 function normalizeSiteUrl(url) {
   if (typeof url !== 'string') {
     return url;
@@ -22,35 +51,8 @@ function normalizeSeoSettingsRecord(settings) {
     return settings;
   }
 
-  const normalizedCanonicalUrl = normalizeSiteUrl(settings.canonicalUrl);
-  const normalizedOpenGraphUrl = normalizeSiteUrl(settings.openGraph?.url);
-
-  if (
-    normalizedCanonicalUrl === settings.canonicalUrl &&
-    normalizedOpenGraphUrl === settings.openGraph?.url
-  ) {
-    return settings;
-  }
-
-  if (typeof settings.toObject === 'function') {
-    return {
-      ...settings.toObject(),
-      canonicalUrl: normalizedCanonicalUrl,
-      openGraph: {
-        ...(settings.openGraph || {}),
-        url: normalizedOpenGraphUrl,
-      },
-    };
-  }
-
-  return {
-    ...settings,
-    canonicalUrl: normalizedCanonicalUrl,
-    openGraph: {
-      ...(settings.openGraph || {}),
-      url: normalizedOpenGraphUrl,
-    },
-  };
+  const source = typeof settings.toObject === 'function' ? settings.toObject() : settings;
+  return normalizeSeoValueDeep(source);
 }
 
 class SEOService {
@@ -142,16 +144,7 @@ class SEOService {
     console.log('SEOService: Upserting SEO settings:', { pageType, pageId, seoData });
 
     try {
-      const normalizedSeoData = {
-        ...seoData,
-        canonicalUrl: normalizeSiteUrl(seoData.canonicalUrl),
-        openGraph: seoData.openGraph
-          ? {
-              ...seoData.openGraph,
-              url: normalizeSiteUrl(seoData.openGraph.url),
-            }
-          : seoData.openGraph,
-      };
+      const normalizedSeoData = normalizeSeoValueDeep(seoData);
 
       const settings = await SEOSettings.findOneAndUpdate(
         { pageType, pageId },

@@ -52,7 +52,7 @@ async function run() {
     });
 
     if (candidates.length === 0) {
-      console.log('No SEO settings with legacy fixithub.de URLs found.');
+      console.log('No SEO settings with legacy domain URLs found.');
       return;
     }
 
