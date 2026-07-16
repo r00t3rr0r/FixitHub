@@ -431,6 +431,19 @@ app.use('/api', trackingRoutes);
 app.use('/api/admin/live-tracking', adminLiveTrackingRoutes);
 // Marketing/Promo Admin Routes
 app.use('/api/admin/marketing-promo', marketingPromoRoutes);
+
+// Public ADCELL config endpoint (no auth – read-only, used by frontend tracking scripts)
+const MarketingPromoService = require('./services/marketingPromoService');
+app.get('/api/adcell-config', async (_req, res) => {
+  try {
+    const config = await MarketingPromoService.getAdcellConfig();
+    // Cache for 5 min to reduce DB load
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.status(200).json({ success: true, config });
+  } catch (error) {
+    return res.status(500).json({ success: false, config: { enabled: false } });
+  }
+});
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);

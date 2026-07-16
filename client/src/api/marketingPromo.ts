@@ -195,6 +195,38 @@ export const updateMarketingSettings = async (payload: Partial<MarketingSettings
   return response.data as { success: boolean; settings: MarketingSettings; message: string }
 }
 
+// ─── ADCELL Tracking Config ────────────────────────────────────────────────
+
+export interface AdcellConfig {
+  enabled: boolean
+  pid: string
+  eventId: string
+  conversionEnabled: boolean
+  firstPartyEnabled: boolean
+  containerTagsEnabled: boolean
+}
+
+export const getAdcellConfig = async () => {
+  const response = await api.get('/api/admin/marketing-promo/adcell-config')
+  return response.data as { success: boolean; config: AdcellConfig }
+}
+
+export const updateAdcellConfig = async (payload: Partial<AdcellConfig>) => {
+  const response = await api.put('/api/admin/marketing-promo/adcell-config', payload)
+  return response.data as { success: boolean; config: AdcellConfig; message: string }
+}
+
+/** Public (no-auth) endpoint – used by tracking scripts across the app */
+export const getPublicAdcellConfig = async (): Promise<AdcellConfig> => {
+  try {
+    const response = await fetch('/api/adcell-config')
+    const data = await response.json()
+    return data.config as AdcellConfig
+  } catch {
+    return { enabled: false, pid: '10419', eventId: '13229', conversionEnabled: false, firstPartyEnabled: false, containerTagsEnabled: false }
+  }
+}
+
 export const listNewsletters = async (params?: Record<string, string | number>) => {
   const response = await api.get('/api/admin/marketing-promo/newsletters', { params })
   return response.data as {

@@ -32,6 +32,35 @@ const marketingSettingsSchema = new mongoose.Schema(
       min: 1,
       default: 200,
     },
+    // ADCELL Affiliate Tracking
+    adcellEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    adcellPid: {
+      type: String,
+      default: '10419',
+      trim: true,
+      maxlength: 20,
+    },
+    adcellEventId: {
+      type: String,
+      default: '13229',
+      trim: true,
+      maxlength: 20,
+    },
+    adcellConversionEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    adcellFirstPartyEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    adcellContainerTagsEnabled: {
+      type: Boolean,
+      default: true,
+    },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

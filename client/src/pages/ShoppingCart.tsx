@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useAdcellConfig } from "@/hooks/useAdcellConfig"
 import { SEO } from '@/components/SEO'
 import { Link, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -136,6 +137,7 @@ export function ShoppingCartPage() {
   const [confirmRepairDeleteOpen, setConfirmRepairDeleteOpen] = useState(false)
   const [pendingRepairOrderIds, setPendingRepairOrderIds] = useState<string[]>([])
   const { toast } = useToast()
+  const adcell = useAdcellConfig()
   const checkoutFlowRef = useRef(
     searchParams.get('checkout') === '1' || sessionStorage.getItem('checkoutFlowPending') === '1'
   )
@@ -246,6 +248,34 @@ export function ShoppingCartPage() {
       cancelled = true
     }
   }, [toast, t, cartFetchVersion])
+
+  // ADCELL Container Tag – Basket
+  useEffect(() => {
+    if (!cart || !adcell.enabled || !adcell.containerTagsEnabled) return
+    const productIds = (cart.items || [])
+      .map((item: any) => item.productId?._id || item.productId || '')
+      .filter(Boolean)
+      .join(',')
+    const quantities = (cart.items || [])
+      .map((item: any) => item.quantity || 1)
+      .join(',')
+    const basketTotal = (cart.total || 0).toFixed(2)
+    const basketProductCount = cart.totalItems || 0
+
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.async = true
+    script.src =
+      `https://t.adcell.com/js/inlineretarget.js?method=basket` +
+      `&pid=${adcell.pid}` +
+      `&productIds=${encodeURIComponent(productIds)}` +
+      `&productSeparator=,` +
+      `&quantities=${encodeURIComponent(quantities)}` +
+      `&basketProductCount=${basketProductCount}` +
+      `&basketTotal=${basketTotal}`
+    document.body.appendChild(script)
+    return () => { script.remove() }
+  }, [cart, adcell])
 
   useEffect(() => {
     if (searchParams.get('checkout') !== '1') {

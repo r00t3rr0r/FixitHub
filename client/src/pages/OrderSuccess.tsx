@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useAdcellConfig } from '@/hooks/useAdcellConfig'
 import { SEO } from '@/components/SEO'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '@/components/home/TopBar'
@@ -14,6 +15,8 @@ export function OrderSuccessPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [orderData, setOrderData] = useState<any>(null)
+  const adcellFired = useRef(false)
+  const adcell = useAdcellConfig()
 
   useEffect(() => {
     // Extract order data from search params or sessionStorage
@@ -38,6 +41,53 @@ export function OrderSuccessPage() {
       })
     }
   }, [searchParams])
+
+  // ADCELL Conversion Tracking – fires once when order data is available
+  useEffect(() => {
+    if (!orderData || adcellFired.current) return
+    if (!adcell.enabled) return
+    adcellFired.current = true
+
+    const { pid, eventId } = adcell
+    const referenz = orderData.bookingNumber || orderData.orderNumbers?.[0] || ''
+    const betrag = ((orderData.totalAmount || orderData.total || 0) as number).toFixed(2)
+    const voucherParam = orderData.appliedCouponCode
+      ? `&vouchers%5B%5D=${encodeURIComponent(orderData.appliedCouponCode)}`
+      : ''
+
+    if (adcell.conversionEnabled) {
+      const script = document.createElement('script')
+      script.type = 'text/javascript'
+      script.async = true
+      script.src = `https://t.adcell.com/t/track.js?pid=${pid}&eventid=${eventId}&referenz=${encodeURIComponent(referenz)}${voucherParam}&betrag=${betrag}`
+      document.body.appendChild(script)
+
+      const img = document.createElement('img')
+      img.src = `https://t.adcell.com/t/track?pid=${pid}&eventid=${eventId}&referenz=${encodeURIComponent(referenz)}${voucherParam}&betrag=${betrag}`
+      img.width = 1
+      img.height = 1
+      img.setAttribute('border', '0')
+      img.setAttribute('aria-hidden', 'true')
+      img.style.position = 'absolute'
+      img.style.visibility = 'hidden'
+      document.body.appendChild(img)
+    }
+
+    if (adcell.containerTagsEnabled) {
+      const orderCount = orderData.orderCount || orderData.orderNumbers?.length || 0
+      const containerScript = document.createElement('script')
+      containerScript.type = 'text/javascript'
+      containerScript.async = true
+      containerScript.src =
+        `https://t.adcell.com/js/inlineretarget.js?method=checkout` +
+        `&pid=${pid}` +
+        `&basketId=${encodeURIComponent(referenz)}` +
+        `&basketTotal=${betrag}` +
+        `&basketProductCount=${orderCount}` +
+        `&productIds=&productSeparator=,&quantities=`
+      document.body.appendChild(containerScript)
+    }
+  }, [orderData, adcell])
 
   const handleBackToHome = () => {
     navigate('/')
