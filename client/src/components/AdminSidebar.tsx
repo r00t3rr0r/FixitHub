@@ -36,6 +36,7 @@ import {
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
+import { AdminSidebarSearch } from "@/components/AdminSidebarSearch"
 import "./AdminSidebar.css"
 
 interface AdminSidebarProps {
@@ -157,6 +158,10 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
 
   return (
     <nav className={`admin-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+      <AdminSidebarSearch isCollapsed={isCollapsed} />
+
+      <GroupDivider />
+
       <NavItem to="/admin" icon={Home}>
         Dashboard
       </NavItem>
