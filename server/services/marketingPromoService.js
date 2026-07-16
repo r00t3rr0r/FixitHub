@@ -1406,6 +1406,61 @@ class MarketingPromoService {
       containerTagsEnabled: updated.adcellContainerTagsEnabled,
     };
   }
+
+  static async getAdcellExcludedCustomerGroups() {
+    const settings = await this.ensureSettings();
+    return (settings.adcellExcludedCustomerGroupIds || []).map((id) => id.toString());
+  }
+
+  static async updateAdcellExcludedCustomerGroups(customerGroupIds, context) {
+    const settings = await this.ensureSettings();
+    const validIds = Array.isArray(customerGroupIds)
+      ? customerGroupIds
+          .filter((id) => id)
+          .map((id) => new mongoose.Types.ObjectId(id))
+      : [];
+
+    const updated = await MarketingSettings.findByIdAndUpdate(
+      settings._id,
+      { adcellExcludedCustomerGroupIds: validIds },
+      { new: true, runValidators: true }
+    );
+
+    await this.logAudit({
+      action: 'adcell_excluded_groups_updated',
+      entityType: 'settings',
+      entityId: updated._id,
+      entityLabel: 'adcell_excluded_customer_groups',
+      details: { excludedGroupIds: validIds },
+      user: context.user,
+      req: context.req,
+    });
+
+    return (updated.adcellExcludedCustomerGroupIds || []).map((id) => id.toString());
+  }
+
+  static async isCustomerInExcludedAdcellGroup(userId) {
+    try {
+      const settings = await this.ensureSettings();
+      if (!settings.adcellExcludedCustomerGroupIds || settings.adcellExcludedCustomerGroupIds.length === 0) {
+        return false;
+      }
+
+      const CustomerGroupAssignment = require('../models/CustomerGroupAssignment');
+
+      // Check if the user has ANY active assignment to an excluded group
+      const assignment = await CustomerGroupAssignment.findOne({
+        customerId: userId,
+        groupId: { $in: settings.adcellExcludedCustomerGroupIds },
+        status: 'active',
+      }).lean();
+
+      return !!assignment;
+    } catch (err) {
+      console.error('Error checking excluded ADCELL group:', err);
+      return false;
+    }
+  }
 }
 
 module.exports = MarketingPromoService;

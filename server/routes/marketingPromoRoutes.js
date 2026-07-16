@@ -77,6 +77,30 @@ router.put('/adcell-config', requireAdmin, async (req, res) => {
   }
 });
 
+// ADCELL Excluded Customer Groups
+router.get('/adcell-excluded-groups', requireAdmin, async (_req, res) => {
+  try {
+    const excludedGroupIds = await MarketingPromoService.getAdcellExcludedCustomerGroups();
+    return res.status(200).json({ success: true, excludedGroupIds });
+  } catch (error) {
+    console.error('MarketingPromoRoutes get adcell excluded groups error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to load excluded groups' });
+  }
+});
+
+router.put('/adcell-excluded-groups', requireAdmin, async (req, res) => {
+  try {
+    const excludedGroupIds = await MarketingPromoService.updateAdcellExcludedCustomerGroups(
+      req.body.excludedGroupIds || [],
+      { user: req.user, req }
+    );
+    return res.status(200).json({ success: true, excludedGroupIds, message: 'Ausgeschlossene Kundengruppen aktualisiert.' });
+  } catch (error) {
+    console.error('MarketingPromoRoutes update adcell excluded groups error:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to update excluded groups' });
+  }
+});
+
 router.get('/newsletters', requireAdmin, async (req, res) => {
   try {
     const data = await MarketingPromoService.listNewsletters(req.query || {});

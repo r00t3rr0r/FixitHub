@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { getAdcellConfig, updateAdcellConfig, type AdcellConfig } from '@/api/marketingPromo'
 import { invalidateAdcellConfigCache } from '@/hooks/useAdcellConfig'
 import { MarketingPromoHeader } from '@/components/admin/marketing-promo/MarketingPromoHeader'
+import { AdcellExcludedGroupsConfig } from '@/components/admin/marketing-promo/AdcellExcludedGroupsConfig'
 import { ExternalLink, Info } from 'lucide-react'
 
 const DEFAULT_CONFIG: AdcellConfig = {
@@ -252,6 +253,9 @@ export function AdcellTrackingPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Excluded Customer Groups Section */}
+      <AdcellExcludedGroupsConfig />
 
       <div className="flex justify-end">
         <Button onClick={save} disabled={saving || loading} className="min-w-[140px]">
