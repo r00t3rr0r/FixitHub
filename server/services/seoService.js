@@ -1,5 +1,60 @@
 const SEOSettings = require('../models/SEOSettings');
 
+const LEGACY_CANONICAL_URL_PREFIX = 'https://fixithub.de';
+const CURRENT_CANONICAL_URL_PREFIX = 'https://mcrepair.de';
+
+function normalizeSeoText(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return value
+    .replace(/https:\/\/fixithub\.de\//gi, 'https://mcrepair.de/')
+    .replace(/https:\/\/fixithub\.de/gi, 'https://mcrepair.de')
+    .replace(/FixitHub/gi, 'McRepair');
+}
+
+function normalizeSeoValueDeep(value) {
+  if (typeof value === 'string') {
+    return normalizeSeoText(normalizeSiteUrl(value));
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeSeoValueDeep(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizeSeoValueDeep(entry)])
+    );
+  }
+
+  return value;
+}
+
+function normalizeSiteUrl(url) {
+  if (typeof url !== 'string') {
+    return url;
+  }
+
+  const trimmedUrl = url.trim();
+
+  if (!trimmedUrl.startsWith(LEGACY_CANONICAL_URL_PREFIX)) {
+    return trimmedUrl;
+  }
+
+  return `${CURRENT_CANONICAL_URL_PREFIX}${trimmedUrl.slice(LEGACY_CANONICAL_URL_PREFIX.length)}`;
+}
+
+function normalizeSeoSettingsRecord(settings) {
+  if (!settings) {
+    return settings;
+  }
+
+  const source = typeof settings.toObject === 'function' ? settings.toObject() : settings;
+  return normalizeSeoValueDeep(source);
+}
+
 class SEOService {
   // Get SEO settings for a specific page
   static async getSEOSettings(pageType, pageId = '') {
@@ -29,7 +84,7 @@ class SEOService {
       }
 
       console.log('SEOService: Found SEO settings');
-      return settings;
+      return normalizeSeoSettingsRecord(settings);
     } catch (error) {
       console.error('SEOService: Error getting SEO settings:', error);
       throw error;
@@ -69,9 +124,11 @@ class SEOService {
       const totalSettings = await SEOSettings.countDocuments(query);
       const totalPages = Math.ceil(totalSettings / limit);
 
+      const normalizedSettings = settings.map(normalizeSeoSettingsRecord);
+
       console.log('SEOService: Found', settings.length, 'SEO settings');
       return {
-        settings,
+        settings: normalizedSettings,
         totalPages,
         currentPage: page,
         totalSettings
@@ -87,10 +144,12 @@ class SEOService {
     console.log('SEOService: Upserting SEO settings:', { pageType, pageId, seoData });
 
     try {
+      const normalizedSeoData = normalizeSeoValueDeep(seoData);
+
       const settings = await SEOSettings.findOneAndUpdate(
         { pageType, pageId },
         {
-          ...seoData,
+          ...normalizedSeoData,
           pageType,
           pageId,
           updatedBy: userId,
@@ -110,7 +169,7 @@ class SEOService {
       }
 
       console.log('SEOService: SEO settings upserted successfully');
-      return settings;
+      return normalizeSeoSettingsRecord(settings);
     } catch (error) {
       console.error('SEOService: Error upserting SEO settings:', error);
       throw error;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAdcellConfig } from '@/hooks/useAdcellConfig'
+import { checkIsUserExcludedFromAdcell } from '@/api/marketingPromo'
 import { SEO } from '@/components/SEO'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '@/components/home/TopBar'
@@ -15,8 +16,16 @@ export function OrderSuccessPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [orderData, setOrderData] = useState<any>(null)
+  const [isExcludedFromTracking, setIsExcludedFromTracking] = useState(false)
   const adcellFired = useRef(false)
   const adcell = useAdcellConfig()
+
+  useEffect(() => {
+    // Check if user is in excluded customer group
+    checkIsUserExcludedFromAdcell()
+      .then((excluded) => setIsExcludedFromTracking(excluded))
+      .catch(() => setIsExcludedFromTracking(false))
+  }, [])
 
   useEffect(() => {
     // Extract order data from search params or sessionStorage
@@ -46,6 +55,7 @@ export function OrderSuccessPage() {
   useEffect(() => {
     if (!orderData || adcellFired.current) return
     if (!adcell.enabled) return
+    if (isExcludedFromTracking) return
     adcellFired.current = true
 
     const { pid, eventId } = adcell
@@ -87,7 +97,7 @@ export function OrderSuccessPage() {
         `&productIds=&productSeparator=,&quantities=`
       document.body.appendChild(containerScript)
     }
-  }, [orderData, adcell])
+  }, [orderData, adcell, isExcludedFromTracking])
 
   const handleBackToHome = () => {
     navigate('/')

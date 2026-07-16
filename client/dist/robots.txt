@@ -1,4 +1,4 @@
-# FixitHub – Robots.txt
+# McRepair – Robots.txt
 # Suchmaschinen-Crawling-Richtlinien
 
 User-agent: *

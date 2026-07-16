@@ -444,6 +444,21 @@ app.get('/api/adcell-config', async (_req, res) => {
     return res.status(500).json({ success: false, config: { enabled: false } });
   }
 });
+
+// Public ADCELL exclusion check endpoint (checks if current user is in excluded group)
+app.get('/api/adcell-is-excluded', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(200).json({ success: true, isExcluded: false });
+    }
+    
+    const isExcluded = await MarketingPromoService.isCustomerInExcludedAdcellGroup(req.user._id);
+    return res.status(200).json({ success: true, isExcluded });
+  } catch (error) {
+    console.error('Server ADCELL exclusion check error:', error);
+    return res.status(200).json({ success: true, isExcluded: false });
+  }
+});
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);

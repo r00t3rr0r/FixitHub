@@ -61,6 +61,12 @@ const marketingSettingsSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    adcellExcludedCustomerGroupIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CustomerGroup',
+      },
+    ],
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

@@ -227,6 +227,27 @@ export const getPublicAdcellConfig = async (): Promise<AdcellConfig> => {
   }
 }
 
+// ─── ADCELL Excluded Customer Groups ────────────────────────────────────────
+
+export const getAdcellExcludedCustomerGroups = async () => {
+  const response = await api.get('/api/admin/marketing-promo/adcell-excluded-groups')
+  return response.data as { success: boolean; excludedGroupIds: string[] }
+}
+
+export const updateAdcellExcludedCustomerGroups = async (excludedGroupIds: string[]) => {
+  const response = await api.put('/api/admin/marketing-promo/adcell-excluded-groups', { excludedGroupIds })
+  return response.data as { success: boolean; excludedGroupIds: string[]; message: string }
+}
+
+export const checkIsUserExcludedFromAdcell = async (): Promise<boolean> => {
+  try {
+    const response = await api.get('/api/adcell-is-excluded')
+    return response.data?.isExcluded ?? false
+  } catch {
+    return false
+  }
+}
+
 export const listNewsletters = async (params?: Record<string, string | number>) => {
   const response = await api.get('/api/admin/marketing-promo/newsletters', { params })
   return response.data as {
