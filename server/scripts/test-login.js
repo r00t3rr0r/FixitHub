@@ -82,7 +82,7 @@ async function testDatabaseHealth() {
 
 async function runTests() {
   console.log('='.repeat(60));
-  console.log('🧪 FixitHub Login Test Suite');
+  console.log('🧪 McRepair.de Login Test Suite');
   console.log('='.repeat(60));
   console.log(`API URL: ${API_URL}`);
 

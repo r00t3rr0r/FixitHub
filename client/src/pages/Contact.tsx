@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SEO } from '@/components/SEO'
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -48,6 +49,150 @@ const initialFormState: ContactFormState = {
   message: '',
   privacyAccepted: false,
 };
+
+const CONTACT_JSON_LD = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ContactPage',
+    name: 'Kontakt – McRepair.de Reparaturservice',
+    description:
+      'Kontaktseite für Reparaturanfragen, Statusanfragen zu laufenden Aufträgen, Reklamationen, Geschäftsanfragen und allgemeine Anliegen beim McRepair.de-Reparaturservice in Berlin.',
+    url: 'https://www.mcrepair.de/contact',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': ['LocalBusiness', 'ElectronicsRepair'],
+    '@id': 'https://www.mcrepair.de/#business',
+    name: 'McRepair.de',
+    description: 'Professioneller Reparaturservice für Smartphones, Tablets und Laptops in Berlin.',
+    url: 'https://www.mcrepair.de',
+    telephone: '+49-30-403-688-951',
+    email: 'kontakt@mcrepair.de',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'Kurfürstenstraße 106',
+      addressLocality: 'Berlin',
+      postalCode: '10787',
+      addressCountry: 'DE',
+    },
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: 52.5021,
+      longitude: 13.3568,
+    },
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        opens: '09:00',
+        closes: '18:00',
+      },
+    ],
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        telephone: '+49-30-403-688-951',
+        contactType: 'customer service',
+        availableLanguage: [
+          { '@type': 'Language', name: 'German' },
+          { '@type': 'Language', name: 'English' },
+        ],
+        hoursAvailable: {
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          opens: '09:00',
+          closes: '18:00',
+        },
+      },
+      {
+        '@type': 'ContactPoint',
+        email: 'kontakt@mcrepair.de',
+        contactType: 'customer service',
+      },
+    ],
+    priceRange: '€€',
+    currenciesAccepted: 'EUR',
+    paymentAccepted: 'Barzahlung, Kreditkarte, PayPal, Überweisung',
+    areaServed: {
+      '@type': 'City',
+      name: 'Berlin',
+      sameAs: 'https://www.wikidata.org/wiki/Q64',
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://www.mcrepair.de' },
+      { '@type': 'ListItem', position: 2, name: 'Kontakt', item: 'https://www.mcrepair.de/contact' },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'Wie schnell erhalte ich eine Antwort auf meine Kontaktanfrage?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'In der Regel erhalten Sie innerhalb eines Werktages eine persönliche Antwort von unserem Support-Team.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Wie kann ich McRepair.de kontaktieren?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Sie können McRepair.de per Telefon unter +49 30 403 688 951, per E-Mail an kontakt@mcrepair.de oder über das Kontaktformular auf dieser Seite erreichen.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Wann ist der McRepair.de-Support erreichbar?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Unser Support-Team ist Montag bis Freitag von 09:00 bis 18:00 Uhr für Sie erreichbar.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Kann ich über das Kontaktformular eine Reparaturanfrage stellen?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Ja. Über das Kontaktformular können Sie Reparaturanfragen, Statusanfragen zu laufenden Aufträgen, Reklamationen, Geschäftsanfragen und allgemeine Anliegen einreichen.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Wo befindet sich der McRepair.de-Servicestandort in Berlin?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'McRepair.de ist in der Kurfürstenstraße 106, 10787 Berlin ansässig. Bitte nehmen Sie vorab Kontakt per Telefon oder über das Kontaktformular auf.',
+        },
+      },
+    ],
+  },
+]
+
+const VISIBLE_FAQ_ITEMS = [
+  {
+    q: 'Wie schnell erhalte ich eine Antwort?',
+    a: 'In der Regel innerhalb eines Werktages. Telefonisch erreichen Sie uns Mo.–Fr. von 09:00 bis 18:00 Uhr.',
+  },
+  {
+    q: 'Welche Anliegen kann ich über das Formular einreichen?',
+    a: 'Reparaturanfragen, Statusabfragen zu laufenden Aufträgen, Reklamationen, Geschäftsanfragen sowie allgemeine Fragen.',
+  },
+  {
+    q: 'Muss ich bereits einen Auftrag haben, um Kontakt aufzunehmen?',
+    a: 'Nein. Sie können auch ohne Auftragsnummer eine allgemeine Anfrage oder einen Kostenvoranschlag anfragen.',
+  },
+  {
+    q: 'Wo ist McRepair.de in Berlin ansässig?',
+    a: 'Unser Servicestandort befindet sich in der Kurfürstenstraße 106, 10787 Berlin.',
+  },
+]
 
 export function Contact() {
   const { t } = useTranslation();
@@ -142,9 +287,42 @@ export function Contact() {
         background: 'linear-gradient(180deg, rgba(245,197,24,0.08) 0%, var(--off-white, #f8f9fc) 20%, #ffffff 58%, rgba(26,42,94,0.06) 100%)',
       }}
     >
+      <SEO
+        title="Kontakt – McRepair.de | Smartphone & Tablet Reparaturservice Berlin"
+        description="McRepair.de kontaktieren – per Telefon, E-Mail oder Kontaktformular. Reparaturanfragen, Auftragsstatus & Reklamationen. Antwort garantiert binnen eines Werktages."
+        canonical="/contact"
+        keywords="McRepair Kontakt, Reparaturservice Berlin Kontakt, Smartphone Reparatur Anfrage, Tablet Reparatur Kontakt, Handy Reparatur Berlin, Kontaktformular Reparatur, Reparatur Statusanfrage, Reklamation Reparatur"
+        jsonLd={CONTACT_JSON_LD}
+      />
       <TopBar />
       <McRepairNav />
 
+      <main id="main-content">
+        <nav aria-label="Brotkrümelpfad" className="container px-4 pt-3 pb-0">
+          <ol
+            className="flex items-center gap-1.5 text-xs text-gray-500"
+            itemScope
+            itemType="https://schema.org/BreadcrumbList"
+          >
+            <li itemScope itemType="https://schema.org/ListItem" itemProp="itemListElement">
+              <Link to="/" itemProp="item" className="hover:text-gray-700 hover:underline">
+                <span itemProp="name">Startseite</span>
+              </Link>
+              <meta itemProp="position" content="1" />
+            </li>
+            <li aria-hidden="true" className="select-none">&#8250;</li>
+            <li
+              itemScope
+              itemType="https://schema.org/ListItem"
+              itemProp="itemListElement"
+              aria-current="page"
+            >
+              <span className="font-medium text-gray-900" itemProp="name">Kontakt</span>
+              <link itemProp="item" href="https://www.mcrepair.de/contact" />
+              <meta itemProp="position" content="2" />
+            </li>
+          </ol>
+        </nav>
       <section className="container px-4 pb-8 md:pb-14">
         <div className="mt-6 grid gap-5 md:mt-8 md:gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <Card className="border-0 shadow-xl overflow-hidden">
@@ -167,39 +345,45 @@ export function Contact() {
                   {`${t('home.contact.responseTimeDesc')} ${t('home.contact.secureHandlingDesc')}`}
                 </p>
 
-                <div className="mt-6 grid gap-2.5 sm:mt-8 sm:grid-cols-3 sm:gap-3">
-                  <a
-                    href="tel:+4930403688951"
-                    className="inline-flex h-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition"
-                    style={{
-                      background: 'var(--accent-yellow, #f5c518)',
-                      color: 'var(--primary-blue, #1a2a5e)',
-                    }}
-                  >
-                    <Phone className="h-4 w-4" />
-                    {t('home.contact.phoneValue')}
-                  </a>
-                  <a
-                    href="mailto:kontakt@mcrepair.de"
-                    className="inline-flex h-full items-center justify-center gap-2 rounded-2xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-                  >
-                    <Mail className="h-4 w-4" />
-                    {t('home.contact.emailValue')}
-                  </a>
+                <address className="not-italic mt-6 sm:mt-8">
+                  <div className="grid gap-2.5 sm:grid-cols-3 sm:gap-3">
+                    <a
+                      href="tel:+4930403688951"
+                      className="inline-flex h-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition"
+                      style={{
+                        background: 'var(--accent-yellow, #f5c518)',
+                        color: 'var(--primary-blue, #1a2a5e)',
+                      }}
+                    >
+                      <Phone className="h-4 w-4" />
+                      {t('home.contact.phoneValue')}
+                    </a>
+                    <a
+                      href="mailto:kontakt@mcrepair.de"
+                      className="inline-flex h-full items-center justify-center gap-2 rounded-2xl border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                    >
+                      <Mail className="h-4 w-4" />
+                      {t('home.contact.emailValue')}
+                    </a>
 
-                  <a
-                    href="https://maps.google.com/?q=Kurfürstenstraße+106,+10787+Berlin"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-full items-start gap-2 rounded-2xl border border-white/20 px-4 py-3 text-sm leading-6 text-blue-50 transition hover:bg-white/10"
-                  >
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>
-                      {t('home.contact.addressValueLine1')}<br />
-                      {t('home.contact.addressValueLine2')}
-                    </span>
-                  </a>
-                </div>
+                    <a
+                      href="https://maps.google.com/?q=Kurfürstenstraße+106,+10787+Berlin"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-full items-start gap-2 rounded-2xl border border-white/20 px-4 py-3 text-sm leading-6 text-blue-50 transition hover:bg-white/10"
+                    >
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        {t('home.contact.addressValueLine1')}<br />
+                        {t('home.contact.addressValueLine2')}
+                      </span>
+                    </a>
+                  </div>
+                  <p className="mt-3 flex items-center gap-2 text-sm text-blue-100/80">
+                    <Clock3 className="h-4 w-4 shrink-0 opacity-75" aria-hidden="true" />
+                    <time>{t('home.contact.hoursValue')}</time>
+                  </p>
+                </address>
               </div>
             </CardContent>
           </Card>
@@ -223,6 +407,34 @@ export function Contact() {
                     {t('home.contact.repairButton')}
                   </Link>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-xl">
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock3 className="h-5 w-5 shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
+                  <h2 className="font-semibold text-base" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+                    Öffnungszeiten
+                  </h2>
+                </div>
+                <dl className="space-y-2 text-sm" style={{ color: 'var(--gray-600, #475569)' }}>
+                  <div className="flex justify-between">
+                    <dt>Mo. – Fr.</dt>
+                    <dd><time>09:00 – 18:00 Uhr</time></dd>
+                  </div>
+                  <div className="flex justify-between" style={{ color: 'var(--gray-400, #9ca3af)' }}>
+                    <dt>Samstag</dt>
+                    <dd>geschlossen</dd>
+                  </div>
+                  <div className="flex justify-between" style={{ color: 'var(--gray-400, #9ca3af)' }}>
+                    <dt>Sonntag</dt>
+                    <dd>geschlossen</dd>
+                  </div>
+                </dl>
+                <p className="mt-4 text-xs" style={{ color: 'var(--gray-500, #6b7280)' }}>
+                  Feiertage können abweichen – bitte vorab anfragen.
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -251,7 +463,12 @@ export function Contact() {
                 </div>
               )}
 
-              <form className="space-y-6" onSubmit={handleSubmit}>
+              <form
+                className="space-y-6"
+                onSubmit={handleSubmit}
+                noValidate
+                aria-label="Kontaktformular für Reparaturanfragen, Statusanfragen und allgemeine Anliegen"
+              >
                 <div className="hidden" aria-hidden="true">
                   <Label htmlFor="contact-website">Website</Label>
                   <Input
@@ -415,7 +632,30 @@ export function Contact() {
             </CardContent>
           </Card>
         </div>
+
+        <section aria-label="Häufige Fragen zum Kontakt" className="mt-6 md:mt-8">
+          <h2 className="mb-6 text-xl font-bold" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+            Häufige Fragen zum Kontakt
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {VISIBLE_FAQ_ITEMS.map((item, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border p-5"
+                style={{ borderColor: 'rgba(26,42,94,0.1)', background: 'rgba(248,250,252,0.9)' }}
+              >
+                <h3 className="mb-2 font-semibold text-sm" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+                  {item.q}
+                </h3>
+                <p className="text-sm leading-6" style={{ color: 'var(--gray-600, #475569)' }}>
+                  {item.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
       </section>
+      </main>
 
       <Footer />
     </div>

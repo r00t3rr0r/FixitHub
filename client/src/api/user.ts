@@ -32,6 +32,25 @@ export interface UserProfile {
       email: boolean;
       sms: boolean;
       push: boolean;
+      mode?: 'standard' | 'all';
+      emailEvents?: {
+        inProgress?: boolean;
+        readyForPickup?: boolean;
+        completed?: boolean;
+      };
+      pushEvents?: {
+        inProgress?: boolean;
+        readyForPickup?: boolean;
+        completed?: boolean;
+      };
+      channelsByType?: {
+        order_update?: { email?: boolean; push?: boolean };
+        payment?: { email?: boolean; push?: boolean };
+        message?: { email?: boolean; push?: boolean };
+        system?: { email?: boolean; push?: boolean };
+        assignment?: { email?: boolean; push?: boolean };
+        reminder?: { email?: boolean; push?: boolean };
+      };
     };
     communication: {
       orderUpdates: boolean;

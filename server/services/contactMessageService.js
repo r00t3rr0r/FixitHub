@@ -175,9 +175,9 @@ class ContactMessageService {
 
       const transporter = await EmailService.getTransporter();
       const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@fixithub.com',
+        from: process.env.SMTP_FROM || 'noreply@mcrepair.de',
         to: message.email,
-        replyTo: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        replyTo: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         subject: subject || `Re: ${this.SUBJECT_LABELS[message.subject] || message.subject}`,
         html: htmlContent || messageText,
         text: messageText,

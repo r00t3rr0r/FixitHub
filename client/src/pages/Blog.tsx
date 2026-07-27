@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { SEO } from '@/components/SEO'
 import { Link } from "react-router-dom"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -115,6 +116,56 @@ export function Blog() {
 
   return (
     <section className="section py-4 sm:py-6">
+      {(() => {
+        const BASE_URL = 'https://www.mcrepair.de'
+        const blogListSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'Blog',
+          name: 'McRepair Reparatur-Blog & Ratgeber',
+          description: 'Tipps, Anleitungen und News rund um Smartphone- & Tablet-Reparatur.',
+          url: `${BASE_URL}/blog`,
+          publisher: {
+            '@type': 'Organization',
+            name: 'McRepair.de',
+            logo: { '@type': 'ImageObject', url: `${BASE_URL}/logo.png` },
+          },
+          ...(filteredPosts.length > 0 ? {
+            blogPost: filteredPosts.slice(0, 20).map((p) => ({
+              '@type': 'BlogPosting',
+              headline: p.title,
+              url: `${BASE_URL}/blog/${p.slug || p._id}`,
+              datePublished: p.publishedAt || p.createdAt,
+              description: p.excerpt,
+              author: { '@type': 'Person', name: p.author?.name },
+              image: p.featuredImage || undefined,
+              articleSection: typeof p.category === 'string' ? p.category : p.category?.name,
+            })),
+          } : {}),
+        }
+
+        const breadcrumbSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
+            { '@type': 'ListItem', position: 2, name: 'Blog', item: `${BASE_URL}/blog` },
+          ],
+        }
+
+        const categoryKeywords = categories.slice(0, 6).map((c) => c.name).join(', ')
+        const keywords = `Smartphone Reparatur, Tablet Reparatur, Handy Reparatur Tipps, Display Reparatur, Akku wechseln${categoryKeywords ? ', ' + categoryKeywords : ''}, McRepair`
+
+        return (
+          <SEO
+            title="Reparatur-Blog & Ratgeber – McRepair.de"
+            description="Reparatur-Tipps, Anleitungen und aktuelle News rund um Smartphones, iPhones & Tablets. Im McRepair.de Blog immer gut über Reparatur, Pflege & Technik informiert."
+            canonical="/blog"
+            ogType="website"
+            keywords={keywords}
+            jsonLd={[blogListSchema, breadcrumbSchema]}
+          />
+        )
+      })()}
       <div className="container max-w-7xl">
         <div className="mb-4 overflow-hidden rounded-2xl border border-[#1a2a5e] bg-[#1a2a5e] p-4 shadow-sm sm:mb-6 sm:p-6">
           <div className="flex items-start justify-between gap-3">
@@ -166,16 +217,17 @@ export function Blog() {
           {filteredPosts.map((post) => (
             <Link
               key={post._id}
-              to={`/blog/${post._id}`}
+              to={`/blog/${post.slug || post._id}`}
               className="group overflow-hidden rounded-xl border border-[#eceef3] bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5b800]/50"
             >
               <div className="relative h-40 overflow-hidden bg-slate-100 sm:h-44">
                 {post.featuredImage ? (
                   <img
                     src={post.featuredImage}
-                    alt={post.title}
+                    alt={`${post.title} – McRepair Blog`}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-slate-400">

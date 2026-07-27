@@ -180,7 +180,7 @@ router.post('/:orderId/quick-action', requireUser, async (req, res) => {
       return res.status(400).json({ error: 'actionType is required' });
     }
 
-    const validActions = ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs', 'update_unlock_info'];
+    const validActions = ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs', 'update_unlock_info', 'customer_defect_info'];
     if (!validActions.includes(actionType)) {
       return res.status(400).json({ error: `Invalid action type. Must be one of: ${validActions.join(', ')}` });
     }

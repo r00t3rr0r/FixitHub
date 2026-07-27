@@ -98,9 +98,10 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
         --muted: #4b5563;
         --border: #d6dee8;
         --surface: #f8fafc;
-        --accent: #111827;
-        --accent-2: #d4a017;
-        --accent-soft: #eef2f7;
+        --accent: #1a2a5e;
+        --accent-2: #f5b800;
+        --accent-2-dark: #e5ab00;
+        --accent-soft: #eef1f9;
       }
 
       * {
@@ -118,11 +119,12 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
 
       .cover {
         border: 1px solid var(--border);
+        border-top: 6px solid var(--accent);
         border-radius: 16px;
         background:
-          radial-gradient(circle at 15% 12%, #ffffff 0%, #ffffff 40%, #f0f5fb 100%),
-          linear-gradient(135deg, #ffffff 0%, #f2f6fb 65%, #edf3fa 100%);
-        padding: 22mm 14mm 14mm;
+          radial-gradient(circle at 15% 12%, #ffffff 0%, #ffffff 40%, #eef1f9 100%),
+          linear-gradient(135deg, #ffffff 0%, #f1f4fb 65%, #e9eef8 100%);
+        padding: 18mm 14mm 14mm;
         min-height: 250mm;
         page-break-after: always;
         position: relative;
@@ -137,19 +139,61 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
         width: 62mm;
         height: 62mm;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(212, 160, 23, 0.26) 0%, rgba(212, 160, 23, 0.08) 58%, rgba(212, 160, 23, 0) 75%);
+        background: radial-gradient(circle, rgba(245, 184, 0, 0.30) 0%, rgba(245, 184, 0, 0.10) 58%, rgba(245, 184, 0, 0) 75%);
+      }
+
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 3mm;
+        margin-bottom: 9mm;
+      }
+
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 13mm;
+        height: 13mm;
+        border-radius: 10px;
+        background: var(--accent);
+        color: var(--accent-2);
+        font-family: "Georgia", "Times New Roman", serif;
+        font-weight: 700;
+        font-size: 18pt;
+        box-shadow: 0 4px 14px rgba(26, 42, 94, 0.28);
+      }
+
+      .brand-word {
+        font-family: "Georgia", "Times New Roman", serif;
+        font-size: 17pt;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        color: var(--accent);
+      }
+
+      .brand-word span {
+        color: var(--accent-2-dark);
+      }
+
+      .brand-tag {
+        margin: 0.4mm 0 0;
+        font-size: 7.8pt;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: #5c6b7f;
       }
 
       .cover-kicker {
         display: inline-block;
         padding: 1.5mm 3mm;
-        border: 1px solid #c7d1de;
+        border: 1px solid var(--accent);
         border-radius: 999px;
-        background: #ffffff;
+        background: var(--accent);
         letter-spacing: 0.4px;
         font-size: 8.6pt;
         font-weight: 700;
-        color: #2f4057;
+        color: #ffffff;
         text-transform: uppercase;
       }
 
@@ -197,7 +241,7 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
       .cover-stat-value {
         margin: 1.2mm 0 0;
         font-size: 13pt;
-        color: #16283d;
+        color: var(--accent);
         font-weight: 700;
       }
 
@@ -282,12 +326,14 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
       h1 {
         font-size: 19pt;
         font-family: "Georgia", "Times New Roman", serif;
-        border-bottom: 2px solid #d9e1ea;
+        color: var(--accent);
+        border-bottom: 2px solid var(--accent-2);
         padding-bottom: 2mm;
       }
 
       h2 {
         font-size: 15pt;
+        color: var(--accent);
         border-left: 4px solid var(--accent-2);
         padding-left: 2.5mm;
       }
@@ -400,6 +446,13 @@ function buildHtml(title, tocHtml, chapterChipsHtml, contentHtml, chapterCount) 
   </head>
   <body>
     <section class="cover">
+      <div class="brand-lockup">
+        <span class="brand-mark">F</span>
+        <div>
+          <div class="brand-word">Fixit<span>Hub</span></div>
+          <p class="brand-tag">Reparaturservice &middot; Smartphone &middot; Tablet &middot; Notebook</p>
+        </div>
+      </div>
       <span class="cover-kicker">${coverKicker}</span>
       <h1>${title}</h1>
       <p>${coverSubtitle}</p>

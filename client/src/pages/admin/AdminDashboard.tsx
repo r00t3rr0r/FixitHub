@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ToastAction } from "@/components/ui/toast"
 import {
   getAllComplaints,
   type Complaint,
@@ -46,6 +47,8 @@ import {
 } from "lucide-react"
 import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
 import { getContactMessages, type ContactMessage } from "@/api/contactMessages"
+import { markNotificationAsRead } from "@/api/notifications"
+import { InactiveRepairsList } from "@/components/admin/InactiveRepairsList"
 import "./AdminDashboard.css"
 
 type NotificationMeta = {
@@ -171,9 +174,37 @@ const toCurrency = (value: number) => {
   }).format(amount)
 }
 
+const toEuroCurrency = (value: number) => {
+  const amount = Number.isFinite(value) ? value : 0
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
 const capitalize = (value?: string) => {
   if (!value) return "Unbekannt"
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+const hasUnlockInfoUpdateAction = (notification: any) => {
+  const actionType = String(notification?.metadata?.actionType || "").toLowerCase()
+  if (actionType === "unlock_info_updated") return true
+
+  const text = `${notification?.title || ""} ${notification?.message || ""}`.toLowerCase()
+  return text.includes("entsperr") && text.includes("aktualisiert")
+}
+
+const resolveNotificationOrderPath = (notification: any) => {
+  if (typeof notification?.actionUrl === "string" && notification.actionUrl.trim()) {
+    return notification.actionUrl.trim()
+  }
+  if (notification?.orderId) {
+    return `/orders/${notification.orderId}`
+  }
+  return ""
 }
 
 export function AdminDashboard() {
@@ -193,6 +224,7 @@ export function AdminDashboard() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
   const dashboardDataSignatureRef = useRef<string>("")
+  const seenUnlockUpdateIdsRef = useRef<Set<string>>(new Set())
 
   const captureScrollPositions = () => {
     const windowScrollTop = window.scrollY
@@ -218,6 +250,145 @@ export function AdminDashboard() {
         viewport.scrollTop = saved
       }
     })
+  }
+
+  const removeBookingFromDashboard = (bookingId?: string) => {
+    if (!bookingId) return
+
+    setDashboardData((prev) => {
+      const nextBookings = prev.bookings.filter((booking: any) => String(booking?._id || "") !== String(bookingId))
+      if (nextBookings.length === prev.bookings.length) return prev
+
+      return {
+        ...prev,
+        bookings: nextBookings,
+        sectionCounts: {
+          ...prev.sectionCounts,
+          bookings: Math.max(0, prev.sectionCounts.bookings - 1),
+        },
+      }
+    })
+  }
+
+  const clearBookingsFromDashboard = () => {
+    setDashboardData((prev) => ({
+      ...prev,
+      bookings: [],
+      sectionCounts: {
+        ...prev.sectionCounts,
+        bookings: 0,
+      },
+    }))
+  }
+
+  const removeRepairRequestFromDashboard = (requestId?: string) => {
+    if (!requestId) return
+
+    setDashboardData((prev) => {
+      const nextRequests = prev.repairRequests.filter((request: any) => String(request?._id || "") !== String(requestId))
+      if (nextRequests.length === prev.repairRequests.length) return prev
+
+      return {
+        ...prev,
+        repairRequests: nextRequests,
+        sectionCounts: {
+          ...prev.sectionCounts,
+          repairRequests: Math.max(0, prev.sectionCounts.repairRequests - 1),
+        },
+      }
+    })
+  }
+
+  const clearRepairRequestsFromDashboard = () => {
+    setDashboardData((prev) => ({
+      ...prev,
+      repairRequests: [],
+      sectionCounts: {
+        ...prev.sectionCounts,
+        repairRequests: 0,
+      },
+    }))
+  }
+
+  const clearNotificationsFromDashboard = () => {
+    setDashboardData((prev) => ({
+      ...prev,
+      notifications: [],
+      notificationMeta: {
+        ...prev.notificationMeta,
+        unreadCount: 0,
+        urgentCount: 0,
+        totalCount: 0,
+      },
+    }))
+  }
+
+  const removeCustomerMessageFromDashboard = (messageId?: string) => {
+    if (!messageId) return
+
+    setCustomerMessages((prev) => {
+      const nextMessages = prev.filter((message) => String(message?._id || "") !== String(messageId))
+      if (nextMessages.length === prev.length) return prev
+      setTotalUnreadMessages((current) => Math.max(0, current - 1))
+      return nextMessages
+    })
+  }
+
+  const clearCustomerMessagesFromDashboard = () => {
+    setCustomerMessages([])
+    setTotalUnreadMessages(0)
+  }
+
+  const removeOpenContactRequestFromDashboard = (requestId?: string) => {
+    if (!requestId) return
+
+    setOpenContactRequests((prev) => {
+      const nextRequests = prev.filter((request) => String(request?._id || "") !== String(requestId))
+      if (nextRequests.length === prev.length) return prev
+      setUnansweredContactCount((current) => Math.max(0, current - 1))
+      return nextRequests
+    })
+  }
+
+  const clearOpenContactRequestsFromDashboard = () => {
+    setOpenContactRequests([])
+    setUnansweredContactCount(0)
+  }
+
+  const handleNotificationClick = async (notification: any, notificationPath: string) => {
+    if (!notificationPath) return
+
+    const notificationId = String(notification?._id || "")
+    const isUnread = !notification?.isRead
+    const isUrgent = Boolean(notification?.isUrgent)
+
+    if (notificationId && !notification?.isRead) {
+      try {
+        await markNotificationAsRead(notificationId)
+      } catch {
+        // Ignore read-sync failures; navigation should still work.
+      }
+    }
+
+    setDashboardData((prev) => {
+      const nextNotifications = prev.notifications.filter((item: any) => String(item?._id || "") !== notificationId)
+
+      const nextUnreadCount = Math.max(0, prev.notificationMeta.unreadCount - (isUnread ? 1 : 0))
+      const nextUrgentCount = Math.max(0, prev.notificationMeta.urgentCount - (isUrgent ? 1 : 0))
+
+      return {
+        ...prev,
+        notifications: nextNotifications,
+        notificationMeta: {
+          ...prev.notificationMeta,
+          unreadCount: nextUnreadCount,
+          urgentCount: nextUrgentCount,
+          totalCount: Math.max(0, prev.notificationMeta.totalCount - 1),
+        },
+      }
+    })
+
+    navigate(notificationPath)
   }
 
   const fetchDashboardData = async (showToast = false, silent = true) => {
@@ -411,6 +582,53 @@ export function AdminDashboard() {
     }
   }, [])
 
+  useEffect(() => {
+    const unlockNotifications = dashboardData.notifications.filter((notification: any) =>
+      hasUnlockInfoUpdateAction(notification)
+    )
+
+    if (unlockNotifications.length === 0) return
+
+    if (seenUnlockUpdateIdsRef.current.size === 0) {
+      unlockNotifications.forEach((notification: any) => {
+        if (notification?._id) {
+          seenUnlockUpdateIdsRef.current.add(String(notification._id))
+        }
+      })
+      return
+    }
+
+    const newestUnseen = unlockNotifications.find((notification: any) => {
+      const id = String(notification?._id || "")
+      return id && !seenUnlockUpdateIdsRef.current.has(id)
+    })
+
+    unlockNotifications.forEach((notification: any) => {
+      if (notification?._id) {
+        seenUnlockUpdateIdsRef.current.add(String(notification._id))
+      }
+    })
+
+    if (!newestUnseen) return
+
+    const orderPath = resolveNotificationOrderPath(newestUnseen)
+    const orderLabel = newestUnseen?.orderNumber
+      ? `#${newestUnseen.orderNumber}`
+      : t('adminDashboard.thisOrder', { defaultValue: 'diesen Auftrag' })
+
+    toast({
+      title: t('adminDashboard.unlockInfoResponseTitle', { defaultValue: 'Neue Antwort zu Entsperrinformation' }),
+      description: t('adminDashboard.unlockInfoResponseDescription', {
+        defaultValue: `Die Kund:innen-Antwort ist eingegangen (${orderLabel}).`,
+      }),
+      action: orderPath ? (
+        <ToastAction altText={t('adminDashboard.openOrder', { defaultValue: 'Auftrag öffnen' })} onClick={() => navigate(orderPath)}>
+          {t('adminDashboard.openOrder', { defaultValue: 'Auftrag öffnen' })}
+        </ToastAction>
+      ) : undefined,
+    })
+  }, [dashboardData.notifications, navigate, t, toast])
+
   const systemOverview = dashboardData.systemOverview
   const counts = safeObject(systemOverview.counts)
   const today = safeObject(systemOverview.today)
@@ -601,7 +819,11 @@ export function AdminDashboard() {
                       key={booking._id || bookingId}
                       type="button"
                       className="compact-list-item compact-list-item-button"
-                      onClick={() => booking?._id && navigate(`/admin/bookings?highlightBookingId=${booking._id}`)}
+                      onClick={() => {
+                        if (!booking?._id) return
+                        removeBookingFromDashboard(booking._id)
+                        navigate(`/admin/bookings?highlightBookingId=${booking._id}`)
+                      }}
                     >
                       <div>
                         <p className="compact-title">{customerName}</p>
@@ -609,7 +831,7 @@ export function AdminDashboard() {
                       </div>
                       <div className="compact-list-side">
                         <Badge variant="outline" className="compact-badge">{String(booking.status || t('adminDashboard.unknown'))}</Badge>
-                        <span>{toCurrency(amount)}</span>
+                        <span>{toEuroCurrency(amount)}</span>
                         <small>{timeAgo(booking.createdAt || booking.bookingTime)}</small>
                       </div>
                     </button>
@@ -618,7 +840,10 @@ export function AdminDashboard() {
               </div>
             </ScrollArea>
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/bookings")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearBookingsFromDashboard()
+              navigate("/admin/bookings")
+            }}>
               {t('adminDashboard.manageBookings')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -648,7 +873,10 @@ export function AdminDashboard() {
                       key={request._id || request.requestNumber}
                       type="button"
                       className="compact-list-item compact-list-item-button"
-                      onClick={() => navigate(`/admin/repair-requests?tab=repair-requests&requestId=${request._id}`)}
+                      onClick={() => {
+                        removeRepairRequestFromDashboard(request._id)
+                        navigate(`/admin/repair-requests?tab=repair-requests&requestId=${request._id}`)
+                      }}
                     >
                       <div>
                         <p className="compact-title">{customerName}</p>
@@ -664,7 +892,10 @@ export function AdminDashboard() {
               </div>
             </ScrollArea>
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/repair-requests")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearRepairRequestsFromDashboard()
+              navigate("/admin/repair-requests")
+            }}>
               {t('adminDashboard.viewRequests')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -683,8 +914,13 @@ export function AdminDashboard() {
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
                 {dashboardData.notifications.length === 0 && <p className="compact-empty">{t('adminDashboard.noNotices')}</p>}
-                {dashboardData.notifications.slice(0, 8).map((notification: any) => (
-                  <div key={notification._id} className="compact-list-item">
+                {dashboardData.notifications.slice(0, 8).map((notification: any) => {
+                  const isUnlockUpdate = hasUnlockInfoUpdateAction(notification)
+                  const notificationPath = resolveNotificationOrderPath(notification)
+                  const clickable = Boolean(notificationPath)
+
+                  const itemContent = (
+                    <>
                     <div>
                       <p className="compact-title">
                         {notification?.isUrgent ? <AlertCircle className="h-3.5 w-3.5 text-[#c53030]" /> : null}
@@ -693,15 +929,41 @@ export function AdminDashboard() {
                       <p className="compact-sub line-clamp-2">{notification?.message || "-"}</p>
                     </div>
                     <div className="compact-list-side">
+                      {isUnlockUpdate && (
+                        <Badge className="compact-badge-unread">{t('adminDashboard.unlockInfoBadge', { defaultValue: 'Neue Entsperrinformationen eingegangen' })}</Badge>
+                      )}
                       {!notification?.isRead && <Badge className="compact-badge-unread">{t('common.new')}</Badge>}
                       <small>{timeAgo(notification?.createdAt)}</small>
                     </div>
-                  </div>
-                ))}
+                    </>
+                  )
+
+                  if (!clickable) {
+                    return (
+                      <div key={notification._id} className="compact-list-item">
+                        {itemContent}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <button
+                      key={notification._id}
+                      type="button"
+                      className="compact-list-item compact-list-item-button"
+                      onClick={() => handleNotificationClick(notification, notificationPath)}
+                    >
+                      {itemContent}
+                    </button>
+                  )
+                })}
               </div>
             </ScrollArea>
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/notifications")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearNotificationsFromDashboard()
+              navigate("/notifications")
+            }}>
               {t('adminDashboard.allNotices')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -740,7 +1002,10 @@ export function AdminDashboard() {
                       key={msg._id}
                       type="button"
                       className="compact-msg-item"
-                      onClick={() => navigate(msg.navigateTo)}
+                      onClick={() => {
+                        removeCustomerMessageFromDashboard(msg._id)
+                        navigate(msg.navigateTo)
+                      }}
                     >
                       <div className="compact-msg-avatar">
                         <MessageCircle className="h-3.5 w-3.5" />
@@ -780,7 +1045,10 @@ export function AdminDashboard() {
                       key={request._id}
                       type="button"
                       className="compact-nested-contact-item"
-                      onClick={() => navigate(`/admin/contact-requests?messageId=${request._id}`)}
+                      onClick={() => {
+                        removeOpenContactRequestFromDashboard(request._id)
+                        navigate(`/admin/contact-requests?messageId=${request._id}`)
+                      }}
                     >
                       <div>
                         <p className="compact-title compact-nested-title">
@@ -802,7 +1070,10 @@ export function AdminDashboard() {
                 size="sm"
                 variant="outline"
                 className="w-full"
-                onClick={() => navigate("/admin/contact-requests")}
+                onClick={() => {
+                  clearOpenContactRequestsFromDashboard()
+                  navigate("/admin/contact-requests")
+                }}
               >
                 {t('adminDashboard.allContactRequests')}
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -810,7 +1081,10 @@ export function AdminDashboard() {
             </div>
 
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/orders")}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => {
+              clearCustomerMessagesFromDashboard()
+              navigate("/admin/orders")
+            }}>
               {t('adminDashboard.allOrders')}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -891,6 +1165,10 @@ export function AdminDashboard() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="compact-repair-monitoring">
+        <InactiveRepairsList />
       </div>
 
       <div className="compact-ops-grid">

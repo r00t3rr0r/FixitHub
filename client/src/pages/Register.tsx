@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { SEO } from '@/components/SEO'
 import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -182,6 +183,11 @@ export function Register() {
 
   return (
     <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh' }}>
+      <SEO
+        title="Konto erstellen – McRepair.de Registrierung"
+        description="Jetzt kostenlos bei McRepair.de registrieren. Aufträge online verwalten, Reparaturstatus verfolgen und exklusive Vorteile genießen."
+        canonical="/register"
+      />
       {/* Top Bar */}
       <TopBar />
 

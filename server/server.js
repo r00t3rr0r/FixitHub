@@ -3,7 +3,7 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 // Add startup logging
-console.log('=== FixitHub Server Starting ===');
+console.log('=== McRepair.de Server Starting ===');
 console.log('Environment variables check:');
 console.log('- PORT:', process.env.PORT || 3000);
 console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Missing');
@@ -16,10 +16,6 @@ console.log('Loading express...');
 const express = require("express");
 console.log('Loading cookie parser...');
 const cookieParser = require('cookie-parser');
-console.log('Loading session...');
-const session = require("express-session");
-console.log('Loading MongoStore...');
-const MongoStore = require('connect-mongo');
 
 console.log('Loading basic routes...');
 const basicRoutes = require("./routes/index");
@@ -125,6 +121,8 @@ console.log('Loading CSV product import routes...');
 const csvProductImportRoutes = require("./routes/csvProductImportRoutes");
 console.log('Loading repair request routes...');
 const repairRequestRoutes = require("./routes/repairRequestRoutes");
+console.log('Loading repair workflow routes...');
+const repairWorkflowRoutes = require("./routes/repairWorkflowRoutes");
 console.log('Loading time tracking routes...');
 const timeTrackingRoutes = require("./routes/timeTrackingRoutes");
 console.log('Loading admin dashboard routes...');
@@ -149,18 +147,37 @@ const SeedService = require("./services/seedService");
 console.log('Loading cors...');
 const cors = require("cors");
 const { requireCsrfProtection } = require('./routes/middleware/csrf');
+const { applySecurityHeaders } = require('./routes/middleware/securityHeaders');
 
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL variables in .env missing.");
   process.exit(-1);
 }
 
+if (!process.env.JWT_SECRET) {
+  console.error("Error: JWT_SECRET variable in .env missing.");
+  process.exit(-1);
+}
+
+if (!process.env.REFRESH_TOKEN_SECRET) {
+  console.error("Error: REFRESH_TOKEN_SECRET variable in .env missing.");
+  process.exit(-1);
+}
+
 console.log('Creating Express app...');
 const app = express();
 const port = process.env.PORT || 3000;
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const parsedRequestLimitMb = Number.parseInt(process.env.MAX_REQUEST_SIZE_MB || '', 10);
+const requestLimitMb = Number.isFinite(parsedRequestLimitMb) && parsedRequestLimitMb > 0 ? parsedRequestLimitMb : 50;
+const requestLimit = `${requestLimitMb}mb`;
+
+const allowedOrigins = String(process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 // Pretty-print JSON responses
 app.enable('json spaces');
@@ -169,13 +186,26 @@ app.enable('strict routing');
 
 console.log('Setting up middleware...');
 app.use(cors({
-  origin: clientUrl,
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('CORS origin denied'));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 }));
 // Increase payload size limits to handle large file uploads and data payloads
 app.use(cookieParser());
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ extended: true, limit: '200mb' }));
+app.use(applySecurityHeaders);
+app.use(express.json({ limit: requestLimit }));
+app.use(express.urlencoded({ extended: true, limit: requestLimit }));
 app.use(requireCsrfProtection);
 
 // Serve uploaded files
@@ -183,6 +213,27 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve public assets (including brand logos)
 app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
+
+// Serve robots.txt from frontend public folder for crawlers hitting backend directly
+app.get('/robots.txt', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/public/robots.txt'));
+});
+
+const sanitizeHeadersForLogs = (headers = {}) => {
+  const sanitized = { ...headers };
+
+  if (sanitized.authorization) {
+    sanitized.authorization = '[REDACTED]';
+  }
+  if (sanitized.cookie) {
+    sanitized.cookie = '[REDACTED]';
+  }
+  if (sanitized['x-csrf-token']) {
+    sanitized['x-csrf-token'] = '[REDACTED]';
+  }
+
+  return sanitized;
+};
 
 // Add request logging middleware with payload size monitoring
 app.use((req, res, next) => {
@@ -194,7 +245,7 @@ app.use((req, res, next) => {
   } else {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   }
-  console.log('Request headers:', req.headers);
+  console.log('Request headers:', sanitizeHeadersForLogs(req.headers));
   if (req.body && Object.keys(req.body).length > 0) {
     const bodySize = JSON.stringify(req.body).length;
     const bodyMB = (bodySize / (1024 * 1024)).toFixed(2);
@@ -362,6 +413,8 @@ app.use('/api/csv-parts-import', csvPartsImportRoutes);
 app.use('/api/csv-product-import', csvProductImportRoutes);
 // Repair Request Routes
 app.use('/api/repair-requests', repairRequestRoutes);
+// Repair Workflow Routes
+app.use('/api/repair-workflows', repairWorkflowRoutes);
 // Time Tracking Routes
 app.use('/api/time-tracking', timeTrackingRoutes);
 // Admin Dashboard Routes
@@ -378,12 +431,192 @@ app.use('/api', trackingRoutes);
 app.use('/api/admin/live-tracking', adminLiveTrackingRoutes);
 // Marketing/Promo Admin Routes
 app.use('/api/admin/marketing-promo', marketingPromoRoutes);
+
+// Public ADCELL config endpoint (no auth – read-only, used by frontend tracking scripts)
+const MarketingPromoService = require('./services/marketingPromoService');
+app.get('/api/adcell-config', async (_req, res) => {
+  try {
+    const config = await MarketingPromoService.getAdcellConfig();
+    // Cache for 5 min to reduce DB load
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.status(200).json({ success: true, config });
+  } catch (error) {
+    return res.status(500).json({ success: false, config: { enabled: false } });
+  }
+});
+
+// Public ADCELL exclusion check endpoint (checks if current user is in excluded group)
+app.get('/api/adcell-is-excluded', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(200).json({ success: true, isExcluded: false });
+    }
+    
+    const isExcluded = await MarketingPromoService.isCustomerInExcludedAdcellGroup(req.user._id);
+    return res.status(200).json({ success: true, isExcluded });
+  } catch (error) {
+    console.error('Server ADCELL exclusion check error:', error);
+    return res.status(200).json({ success: true, isExcluded: false });
+  }
+});
 // Proxy Routes (mobileapi.dev)
 const proxyRoutes = require('./routes/proxyRoutes');
 app.use('/api/proxy', proxyRoutes);
 // DHL Routes (Location Finder proxy)
 const dhlRoutes = require('./routes/dhlRoutes');
 app.use('/api/dhl', dhlRoutes);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC XML SITEMAP  –  /sitemap.xml
+// Dynamically generated from device types / manufacturers / models.
+// ─────────────────────────────────────────────────────────────────────────────
+const DeviceService = require('./services/deviceService');
+
+function toSitemapSlug(str) {
+  return String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[äÄ]/g, 'ae')
+    .replace(/[öÖ]/g, 'oe')
+    .replace(/[üÜ]/g, 'ue')
+    .replace(/[ß]/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+let sitemapCache = null;
+let sitemapCacheAt = 0;
+const SITEMAP_CACHE_TTL = 15 * 60 * 1000; // 15 min
+
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const configuredBaseUrl = (
+      process.env.PUBLIC_SITE_URL ||
+      process.env.SITE_URL ||
+      process.env.CLIENT_URL ||
+      ''
+    ).replace(/\/$/, '');
+    const configuredIsLocal = /localhost|127\.0\.0\.1/i.test(configuredBaseUrl);
+    const BASE_URL =
+      !configuredBaseUrl || (process.env.NODE_ENV === 'production' && configuredIsLocal)
+        ? 'https://www.mcrepair.de'
+        : configuredBaseUrl;
+
+    // Serve from cache when fresh
+    if (sitemapCache && Date.now() - sitemapCacheAt < SITEMAP_CACHE_TTL) {
+      res.header('Content-Type', 'application/xml; charset=utf-8');
+      return res.send(sitemapCache);
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Static high-priority pages
+    const staticUrls = [
+      { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily' },
+      { loc: `${BASE_URL}/new-order`, priority: '0.9', changefreq: 'weekly' },
+      { loc: `${BASE_URL}/shop`, priority: '0.8', changefreq: 'daily' },
+      { loc: `${BASE_URL}/vorabdiagnose`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/annahmestellen`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/faq`, priority: '0.7', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/blog`, priority: '0.6', changefreq: 'weekly' },
+      { loc: `${BASE_URL}/ueber-uns`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/contact`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${BASE_URL}/partner-werden`, priority: '0.5', changefreq: 'monthly' },
+    ];
+
+    // Repair catalog pages: /reparatur/:deviceType  /reparatur/:dt/:mfr  /reparatur/:dt/:mfr/:model
+    const deviceTypes = await DeviceService.getDeviceTypes();
+    const catalogUrls = [];
+
+    for (const dt of deviceTypes) {
+      const dtSlug = toSitemapSlug(dt.name);
+      catalogUrls.push({
+        loc: `${BASE_URL}/reparatur/${dtSlug}`,
+        priority: '0.9',
+        changefreq: 'weekly',
+      });
+
+      let manufacturers = [];
+      try {
+        manufacturers = await DeviceService.getManufacturersByDeviceType(dt.name);
+      } catch (_) { /* skip */ }
+
+      for (const mfr of manufacturers) {
+        const mfrSlug = toSitemapSlug(mfr.name);
+        catalogUrls.push({
+          loc: `${BASE_URL}/reparatur/${dtSlug}/${mfrSlug}`,
+          priority: '0.85',
+          changefreq: 'weekly',
+        });
+
+        let models = [];
+        try {
+          models = await DeviceService.getModelsByTypeAndManufacturer(dt.name, String(mfr._id));
+        } catch (_) { /* skip */ }
+
+        for (const model of models) {
+          const modelSlug = toSitemapSlug(model.name);
+          catalogUrls.push({
+            loc: `${BASE_URL}/reparatur/${dtSlug}/${mfrSlug}/${modelSlug}`,
+            priority: '0.8',
+            changefreq: 'weekly',
+          });
+        }
+      }
+    }
+
+    // Shop product pages: /shop/product/:id
+    let productUrls = [];
+    try {
+      const Product = require('./models/Product');
+      const products = await Product.find({ isActive: true })
+        .select('_id updatedAt')
+        .lean();
+      productUrls = products.map((p) => ({
+        loc: `${BASE_URL}/shop/product/${p._id}`,
+        priority: '0.75',
+        changefreq: 'weekly',
+        lastmod: p.updatedAt ? p.updatedAt.toISOString().slice(0, 10) : today,
+      }));
+    } catch (_) { /* skip if products collection unavailable */ }
+
+    // Blog post pages: /blog/:slug
+    let blogUrls = [];
+    try {
+      const BlogPost = require('./models/BlogPost');
+      const blogPosts = await BlogPost.find({ status: 'published' })
+        .select('slug _id updatedAt publishedAt')
+        .lean();
+      blogUrls = blogPosts.map((p) => ({
+        loc: `${BASE_URL}/blog/${p.slug || p._id}`,
+        priority: '0.65',
+        changefreq: 'monthly',
+        lastmod: (p.updatedAt || p.publishedAt)
+          ? new Date(p.updatedAt || p.publishedAt).toISOString().slice(0, 10)
+          : today,
+      }));
+    } catch (_) { /* skip if blog collection unavailable */ }
+
+    const allUrls = [...staticUrls, ...catalogUrls, ...productUrls, ...blogUrls];
+    const urlEntries = allUrls
+      .map(
+        ({ loc, priority, changefreq, lastmod }) =>
+          `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod || today}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`
+      )
+      .join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries}\n</urlset>`;
+
+    sitemapCache = xml;
+    sitemapCacheAt = Date.now();
+
+    res.header('Content-Type', 'application/xml; charset=utf-8');
+    res.send(xml);
+  } catch (error) {
+    console.error('sitemap.xml generation error:', error);
+    res.status(500).send('<?xml version="1.0"?><error>Sitemap generation failed</error>');
+  }
+});
 
 console.log('Routes configured successfully');
 
@@ -403,7 +636,7 @@ app.use((err, req, res, next) => {
     console.error('Payload size exceeded - Request entity too large');
     console.error(`Content-Length: ${req.headers['content-length']} bytes`);
     return res.status(413).json({
-      error: 'Request entity too large. Maximum payload size is 200MB.',
+      error: `Request entity too large. Maximum payload size is ${requestLimitMb}MB.`,
       details: err.message
     });
   }
@@ -411,9 +644,13 @@ app.use((err, req, res, next) => {
   if (err.code === 'PayloadTooLargeError' || err.type === 'entity.too.large') {
     console.error('Payload size error detected during body parsing');
     return res.status(413).json({
-      error: 'Request payload exceeds maximum size limit of 200MB.',
+      error: `Request payload exceeds maximum size limit of ${requestLimitMb}MB.`,
       details: err.message
     });
+  }
+
+  if (err.message === 'CORS origin denied') {
+    return res.status(403).json({ error: 'Origin is not allowed by CORS policy.' });
   }
 
   // Default error response
@@ -423,7 +660,7 @@ app.use((err, req, res, next) => {
 console.log(`Attempting to start server on port ${port}...`);
 const server = app.listen(port, () => {
   console.log(`✅ Server running successfully at http://localhost:${port}`);
-  console.log('=== FixitHub Server Ready ===');
+  console.log('=== McRepair.de Server Ready ===');
 });
 
 server.on('error', (error) => {

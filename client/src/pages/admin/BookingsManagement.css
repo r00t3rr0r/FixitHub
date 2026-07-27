@@ -150,6 +150,11 @@
   animation: booking-row-pulse 1.4s ease-in-out 2;
 }
 
+.bookings-management-section .bookings-list-table td.booking-order-search-match {
+  background: linear-gradient(90deg, rgba(56, 161, 105, 0.2) 0%, rgba(56, 161, 105, 0.08) 100%) !important;
+  box-shadow: inset 4px 0 0 var(--success);
+}
+
 .bookings-management-section .booking-payment-status-anchor {
   border: 0;
   padding: 0;

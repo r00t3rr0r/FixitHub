@@ -253,6 +253,8 @@ class OrderService {
         andFilters.push({
           $or: [
             { 'assignedStaff.staffId': filters.assignedStaff },
+            { 'workflows.assignedStaffId': filters.assignedStaff },
+            { 'workflows.assignedStaff.staffId': filters.assignedStaff },
             { 'workflows.steps.assignedStaffId': filters.assignedStaff },
             { 'workflows.steps.assignedStaff.staffId': filters.assignedStaff },
           ],
@@ -290,6 +292,7 @@ class OrderService {
 
       const orders = await Order.find(query)
         .populate('customerId', 'name email phone avatar role isActive createdAt')
+        .populate('workflows', 'workflowTemplateId workflowName status steps assignedStaffId startedAt completedAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -1032,18 +1035,32 @@ class OrderService {
   }
 
   // Assign workflow to order
-  static async assignWorkflowToOrder(orderId, workflowTemplateId, staffId) {
-    console.log('OrderService: Assigning workflow to order:', { orderId, workflowTemplateId, staffId });
+  static async assignWorkflowToOrder(orderId, workflowTemplateId, staffId, assignedWorkflowStaffId = null) {
+    console.log('OrderService: Assigning workflow to order:', { orderId, workflowTemplateId, staffId, assignedWorkflowStaffId });
 
     try {
       const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
       if (!order) {
         throw new Error('Order not found');
       }
+      console.log('OrderService: Order found:', { orderId, orderNumber: order.orderNumber });
 
       const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
       if (!workflowTemplate) {
+        console.error('OrderService: Workflow template not found:', workflowTemplateId);
         throw new Error('Workflow template not found');
+      }
+      console.log('OrderService: Workflow template found:', { templateId: workflowTemplate._id, name: workflowTemplate.name });
+
+      let workflowAssignedStaffMembers = [];
+      if (assignedWorkflowStaffId) {
+        const assignedStaff = await User.findById(assignedWorkflowStaffId);
+        if (!assignedStaff || !['staff', 'admin'].includes(assignedStaff.role)) {
+          console.error('OrderService: Invalid assigned staff:', { assignedWorkflowStaffId, found: !!assignedStaff, role: assignedStaff?.role });
+          throw new Error('Assigned workflow staff member not found or invalid role');
+        }
+        workflowAssignedStaffMembers = [assignedStaff];
+        console.log('OrderService: Assigned staff validated:', { staffId: assignedStaff._id, name: assignedStaff.name, role: assignedStaff.role });
       }
 
       // Check if workflow is already assigned
@@ -1051,8 +1068,17 @@ class OrderService {
         w => w.workflowTemplateId.toString() === workflowTemplateId
       );
       if (existingWorkflow) {
-        throw new Error('This workflow is already assigned to this order');
+        console.warn('OrderService: Workflow already assigned to order (idempotent return):', {
+          workflowTemplateId,
+          existingWorkflowId: existingWorkflow._id,
+        });
+
+        // Keep assignment API idempotent: if the template is already attached,
+        // return the current order instead of failing with 400.
+        order._workflowAlreadyAssigned = true;
+        return order;
       }
+      console.log('OrderService: Workflow not yet assigned, proceeding...');
 
       // Create workflow execution steps from template
       const workflowSteps = workflowTemplate.steps.map(step => ({
@@ -1060,7 +1086,7 @@ class OrderService {
         stepName: step.name,
         status: 'pending',
         formData: {},
-        checklistData: new Map(),
+        checklistData: {},
         photos: []
       }));
 
@@ -1068,17 +1094,23 @@ class OrderService {
       order.workflows.push({
         workflowTemplateId,
         workflowName: workflowTemplate.name,
+        assignedStaffId: workflowAssignedStaffMembers[0]?._id,
+        assignedStaff: buildWorkflowStepAssignments(workflowAssignedStaffMembers),
         steps: workflowSteps,
         currentStepIndex: 0,
         status: 'not-started',
         estimatedCompletionTime: workflowTemplate.estimatedTotalTime
       });
 
+      ensureOrderStaffAssignments(order, workflowAssignedStaffMembers);
+
       // Add timeline entry
       const staff = await User.findById(staffId);
       order.timeline.push({
         status: 'Workflow Assigned',
-        description: `Workflow "${workflowTemplate.name}" assigned to order`,
+        description: workflowAssignedStaffMembers.length > 0
+          ? `Workflow "${workflowTemplate.name}" assigned to order and ${workflowAssignedStaffMembers[0].name}`
+          : `Workflow "${workflowTemplate.name}" assigned to order`,
         completedAt: new Date(),
         staffId: staffId || 'system',
         staffName: staff ? staff.name : 'System'
@@ -1901,6 +1933,8 @@ class OrderService {
     try {
       const order = await Order.findById(orderId)
         .populate('workflows.workflowTemplateId')
+        .populate('workflows.assignedStaffId', 'name avatar')
+        .populate('workflows.assignedStaff.staffId', 'name avatar')
         .populate('workflows.steps.assignedStaffId', 'name avatar')
         .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
 
@@ -2014,8 +2048,32 @@ class OrderService {
         ]
       }).sort({ createdAt: -1 });
 
-      console.log('OrderService: Found', workflows.length, 'suggested workflows');
-      console.log('OrderService: Suggested workflows:', workflows.map(w => ({
+      const assignedTemplateIds = (order.workflows || [])
+        .map((assignedWorkflow) => toIdString(assignedWorkflow.workflowTemplateId))
+        .filter(Boolean);
+
+      const alwaysVisibleWorkflowNameMarkers = [
+        'standard repair process neu',
+        'reparatur-workflow',
+      ];
+
+      const suggestedWorkflows = workflows.filter(
+        (workflow) => {
+          const workflowName = String(workflow?.name || '').trim().toLowerCase();
+          const shouldAlwaysBeVisible = alwaysVisibleWorkflowNameMarkers.some((marker) =>
+            workflowName.includes(marker)
+          );
+
+          if (shouldAlwaysBeVisible) {
+            return true;
+          }
+
+          return !assignedTemplateIds.includes(toIdString(workflow._id));
+        }
+      );
+
+      console.log('OrderService: Found', suggestedWorkflows.length, 'suggested workflows');
+      console.log('OrderService: Suggested workflows:', suggestedWorkflows.map(w => ({
         id: w._id,
         name: w.name,
         deviceTypes: w.deviceTypes,
@@ -2023,7 +2081,7 @@ class OrderService {
         stepsCount: w.steps?.length || 0
       })));
 
-      return workflows;
+      return suggestedWorkflows;
     } catch (error) {
       console.error('OrderService: Error getting suggested workflows:', error);
       throw error;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { SEO } from '@/components/SEO'
 import type { MouseEvent as ReactMouseEvent } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -16,9 +17,12 @@ import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, ad
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
+import { createInvoiceFromOrder, getInvoices, Invoice as FinancialInvoice } from "@/api/financial"
+import { createShippingLabel } from "@/api/shipping"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
+import { initializeRepairWorkflow, getRepairWorkflow } from "@/api/repairWorkflow"
 import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
 import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
@@ -28,6 +32,7 @@ import { DeviceInspectionForm } from "@/components/inspection/DeviceInspectionFo
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
 import { WorkflowExecutionModal } from "@/components/admin/WorkflowExecutionModal"
+import { RepairWorkflowProcessDialog } from "@/components/admin/RepairWorkflowProcessDialog"
 import { InspectionResultsDisplay } from "@/components/inspection/InspectionResultsDisplay"
 import { ConfirmUnlockDialog } from "@/components/inspection/ConfirmUnlockDialog"
 import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual"
@@ -108,10 +113,19 @@ import {
   ChevronLeft,
   ChevronRight,
   PackageCheck,
-  UserCheck
+  UserCheck,
+  Play,
+  Pause,
+  AlertTriangle,
+  Timer,
 } from "lucide-react"
 
 export function OrderDetails() {
+  const SPECIAL_REPAIR_WORKFLOW_NAME_MARKERS = [
+    'reparatur-workflow',
+    'standard repair process neu',
+  ]
+
   const { id } = useParams<{ id: string }>()
   const location = useLocation()
   const navigate = useNavigate()
@@ -144,6 +158,7 @@ export function OrderDetails() {
   const [workflows, setWorkflows] = useState<any[]>([])
   const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false)
+  const [workflowAssignedStaffId, setWorkflowAssignedStaffId] = useState<string>("__unassigned__")
   const [assigningWorkflow, setAssigningWorkflow] = useState(false)
   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null)
   const [workflowActionInProgress, setWorkflowActionInProgress] = useState<{
@@ -151,7 +166,9 @@ export function OrderDetails() {
     action: 'start' | 'pause' | 'resume'
   } | null>(null)
   const [selectedWorkflowForExecution, setSelectedWorkflowForExecution] = useState<any | null>(null)
+  const [selectedRepairWorkflow, setSelectedRepairWorkflow] = useState<any | null>(null)
   const [workflowExecutionModalOpen, setWorkflowExecutionModalOpen] = useState(false)
+  const [repairWorkflowDialogOpen, setRepairWorkflowDialogOpen] = useState(false)
   const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'execute' | 'view'>('view')
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
@@ -174,9 +191,16 @@ export function OrderDetails() {
   const [resolvedDeviceImage, setResolvedDeviceImage] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [confirmingPickup, setConfirmingPickup] = useState(false)
+  const [creatingOrderInvoice, setCreatingOrderInvoice] = useState(false)
+  const [creatingOrderShippingLabel, setCreatingOrderShippingLabel] = useState(false)
+  const [downloadingOrderShippingLabel, setDownloadingOrderShippingLabel] = useState(false)
+  const [orderInvoices, setOrderInvoices] = useState<FinancialInvoice[]>([])
+  const [loadingOrderInvoices, setLoadingOrderInvoices] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
+  const [returnToInspectionAfterDeviceDialog, setReturnToInspectionAfterDeviceDialog] = useState(false)
+  const [forceInspectionStepOne, setForceInspectionStepOne] = useState(false)
   const [generatingInspectionReport, setGeneratingInspectionReport] = useState(false)
   const [deviceHistoryOpen, setDeviceHistoryOpen] = useState(false)
   const [customerInspection, setCustomerInspection] = useState<any>(null)
@@ -243,6 +267,80 @@ export function OrderDetails() {
     return state?.workflowMode
   })()
 
+  const loadOrderInvoices = async (orderId: string) => {
+    if (!orderId || user?.role !== 'admin') {
+      setOrderInvoices([])
+      return
+    }
+
+    try {
+      setLoadingOrderInvoices(true)
+      const response = await getInvoices({ orderId, limit: 50 })
+      const invoices = Array.isArray((response as any)?.invoices) ? (response as any).invoices : []
+      setOrderInvoices(invoices)
+    } catch (error) {
+      console.error('OrderDetails: Failed to load related invoices:', error)
+      setOrderInvoices([])
+    } finally {
+      setLoadingOrderInvoices(false)
+    }
+  }
+
+  const isSpecialRepairWorkflow = (workflow: any) => {
+    const workflowName = String(
+      workflow?.workflowName
+      || workflow?.name
+      || workflow?.workflowTemplateId?.name
+      || ''
+    )
+      .trim()
+      .toLowerCase()
+
+    return SPECIAL_REPAIR_WORKFLOW_NAME_MARKERS.some((marker) => workflowName.includes(marker))
+  }
+
+  const openSpecialRepairWorkflowDialog = async () => {
+    if (!id) return
+
+    try {
+      let repairWorkflowResponse = await getRepairWorkflow(id)
+      let repairWorkflow =
+        (repairWorkflowResponse as any)?.data?.workflow
+        || (repairWorkflowResponse as any)?.workflow
+        || null
+
+      if (!repairWorkflow) {
+        const initResponse = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
+        repairWorkflow =
+          (initResponse as any)?.data?.workflow
+          || (initResponse as any)?.workflow
+          || null
+
+        if (!repairWorkflow) {
+          repairWorkflowResponse = await getRepairWorkflow(id)
+          repairWorkflow =
+            (repairWorkflowResponse as any)?.data?.workflow
+            || (repairWorkflowResponse as any)?.workflow
+            || null
+        }
+      }
+
+      if (!repairWorkflow) {
+        throw new Error('Reparatur-Workflow konnte nicht geladen werden')
+      }
+
+      setSelectedRepairWorkflow(repairWorkflow)
+      setRepairWorkflowDialogOpen(true)
+    } catch (error: any) {
+      console.error('OrderDetails: Error opening special repair workflow dialog:', error)
+      toast({
+        title: 'Fehler',
+        description: error?.message || 'Reparatur-Workflow konnte nicht geladen werden',
+        variant: 'destructive',
+      })
+    }
+  }
+
   // Fetch user profile
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -297,6 +395,12 @@ export function OrderDetails() {
 
         const fetchedOrder = (orderResponse as any).order
         setOrder(fetchedOrder)
+
+        if (user.role === 'admin') {
+          await loadOrderInvoices(fetchedOrder?._id || id)
+        } else {
+          setOrderInvoices([])
+        }
 
         // Log unlock information if present
         console.log("Unlock Pattern:", fetchedOrder?.unlockPattern)
@@ -481,7 +585,7 @@ export function OrderDetails() {
 
   useEffect(() => {
     const fetchCustomerInspection = async () => {
-      if (!id || !user || user.role === 'admin' || user.role === 'staff') {
+      if (!id || !user) {
         return
       }
 
@@ -499,6 +603,23 @@ export function OrderDetails() {
 
     fetchCustomerInspection()
   }, [id, user, inspectionRefreshKey])
+
+  // Fetch repair workflow status for display in the order detail card
+  const [activeRepairWorkflow, setActiveRepairWorkflow] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchActiveRepairWorkflow = async () => {
+      if (!id || !customerInspection) return
+      try {
+        const response = await getRepairWorkflow(id)
+        const wf = (response as any)?.data?.workflow || (response as any)?.workflow || null
+        setActiveRepairWorkflow(wf)
+      } catch {
+        setActiveRepairWorkflow(null)
+      }
+    }
+    fetchActiveRepairWorkflow()
+  }, [id, customerInspection, selectedRepairWorkflow])
 
   // Cleanup: End time tracking when leaving the page
   useEffect(() => {
@@ -554,6 +675,12 @@ export function OrderDetails() {
           : workflowStatus === 'in-progress'
             ? 'execute'
             : 'view')
+
+    if (isSpecialRepairWorkflow(matchedWorkflow)) {
+      void openSpecialRepairWorkflowDialog()
+      navigate(location.pathname, { replace: true })
+      return
+    }
 
     setSelectedWorkflowForExecution(matchedWorkflow)
     setWorkflowExecutionMode(safeMode)
@@ -772,6 +899,9 @@ export function OrderDetails() {
         orderResponse = await getOrderById(id)
       }
       setOrder((orderResponse as any).order)
+      if (user?.role === 'admin') {
+        await loadOrderInvoices(id)
+      }
     } catch (error) {
       console.error("Error refreshing order:", error)
     }
@@ -825,6 +955,115 @@ export function OrderDetails() {
       toast({ title: 'Fehler', description: error.message || 'Abholung konnte nicht bestätigt werden.', variant: 'destructive' })
     } finally {
       setConfirmingPickup(false)
+    }
+  }
+
+  const handleCreateOrderInvoice = async () => {
+    if (!id || creatingOrderInvoice) return
+
+    if (user?.role !== 'admin') {
+      toast({
+        title: 'Nicht erlaubt',
+        description: 'Nur Administratoren können Rechnungen erstellen.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setCreatingOrderInvoice(true)
+      const response = await createInvoiceFromOrder(id)
+      const invoiceNumber = (response as any)?.invoice?.invoiceNumber
+
+      toast({
+        title: 'Rechnung erstellt',
+        description: invoiceNumber
+          ? `Rechnung ${invoiceNumber} wurde erfolgreich erstellt.`
+          : 'Die Rechnung wurde erfolgreich erstellt.',
+      })
+
+      await loadOrderInvoices(id)
+    } catch (error: any) {
+      toast({
+        title: 'Rechnung konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Auftragsdaten und versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatingOrderInvoice(false)
+    }
+  }
+
+  const handleCreateOrderShippingLabel = async () => {
+    if (!id || !order || creatingOrderShippingLabel) return
+
+    try {
+      setCreatingOrderShippingLabel(true)
+      const response = await createShippingLabel(id, {
+        receiverName: customer?.name,
+        receiverEmail: customer?.email,
+        receiverPhone: customer?.phone,
+        shippingCost: safeToNumber(order.shippingCost),
+      })
+
+      await refreshOrder()
+
+      toast({
+        title: 'Versandetikett erstellt',
+        description: response?.trackingNumber
+          ? `Trackingnummer: ${response.trackingNumber}`
+          : 'Das Versandetikett wurde erfolgreich erstellt.',
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Versandetikett konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatingOrderShippingLabel(false)
+    }
+  }
+
+  const handleDownloadOrderShippingLabel = async () => {
+    if (!order?._id || downloadingOrderShippingLabel) return
+
+    try {
+      setDownloadingOrderShippingLabel(true)
+
+      const response = await fetch(`/api/orders/${order._id}/shipping-label`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/pdf',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Versandetikett konnte nicht geladen werden.')
+      }
+
+      const labelBlob = await response.blob()
+      const labelUrl = window.URL.createObjectURL(labelBlob)
+
+      const link = document.createElement('a')
+      link.href = labelUrl
+      link.download = `versandlabel-${order.orderNumber || order._id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(labelUrl)
+      }, 60000)
+    } catch (error: any) {
+      toast({
+        title: 'Versandetikett konnte nicht heruntergeladen werden',
+        description: error?.message || 'Bitte versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDownloadingOrderShippingLabel(false)
     }
   }
 
@@ -1356,7 +1595,37 @@ export function OrderDetails() {
       setAssigningWorkflow(true)
       console.log("OrderDetails: Assigning workflow:", workflowTemplateId)
 
-      await assignWorkflowToOrder(id, workflowTemplateId)
+      // Handle Repair Workflow separately
+      if (workflowTemplateId === 'repair-workflow') {
+        console.log("OrderDetails: Initializing repair workflow for order:", id)
+        const response = await initializeRepairWorkflow(id, order?.customerId?._id, customerInspection?._id)
+        const workflow = (response as any)?.data?.workflow || (response as any)?.workflow
+
+        let currentRepairWorkflow = workflow
+        if (!currentRepairWorkflow) {
+          const currentWorkflowResponse = await getRepairWorkflow(id)
+          currentRepairWorkflow = (currentWorkflowResponse as any)?.data?.workflow || (currentWorkflowResponse as any)?.workflow || null
+        }
+
+        toast({
+          title: "Erfolg",
+          description: "Reparatur-Workflow wurde zugewiesen.",
+        })
+
+        setSelectedRepairWorkflow(currentRepairWorkflow)
+        setRepairWorkflowDialogOpen(true)
+
+        setWorkflowDialogOpen(false)
+        return
+      }
+
+      // Handle regular workflows
+      const selectedWorkflowAssignee =
+        workflowAssignedStaffId && workflowAssignedStaffId !== "__unassigned__"
+          ? workflowAssignedStaffId
+          : undefined
+
+      await assignWorkflowToOrder(id, workflowTemplateId, selectedWorkflowAssignee)
 
       toast({
         title: "Success",
@@ -1364,6 +1633,7 @@ export function OrderDetails() {
       })
 
       setWorkflowDialogOpen(false)
+      setWorkflowAssignedStaffId("__unassigned__")
 
       // Refresh workflows
       const workflowsResponse = await getOrderWorkflows(id)
@@ -1433,6 +1703,11 @@ export function OrderDetails() {
   const handleStartWorkflow = (workflowId: string) => {
     const workflow = workflows.find((w: any) => w._id === workflowId)
     if (workflow) {
+      if (isSpecialRepairWorkflow(workflow)) {
+        void openSpecialRepairWorkflowDialog()
+        return
+      }
+
       setSelectedWorkflowForExecution(workflow)
       setWorkflowExecutionMode('start')
       setWorkflowExecutionModalOpen(true)
@@ -1515,6 +1790,11 @@ export function OrderDetails() {
   const handleResumeWorkflow = (workflowId: string) => {
     const workflow = workflows.find((w: any) => w._id === workflowId)
     if (workflow) {
+      if (isSpecialRepairWorkflow(workflow)) {
+        void openSpecialRepairWorkflowDialog()
+        return
+      }
+
       setSelectedWorkflowForExecution(workflow)
       setWorkflowExecutionMode('resume')
       setWorkflowExecutionModalOpen(true)
@@ -1552,6 +1832,32 @@ export function OrderDetails() {
       toast({
         title: "Error",
         description: error.message || "Failed to refresh workflow data",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleRepairWorkflowUpdated = async (updatedWorkflow: any) => {
+    setSelectedRepairWorkflow(updatedWorkflow)
+
+    if (!id) return
+
+    try {
+      const [workflowsResponse, refreshRepairResponse] = await Promise.all([
+        getOrderWorkflows(id),
+        getRepairWorkflow(id),
+      ])
+
+      setWorkflows((workflowsResponse as any).workflows || [])
+      const refreshedRepairWorkflow = (refreshRepairResponse as any)?.data?.workflow || (refreshRepairResponse as any)?.workflow || updatedWorkflow
+      setSelectedRepairWorkflow(refreshedRepairWorkflow)
+
+      await refreshOrder()
+    } catch (error: any) {
+      console.error("OrderDetails: Error refreshing repair workflow state:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh repair workflow data",
         variant: "destructive"
       })
     }
@@ -1597,6 +1903,7 @@ export function OrderDetails() {
       setWorkflowActionInProgress(null)
     }
   }
+
 
   const getVersionTypeColor = (versionType: string) => {
     switch (versionType) {
@@ -1915,6 +2222,7 @@ export function OrderDetails() {
   }
 
   const handleInspectionComplete = () => {
+    setForceInspectionStepOne(false)
     setInspectionDialogOpen(false)
     setInspectionRefreshKey((current) => current + 1)
     refreshOrder()
@@ -2475,8 +2783,10 @@ export function OrderDetails() {
 
     // Workflow "X" assigned to order
     d = d.replace(
-      /^Workflow "(.+?)" assigned to order$/,
-      (_, wf) => `Workflow „${wf}" dem Auftrag zugewiesen`
+      /^Workflow "(.+?)" assigned to order(?: and (.+))?$/,
+      (_, wf, assignee) => assignee
+        ? `Workflow „${wf}" dem Auftrag zugewiesen (Personal: ${assignee})`
+        : `Workflow „${wf}" dem Auftrag zugewiesen`
     )
     if (d !== desc) return d
 
@@ -2697,6 +3007,23 @@ export function OrderDetails() {
     const timeline = Array.isArray(order?.timeline) ? order.timeline : []
     const toId = (v: unknown): string => {
       if (!v) return ''
+      if (typeof v === 'string') return v
+      if (typeof v === 'number') return String(v)
+
+      if (typeof v === 'object') {
+        const raw = v as any
+        if (raw._id) {
+          try { return String(raw._id) } catch { return '' }
+        }
+        if (raw.id) {
+          try { return String(raw.id) } catch { return '' }
+        }
+        if (raw.staffId) {
+          const nestedStaffId = toId(raw.staffId)
+          if (nestedStaffId) return nestedStaffId
+        }
+      }
+
       try { return String(v) } catch { return '' }
     }
     const lastActiveEntry = [...timeline]
@@ -3958,6 +4285,126 @@ export function OrderDetails() {
           </CardDescription>
         )}
         <CardContent className="pt-3">
+          {/* Repair Workflow Card */}
+          {activeRepairWorkflow && (
+            <div className="mb-3">
+              <div
+                onClick={() => {
+                  setSelectedRepairWorkflow(activeRepairWorkflow)
+                  setRepairWorkflowDialogOpen(true)
+                }}
+                className={`cursor-pointer rounded-lg border p-4 transition-colors hover:shadow-sm ${
+                  activeRepairWorkflow.status === 'in-progress'
+                    ? 'border-blue-200 bg-blue-50/50 hover:border-blue-300'
+                    : activeRepairWorkflow.status === 'paused'
+                      ? 'border-amber-200 bg-amber-50/50 hover:border-amber-300'
+                      : activeRepairWorkflow.status === 'incident'
+                        ? 'border-red-200 bg-red-50/50 hover:border-red-300'
+                        : activeRepairWorkflow.status === 'completed'
+                          ? 'border-green-200 bg-green-50/50 hover:border-green-300'
+                          : 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-300'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                      <span className="text-sm font-semibold text-slate-900">Reparatur-Workflow</span>
+                    </div>
+
+                    {/* Status + Timer */}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {activeRepairWorkflow.status === 'pending-confirmation' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                          <Clock className="h-3 w-3" />
+                          Warte auf Bestätigung
+                        </span>
+                      )}
+                      {activeRepairWorkflow.status === 'in-progress' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-800">
+                          <Play className="h-3 w-3" />
+                          In Bearbeitung
+                        </span>
+                      )}
+                      {activeRepairWorkflow.status === 'paused' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                          <Pause className="h-3 w-3" />
+                          Pausiert
+                        </span>
+                      )}
+                      {activeRepairWorkflow.status === 'incident' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-800">
+                          <AlertTriangle className="h-3 w-3" />
+                          Zwischenfall
+                        </span>
+                      )}
+                      {activeRepairWorkflow.status === 'completed' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800">
+                          <CheckCircle className="h-3 w-3" />
+                          Abgeschlossen
+                        </span>
+                      )}
+
+                      {activeRepairWorkflow.timerData?.startedAt && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                          <Timer className="h-3 w-3" />
+                          {(() => {
+                            const startedAt = new Date(activeRepairWorkflow.timerData.startedAt).getTime()
+                            const endTime = activeRepairWorkflow.timerData.completedAt
+                              ? new Date(activeRepairWorkflow.timerData.completedAt).getTime()
+                              : activeRepairWorkflow.timerData.pausedAt
+                                ? new Date(activeRepairWorkflow.timerData.pausedAt).getTime()
+                                : Date.now()
+                            const totalMs = endTime - startedAt - (activeRepairWorkflow.timerData.totalPausedMs || 0)
+                            const hrs = Math.floor(totalMs / 3600000)
+                            const mins = Math.floor((totalMs % 3600000) / 60000)
+                            return hrs > 0 ? `${hrs}h ${mins}min` : `${mins}min`
+                          })()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Timeline */}
+                    {activeRepairWorkflow.timerData?.startedAt && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                          <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                          {new Date(activeRepairWorkflow.timerData.startedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {activeRepairWorkflow.timerData?.pauseHistory && activeRepairWorkflow.timerData.pauseHistory.length > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            {activeRepairWorkflow.timerData.pauseHistory.length}x pausiert
+                          </span>
+                        )}
+                        {activeRepairWorkflow.incidents && activeRepairWorkflow.incidents.length > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                            {activeRepairWorkflow.incidents.length} Zwischenfall{activeRepairWorkflow.incidents.length > 1 ? 'fälle' : ''}
+                          </span>
+                        )}
+                        {activeRepairWorkflow.timerData?.completedAt && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            Fertig: {new Date(activeRepairWorkflow.timerData.completedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0 text-xs h-7 px-2.5 border-slate-300"
+                  >
+                    Öffnen
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {workflows.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2">
               {workflows.map((workflow: any) => (
@@ -3977,13 +4424,13 @@ export function OrderDetails() {
                 />
               ))}
             </div>
-          ) : (
+          ) : !activeRepairWorkflow ? (
             <div className="text-center text-muted-foreground py-6">
               <CheckCircle className="h-10 w-10 mx-auto mb-2 opacity-50" />
               <p className="text-sm">{t('orderDetails.noWorkflowsAssigned')}</p>
               <p className="text-xs mt-1">{t('orderDetails.clickAssignWorkflow')}</p>
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     )
@@ -4505,6 +4952,12 @@ export function OrderDetails() {
 
   return (
     <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : 'customer-order-workspace'}`}>
+      <SEO
+        title="Auftragsdetails – McRepair.de Kundenportal"
+        description="Detailansicht Ihres Reparaturauftrags: Status, Fotos, Nachrichten und Rechnung – alles in Ihrem McRepair.de Kundenportal."
+        canonical="/orders"
+        noindex={true}
+      />
       {/* Back Button */}
       <button
         type="button"
@@ -4749,6 +5202,76 @@ export function OrderDetails() {
                 <CardContent className="space-y-4 pt-2">
                   {isStaffOrAdmin ? (
                     <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Button
+                          size="sm"
+                          onClick={handleCreateOrderInvoice}
+                          disabled={creatingOrderInvoice || user?.role !== 'admin'}
+                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                        >
+                          <FileText className="h-4 w-4 mr-1.5" />
+                          {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={handleCreateOrderShippingLabel}
+                          disabled={creatingOrderShippingLabel}
+                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                        >
+                          <Send className="h-4 w-4 mr-1.5" />
+                          {creatingOrderShippingLabel ? 'Versand wird gestartet…' : 'Senden mit DHL/FedEx starten'}
+                        </Button>
+
+                        <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Erstellte Dokumente</p>
+                            {user?.role === 'admin' ? (
+                              loadingOrderInvoices ? (
+                                <p className="text-xs text-muted-foreground mt-1">Rechnungen werden geladen…</p>
+                              ) : orderInvoices.length > 0 ? (
+                                <div className="mt-2 space-y-1.5">
+                                  {orderInvoices.map((invoice) => (
+                                    <Link
+                                      key={invoice._id}
+                                      to={`/admin/financial?tab=overview&highlightInvoiceId=${encodeURIComponent(invoice._id)}`}
+                                      className="flex items-center justify-between rounded border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
+                                    >
+                                      <span className="flex items-center gap-1.5 min-w-0">
+                                        <FileText className="h-3.5 w-3.5 shrink-0" />
+                                        <span className="truncate">Rechnung {invoice.invoiceNumber || invoice._id}</span>
+                                      </span>
+                                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    </Link>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung für diesen Auftrag erstellt.</p>
+                              )
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-1">Rechnungslinks sind nur für Administratoren sichtbar.</p>
+                            )}
+                          </div>
+
+                          <div className="border-t pt-2">
+                            {order.shippingLabelUrl ? (
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleDownloadOrderShippingLabel}
+                                  disabled={downloadingOrderShippingLabel}
+                                >
+                                  <Download className="h-4 w-4 mr-1.5" />
+                                  {downloadingOrderShippingLabel ? 'Versandetikett wird heruntergeladen…' : 'Versandlabel herunterladen'}
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Noch kein Versandetikett verfügbar.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </>
                   ) : null}
 
@@ -5141,6 +5664,31 @@ export function OrderDetails() {
                     const staffUserId = staffLastActions.toId((staff as any).staffId) || staffLastActions.toId(staff._id)
                     const isLastActive = !!(staffLastActions.lastActiveUserId && staffUserId && staffLastActions.lastActiveUserId === staffUserId)
                     const lastEntry = staffLastActions.byStaff(staffUserId)[0]
+                    const normalizeWorkflowStaffId = (value: any) => {
+                      if (!value) return ''
+
+                      try {
+                        return staffLastActions.toId(value)
+                      } catch {
+                        return ''
+                      }
+                    }
+                    const assignedWorkflowLabels = workflows
+                      .filter((workflow: any) => {
+                        const workflowStaffIds = [
+                          workflow?.assignedStaffId?._id,
+                          workflow?.assignedStaffId,
+                          ...(Array.isArray(workflow?.assignedStaff)
+                            ? workflow.assignedStaff.map((assignment: any) => assignment?.staffId?._id || assignment?.staffId)
+                            : []),
+                        ]
+                          .filter(Boolean)
+                          .map((value: any) => normalizeWorkflowStaffId(value))
+                          .filter(Boolean)
+
+                        return staffUserId && workflowStaffIds.includes(String(staffUserId))
+                      })
+                      .map((workflow: any) => workflow?.workflowName || 'Workflow')
                     return (
                       <div
                         key={staff._id}
@@ -5176,6 +5724,16 @@ export function OrderDetails() {
                           ) : (
                             <p className="mt-1 text-xs text-muted-foreground/60 italic">Noch keine Aktivität</p>
                           )}
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {assignedWorkflowLabels.length > 0 ? (
+                              <>
+                                <span className="font-medium text-foreground/70">Workflows:</span>{' '}
+                                {assignedWorkflowLabels.join(', ')}
+                              </>
+                            ) : (
+                              <span className="italic text-muted-foreground/60">Kein Workflow direkt zugewiesen</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )
@@ -5430,7 +5988,15 @@ export function OrderDetails() {
 
       {/* Device Inspection Dialog */}
       {id && order && isStaffOrAdmin && (
-        <Dialog open={inspectionDialogOpen} onOpenChange={setInspectionDialogOpen}>
+        <Dialog
+          open={inspectionDialogOpen}
+          onOpenChange={(open) => {
+            setInspectionDialogOpen(open)
+            if (!open) {
+              setForceInspectionStepOne(false)
+            }
+          }}
+        >
           <DialogContent className="order-dialog-content inspection-dialog-content w-[96vw] max-w-[1180px]">
             <DialogHeader className="order-dialog-header inspection-dialog-header">
               <div className="inspection-dialog-title-row">
@@ -5473,15 +6039,40 @@ export function OrderDetails() {
                 <span className="inspection-dialog-context-chip">
                   <strong>Kunde:</strong> {(order as any)?.customerId?.name || "Gast"}
                 </span>
+                <span className="inspection-dialog-context-chip">
+                  <strong>Gebuchte Reparatur:</strong>{' '}
+                  {(repairServices && repairServices.length > 0)
+                    ? repairServices
+                      .map((service: any) => service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Service')
+                      .join(', ')
+                    : 'Nicht verfuegbar'}
+                </span>
+                <span className="inspection-dialog-context-chip">
+                  <strong>Summe:</strong> {safeToNumber((order as any)?.totalCost).toFixed(2)} EUR
+                </span>
               </div>
 
               <div className="inspection-dialog-form-column">
                 <DeviceInspectionForm
+                  key={`inspection-form-${id}-${inspectionRefreshKey}-${forceInspectionStepOne ? 'step1' : 'default'}`}
                   orderId={id}
                   customerId={(order as any)?.customerId?._id || null}
                   deviceType={order.deviceType}
                   deviceBrand={(order as any)?.deviceBrand || ''}
                   deviceModel={(order as any)?.deviceModel || ''}
+                  reportedDeviceImage={getDeviceModelPreviewImage(order) || undefined}
+                  bookedRepairs={(repairServices || []).map((service: any) => ({
+                    name: service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Reparaturservice',
+                    price: safeToNumber(service?.finalPrice ?? service?.totalPrice ?? service?.price),
+                    quantity: Number(service?.quantity || 1),
+                  }))}
+                  orderTotalCost={safeToNumber((order as any)?.totalCost)}
+                  forceStartAtStepOne={forceInspectionStepOne}
+                  onRequestDeviceChange={() => {
+                    setReturnToInspectionAfterDeviceDialog(true)
+                    setInspectionDialogOpen(false)
+                    setDeviceChangeDialogOpen(true)
+                  }}
                   onComplete={handleInspectionComplete}
                 />
               </div>
@@ -5887,7 +6478,15 @@ export function OrderDetails() {
       </Dialog>
 
       {/* Workflow Assignment Dialog */}
-      <Dialog open={workflowDialogOpen} onOpenChange={setWorkflowDialogOpen}>
+      <Dialog
+        open={workflowDialogOpen}
+        onOpenChange={(open) => {
+          setWorkflowDialogOpen(open)
+          if (!open) {
+            setWorkflowAssignedStaffId("__unassigned__")
+          }
+        }}
+      >
         <DialogContent className="order-dialog-content sm:max-w-[600px]">
           <DialogHeader className="order-dialog-header">
             <DialogTitle className="flex items-center gap-2">
@@ -5899,6 +6498,171 @@ export function OrderDetails() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 max-h-[420px] overflow-y-auto py-1">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+              <Label htmlFor="workflow-assignee" className="text-xs font-medium text-slate-700">
+                Personal fuer diesen Workflow
+              </Label>
+              <Select value={workflowAssignedStaffId} onValueChange={setWorkflowAssignedStaffId}>
+                <SelectTrigger id="workflow-assignee" className="mt-2">
+                  <SelectValue placeholder="Personal waehlen (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Kein Personal zuweisen</SelectItem>
+                  {availableStaff.map((staff) => (
+                    <SelectItem key={staff._id} value={staff._id}>
+                      {staff.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {customerInspection && (
+              <Card className={`transition-colors ${
+                activeRepairWorkflow && activeRepairWorkflow.status !== 'pending-confirmation'
+                  ? 'border-emerald-300 bg-emerald-50/70'
+                  : 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-400 hover:bg-emerald-50/70'
+              }`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <CardTitle className="text-base text-slate-900">Reparatur-Workflow</CardTitle>
+                      <CardDescription className="mt-1">
+                        {activeRepairWorkflow && activeRepairWorkflow.status !== 'pending-confirmation'
+                          ? 'Aktiver Reparatur-Workflow für diesen Auftrag'
+                          : 'Reparatur-Ausführungs-Workflow für diese Inspektion'}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (activeRepairWorkflow) {
+                          setSelectedRepairWorkflow(activeRepairWorkflow)
+                          setRepairWorkflowDialogOpen(true)
+                        } else {
+                          handleAssignWorkflow('repair-workflow')
+                        }
+                      }}
+                      disabled={assigningWorkflow}
+                      className={`flex-shrink-0 gap-1 ${
+                        activeRepairWorkflow
+                          ? 'bg-[#1a2a5e] hover:bg-[#2a3f7e]'
+                          : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      {assigningWorkflow ? (
+                        <span className="inline-block animate-spin">⏳</span>
+                      ) : activeRepairWorkflow ? (
+                        <Wrench className="h-3.5 w-3.5" />
+                      ) : (
+                        <Plus className="h-3.5 w-3.5" />
+                      )}
+                      {activeRepairWorkflow ? 'Öffnen' : 'Zuweisen'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {activeRepairWorkflow && activeRepairWorkflow.status !== 'pending-confirmation' ? (
+                    <div className="space-y-3">
+                      {/* Status badge + elapsed time */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {activeRepairWorkflow.status === 'in-progress' && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">
+                            <Play className="h-3 w-3" />
+                            In Bearbeitung
+                          </span>
+                        )}
+                        {activeRepairWorkflow.status === 'paused' && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                            <Pause className="h-3 w-3" />
+                            Pausiert
+                          </span>
+                        )}
+                        {activeRepairWorkflow.status === 'incident' && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800">
+                            <AlertTriangle className="h-3 w-3" />
+                            Zwischenfall
+                          </span>
+                        )}
+                        {activeRepairWorkflow.status === 'completed' && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                            <CheckCircle className="h-3 w-3" />
+                            Abgeschlossen
+                          </span>
+                        )}
+
+                        {activeRepairWorkflow.timerData?.startedAt && (
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                            <Timer className="h-3 w-3" />
+                            {(() => {
+                              const startedAt = new Date(activeRepairWorkflow.timerData.startedAt).getTime()
+                              const endTime = activeRepairWorkflow.timerData.completedAt
+                                ? new Date(activeRepairWorkflow.timerData.completedAt).getTime()
+                                : activeRepairWorkflow.timerData.pausedAt
+                                  ? new Date(activeRepairWorkflow.timerData.pausedAt).getTime()
+                                  : Date.now()
+                              const totalMs = endTime - startedAt - (activeRepairWorkflow.timerData.totalPausedMs || 0)
+                              const hrs = Math.floor(totalMs / 3600000)
+                              const mins = Math.floor((totalMs % 3600000) / 60000)
+                              return hrs > 0 ? `${hrs}h ${mins}min` : `${mins}min`
+                            })()}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Timeline / progress summary */}
+                      <div className="space-y-1.5">
+                        {activeRepairWorkflow.timerData?.startedAt && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                            Gestartet: {new Date(activeRepairWorkflow.timerData.startedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                        {activeRepairWorkflow.timerData?.pauseHistory && activeRepairWorkflow.timerData.pauseHistory.length > 0 && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            {activeRepairWorkflow.timerData.pauseHistory.length}x pausiert (gesamt: {Math.round((activeRepairWorkflow.timerData.totalPausedMs || 0) / 60000)}min)
+                          </div>
+                        )}
+                        {activeRepairWorkflow.incidents && activeRepairWorkflow.incidents.length > 0 && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                            {activeRepairWorkflow.incidents.length} Zwischenfall{activeRepairWorkflow.incidents.length > 1 ? 'fälle' : ''}
+                          </div>
+                        )}
+                        {activeRepairWorkflow.timerData?.completedAt && (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            Abgeschlossen: {new Date(activeRepairWorkflow.timerData.completedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 font-medium text-emerald-800">
+                        <Wrench className="h-3.5 w-3.5" />
+                        Reparatur
+                      </span>
+                      {activeRepairWorkflow?.status === 'pending-confirmation' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
+                          <Clock className="h-3 w-3" />
+                          Warte auf Bestätigung
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {suggestedWorkflows.length > 0 && (
+              <div className="pt-2">
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-3">
+                  Verfügbare Workflows
+                </p>
+              </div>
+            )}
             {suggestedWorkflows.length > 0 ? (
               suggestedWorkflows.map((workflow: any) => (
                 <Card
@@ -6013,11 +6777,38 @@ export function OrderDetails() {
         />
       )}
 
+      {/* Repair Workflow Process Dialog */}
+      {selectedRepairWorkflow && id && (
+        <RepairWorkflowProcessDialog
+          open={repairWorkflowDialogOpen}
+          onOpenChange={(open) => {
+            setRepairWorkflowDialogOpen(open)
+            if (!open) {
+              setSelectedRepairWorkflow(null)
+            }
+          }}
+          orderId={id}
+          workflow={selectedRepairWorkflow}
+          order={order}
+          inspection={customerInspection}
+          onWorkflowUpdated={handleRepairWorkflowUpdated}
+        />
+      )}
+
       {/* Device Change Dialog */}
       {id && order && (
         <DeviceChangeDialog
           open={deviceChangeDialogOpen}
-          onOpenChange={setDeviceChangeDialogOpen}
+          onOpenChange={(open) => {
+            setDeviceChangeDialogOpen(open)
+
+            if (!open && returnToInspectionAfterDeviceDialog) {
+              setForceInspectionStepOne(true)
+              setInspectionRefreshKey((current) => current + 1)
+              setInspectionDialogOpen(true)
+              setReturnToInspectionAfterDeviceDialog(false)
+            }
+          }}
           orderId={id}
           currentDevice={{
             brand: order.deviceBrand,

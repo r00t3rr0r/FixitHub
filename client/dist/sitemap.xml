@@ -75,7 +75,7 @@
 
   <!-- Company & Content -->
   <url>
-    <loc>https://www.mcrepair.de/about</loc>
+    <loc>https://www.mcrepair.de/ueber-uns</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -119,12 +119,16 @@
     <priority>0.3</priority>
   </url>
 
-  <!-- Sitemap itself -->
+  <!-- ═══════════════════════════════════════════
+       Shop – Ersatzteile & Zubehör
+       Einzelne Produktseiten werden dynamisch generiert
+       und sind über /sitemap.xml (Server) verfügbar.
+       ═══════════════════════════════════════════ -->
   <url>
-    <loc>https://www.mcrepair.de/sitemap</loc>
-    <lastmod>2026-04-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <loc>https://www.mcrepair.de/cart</loc>
+    <lastmod>2026-07-12</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
   </url>
 
 </urlset>

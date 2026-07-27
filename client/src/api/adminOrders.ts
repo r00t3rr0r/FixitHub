@@ -662,6 +662,10 @@ export const changeDeviceAndRecalculateServices = async (
       oldOrderServiceId: string
       newServiceId: string
     }
+    serviceReplacements?: Array<{
+      oldOrderServiceId: string
+      newServiceId: string
+    }>
   }
 ) => {
   console.log('changeDeviceAndRecalculateServices called with:', {
@@ -670,6 +674,7 @@ export const changeDeviceAndRecalculateServices = async (
     deviceModel,
     deviceType,
     serviceReplacement: options?.serviceReplacement,
+    serviceReplacements: options?.serviceReplacements,
   });
   try {
     const response = await api.post(`/api/admin/orders/${orderId}/change-device`, {
@@ -677,6 +682,7 @@ export const changeDeviceAndRecalculateServices = async (
       deviceModel,
       deviceType,
       serviceReplacement: options?.serviceReplacement,
+      serviceReplacements: options?.serviceReplacements,
     });
     console.log('changeDeviceAndRecalculateServices API response:', response.data);
     return response.data;

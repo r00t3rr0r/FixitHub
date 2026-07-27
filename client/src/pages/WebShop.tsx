@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
+import { useAdcellConfig } from "@/hooks/useAdcellConfig"
+import { SEO } from '@/components/SEO'
 import { Link } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -69,12 +71,13 @@ export function WebShop() {
   const [quickViewOpen, setQuickViewOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const { toast } = useToast()
+  const adcell = useAdcellConfig()
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         console.log("Fetching products...")
-        const response = await getProducts()
+        const response = await getProducts({ limit: 1000 })
         const productsData = (response as any).products || []
         setProducts(productsData)
         setFilteredProducts(productsData)
@@ -170,6 +173,39 @@ export function WebShop() {
     setPaginatedProducts(filteredProducts.slice(startIndex, endIndex))
   }, [filteredProducts, currentPage, itemsPerPage])
 
+  // ADCELL Container Tag – Category/Search Page
+  useEffect(() => {
+    if (paginatedProducts.length === 0 || !adcell.enabled || !adcell.containerTagsEnabled) return
+    const productIds = paginatedProducts.map((p) => p._id).join(',')
+    const categoryId = categoryFilter !== 'all' ? categoryFilter : ''
+    const categoryName = categoryFilter !== 'all' ? categoryFilter : ''
+    const method = searchTerm ? 'search' : 'category'
+
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.async = true
+
+    if (searchTerm) {
+      script.src =
+        `https://t.adcell.com/js/inlineretarget.js?method=search` +
+        `&pid=${adcell.pid}` +
+        `&search=${encodeURIComponent(searchTerm)}` +
+        `&productIds=${encodeURIComponent(productIds)}` +
+        `&productSeparator=,`
+    } else {
+      script.src =
+        `https://t.adcell.com/js/inlineretarget.js?method=category` +
+        `&pid=${adcell.pid}` +
+        `&categoryName=${encodeURIComponent(categoryName)}` +
+        `&categoryId=${encodeURIComponent(categoryId)}` +
+        `&productIds=${encodeURIComponent(productIds)}` +
+        `&productSeparator=,`
+    }
+
+    document.body.appendChild(script)
+    return () => { script.remove() }
+  }, [paginatedProducts, categoryFilter, searchTerm, adcell])
+
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
 
   const handleAddToCart = async (productId: string) => {
@@ -220,6 +256,102 @@ export function WebShop() {
   const quickViewPrimaryImage = selectedQuickViewImage || quickViewImages[0] || "/placeholder-product.png"
   const quickViewSavings = selectedProduct?.originalPrice ? selectedProduct.originalPrice - selectedProduct.price : 0
 
+  // ── SEO: JSON-LD for the shop listing page ──────────────────────────────
+  const BASE_URL = "https://www.mcrepair.de"
+
+  const shopJsonLd = useMemo(() => {
+    if (products.length === 0) return null
+
+    const webPageLd = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": `${BASE_URL}/shop#webpage`,
+      name: "Ersatzteile & Zubehör – McRepair.de Shop",
+      description: "Hochwertige Ersatzteile und Zubehör für Smartphones, Tablets und weitere Geräte. Direkt bestellen bei McRepair.de.",
+      url: `${BASE_URL}/shop`,
+      isPartOf: {
+        "@type": "WebSite",
+        "@id": `${BASE_URL}/#website`,
+        name: "McRepair.de",
+        url: BASE_URL,
+      },
+      breadcrumb: {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
+          { "@type": "ListItem", position: 2, name: "Shop", item: `${BASE_URL}/shop` },
+        ],
+      },
+      mainEntity: {
+        "@type": "ItemList",
+        "@id": `${BASE_URL}/shop#product-list`,
+        name: "Shop Produkte",
+        numberOfItems: products.length,
+        itemListElement: products.map((p, index) => {
+          const productUrl = `${BASE_URL}/shop/product/${p._id}`
+          const item: any = {
+            "@type": "ListItem",
+            position: index + 1,
+            url: productUrl,
+            item: {
+              "@type": "Product",
+              "@id": productUrl,
+              name: p.seoName || p.name,
+              description: p.seoMetaDescription || p.description,
+              sku: p.sku,
+              brand: { "@type": "Brand", name: p.brand },
+              category: p.category,
+              image: p.images.filter(Boolean),
+              url: productUrl,
+              offers: {
+                "@type": "Offer",
+                url: productUrl,
+                priceCurrency: "EUR",
+                price: p.price.toFixed(2),
+                priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+                availability: p.inStock
+                  ? "https://schema.org/InStock"
+                  : "https://schema.org/OutOfStock",
+                itemCondition: "https://schema.org/NewCondition",
+                seller: { "@type": "Organization", name: "McRepair.de", url: BASE_URL },
+              },
+            },
+          }
+          if (p.reviewCount > 0) {
+            item.item.aggregateRating = {
+              "@type": "AggregateRating",
+              ratingValue: p.rating.toFixed(1),
+              reviewCount: p.reviewCount,
+              bestRating: "5",
+              worstRating: "1",
+            }
+          }
+          return item
+        }),
+      },
+    }
+
+    const organizationLd = {
+      "@context": "https://schema.org",
+      "@type": "OnlineStore",
+      "@id": `${BASE_URL}/#store`,
+      name: "McRepair.de Shop",
+      url: `${BASE_URL}/shop`,
+      description: "Onlineshop für Smartphone-Ersatzteile, Tablets-Zubehör und weitere Geräteteile.",
+      currenciesAccepted: "EUR",
+      paymentAccepted: "Kreditkarte, PayPal, Überweisung",
+      priceRange: "€–€€€",
+    }
+
+    return [webPageLd, organizationLd]
+  }, [products])
+
+  const shopKeywords = useMemo(() => {
+    const cats = [...new Set(products.map(p => p.category))].join(", ")
+    const brnds = [...new Set(products.map(p => p.brand))].slice(0, 8).join(", ")
+    return `Ersatzteile, Zubehör, Smartphone Reparatur, ${cats}, ${brnds}, McRepair, Shop kaufen`
+  }, [products])
+
   if (loading) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: OFF_WHITE }}>
@@ -266,6 +398,13 @@ export function WebShop() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: OFF_WHITE }}>
+      <SEO
+        title="Ersatzteile & Zubehör kaufen – McRepair.de Shop"
+        description={`Hochwertige Ersatzteile & Zubehör für Smartphones und Tablets. ${products.length > 0 ? `${products.length} Produkte` : 'Jetzt entdecken'} im McRepair.de Shop.`}
+        canonical="/shop"
+        keywords={shopKeywords || "Ersatzteile, Zubehör, Smartphone, Tablet, Reparatur, McRepair Shop"}
+        jsonLd={shopJsonLd || undefined}
+      />
       <div className="container mx-auto px-2.5 py-4 sm:px-4 sm:py-6 space-y-6">
         {/* Header */}
         <div className="mb-5">
@@ -533,13 +672,15 @@ export function WebShop() {
               >
                 <div className={viewMode === "list" ? "w-36 flex-shrink-0" : ""}>
                   <div className="relative overflow-hidden">
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                      className={`object-cover transition-all duration-500 group-hover:scale-110 ${
-                        viewMode === "list" ? "w-36 h-36" : "w-full h-40"
-                      }`}
-                    />
+                    <Link to={`/shop/product/${product._id}`} tabIndex={-1} aria-hidden="true">
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className={`object-cover transition-all duration-500 group-hover:scale-110 ${
+                          viewMode === "list" ? "w-36 h-36" : "w-full h-40"
+                        }`}
+                      />
+                    </Link>
                     {product.originalPrice && (
                       <Badge className="absolute top-2 left-2 bg-red-500 border-0 text-xs px-2 py-0.5">
                         Sale
@@ -577,7 +718,12 @@ export function WebShop() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <CardTitle className="text-sm group-hover:text-yellow-600 transition-colors font-bold line-clamp-2">
-                          {product.name}
+                          <Link
+                            to={`/shop/product/${product._id}`}
+                            className="hover:underline focus:outline-none focus:text-yellow-600"
+                          >
+                            {product.name}
+                          </Link>
                         </CardTitle>
                         <CardDescription className="text-xs font-semibold mt-0.5 text-gray-700">
                           {product.brand}

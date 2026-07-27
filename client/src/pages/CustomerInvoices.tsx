@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { SEO } from '@/components/SEO'
 import { formatEUR } from '@/lib/utils';
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -45,7 +46,7 @@ import {
   InvoicePaypalSdkConfig,
 } from "@/api/invoices";
 import { useToast } from "@/hooks/useToast";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 
 export function CustomerInvoices() {
   const { t } = useTranslation();
@@ -369,22 +370,30 @@ export function CustomerInvoices() {
       console.log('CustomerInvoices: Viewing invoice:', invoice._id);
       const detailedResponse = await getInvoice(invoice._id);
       const detailedInvoice = detailedResponse.invoice || invoice;
-      setSelectedInvoice(detailedInvoice);
+      const mergedInvoice = {
+        ...invoice,
+        ...detailedInvoice,
+        customerId:
+          (typeof detailedInvoice.customerId === 'object' && detailedInvoice.customerId)
+            ? detailedInvoice.customerId
+            : invoice.customerId,
+      } as Invoice;
+      setSelectedInvoice(mergedInvoice);
       setShowInvoiceDialog(true);
-      setPayerName(detailedInvoice.customerName || invoice.customerName || "");
-      setPayerEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
+      setPayerName(mergedInvoice.customerName || invoice.customerName || "");
+      setPayerEmail(mergedInvoice.customerEmail || invoice.customerEmail || "");
 
-      const openAmount = Math.max(0, Number(detailedInvoice.total || 0) - Number(detailedInvoice.paidAmount || detailedInvoice.amountPaid || 0));
+      const openAmount = Math.max(0, Number(mergedInvoice.total || 0) - Number(mergedInvoice.paidAmount || mergedInvoice.amountPaid || 0));
       setPaymentAmount(openAmount.toFixed(2));
 
       setSelectedGatewayId("");
       setAcceptedTerms(false);
       setTermsError(false);
-      setPaypalEmail(detailedInvoice.customerEmail || invoice.customerEmail || "");
-      setBankAccountHolder(detailedInvoice.customerName || invoice.customerName || "");
+      setPaypalEmail(mergedInvoice.customerEmail || invoice.customerEmail || "");
+      setBankAccountHolder(mergedInvoice.customerName || invoice.customerName || "");
       setBankIban("");
       setBankBic("");
-      setBankTransferReference(detailedInvoice.invoiceNumber || invoice.invoiceNumber || "");
+      setBankTransferReference(mergedInvoice.invoiceNumber || invoice.invoiceNumber || "");
       setBillingStreet("");
       setBillingCity("");
       setBillingZipCode("");
@@ -393,12 +402,12 @@ export function CustomerInvoices() {
       await fetchPaymentGateways();
 
       // Mark as viewed if it was sent
-      if (detailedInvoice.status === 'sent') {
-        await markInvoiceAsViewed(detailedInvoice._id);
+      if (mergedInvoice.status === 'sent') {
+        await markInvoiceAsViewed(mergedInvoice._id);
         // Update local state
         setInvoices((prev) =>
           prev.map((inv) =>
-            inv._id === detailedInvoice._id ? { ...inv, status: 'viewed' as const } : inv
+            inv._id === mergedInvoice._id ? { ...inv, status: 'viewed' as const } : inv
           )
         );
       }
@@ -436,6 +445,98 @@ export function CustomerInvoices() {
   const outstandingAmount = selectedInvoice
     ? Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || selectedInvoice.amountPaid || 0))
     : 0;
+
+  const normalizeAddressLines = (addressInput: unknown, fallbackCountry = "", fallbackAddition = "") => {
+    const readText = (value: unknown) => String(value ?? "").trim();
+    const pickField = (source: Record<string, unknown>, keys: string[]) => {
+      for (const key of keys) {
+        const candidate = readText(source[key]);
+        if (candidate) return candidate;
+      }
+      return "";
+    };
+
+    if (!addressInput) return [] as string[];
+
+    if (typeof addressInput === "string") {
+      return addressInput
+        .split(/\n|,/) 
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    if (typeof addressInput !== "object") return [] as string[];
+
+    const source = addressInput as Record<string, unknown>;
+    const street = pickField(source, ["street", "line1", "addressLine1", "address1"]);
+    const street2 = pickField(source, ["line2", "addressLine2", "address2"]);
+    const zip = pickField(source, ["zip", "postalCode", "postcode", "zipCode"]);
+    const city = pickField(source, ["city", "town"]);
+    const state = pickField(source, ["state", "province"]);
+    const country = pickField(source, ["country"]) || fallbackCountry;
+    const addition = pickField(source, ["addressAddition", "addition"]) || fallbackAddition;
+    const zipCity = [zip, city].filter(Boolean).join(" ").trim();
+
+    return [addition, street, street2, zipCity, state, country].filter(Boolean);
+  };
+
+  const resolveInvoiceBillingAddressLines = (invoice: Invoice) => {
+    const invoiceAny = invoice as Invoice & {
+      customerId?: string | {
+        country?: string;
+        addressAddition?: string;
+        invoiceAddress?: unknown;
+        paymentAddress?: { sameAsInvoice?: boolean } & Record<string, unknown>;
+        address?: unknown;
+      };
+    };
+
+    const customerProfileFromInvoice = typeof invoiceAny.customerId === "object" ? invoiceAny.customerId : undefined;
+    const fallbackInvoice = invoices.find((inv) => inv._id === invoice._id) as (Invoice & { customerId?: unknown }) | undefined;
+    const customerProfileFromList =
+      fallbackInvoice && typeof fallbackInvoice.customerId === "object"
+        ? (fallbackInvoice.customerId as {
+            country?: string;
+            addressAddition?: string;
+            invoiceAddress?: unknown;
+            paymentAddress?: { sameAsInvoice?: boolean } & Record<string, unknown>;
+            address?: unknown;
+          })
+        : undefined;
+    const customerProfile = customerProfileFromInvoice || customerProfileFromList;
+    const fallbackCountry = String(customerProfile?.country ?? "").trim();
+    const fallbackAddition = String(customerProfile?.addressAddition ?? "").trim();
+
+    const profileInvoiceAddress = normalizeAddressLines(
+      customerProfile?.invoiceAddress,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (profileInvoiceAddress.length) return profileInvoiceAddress;
+
+    const profileGenericAddress = normalizeAddressLines(
+      customerProfile?.address,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (profileGenericAddress.length) return profileGenericAddress;
+
+    const profileRootAddress = normalizeAddressLines(
+      customerProfile,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (profileRootAddress.length) return profileRootAddress;
+
+    const paymentProfileAddress = normalizeAddressLines(
+      customerProfile?.paymentAddress,
+      fallbackCountry,
+      fallbackAddition,
+    );
+    if (paymentProfileAddress.length) return paymentProfileAddress;
+
+    return normalizeAddressLines(invoice.billingAddress);
+  };
 
   const handlePayInvoice = async () => {
     if (!selectedInvoice) return;
@@ -648,6 +749,9 @@ export function CustomerInvoices() {
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
     try {
+      const detailedResponse = await getInvoice(invoice._id);
+      const sourceInvoice = (detailedResponse?.invoice || invoice) as Invoice;
+
       const pdf = new jsPDF({ unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -655,6 +759,7 @@ export function CustomerInvoices() {
       const right = pageWidth - 12;
       const strictTemplateMode = true;
       const logoUrl = "https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png";
+      const reviewUrl = "https://search.google.com/local/writereview?placeid=ChIJVVVVlf1QqEcRtHn-0ehLwpk&source=g.page.m.dd._&laa=lu-desktop-reviews-dialog-review-solicitation";
       const lineSoft: [number, number, number] = [203, 210, 222];
       const lineStrong: [number, number, number] = [138, 149, 170];
 
@@ -703,7 +808,27 @@ export function CustomerInvoices() {
 
       const normalizeAmount = (value: number | undefined | null) => Number(value || 0);
 
-      const loadLogoDataUrl = async (url: string): Promise<string | null> => {
+      const createQrDataUrl = async (value: string): Promise<string | null> => {
+        try {
+          const qrModule = await import("qrcode");
+          const toDataURL = (qrModule as any).toDataURL || (qrModule as any).default?.toDataURL;
+          if (!toDataURL) return null;
+
+          return await toDataURL(value, {
+            errorCorrectionLevel: "M",
+            margin: 1,
+            width: 300,
+            color: {
+              dark: "#0b1220",
+              light: "#FFFFFF",
+            },
+          });
+        } catch {
+          return null;
+        }
+      };
+
+      const loadImageData = async (url: string): Promise<{ dataUrl: string; width: number; height: number } | null> => {
         return new Promise((resolve) => {
           const image = new Image();
           image.crossOrigin = "anonymous";
@@ -718,17 +843,25 @@ export function CustomerInvoices() {
                 return;
               }
               context.drawImage(image, 0, 0);
-              resolve(canvas.toDataURL("image/png"));
+              resolve({
+                dataUrl: canvas.toDataURL("image/png"),
+                width: image.naturalWidth,
+                height: image.naturalHeight,
+              });
             } catch {
               resolve(null);
             }
           };
           image.onerror = () => resolve(null);
-          image.src = `${url}?v=1`;
+          if (url.startsWith("data:")) {
+            image.src = url;
+          } else {
+            image.src = url.includes("?") ? `${url}&v=1` : `${url}?v=1`;
+          }
         });
       };
 
-      const rawInvoice = invoice as Invoice & {
+      const rawInvoice = sourceInvoice as Invoice & {
         customerId?: string | {
           _id?: string;
           customerNumber?: string;
@@ -803,21 +936,21 @@ export function CustomerInvoices() {
         );
         if (paymentProfileAddress.length) return paymentProfileAddress;
 
-        const invoiceAddress = toAddressLines(invoice.billingAddress);
+        const invoiceAddress = toAddressLines(sourceInvoice.billingAddress);
         if (invoiceAddress.length) return invoiceAddress;
 
-        if (typeof invoice.billingAddress === "string") {
-          return invoice.billingAddress
+        if (typeof sourceInvoice.billingAddress === "string") {
+          return sourceInvoice.billingAddress
             .split(/\n|,/)
             .map((line) => line.trim())
             .filter(Boolean);
         }
 
-        if (invoice.billingAddress && typeof invoice.billingAddress === "object") {
-          const addressAny = invoice.billingAddress as Record<string, unknown>;
+        if (sourceInvoice.billingAddress && typeof sourceInvoice.billingAddress === "object") {
+          const addressAny = sourceInvoice.billingAddress as Record<string, unknown>;
           const street = pickAddressField(addressAny, ["street", "line1", "addressLine1", "address1"]);
           const street2 = pickAddressField(addressAny, ["line2", "addressLine2", "address2"]);
-          const zip = pickAddressField(addressAny, ["zip", "postalCode", "postcode"]);
+          const zip = pickAddressField(addressAny, ["zip", "postalCode", "postcode", "zipCode"]);
           const city = pickAddressField(addressAny, ["city", "town"]);
           const state = pickAddressField(addressAny, ["state", "province"]);
           const country = pickAddressField(addressAny, ["country"]);
@@ -829,14 +962,14 @@ export function CustomerInvoices() {
       })();
 
       const customerIdentityLines = [
-        cleanText(invoice.customerName),
-        cleanText(invoice.contactPerson, ""),
+        cleanText(sourceInvoice.customerName),
+        cleanText(sourceInvoice.contactPerson, ""),
       ].filter(Boolean);
       const invoiceAddressLines = billingAddressLines.length ? billingAddressLines : ["Rechnungsadresse nicht hinterlegt"];
       const customerLines = [...customerIdentityLines, ...invoiceAddressLines];
 
-      const orderNumber = cleanText(invoice.orderId?.orderNumber);
-      const invoiceNumber = cleanText(invoice.invoiceNumber);
+      const orderNumber = cleanText(sourceInvoice.orderId?.orderNumber);
+      const invoiceNumber = cleanText(sourceInvoice.invoiceNumber);
       const customerIdRaw = typeof rawInvoice.customerId === "string"
         ? rawInvoice.customerId
         : rawInvoice.customerId?._id;
@@ -846,39 +979,80 @@ export function CustomerInvoices() {
         (customerIdRaw ? `KD${String(customerIdRaw).slice(-6).toUpperCase()}` : ""),
       );
 
-      const invoiceDate = formatDate(invoice.createdAt);
-      const dueDate = formatDate(invoice.dueDate);
-      const paymentMethod = cleanText(invoice.paymentMethod || invoice.paymentTerms);
+      const invoiceDate = formatDate(sourceInvoice.createdAt);
+      const dueDate = formatDate(sourceInvoice.dueDate);
+      const paymentMethod = cleanText(sourceInvoice.paymentMethod || "-");
 
-      const amountPaid = normalizeAmount(invoice.amountPaid ?? invoice.paidAmount ?? 0);
-      const subtotal = normalizeAmount(invoice.subtotal);
-      const total = normalizeAmount(invoice.total);
-      const taxAmount = normalizeAmount(invoice.tax);
+      const amountPaid = normalizeAmount(sourceInvoice.amountPaid ?? sourceInvoice.paidAmount ?? 0);
+      const subtotal = normalizeAmount(sourceInvoice.subtotal);
+      const total = normalizeAmount(sourceInvoice.total);
+      const taxAmount = normalizeAmount(sourceInvoice.tax);
+      const discountAmount = normalizeAmount(sourceInvoice.discount);
       const openAmount = total - amountPaid;
-      const defaultTaxRate = invoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0);
+      const defaultTaxRate = sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0);
 
-      const latestPayment = invoice.paymentHistory && invoice.paymentHistory.length > 0 ? invoice.paymentHistory[0] : undefined;
-      const paymentDate = formatDate(latestPayment?.date || invoice.createdAt);
+      const latestPayment = sourceInvoice.paymentHistory && sourceInvoice.paymentHistory.length > 0 ? sourceInvoice.paymentHistory[0] : undefined;
+      const paymentDate = formatDate(latestPayment?.date || sourceInvoice.createdAt);
 
-      const dueDays = (() => {
-        const start = new Date(invoice.createdAt);
-        const end = new Date(invoice.dueDate);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-        const dayMs = 1000 * 60 * 60 * 24;
-        const diff = Math.round((end.getTime() - start.getTime()) / dayMs);
-        return diff > 0 ? diff : null;
+      const paymentHistoryRows = (() => {
+        const normalized = (sourceInvoice.paymentHistory || [])
+          .map((entry) => ({
+            date: entry?.date,
+            amount: normalizeAmount(entry?.amount),
+            method: cleanText(entry?.method || paymentMethod, "-"),
+            note: cleanText(entry?.note || "", ""),
+          }))
+          .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0)
+          .sort((a, b) => {
+            const tsA = a.date ? new Date(a.date).getTime() : 0;
+            const tsB = b.date ? new Date(b.date).getTime() : 0;
+            return tsB - tsA;
+          });
+
+        if (normalized.length > 0) {
+          return normalized;
+        }
+
+        if (amountPaid > 0) {
+          return [{
+            date: sourceInvoice.paidAt || sourceInvoice.createdAt,
+            amount: amountPaid,
+            method: cleanText(paymentMethod, "-"),
+            note: "Gesamtzahlung",
+          }];
+        }
+
+        return [] as Array<{ date?: string; amount: number; method: string; note: string }>;
       })();
 
       const baseline = 4;
 
-      const logoDataUrl = await loadLogoDataUrl(logoUrl);
+      const logoAsset = await loadImageData(logoUrl);
+      const qrDataUrl = await createQrDataUrl(reviewUrl);
+      const qrAsset = qrDataUrl ? await loadImageData(qrDataUrl) : null;
+      let logoLeftBoundary = right;
 
-      if (logoDataUrl) {
-        pdf.addImage(logoDataUrl, "PNG", right - 40, 10, 28, 10.5, undefined, "FAST");
+      if (logoAsset) {
+        const maxLogoWidth = 38;
+        const maxLogoHeight = 14;
+        const logoRatio = logoAsset.width / Math.max(logoAsset.height, 1);
+        let logoWidth = maxLogoWidth;
+        let logoHeight = logoWidth / logoRatio;
+
+        if (logoHeight > maxLogoHeight) {
+          logoHeight = maxLogoHeight;
+          logoWidth = logoHeight * logoRatio;
+        }
+
+        const logoX = right - logoWidth;
+        const logoY = 9.5;
+        logoLeftBoundary = logoX;
+        pdf.addImage(logoAsset.dataUrl, "PNG", logoX, logoY, logoWidth, logoHeight, undefined, "FAST");
       } else {
         pdf.setDrawColor(28, 43, 92);
         pdf.setLineWidth(0.35);
-        pdf.rect(right - 43, 9, 31, 12.5);
+        pdf.rect(right - 43, 9, 31, 13.5);
+        logoLeftBoundary = right - 43;
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(28, 43, 92);
         pdf.setFontSize(8.8);
@@ -889,21 +1063,25 @@ export function CustomerInvoices() {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
       pdf.text("Online Point GmbH, Kurfuerstenstrasse 106, 10787 Berlin", left, 14);
-      drawLine(left, 16, right, 16);
+      drawLine(left, 16, Math.max(left + 30, logoLeftBoundary - 2), 16);
 
       // Recipient block
       const recipientTop = 19;
-      const recipientHeight = Math.max(customerLines.length * 4.4 + 13, 24);
-      drawRect(left, recipientTop, 85, recipientHeight);
+      const recipientWidth = 76;
+      const recipientTextWidth = recipientWidth - 5.2;
+      const recipientLines = (customerLines.length ? customerLines : ["-"])
+        .flatMap((line) => pdf.splitTextToSize(String(line), recipientTextWidth));
+      const recipientHeight = Math.max(19, recipientLines.length * 4 + 10.5);
+      drawRect(left, recipientTop, recipientWidth, recipientHeight);
 
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
+      pdf.setFontSize(8.8);
       pdf.text("Rechnungsadresse", left + 2.4, recipientTop + 5.2);
-      drawLine(left + 2, recipientTop + 6.8, left + 83, recipientTop + 6.8);
+      drawLine(left + 2, recipientTop + 6.8, left + recipientWidth - 2, recipientTop + 6.8);
 
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9.6);
-      pdf.text(customerLines.length ? customerLines : ["-"], left + 2.4, recipientTop + 11.2);
+      pdf.setFontSize(9.1);
+      pdf.text(recipientLines, left + 2.4, recipientTop + 10.8);
 
       // Headline
       pdf.setFont("helvetica", "bold");
@@ -1008,7 +1186,6 @@ export function CustomerInvoices() {
       // Informations- und Summenbereich als 2-Spalten-Layout
       const footerY = pageHeight - 22;
       const footerTop = footerY - 4;
-      const dueDaysText = dueDays ? `${dueDays}` : "7";
       const groupedTaxLabel = taxAmount > 0
         ? `(${Number(defaultTaxRate).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
         : "(0,00%)";
@@ -1023,11 +1200,10 @@ export function CustomerInvoices() {
         `Leistungsdatum: ${invoiceDate}`,
         `Zahlungsart: ${paymentMethod}`,
         `Faelligkeitsdatum: ${dueDate}`,
-        `E-Mail: ${cleanText(invoice.customerEmail, "-")}`,
-        `Zahlungsziel: ${dueDaysText} Tage nach Geraeteeingang`,
+        `E-Mail: ${cleanText(sourceInvoice.customerEmail, "-")}`,
       ];
 
-      const notes = cleanText(invoice.notes, "");
+      const notes = cleanText(sourceInvoice.notes, "");
       const rawNoteLines = notes ? pdf.splitTextToSize(notes, infoWidth - 8) : [];
 
       let noteLines = rawNoteLines.slice(0, 7);
@@ -1035,8 +1211,12 @@ export function CustomerInvoices() {
       const totalsRows = [
         { label: "Gesamt Netto", value: formatMoney(subtotal), emphasize: false },
         { label: `zzgl. ${formatTax(defaultTaxRate)} MwSt. ${groupedTaxLabel}`, value: formatMoney(taxAmount), emphasize: false },
-        { label: "Gesamtbetrag", value: formatMoney(total), emphasize: true },
       ];
+      if (discountAmount > 0) {
+        totalsRows.push({ label: "Betrag vor Rabatt", value: formatMoney(subtotal + taxAmount), emphasize: false });
+        totalsRows.push({ label: "Rabatt", value: `- ${formatMoney(discountAmount)}`, emphasize: false });
+      }
+      totalsRows.push({ label: "Gesamtbetrag", value: formatMoney(total), emphasize: true });
       if (amountPaid > 0) {
         totalsRows.push({ label: `Zahlung (${paymentMethod})`, value: formatMoney(amountPaid), emphasize: false });
       }
@@ -1057,6 +1237,53 @@ export function CustomerInvoices() {
       const infoHeight = computeInfoHeight();
       const summaryHeight = computeSummaryHeight();
       const cardHeight = Math.max(infoHeight, summaryHeight, 24);
+
+      const qrSize = 17;
+      const feedbackTextLines = [
+        "Wenn Sie mit der Reparatur zufrieden",
+        "waren, bewerten Sie uns gern.",
+        "Wir freuen uns auf Ihr Feedback!",
+      ];
+      const feedbackTextBlockHeight = 11.5;
+      const feedbackBoxHeight = qrSize + feedbackTextBlockHeight + 11;
+      const feedbackGap = 4;
+      const paymentSectionGap = 4;
+      const paymentHistoryVisibleRows = paymentHistoryRows.slice(0, 6);
+      const paymentHistoryHasMore = paymentHistoryRows.length > paymentHistoryVisibleRows.length;
+      const paymentHistoryHeaderHeight = 12.2;
+      const paymentHistoryRowHeight = 6.1;
+      const paymentHistoryEmptyHeight = 8.6;
+      const paymentHistoryMoreHintHeight = paymentHistoryHasMore ? 4.2 : 0;
+      const paymentHistoryBodyHeight = paymentHistoryVisibleRows.length > 0
+        ? paymentHistoryVisibleRows.length * paymentHistoryRowHeight
+        : paymentHistoryEmptyHeight;
+      const paymentHistoryHeight = paymentHistoryHeaderHeight + paymentHistoryBodyHeight + paymentHistoryMoreHintHeight;
+      const requiredBottomSectionHeight = cardHeight + paymentSectionGap + paymentHistoryHeight + feedbackGap + feedbackBoxHeight;
+
+      if (y + requiredBottomSectionHeight > footerTop - 2) {
+        pdf.addPage();
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(13.5);
+        pdf.text("Rechnung - Fortsetzung", left, 18);
+        drawLine(left, 21, right, 21, true);
+
+        if (logoAsset) {
+          const maxLogoWidth = 34;
+          const maxLogoHeight = 12;
+          const logoRatio = logoAsset.width / Math.max(logoAsset.height, 1);
+          let logoWidth = maxLogoWidth;
+          let logoHeight = logoWidth / logoRatio;
+          if (logoHeight > maxLogoHeight) {
+            logoHeight = maxLogoHeight;
+            logoWidth = logoHeight * logoRatio;
+          }
+          const logoX = right - logoWidth;
+          pdf.addImage(logoAsset.dataUrl, "PNG", logoX, 9, logoWidth, logoHeight, undefined, "FAST");
+        }
+
+        y = 26;
+      }
 
       pdf.setFillColor(250, 252, 254);
       pdf.rect(infoX, y, infoWidth, cardHeight, "F");
@@ -1111,21 +1338,113 @@ export function CustomerInvoices() {
         summaryCursor += rowHeight;
       });
 
-      // Feedback callout (collision-safe placement oberhalb Footer)
-      const postCardY = y + cardHeight;
+      // Payment history section (professionell strukturiert als kompaktes Journal)
+      const paymentHistoryY = y + cardHeight + paymentSectionGap;
+      const paymentHistoryX = left;
+      const paymentHistoryWidth = right - left;
+      const paymentDateColWidth = 25;
+      const paymentAmountColWidth = 30;
+      const paymentDetailColWidth = paymentHistoryWidth - paymentDateColWidth - paymentAmountColWidth - 5.6;
+      const paymentDetailMaxChars = 60;
+
+      pdf.setFillColor(250, 252, 254);
+      pdf.rect(paymentHistoryX, paymentHistoryY, paymentHistoryWidth, paymentHistoryHeight, "F");
+      drawRect(paymentHistoryX, paymentHistoryY, paymentHistoryWidth, paymentHistoryHeight);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(26, 42, 94);
+      pdf.text("Zahlungsverlauf", paymentHistoryX + 2.4, paymentHistoryY + 5.2);
+      drawLine(paymentHistoryX + 2, paymentHistoryY + 6.8, paymentHistoryX + paymentHistoryWidth - 2, paymentHistoryY + 6.8);
+
+      const paymentHeaderY = paymentHistoryY + 10.2;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.2);
+      pdf.setTextColor(76, 91, 121);
+      pdf.text("Datum", paymentHistoryX + 2.4, paymentHeaderY);
+      pdf.text("Methode / Notiz", paymentHistoryX + paymentDateColWidth + 2.2, paymentHeaderY);
+      pdf.text("Betrag", paymentHistoryX + paymentHistoryWidth - 2.4, paymentHeaderY, { align: "right" });
+      drawLine(paymentHistoryX + 2, paymentHeaderY + 1.6, paymentHistoryX + paymentHistoryWidth - 2, paymentHeaderY + 1.6);
+
+      let paymentRowY = paymentHeaderY + 4.5;
+      if (paymentHistoryVisibleRows.length > 0) {
+        paymentHistoryVisibleRows.forEach((row, index) => {
+          if (index % 2 === 1) {
+            pdf.setFillColor(253, 253, 255);
+            pdf.rect(paymentHistoryX + 1.2, paymentRowY - 3.9, paymentHistoryWidth - 2.4, paymentHistoryRowHeight, "F");
+          }
+
+          const methodAndNoteRaw = row.note ? `${row.method} • ${row.note}` : row.method;
+          const methodAndNote = methodAndNoteRaw.length > paymentDetailMaxChars
+            ? `${methodAndNoteRaw.slice(0, paymentDetailMaxChars - 1)}...`
+            : methodAndNoteRaw;
+
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8.4);
+          pdf.setTextColor(30, 41, 59);
+          pdf.text(formatDate(row.date), paymentHistoryX + 2.4, paymentRowY);
+          pdf.text(methodAndNote, paymentHistoryX + paymentDateColWidth + 2.2, paymentRowY, { maxWidth: paymentDetailColWidth });
+          pdf.setFont("helvetica", "bold");
+          pdf.text(formatMoney(row.amount), paymentHistoryX + paymentHistoryWidth - 2.4, paymentRowY, { align: "right" });
+
+          drawLine(paymentHistoryX + 2, paymentRowY + 2.1, paymentHistoryX + paymentHistoryWidth - 2, paymentRowY + 2.1);
+          paymentRowY += paymentHistoryRowHeight;
+        });
+      } else {
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(8.4);
+        pdf.setTextColor(107, 114, 128);
+        pdf.text("Noch keine Zahlungen erfasst", paymentHistoryX + 2.4, paymentRowY);
+      }
+
+      if (paymentHistoryHasMore) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(95, 109, 134);
+        pdf.text(`Weitere Zahlungen: ${paymentHistoryRows.length - paymentHistoryVisibleRows.length}`, paymentHistoryX + 2.4, paymentHistoryY + paymentHistoryHeight - 1.9);
+      }
+
+      pdf.setTextColor(0, 0, 0);
+
+      // Feedback callout + QR (collision-safe placement oberhalb Footer)
+      const postCardY = paymentHistoryY + paymentHistoryHeight;
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.8);
-      const feedbackX = right - 42;
-      const feedbackBoxHeight = 17.5;
+      const feedbackX = right - 46;
+      const feedbackWidth = 48;
       const feedbackTopPreferred = postCardY + 4;
       const feedbackTopMax = footerTop - feedbackBoxHeight - 5;
       const feedbackTop = Math.min(feedbackTopPreferred, feedbackTopMax);
       if (feedbackTop >= postCardY + 1.5) {
-        drawRect(feedbackX - 3, feedbackTop, 45, feedbackBoxHeight);
-        const feedbackTextY = feedbackTop + 5.5;
-        pdf.text("Wenn Sie mit der Reparatur zufrieden", feedbackX, feedbackTextY);
-        pdf.text("waren, bewerten Sie uns gern.", feedbackX + 6, feedbackTextY + 5);
-        pdf.text("Wir freuen uns auf Ihr Feedback!", feedbackX + 2, feedbackTextY + 10);
+        pdf.setFillColor(248, 251, 255);
+        pdf.rect(feedbackX - 2, feedbackTop, feedbackWidth, feedbackBoxHeight, "F");
+        drawRect(feedbackX - 2, feedbackTop, feedbackWidth, feedbackBoxHeight);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8);
+        pdf.setTextColor(26, 42, 94);
+        pdf.text("Bewertung", feedbackX + (feedbackWidth - 4) / 2, feedbackTop + 4.8, { align: "center" });
+        drawLine(feedbackX + 2, feedbackTop + 6.2, feedbackX + feedbackWidth - 4, feedbackTop + 6.2);
+
+        const qrX = feedbackX + (feedbackWidth - 4 - qrSize) / 2;
+        const qrY = feedbackTop + 7.4;
+        if (qrAsset) {
+          pdf.addImage(qrAsset.dataUrl, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
+        } else {
+          drawRect(qrX, qrY, qrSize, qrSize);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7.4);
+          pdf.text("QR", qrX + qrSize / 2, qrY + qrSize / 2 + 0.8, { align: "center" });
+        }
+
+        const feedbackTextY = qrY + qrSize + 4.3;
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.6);
+        pdf.setTextColor(30, 41, 59);
+        pdf.text(feedbackTextLines[0], feedbackX + feedbackWidth / 2 - 2, feedbackTextY, { align: "center" });
+        pdf.text(feedbackTextLines[1], feedbackX + feedbackWidth / 2 - 2, feedbackTextY + 3.7, { align: "center" });
+        pdf.text(feedbackTextLines[2], feedbackX + feedbackWidth / 2 - 2, feedbackTextY + 7.4, { align: "center" });
+        pdf.setTextColor(0, 0, 0);
       }
 
       drawLine(left, footerY - 4, right, footerY - 4, true);
@@ -1136,7 +1455,7 @@ export function CustomerInvoices() {
       pdf.text(["Commerzbank AG", "IBAN: DE95100400000501905400", "BIC: COBADEFFXXX"], pageWidth / 2 - 18, footerY);
       pdf.text(["Amtsgericht Charlottenburg", "HRB 136735 B", "Geschaeftsfuehrer: Julian Szymansky", "Ust-IdNr.: DE318981969"], right - 58, footerY);
 
-      const safeInvoiceNumber = cleanText(invoice.invoiceNumber).replace(/[^a-zA-Z0-9_-]/g, "_");
+      const safeInvoiceNumber = cleanText(sourceInvoice.invoiceNumber).replace(/[^a-zA-Z0-9_-]/g, "_");
       pdf.save(`Rechnung_${safeInvoiceNumber}.pdf`);
 
       toast({
@@ -1230,6 +1549,12 @@ export function CustomerInvoices() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
+      <SEO
+        title="Meine Rechnungen – McRepair.de Kundenportal"
+        description="Rechnungen für Reparaturen und Einkäufe einsehen und herunterladen. Transparente Abrechnung in Ihrem McRepair.de Kundenportal."
+        canonical="/invoices"
+        noindex={true}
+      />
       <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-8 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
         {/* Header Section */}
         <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
@@ -1443,24 +1768,17 @@ export function CustomerInvoices() {
                     )}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zahlungsart</p>
-                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || selectedInvoice.paymentTerms}</p>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || '-'}</p>
                     </div>
-                    {selectedInvoice.billingAddress && (
-                      <div className="col-span-3">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rechnungsadresse</p>
-                        <p className="text-xs font-semibold text-slate-700 mt-0.5">
-                          {typeof selectedInvoice.billingAddress === 'string'
-                            ? selectedInvoice.billingAddress
-                            : [
-                                selectedInvoice.billingAddress.street,
-                                selectedInvoice.billingAddress.zip && selectedInvoice.billingAddress.city
-                                  ? `${selectedInvoice.billingAddress.zip} ${selectedInvoice.billingAddress.city}`
-                                  : selectedInvoice.billingAddress.city,
-                                selectedInvoice.billingAddress.country,
-                              ].filter(Boolean).join(', ')}
-                        </p>
-                      </div>
-                    )}
+                    <div className="col-span-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rechnungsadresse</p>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                        {(() => {
+                          const addressLines = resolveInvoiceBillingAddressLines(selectedInvoice);
+                          return addressLines.length ? addressLines.join(', ') : 'Rechnungsadresse nicht hinterlegt';
+                        })()}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Line Items */}
@@ -1516,6 +1834,27 @@ export function CustomerInvoices() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Totals */}
                     <div className="border border-slate-200 rounded-lg p-3 space-y-1">
+                      {(() => {
+                        const subtotalValue = Number(selectedInvoice.subtotal || 0);
+                        const taxValue = Number(selectedInvoice.tax || 0);
+                        const discountValue = Number(selectedInvoice.discount || 0);
+                        const normalAmount = subtotalValue + taxValue;
+                        const discountedAmount = Math.max(0, Number(selectedInvoice.total || 0));
+                        return (
+                          <>
+                            <div className="flex justify-between text-xs rounded bg-slate-50 px-2 py-1.5 border border-slate-200">
+                              <span className="text-slate-500">Normaler Betrag</span>
+                              <span className="font-semibold text-slate-700">{formatEUR(normalAmount)}</span>
+                            </div>
+                            {discountValue > 0 && (
+                              <div className="flex justify-between text-xs rounded bg-emerald-50 px-2 py-1.5 border border-emerald-200">
+                                <span className="text-emerald-700">Rabattierter Zahlbetrag</span>
+                                <span className="font-bold text-emerald-700">{formatEUR(discountedAmount)}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                       <h3 className="font-bold text-[10px] text-[#1a2a5e] uppercase tracking-wider mb-2">Finanzübersicht</h3>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-500">Nettobetrag</span>
@@ -1724,7 +2063,7 @@ export function CustomerInvoices() {
                     </div>
                   )}
 
-                  {/* Notes & Payment Terms */}
+                  {/* Notes */}
                   <div className="space-y-2">
                     {selectedInvoice.notes && (
                       <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
@@ -1732,9 +2071,6 @@ export function CustomerInvoices() {
                         <p className="text-xs text-slate-600 leading-relaxed">{selectedInvoice.notes}</p>
                       </div>
                     )}
-                    <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-100">
-                      <p className="text-xs text-slate-500"><span className="font-bold text-slate-600">Zahlungsbedingungen:</span> {selectedInvoice.paymentTerms}</p>
-                    </div>
                   </div>
 
                   {/* Actions */}

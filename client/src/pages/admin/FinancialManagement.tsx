@@ -123,6 +123,13 @@ const paymentMethodLabel: Record<Payment['paymentMethod'], string> = {
   stripe: 'Stripe'
 };
 
+const trackedPaymentMethodOptions = [
+  { value: 'credit_card', label: 'Kreditkarte' },
+  { value: 'sepa', label: 'SEPA' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'cash', label: 'Bar' },
+] as const;
+
 const formatCurrencyValue = (value: number, currency = 'EUR') =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(Number(value || 0));
 
@@ -149,6 +156,13 @@ const formatDateTime = (value?: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString('de-DE');
+};
+
+const toDateTimeLocalValue = (value?: string) => {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 };
 
 const escapeHtml = (value: unknown) =>
@@ -260,10 +274,10 @@ const DEFAULT_FINANCIAL_SETTINGS: FinancialSettingsState = {
     lateFeePercent: 5,
   },
   invoiceMetadata: {
-    sellerName: 'FixitHub',
+    sellerName: 'McRepair.de',
     sellerVatId: '',
     sellerRegistrationNumber: '',
-    issuerEmail: 'billing@fixithub.com',
+    issuerEmail: 'billing@mcrepair.de',
     issuerPhone: '',
     invoiceFooter: 'Vielen Dank fuer Ihr Vertrauen.',
     legalFooter: 'Diese Nachricht wurde automatisch erstellt.',
@@ -414,9 +428,16 @@ export function FinancialManagement() {
 
   const [fromRepairForm, setFromRepairForm] = useState(() => createFromRepairFormState(DEFAULT_FINANCIAL_SETTINGS));
 
-  const [statusForm, setStatusForm] = useState<{ status: InvoiceStatus; notes: string }>({
+  const [statusForm, setStatusForm] = useState<{
+    status: InvoiceStatus;
+    notes: string;
+    paymentMethod: Invoice['paymentMethod'] | '';
+    paidAt: string;
+  }>({
     status: 'pending_approval',
-    notes: ''
+    notes: '',
+    paymentMethod: '',
+    paidAt: toDateTimeLocalValue(),
   });
 
   const [paymentForm, setPaymentForm] = useState(() => createPaymentFormState(DEFAULT_FINANCIAL_SETTINGS));
@@ -1293,8 +1314,24 @@ export function FinancialManagement() {
   const onChangeStatus = async () => {
     if (!selectedInvoice) return;
 
+    if (statusForm.status === 'paid') {
+      if (!statusForm.paymentMethod) {
+        toast({ title: t('common.error'), description: 'Bitte eine Zahlungsart auswaehlen.', variant: 'destructive' });
+        return;
+      }
+
+      if (!statusForm.paidAt) {
+        toast({ title: t('common.error'), description: 'Bitte einen Zahlungszeitpunkt angeben.', variant: 'destructive' });
+        return;
+      }
+    }
+
     try {
-      await changeInvoiceStatus(selectedInvoice._id, statusForm.status, statusForm.notes);
+      await changeInvoiceStatus(selectedInvoice._id, statusForm.status, {
+        notes: statusForm.notes,
+        paymentMethod: statusForm.paymentMethod || undefined,
+        paidAt: statusForm.paidAt || undefined,
+      });
       toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
       setStatusDialogOpen(false);
       setSelectedInvoice(null);
@@ -1397,7 +1434,12 @@ export function FinancialManagement() {
 
   const openStatusDialog = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
-    setStatusForm({ status: invoice.status, notes: '' });
+    setStatusForm({
+      status: invoice.status,
+      notes: '',
+      paymentMethod: invoice.paymentMethod || '',
+      paidAt: toDateTimeLocalValue(invoice.paidAt),
+    });
     setStatusDialogOpen(true);
   };
 
@@ -2910,7 +2952,7 @@ export function FinancialManagement() {
                 {financialSettings.paymentPreferences.sendInternalCopy && (
                   <div>
                     <Label>Interne Kopie an</Label>
-                    <Input value={financialSettings.paymentPreferences.internalCopyEmail} onChange={(e) => updateFinancialSetting('paymentPreferences', 'internalCopyEmail', e.target.value)} placeholder="finance@fixithub.com" />
+                    <Input value={financialSettings.paymentPreferences.internalCopyEmail} onChange={(e) => updateFinancialSetting('paymentPreferences', 'internalCopyEmail', e.target.value)} placeholder="finance@mcrepair.de" />
                   </div>
                 )}
               </CardContent>
@@ -4169,7 +4211,68 @@ export function FinancialManagement() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}><DialogContent><DialogHeader><DialogTitle>{t('financialManagement.status')}</DialogTitle></DialogHeader><Label>{t('financialManagement.status')}</Label><Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="pending_approval">Pending Approval</SelectItem><SelectItem value="sent">Sent</SelectItem><SelectItem value="partially_paid">Partially Paid</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="overdue">Overdue</SelectItem><SelectItem value="cancelled">Canceled</SelectItem><SelectItem value="credited">Credited</SelectItem></SelectContent></Select><Label>Notiz</Label><Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} /><DialogFooter><Button variant="outline" onClick={() => setStatusDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onChangeStatus}>{t('common.save')}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('financialManagement.status')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label>{t('financialManagement.status')}</Label>
+              <Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="partially_paid">Partially Paid</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="cancelled">Canceled</SelectItem>
+                  <SelectItem value="credited">Credited</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Zahlungsart</Label>
+                <Select
+                  value={statusForm.paymentMethod || undefined}
+                  onValueChange={(value) => setStatusForm((p) => ({ ...p, paymentMethod: value as NonNullable<Invoice['paymentMethod']> }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Zahlungsart waehlen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {trackedPaymentMethodOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Zahlungszeitpunkt</Label>
+                <Input
+                  type="datetime-local"
+                  value={statusForm.paidAt}
+                  onChange={(e) => setStatusForm((p) => ({ ...p, paidAt: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Notiz</Label>
+              <Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={onChangeStatus}>{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
@@ -5261,7 +5364,7 @@ export function FinancialManagement() {
                         <Input
                           value={getConfigString('statement_descriptor', '')}
                           onChange={(e) => updateGatewayConfiguration('statement_descriptor', e.target.value)}
-                          placeholder="FixitHub Repair"
+                          placeholder="McRepair.de Repair"
                           maxLength={22}
                         />
                       </div>

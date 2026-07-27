@@ -224,6 +224,35 @@ export function SEOManagement() {
     }))
   }
 
+  const getSettingId = (setting: any): string => {
+    const rawId = setting?._id
+
+    if (typeof rawId === 'string' || typeof rawId === 'number') {
+      return String(rawId)
+    }
+
+    if (rawId && typeof rawId === 'object') {
+      if (typeof rawId.$oid === 'string') {
+        return rawId.$oid
+      }
+
+      if (typeof rawId.toString === 'function') {
+        const serialized = rawId.toString()
+        if (serialized && serialized !== '[object Object]') {
+          return serialized
+        }
+      }
+    }
+
+    return ''
+  }
+
+  const getSettingKey = (setting: any, index: number): string => {
+    const id = getSettingId(setting)
+    if (id) return id
+    return `${setting?.pageType || 'unknown'}-${setting?.pageId || 'default'}-${index}`
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -378,8 +407,8 @@ export function SEOManagement() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {seoSettings.map((setting) => (
-                        <TableRow key={setting._id}>
+                      {seoSettings.map((setting, index) => (
+                        <TableRow key={getSettingKey(setting, index)}>
                           <TableCell>
                             <Badge variant="outline">{setting.pageType}</Badge>
                           </TableCell>
@@ -396,12 +425,12 @@ export function SEOManagement() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              {setting.robots.index ? (
+                              {setting.robots?.index ? (
                                 <Badge variant="default" className="text-xs">Index</Badge>
                               ) : (
                                 <Badge variant="secondary" className="text-xs">NoIndex</Badge>
                               )}
-                              {setting.robots.follow ? (
+                              {setting.robots?.follow ? (
                                 <Badge variant="default" className="text-xs">Follow</Badge>
                               ) : (
                                 <Badge variant="secondary" className="text-xs">NoFollow</Badge>
@@ -427,7 +456,13 @@ export function SEOManagement() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDelete(setting._id!)}
+                                onClick={() => {
+                                  const id = getSettingId(setting)
+                                  if (id) {
+                                    handleDelete(id)
+                                  }
+                                }}
+                                disabled={!getSettingId(setting)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

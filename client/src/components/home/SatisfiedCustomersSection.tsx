@@ -35,7 +35,7 @@ export function SatisfiedCustomersSection() {
   return (
     <div className="container">
       <div className="section-title">
-        <h2>Zufriedene Kunden</h2>
+        <h2>Kundenstimmen & Vertrauen</h2>
         <p>Vertrauen von starken Marken und Partnern.</p>
         <div className="accent-line"></div>
       </div>

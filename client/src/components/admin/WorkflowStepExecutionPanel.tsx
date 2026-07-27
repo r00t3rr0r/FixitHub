@@ -47,9 +47,14 @@ interface WorkflowStep {
   status: 'completed' | 'in-progress' | 'skipped' | 'pending'
   estimatedTime?: number
   order: number
+  category?: 'diagnostic' | 'repair' | 'quality' | 'addon' | 'completion'
+  tools?: string[]
+  skills?: string[]
+  dependencies?: string[]
   checklistItems?: string[]
   formFields?: FormField[]
   requiresFormCompletion?: boolean
+  requiresApproval?: boolean
   canSkip?: boolean
   startedAt?: string
   completedAt?: string
@@ -103,6 +108,8 @@ export function WorkflowStepExecutionPanel({
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   const [skipReason, setSkipReason] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [checklistError, setChecklistError] = useState<string>("")
   const [timerTick, setTimerTick] = useState(() => Date.now())
   const [fallbackStartedAt, setFallbackStartedAt] = useState<string>(() => new Date().toISOString())
 
@@ -116,6 +123,11 @@ export function WorkflowStepExecutionPanel({
       setFallbackStartedAt(new Date().toISOString())
     }
   }, [normalizedStep._id, normalizedStep.startedAt])
+
+  useEffect(() => {
+    setValidationErrors({})
+    setChecklistError("")
+  }, [normalizedStep._id])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -165,116 +177,112 @@ export function WorkflowStepExecutionPanel({
   const estimatedMinutes = normalizedStep.estimatedTime || 0
   const deltaMinutes = stepElapsedMinutes - estimatedMinutes
 
+  const isFieldMissing = (field: FormField, value: any): boolean => {
+    if (!field.required) return false
+
+    if (field.type === 'checkbox') {
+      return value !== true
+    }
+
+    if (field.type === 'file' || field.type === 'multiselect') {
+      return !Array.isArray(value) || value.length === 0
+    }
+
+    if (typeof value === 'string') {
+      return value.trim().length === 0
+    }
+
+    return value === undefined || value === null || value === ''
+  }
+
+  const getFieldValidationError = (field: FormField, value: any): string | undefined => {
+    if (isFieldMissing(field, value)) {
+      return `${field.label} ist erforderlich`
+    }
+
+    if (field.type === 'number' && value) {
+      const numericValue = parseFloat(value)
+      if (isNaN(numericValue)) {
+        return `${field.label} muss eine gueltige Zahl sein`
+      }
+      if (field.validation?.min !== undefined && numericValue < field.validation.min) {
+        return `${field.label} muss mindestens ${field.validation.min} sein`
+      }
+      if (field.validation?.max !== undefined && numericValue > field.validation.max) {
+        return `${field.label} darf hoechstens ${field.validation.max} sein`
+      }
+    }
+
+    if ((field.type === 'text' || field.type === 'textarea') && value) {
+      const stringValue = String(value)
+      if (field.validation?.minLength && stringValue.length < field.validation.minLength) {
+        return `${field.label} muss mindestens ${field.validation.minLength} Zeichen haben`
+      }
+      if (field.validation?.maxLength && stringValue.length > field.validation.maxLength) {
+        return `${field.label} darf hoechstens ${field.validation.maxLength} Zeichen haben`
+      }
+    }
+
+    return undefined
+  }
+
   const validateForm = (): boolean => {
     if (!normalizedStep.formFields || normalizedStep.formFields.length === 0) return true
 
+    const nextErrors: Record<string, string> = {}
+
     for (const field of normalizedStep.formFields) {
-      // Skip validation for file types as they handle their own validation
-      if (field.type === 'file') continue
-
-      // Check if required field is empty
       const fieldValue = formData[field.name]
-      const isEmpty = fieldValue === undefined || fieldValue === null || fieldValue === '' ||
-                      (Array.isArray(fieldValue) && fieldValue.length === 0)
-
-      if (field.required && isEmpty) {
-        toast({
-          title: "Validierungsfehler",
-          description: `${field.label} ist erforderlich`,
-          variant: "destructive",
-        })
-        return false
+      const fieldError = getFieldValidationError(field, fieldValue)
+      if (fieldError) {
+        nextErrors[field.name] = fieldError
+        continue
       }
+    }
 
-      // Validate number fields
-      if (field.type === 'number' && fieldValue) {
-        const value = parseFloat(fieldValue)
-        if (isNaN(value)) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} muss eine gueltige Zahl sein`,
-            variant: "destructive",
-          })
-          return false
-        }
-        if (field.validation?.min !== undefined && value < field.validation.min) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} muss mindestens ${field.validation.min} sein`,
-            variant: "destructive",
-          })
-          return false
-        }
-        if (field.validation?.max !== undefined && value > field.validation.max) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} darf hoechstens ${field.validation.max} sein`,
-            variant: "destructive",
-          })
-          return false
-        }
-      }
+    setValidationErrors(nextErrors)
 
-      // Validate text fields
-      if (field.type === 'text' && fieldValue) {
-        const value = fieldValue as string
-        if (field.validation?.minLength && value.length < field.validation.minLength) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} muss mindestens ${field.validation.minLength} Zeichen haben`,
-            variant: "destructive",
-          })
-          return false
-        }
-        if (field.validation?.maxLength && value.length > field.validation.maxLength) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} darf hoechstens ${field.validation.maxLength} Zeichen haben`,
-            variant: "destructive",
-          })
-          return false
-        }
-      }
-
-      // Validate textarea fields
-      if (field.type === 'textarea' && fieldValue) {
-        const value = fieldValue as string
-        if (field.validation?.minLength && value.length < field.validation.minLength) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} muss mindestens ${field.validation.minLength} Zeichen haben`,
-            variant: "destructive",
-          })
-          return false
-        }
-        if (field.validation?.maxLength && value.length > field.validation.maxLength) {
-          toast({
-            title: "Validierungsfehler",
-            description: `${field.label} darf hoechstens ${field.validation.maxLength} Zeichen haben`,
-            variant: "destructive",
-          })
-          return false
-        }
-      }
-
-      // Validate multiselect fields
-      if (field.type === 'multiselect' && field.required) {
-        if (!Array.isArray(fieldValue) || fieldValue.length === 0) {
-          toast({
-            title: "Validierungsfehler",
-            description: `Bitte waehle mindestens eine Option fuer ${field.label}`,
-            variant: "destructive",
-          })
-          return false
-        }
-      }
+    if (Object.keys(nextErrors).length > 0) {
+      toast({
+        title: "Pflichtangaben fehlen",
+        description: "Bitte markierte Pflichtfelder ausfuellen, bevor der Schritt abgeschlossen wird",
+        variant: "destructive",
+      })
+      return false
     }
 
     return true
   }
 
+  const validateChecklist = (): boolean => {
+    if (!normalizedStep.checklistItems || normalizedStep.checklistItems.length === 0) {
+      setChecklistError("")
+      return true
+    }
+
+    const allChecked = normalizedStep.checklistItems.every((_, index) => Boolean(checklistData[index]))
+    if (!allChecked) {
+      setChecklistError("Bitte alle Checklistenpunkte erledigen, bevor der Schritt abgeschlossen wird")
+      return false
+    }
+
+    setChecklistError("")
+    return true
+  }
+
   const handleCompleteStep = async () => {
-    if (!validateForm()) return
+    const formValid = validateForm()
+    const checklistValid = validateChecklist()
+    if (!formValid || !checklistValid) {
+      if (!checklistValid) {
+        toast({
+          title: "Checkliste unvollstaendig",
+          description: "Bitte alle offenen Checklistenpunkte abhaken",
+          variant: "destructive",
+        })
+      }
+      return
+    }
 
     setShowCompleteConfirm(false)
     setIsSubmitting(true)
@@ -306,6 +314,8 @@ export function WorkflowStepExecutionPanel({
       setChecklistData({})
       setNotes("")
       setPhotos([])
+      setValidationErrors({})
+      setChecklistError("")
 
       // Move to next step automatically if available
       if (canGoNext) {
@@ -371,21 +381,51 @@ export function WorkflowStepExecutionPanel({
   }
 
   const handleFormFieldChange = (fieldName: string, value: any) => {
-    setFormData({
+    const updatedData = {
       ...formData,
       [fieldName]: value,
+    }
+
+    const field = normalizedStep.formFields.find((item) => item.name === fieldName)
+    if (field) {
+      const nextErrorMessage = isFieldMissing(field, value) ? `${field.label} ist erforderlich` : undefined
+      if (!nextErrorMessage && validationErrors[fieldName]) {
+        setValidationErrors((prev) => {
+          const next = { ...prev }
+          delete next[fieldName]
+          return next
+        })
+      }
+    }
+
+    setFormData({
+      ...updatedData,
     })
   }
 
   const handleChecklistItemToggle = (index: number) => {
-    setChecklistData({
+    const nextChecklist = {
       ...checklistData,
       [index]: !checklistData[index],
-    })
+    }
+
+    setChecklistData(nextChecklist)
+
+    if (checklistError) {
+      const allChecked = normalizedStep.checklistItems.every((_, itemIndex) => Boolean(nextChecklist[itemIndex]))
+      if (allChecked) {
+        setChecklistError("")
+      }
+    }
   }
 
   const totalChecklistItems = normalizedStep.checklistItems.length
   const completedChecklistItems = normalizedStep.checklistItems.filter((_, i) => checklistData[i]).length
+  const hasIncompleteChecklist = normalizedStep.checklistItems.length > 0 && completedChecklistItems < totalChecklistItems
+  const hasBlockingFormErrors = normalizedStep.formFields.some((field) =>
+    Boolean(getFieldValidationError(field, formData[field.name]))
+  )
+  const isStepCompleteDisabled = isSubmitting || isLoading || hasIncompleteChecklist || hasBlockingFormErrors
 
   const fieldControlClass = "bg-white border-slate-300 text-slate-900 focus-visible:ring-[#1a2a5e] focus-visible:ring-offset-1"
   const checkboxClass = "h-5 w-5 rounded border-2 border-slate-400 data-[state=checked]:border-[#1a2a5e] data-[state=checked]:bg-[#1a2a5e] data-[state=unchecked]:bg-white shrink-0"
@@ -435,13 +475,85 @@ export function WorkflowStepExecutionPanel({
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
 
+          {/* ── Step Requirements/Info ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {normalizedStep.category && (
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1">Kategorie</p>
+                <Badge className="bg-blue-600 text-white text-xs capitalize">
+                  {normalizedStep.category}
+                </Badge>
+              </div>
+            )}
+
+            {normalizedStep.requiresApproval && (
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Genehmigung</p>
+                <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50">
+                  ⚠️ Genehmigung erforderlich
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {/* ── Tools, Skills, Dependencies ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {normalizedStep.tools && normalizedStep.tools.length > 0 && (
+              <section className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#1a2a5e]" />
+                  Werkzeuge
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {normalizedStep.tools.map((tool, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-slate-300">
+                      {tool}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {normalizedStep.skills && normalizedStep.skills.length > 0 && (
+              <section className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#1a2a5e]" />
+                  Fertigkeiten
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {normalizedStep.skills.map((skill, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-slate-300">
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {normalizedStep.dependencies && normalizedStep.dependencies.length > 0 && (
+              <section className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#1a2a5e]" />
+                  Abhängigkeiten
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {normalizedStep.dependencies.map((dep, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-slate-300">
+                      {dep}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
           {/* ── Checklist ── */}
           {normalizedStep.checklistItems && normalizedStep.checklistItems.length > 0 && (
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                   <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-                  Checkliste
+                  Inspektions-Checkliste <span className="text-red-500 text-xs">*</span>
                 </h3>
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                   completedChecklistItems === totalChecklistItems && totalChecklistItems > 0
@@ -451,7 +563,12 @@ export function WorkflowStepExecutionPanel({
                   {completedChecklistItems}/{totalChecklistItems} erledigt
                 </span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden divide-y divide-slate-200">
+              {checklistError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {checklistError}
+                </div>
+              )}
+              <div className={`rounded-xl border overflow-hidden divide-y ${checklistError ? 'border-red-300 bg-red-50/30 divide-red-100' : 'border-slate-200 bg-slate-50 divide-slate-200'}`}>
                 {normalizedStep.checklistItems.map((item, index) => (
                   <label
                     key={index}
@@ -490,11 +607,19 @@ export function WorkflowStepExecutionPanel({
             <section>
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
                 <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-                Formularfelder
+                Schritt-Daten erfassen
               </h3>
+              {Object.keys(validationErrors).length > 0 && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  Bitte fuelle alle markierten Pflichtfelder aus.
+                </div>
+              )}
               <div className="space-y-3">
                 {normalizedStep.formFields.map((field) => (
-                  <div key={field.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 shadow-sm">
+                  <div
+                    key={field.id}
+                    className={`rounded-xl border bg-white p-4 space-y-2 shadow-sm ${validationErrors[field.name] ? 'border-red-300 bg-red-50/40' : 'border-slate-200'}`}
+                  >
                     <label className="text-sm font-semibold text-slate-800 flex items-center gap-1">
                       {field.label}
                       {field.required && <span className="text-red-500 text-xs ml-0.5">*</span>}
@@ -506,7 +631,7 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
-                        className={fieldControlClass}
+                        className={`${fieldControlClass} ${validationErrors[field.name] ? 'border-red-400 focus-visible:ring-red-500' : ''}`}
                       />
                     )}
 
@@ -517,7 +642,7 @@ export function WorkflowStepExecutionPanel({
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
                         rows={3}
-                        className={fieldControlClass}
+                        className={`${fieldControlClass} ${validationErrors[field.name] ? 'border-red-400 focus-visible:ring-red-500' : ''}`}
                       />
                     )}
 
@@ -530,7 +655,7 @@ export function WorkflowStepExecutionPanel({
                         disabled={isSubmitting}
                         min={field.validation?.min}
                         max={field.validation?.max}
-                        className={fieldControlClass}
+                        className={`${fieldControlClass} ${validationErrors[field.name] ? 'border-red-400 focus-visible:ring-red-500' : ''}`}
                       />
                     )}
 
@@ -540,7 +665,7 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
-                        className={fieldControlClass}
+                        className={`${fieldControlClass} ${validationErrors[field.name] ? 'border-red-400 focus-visible:ring-red-500' : ''}`}
                       />
                     )}
 
@@ -550,7 +675,7 @@ export function WorkflowStepExecutionPanel({
                         value={formData[field.name] || ""}
                         onChange={(e) => handleFormFieldChange(field.name, e.target.value)}
                         disabled={isSubmitting}
-                        className={fieldControlClass}
+                        className={`${fieldControlClass} ${validationErrors[field.name] ? 'border-red-400 focus-visible:ring-red-500' : ''}`}
                       />
                     )}
 
@@ -560,7 +685,7 @@ export function WorkflowStepExecutionPanel({
                         onValueChange={(value) => handleFormFieldChange(field.name, value)}
                         disabled={isSubmitting}
                       >
-                        <SelectTrigger className={fieldControlClass}>
+                        <SelectTrigger className={`${fieldControlClass} ${validationErrors[field.name] ? 'border-red-400 focus-visible:ring-red-500' : ''}`}>
                           <SelectValue placeholder={field.placeholder || 'Bitte wählen…'} />
                         </SelectTrigger>
                         <SelectContent className="border-slate-300">
@@ -585,7 +710,7 @@ export function WorkflowStepExecutionPanel({
                           disabled={isSubmitting}
                           className={checkboxClass}
                         />
-                        <span className="text-sm text-slate-800">{field.placeholder || field.label}</span>
+                        <span className={`text-sm ${validationErrors[field.name] ? 'text-red-700' : 'text-slate-800'}`}>{field.placeholder || field.label}</span>
                       </label>
                     )}
 
@@ -615,7 +740,7 @@ export function WorkflowStepExecutionPanel({
                     )}
 
                     {field.type === 'multiselect' && field.options && (
-                      <div className="rounded-lg border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                      <div className={`rounded-lg border overflow-hidden divide-y divide-slate-100 ${validationErrors[field.name] ? 'border-red-300' : 'border-slate-200'}`}>
                         {field.options.map((option) => (
                           <label
                             key={option.value}
@@ -662,7 +787,7 @@ export function WorkflowStepExecutionPanel({
                         />
                         <label
                           htmlFor={`file-${field.id}`}
-                          className="flex flex-col items-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-[#1a2a5e] hover:bg-blue-50/30 transition-colors"
+                          className={`flex flex-col items-center gap-2 border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-blue-50/30 transition-colors ${validationErrors[field.name] ? 'border-red-400 bg-red-50/40 hover:border-red-500' : 'border-slate-300 hover:border-[#1a2a5e]'}`}
                         >
                           <FileUp className="h-6 w-6 text-slate-400" />
                           <span className="text-xs text-slate-600 font-medium">
@@ -693,20 +818,23 @@ export function WorkflowStepExecutionPanel({
                     {field.helpText && (
                       <p className="text-xs text-slate-500 italic">{field.helpText}</p>
                     )}
+                    {validationErrors[field.name] && (
+                      <p className="text-xs font-medium text-red-600">{validationErrors[field.name]}</p>
+                    )}
                   </div>
                 ))}
               </div>
             </section>
           )}
 
-          {/* ── Notes ── */}
-          <section>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+          {/* ── Observations & Documentation ── */}
+          <section className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-slate-50">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 mb-3">
               <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-              Notizen
+              Ergebnisse & Beobachtungen
             </h3>
             <Textarea
-              placeholder="Beobachtungen, Auffälligkeiten oder Hinweise für diesen Schritt …"
+              placeholder="Dokumentiere hier die Ergebnisse dieses Schrittes, Auffälligkeiten oder spezielle Beobachtungen …"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isSubmitting}
@@ -715,12 +843,13 @@ export function WorkflowStepExecutionPanel({
             />
           </section>
 
-          {/* ── Photo upload ── */}
-          <section>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2 mb-3">
+          {/* ── Documentation Photos ── */}
+          <section className="border border-slate-200 rounded-lg p-4 bg-gradient-to-br from-slate-50 to-slate-50">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 mb-3">
               <span className="inline-block h-3 w-1 rounded-full bg-[#1a2a5e]" />
-              Fotos
+              Dokumentationsfotos
             </h3>
+            <p className="text-xs text-slate-600 mb-3">Fotografiere relevante Zustände, Fehler oder Ergebnisse für die Dokumentation.</p>
             <input
               type="file"
               multiple
@@ -748,28 +877,35 @@ export function WorkflowStepExecutionPanel({
         <div className="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-3 space-y-2">
           {/* Step complete / skip */}
           {normalizedStep.status !== 'completed' ? (
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setShowCompleteConfirm(true)}
-                disabled={isSubmitting || isLoading}
-                className="flex-1 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white font-semibold h-10"
-              >
-                {isSubmitting
-                  ? <><span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Schliesse ab…</>
-                  : <><CheckCircle2 className="h-4 w-4 mr-2" />Schritt {currentStepIndex + 1} abschliessen</>
-                }
-              </Button>
-              {normalizedStep.canSkip && (
+            <>
+              <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  onClick={() => setShowSkipConfirm(true)}
-                  disabled={isSubmitting || isLoading}
-                  className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                  onClick={() => setShowCompleteConfirm(true)}
+                  disabled={isStepCompleteDisabled}
+                  className="flex-1 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white font-semibold h-10"
                 >
-                  Überspringen
+                  {isSubmitting
+                    ? <><span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Schliesse ab…</>
+                    : <><CheckCircle2 className="h-4 w-4 mr-2" />Schritt {currentStepIndex + 1} abschliessen</>
+                  }
                 </Button>
+                {normalizedStep.canSkip && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSkipConfirm(true)}
+                    disabled={isSubmitting || isLoading}
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                  >
+                    Überspringen
+                  </Button>
+                )}
+              </div>
+              {isStepCompleteDisabled && !isSubmitting && !isLoading && (
+                <p className="text-xs text-red-600 font-medium">
+                  Pflichtangaben unvollstaendig: Bitte markierte Felder und Checkliste vervollstaendigen.
+                </p>
               )}
-            </div>
+            </>
           ) : (
             <div className="flex items-center justify-center gap-2 py-2 text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-200">
               <CheckCircle2 className="h-5 w-5" />

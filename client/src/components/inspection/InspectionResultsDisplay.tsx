@@ -19,6 +19,7 @@ import {
   Play,
   Wrench,
   ShieldCheck,
+  Cpu,
 } from 'lucide-react';
 
 interface InspectionResultsDisplayProps {
@@ -79,6 +80,28 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
     } finally {
       setGeneratingReport(false);
     }
+  };
+
+  const conditionLabel = (status: string) => {
+    const map: Record<string, string> = {
+      'OK': 'OK',
+      'Not OK': 'Nicht OK',
+      'light-wear': 'Leichte Abnutzung',
+      'scratches-wear': 'Kratzer',
+      'heavy-scratches-wear': 'Starke Kratzer',
+      'damaged': 'Beschädigt',
+      'working': 'Funktioniert',
+      'not-working': 'Defekt',
+      'not-applicable': 'Nicht zutreffend',
+      'defective': 'Defekt',
+    };
+    return map[status] || status;
+  };
+
+  const conditionColor = (status: string) => {
+    if (['OK', 'working', 'light-wear'].includes(status)) return 'emerald';
+    if (['scratches-wear', 'heavy-scratches-wear', 'not-applicable', 'not-testable'].includes(status)) return 'amber';
+    return 'red';
   };
 
   // ── Loading ──────────────────────────────────────────────────────────────
@@ -287,6 +310,12 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
                   {inspection.modelVerification.actualModel}
                 </p>
+                {inspection.modelVerification.reportedModel &&
+                  inspection.modelVerification.reportedModel !== inspection.modelVerification.actualModel && (
+                    <p className="text-[10px] text-muted-foreground break-words">
+                      Gemeldet: {inspection.modelVerification.reportedModel}
+                    </p>
+                )}
                 <div className="flex items-center gap-1">
                   {inspection.modelVerification.verified ? (
                     <CheckCircle2 className="h-3 w-3 text-emerald-500 flex-shrink-0" />
@@ -297,6 +326,15 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                     {inspection.modelVerification.verificationStatus?.replace(/-/g, ' ')}
                   </span>
                 </div>
+                {inspection.modelVerification.costDifference != null &&
+                  inspection.modelVerification.costDifference !== 0 && (
+                    <p className="text-[10px] text-amber-600">
+                      Preisdifferenz: {inspection.modelVerification.costDifference > 0 ? '+' : ''}{inspection.modelVerification.costDifference} €
+                    </p>
+                )}
+                {inspection.modelVerification.notes && (
+                  <p className="text-[10px] text-muted-foreground italic break-words">{inspection.modelVerification.notes}</p>
+                )}
               </div>
             )}
 
@@ -312,6 +350,9 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 {inspection.identification.imei && (
                   <p className="text-[10px] text-muted-foreground break-all">IMEI: {inspection.identification.imei}</p>
                 )}
+                {inspection.identification.serialNumber && (
+                  <p className="text-[10px] text-muted-foreground break-all">S/N: {inspection.identification.serialNumber}</p>
+                )}
               </div>
             )}
 
@@ -321,16 +362,32 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                   <Zap className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
                   <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Gerätetests</span>
                 </div>
-                {inspection.hasFailedTests ? (
-                  <div className="flex items-center gap-1">
-                    <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-red-600">Fehler gefunden</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-emerald-600">Alle Tests OK</span>
-                  </div>
+                {[
+                  { key: 'charging', label: 'Laden' },
+                  { key: 'power', label: 'Einschalten' },
+                  { key: 'wifi', label: 'WLAN' },
+                  { key: 'frontCamera', label: 'Frontkamera' },
+                  { key: 'mainCamera', label: 'Hauptkamera' },
+                ].map(({ key, label }) => {
+                  const test = inspection.deviceTest[key];
+                  if (!test) return null;
+                  const ok = test.status === 'OK';
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] text-muted-foreground">{label}</span>
+                        <span className={`text-[10px] font-medium ${ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {ok ? 'OK' : 'Fehler'}
+                        </span>
+                      </div>
+                      {!ok && test.notes && (
+                        <p className="text-[10px] text-muted-foreground italic pl-1">{test.notes}</p>
+                      )}
+                    </div>
+                  );
+                })}
+                {inspection.deviceTest.charging?.current && (
+                  <p className="text-[10px] text-muted-foreground">Ladestrom: {inspection.deviceTest.charging.current}</p>
                 )}
               </div>
             )}
@@ -352,8 +409,14 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                     <span className="text-xs font-semibold text-red-600">Nein</span>
                   </div>
                 )}
-                {inspection.repairOffer?.cost && (
+                {inspection.repairOffer?.cost != null && (
                   <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.cost} €</p>
+                )}
+                {inspection.repairOffer?.timeframe && (
+                  <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.timeframe}</p>
+                )}
+                {inspection.repairOffer?.description && (
+                  <p className="text-[10px] text-muted-foreground italic break-words">{inspection.repairOffer.description}</p>
                 )}
               </div>
             )}
@@ -374,6 +437,8 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 { key: 'originalPackaging', label: t('deviceInspection.packaging') },
                 { key: 'caseCover', label: t('deviceInspection.case') },
                 { key: 'powerAdapter', label: t('deviceInspection.adapter') },
+                { key: 'simTray', label: 'SIM-Schublade' },
+                { key: 'cables', label: 'Kabel' },
               ].map(({ key, label }) => {
                 const item = inspection.accessories[key];
                 if (!item || item.present === undefined) return null;
@@ -395,7 +460,30 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                   </span>
                 );
               })}
+              {Array.isArray(inspection.accessories.otherAccessories) &&
+                inspection.accessories.otherAccessories.map((acc: any, idx: number) =>
+                  acc?.name ? (
+                    <span
+                      key={idx}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                        acc.present
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-red-50 text-red-600 border-red-200'
+                      }`}
+                    >
+                      {acc.present ? (
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                      ) : (
+                        <AlertCircle className="h-2.5 w-2.5" />
+                      )}
+                      {acc.name}
+                    </span>
+                  ) : null
+                )}
             </div>
+            {inspection.accessories.additionalAccessoriesText && (
+              <p className="text-[10px] text-muted-foreground italic mt-1">{inspection.accessories.additionalAccessoriesText}</p>
+            )}
           </div>
         )}
 
@@ -408,7 +496,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 {t('deviceInspection.externalCondition')}
               </span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-1">
               {[
                 { label: t('deviceInspection.display'), data: inspection.externalInspection.display },
                 { label: t('deviceInspection.frame'), data: inspection.externalInspection.frame },
@@ -416,23 +504,29 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 { label: t('deviceInspection.buttons'), data: inspection.externalInspection.buttons },
               ].map(({ label, data }) => {
                 if (!data) return null;
-                const ok = data.status === 'OK';
+                const color = conditionColor(data.status);
+                const badgeCls = color === 'emerald'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : color === 'amber'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-red-50 text-red-600 border-red-200';
                 return (
-                  <span
-                    key={label}
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
-                      ok
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-red-50 text-red-600 border-red-200'
-                    }`}
-                  >
-                    {ok ? (
-                      <CheckCircle2 className="h-2.5 w-2.5" />
-                    ) : (
-                      <AlertCircle className="h-2.5 w-2.5" />
+                  <div key={label} className="flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-muted-foreground">{label}</span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${badgeCls}`}>
+                        {color === 'emerald' ? (
+                          <CheckCircle2 className="h-2.5 w-2.5" />
+                        ) : (
+                          <AlertCircle className="h-2.5 w-2.5" />
+                        )}
+                        {conditionLabel(data.status)}
+                      </span>
+                    </div>
+                    {data.notes && (
+                      <p className="text-[10px] text-muted-foreground italic pl-1">{data.notes}</p>
                     )}
-                    {label}
-                  </span>
+                  </div>
                 );
               })}
             </div>
@@ -445,6 +539,83 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 </p>
               </div>
             )}
+            {inspection.externalInspection.uniqueNotes && (
+              <p className="text-[10px] text-muted-foreground italic mt-1">{inspection.externalInspection.uniqueNotes}</p>
+            )}
+          </div>
+        )}
+
+        {/* Failed tests detail */}
+        {inspection.hasFailedTests && Array.isArray(inspection.failedTestDetails) && inspection.failedTestDetails.length > 0 && (
+          <div className="px-4 py-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+              <span className="text-[10px] uppercase tracking-wide text-red-500 font-medium">Fehlgeschlagene Tests</span>
+            </div>
+            <div className="space-y-1">
+              {inspection.failedTestDetails.map((test: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-1.5 rounded-md bg-red-50 border border-red-200 px-2 py-1.5">
+                  <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0 mt-px" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-semibold text-red-700">{test.testName}</span>
+                    {test.reason && <p className="text-[10px] text-red-600 break-words">{test.reason}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Apple-specific */}
+        {inspection.appleSpecific && (
+          <div className="px-4 py-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Cpu className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+              <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Apple-spezifische Checks</span>
+            </div>
+            <div className="space-y-1">
+              {inspection.appleSpecific.modemFirmware?.status && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-muted-foreground">Modem-Firmware</span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                    inspection.appleSpecific.modemFirmware.status === 'working'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : inspection.appleSpecific.modemFirmware.status === 'not-testable'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-red-50 text-red-600 border-red-200'
+                  }`}>
+                    {conditionLabel(inspection.appleSpecific.modemFirmware.status)}
+                  </span>
+                </div>
+              )}
+              {inspection.appleSpecific.modemFirmware?.notes && (
+                <p className="text-[10px] text-muted-foreground italic pl-1">{inspection.appleSpecific.modemFirmware.notes}</p>
+              )}
+              {inspection.appleSpecific.touchIdFaceId?.status &&
+                inspection.appleSpecific.touchIdFaceId.status !== 'not-applicable' && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-muted-foreground">Touch ID / Face ID</span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                    inspection.appleSpecific.touchIdFaceId.status === 'working'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-red-50 text-red-600 border-red-200'
+                  }`}>
+                    {conditionLabel(inspection.appleSpecific.touchIdFaceId.status)}
+                  </span>
+                </div>
+              )}
+              {inspection.appleSpecific.touchIdFaceId?.notes &&
+                inspection.appleSpecific.touchIdFaceId.status !== 'not-applicable' && (
+                <p className="text-[10px] text-muted-foreground italic pl-1">{inspection.appleSpecific.touchIdFaceId.notes}</p>
+              )}
+              {inspection.appleSpecific.customerInfoAction?.requested &&
+                inspection.appleSpecific.customerInfoAction?.note && (
+                <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-px" />
+                  <p className="text-[10px] text-amber-700 break-words">{inspection.appleSpecific.customerInfoAction.note}</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

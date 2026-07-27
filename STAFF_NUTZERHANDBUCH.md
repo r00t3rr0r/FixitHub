@@ -365,6 +365,43 @@ Die Seite ist in drei Zonen gegliedert:
 8. Kommunikation, Feedback und relevante Feststellungen im Auftrag dokumentieren.
 9. Auftragsstatus erst nach fachlicher Plausibilisierung in die naechste Phase ueberfuehren.
 
+### 5.2a Kopfbereich und Statuswechsel
+
+![Auftragsstatus aendern](screenshots/staff/order-details/order-detail-status-dropdown.png)
+
+Der dunkelblaue Kopfbereich ist die staendige Steuerleiste des Auftrags. Er bleibt beim Scrollen die fachliche Bezugsgroesse fuer den gesamten Vorgang.
+
+**Inhalt des Kopfbereichs:**
+- Auftragsnummer, Geraet und Eingangsdatum
+- Status-Dropdown (`Auftragsstatus aendern`)
+- Zahlungsstatus-Badge (z. B. `Bezahlt`)
+- Gesamtwert des Auftrags
+- KPI-Leiste: `Fortschritt`, `Status`, `Zugewiesenes Personal`, `Leistungen`, `Letzte Aktualisierung`
+
+**Status-Dropdown:**
+Ueber den Status-Button oben rechts wird der Auftragsstatus gesetzt. Verfuegbare Stufen:
+- `Ausstehend` (pending)
+- `In Bearbeitung` (in-progress)
+- `Pausiert` (paused)
+- `Qualitaetskontrolle` (quality-check)
+- `Abholbereit` (ready-for-pickup)
+- `Abgeschlossen` (completed)
+- `Storniert` (cancelled)
+
+**Besonderheit Abholung:**
+- Sobald der Status `Abholbereit` gesetzt ist, erscheint im Kopfbereich die Aktion `Abholung bestaetigen`.
+- Nach erfolgter Abholung wird die Bestaetigung mit Zeit- und Personenbezug im Kopfbereich angezeigt.
+
+**Schrittweiser Arbeits-Hinweis:**
+Auf der Seite sind die wichtigsten Etappen mit gelben Schritt-Markierungen hervorgehoben
+(`Schritt 1 - Status & Uebersicht pruefen`, `Schritt 2 - Geraet & Sperre verifizieren`,
+`Schritt 3 - Inspektion durchfuehren`, `Schritt 4 - Leistungen & Produkte`,
+`Schritt 5 - Workflow zuweisen & starten`, `Schritt 6 - Personalzuordnung pflegen`).
+Diese Markierungen entsprechen dem verbindlichen Standardablauf aus Abschnitt 5.2.
+
+**Verbindliche Regel:**
+Ein Statuswechsel darf erst erfolgen, wenn der reale Bearbeitungsstand die jeweilige Stufe tatsaechlich erreicht hat.
+
 ### 5.3 Device Information und Lock-Pruefung
 
 ![Device Information und Lock-Bereich](screenshots/staff/order-details/order-detail-device-section.png)
@@ -397,6 +434,24 @@ Die Seite ist in drei Zonen gegliedert:
 3. `Update Confirmation` setzen.
 4. Erst danach weitere technische Schritte starten.
 
+#### Dialog: Geraet aendern
+
+![Geraet aendern Dialog](screenshots/staff/order-details/order-detail-device-change-dialog.png)
+
+**Aufruf:** ueber `Edit` in der Karte `Device Information`.
+
+**Zweck:**
+Korrektur oder Praezisierung des erfassten Geraets, wenn Marke, Modell oder Geraetetyp vom tatsaechlichen Kundengeraet abweichen.
+
+**Funktionen:**
+- Geraetetyp waehlen (z. B. Smartphone, Tablet, Notebook)
+- Marke/Hersteller auswaehlen
+- konkretes Modell setzen
+- Aenderung direkt am Auftrag speichern
+
+**Besonderheit:**
+- Eine Geraetekorrektur betrifft nachgelagerte Schritte (Inspektion, passende Teile, Workflow). Die Aenderung daher moeglichst frueh und nur nach physischer Pruefung vornehmen.
+
 ### 5.4 Device Inspection
 
 ![Device Inspection Bereich](screenshots/staff/order-details/order-detail-inspection-section.png)
@@ -421,6 +476,28 @@ Die Device Inspection ist die strukturierte Zustandserfassung des Kundengeraets.
 - bei Rueckfragen zum technischen Ist-Zustand
 - vor Abschluss/Quality-Check als Vergleichspunkt
 
+#### Dialog: Geraeteinspektion durchfuehren
+
+![Geraeteinspektion Dialog](screenshots/staff/order-details/order-detail-inspection-dialog.png)
+
+**Aufruf:** ueber `Start Device Inspection` bzw. `Continue Inspection` in der Karte `Geraeteinspektion`.
+
+**Aufbau des Dialogs:**
+- Kopfzeile mit `Report`-Button zum Erzeugen des Inspektionsberichts
+- Block `Empfohlener Ablauf` mit der vorgegebenen Pruefreihenfolge
+- Uebersicht der gebuchten Reparatur und der aktuellen Auftragssumme
+- mehrstufige, aufklappbare Pruefschritte (z. B. `Schritt 1 - Modellpruefung`, `Schritt 2 - Geraeteidentifikation`, weitere Funktions- und Zustandstests)
+
+**Funktionen je Schritt:**
+- gemeldetes Modell mit tatsaechlichem Modell abgleichen
+- Pruefstatus setzen (z. B. `Korrekt - Modell stimmt ueberein`)
+- Notizen je Schritt erfassen
+- mit `Speichern & Weiter` zum naechsten Schritt wechseln
+
+**Besonderheit:**
+- Der `Empfohlene Ablauf` ist die fachliche Leitlinie: erst Modell und Identifikation pruefen, dann Zubehoer und aeussere Inspektion, danach Funktionstests und Reparaturzusammenfassung.
+- Der Bericht (`Report`) dient als nachvollziehbarer Nachweis des Geraetezustands und sollte vor dem Abschluss vorliegen.
+
 ### 5.5 Repair Services
 
 ![Repair Services Bereich](screenshots/staff/order-details/order-detail-repair-services.png)
@@ -438,6 +515,72 @@ Die `Repair Services` bilden die eigentlichen Reparaturpositionen des Auftrags a
 - wenn sich bei der Diagnose eine zusaetzliche Reparatur ergibt
 - wenn Preise oder Zeiten angepasst werden muessen
 - wenn die technische Leistung korrigiert oder konkretisiert werden muss
+
+#### Dialog: Reparaturleistung hinzufuegen oder bearbeiten
+
+![Reparaturleistung Dialog](screenshots/staff/order-details/order-detail-service-dialog.png)
+
+**Aufruf:** ueber `Add Service` in der Karte `Repair Services` (Bearbeiten ueber das Stift-Symbol an der jeweiligen Position).
+
+**Funktionen:**
+- Leistung aus dem Katalog waehlen oder frei beschreiben
+- Preis und geschaetzte Bearbeitungszeit setzen
+- technische Notizen zur Position hinterlegen
+- Position speichern oder bestehende Position aktualisieren
+
+**Besonderheit:**
+- Jede Position fliesst in die Auftragssumme und in die Leistungszahl der KPI-Leiste ein.
+- Positionen nur mit nachvollziehbarem fachlichem Bedarf anlegen oder aendern.
+
+### 5.5a E-Parts und Bedarfsliste
+
+![E-Parts Bereich](screenshots/staff/order-details/order-detail-eparts-section.png)
+
+**Zweck:**
+Die Karte `E-Parts` verwaltet die fuer den Auftrag benoetigten elektronischen Ersatzteile und die zugehoerige Bedarfsliste.
+
+**Funktionen:**
+- benoetigte Teile als Bedarf erfassen
+- Teile aus dem Bestand zuordnen (`Add EPart`)
+- Mengen und Teileversion festlegen
+- Materialbezug fuer den Auftrag dokumentieren
+
+**Besonderheit:**
+- Die Bedarfsliste macht sichtbar, welche Teile noch fehlen, bevor die Reparatur abgeschlossen werden kann.
+
+### 5.5b Reparaturfortschritt
+
+![Reparaturfortschritt Bereich](screenshots/staff/order-details/order-detail-progress-section.png)
+
+**Zweck:**
+Die Karte `Reparaturfortschritt` zeigt den Auftrag entlang fester Phasen und stellt den prozentualen Fortschritt dar.
+
+**Phasen:**
+1. `Auftrag erhalten`
+2. `Diagnosebewertung`
+3. `Reparatur in Bearbeitung`
+4. `Qualitaetskontrolle`
+5. `Abgeschlossen`
+
+**Besonderheit:**
+- Der Fortschritt orientiert sich am realen Bearbeitungsstand und an den zugewiesenen Workflows.
+- Die Phasen sind die fachliche Grundlage fuer den Statuswechsel im Kopfbereich.
+
+### 5.5c Workflows und Reparatur-Workflow
+
+![Workflows Bereich](screenshots/staff/order-details/order-detail-workflows-section.png)
+
+**Zweck:**
+Die Karte `Workflows` buendelt alle dem Auftrag zugewiesenen Prozessablaeufe, inklusive des besonderen Reparatur-Workflows.
+
+**Funktionen:**
+- Workflow zuweisen (`Assign Workflow`)
+- Workflow starten, fortsetzen, pausieren oder einsehen
+- speziellen Reparatur-Workflow als gefuehrten Prozess oeffnen
+
+**Besonderheit Reparatur-Workflow:**
+- Bestimmte Workflows (z. B. `Standard Repair Process` / `Standard Repair Process NEU`) werden als gefuehrter Reparaturprozess behandelt.
+- Sie steuern die Bearbeitung Schritt fuer Schritt und wirken direkt auf den Fortschrittswert des Auftrags.
 
 ### 5.6 Wichtige Dialoge auf der Auftragsdetailseite
 
@@ -521,9 +664,43 @@ Mitarbeiter werden dem Auftrag formal zugeordnet.
 - bessere Lastverteilung
 - nachvollziehbare Bearbeitung und Zeiterfassung
 
+#### Kundenkommunikation: Rueckmeldung anfordern
+
+![Kundenkommunikation Rueckmeldung](screenshots/staff/order-details/order-detail-communication-feedback-dialog.png)
+
+**Aufruf:** ueber `Rueckmeldung` im Bereich `Kundenkommunikation` der rechten Seitenleiste.
+
+**Zweck:**
+Eine gezielte Rueckfrage oder Freigabeanfrage an den Kunden senden, ohne den Auftragskontext zu verlassen.
+
+**Funktionen:**
+- Anliegen strukturiert formulieren
+- Nachricht direkt am Auftrag dokumentieren
+- Antwort des Kunden bleibt im Auftragsverlauf nachvollziehbar
+
+#### Kundenkommunikation: Aktion senden
+
+![Kundenkommunikation Aktion](screenshots/staff/order-details/order-detail-communication-action-dialog.png)
+
+**Aufruf:** ueber `Aktion` im Bereich `Kundenkommunikation`.
+
+**Zweck:**
+Den Kunden ueber eine wichtige Aktion oder einen erforderlichen Schritt informieren (z. B. `Part replacement required`).
+
+**Funktionen:**
+- Aktionstyp auswaehlen (Pflichtfeld)
+- erklaerenden Beschreibungstext erfassen (Pflichtfeld)
+- Aktion an den Kunden senden und im Auftrag protokollieren
+
+**Besonderheit:**
+- Aktionstyp und Beschreibung sind verpflichtend, damit die Mitteilung fuer den Kunden eindeutig und nachvollziehbar ist.
+- Alle gesendeten Rueckmeldungen und Aktionen erscheinen im Kommunikationsbereich des Auftrags.
+
 ### 5.7 Weitere relevante Auftragsfunktionen
 
-Zusatzlich zu den bebilderten Dialogen stehen auf der Seite weitere wichtige Staff-Funktionen bereit:
+![Schnellaktionen und Kundenbereich](screenshots/staff/order-details/order-detail-quick-actions.png)
+
+Zusatzlich zu den bebilderten Dialogen stehen auf der Seite weitere wichtige Staff-Funktionen bereit. Die rechte Seitenleiste (`Schnellaktionen`) buendelt Kundeninformationen, Kommunikation und organisatorische Aktionen.
 
 #### Status aktualisieren
 - Schnellaktion im rechten Bereich.
@@ -533,6 +710,10 @@ Zusatzlich zu den bebilderten Dialogen stehen auf der Seite weitere wichtige Sta
 #### Personal verwalten
 - Schnellaktion fuer Organisationsaenderungen.
 - Ergaenzt die direkte Staff-Zuweisung am Auftrag.
+
+![Zugewiesenes Personal](screenshots/staff/order-details/order-detail-staff-section.png)
+
+Die Karte `Assigned Staff` zeigt das aktuell zugeordnete Personal samt Rolle und Aktivitaet. Ueber `Assign Staff` wird der Zuweisungsdialog geoeffnet (siehe Abschnitt 5.6).
 
 #### Kommunikation & Feedback
 - Nachrichtenverlauf direkt am Auftrag.

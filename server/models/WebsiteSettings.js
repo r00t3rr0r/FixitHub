@@ -61,7 +61,7 @@ const FooterConfigSchema = new mongoose.Schema({
       url: String
     }]
   }],
-  copyright: { type: String, default: '© 2024 FixitHub. All rights reserved.' },
+  copyright: { type: String, default: '© 2024 McRepair.de. All rights reserved.' },
   showNewsletter: { type: Boolean, default: true }
 }, { _id: false });
 
@@ -115,7 +115,7 @@ const AnimationSchema = new mongoose.Schema({
 }, { _id: false });
 
 const SEOSettingsSchema = new mongoose.Schema({
-  title: { type: String, default: 'FixitHub - Device Repair Services' },
+  title: { type: String, default: 'McRepair.de - Device Repair Services' },
   description: { type: String, default: 'Professional device repair services' },
   keywords: [{ type: String }],
   favicon: { type: String, default: '/favicon.ico' },
@@ -174,7 +174,7 @@ const PublishingSchema = new mongoose.Schema({
 
 const WebsiteSettingsSchema = new mongoose.Schema({
   // General Settings
-  projectTitle: { type: String, required: true, default: 'FixitHub' },
+  projectTitle: { type: String, required: true, default: 'McRepair.de' },
   subdomain: { type: String, default: '' },
   customDomain: { type: String, default: '' },
   defaultLanguage: { type: String, default: 'en' },

@@ -255,6 +255,11 @@ const orderWorkflowSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  assignedStaffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  assignedStaff: [workflowAssignedStaffSchema],
   steps: [workflowStepExecutionSchema],
   currentStepIndex: {
     type: Number,
@@ -571,6 +576,15 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'refunded', 'partial'],
     default: 'pending',
   },
+  paymentMethod: {
+    type: String,
+    enum: ['credit_card', 'sepa', 'paypal', 'cash', null],
+    default: null,
+  },
+  paidAt: {
+    type: Date,
+    default: null,
+  },
   // Device unlock information
   unlockPattern: {
     type: [String],
@@ -797,6 +811,8 @@ orderSchema.pre(/^find/, function(next) {
       .populate('shopProducts.productId', 'name price images category brand stock')
       .populate('shopProducts.addedBy', 'name email')
       .populate('workflows.workflowTemplateId')
+      .populate('workflows.assignedStaffId', 'name avatar')
+      .populate('workflows.assignedStaff.staffId', 'name avatar')
       .populate('workflows.steps.assignedStaffId', 'name avatar')
       .populate('workflows.steps.assignedStaff.staffId', 'name avatar');
   next();

@@ -4294,6 +4294,314 @@ ul, ol {
 }
 
 /* ============================================
+   VORABDIAGNOSE SEO CONTENT SECTIONS
+   ============================================ */
+
+/* Shared section header */
+.diagnose-section-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.diagnose-section-header h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--primary-blue);
+  margin-bottom: 10px;
+  line-height: 1.25;
+}
+
+.diagnose-section-header p {
+  font-size: 0.95rem;
+  color: #636e85;
+  max-width: 580px;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+
+/* ── How it works ─────────────────────────── */
+.diagnose-how-works {
+  background: #ffffff;
+  padding: 72px 0;
+}
+
+.diagnose-how-works-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.diagnose-how-step {
+  text-align: center;
+  padding: 36px 28px;
+  background: #f5f6f8;
+  border-radius: 16px;
+  border: 1px solid #eceef3;
+  transition: box-shadow 0.25s;
+}
+
+.diagnose-how-step:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.07);
+}
+
+.diagnose-how-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  background: var(--primary-blue);
+  color: #ffffff;
+  border-radius: 50%;
+  margin-bottom: 18px;
+}
+
+.diagnose-how-step h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 8px;
+}
+
+.diagnose-how-step p {
+  font-size: 0.875rem;
+  color: #636e85;
+  line-height: 1.65;
+}
+
+/* ── Problem categories ──────────────────── */
+.diagnose-problems-section {
+  background: #f5f6f8;
+  padding: 72px 0;
+}
+
+.diagnose-problems-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.diagnose-problem-card {
+  background: #ffffff;
+  border: 1px solid #eceef3;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.diagnose-problem-card:hover {
+  border-color: var(--primary-blue);
+  box-shadow: 0 4px 12px rgba(26,42,94,0.07);
+}
+
+.diagnose-problem-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26,42,94,0.08);
+  border-radius: 8px;
+  color: var(--primary-blue);
+}
+
+.diagnose-problem-text h3 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 4px;
+}
+
+.diagnose-problem-text p {
+  font-size: 0.78rem;
+  color: #636e85;
+  line-height: 1.55;
+}
+
+/* ── Common diagnostic results ───────────── */
+.diagnose-results-section {
+  background: #ffffff;
+  padding: 72px 0;
+}
+
+.diagnose-results-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.diagnose-result-item {
+  background: #f5f6f8;
+  border: 1px solid #eceef3;
+  border-left: 3px solid var(--primary-blue);
+  border-radius: 10px;
+  padding: 18px 22px;
+}
+
+.diagnose-result-item h3 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  margin-bottom: 8px;
+}
+
+.diagnose-result-item p {
+  font-size: 0.8rem;
+  color: #4a5568;
+  line-height: 1.65;
+}
+
+/* ── Benefits + CTA ──────────────────────── */
+.diagnose-benefits-section {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark, #0f1d45) 100%);
+  padding: 72px 0;
+  text-align: center;
+}
+
+.diagnose-benefits-section h2 {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 44px;
+  line-height: 1.25;
+}
+
+.diagnose-benefits-grid {
+  list-style: none;
+  margin: 0 0 44px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.diagnose-benefit-card {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 14px;
+  padding: 28px 18px;
+}
+
+.diagnose-benefit-icon {
+  color: var(--accent-yellow);
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.diagnose-benefit-card h3 {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.diagnose-benefit-card p {
+  color: rgba(255,255,255,0.65);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.diagnose-benefits-cta {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.diagnose-benefits-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 26px;
+  background: var(--accent-yellow);
+  color: var(--primary-blue);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s;
+}
+
+.diagnose-benefits-cta-btn:hover {
+  background: #ffd700;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+.diagnose-benefits-cta-btn-outline {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.35);
+}
+
+.diagnose-benefits-cta-btn-outline:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.7);
+}
+
+/* ── Responsive ──────────────────────────── */
+@media (max-width: 900px) {
+  .diagnose-benefits-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .diagnose-how-works-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .diagnose-problems-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnose-results-list {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnose-section-header h2 {
+    font-size: 1.4rem;
+  }
+
+  .diagnose-benefits-section h2 {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .diagnose-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnose-benefits-cta {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .diagnose-how-works,
+  .diagnose-problems-section,
+  .diagnose-results-section,
+  .diagnose-benefits-section {
+    padding: 48px 0;
+  }
+}
+
+/* ============================================
    VORABDIAGNOSE MODAL
    ============================================ */
 .diagnose-modal-overlay {

@@ -99,7 +99,7 @@ export const respondToFeedback = async (
 export const createQuickAction = async (
   orderId: string,
   inspectionId: string,
-  actionType: 'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs',
+  actionType: 'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs' | 'update_unlock_info' | 'customer_defect_info',
   description?: string,
   metadata?: any
 ) => {

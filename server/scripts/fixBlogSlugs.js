@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { BlogPost } = require('../models/BlogPost');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/FixitHub';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/McRepair.de';
 
 async function fixBlogSlugs() {
   try {

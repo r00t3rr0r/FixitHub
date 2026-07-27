@@ -47,6 +47,10 @@ const identificationSchema = new mongoose.Schema({
   },
   imei: String, // For phones
   serialNumber: String, // For laptops/tablets
+  imeiRequired: {
+    type: Boolean,
+    default: false,
+  },
   identified: {
     type: Boolean,
     default: false,
@@ -71,6 +75,10 @@ const accessoriesSchema = new mongoose.Schema({
     present: Boolean,
     description: String,
   },
+  simTray: {
+    present: Boolean,
+    description: String,
+  },
   cables: {
     present: Boolean,
     description: String,
@@ -80,6 +88,8 @@ const accessoriesSchema = new mongoose.Schema({
     present: Boolean,
     description: String,
   }],
+  additionalAccessoriesText: String,
+  description: String,
   checkedAt: {
     type: Date,
     default: Date.now,
@@ -91,7 +101,15 @@ const externalInspectionSchema = new mongoose.Schema({
   display: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: [
+        '--',
+        'OK',
+        'Not OK',
+        'light-wear',
+        'scratches-wear',
+        'heavy-scratches-wear',
+        'damaged',
+      ],
       required: true,
     },
     notes: String,
@@ -99,7 +117,15 @@ const externalInspectionSchema = new mongoose.Schema({
   frame: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: [
+        '--',
+        'OK',
+        'Not OK',
+        'light-wear',
+        'scratches-wear',
+        'heavy-scratches-wear',
+        'damaged',
+      ],
       required: true,
     },
     notes: String,
@@ -107,7 +133,15 @@ const externalInspectionSchema = new mongoose.Schema({
   backCover: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: [
+        '--',
+        'OK',
+        'Not OK',
+        'light-wear',
+        'scratches-wear',
+        'heavy-scratches-wear',
+        'damaged',
+      ],
       required: true,
     },
     notes: String,
@@ -115,7 +149,7 @@ const externalInspectionSchema = new mongoose.Schema({
   buttons: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: ['OK', 'Not OK', 'working', 'not-working'],
       required: true,
     },
     notes: String,
@@ -140,6 +174,7 @@ const deviceTestSchema = new mongoose.Schema({
       enum: ['OK', 'Not OK'],
       required: true,
     },
+    current: String,
     notes: String,
   },
   power: {
@@ -183,13 +218,30 @@ const deviceTestSchema = new mongoose.Schema({
 // Schema for Apple-specific checks
 const appleSpecificSchema = new mongoose.Schema({
   modemFirmware: {
+    status: {
+      type: String,
+      enum: ['working', 'defective', 'not-testable'],
+      default: 'working',
+    },
     present: Boolean,
     notes: String,
   },
   touchIdFaceId: {
+    status: {
+      type: String,
+      enum: ['not-applicable', 'working', 'defective'],
+      default: 'not-applicable',
+    },
     applicable: Boolean,
     working: Boolean,
     notes: String,
+  },
+  customerInfoAction: {
+    requested: {
+      type: Boolean,
+      default: false,
+    },
+    note: String,
   },
   checkedAt: {
     type: Date,
@@ -283,6 +335,22 @@ const deviceInspectionSchema = new mongoose.Schema({
     cost: Number,
     timeframe: String,
     description: String,
+  },
+  completionAction: {
+    type: String,
+    enum: ['repairable', 'not-repairable', 'inform-customer'],
+    default: 'repairable',
+  },
+  customerInformation: {
+    shouldInform: {
+      type: Boolean,
+      default: false,
+    },
+    reason: String,
+    note: String,
+    suggestedStatus: String,
+    mailTemplate: String,
+    generatedAt: Date,
   },
   approvalStatus: {
     type: String,

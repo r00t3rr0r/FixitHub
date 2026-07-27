@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Lock, X, RotateCcw, AlertCircle } from "lucide-react"
+import { Lock, X, RotateCcw, AlertCircle, Eye, EyeOff } from "lucide-react"
 
 interface UnlockPatternInputProps {
   onPatternChange: (pattern: string[]) => void
@@ -28,9 +28,28 @@ export function UnlockPatternInput({
   unlockCode = ""
 }: UnlockPatternInputProps) {
   const [selectedPattern, setSelectedPattern] = useState<string[]>(pattern)
+  const [showUnlockCode, setShowUnlockCode] = useState(false)
   const [unlockMethod, setUnlockMethod] = useState<"pattern" | "code" | "nolock" | "noinfo">(
     unlockCode ? "code" : pattern.length > 0 ? "pattern" : "nolock"
   )
+
+  const unlockCodeValidationError = (() => {
+    const trimmedCode = unlockCode.trim()
+
+    if (trimmedCode.length === 0) {
+      return ""
+    }
+
+    if (trimmedCode.length < 4) {
+      return "Der Entsperrcode ist zu kurz (mindestens 4 Zeichen)."
+    }
+
+    if (/\s/.test(unlockCode)) {
+      return "Ungueltiges Format: Bitte keine Leerzeichen verwenden."
+    }
+
+    return ""
+  })()
 
   const patternDots = [
     [1, 2, 3],
@@ -63,16 +82,19 @@ export function UnlockPatternInput({
     setUnlockMethod(method as "pattern" | "code" | "nolock" | "noinfo")
 
     if (method === "nolock") {
+      setShowUnlockCode(false)
       onNoLockChange(true)
       setSelectedPattern([])
       onPatternChange([])
       onUnlockCodeChange("")
     } else if (method === "noinfo") {
+      setShowUnlockCode(false)
       onNoLockChange(false)
       setSelectedPattern([])
       onPatternChange([])
       onUnlockCodeChange("")
     } else if (method === "pattern") {
+      setShowUnlockCode(false)
       onNoLockChange(false)
       onUnlockCodeChange("")
     } else if (method === "code") {
@@ -256,15 +278,34 @@ export function UnlockPatternInput({
 
             <div className="space-y-2">
               <Label htmlFor="unlockCode" className="text-xs text-gray-600">PIN / Passwort</Label>
-              <Input
-                id="unlockCode"
-                type="password"
-                placeholder="Entsperrcode eingeben"
-                value={unlockCode}
-                onChange={(e) => onUnlockCodeChange(e.target.value)}
-                disabled={noLock}
-                className="font-mono text-center tracking-[0.15em] sm:tracking-widest text-base h-10 sm:h-9"
-              />
+              <div className="relative">
+                <Input
+                  id="unlockCode"
+                  type={showUnlockCode ? "text" : "password"}
+                  placeholder="Entsperrcode eingeben"
+                  value={unlockCode}
+                  onChange={(e) => onUnlockCodeChange(e.target.value)}
+                  disabled={noLock}
+                  aria-invalid={Boolean(unlockCodeValidationError)}
+                  className={`font-mono text-center tracking-[0.15em] sm:tracking-widest text-base h-10 sm:h-9 pr-10 ${unlockCodeValidationError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowUnlockCode((prev) => !prev)}
+                  disabled={noLock}
+                  className="absolute inset-y-0 right-1 my-auto h-8 w-8 p-0 text-gray-500 hover:text-gray-700 hover:bg-transparent focus-visible:ring-0"
+                  aria-label={showUnlockCode ? "Entsperrcode verbergen" : "Entsperrcode anzeigen"}
+                >
+                  {showUnlockCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              {unlockCodeValidationError && (
+                <p className="text-xs text-red-600">
+                  {unlockCodeValidationError}
+                </p>
+              )}
               <p className="text-xs text-gray-500">
                 Der Code wird vertraulich behandelt und nur von unseren Technikern verwendet
               </p>

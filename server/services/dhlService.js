@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const Order = require('../models/Order');
 
@@ -455,7 +455,7 @@ class DHLService {
       console.log('DHLService: Shipping address validated successfully');
 
       // Generate unique shipment ID (UUID v4 as required by DHL Parcel API)
-      const shipmentId = uuidv4();
+      const shipmentId = crypto.randomUUID();
       console.log('DHLService: Generated shipment ID:', shipmentId);
 
       const parcelDeConfig = this.getParcelDEConfig(dhlConfig);
@@ -483,13 +483,13 @@ class DHLService {
         billingNumber: accountId,
         shipDate: shipmentData.shipmentDate || new Date().toISOString().slice(0, 10),
         shipper: {
-          name1: shipmentData.shipperName || dhlConfig.settings?.shipperCompany || 'FixitHub GmbH',
+          name1: shipmentData.shipperName || dhlConfig.settings?.shipperCompany || 'McRepair.de GmbH',
           addressStreet: shipmentData.shipperStreet || dhlConfig.settings?.shipperStreet || 'Company Street',
           addressHouse: shipmentData.shipperNumber || dhlConfig.settings?.shipperNumber || '1',
           postalCode: shipmentData.shipperPostalCode || dhlConfig.settings?.shipperPostalCode || '10115',
           city: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Berlin',
           country: this.countryCodeToIso3(shipmentData.shipperCountry || dhlConfig.settings?.shipperCountry || 'DE'),
-          email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@fixithub.com',
+          email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@mcrepair.de',
           phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
         },
         consignee: (() => {

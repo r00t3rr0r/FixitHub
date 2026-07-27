@@ -178,6 +178,47 @@ const schema = new mongoose.Schema({
       email: { type: Boolean, default: true },
       sms: { type: Boolean, default: true },
       push: { type: Boolean, default: true },
+      mode: {
+        type: String,
+        enum: ['standard', 'all'],
+        default: 'standard'
+      },
+      emailEvents: {
+        inProgress: { type: Boolean, default: false },
+        readyForPickup: { type: Boolean, default: true },
+        completed: { type: Boolean, default: true },
+      },
+      pushEvents: {
+        inProgress: { type: Boolean, default: true },
+        readyForPickup: { type: Boolean, default: true },
+        completed: { type: Boolean, default: true },
+      },
+      channelsByType: {
+        order_update: {
+          email: { type: Boolean, default: true },
+          push: { type: Boolean, default: true },
+        },
+        payment: {
+          email: { type: Boolean, default: true },
+          push: { type: Boolean, default: true },
+        },
+        message: {
+          email: { type: Boolean, default: true },
+          push: { type: Boolean, default: true },
+        },
+        system: {
+          email: { type: Boolean, default: true },
+          push: { type: Boolean, default: true },
+        },
+        assignment: {
+          email: { type: Boolean, default: true },
+          push: { type: Boolean, default: true },
+        },
+        reminder: {
+          email: { type: Boolean, default: true },
+          push: { type: Boolean, default: true },
+        },
+      },
     },
     communication: {
       orderUpdates: { type: Boolean, default: true },

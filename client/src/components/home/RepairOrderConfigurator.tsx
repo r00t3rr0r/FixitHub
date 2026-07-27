@@ -1793,10 +1793,92 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const previewData = getDevicePreviewData();
   const getChoiceLabel = (option: 'yes' | 'no' | 'unsure') => t(`home.configurator.${option}`);
   const getConditionLabel = (option: 'original' | 'refurbished' | 'unsure') => t(`home.configurator.${option}`);
+  const selectedBrandName = manufacturers.find((manufacturer) => manufacturer._id === selectedBrand)?.name || '';
+  const selectedRepairNames = selectedRepairs.map((service) => service.name).filter(Boolean);
+  const selectedAddOnNames = selectedAddOns.map((addOn) => addOn.name).filter(Boolean);
+  const selectedModelName = selectedModel?.name || '';
+  const selectedDeviceTypeName = selectedDeviceType?.name || '';
+  const seoDeviceLabel = [selectedBrandName, selectedModelName].filter(Boolean).join(' ').trim();
+  const repairConfiguratorStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: 'McRepair.de Reparaturkonfigurator',
+    serviceType: 'Elektronikreparatur',
+    provider: {
+      '@type': 'Organization',
+      name: 'McRepair.de',
+      url: 'https://www.mcrepair.de',
+    },
+    ...(selectedDeviceTypeName || seoDeviceLabel
+      ? {
+          areaServed: 'Deutschland',
+          hasOfferCatalog: {
+            '@type': 'OfferCatalog',
+            name: seoDeviceLabel
+              ? `Reparaturservices fuer ${seoDeviceLabel}`
+              : 'Reparaturservices',
+            itemListElement: selectedRepairNames.map((repairName, index) => ({
+              '@type': 'Offer',
+              position: index + 1,
+              itemOffered: {
+                '@type': 'Service',
+                name: repairName,
+              },
+            })),
+          },
+        }
+      : {}),
+    additionalProperty: [
+      ...(selectedDeviceTypeName
+        ? [
+            {
+              '@type': 'PropertyValue',
+              name: 'Geraetetyp',
+              value: selectedDeviceTypeName,
+            },
+          ]
+        : []),
+      ...(selectedModelName
+        ? [
+            {
+              '@type': 'PropertyValue',
+              name: 'Geraetemodell',
+              value: selectedModelName,
+            },
+          ]
+        : []),
+      ...(selectedRepairNames.length > 0
+        ? [
+            {
+              '@type': 'PropertyValue',
+              name: 'Reparaturservice',
+              value: selectedRepairNames.join(', '),
+            },
+          ]
+        : []),
+    ],
+  };
 
   return (
     <>
-    <div className="configurator-container" id="repair-order-configurator">
+    <script type="application/ld+json">{JSON.stringify(repairConfiguratorStructuredData)}</script>
+
+    <aside className="sr-only" aria-label="SEO Reparaturkonfigurator Auswahl">
+      <p>Reparaturkonfigurator fuer Geraetereparaturen bei McRepair.de.</p>
+      <p>Ausgewaehlter Geraetetyp: {selectedDeviceTypeName || 'Nicht ausgewaehlt'}.</p>
+      <p>Ausgewaehltes Geraetemodell: {seoDeviceLabel || 'Nicht ausgewaehlt'}.</p>
+      <p>Ausgewaehlte Reparaturservices: {selectedRepairNames.length > 0 ? selectedRepairNames.join(', ') : 'Keine Auswahl'}.</p>
+      <p>Ausgewaehlte Zusatzservices: {selectedAddOnNames.length > 0 ? selectedAddOnNames.join(', ') : 'Keine Auswahl'}.</p>
+    </aside>
+
+    <div
+      className="configurator-container"
+      id="repair-order-configurator"
+      data-seo-device-type={selectedDeviceTypeName}
+      data-seo-device-model={seoDeviceLabel}
+      data-seo-repair-services={selectedRepairNames.join(', ')}
+      data-seo-addon-services={selectedAddOnNames.join(', ')}
+    >
       <div className="configurator">
         {/* Configurator Header */}
         <div ref={configuratorHeaderRef} className="configurator-header">

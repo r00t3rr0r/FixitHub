@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SEO } from '@/components/SEO'
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
@@ -97,6 +98,12 @@ export function Sitemap() {
 
   return (
     <>
+      <SEO
+        title="Sitemap – McRepair.de Seitenübersicht"
+        description="Vollständige Seitenstruktur von McRepair.de: Reparaturservice, Webshop, Blog, Kundenportal, rechtliche Seiten und mehr – schnell finden, was Sie suchen."
+        canonical="/sitemap"
+        noindex={true}
+      />
       <TopBar />
       <McRepairNav />
 

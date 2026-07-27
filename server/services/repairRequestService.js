@@ -125,7 +125,7 @@ class RepairRequestService {
             issueDescription: repairRequest.issueDescription,
             submittedAt: new Date(repairRequest.createdAt || Date.now()).toLocaleDateString('de-DE'),
             requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${repairRequest._id}`),
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
         } catch (notificationError) {
@@ -201,7 +201,7 @@ class RepairRequestService {
             submittedAt: new Date(repairRequest.createdAt || Date.now()).toLocaleDateString('de-DE'),
             requestUrl: trackingUrl,
             trackingUrl,
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
           });
         } catch (notificationError) {
@@ -373,7 +373,7 @@ class RepairRequestService {
             completedAt: new Date(request.updatedAt || Date.now()).toLocaleDateString('de-DE'),
             approvalUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
             requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
         } catch (notificationError) {
@@ -465,7 +465,7 @@ class RepairRequestService {
               senderName: senderName || 'Service Team',
               messageSentAt: new Date().toLocaleString('de-DE'),
               requestUrl: await EmailService.buildSystemUrl(`/repair-requests/${request._id}`),
-              supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+              supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
               supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
             });
           } catch (notificationError) {

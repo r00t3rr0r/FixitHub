@@ -13,7 +13,7 @@ const {
 } = require('./defaultNotificationTemplates');
 
 /**
- * SeedService — focused seeding for FixitHub.
+ * SeedService — focused seeding for McRepair.de.
  *
  * Seeds (in execution order):
  *   1. System configuration (incl. e-mail / notification templates)
@@ -94,8 +94,8 @@ class SeedService {
       }
 
       const systemConfig = new SystemConfiguration({
-        siteName: 'FixitHub',
-        adminEmail: 'admin@fixithub.com',
+        siteName: 'McRepair.de',
+        adminEmail: 'admin@mcrepair.de',
         timezone: 'UTC',
         maintenanceMode: false,
         templateLinkSettings: {
@@ -237,7 +237,7 @@ class SeedService {
         },
         {
           name: 'Why Choose Us', type: 'features',
-          title: 'Why Choose FixitHub?',
+          title: 'Why Choose McRepair.de?',
           content: 'Professional service, genuine parts, and customer satisfaction guaranteed.',
           settings: {
             backgroundColor: '#f9fafb', textColor: '#1f2937',
@@ -611,11 +611,11 @@ class SeedService {
         {
           pageType: 'global',
           pageId: '',
-          title: 'FixitHub – Professional Device Repair',
+          title: 'McRepair.de – Professional Device Repair',
           description: 'Certified technicians, genuine parts and a 90-day warranty for all device repairs.',
           keywords: ['device repair', 'phone repair', 'tablet repair', 'laptop repair', 'fixithub'],
           openGraph: {
-            title: 'FixitHub – Professional Device Repair',
+            title: 'McRepair.de – Professional Device Repair',
             description: 'Fast, certified device repairs with a 90-day warranty.',
             type: 'website'
           },
@@ -629,7 +629,7 @@ class SeedService {
         {
           pageType: 'homepage',
           pageId: 'home',
-          title: 'FixitHub – Fast & Reliable Device Repair',
+          title: 'McRepair.de – Fast & Reliable Device Repair',
           description: 'Book a repair online and have your device fixed by certified technicians within hours.',
           keywords: ['book repair', 'phone repair near me', 'fixithub home'],
           openGraph: { type: 'website' },
@@ -643,8 +643,8 @@ class SeedService {
         {
           pageType: 'page',
           pageId: 'blog',
-          title: 'FixitHub Blog – Repair Tips & Guides',
-          description: 'Tips, guides and news about device care, repairs and maintenance from the FixitHub team.',
+          title: 'McRepair.de Blog – Repair Tips & Guides',
+          description: 'Tips, guides and news about device care, repairs and maintenance from the McRepair.de team.',
           keywords: ['repair blog', 'device care tips', 'how to repair'],
           openGraph: { type: 'website' },
           twitterCard: { card: 'summary' },
@@ -657,7 +657,7 @@ class SeedService {
         {
           pageType: 'page',
           pageId: 'faq',
-          title: 'FixitHub FAQ – Frequently Asked Questions',
+          title: 'McRepair.de FAQ – Frequently Asked Questions',
           description: 'Answers to the most common questions about our repair services, warranty, payments and more.',
           keywords: ['faq', 'help', 'questions', 'support'],
           openGraph: { type: 'website' },

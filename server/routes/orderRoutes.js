@@ -268,7 +268,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
             statusMessage: `${customerName} hat eine Reklamation gemeldet: ${reason}`,
             statusUpdatedAt: new Date().toLocaleDateString('de-DE'),
             trackingUrl: await EmailService.buildSystemUrl('/admin/complaints'),
-            supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+            supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
           });
         }
@@ -290,7 +290,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
           priority: complaint.priority || 'medium',
           submittedAt: new Date().toLocaleDateString('de-DE'),
           complaintUrl: await EmailService.buildSystemUrl(`/my-complaints/${complaint._id}`),
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
         });
       }

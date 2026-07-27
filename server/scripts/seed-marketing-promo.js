@@ -6,7 +6,7 @@ const path = require('path');
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/FixitHub';
+const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/McRepair.de';
 
 const User = require('../models/User');
 const MarketingSegment = require('../models/MarketingSegment');
@@ -23,8 +23,8 @@ async function seedMarketingPromo() {
   let settings = await MarketingSettings.findOne();
   if (!settings) {
     settings = await MarketingSettings.create({
-      defaultFromName: 'FixitHub Marketing',
-      defaultReplyTo: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      defaultFromName: 'McRepair.de Marketing',
+      defaultReplyTo: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       trackOpens: true,
       trackClicks: true,
       allowTestSend: true,
@@ -78,9 +78,9 @@ async function seedMarketingPromo() {
   if (!newsletter) {
     newsletter = await Newsletter.create({
       internalName: 'Welcome Promo Newsletter',
-      subject: 'Willkommen bei FixitHub - 10% Promo fuer dich',
+      subject: 'Willkommen bei McRepair.de - 10% Promo fuer dich',
       preheader: 'Sichere dir jetzt deinen Newsletter-Willkommensrabatt.',
-      content: '<p>Danke fuer dein Interesse an FixitHub.</p><p>Mit dem Code <strong>WELCOME10</strong> bekommst du 10% Rabatt.</p>',
+      content: '<p>Danke fuer dein Interesse an McRepair.de.</p><p>Mit dem Code <strong>WELCOME10</strong> bekommst du 10% Rabatt.</p>',
       templateName: 'Allgemeine Systemnachricht',
       status: 'draft',
       segmentId: segment._id,

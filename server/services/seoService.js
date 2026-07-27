@@ -1,5 +1,60 @@
 const SEOSettings = require('../models/SEOSettings');
 
+const LEGACY_CANONICAL_URL_PREFIX = 'https://fixithub.de';
+const CURRENT_CANONICAL_URL_PREFIX = 'https://mcrepair.de';
+
+function normalizeSeoText(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return value
+    .replace(/https:\/\/fixithub\.de\//gi, 'https://mcrepair.de/')
+    .replace(/https:\/\/fixithub\.de/gi, 'https://mcrepair.de')
+    .replace(/FixitHub/gi, 'McRepair');
+}
+
+function normalizeSeoValueDeep(value) {
+  if (typeof value === 'string') {
+    return normalizeSeoText(normalizeSiteUrl(value));
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeSeoValueDeep(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizeSeoValueDeep(entry)])
+    );
+  }
+
+  return value;
+}
+
+function normalizeSiteUrl(url) {
+  if (typeof url !== 'string') {
+    return url;
+  }
+
+  const trimmedUrl = url.trim();
+
+  if (!trimmedUrl.startsWith(LEGACY_CANONICAL_URL_PREFIX)) {
+    return trimmedUrl;
+  }
+
+  return `${CURRENT_CANONICAL_URL_PREFIX}${trimmedUrl.slice(LEGACY_CANONICAL_URL_PREFIX.length)}`;
+}
+
+function normalizeSeoSettingsRecord(settings) {
+  if (!settings) {
+    return settings;
+  }
+
+  const source = typeof settings.toObject === 'function' ? settings.toObject() : settings;
+  return normalizeSeoValueDeep(source);
+}
+
 class SEOService {
   // Get SEO settings for a specific page
   static async getSEOSettings(pageType, pageId = '') {
@@ -29,7 +84,7 @@ class SEOService {
       }
 
       console.log('SEOService: Found SEO settings');
-      return settings;
+      return normalizeSeoSettingsRecord(settings);
     } catch (error) {
       console.error('SEOService: Error getting SEO settings:', error);
       throw error;
@@ -69,9 +124,11 @@ class SEOService {
       const totalSettings = await SEOSettings.countDocuments(query);
       const totalPages = Math.ceil(totalSettings / limit);
 
+      const normalizedSettings = settings.map(normalizeSeoSettingsRecord);
+
       console.log('SEOService: Found', settings.length, 'SEO settings');
       return {
-        settings,
+        settings: normalizedSettings,
         totalPages,
         currentPage: page,
         totalSettings
@@ -87,10 +144,12 @@ class SEOService {
     console.log('SEOService: Upserting SEO settings:', { pageType, pageId, seoData });
 
     try {
+      const normalizedSeoData = normalizeSeoValueDeep(seoData);
+
       const settings = await SEOSettings.findOneAndUpdate(
         { pageType, pageId },
         {
-          ...seoData,
+          ...normalizedSeoData,
           pageType,
           pageId,
           updatedBy: userId,
@@ -110,7 +169,7 @@ class SEOService {
       }
 
       console.log('SEOService: SEO settings upserted successfully');
-      return settings;
+      return normalizeSeoSettingsRecord(settings);
     } catch (error) {
       console.error('SEOService: Error upserting SEO settings:', error);
       throw error;
@@ -141,28 +200,33 @@ class SEOService {
     console.log('SEOService: Generating sitemap data');
 
     try {
-      // Mock sitemap data - in real app this would generate from actual pages
-      const sitemapData = [
-        {
-          url: '/',
-          lastModified: new Date(),
-          changeFrequency: 'daily',
-          priority: 1.0
-        },
-        {
-          url: '/shop',
-          lastModified: new Date(),
-          changeFrequency: 'daily',
-          priority: 0.8
-        },
-        {
-          url: '/blog',
-          lastModified: new Date(),
-          changeFrequency: 'weekly',
-          priority: 0.7
-        }
+      const staticPages = [
+        { url: '/', lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
+        { url: '/shop', lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+        { url: '/new-order', lastModified: new Date(), changeFrequency: 'weekly', priority: 0.9 },
+        { url: '/faq', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+        { url: '/blog', lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+        { url: '/about', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+        { url: '/kontakt', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
       ];
 
+      // Include individual product pages
+      let productPages = [];
+      try {
+        const Product = require('../models/Product');
+        const products = await Product.find({ isActive: true }).select('_id updatedAt').lean();
+        productPages = products.map((p) => ({
+          url: `/shop/product/${p._id}`,
+          lastModified: p.updatedAt || new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.75,
+        }));
+        console.log('SEOService: Added', productPages.length, 'product URLs to sitemap');
+      } catch (err) {
+        console.warn('SEOService: Could not load products for sitemap:', err.message);
+      }
+
+      const sitemapData = [...staticPages, ...productPages];
       console.log('SEOService: Generated sitemap with', sitemapData.length, 'URLs');
       return sitemapData;
     } catch (error) {

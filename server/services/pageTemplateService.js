@@ -232,7 +232,7 @@ class PageTemplateService {
               type: 'heading',
               name: 'Section Heading',
               content: {
-                text: 'Why Choose FixitHub?',
+                text: 'Why Choose McRepair.de?',
                 level: 'h2'
               },
               styles: {

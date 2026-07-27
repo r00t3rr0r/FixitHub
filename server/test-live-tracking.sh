@@ -14,7 +14,7 @@ curl -s -X POST "$BASE_URL/api/track" \
     "event_name": "page_view",
     "page_url": "http://localhost:5173/",
     "page_path": "/",
-    "page_title": "Home - FixitHub",
+    "page_title": "Home - McRepair",
     "browser": "Chrome",
     "os": "macOS",
     "device_type": "desktop",

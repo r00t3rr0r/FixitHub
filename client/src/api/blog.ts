@@ -226,13 +226,13 @@ export const getBlogAuthors = async () => {
           {
             _id: '1',
             name: 'Admin User',
-            email: 'admin@fixithub.com',
+            email: 'admin@mcrepair.de',
             avatar: generateAvatarPlaceholder('AU', 40),
             bio: 'System Administrator and Content Manager',
             socialLinks: {
-              twitter: '@fixithub',
+              twitter: '@mcrepair_de',
               linkedin: 'fixithub',
-              website: 'https://fixithub.com'
+              website: 'https://mcrepair.de'
             },
             expertise: ['Device Repair', 'Technical Writing', 'Customer Support'],
             postCount: 5,
@@ -243,7 +243,7 @@ export const getBlogAuthors = async () => {
           {
             _id: '2',
             name: 'Tech Writer',
-            email: 'writer@fixithub.com',
+            email: 'writer@mcrepair.de',
             avatar: generateAvatarPlaceholder('TW', 40),
             bio: 'Technical Content Specialist',
             socialLinks: {

@@ -56,6 +56,51 @@ router.put('/settings', requireAdmin, async (req, res) => {
   }
 });
 
+// ADCELL Tracking Config
+router.get('/adcell-config', requireAdmin, async (_req, res) => {
+  try {
+    const config = await MarketingPromoService.getAdcellConfig();
+    return res.status(200).json({ success: true, config });
+  } catch (error) {
+    console.error('MarketingPromoRoutes get adcell config error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to load ADCELL config' });
+  }
+});
+
+router.put('/adcell-config', requireAdmin, async (req, res) => {
+  try {
+    const config = await MarketingPromoService.updateAdcellConfig(req.body || {}, { user: req.user, req });
+    return res.status(200).json({ success: true, config, message: 'ADCELL Konfiguration gespeichert.' });
+  } catch (error) {
+    console.error('MarketingPromoRoutes update adcell config error:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to update ADCELL config' });
+  }
+});
+
+// ADCELL Excluded Customer Groups
+router.get('/adcell-excluded-groups', requireAdmin, async (_req, res) => {
+  try {
+    const excludedGroupIds = await MarketingPromoService.getAdcellExcludedCustomerGroups();
+    return res.status(200).json({ success: true, excludedGroupIds });
+  } catch (error) {
+    console.error('MarketingPromoRoutes get adcell excluded groups error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to load excluded groups' });
+  }
+});
+
+router.put('/adcell-excluded-groups', requireAdmin, async (req, res) => {
+  try {
+    const excludedGroupIds = await MarketingPromoService.updateAdcellExcludedCustomerGroups(
+      req.body.excludedGroupIds || [],
+      { user: req.user, req }
+    );
+    return res.status(200).json({ success: true, excludedGroupIds, message: 'Ausgeschlossene Kundengruppen aktualisiert.' });
+  } catch (error) {
+    console.error('MarketingPromoRoutes update adcell excluded groups error:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to update excluded groups' });
+  }
+});
+
 router.get('/newsletters', requireAdmin, async (req, res) => {
   try {
     const data = await MarketingPromoService.listNewsletters(req.query || {});

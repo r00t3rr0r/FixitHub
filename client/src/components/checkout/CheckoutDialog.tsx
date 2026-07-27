@@ -129,6 +129,8 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   const [checkoutSuccessResult, setCheckoutSuccessResult] = useState<any>(null)
   const [guestCheckoutResult, setGuestCheckoutResult] = useState<any>(null)
   const [userInfo, setUserInfo] = useState<any>(null)
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<string[] | null>(null)
+  const [checkoutPricing, setCheckoutPricing] = useState<any>(null)
 
   const [loginEmail, setLoginEmail] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
@@ -252,12 +254,13 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
   }
 
   const totals = useMemo(() => {
-    const subtotal = Number(reviewCart?.subtotal || 0)
-    const tax = Number(reviewCart?.tax || 0)
-    const discount = Number(reviewCart?.discount || 0)
-    const total = Number(reviewCart?.total || 0)
-    return { subtotal, tax, discount, total }
-  }, [reviewCart])
+    const subtotal = Number((checkoutPricing?.subtotal ?? reviewCart?.subtotal) || 0)
+    const tax = Number((checkoutPricing?.taxAmount ?? reviewCart?.tax) || 0)
+    const discount = Number((checkoutPricing?.totalDiscount ?? reviewCart?.discount) || 0)
+    const payableTotal = Number((checkoutPricing?.payableTotal ?? reviewCart?.total) || 0)
+    const normalTotal = Number(checkoutPricing?.normalTotal ?? payableTotal + discount)
+    return { subtotal, tax, discount, total: payableTotal, payableTotal, normalTotal }
+  }, [reviewCart, checkoutPricing])
 
   const paymentOptions = [
     {
@@ -280,12 +283,40 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     },
   ]
 
+  const filteredPaymentOptions = useMemo(() => {
+    const defaultOptions = paymentOptions.filter((option) => option.value !== "invoice")
+
+    if (mode !== "authenticated") return defaultOptions
+    if (!Array.isArray(availablePaymentMethods) || availablePaymentMethods.length === 0) return defaultOptions
+
+    const normalized = availablePaymentMethods.map((method) => String(method || "").trim().toLowerCase())
+
+    const optionMethodAliases: Record<"card" | "paypal" | "invoice", string[]> = {
+      card: ["credit_card", "debit_card", "stripe"],
+      paypal: ["paypal"],
+      invoice: ["invoice", "bank_transfer"],
+    }
+
+    return paymentOptions.filter((option) =>
+      optionMethodAliases[option.value].some((alias) => normalized.includes(alias))
+    )
+  }, [mode, availablePaymentMethods, paymentOptions])
+
+  useEffect(() => {
+    if (!filteredPaymentOptions.some((option) => option.value === paymentMethod)) {
+      const fallback = filteredPaymentOptions[0]?.value || "card"
+      setPaymentMethod(fallback)
+    }
+  }, [filteredPaymentOptions, paymentMethod])
+
   const resetReviewState = () => {
     setStep("auth")
     setMode(null)
     setReviewCart(null)
     setGuestInfo(null)
     setUserInfo(null)
+    setAvailablePaymentMethods(null)
+    setCheckoutPricing(null)
     setInitializingCheckout(false)
     setProcessingCheckout(false)
     setPaymentMethod("card")
@@ -652,6 +683,10 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
       const response = await initializeCheckout()
       const checkoutUserInfo = (response as any).userInfo || null
+      const checkoutAvailablePaymentMethods = Array.isArray((response as any).availablePaymentMethods)
+        ? (response as any).availablePaymentMethods
+        : null
+      const resolvedCheckoutPricing = (response as any).checkoutPricing || null
       const billingAddress = checkoutUserInfo?.billingAddress || {}
       const missingBillingAddress = hasMissingBillingAddress(billingAddress)
       const shippingAddr = checkoutUserInfo?.shippingAddress || {}
@@ -668,6 +703,8 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
       setMode("authenticated")
       setUserInfo(checkoutUserInfo)
+      setAvailablePaymentMethods(checkoutAvailablePaymentMethods)
+      setCheckoutPricing(resolvedCheckoutPricing)
       setBillingAddressStreetDraft(billingAddress?.street || "")
       setBillingAddressCityDraft(billingAddress?.city || "")
       setBillingAddressZipDraft(billingAddress?.zipCode || "")
@@ -2017,6 +2054,19 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                           </div>
                         )}
 
+                        {totals.discount > 0 && (
+                          <>
+                            <div className="flex justify-between rounded-md bg-[#f8fafc] px-2 py-1.5">
+                              <span className="text-[#5f6d86]">Normaler Betrag</span>
+                              <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.normalTotal)}</span>
+                            </div>
+                            <div className="flex justify-between rounded-md bg-[#ecfdf3] px-2 py-1.5">
+                              <span className="text-[#15803d]">Rabattierter Zahlbetrag</span>
+                              <span className="font-bold text-[#15803d]">{formatEUR(totals.payableTotal)}</span>
+                            </div>
+                          </>
+                        )}
+
                         <div className="flex justify-between">
                           <span className="text-[#5f6d86]">{t("checkout.shippingCost")}</span>
                           <span className="font-semibold text-[#15803d]">{t("checkout.shippingFreeShort")}</span>
@@ -2079,7 +2129,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("common.loading")}</>
                             : paymentMethod === "paypal"
                               ? <><Wallet className="mr-2 h-4 w-4" />Bitte den PayPal-Button oben verwenden</>
-                              : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {formatEUR(totals.total)}</>
+                              : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {formatEUR(totals.payableTotal)}</>
                           }
                         </Button>
 
@@ -2100,7 +2150,7 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                         <CardTitle className="text-sm font-bold text-[#1a2a5e]">{t("checkout.paymentMethod")}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2 pt-1">
-                        {paymentOptions.map((option) => {
+                        {filteredPaymentOptions.map((option) => {
                           const Icon = option.icon
                           const active = paymentMethod === option.value
                           return (

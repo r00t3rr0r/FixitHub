@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { mergeGuestCartWithUserCart } from '@/utils/guestCart'
 import { addToCart, addRepairOrderToCart } from '@/api/shop'
+import { SEO } from '@/components/SEO'
 
 export function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -127,9 +128,16 @@ export function VerifyEmail() {
   }, [searchParams, navigate, toast])
 
   return (
-    <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <TopBar />
-      <McRepairNav />
+    <>
+      <SEO
+        title="E-Mail-Verifizierung"
+        description="Bestätigen Sie Ihre E-Mail-Adresse für Ihr McRepair.de Kundenkonto und schließen Sie die sichere Kontoaktivierung ab."
+        canonical="/verify-email"
+        noindex
+      />
+      <div style={{ backgroundColor: 'var(--off-white)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <TopBar />
+        <McRepairNav />
 
       <section style={{ flex: 1, padding: '80px 24px', maxWidth: '680px', width: '100%', margin: '0 auto' }}>
         <Card className="w-full shadow-xl border-0" style={{ borderRadius: 'var(--radius-lg)' }}>
@@ -233,14 +241,15 @@ export function VerifyEmail() {
         </Card>
       </section>
 
-      <Footer />
+        <Footer />
 
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </>
   )
 }

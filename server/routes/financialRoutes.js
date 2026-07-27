@@ -116,6 +116,7 @@ router.get('/invoices', requireUser, requireRole(['admin']), async (req, res) =>
     const filters = {
       status: req.query.status,
       customerId: req.query.customerId,
+      orderId: req.query.orderId,
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
       page: req.query.page,
@@ -280,10 +281,14 @@ router.patch('/invoices/:id/status', requireUser, requireRole(['admin']), async 
   console.log('PATCH /api/admin/financial/invoices/:id/status - Changing invoice status:', req.params.id);
 
   try {
-    const { status, notes } = req.body;
+    const { status, notes, paymentMethod, paidAt } = req.body;
     if (!status) return res.status(400).json({ success: false, error: 'New status is required' });
 
-    const invoice = await FinancialService.changeInvoiceStatus(req.params.id, status, { notes });
+    const invoice = await FinancialService.changeInvoiceStatus(req.params.id, status, {
+      notes,
+      paymentMethod,
+      paidAt,
+    });
     return res.status(200).json({ success: true, message: 'Status updated successfully', invoice });
   } catch (error) {
     console.error('Error changing invoice status:', error);

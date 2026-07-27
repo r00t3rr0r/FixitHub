@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { SEO } from '@/components/SEO'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MapPin, Search, Map, List, Home, ChevronRight, Shield, Clock, MapPinned } from 'lucide-react'
@@ -290,9 +291,12 @@ export function Annahmestellen() {
 
   return (
     <>
+      <SEO
+        title="Annahmestellen finden – McRepair.de in Ihrer Nähe"
+        description="McRepair.de Annahmestellen in ganz Deutschland – über 350 Standorte. Finden Sie den nächsten Standort auf der Karte und bringen Sie Ihr Gerät direkt vorbei."
+        canonical="/annahmestellen"
+      />
       <McRepairNav />
-
-      {/* Breadcrumb */}
       <section className="as-breadcrumb">
         <div className="container">
           <Link to="/">

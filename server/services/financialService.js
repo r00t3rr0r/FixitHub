@@ -28,6 +28,19 @@ function calculateDiscountAmount(subtotal, discountPercent) {
   return Number(((numericSubtotal * numericDiscountPercent) / 100).toFixed(2));
 }
 
+function composePaymentTerms(financialProfile) {
+  const baseTerms = String(financialProfile?.paymentTerms || '').trim();
+  const cashDiscountPercent = Number(financialProfile?.cashDiscountPercent || 0);
+  const cashDiscountDays = Number(financialProfile?.cashDiscountDays || 0);
+
+  if (cashDiscountPercent > 0 && cashDiscountDays > 0) {
+    const skontoText = `${cashDiscountPercent}% Skonto bei Zahlung innerhalb ${cashDiscountDays} Tagen`;
+    return baseTerms ? `${baseTerms} | ${skontoText}` : skontoText;
+  }
+
+  return baseTerms || 'Net 14';
+}
+
 function normalizeBillingAddress(address) {
   if (!address || typeof address !== 'object') return null;
 
@@ -148,7 +161,7 @@ const DEFAULT_FINANCIAL_SETTINGS = {
     lateFeePercent: 5
   },
   invoiceMetadata: {
-    sellerName: 'FixitHub',
+    sellerName: 'McRepair.de',
     sellerVatId: '',
     registrationNumber: '',
     issuerEmail: '',
@@ -164,6 +177,20 @@ const DEFAULT_FINANCIAL_SETTINGS = {
     accentColor: '#1a2a5e'
   }
 };
+
+const MANUAL_PAYMENT_METHODS = ['credit_card', 'sepa', 'paypal', 'cash'];
+
+function normalizeTrackedPaymentMethod(value) {
+  if (value == null || value === '') return null;
+  const normalized = String(value).trim().toLowerCase();
+  return MANUAL_PAYMENT_METHODS.includes(normalized) ? normalized : null;
+}
+
+function normalizeTrackedPaidAt(value) {
+  if (value == null || value === '') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 class FinancialService {
   // Helper: Load financial settings from SystemConfiguration
@@ -411,6 +438,16 @@ class FinancialService {
         query.customerId = filters.customerId;
       }
 
+      if (filters.orderId) {
+        const normalizedOrderId = String(filters.orderId).trim();
+        if (normalizedOrderId) {
+          query.$or = [
+            { orderId: normalizedOrderId },
+            { repairOrderIds: normalizedOrderId }
+          ];
+        }
+      }
+
       if (filters.dateFrom || filters.dateTo) {
         query.createdAt = {};
         if (filters.dateFrom) {
@@ -632,7 +669,7 @@ class FinancialService {
         paymentMethod: invoice.paymentMethod || 'Ueberweisung',
         invoiceUrl,
         customMessage: String(message || '').trim(),
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       });
 
@@ -655,6 +692,7 @@ class FinancialService {
         orderId: invoice.orderId || undefined,
         actionUrl: '/customer/invoices',
         metadata: {
+          isInvoice: true,
           invoiceId: String(invoice._id),
           invoiceNumber: invoice.invoiceNumber
         }
@@ -823,7 +861,7 @@ class FinancialService {
             use_stripe_checkout: true,
             payment_mode: 'payment',
             capture_method: 'automatic',
-            statement_descriptor: 'FixitHub Repair',
+            statement_descriptor: 'McRepair.de Repair',
             success_url: 'https://shop.de/stripe/success',
             cancel_url: 'https://shop.de/stripe/cancel',
             allowed_payment_methods: ['card', 'paypal', 'klarna'],
@@ -1221,6 +1259,7 @@ class FinancialService {
       const taxRate = financialProfile.taxRate / 100;
       const dueDays = financialProfile.paymentDueDays || 30;
       const invoicePrefix = financialProfile.invoicePrefix;
+      const paymentTerms = composePaymentTerms(financialProfile);
 
       const invoice = new Invoice({
         orderId: order._id,
@@ -1237,7 +1276,7 @@ class FinancialService {
         total: subtotal + (subtotal * taxRate) - discount,
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
         numberPrefix: invoicePrefix,
-        paymentTerms: financialProfile.paymentTerms,
+        paymentTerms,
       });
 
       await invoice.save();
@@ -1347,7 +1386,7 @@ class FinancialService {
       total,
       numberPrefix:  options.numberPrefix || financialProfile.invoicePrefix || 'INV',
       dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
-      paymentTerms:  options.paymentTerms || financialProfile.paymentTerms || 'Net 30',
+      paymentTerms:  options.paymentTerms || composePaymentTerms(financialProfile),
       notes:         options.notes || '',
       status:        'draft'
     };
@@ -1372,6 +1411,26 @@ class FinancialService {
       throw new Error(`Cannot transition from "${invoice.status}" to "${newStatus}"`);
     }
 
+    const normalizedPaymentMethod = normalizeTrackedPaymentMethod(data.paymentMethod);
+    const normalizedPaidAt = normalizeTrackedPaidAt(data.paidAt);
+
+    if (data.paymentMethod && !normalizedPaymentMethod) {
+      throw new Error('Invalid payment method. Allowed values: credit_card, sepa, paypal, cash');
+    }
+
+    if (data.paidAt && !normalizedPaidAt) {
+      throw new Error('Invalid paidAt timestamp');
+    }
+
+    if (newStatus === 'paid') {
+      if (!normalizedPaymentMethod) {
+        throw new Error('Payment method is required when marking an invoice as paid');
+      }
+      if (!normalizedPaidAt) {
+        throw new Error('Paid timestamp is required when marking an invoice as paid');
+      }
+    }
+
     invoice.status = newStatus;
 
     if (newStatus === 'sent') {
@@ -1379,7 +1438,8 @@ class FinancialService {
     } else if (newStatus === 'pending_approval') {
       // no extra field
     } else if (newStatus === 'paid') {
-      invoice.paidAt = new Date();
+      invoice.paidAt = normalizedPaidAt;
+      invoice.paymentMethod = normalizedPaymentMethod;
       invoice.paidAmount = invoice.total;
     } else if (newStatus === 'cancelled') {
       invoice.cancelledAt = new Date();
@@ -1387,13 +1447,55 @@ class FinancialService {
       invoice.approvedAt = new Date();
     }
 
+    if (newStatus !== 'paid') {
+      invoice.paymentMethod = normalizedPaymentMethod;
+      if (normalizedPaidAt) {
+        invoice.paidAt = normalizedPaidAt;
+      }
+    }
+
     if (data.notes) invoice.notes = data.notes;
 
     await invoice.save();
 
+    await FinancialService.syncOrderPaymentTracking(invoice);
+
     await FinancialService.syncBookingPaymentStatus(invoice);
 
     return invoice;
+  }
+
+  static async syncOrderPaymentTracking(invoiceInput) {
+    const invoice = invoiceInput && typeof invoiceInput.toObject === 'function'
+      ? invoiceInput.toObject()
+      : invoiceInput;
+    if (!invoice) return;
+
+    const orderIds = [];
+    if (invoice.orderId) orderIds.push(invoice.orderId);
+    if (Array.isArray(invoice.repairOrderIds) && invoice.repairOrderIds.length > 0) {
+      orderIds.push(...invoice.repairOrderIds);
+    }
+
+    const uniqueOrderIds = [...new Set(orderIds.map((entry) => String(entry)).filter(Boolean))];
+    if (uniqueOrderIds.length === 0) return;
+
+    const paymentStatusMap = {
+      paid: 'paid',
+      partially_paid: 'partial',
+      credited: 'refunded',
+    };
+
+    await Order.updateMany(
+      { _id: { $in: uniqueOrderIds } },
+      {
+        $set: {
+          paymentStatus: paymentStatusMap[invoice.status] || 'pending',
+          paymentMethod: normalizeTrackedPaymentMethod(invoice.paymentMethod),
+          paidAt: normalizeTrackedPaidAt(invoice.paidAt),
+        }
+      }
+    );
   }
 
   static async syncBookingPaymentStatus(invoiceInput) {
@@ -1484,6 +1586,8 @@ class FinancialService {
     }
 
     await invoice.save();
+
+    await FinancialService.syncOrderPaymentTracking(invoice);
 
     await FinancialService.syncBookingPaymentStatus(invoice);
 

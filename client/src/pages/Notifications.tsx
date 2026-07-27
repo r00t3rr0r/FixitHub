@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { SEO } from '@/components/SEO'
 import { useTranslation } from "react-i18next"
 import {
   Dialog,
@@ -205,6 +206,12 @@ export function Notifications() {
 
   return (
     <div className="notifications-page">
+      <SEO
+        title="Benachrichtigungen – McRepair.de Kundenportal"
+        description="Alle Benachrichtigungen zu Ihren Aufträgen und Buchungen auf einen Blick. Immer up to date im McRepair.de Kundenportal."
+        canonical="/notifications"
+        noindex={true}
+      />
       {/* ── HERO HEADER ── */}
       <div className="notifications-header">
         <div className="notifications-header-content">

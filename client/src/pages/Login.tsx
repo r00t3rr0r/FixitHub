@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { SEO } from '@/components/SEO'
 import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -166,6 +167,12 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+      <SEO
+        title="Anmelden – McRepair.de Kundenportal"
+        description="Melden Sie sich in Ihrem McRepair.de-Konto an. Aufträge verwalten, Reparaturstatus prüfen und Rechnungen einsehen."
+        canonical="/login"
+        noindex={true}
+      />
       <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
         {/* Left side - Login Form */}
         <div className="flex justify-center">
@@ -177,7 +184,7 @@ export function Login() {
                 </div>
               </div>
               <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Welcome to FixitHub
+                Welcome to McRepair.de
               </CardTitle>
               <CardDescription className="text-gray-600 dark:text-gray-300">
                 Sign in to your account to continue

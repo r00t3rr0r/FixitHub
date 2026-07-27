@@ -79,6 +79,14 @@ Before setting up the project, ensure you have the following installed:
    JWT_SECRET=<Your JWT secret>
    REFRESH_TOKEN_SECRET=<Your refresh token secret>
    SESSION_SECRET=<Your session secret>
+
+   # Optional security hardening
+   # Comma-separated allowed frontend origins for CORS
+   CLIENT_URL=http://localhost:5173
+   # Request body size limit in MB (default: 50)
+   MAX_REQUEST_SIZE_MB=50
+   # Set to true to emit CSP header from backend
+   ENABLE_CSP=false
    ```
 
    **MongoDB Authentication:** If your MongoDB requires authentication, see [MONGODB_AUTH_SETUP.md](./MONGODB_AUTH_SETUP.md) for detailed instructions.

@@ -149,6 +149,20 @@ export function InspectionWorkflow() {
               <p className="inspection-summary-label">Customer</p>
               <p className="inspection-summary-value">{order.customerId?.name || 'N/A'}</p>
             </div>
+            <div className="inspection-summary-item">
+              <p className="inspection-summary-label">Booked Repair</p>
+              <p className="inspection-summary-value">
+                {Array.isArray(order.services) && order.services.length > 0
+                  ? order.services.map((service: any) => service?.name || service?.serviceName || String(service)).join(', ')
+                  : 'N/A'}
+              </p>
+            </div>
+            <div className="inspection-summary-item">
+              <p className="inspection-summary-label">Order Total</p>
+              <p className="inspection-summary-value">
+                {typeof order.totalCost === 'number' ? `${order.totalCost.toFixed(2)} EUR` : 'N/A'}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -160,6 +174,14 @@ export function InspectionWorkflow() {
               orderId={orderId!}
               customerId={order.customerId?._id || order.customerId}
               deviceType={order.deviceType}
+              bookedRepairs={Array.isArray(order.services)
+                ? order.services.map((service: any) => ({
+                    name: service?.name || service?.serviceName || String(service),
+                    price: typeof service?.price === 'number' ? service.price : undefined,
+                    quantity: Number(service?.quantity || 1),
+                  }))
+                : []}
+              orderTotalCost={typeof order.totalCost === 'number' ? order.totalCost : undefined}
               onComplete={handleInspectionComplete}
             />
           </div>

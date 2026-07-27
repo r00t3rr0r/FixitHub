@@ -1,9 +1,11 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
-import { useEffect } from "react"
+import { BrowserRouter as Router, Routes, Route, useLocation, matchPath } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { Helmet } from "react-helmet-async"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
 import { AuthProvider } from "./contexts/AuthContext"
 import { Home } from "./pages/Home"
+import { RepairCatalogPage } from "./pages/public/RepairCatalogPage"
 import { Login } from "./pages/Login"
 import { Register } from "./pages/Register"
 import { VerifyEmail } from "./pages/VerifyEmail"
@@ -20,6 +22,7 @@ import { OrderDetails } from "./pages/OrderDetails"
 import { Messages } from "./pages/Messages"
 import { Notifications } from "./pages/Notifications"
 import { WebShop } from "./pages/WebShop"
+import { ProductDetail } from "./pages/ProductDetail"
 import { ShoppingCartPage } from "./pages/ShoppingCart"
 import { Profile } from "./pages/Profile"
 import { Blog } from "./pages/Blog"
@@ -69,7 +72,9 @@ import { MarketingPromoPromoCodes } from "./pages/admin/marketing-promo/Marketin
 import { MarketingPromoSegments } from "./pages/admin/marketing-promo/MarketingPromoSegments"
 import { MarketingPromoReports } from "./pages/admin/marketing-promo/MarketingPromoReports"
 import { MarketingPromoSettingsPage } from "./pages/admin/marketing-promo/MarketingPromoSettings"
+import { AdcellTrackingPage } from "./pages/admin/marketing-promo/AdcellTracking"
 import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
+import { RepairWorkflowPage } from "./pages/repair/RepairWorkflowPage"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
 import { Widerrufsrecht } from "./pages/Widerrufsrecht"
@@ -121,6 +126,213 @@ function ScrollToTop() {
   return null
 }
 
+function getCustomerSeoTopic(pathname: string): string {
+  if (pathname === "/" || pathname === "/home") return "Smartphone-, Tablet- und Laptop-Reparatur"
+  if (pathname.startsWith("/shop") || pathname === "/cart") return "Ersatzteile und Zubehoer"
+  if (pathname.startsWith("/blog")) return "Reparaturtipps und Servicewissen"
+  if (pathname.startsWith("/track-order") || pathname.startsWith("/orders")) return "Auftragsverfolgung"
+  if (pathname.startsWith("/repair-request") || pathname.startsWith("/new-order")) return "Reparaturanfrage"
+  if (pathname.startsWith("/contact") || pathname.startsWith("/kontakt")) return "Kundenservice"
+  if (pathname.startsWith("/faq")) return "Hilfe und haeufige Fragen"
+  if (pathname.startsWith("/privacy") || pathname.startsWith("/datenschutz")) return "Datenschutzinformationen"
+  if (pathname.startsWith("/terms") || pathname.startsWith("/agb")) return "AGB und Vertragsbedingungen"
+  if (pathname.startsWith("/reparatur")) return "Reparaturkatalog – Geraete, Hersteller und Services"
+  return "Reparaturservice"
+}
+
+function getCustomerSeoFeatures(pathname: string): string[] {
+  if (pathname === "/" || pathname === "/home") {
+    return [
+      "Reparaturkonfigurator mit Auswahl fuer Geraetemodell und Reparaturservice",
+      "Online-Preisuebersicht fuer Reparaturen und Zusatzleistungen",
+      "Express-Reparaturservice fuer Smartphones, Tablets und Laptops",
+    ]
+  }
+  if (pathname.startsWith("/shop") || pathname === "/cart") {
+    return [
+      "Webshop fuer Ersatzteile und Zubehoer",
+      "Warenkorb und Checkout fuer Service- und Produktbestellungen",
+      "Kombinierte Buchung von Reparaturservice und Zusatzoptionen",
+    ]
+  }
+  if (pathname.startsWith("/track-order") || pathname.startsWith("/orders") || pathname.startsWith("/bookings")) {
+    return [
+      "Auftragsverfolgung fuer Reparaturen und Buchungen",
+      "Statusupdates mit nachvollziehbaren Reparaturschritten",
+      "Digitale Einsicht in Buchungs- und Auftragsdetails",
+    ]
+  }
+  if (pathname.startsWith("/repair-request") || pathname.startsWith("/new-order") || pathname.startsWith("/my-repair-requests")) {
+    return [
+      "Online-Reparaturanfrage fuer individuelle Defekte",
+      "Geratemodell- und Serviceauswahl im mehrstufigen Prozess",
+      "Erfassung von Fehlerbeschreibung und Zusatzinformationen",
+    ]
+  }
+  if (pathname.startsWith("/messages") || pathname.startsWith("/notifications") || pathname.startsWith("/my-complaints")) {
+    return [
+      "Kundenkommunikation zu Reparaturauftraegen",
+      "Benachrichtigungen zu Status und Rueckmeldungen",
+      "Digitale Bearbeitung von Rueckfragen und Beschwerden",
+    ]
+  }
+  if (pathname.startsWith("/profile") || pathname.startsWith("/invoices")) {
+    return [
+      "Kundenprofilverwaltung",
+      "Rechnungs- und Dokumentenansicht",
+      "Selbstservice fuer persönliche Auftragsdaten",
+    ]
+  }
+  if (pathname.startsWith("/reparatur")) {
+    return [
+      "Reparaturkatalog mit Geraetetypen, Herstellern und Modellen",
+      "Preisübersicht fuer alle angebotenen Reparaturservices",
+      "Add-on Zusatzleistungen wie Datensicherung und Displayschutz",
+      "Direkte Buchung des gewuenschten Reparaturservices",
+    ]
+  }
+  return [
+    "Digitale Geraetereparatur mit transparenten Prozessen",
+    "Online-Kundenservice fuer Reparaturauftraege",
+    "Informationsseiten zu Serviceablauf, Versand und Support",
+  ]
+}
+
+const CUSTOMER_SEMANTIC_ROUTE_PATTERNS = [
+  "/",
+  "/home",
+  "/newsletter",
+  "/sitemap",
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+  "/debug",
+  "/track-order",
+  "/track-order/booking",
+  "/guest-repair-tracking",
+  "/new-order",
+  "/repair-request",
+  "/shop",
+  "/cart",
+  "/order-success",
+  "/blog",
+  "/blog/:id",
+  "/vorabdiagnose",
+  "/annahmestellen",
+  "/faq",
+  "/contact",
+  "/kontakt",
+  "/partner-werden",
+  "/partner",
+  "/widerrufsrecht",
+  "/privacy",
+  "/datenschutz",
+  "/imprint",
+  "/impressum",
+  "/hinweise-zur-batterieentsorgung",
+  "/battery-disposal-notice",
+  "/terms",
+  "/agb",
+  "/zahlung-und-versand",
+  "/shipping-and-payment",
+  "/about",
+  "/ueber-uns",
+  "/orders",
+  "/orders/:id",
+  "/messages",
+  "/notifications",
+  "/profile",
+  "/bookings",
+  "/invoices",
+  "/my-repair-requests",
+  "/my-complaints",
+  "/my-complaints/:complaintId",
+  // Repair catalog landing pages
+  "/reparatur/:deviceType",
+  "/reparatur/:deviceType/:manufacturer",
+  "/reparatur/:deviceType/:manufacturer/:model",
+]
+
+function isKnownCustomerSemanticRoute(pathname: string): boolean {
+  return CUSTOMER_SEMANTIC_ROUTE_PATTERNS.some((pattern) =>
+    Boolean(matchPath({ path: pattern, end: true }, pathname))
+  )
+}
+
+function CustomerSemanticSeoBlock() {
+  const { pathname } = useLocation()
+  const baseUrl = "https://www.mcrepair.de"
+
+  const isBackofficeRoute =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/staff") ||
+    pathname.startsWith("/inspection") ||
+    pathname.startsWith("/repair/workflow")
+
+  if (isBackofficeRoute) {
+    return null
+  }
+
+  if (!isKnownCustomerSemanticRoute(pathname)) {
+    return null
+  }
+
+  const seoTopic = getCustomerSeoTopic(pathname)
+  const seoFeatures = getCustomerSeoFeatures(pathname)
+  const canonicalUrl = `${baseUrl}${pathname || "/"}`
+  const seoPageName = `McRepair.de - ${seoTopic}`
+  const customerPageStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: seoPageName,
+    url: canonicalUrl,
+    inLanguage: "de-DE",
+    isPartOf: {
+      "@type": "WebSite",
+      name: "McRepair.de",
+      url: baseUrl,
+    },
+    description: `McRepair.de bietet ${seoTopic} inklusive digitaler Prozesse fuer Modellauswahl, Serviceauswahl und Auftragsabwicklung.`,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: seoFeatures.map((feature, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: feature,
+      })),
+    },
+  }
+
+  return (
+    <>
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify(customerPageStructuredData)}</script>
+      </Helmet>
+      <aside className="sr-only" aria-label="Semantische SEO-Inhalte fuer Kundenseiten">
+        <p>McRepair.de bietet professionelle {seoTopic} mit transparenten Preisen und klaren Prozessen.</p>
+        <p><strong>Express-Service mit Garantie:</strong> Reparaturen werden schnell, sicher und nachvollziehbar umgesetzt.</p>
+        <ul>
+          {seoFeatures.map((feature) => (
+            <li key={feature}>{feature}.</li>
+          ))}
+        </ul>
+        <ol>
+          <li>Defekt melden oder Auftrag starten.</li>
+          <li>Geraet einsenden oder vor Ort abgeben.</li>
+          <li>Reparaturstatus verfolgen und Ergebnis erhalten.</li>
+        </ol>
+        <blockquote>
+          "Wir reparieren Geraete so, wie wir unsere eigenen reparieren lassen wollen: transparent, fair und verlaesslich."
+          <cite> McRepair.de Service Team</cite>
+        </blockquote>
+        <p><em>Hinweis:</em> Je nach Defekt werden <b>qualitativ gepruefte Ersatzteile</b> verwendet, damit die <i>Service-Qualitaet</i> langfristig erhalten bleibt.</p>
+      </aside>
+    </>
+  )
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -129,11 +341,22 @@ function App() {
           <ScrollToTop />
           <PageTracker />
           <GlobalScrollToTopButton />
+          <CustomerSemanticSeoBlock />
           {/* Public routes - accessible to all users */}
           <Routes>
             {/* Home page as default landing page for all users */}
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
+            {/* Repair catalog SEO landing pages – public, no auth */}
+            <Route path="/reparatur/:deviceType" element={<CustomerLayout />}>
+              <Route index element={<RepairCatalogPage />} />
+            </Route>
+            <Route path="/reparatur/:deviceType/:manufacturer" element={<CustomerLayout />}>
+              <Route index element={<RepairCatalogPage />} />
+            </Route>
+            <Route path="/reparatur/:deviceType/:manufacturer/:model" element={<CustomerLayout />}>
+              <Route index element={<RepairCatalogPage />} />
+            </Route>
             <Route path="/newsletter" element={<Newsletter />} />
             <Route path="/sitemap" element={<Sitemap />} />
             <Route path="/login" element={<Login />} />
@@ -164,6 +387,7 @@ function App() {
             </Route>
             <Route path="/shop" element={<CustomerLayout />}>
               <Route index element={<WebShop />} />
+              <Route path="product/:id" element={<ProductDetail />} />
             </Route>
             <Route path="/cart" element={<CustomerLayout />}>
               <Route index element={<ShoppingCartPage />} />
@@ -332,6 +556,9 @@ function App() {
             <Route path="/admin/marketing-promo/settings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<MarketingPromoSettingsPage />} />
             </Route>
+            <Route path="/admin/marketing-promo/adcell" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<AdcellTrackingPage />} />
+            </Route>
             <Route path="/admin/database" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<DatabaseManagement />} />
             </Route>
@@ -366,6 +593,11 @@ function App() {
             {/* Inspection route */}
             <Route path="/inspection/:orderId" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<InspectionWorkflow />} />
+            </Route>
+
+            {/* Repair Workflow route */}
+            <Route path="/repair/workflow/:orderNumber" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
+              <Route index element={<RepairWorkflowPage />} />
             </Route>
 
             {/* Catch-all route */}

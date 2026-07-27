@@ -486,7 +486,7 @@ class MarketingPromoService {
     return {
       customerName: normalizedRecipientName,
       firstName,
-      companyName: process.env.COMPANY_NAME || 'FixitHub',
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
       newsletterName: newsletter.internalName || '',
       newsletterSubject: newsletter.subject || '',
       currentDate: nowLabel,
@@ -529,7 +529,7 @@ class MarketingPromoService {
     const resolvedBody = this.applyNewsletterPlaceholders(contentTemplate, placeholders);
 
     const result = await EmailService.sendTemplateEmail(NEWSLETTER_TEMPLATE_NAME, testEmail, {
-      companyName: process.env.COMPANY_NAME || 'FixitHub',
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
       customerName: 'Test Empfaenger',
       firstName: placeholders.firstName,
       notificationTitle: resolvedSubject,
@@ -546,7 +546,7 @@ class MarketingPromoService {
       primaryPromoCode: promoCodeData.primary,
       promoCodes: promoCodeData.text,
       promoCodesHtml: promoCodeData.html,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
     });
 
@@ -660,7 +660,7 @@ class MarketingPromoService {
         const resolvedBody = this.applyNewsletterPlaceholders(contentTemplate, placeholders);
 
         const result = await EmailService.sendTemplateEmail(NEWSLETTER_TEMPLATE_NAME, recipient.email, {
-          companyName: process.env.COMPANY_NAME || 'FixitHub',
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
           customerName: recipient.customerName,
           firstName: placeholders.firstName,
           notificationTitle: resolvedSubject,
@@ -677,7 +677,7 @@ class MarketingPromoService {
           primaryPromoCode: promoCodeData.primary,
           promoCodes: promoCodeData.text,
           promoCodesHtml: promoCodeData.html,
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@fixithub.com',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
           supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
         });
 
@@ -1355,6 +1355,111 @@ class MarketingPromoService {
     });
 
     return updated;
+  }
+
+  static async getAdcellConfig() {
+    const settings = await this.ensureSettings();
+    return {
+      enabled: settings.adcellEnabled ?? true,
+      pid: settings.adcellPid || '10419',
+      eventId: settings.adcellEventId || '13229',
+      conversionEnabled: settings.adcellConversionEnabled ?? true,
+      firstPartyEnabled: settings.adcellFirstPartyEnabled ?? true,
+      containerTagsEnabled: settings.adcellContainerTagsEnabled ?? true,
+    };
+  }
+
+  static async updateAdcellConfig(payload, context) {
+    const settings = await this.ensureSettings();
+
+    const pid = String(payload.pid || '').trim().replace(/[^0-9]/g, '');
+    const eventId = String(payload.eventId || '').trim().replace(/[^0-9]/g, '');
+
+    const updates = {
+      adcellEnabled: typeof payload.enabled === 'boolean' ? payload.enabled : settings.adcellEnabled,
+      adcellPid: pid || settings.adcellPid || '10419',
+      adcellEventId: eventId || settings.adcellEventId || '13229',
+      adcellConversionEnabled: typeof payload.conversionEnabled === 'boolean' ? payload.conversionEnabled : settings.adcellConversionEnabled,
+      adcellFirstPartyEnabled: typeof payload.firstPartyEnabled === 'boolean' ? payload.firstPartyEnabled : settings.adcellFirstPartyEnabled,
+      adcellContainerTagsEnabled: typeof payload.containerTagsEnabled === 'boolean' ? payload.containerTagsEnabled : settings.adcellContainerTagsEnabled,
+      updatedBy: context.user._id,
+    };
+
+    const updated = await MarketingSettings.findByIdAndUpdate(settings._id, updates, { new: true });
+
+    await this.logAudit({
+      action: 'adcell_config_updated',
+      entityType: 'settings',
+      entityId: updated._id,
+      entityLabel: 'adcell_tracking_config',
+      details: updates,
+      user: context.user,
+      req: context.req,
+    });
+
+    return {
+      enabled: updated.adcellEnabled,
+      pid: updated.adcellPid,
+      eventId: updated.adcellEventId,
+      conversionEnabled: updated.adcellConversionEnabled,
+      firstPartyEnabled: updated.adcellFirstPartyEnabled,
+      containerTagsEnabled: updated.adcellContainerTagsEnabled,
+    };
+  }
+
+  static async getAdcellExcludedCustomerGroups() {
+    const settings = await this.ensureSettings();
+    return (settings.adcellExcludedCustomerGroupIds || []).map((id) => id.toString());
+  }
+
+  static async updateAdcellExcludedCustomerGroups(customerGroupIds, context) {
+    const settings = await this.ensureSettings();
+    const validIds = Array.isArray(customerGroupIds)
+      ? customerGroupIds
+          .filter((id) => id)
+          .map((id) => new mongoose.Types.ObjectId(id))
+      : [];
+
+    const updated = await MarketingSettings.findByIdAndUpdate(
+      settings._id,
+      { adcellExcludedCustomerGroupIds: validIds },
+      { new: true, runValidators: true }
+    );
+
+    await this.logAudit({
+      action: 'adcell_excluded_groups_updated',
+      entityType: 'settings',
+      entityId: updated._id,
+      entityLabel: 'adcell_excluded_customer_groups',
+      details: { excludedGroupIds: validIds },
+      user: context.user,
+      req: context.req,
+    });
+
+    return (updated.adcellExcludedCustomerGroupIds || []).map((id) => id.toString());
+  }
+
+  static async isCustomerInExcludedAdcellGroup(userId) {
+    try {
+      const settings = await this.ensureSettings();
+      if (!settings.adcellExcludedCustomerGroupIds || settings.adcellExcludedCustomerGroupIds.length === 0) {
+        return false;
+      }
+
+      const CustomerGroupAssignment = require('../models/CustomerGroupAssignment');
+
+      // Check if the user has ANY active assignment to an excluded group
+      const assignment = await CustomerGroupAssignment.findOne({
+        customerId: userId,
+        groupId: { $in: settings.adcellExcludedCustomerGroupIds },
+        status: 'active',
+      }).lean();
+
+      return !!assignment;
+    } catch (err) {
+      console.error('Error checking excluded ADCELL group:', err);
+      return false;
+    }
   }
 }
 

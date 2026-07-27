@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import {
   Home,
   Users,
-  Package,
   ShoppingBag,
   Wrench,
   Plus,
@@ -32,10 +31,12 @@ import {
   BookMarked,
   Mail,
   Activity,
-  Megaphone
+  Megaphone,
+  Radio,
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
+import { AdminSidebarSearch } from "@/components/AdminSidebarSearch"
 import "./AdminSidebar.css"
 
 interface AdminSidebarProps {
@@ -46,7 +47,6 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
   const [unreadNotifications, setUnreadNotifications] = useState(0)
-  const [orderManagementOpen, setOrderManagementOpen] = useState(false)
   const [contentManagementOpen, setContentManagementOpen] = useState(false)
   const [marketingPromoOpen, setMarketingPromoOpen] = useState(false)
   const [systemManagementOpen, setSystemManagementOpen] = useState(false)
@@ -152,49 +152,63 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
     </Collapsible>
   )
 
+  const GroupDivider = () => (
+    <div className={`admin-nav-group-divider ${isCollapsed ? 'collapsed' : ''}`} aria-hidden="true" />
+  )
+
   return (
     <nav className={`admin-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+      <AdminSidebarSearch isCollapsed={isCollapsed} />
+
+      <GroupDivider />
+
       <NavItem to="/admin" icon={Home}>
         Dashboard
       </NavItem>
 
-      <CollapsibleSection
-        title="Auftragsverwaltung"
-        icon={Package}
-        isOpen={orderManagementOpen}
-        onToggle={() => setOrderManagementOpen(!orderManagementOpen)}
-      >
-        <NavItem to="/admin/bookings" icon={BookMarked}>
-          Buchungen
-        </NavItem>
-        <NavItem to="/admin/repair-requests" icon={FileText}>
-          Repair Requests
-        </NavItem>
-        <NavItem to="/admin/contact-requests" icon={MessageSquare}>
-          Kontaktanfragen
-        </NavItem>
-        <NavItem to="/admin/complaints" icon={AlertCircle}>
-          Reklamationen
-        </NavItem>
-        <NavItem to="/admin/parts" icon={Package2}>
-          Teileverwaltung
-        </NavItem>
-        <NavItem to="/admin/epart-orders" icon={Boxes}>
-          Epart-Bestellungen
-        </NavItem>
-        <NavItem to="/admin/financial" icon={DollarSign}>
-          Finanzverwaltung
-        </NavItem>
-        <NavItem to="/admin/users" icon={Users}>
-          Benutzerverwaltung
-        </NavItem>
-        <NavItem to="/admin/staff" icon={UserCheck}>
-          Personalverwaltung
-        </NavItem>
-        <NavItem to="/admin/analytics" icon={BarChart3}>
-          Analysen
-        </NavItem>
-      </CollapsibleSection>
+      <GroupDivider />
+
+      <NavItem to="/admin/users" icon={Users}>
+        Kunden
+      </NavItem>
+      <NavItem to="/admin/bookings" icon={BookMarked}>
+        Aufträge
+      </NavItem>
+      <NavItem to="/admin/financial" icon={DollarSign}>
+        Rechnungen
+      </NavItem>
+
+      <GroupDivider />
+
+      <NavItem to="/admin/repair-requests" icon={FileText}>
+        Reparaturanfragen
+      </NavItem>
+      <NavItem to="/admin/contact-requests" icon={MessageSquare}>
+        Kontaktanfragen
+      </NavItem>
+      <NavItem to="/admin/complaints" icon={AlertCircle}>
+        Reklamationen
+      </NavItem>
+
+      <GroupDivider />
+
+      <NavItem to="/admin/epart-orders" icon={Boxes}>
+        Erstzteilbestellungen
+      </NavItem>
+      <NavItem to="/admin/parts" icon={Package2}>
+        Teileverwaltung
+      </NavItem>
+      <NavItem to="/admin/staff" icon={UserCheck}>
+        Personalverwaltung
+      </NavItem>
+
+      <GroupDivider />
+
+      <NavItem to="/admin/analytics" icon={BarChart3}>
+        Analysen
+      </NavItem>
+
+      <GroupDivider />
 
       <CollapsibleSection
         title="Sytem Management"
@@ -270,6 +284,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
           </NavItem>
           <NavItem to="/admin/marketing-promo/settings" icon={Settings}>
             Einstellungen
+          </NavItem>
+          <NavItem to="/admin/marketing-promo/adcell" icon={Radio}>
+            ADCELL Tracking
           </NavItem>
         </CollapsibleSection>
 

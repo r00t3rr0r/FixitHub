@@ -450,17 +450,30 @@ export const getOrderWorkflows = async (orderId: string) => {
 
 // Description: Assign workflow template to an order
 // Endpoint: POST /api/admin/orders/:orderId/workflows
-// Request: { workflowTemplateId: string }
+// Request: { workflowTemplateId: string, assignedWorkflowStaffId?: string }
 // Response: { success: boolean, message: string, order: Order }
-export const assignWorkflowToOrder = async (orderId: string, workflowTemplateId: string) => {
+export const assignWorkflowToOrder = async (
+  orderId: string,
+  workflowTemplateId: string,
+  assignedWorkflowStaffId?: string
+) => {
   try {
-    console.log("OrderWorkflowAPI: Assigning workflow to order:", { orderId, workflowTemplateId });
-    const response = await api.post(`/api/admin/orders/${orderId}/workflows`, { workflowTemplateId });
+    console.log("OrderWorkflowAPI: Assigning workflow to order:", { orderId, workflowTemplateId, assignedWorkflowStaffId });
+    const response = await api.post(`/api/admin/orders/${orderId}/workflows`, {
+      workflowTemplateId,
+      assignedWorkflowStaffId,
+    });
     console.log("OrderWorkflowAPI: Workflow assigned successfully:", response.data);
     return response.data;
   } catch (error: any) {
-    console.error("OrderWorkflowAPI: Error assigning workflow:", error);
-    throw new Error(error?.response?.data?.error || error.message);
+    const errorMsg = error?.response?.data?.error || error?.message || "Unknown error";
+    console.error("OrderWorkflowAPI: Error assigning workflow:", {
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      error: errorMsg,
+      fullResponse: error?.response?.data
+    });
+    throw new Error(errorMsg);
   }
 };
 

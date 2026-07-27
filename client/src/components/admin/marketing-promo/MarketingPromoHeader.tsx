@@ -23,6 +23,7 @@ export function MarketingPromoHeader({ title, description, current }: MarketingP
     { label: 'Segmente', to: '/admin/marketing-promo/segments' },
     { label: 'Reports', to: '/admin/marketing-promo/reports' },
     { label: 'Einstellungen', to: '/admin/marketing-promo/settings' },
+    { label: 'ADCELL Tracking', to: '/admin/marketing-promo/adcell' },
   ]
 
   return (
