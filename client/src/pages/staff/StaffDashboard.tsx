@@ -56,8 +56,13 @@ const safeArray = (v: unknown) => (Array.isArray(v) ? v : [])
 const toId = (value: any): string => {
   if (!value) return ""
   if (typeof value === "string") return value
-  if (typeof value === "object" && value._id) return String(value._id)
-  return String(value)
+  if (typeof value === "object" && value._id) return toId(value._id)
+  if (typeof value === "object" && value.id) return toId(value.id)
+  try {
+    return String(value)
+  } catch {
+    return ""
+  }
 }
 
 const isAssignedToStaff = (entity: any, staffId?: string) => {
@@ -279,7 +284,7 @@ const getWorkflowSortWeight = (status?: string) => {
 const isWorkflowAssignedToStaff = (workflow: any, staffId?: string) => {
   if (!staffId || !workflow) return false
 
-  const normalizedStaffId = String(staffId)
+  const normalizedStaffId = toId(staffId)
   const workflowAssignedIds = [
     workflow?.assignedStaffId?._id,
     workflow?.assignedStaffId,
@@ -569,7 +574,7 @@ export function StaffDashboard() {
   }, [])
 
   const derived = useMemo(() => {
-    const myStaffId = user?._id || ""
+    const myStaffId = toId(user?._id)
     const assignedRepairRequests = data.repairRequests.filter((r: any) => isAssignedToStaff(r, myStaffId))
     const unassignedRepairRequests = data.repairRequests.filter((r: any) => isUnassignedRepairRequest(r))
     const unassignedOrders = data.unassignedOrders
@@ -620,8 +625,8 @@ export function StaffDashboard() {
             : []),
         ]
           .filter(Boolean)
-          .map((value: any) => String(value))
-        const isDirectWorkflowAssignment = Boolean(myStaffId) && workflowAssignedIds.includes(String(myStaffId))
+          .map(toId)
+        const isDirectWorkflowAssignment = Boolean(myStaffId) && workflowAssignedIds.includes(myStaffId)
 
         return {
           id: `${orderId}-${toId(workflow?._id || workflow?.workflowTemplateId || workflow?.workflowName)}`,
