@@ -146,6 +146,7 @@ console.log('Loading SeedService...');
 const SeedService = require("./services/seedService");
 console.log('Loading cors...');
 const cors = require("cors");
+const compression = require('compression');
 const { requireCsrfProtection } = require('./routes/middleware/csrf');
 const { applySecurityHeaders } = require('./routes/middleware/securityHeaders');
 
@@ -224,6 +225,7 @@ app.use(cors({
 // Increase payload size limits to handle large file uploads and data payloads
 app.use(cookieParser());
 app.use(applySecurityHeaders);
+app.use(compression({ threshold: 1024 }));
 app.use(express.json({ limit: requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: requestLimit }));
 app.use(requireCsrfProtection);
