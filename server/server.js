@@ -176,6 +176,22 @@ const allowedOrigins = String(process.env.CLIENT_URL || 'http://localhost:5173')
   .map((value) => value.trim())
   .filter(Boolean);
 
+const isPrivateDevOrigin = (origin) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    const isPrivateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(parsed.hostname);
+    return isHttp && (isLocalhost || isPrivateIpv4);
+  } catch {
+    return false;
+  }
+};
+
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
@@ -191,7 +207,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin) || isPrivateDevOrigin(origin)) {
       return callback(null, true);
     }
 

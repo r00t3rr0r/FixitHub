@@ -871,53 +871,32 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       return
     }
 
-    paypalButtonRef.current.innerHTML = ""
+    const container = paypalButtonRef.current
+    if (!container || !document.body.contains(container)) {
+      setPaypalError("PayPal-Dialog konnte nicht gestartet werden.")
+      return
+    }
 
-    const paypalButtons = window.paypal.Buttons({
-      style: {
-        layout: paypalConfig.button.layout || "vertical",
-        color: paypalConfig.button.color || "gold",
-        shape: paypalConfig.button.shape || "rect",
-        label: paypalConfig.button.label || "paypal",
-      },
-      createOrder: async () => {
-        if (!acceptTerms) {
-          setHighlightTermsConsent(true)
-          toast({
-            title: t("common.error"),
-            description: t("checkout.acceptTermsRequired"),
-            variant: "destructive",
-          })
-          throw new Error("Terms not accepted")
-        }
+    container.innerHTML = ""
 
-        if (mode === "guest") {
-          if (!guestInfo) {
-            throw new Error(t("checkout.guestCheckoutFailed"))
+    try {
+      const paypalButtons = window.paypal.Buttons({
+        style: {
+          layout: paypalConfig.button.layout || "vertical",
+          color: paypalConfig.button.color || "gold",
+          shape: paypalConfig.button.shape || "rect",
+          label: paypalConfig.button.label || "paypal",
+        },
+        createOrder: async () => {
+          if (!acceptTerms) {
+            setHighlightTermsConsent(true)
+            toast({
+              title: t("common.error"),
+              description: t("checkout.acceptTermsRequired"),
+              variant: "destructive",
+            })
+            throw new Error("Terms not accepted")
           }
-
-          const localGuestCart = getGuestCart()
-          const result = await createGuestCheckoutPaypalOrder({
-            guestInfo,
-            cartData: {
-              items: localGuestCart.items,
-              repairOrders: localGuestCart.repairOrders,
-            },
-            returnPath: window.location.pathname,
-          })
-
-          return result.orderId
-        }
-
-        const result = await createCheckoutPaypalOrder({
-          returnPath: window.location.pathname,
-        })
-
-        return result.orderId
-      },
-      onApprove: async (data: { orderID: string }) => {
-        try {
-          setProcessingCheckout(true)
 
           if (mode === "guest") {
             if (!guestInfo) {
@@ -925,105 +904,147 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
             }
 
             const localGuestCart = getGuestCart()
-            const capture = await captureGuestCheckoutPaypalOrder({
-              orderId: data.orderID,
+            const result = await createGuestCheckoutPaypalOrder({
               guestInfo,
+              cartData: {
+                items: localGuestCart.items,
+                repairOrders: localGuestCart.repairOrders,
+              },
+              returnPath: window.location.pathname,
             })
 
-            const response = await completeGuestCheckout(
-              guestInfo,
-              { items: localGuestCart.items, repairOrders: localGuestCart.repairOrders },
-              "paypal",
-              {
-                paypalOrderId: capture.orderId,
-                paypalCaptureId: capture.captureId,
-                paypalReceiptId: capture.receipt?.transactionId,
-                paypalEmail,
+            return result.orderId
+          }
+
+          const result = await createCheckoutPaypalOrder({
+            returnPath: window.location.pathname,
+          })
+
+          return result.orderId
+        },
+        onApprove: async (data: { orderID: string }) => {
+          try {
+            setProcessingCheckout(true)
+
+            if (mode === "guest") {
+              if (!guestInfo) {
+                throw new Error(t("checkout.guestCheckoutFailed"))
               }
-            )
 
-            clearGuestCart()
+              const localGuestCart = getGuestCart()
+              const capture = await captureGuestCheckoutPaypalOrder({
+                orderId: data.orderID,
+                guestInfo,
+              })
 
-            const guestOrderData = {
-              success: true,
-              bookingNumber: response.booking?.bookingNumber,
-              orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
-              totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
-              guestEmail: response.guestEmail,
-              orderTrackingToken: response.trackingToken,
-              bookingTrackingToken: response.bookingTrackingToken,
-              orderCount: response.orderIds?.length || 0,
+              const response = await completeGuestCheckout(
+                guestInfo,
+                { items: localGuestCart.items, repairOrders: localGuestCart.repairOrders },
+                "paypal",
+                {
+                  paypalOrderId: capture.orderId,
+                  paypalCaptureId: capture.captureId,
+                  paypalReceiptId: capture.receipt?.transactionId,
+                  paypalEmail,
+                }
+              )
+
+              clearGuestCart()
+
+              const guestOrderData = {
+                success: true,
+                bookingNumber: response.booking?.bookingNumber,
+                orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
+                totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
+                guestEmail: response.guestEmail,
+                orderTrackingToken: response.trackingToken,
+                bookingTrackingToken: response.bookingTrackingToken,
+                orderCount: response.orderIds?.length || 0,
+              }
+
+              setGuestCheckoutResult(guestOrderData)
+
+              toast({
+                title: t("common.success"),
+                description: t("checkout.guestCheckoutSuccessful"),
+              })
+
+              // Store order data and navigate to success page
+              sessionStorage.setItem('lastOrderData', JSON.stringify(guestOrderData))
+              onOpenChange(false)
+              // Fire cleanup in background without blocking navigation
+              onSuccess().catch((err) => console.error('Cleanup error:', err))
+              navigate('/order-success')
+              return
             }
 
-            setGuestCheckoutResult(guestOrderData)
+            const capture = await captureCheckoutPaypalOrder(data.orderID)
+            const checkoutResult = await completeCheckout("paypal", {
+              paypalOrderId: capture.orderId,
+              paypalCaptureId: capture.captureId,
+              paypalReceiptId: capture.receipt?.paymentId,
+              paypalEmail,
+            })
+
+            setCheckoutSuccessResult(checkoutResult)
 
             toast({
               title: t("common.success"),
-              description: t("checkout.guestCheckoutSuccessful"),
+              description: checkoutResult.message || t("checkout.checkoutDone"),
             })
 
             // Store order data and navigate to success page
-            sessionStorage.setItem('lastOrderData', JSON.stringify(guestOrderData))
+            sessionStorage.setItem('lastOrderData', JSON.stringify(checkoutResult))
             onOpenChange(false)
             // Fire cleanup in background without blocking navigation
             onSuccess().catch((err) => console.error('Cleanup error:', err))
             navigate('/order-success')
-            return
+          } catch (error: any) {
+            toast({
+              title: t("common.error"),
+              description: error.message || "PayPal-Zahlung konnte nicht abgeschlossen werden.",
+              variant: "destructive",
+            })
+          } finally {
+            setProcessingCheckout(false)
           }
-
-          const capture = await captureCheckoutPaypalOrder(data.orderID)
-          const checkoutResult = await completeCheckout("paypal", {
-            paypalOrderId: capture.orderId,
-            paypalCaptureId: capture.captureId,
-            paypalReceiptId: capture.receipt?.paymentId,
-            paypalEmail,
-          })
-
-          setCheckoutSuccessResult(checkoutResult)
-
-          toast({
-            title: t("common.success"),
-            description: checkoutResult.message || t("checkout.checkoutDone"),
-          })
-
-          // Store order data and navigate to success page
-          sessionStorage.setItem('lastOrderData', JSON.stringify(checkoutResult))
-          onOpenChange(false)
-          // Fire cleanup in background without blocking navigation
-          onSuccess().catch((err) => console.error('Cleanup error:', err))
-          navigate('/order-success')
-        } catch (error: any) {
+        },
+        onCancel: () => {
           toast({
             title: t("common.error"),
-            description: error.message || "PayPal-Zahlung konnte nicht abgeschlossen werden.",
+            description: "PayPal-Zahlung wurde abgebrochen.",
             variant: "destructive",
           })
-        } finally {
-          setProcessingCheckout(false)
-        }
-      },
-      onCancel: () => {
-        toast({
-          title: t("common.error"),
-          description: "PayPal-Zahlung wurde abgebrochen.",
-          variant: "destructive",
-        })
-      },
-      onError: () => {
-        toast({
-          title: t("common.error"),
-          description: "PayPal-Dialog konnte nicht gestartet werden.",
-          variant: "destructive",
-        })
-      },
-    })
+        },
+        onError: () => {
+          toast({
+            title: t("common.error"),
+            description: "PayPal-Dialog konnte nicht gestartet werden.",
+            variant: "destructive",
+          })
+        },
+      })
 
-    if (!paypalButtons?.isEligible || !paypalButtons.isEligible()) {
-      setPaypalError("PayPal ist in dieser Umgebung nicht verfügbar.")
-      return
+      if (!paypalButtons?.isEligible || !paypalButtons.isEligible()) {
+        setPaypalError("PayPal ist in dieser Umgebung nicht verfügbar.")
+        return
+      }
+
+      if (!container || !document.body.contains(container)) {
+        setPaypalError("PayPal-Dialog konnte nicht gestartet werden.")
+        return
+      }
+
+      paypalButtons.render(container)
+    } catch (error: any) {
+      console.error('PayPal button render failed:', error)
+      setPaypalError("PayPal-Dialog konnte nicht gestartet werden.")
+      toast({
+        title: t("common.error"),
+        description: "PayPal-Dialog konnte nicht gestartet werden.",
+        variant: "destructive",
+      })
     }
-
-    paypalButtons.render(paypalButtonRef.current)
   }, [
     open,
     step,
