@@ -1,9 +1,22 @@
-import axios, { AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig, AxiosInstance } from 'axios';
+import axios, { AxiosRequestConfig, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import JSONbig from 'json-bigint';
 
 
 const AUTH_MARKER_VALUE = 'cookie-authenticated';
 const CSRF_COOKIE_NAME = 'csrf_token';
+const isApiDebugEnabled = import.meta.env.DEV || import.meta.env.VITE_API_DEBUG === 'true';
+
+const logDebug = (...args: unknown[]) => {
+  if (isApiDebugEnabled) {
+    console.log(...args);
+  }
+};
+
+const warnDebug = (...args: unknown[]) => {
+  if (isApiDebugEnabled) {
+    console.warn(...args);
+  }
+};
 
 const readCookie = (name: string): string | null => {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -34,24 +47,26 @@ const localApi = axios.create({
   transformResponse: [(data) => {
     // Handle empty responses
     if (!data || data.trim() === '') {
-      console.warn('API returned empty response');
+      warnDebug('API returned empty response');
       return {};
     }
 
     // Check if data is HTML (error page) instead of JSON
     if (typeof data === 'string' && data.trim().startsWith('<')) {
-      console.warn('API returned HTML instead of JSON. This usually indicates a server error or the server is starting up.');
+      warnDebug('API returned HTML instead of JSON. This usually indicates a server error or the server is starting up.');
       return { error: 'Server returned HTML response instead of JSON' };
     }
 
     try {
       return JSONbig.parse(data);
     } catch (error) {
-      console.error('Failed to parse JSON response:', {
-        error: error instanceof Error ? error.message : String(error),
-        dataPreview: typeof data === 'string' ? data.substring(0, 200) : data,
-        dataType: typeof data
-      });
+      if (isApiDebugEnabled) {
+        console.error('Failed to parse JSON response:', {
+          error: error instanceof Error ? error.message : String(error),
+          dataPreview: typeof data === 'string' ? data.substring(0, 200) : data,
+          dataType: typeof data
+        });
+      }
       // Return empty object as fallback to prevent complete failure
       return {};
     }
@@ -64,10 +79,6 @@ const getApiInstance = (url: string) => {
   return localApi;
 };
 
-const isAuthEndpoint = (url: string): boolean => {
-  return url.includes("/api/auth");
-};
-
 // Check if the URL is for the refresh token endpoint to avoid infinite loops
 const isRefreshTokenEndpoint = (url: string): boolean => {
   return url.includes("/api/auth/refresh");
@@ -77,7 +88,7 @@ const isRefreshTokenEndpoint = (url: string): boolean => {
 let pendingRefresh: Promise<void> | null = null;
 
 const doTokenRefresh = async (): Promise<void> => {
-  console.log('[API] Sending refresh token request');
+  logDebug('[API] Sending refresh token request');
   const response = await localApi.post(`/api/auth/refresh`, {});
 
   if (response.status >= 400) {
@@ -85,7 +96,7 @@ const doTokenRefresh = async (): Promise<void> => {
   }
 
   localStorage.setItem('accessToken', AUTH_MARKER_VALUE);
-  console.log('[API] Tokens refreshed successfully');
+  logDebug('[API] Tokens refreshed successfully');
 };
 
 const setupInterceptors = (apiInstance: typeof axios) => {
@@ -101,11 +112,11 @@ const setupInterceptors = (apiInstance: typeof axios) => {
           // Always set Authorization header if we have a token, regardless of whether it's JWT-like
           if (isJwtLike(accessToken)) {
             config.headers.Authorization = `Bearer ${accessToken}`;
-            console.log('[API] JWT token attached to Authorization header');
+            logDebug('[API] JWT token attached to Authorization header');
           } else if (accessToken === 'cookie-authenticated') {
             // For cookie-authenticated sessions, the Authorization header is not needed
             // The browser will send the cookie automatically with credentials: true
-            console.log('[API] Cookie-authenticated session - relying on HTTP-only cookie');
+            logDebug('[API] Cookie-authenticated session - relying on HTTP-only cookie');
           }
         }
       }
@@ -125,11 +136,11 @@ const setupInterceptors = (apiInstance: typeof axios) => {
   apiInstance.interceptors.response.use(
     (response) => {
       // Log successful responses (for debugging)
-      console.log(`[API] ${response.config.method?.toUpperCase()} ${response.config.url} → ${response.status}`);
+      logDebug(`[API] ${response.config.method?.toUpperCase()} ${response.config.url} -> ${response.status}`);
       
       // Handle error status codes
       if (response.status >= 400) {
-        console.warn(`[API] Error response: ${response.status} from ${response.config.url}`, response.data);
+        warnDebug(`[API] Error response: ${response.status} from ${response.config.url}`, response.data);
         return Promise.reject(response);
       }
       return response;
@@ -138,13 +149,13 @@ const setupInterceptors = (apiInstance: typeof axios) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
       const status = error.response?.status || error.status;
 
-      console.warn(`[API] Error: ${status} from ${originalRequest.url}`, error.response?.data || error.message);
+      warnDebug(`[API] Error: ${status} from ${originalRequest.url}`, error.response?.data || error.message);
 
       // Only refresh token when we get a 401/403 error (token is invalid/expired)
       if (status && [401, 403].includes(status) &&
           !originalRequest._retry &&
           originalRequest.url && !isRefreshTokenEndpoint(originalRequest.url)) {
-        console.log(`[API] Attempting token refresh for ${originalRequest.url}`);
+        logDebug(`[API] Attempting token refresh for ${originalRequest.url}`);
         originalRequest._retry = true;
 
         try {
@@ -153,15 +164,17 @@ const setupInterceptors = (apiInstance: typeof axios) => {
             pendingRefresh = doTokenRefresh().finally(() => { pendingRefresh = null; });
           }
           await pendingRefresh;
-          console.log(`[API] Retrying original request: ${originalRequest.url}`);
+          logDebug(`[API] Retrying original request: ${originalRequest.url}`);
           return getApiInstance(originalRequest.url || '')(originalRequest);
         } catch (err) {
-          console.error('[API] Token refresh failed:', err);
+          if (isApiDebugEnabled) {
+            console.error('[API] Token refresh failed:', err);
+          }
           localStorage.removeItem('accessToken');
           localStorage.removeItem('user');
           // Dispatch event so AuthContext can react
           window.dispatchEvent(new CustomEvent('auth-logout'));
-          console.log('[API] Redirecting to login');
+          logDebug('[API] Redirecting to login');
           window.location.href = '/login';
           return Promise.reject(err);
         }

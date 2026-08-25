@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, matchPath } from "react-router-dom"
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { Helmet } from "react-helmet-async"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
@@ -31,50 +31,6 @@ import { CustomerBookings } from "./pages/CustomerBookings"
 import { CustomerInvoices } from "./pages/CustomerInvoices"
 import { CustomerRepairRequests } from "./pages/CustomerRepairRequests"
 import { CustomerComplaints } from "./pages/CustomerComplaints"
-import { StaffDashboard } from "./pages/staff/StaffDashboard"
-import { StaffOrders } from "./pages/staff/StaffOrders"
-import { KnowledgeBase } from "./pages/staff/KnowledgeBase"
-import { TimeTracking } from "./pages/staff/TimeTracking"
-import { Schedule } from "./pages/staff/Schedule"
-import { TeamChat } from "./pages/staff/TeamChat"
-import { Performance } from "./pages/staff/Performance"
-import { AdminDashboard } from "./pages/admin/AdminDashboard"
-import { UserManagement } from "./pages/admin/UserManagement"
-import { OrderManagement } from "./pages/admin/OrderManagement"
-import { BookingsManagement } from "./pages/admin/BookingsManagement"
-import { WebShopManagement } from "./pages/admin/WebShopManagement"
-import { ServiceManagement } from "./pages/admin/ServiceManagement"
-import { AddOnServiceManagement } from "./pages/admin/AddOnServiceManagement"
-import ServiceCategoryManagement from "./pages/admin/ServiceCategoryManagement"
-import { Analytics } from "./pages/admin/Analytics"
-import { BlogManagement } from "./pages/admin/BlogManagement"
-import { FAQManagement } from "./pages/admin/FAQManagement"
-import { HomepageManagement } from "./pages/admin/HomepageManagement"
-import { WebsiteBuilder } from "./pages/admin/WebsiteBuilder"
-import { VisualPageBuilder } from "./pages/admin/VisualPageBuilder"
-import { SEOManagement } from "./pages/admin/SEOManagement"
-import { SystemConfiguration } from "./pages/admin/SystemConfiguration"
-import { DatabaseManagement } from "./pages/admin/DatabaseManagement"
-import { SecuritySettings } from "./pages/admin/SecuritySettings"
-import { WorkflowManagement } from "./pages/admin/WorkflowManagement"
-import { PartsManagement } from "./pages/admin/PartsManagement"
-import { StaffManagement } from "./pages/admin/StaffManagement"
-import { FinancialManagement } from "./pages/admin/FinancialManagement"
-import { CustomerGroupsManagement } from "./pages/admin/CustomerGroupsManagement"
-import { DeviceManagement } from "./pages/admin/DeviceManagement"
-import { ComplaintsManagement } from "./pages/admin/ComplaintsManagement"
-import { EmailAdministration } from "./pages/admin/EmailAdministration"
-import EPartOrderManagement from "./pages/admin/EPartOrderManagement"
-import TrackingLive from "./pages/admin/TrackingLive"
-import { MarketingPromoOverview } from "./pages/admin/marketing-promo/MarketingPromoOverview"
-import { MarketingPromoNewsletters } from "./pages/admin/marketing-promo/MarketingPromoNewsletters"
-import { MarketingPromoPromoCodes } from "./pages/admin/marketing-promo/MarketingPromoPromoCodes"
-import { MarketingPromoSegments } from "./pages/admin/marketing-promo/MarketingPromoSegments"
-import { MarketingPromoReports } from "./pages/admin/marketing-promo/MarketingPromoReports"
-import { MarketingPromoSettingsPage } from "./pages/admin/marketing-promo/MarketingPromoSettings"
-import { AdcellTrackingPage } from "./pages/admin/marketing-promo/AdcellTracking"
-import { InspectionWorkflow } from "./pages/inspection/InspectionWorkflow"
-import { RepairWorkflowPage } from "./pages/repair/RepairWorkflowPage"
 import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
 import { Widerrufsrecht } from "./pages/Widerrufsrecht"
@@ -97,6 +53,59 @@ import { BatteryDisposal } from "./pages/BatteryDisposal"
 import { OrderSuccessPage } from "./pages/OrderSuccess"
 import { PageTracker } from "./components/PageTracker"
 import { GlobalScrollToTopButton } from "./components/GlobalScrollToTopButton"
+
+const StaffDashboard = lazy(() => import("./pages/staff/StaffDashboard").then((m) => ({ default: m.StaffDashboard })))
+const StaffOrders = lazy(() => import("./pages/staff/StaffOrders").then((m) => ({ default: m.StaffOrders })))
+const KnowledgeBase = lazy(() => import("./pages/staff/KnowledgeBase").then((m) => ({ default: m.KnowledgeBase })))
+const TimeTracking = lazy(() => import("./pages/staff/TimeTracking").then((m) => ({ default: m.TimeTracking })))
+const Schedule = lazy(() => import("./pages/staff/Schedule").then((m) => ({ default: m.Schedule })))
+const TeamChat = lazy(() => import("./pages/staff/TeamChat").then((m) => ({ default: m.TeamChat })))
+const Performance = lazy(() => import("./pages/staff/Performance").then((m) => ({ default: m.Performance })))
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard").then((m) => ({ default: m.AdminDashboard })))
+const UserManagement = lazy(() => import("./pages/admin/UserManagement").then((m) => ({ default: m.UserManagement })))
+const OrderManagement = lazy(() => import("./pages/admin/OrderManagement").then((m) => ({ default: m.OrderManagement })))
+const BookingsManagement = lazy(() => import("./pages/admin/BookingsManagement").then((m) => ({ default: m.BookingsManagement })))
+const WebShopManagement = lazy(() => import("./pages/admin/WebShopManagement").then((m) => ({ default: m.WebShopManagement })))
+const ServiceManagement = lazy(() => import("./pages/admin/ServiceManagement").then((m) => ({ default: m.ServiceManagement })))
+const AddOnServiceManagement = lazy(() => import("./pages/admin/AddOnServiceManagement").then((m) => ({ default: m.AddOnServiceManagement })))
+const ServiceCategoryManagement = lazy(() => import("./pages/admin/ServiceCategoryManagement"))
+const Analytics = lazy(() => import("./pages/admin/Analytics").then((m) => ({ default: m.Analytics })))
+const BlogManagement = lazy(() => import("./pages/admin/BlogManagement").then((m) => ({ default: m.BlogManagement })))
+const FAQManagement = lazy(() => import("./pages/admin/FAQManagement").then((m) => ({ default: m.FAQManagement })))
+const HomepageManagement = lazy(() => import("./pages/admin/HomepageManagement").then((m) => ({ default: m.HomepageManagement })))
+const WebsiteBuilder = lazy(() => import("./pages/admin/WebsiteBuilder").then((m) => ({ default: m.WebsiteBuilder })))
+const VisualPageBuilder = lazy(() => import("./pages/admin/VisualPageBuilder").then((m) => ({ default: m.VisualPageBuilder })))
+const SEOManagement = lazy(() => import("./pages/admin/SEOManagement").then((m) => ({ default: m.SEOManagement })))
+const SystemConfiguration = lazy(() => import("./pages/admin/SystemConfiguration").then((m) => ({ default: m.SystemConfiguration })))
+const DatabaseManagement = lazy(() => import("./pages/admin/DatabaseManagement").then((m) => ({ default: m.DatabaseManagement })))
+const SecuritySettings = lazy(() => import("./pages/admin/SecuritySettings").then((m) => ({ default: m.SecuritySettings })))
+const WorkflowManagement = lazy(() => import("./pages/admin/WorkflowManagement").then((m) => ({ default: m.WorkflowManagement })))
+const PartsManagement = lazy(() => import("./pages/admin/PartsManagement").then((m) => ({ default: m.PartsManagement })))
+const StaffManagement = lazy(() => import("./pages/admin/StaffManagement").then((m) => ({ default: m.StaffManagement })))
+const FinancialManagement = lazy(() => import("./pages/admin/FinancialManagement").then((m) => ({ default: m.FinancialManagement })))
+const CustomerGroupsManagement = lazy(() => import("./pages/admin/CustomerGroupsManagement").then((m) => ({ default: m.CustomerGroupsManagement })))
+const DeviceManagement = lazy(() => import("./pages/admin/DeviceManagement").then((m) => ({ default: m.DeviceManagement })))
+const ComplaintsManagement = lazy(() => import("./pages/admin/ComplaintsManagement").then((m) => ({ default: m.ComplaintsManagement })))
+const EmailAdministration = lazy(() => import("./pages/admin/EmailAdministration").then((m) => ({ default: m.EmailAdministration })))
+const EPartOrderManagement = lazy(() => import("./pages/admin/EPartOrderManagement"))
+const TrackingLive = lazy(() => import("./pages/admin/TrackingLive"))
+const MarketingPromoOverview = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoOverview").then((m) => ({ default: m.MarketingPromoOverview })))
+const MarketingPromoNewsletters = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoNewsletters").then((m) => ({ default: m.MarketingPromoNewsletters })))
+const MarketingPromoPromoCodes = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoPromoCodes").then((m) => ({ default: m.MarketingPromoPromoCodes })))
+const MarketingPromoSegments = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoSegments").then((m) => ({ default: m.MarketingPromoSegments })))
+const MarketingPromoReports = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoReports").then((m) => ({ default: m.MarketingPromoReports })))
+const MarketingPromoSettingsPage = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoSettings").then((m) => ({ default: m.MarketingPromoSettingsPage })))
+const AdcellTrackingPage = lazy(() => import("./pages/admin/marketing-promo/AdcellTracking").then((m) => ({ default: m.AdcellTrackingPage })))
+const InspectionWorkflow = lazy(() => import("./pages/inspection/InspectionWorkflow").then((m) => ({ default: m.InspectionWorkflow })))
+const RepairWorkflowPage = lazy(() => import("./pages/repair/RepairWorkflowPage").then((m) => ({ default: m.RepairWorkflowPage })))
+
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center">
+      <div className="text-sm text-muted-foreground">Seite wird geladen...</div>
+    </div>
+  )
+}
 
 function ScrollToTop() {
   const { pathname, search, hash } = useLocation()
@@ -342,8 +351,9 @@ function App() {
           <PageTracker />
           <GlobalScrollToTopButton />
           <CustomerSemanticSeoBlock />
-          {/* Public routes - accessible to all users */}
-          <Routes>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            {/* Public routes - accessible to all users */}
+            <Routes>
             {/* Home page as default landing page for all users */}
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
@@ -602,7 +612,8 @@ function App() {
 
             {/* Catch-all route */}
             <Route path="*" element={<BlankPage />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </Router>
         <Toaster />
       </ThemeProvider>

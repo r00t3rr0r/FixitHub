@@ -34,9 +34,9 @@ export interface FAQCategory {
 // Endpoint: GET /api/faqs
 // Request: { category?: string, search?: string, isActive?: boolean, page?: number, limit?: number }
 // Response: { faqs: FAQ[], groupedFAQs: Record<string, FAQ[]>, totalPages: number, currentPage: number, totalFAQs: number }
-export const getFAQs = async (filters: any = {}) => {
+export const getFAQs = async (filters: any = {}, requestConfig: Record<string, unknown> = {}) => {
   try {
-    const response = await api.get('/api/faqs', { params: filters });
+    const response = await api.get('/api/faqs', { params: filters, ...requestConfig });
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
