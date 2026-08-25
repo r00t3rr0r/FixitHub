@@ -11,7 +11,8 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined
 
-          if (id.includes("react-quill") || id.includes("quill") || id.includes("jspdf") || id.includes("html2canvas")) {
+          // Keep editor-print chunk limited to PDF/canvas libs; forcing Quill here can trigger runtime init-order issues.
+          if (id.includes("jspdf") || id.includes("html2canvas")) {
             return "editor-print"
           }
 
