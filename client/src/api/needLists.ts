@@ -68,6 +68,13 @@ export interface NeedListSupplierShippingConfig {
   shippingCost: number;
 }
 
+export interface NeedListListResponse {
+  needLists: NeedList[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+}
+
 // Description: Get all need lists with optional filtering
 // Endpoint: GET /api/need-lists
 // Request: { status?: string, priority?: string, search?: string }
@@ -76,17 +83,21 @@ export const getNeedLists = async (filters?: {
   status?: string;
   priority?: string;
   search?: string;
-}): Promise<NeedList[]> => {
+  page?: number;
+  limit?: number;
+}): Promise<NeedListListResponse> => {
   try {
     console.log('Fetching need lists with filters:', filters);
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.priority) params.append('priority', filters.priority);
     if (filters?.search) params.append('search', filters.search);
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
 
     const response = await api.get(`/api/need-lists?${params.toString()}`);
     console.log('Need lists fetched:', response.data.needLists.length);
-    return response.data.needLists;
+    return response.data;
   } catch (error: any) {
     console.error('Error fetching need lists:', error);
     throw new Error(error?.response?.data?.error || error.message);

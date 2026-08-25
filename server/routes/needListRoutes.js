@@ -15,12 +15,14 @@ router.get('/', requireUser, async (req, res) => {
       status: req.query.status,
       priority: req.query.priority,
       search: req.query.search,
+      page: req.query.page,
+      limit: req.query.limit,
       createdBy: req.user.role !== 'admin' ? req.user._id : undefined
     };
 
-    const needLists = await NeedListService.getNeedLists(filters);
+    const result = await NeedListService.getNeedLists(filters);
 
-    res.status(200).json({ needLists });
+    res.status(200).json(result);
   } catch (error) {
     console.error('GET /api/need-lists - Error:', error.message);
     res.status(500).json({ error: error.message });

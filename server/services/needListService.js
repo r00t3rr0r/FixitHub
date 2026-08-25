@@ -202,14 +202,30 @@ class NeedListService {
       ];
     }
 
-    const needLists = await NeedList.find(query)
-      .populate('createdBy', 'firstName lastName email')
-      .populate('items.part', 'partNumber name currentStock')
-      .populate('convertedToOrder', 'orderNumber status')
-      .sort({ createdAt: -1 });
+    const page = Math.max(1, parseInt(filters.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 50));
+    const skip = (page - 1) * limit;
 
-    console.log(`NeedListService.getNeedLists: Found ${needLists.length} need lists`);
-    return needLists;
+    const [needLists, totalItems] = await Promise.all([
+      NeedList.find(query)
+        .populate('createdBy', 'firstName lastName email')
+        .populate('items.part', 'partNumber name currentStock')
+        .populate('convertedToOrder', 'orderNumber status')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      NeedList.countDocuments(query),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+    console.log(`NeedListService.getNeedLists: Found ${needLists.length} need lists on page ${page}/${totalPages}`);
+    return {
+      needLists,
+      totalItems,
+      totalPages,
+      currentPage: page,
+    };
   }
 
   /**

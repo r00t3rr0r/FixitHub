@@ -305,6 +305,7 @@ export function PartsManagement() {
   const fetchAllPartsForFilterMenus = async () => {
     try {
       const maxLimitPerPage = 200;
+      const maxPagesToLoad = 3;
       let page = 1;
       let totalPagesLocal = 1;
       const collected: Part[] = [];
@@ -320,7 +321,7 @@ export function PartsManagement() {
         collected.push(...batch);
         totalPagesLocal = response.totalPages || 1;
         page += 1;
-      } while (page <= totalPagesLocal);
+      } while (page <= totalPagesLocal && page <= maxPagesToLoad);
 
       const uniqueById = Array.from(
         new Map(collected.map((p) => [p._id, p])).values()
@@ -484,8 +485,8 @@ export function PartsManagement() {
   const fetchNeedLists = async () => {
     try {
       console.log('Fetching need lists...');
-      const lists = await getNeedLists({ status: 'draft' });
-      setNeedLists(lists);
+      const response = await getNeedLists({ status: 'draft', page: 1, limit: 50 });
+      setNeedLists(response.needLists || []);
     } catch (error) {
       console.error('Error fetching need lists:', error);
       toast({

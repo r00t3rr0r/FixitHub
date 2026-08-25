@@ -211,7 +211,8 @@ const EPartSelectionDialog: React.FC<EPartSelectionDialogProps> = ({
     try {
       setLoadingNeedLists(true);
 
-      const allNeedLists = await getNeedLists();
+      const response = await getNeedLists({ page: 1, limit: 50 });
+      const allNeedLists = response.needLists || [];
       const openNeedLists = allNeedLists.filter(
         (needList) => needList.status !== 'ordered' && needList.status !== 'archived'
       );
