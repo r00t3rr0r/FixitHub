@@ -42,7 +42,7 @@ class StaffService {
 
       const staffIds = staff.map((member) => member._id);
 
-      const [workloadByStaff, completedOrdersByStaff] = await Promise.all([
+      const [workloadByStaff, taskLoadEntries, completedOrders] = await Promise.all([
         Order.aggregate([
           {
             $match: {
@@ -76,50 +76,33 @@ class StaffService {
               assignedTasks: { $sum: 1 }
             }
           }
+        ]),
+        Order.aggregate([
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds },
+              status: 'completed'
+            }
+          },
+          { $unwind: '$assignedStaff' },
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedStaff.staffId',
+              ordersCompleted: { $sum: 1 }
+            }
+          }
         ])
       ]);
 
-      const completedOrders = await Order.aggregate([
-        {
-          $match: {
-            'assignedStaff.staffId': { $in: staffIds },
-            status: 'completed'
-          }
-        },
-        { $unwind: '$assignedStaff' },
-        {
-          $match: {
-            'assignedStaff.staffId': { $in: staffIds }
-          }
-        },
-        {
-          $group: {
-            _id: '$assignedStaff.staffId',
-            ordersCompleted: { $sum: 1 }
-          }
-        }
-      ]);
-
       const orderLoadMap = new Map(workloadByStaff.map((entry) => [String(entry._id), entry.assignedOrders]));
-      const taskLoadMap = new Map(workloadByStaff.map((entry) => [String(entry._id), 0]));
-      const completedOrdersMap = new Map(completedOrders.map((entry) => [String(entry._id), entry.ordersCompleted]));
-
-      (Task.aggregate ? [taskLoadMap] : [taskLoadMap]);
-      const taskLoadEntries = await Task.aggregate([
-        {
-          $match: {
-            assignedTo: { $in: staffIds },
-            status: { $in: ['pending', 'in_progress'] }
-          }
-        },
-        {
-          $group: {
-            _id: '$assignedTo',
-            assignedTasks: { $sum: 1 }
-          }
-        }
-      ]);
+      const taskLoadMap = new Map();
       taskLoadEntries.forEach((entry) => taskLoadMap.set(String(entry._id), entry.assignedTasks));
+      const completedOrdersMap = new Map(completedOrders.map((entry) => [String(entry._id), entry.ordersCompleted]));
 
       const enhancedStaff = staff.map((member) => {
         const assignedOrders = Number(orderLoadMap.get(String(member._id)) || 0);
@@ -258,58 +241,115 @@ class StaffService {
 
     try {
       const staff = await User.find({ role: { $in: ['staff', 'admin'] } })
-        .select('name email');
+        .select('_id name email')
+        .lean();
 
-      const workloadData = await Promise.all(
-        staff.map(async (member) => {
-          const assignedOrders = await Order.find({
-            'assignedStaff.staffId': member._id,
-            status: { $in: ['pending', 'in_progress', 'awaiting_parts', 'quality-check'] }
-          }).select('orderNumber status priority estimatedCompletion progress deviceBrand deviceModel services');
+      if (!staff.length) {
+        return [];
+      }
 
-          const assignedTasks = await Task.find({
-            assignedTo: member._id,
-            status: { $in: ['pending', 'in_progress'] }
-          }).select('title priority dueDate status estimatedHours actualHours');
+      const staffIds = staff.map((member) => member._id);
 
-          const capacity = 10; // Default capacity
-          const totalAssigned = assignedOrders.length + assignedTasks.length;
-          const utilizationRate = Math.min((totalAssigned / capacity) * 100, 100);
+      const [orderSummaries, taskSummaries] = await Promise.all([
+        Order.aggregate([
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds },
+              status: { $in: ['pending', 'in_progress', 'awaiting_parts', 'quality-check'] }
+            }
+          },
+          { $unwind: '$assignedStaff' },
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedStaff.staffId',
+              assignedOrders: { $sum: 1 },
+              items: {
+                $push: {
+                  id: '$_id',
+                  type: 'order',
+                  title: { $concat: ['Order ', '$orderNumber', ' - ', '$deviceBrand', ' ', '$deviceModel'] },
+                  subtitle: {
+                    $reduce: {
+                      input: '$services',
+                      initialValue: '',
+                      in: {
+                        $cond: [
+                          { $eq: ['$$value', ''] },
+                          { $ifNull: ['$$this.name', ''] },
+                          { $concat: ['$$value', ', ', { $ifNull: ['$$this.name', ''] }] }
+                        ]
+                      }
+                    }
+                  },
+                  priority: { $ifNull: ['$priority', 'normal'] },
+                  dueDate: { $ifNull: ['$estimatedCompletion', { $dateAdd: { startDate: '$$NOW', unit: 'day', amount: 7 } }] },
+                  progress: { $ifNull: ['$progress', { $cond: [{ $eq: ['$status', 'in_progress'] }, 50, 10] }] },
+                  status: '$status'
+                }
+              }
+            }
+          }
+        ]),
+        Task.aggregate([
+          {
+            $match: {
+              assignedTo: { $in: staffIds },
+              status: { $in: ['pending', 'in_progress'] }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedTo',
+              assignedTasks: { $sum: 1 },
+              items: {
+                $push: {
+                  id: '$_id',
+                  type: 'task',
+                  title: '$title',
+                  subtitle: { $concat: [{ $toString: '$estimatedHours' }, 'h estimated'] },
+                  priority: { $ifNull: ['$priority', 'normal'] },
+                  dueDate: '$dueDate',
+                  progress: { $cond: [{ $eq: ['$status', 'in_progress'] }, 60, 20] },
+                  status: '$status'
+                }
+              }
+            }
+          }
+        ])
+      ]);
 
-          console.log(`StaffService: Member ${member.name} - Orders: ${assignedOrders.length}, Tasks: ${assignedTasks.length}`);
+      const orderMap = new Map(orderSummaries.map((entry) => [String(entry._id), entry]));
+      const taskMap = new Map(taskSummaries.map((entry) => [String(entry._id), entry]));
 
-          return {
-            staffId: member._id,
-            staffName: member.name,
-            assignedOrders: assignedOrders.length,
-            assignedTasks: assignedTasks.length,
-            capacity,
-            utilizationRate: Math.round(utilizationRate),
-            currentTasks: [
-              ...assignedOrders.map(order => ({
-                id: order._id,
-                type: 'order',
-                title: `Order ${order.orderNumber} - ${order.deviceBrand} ${order.deviceModel}`,
-                subtitle: order.services.join(', '),
-                priority: order.priority || 'normal',
-                dueDate: order.estimatedCompletion || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 7 days from now
-                progress: order.progress || (order.status === 'in_progress' ? 50 : 10),
-                status: order.status
-              })),
-              ...assignedTasks.map(task => ({
-                id: task._id,
-                type: 'task',
-                title: task.title,
-                subtitle: `${task.estimatedHours}h estimated`,
-                priority: task.priority,
-                dueDate: task.dueDate,
-                progress: task.status === 'in_progress' ? 60 : 20,
-                status: task.status
-              }))
-            ].slice(0, 10) // Increased limit to show more items
-          };
-        })
-      );
+      const workloadData = staff.map((member) => {
+        const orderSummary = orderMap.get(String(member._id)) || { assignedOrders: 0, items: [] };
+        const taskSummary = taskMap.get(String(member._id)) || { assignedTasks: 0, items: [] };
+        const assignedOrders = Number(orderSummary.assignedOrders || 0);
+        const assignedTasks = Number(taskSummary.assignedTasks || 0);
+        const capacity = 10;
+        const totalAssigned = assignedOrders + assignedTasks;
+        const utilizationRate = Math.min((totalAssigned / capacity) * 100, 100);
+
+        const currentTasks = [
+          ...(Array.isArray(orderSummary.items) ? orderSummary.items : []),
+          ...(Array.isArray(taskSummary.items) ? taskSummary.items : [])
+        ].slice(0, 10);
+
+        return {
+          staffId: member._id,
+          staffName: member.name,
+          assignedOrders,
+          assignedTasks,
+          capacity,
+          utilizationRate: Math.round(utilizationRate),
+          currentTasks
+        };
+      });
 
       console.log('StaffService: Calculated workload for', workloadData.length, 'staff members');
       return workloadData;
@@ -365,24 +405,27 @@ class StaffService {
 
       console.log('StaffService: Found team memberships:', teamMemberships.length);
 
-      // Get assigned orders
-      const assignedOrders = await Order.find({
-        'assignedStaff.staffId': staffId,
-        status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
-      })
-      .select('orderNumber deviceBrand deviceModel status priority createdAt estimatedCompletion progress assignedStaff')
-      .lean();
+      // Get assigned orders and tasks in batch for this staff member
+      const [assignedOrders, assignedTasks, completedOrders] = await Promise.all([
+        Order.find({
+          'assignedStaff.staffId': staffId,
+          status: { $in: ['pending', 'in_progress', 'quality-check', 'awaiting_parts'] }
+        })
+          .select('orderNumber deviceBrand deviceModel status priority createdAt estimatedCompletion progress assignedStaff')
+          .lean(),
+        Task.find({
+          assignedTo: staffId,
+          status: { $in: ['pending', 'in_progress'] }
+        })
+          .select('title description priority status dueDate estimatedHours actualHours')
+          .lean(),
+        Order.countDocuments({
+          'assignedStaff.staffId': staffId,
+          status: 'completed'
+        })
+      ]);
 
       console.log('StaffService: Found assigned orders:', assignedOrders.length);
-
-      // Get assigned tasks
-      const assignedTasks = await Task.find({
-        assignedTo: staffId,
-        status: { $in: ['pending', 'in_progress'] }
-      })
-      .select('title description priority status dueDate estimatedHours actualHours')
-      .lean();
-
       console.log('StaffService: Found assigned tasks:', assignedTasks.length);
 
       // Transform assigned orders to include assignedAt timestamp for this staff member
@@ -473,12 +516,6 @@ class StaffService {
       const assignedTasksCount = assignedTasks.length;
       const capacity = 10;
       const utilizationRate = Math.min(((assignedOrdersCount + assignedTasksCount) / capacity) * 100, 100);
-
-      // Calculate current performance metrics
-      const completedOrders = await Order.countDocuments({
-        'assignedStaff.staffId': staffId,
-        status: 'completed'
-      });
 
       const performance = {
         ordersCompleted: completedOrders,

@@ -255,18 +255,48 @@ class MarketingPromoService {
 
     const [rows, total] = await Promise.all([
       Newsletter.find(filters)
-        .populate('segmentId', 'internalName')
-        .populate('promoCodeIds', 'code internalName status')
-        .populate('campaignId', 'internalName status')
         .sort({ [sortBy]: sortOrder })
         .skip(skip)
         .limit(limit)
+        .select('internalName subject preheader content templateName status scheduledAt segmentId campaignId promoCodeIds createdBy updatedBy createdAt updatedAt')
         .lean(),
       Newsletter.countDocuments(filters),
     ]);
 
+    const segmentIds = [...new Set(rows
+      .map((newsletter) => newsletter.segmentId)
+      .filter(Boolean)
+      .map((id) => String(id)))];
+    const campaignIds = [...new Set(rows
+      .map((newsletter) => newsletter.campaignId)
+      .filter(Boolean)
+      .map((id) => String(id)))];
+    const promoCodeIds = [...new Set(rows
+      .flatMap((newsletter) => Array.isArray(newsletter.promoCodeIds) ? newsletter.promoCodeIds : [])
+      .filter(Boolean)
+      .map((id) => String(id)))];
+
+    const [segments, campaigns, promoCodes] = await Promise.all([
+      segmentIds.length ? MarketingSegment.find({ _id: { $in: segmentIds } }).select('internalName').lean() : [],
+      campaignIds.length ? MarketingCampaign.find({ _id: { $in: campaignIds } }).select('internalName status').lean() : [],
+      promoCodeIds.length ? PromoCode.find({ _id: { $in: promoCodeIds } }).select('code internalName status').lean() : [],
+    ]);
+
+    const segmentMap = new Map(segments.map((segment) => [String(segment._id), segment]));
+    const campaignMap = new Map(campaigns.map((campaign) => [String(campaign._id), campaign]));
+    const promoCodeMap = new Map(promoCodes.map((promoCode) => [String(promoCode._id), promoCode]));
+
+    const hydratedRows = rows.map((newsletter) => ({
+      ...newsletter,
+      segmentId: segmentMap.get(String(newsletter.segmentId)) || newsletter.segmentId || null,
+      campaignId: campaignMap.get(String(newsletter.campaignId)) || newsletter.campaignId || null,
+      promoCodeIds: Array.isArray(newsletter.promoCodeIds)
+        ? newsletter.promoCodeIds.map((promoCodeId) => promoCodeMap.get(String(promoCodeId)) || promoCodeId)
+        : [],
+    }));
+
     return {
-      rows,
+      rows: hydratedRows,
       pagination: {
         page,
         limit,

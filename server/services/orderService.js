@@ -181,21 +181,43 @@ class OrderService {
     try {
       const query = { customerId };
 
-      // Apply filters
       if (filters.status) {
         query.status = filters.status;
       }
 
       const orders = await Order.find(query)
-        .sort({ createdAt: -1 });
+        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType services shopProducts assignedStaff')
+        .sort({ createdAt: -1 })
+        .lean();
 
       console.log('OrderService: Found', orders.length, 'orders for customer');
 
-      // Convert to plain objects and ensure numeric fields are numbers
-      const plainOrders = orders.map(order => {
-        const plain = order.toObject ? order.toObject() : order;
-        
-        // Convert numeric fields from Decimal128 to Number
+      const serviceIds = [...new Set(
+        orders
+          .flatMap((order) => Array.isArray(order.services) ? order.services : [])
+          .map((service) => service?.serviceId)
+          .filter(Boolean)
+          .map((id) => String(id))
+      )];
+      const productIds = [...new Set(
+        orders
+          .flatMap((order) => Array.isArray(order.shopProducts) ? order.shopProducts : [])
+          .map((product) => product?.productId)
+          .filter(Boolean)
+          .map((id) => String(id))
+      )];
+
+      const [serviceDocs, productDocs] = await Promise.all([
+        serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('_id name').lean() : [],
+        productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : []
+      ]);
+
+      const serviceNameMap = new Map(serviceDocs.map((service) => [String(service._id), service.name]));
+      const productNameMap = new Map(productDocs.map((product) => [String(product._id), product.name]));
+
+      const plainOrders = orders.map((order) => {
+        const plain = { ...order };
+
         if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
           plain.totalCost = Number(plain.totalCost);
         }
@@ -203,24 +225,26 @@ class OrderService {
           plain.progress = Number(plain.progress);
         }
 
-        // Transform services array from objects to service names
-        if (plain.services && Array.isArray(plain.services)) {
-          plain.services = plain.services.map(service => {
-            // Handle populated service objects
-            if (typeof service === 'object' && service !== null) {
-              if (service.serviceId && typeof service.serviceId === 'object') {
-                return service.serviceId.name || 'Unknown Service';
+        plain.services = Array.isArray(order.services)
+          ? order.services.map((service) => {
+              if (service && typeof service === 'object') {
+                const serviceId = service.serviceId ? String(service.serviceId) : null;
+                return serviceNameMap.get(serviceId) || service.name || 'Unknown Service';
               }
-              return service.name || 'Unknown Service';
-            }
-            return String(service);
-          });
-        }
+              return String(service);
+            })
+          : [];
+
+        plain.shopProducts = Array.isArray(order.shopProducts)
+          ? order.shopProducts.map((product) => ({
+              ...product,
+              name: productNameMap.get(String(product?.productId)) || product?.name || 'Unknown Product'
+            }))
+          : [];
 
         return plain;
       });
 
-      console.log('OrderService: Orders data:', JSON.stringify(plainOrders, null, 2));
       return plainOrders;
     } catch (error) {
       console.error('OrderService: Error getting customer orders:', error);
@@ -353,24 +377,57 @@ class OrderService {
 
     try {
       const order = await Order.findById(orderId)
-        .populate('customerId', 'name email phone avatar role isActive createdAt');
+        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType services shopProducts assignedStaff guestInfo billingAddress shippingAddress timeline customerEmail customerName')
+        .lean();
 
       if (!order) {
         throw new Error('Order not found');
       }
 
-      console.log('OrderService: Order found:', order.orderNumber);
+      const customer = order.customerId
+        ? await User.findById(order.customerId).select('name email phone avatar role isActive createdAt').lean()
+        : null;
 
-      // Convert to plain object and ensure numeric fields are numbers
-      const plain = order.toObject ? order.toObject() : order;
-      
-      // Convert numeric fields from Decimal128 to Number
+      const serviceIds = [...new Set(
+        Array.isArray(order.services) ? order.services.map((service) => service?.serviceId).filter(Boolean).map((id) => String(id)) : []
+      )];
+      const productIds = [...new Set(
+        Array.isArray(order.shopProducts) ? order.shopProducts.map((product) => product?.productId).filter(Boolean).map((id) => String(id)) : []
+      )];
+
+      const [serviceDocs, productDocs] = await Promise.all([
+        serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('_id name').lean() : [],
+        productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : []
+      ]);
+
+      const serviceNameMap = new Map(serviceDocs.map((service) => [String(service._id), service.name]));
+      const productNameMap = new Map(productDocs.map((product) => [String(product._id), product.name]));
+
+      const plain = { ...order, customerId: customer || order.customerId || null };
+
       if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
         plain.totalCost = Number(plain.totalCost);
       }
       if (plain.progress !== undefined && typeof plain.progress === 'object') {
         plain.progress = Number(plain.progress);
       }
+
+      plain.services = Array.isArray(order.services)
+        ? order.services.map((service) => {
+            if (service && typeof service === 'object') {
+              const serviceId = service.serviceId ? String(service.serviceId) : null;
+              return serviceNameMap.get(serviceId) || service.name || 'Unknown Service';
+            }
+            return String(service);
+          })
+        : [];
+
+      plain.shopProducts = Array.isArray(order.shopProducts)
+        ? order.shopProducts.map((product) => ({
+            ...product,
+            name: productNameMap.get(String(product?.productId)) || product?.name || 'Unknown Product'
+          }))
+        : [];
 
       return plain;
     } catch (error) {
