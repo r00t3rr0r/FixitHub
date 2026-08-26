@@ -27,13 +27,14 @@ export function Home() {
 
   // Detect and save device information on homepage load
   useEffect(() => {
-    console.log('Home: Detecting and saving device information...');
-    saveDeviceInfo();
-  }, []);
+    const run = () => {
+      console.log('Home: Detecting and saving device information...');
+      saveDeviceInfo();
+      getRepairCatalog().then(setRepairCatalog).catch(() => {});
+    };
 
-  // Fetch repair catalog for crawlable link structure (no loading spinner needed)
-  useEffect(() => {
-    getRepairCatalog().then(setRepairCatalog).catch(() => {});
+    const handle = window.setTimeout(run, 150);
+    return () => window.clearTimeout(handle);
   }, []);
 
   // ADCELL Container Tag – Home/Startpage
