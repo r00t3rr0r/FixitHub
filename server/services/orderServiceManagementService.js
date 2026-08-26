@@ -2,6 +2,21 @@ const Order = require('../models/Order');
 const Service = require('../models/Service');
 const { sendNotification } = require('./notificationService');
 
+const toIdString = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '[object Object]' ? '' : trimmed;
+  }
+  if (typeof value === 'object') {
+    if (value._id) return toIdString(value._id);
+    if (value.id) return toIdString(value.id);
+    if (typeof value.toHexString === 'function') return String(value.toHexString());
+    return '';
+  }
+  return String(value).trim();
+};
+
 class OrderServiceManagementService {
   /**
    * Get all services for an order (populated with full details)
@@ -156,8 +171,8 @@ class OrderServiceManagementService {
       const serviceExists = order.services.some((s) => {
         if (!s || typeof s === 'string') return false;
         if (!s.serviceId) return false;
-        const sId = typeof s.serviceId === 'object' ? s.serviceId.toString() : s.serviceId;
-        return sId === serviceId;
+        const sId = toIdString(s.serviceId);
+        return sId === toIdString(serviceId);
       });
 
       if (serviceExists) {

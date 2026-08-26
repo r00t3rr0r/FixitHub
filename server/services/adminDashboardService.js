@@ -7,6 +7,30 @@ const Task = require('../models/Task');
 const { WorkSession } = require('../models/TimeEntry');
 const mongoose = require('mongoose');
 
+const toObjectIdString = (value) => {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '[object Object]') return null;
+    return mongoose.Types.ObjectId.isValid(trimmed) ? trimmed : null;
+  }
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return String(value);
+  }
+
+  if (typeof value === 'object') {
+    return toObjectIdString(value._id || value.id || null);
+  }
+
+  return null;
+};
+
+const uniqueValidObjectIds = (values = []) => {
+  return [...new Set(values.map(toObjectIdString).filter(Boolean))];
+};
+
 /**
  * AdminDashboardService
  * Provides comprehensive data for the Admin Dashboard
@@ -157,7 +181,8 @@ class AdminDashboardService {
     try {
       console.log(`AdminDashboardService: Fetching ${limit} recent notifications`);
 
-      const query = userId ? { userId } : {};
+      const normalizedUserId = toObjectIdString(userId);
+      const query = normalizedUserId ? { userId: normalizedUserId } : {};
 
       const notifications = await Notification.find(query)
         .select('_id userId title message type isRead orderId actionUrl metadata createdAt readAt')
@@ -181,7 +206,7 @@ class AdminDashboardService {
       );
 
       const unreadCount = await Notification.countDocuments({
-        ...(userId ? { userId } : {}),
+        ...(normalizedUserId ? { userId: normalizedUserId } : {}),
         isRead: false
       });
 
@@ -254,11 +279,11 @@ class AdminDashboardService {
           .lean()
       ]);
 
-      const customerIds = [...new Set([
-        ...recentOrders.map((order) => order.customerId).filter(Boolean).map((id) => String(id)),
-        ...recentBookings.map((booking) => booking.customerId).filter(Boolean).map((id) => String(id)),
-        ...recentRequests.map((request) => request.customerId).filter(Boolean).map((id) => String(id))
-      ])];
+      const customerIds = uniqueValidObjectIds([
+        ...recentOrders.map((order) => order.customerId),
+        ...recentBookings.map((booking) => booking.customerId),
+        ...recentRequests.map((request) => request.customerId)
+      ]);
 
       const customerMap = new Map(
         customerIds.length
@@ -463,19 +488,14 @@ class AdminDashboardService {
         return [];
       }
 
-      const customerIds = [...new Set(
-        orders
-          .map((order) => order.customerId)
-          .filter(Boolean)
-          .map((id) => String(id))
-      )];
-      const staffIds = [...new Set(
+      const customerIds = uniqueValidObjectIds(
+        orders.map((order) => order.customerId)
+      );
+      const staffIds = uniqueValidObjectIds(
         orders
           .flatMap((order) => Array.isArray(order.assignedStaff) ? order.assignedStaff : [])
           .map((staff) => staff?.staffId)
-          .filter(Boolean)
-          .map((id) => String(id))
-      )];
+      );
 
       const [customers, staffMembers, durationRows] = await Promise.all([
         customerIds.length ? User.find({ _id: { $in: customerIds } }).select('_id firstName lastName email phone').lean() : [],

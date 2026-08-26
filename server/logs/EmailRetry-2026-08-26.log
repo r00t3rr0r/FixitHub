@@ -1,0 +1,1 @@
+{"timestamp":"2026-08-26T04:17:23.110Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Buchung angelegt) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"2387ms","messageId":"<7401476c-51a2-10dd-d761-8a4cd7eb94c0@mcrepair.de>","to":"customer@example.com"},"pid":51471}

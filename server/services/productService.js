@@ -21,6 +21,23 @@ class ProductService {
         query.inStock = true;
       }
 
+      if (filters.stockFilter === 'lowStock') {
+        query.inStock = true;
+        query.stockCount = { $gt: 0, $lte: 5 };
+      }
+
+      const minPrice = Number(filters.minPrice);
+      const maxPrice = Number(filters.maxPrice);
+      if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+        query.price = {};
+        if (Number.isFinite(minPrice)) {
+          query.price.$gte = minPrice;
+        }
+        if (Number.isFinite(maxPrice)) {
+          query.price.$lte = maxPrice;
+        }
+      }
+
       if (filters.search) {
         query.$or = [
           { name: { $regex: filters.search, $options: 'i' } },

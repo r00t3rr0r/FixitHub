@@ -6,12 +6,39 @@ const Product = require('../models/Product');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 const NotificationService = require('./notificationService');
+const mongoose = require('mongoose');
 
 const toIdString = (value) => {
   if (!value) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object' && value._id) return String(value._id);
-  return String(value);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed === '[object Object]' ? '' : trimmed;
+  }
+  if (value instanceof mongoose.Types.ObjectId) {
+    return String(value);
+  }
+  if (typeof value === 'object') {
+    if (value._id) return toIdString(value._id);
+    if (value.id) return toIdString(value.id);
+    if (typeof value.toHexString === 'function') return String(value.toHexString());
+    return '';
+  }
+  return String(value).trim();
+};
+
+const getUniqueQueryObjectIds = (rawValues = []) => {
+  const seen = new Set();
+  const objectIds = [];
+
+  for (const rawValue of rawValues) {
+    const normalized = toIdString(rawValue);
+    if (!normalized || seen.has(normalized)) continue;
+    if (!mongoose.Types.ObjectId.isValid(normalized)) continue;
+    seen.add(normalized);
+    objectIds.push(normalized);
+  }
+
+  return objectIds;
 };
 
 const getUniqueStaffIds = (staffIds = []) => {
@@ -192,20 +219,16 @@ class OrderService {
 
       console.log('OrderService: Found', orders.length, 'orders for customer');
 
-      const serviceIds = [...new Set(
+      const serviceIds = getUniqueQueryObjectIds(
         orders
           .flatMap((order) => Array.isArray(order.services) ? order.services : [])
           .map((service) => service?.serviceId)
-          .filter(Boolean)
-          .map((id) => String(id))
-      )];
-      const productIds = [...new Set(
+      );
+      const productIds = getUniqueQueryObjectIds(
         orders
           .flatMap((order) => Array.isArray(order.shopProducts) ? order.shopProducts : [])
           .map((product) => product?.productId)
-          .filter(Boolean)
-          .map((id) => String(id))
-      )];
+      );
 
       const [serviceDocs, productDocs] = await Promise.all([
         serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('_id name').lean() : [],
@@ -228,7 +251,7 @@ class OrderService {
         plain.services = Array.isArray(order.services)
           ? order.services.map((service) => {
               if (service && typeof service === 'object') {
-                const serviceId = service.serviceId ? String(service.serviceId) : null;
+                const serviceId = toIdString(service.serviceId);
                 return serviceNameMap.get(serviceId) || service.name || 'Unknown Service';
               }
               return String(service);
@@ -389,10 +412,10 @@ class OrderService {
         : null;
 
       const serviceIds = [...new Set(
-        Array.isArray(order.services) ? order.services.map((service) => service?.serviceId).filter(Boolean).map((id) => String(id)) : []
+        getUniqueQueryObjectIds(Array.isArray(order.services) ? order.services.map((service) => service?.serviceId) : [])
       )];
       const productIds = [...new Set(
-        Array.isArray(order.shopProducts) ? order.shopProducts.map((product) => product?.productId).filter(Boolean).map((id) => String(id)) : []
+        getUniqueQueryObjectIds(Array.isArray(order.shopProducts) ? order.shopProducts.map((product) => product?.productId) : [])
       )];
 
       const [serviceDocs, productDocs] = await Promise.all([
@@ -415,7 +438,7 @@ class OrderService {
       plain.services = Array.isArray(order.services)
         ? order.services.map((service) => {
             if (service && typeof service === 'object') {
-              const serviceId = service.serviceId ? String(service.serviceId) : null;
+              const serviceId = toIdString(service.serviceId);
               return serviceNameMap.get(serviceId) || service.name || 'Unknown Service';
             }
             return String(service);
