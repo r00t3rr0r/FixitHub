@@ -144,7 +144,7 @@ function DeviceTypePage({
 
         <div className="mt-10">
           <button
-            onClick={() => navigate('/new-order')}
+            onClick={() => navigate('/#repair-order-configurator')}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
           >
             Jetzt Reparatur starten
@@ -248,7 +248,7 @@ function ManufacturerPage({
 
         <div className="mt-10">
           <button
-            onClick={() => navigate('/new-order')}
+            onClick={() => navigate('/#repair-order-configurator')}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
           >
             Modell nicht gefunden? Konfigurieren
@@ -452,7 +452,7 @@ function ModelPage({
 
         <div className="mt-6 flex flex-wrap gap-3">
           <button
-            onClick={() => navigate('/new-order')}
+            onClick={() => navigate('/#repair-order-configurator')}
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
           >
             Jetzt Reparatur buchen
@@ -503,7 +503,7 @@ export function RepairCatalogPage() {
     return (
       <main className="container mx-auto px-4 py-20 text-center">
         <h1 className="text-2xl font-bold mb-4">Gerätetyp nicht gefunden</h1>
-        <Link to="/new-order" className="text-primary underline">
+        <Link to="/#repair-order-configurator" className="text-primary underline">
           Zur Reparaturanfrage
         </Link>
       </main>

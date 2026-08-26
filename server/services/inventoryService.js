@@ -59,8 +59,8 @@ class InventoryService {
       }
 
       // Pagination
-      const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 20;
+      const page = Math.max(1, parseInt(filters.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
       const skip = (page - 1) * limit;
 
       // Sorting
@@ -71,27 +71,40 @@ class InventoryService {
 
       console.log('InventoryService: Sorting by', sortBy, 'in', sortOrder === 1 ? 'ascending' : 'descending', 'order');
 
-      const items = await Inventory.find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit);
-
-      const totalItems = await Inventory.countDocuments(query);
-      const totalPages = Math.ceil(totalItems / limit);
-
-      // Calculate total inventory value and low stock count
-      const allItems = await Inventory.find({ isActive: true });
-      let totalValue = 0;
-      let lowStockCount = 0;
-
-      allItems.forEach(item => {
-        item.versions.forEach(version => {
-          totalValue += version.quantity * version.unitCost;
-          if (version.lowStockAlert) {
-            lowStockCount++;
+      const [items, totalItems, statsRows] = await Promise.all([
+        Inventory.find(query)
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Inventory.countDocuments(query),
+        Inventory.aggregate([
+          { $match: { isActive: true } },
+          { $unwind: { path: '$versions', preserveNullAndEmptyArrays: false } },
+          {
+            $group: {
+              _id: null,
+              totalValue: {
+                $sum: {
+                  $multiply: [
+                    { $ifNull: ['$versions.quantity', 0] },
+                    { $ifNull: ['$versions.unitCost', 0] }
+                  ]
+                }
+              },
+              lowStockCount: {
+                $sum: {
+                  $cond: [{ $eq: ['$versions.lowStockAlert', true] }, 1, 0]
+                }
+              }
+            }
           }
-        });
-      });
+        ])
+      ]);
+      const totalPages = Math.ceil(totalItems / limit);
+      const stats = statsRows[0] || { totalValue: 0, lowStockCount: 0 };
+      const totalValue = Number(stats.totalValue) || 0;
+      const lowStockCount = Number(stats.lowStockCount) || 0;
 
       console.log('InventoryService: Found', items.length, 'items out of', totalItems, 'total');
 

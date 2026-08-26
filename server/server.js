@@ -146,6 +146,7 @@ console.log('Loading SeedService...');
 const SeedService = require("./services/seedService");
 console.log('Loading cors...');
 const cors = require("cors");
+const compression = require('compression');
 const { requireCsrfProtection } = require('./routes/middleware/csrf');
 const { applySecurityHeaders } = require('./routes/middleware/securityHeaders');
 
@@ -167,6 +168,8 @@ if (!process.env.REFRESH_TOKEN_SECRET) {
 console.log('Creating Express app...');
 const app = express();
 const port = process.env.PORT || 3000;
+const isDevelopment = process.env.NODE_ENV === 'development';
+const enableVerboseRequestLogs = isDevelopment || process.env.LOG_HTTP_REQUESTS === 'true';
 const parsedRequestLimitMb = Number.parseInt(process.env.MAX_REQUEST_SIZE_MB || '', 10);
 const requestLimitMb = Number.isFinite(parsedRequestLimitMb) && parsedRequestLimitMb > 0 ? parsedRequestLimitMb : 50;
 const requestLimit = `${requestLimitMb}mb`;
@@ -176,11 +179,29 @@ const allowedOrigins = String(process.env.CLIENT_URL || 'http://localhost:5173')
   .map((value) => value.trim())
   .filter(Boolean);
 
+const isPrivateDevOrigin = (origin) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    const isHttp = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    const isPrivateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(parsed.hostname);
+    return isHttp && (isLocalhost || isPrivateIpv4);
+  } catch {
+    return false;
+  }
+};
+
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-// Pretty-print JSON responses
-app.enable('json spaces');
+// Pretty-print JSON only in development to keep production payloads compact.
+if (isDevelopment) {
+  app.enable('json spaces');
+}
 // We want to be consistent with URL paths, so we enable strict routing
 app.enable('strict routing');
 
@@ -191,7 +212,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin) || isPrivateDevOrigin(origin)) {
       return callback(null, true);
     }
 
@@ -204,6 +225,7 @@ app.use(cors({
 // Increase payload size limits to handle large file uploads and data payloads
 app.use(cookieParser());
 app.use(applySecurityHeaders);
+app.use(compression({ threshold: 1024 }));
 app.use(express.json({ limit: requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: requestLimit }));
 app.use(requireCsrfProtection);
@@ -235,24 +257,25 @@ const sanitizeHeadersForLogs = (headers = {}) => {
   return sanitized;
 };
 
-// Add request logging middleware with payload size monitoring
-app.use((req, res, next) => {
-  // Get the content-length header to track request payload size
-  const contentLength = req.headers['content-length'];
-  if (contentLength) {
-    const sizeInMB = (parseInt(contentLength) / (1024 * 1024)).toFixed(2);
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Payload: ${sizeInMB}MB`);
-  } else {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  }
-  console.log('Request headers:', sanitizeHeadersForLogs(req.headers));
-  if (req.body && Object.keys(req.body).length > 0) {
-    const bodySize = JSON.stringify(req.body).length;
-    const bodyMB = (bodySize / (1024 * 1024)).toFixed(2);
-    console.log(`Request body size: ${bodyMB}MB`);
-  }
-  next();
-});
+// Add request logging middleware with payload size monitoring for development.
+if (enableVerboseRequestLogs) {
+  app.use((req, res, next) => {
+    const contentLength = req.headers['content-length'];
+    if (contentLength) {
+      const sizeInMB = (parseInt(contentLength) / (1024 * 1024)).toFixed(2);
+      console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Payload: ${sizeInMB}MB`);
+    } else {
+      console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    }
+    console.log('Request headers:', sanitizeHeadersForLogs(req.headers));
+    if (req.body && Object.keys(req.body).length > 0) {
+      const bodySize = JSON.stringify(req.body).length;
+      const bodyMB = (bodySize / (1024 * 1024)).toFixed(2);
+      console.log(`Request body size: ${bodyMB}MB`);
+    }
+    next();
+  });
+}
 
 // Database connection and auto-seeding
 const initializeDatabase = async () => {

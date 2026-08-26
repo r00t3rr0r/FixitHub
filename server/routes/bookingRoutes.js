@@ -12,7 +12,7 @@ router.get('/', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting bookings for user:', req.user._id, 'Role:', req.user.role);
 
-    const { status, billingStatus, search, startDate, endDate, limit = 20, skip = 0 } = req.query;
+    const { status, billingStatus, search, startDate, endDate, refreshShipping, includeLiveTracking, limit = 20, skip = 0 } = req.query;
 
     const filters = {};
     if (status) filters.status = status;
@@ -20,6 +20,8 @@ router.get('/', requireUser, async (req, res) => {
     if (search) filters.search = search;
     if (startDate) filters.startDate = startDate;
     if (endDate) filters.endDate = endDate;
+    if (typeof refreshShipping !== 'undefined') filters.refreshShipping = refreshShipping;
+    if (typeof includeLiveTracking !== 'undefined') filters.includeLiveTracking = includeLiveTracking;
     filters.limit = parseInt(limit);
     filters.skip = parseInt(skip);
 

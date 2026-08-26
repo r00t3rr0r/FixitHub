@@ -205,6 +205,13 @@ serviceSchema.pre('save', function(next) {
   next();
 });
 
+// Indexes for configurator list filters
+serviceSchema.index({ isActive: 1, category: 1 });
+serviceSchema.index({ isActive: 1, deviceTypes: 1 });
+serviceSchema.index({ isActive: 1, deviceType: 1 });
+serviceSchema.index({ isActive: 1, manufacturerPrecise: 1, modelPrecise: 1 });
+serviceSchema.index({ isActive: 1, popularity: -1, name: 1 });
+
 const Service = mongoose.model('Service', serviceSchema);
 
 module.exports = Service;

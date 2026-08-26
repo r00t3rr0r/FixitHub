@@ -107,6 +107,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [statistics, setStatistics] = useState<NeedListStatistics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [referenceDataLoaded, setReferenceDataLoaded] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -245,24 +246,32 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     loadData();
   }, [statusFilter, priorityFilter, searchQuery]);
 
-  const loadData = async () => {
+  const loadData = async (forceReferenceRefresh = false) => {
     setLoading(true);
     try {
-      const [needListsData, partsData, suppliersData, statsData] = await Promise.all([
+      const [needListsData, statsData] = await Promise.all([
         getNeedLists({
           status: statusFilter || undefined,
           priority: priorityFilter || undefined,
           search: searchQuery || undefined,
+          page: 1,
+          limit: 50,
         }),
-        getParts({ limit: 1000 }),
-        getSuppliers({ isActive: true }),
         getNeedListStatistics(),
       ]);
 
-      setNeedLists(needListsData);
-      setParts(partsData.parts);
-      setSuppliers(suppliersData.suppliers);
+      setNeedLists(needListsData.needLists || []);
       setStatistics(statsData);
+
+      if (forceReferenceRefresh || !referenceDataLoaded) {
+        const [partsData, suppliersData] = await Promise.all([
+          getParts({ page: 1, limit: 200 }),
+          getSuppliers({ isActive: true }),
+        ]);
+        setParts(partsData.parts);
+        setSuppliers(suppliersData.suppliers);
+        setReferenceDataLoaded(true);
+      }
     } catch (error: any) {
       console.error('Error loading need list data:', error);
       toast({

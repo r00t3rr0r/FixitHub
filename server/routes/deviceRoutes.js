@@ -352,6 +352,7 @@ router.get('/models', async (req, res) => {
     console.log('DeviceRoutes: GET /models - query:', req.query);
 
     const { deviceType, manufacturer } = req.query;
+    const lite = req.query.lite === '1' || req.query.lite === 'true';
 
     if (!deviceType || !manufacturer) {
       return res.status(400).json({
@@ -360,7 +361,7 @@ router.get('/models', async (req, res) => {
       });
     }
 
-    const models = await DeviceService.getModelsByTypeAndManufacturer(deviceType, manufacturer);
+    const models = await DeviceService.getModelsByTypeAndManufacturer(deviceType, manufacturer, { lite });
 
     res.json({
       success: true,

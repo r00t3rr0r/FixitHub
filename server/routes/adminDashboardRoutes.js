@@ -6,6 +6,29 @@ const RepairRequestCommunication = require('../models/RepairRequestCommunication
 
 const router = express.Router();
 
+const DASHBOARD_CACHE_TTL_MS = 15 * 1000;
+const dashboardSummaryCache = new Map();
+const customerMessagesCache = new Map();
+
+function getCachedValue(cacheStore, key) {
+  const entry = cacheStore.get(key);
+  if (!entry) return null;
+
+  if (Date.now() - entry.createdAt > DASHBOARD_CACHE_TTL_MS) {
+    cacheStore.delete(key);
+    return null;
+  }
+
+  return entry.payload;
+}
+
+function setCachedValue(cacheStore, key, payload) {
+  cacheStore.set(key, {
+    payload,
+    createdAt: Date.now(),
+  });
+}
+
 // Middleware to check if user is admin
 const requireAdmin = [requireUser, requireRole(['admin'])];
 
@@ -252,6 +275,12 @@ router.get('/summary', requireAdmin, async (req, res) => {
   console.log('AdminDashboard: Get complete summary request from:', req.user.email);
 
   try {
+    const userCacheKey = String(req.user._id || 'admin');
+    const cachedPayload = getCachedValue(dashboardSummaryCache, userCacheKey);
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload);
+    }
+
     // Fetch all dashboard data in parallel for better performance
     const [
       bookings,
@@ -273,7 +302,7 @@ router.get('/summary', requireAdmin, async (req, res) => {
 
     console.log('AdminDashboard: Complete summary retrieved successfully');
 
-    return res.status(200).json({
+    const responsePayload = {
       success: true,
       data: {
         bookings: {
@@ -304,7 +333,10 @@ router.get('/summary', requireAdmin, async (req, res) => {
         },
         systemOverview
       }
-    });
+    };
+
+    setCachedValue(dashboardSummaryCache, userCacheKey, responsePayload);
+    return res.status(200).json(responsePayload);
   } catch (error) {
     console.error('AdminDashboard: Error getting dashboard summary:', error);
     return res.status(500).json({
@@ -324,6 +356,12 @@ router.get('/customer-messages', requireAdmin, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const adminUserId = req.user._id;
+    const userCacheKey = `${String(adminUserId)}:${limit}`;
+
+    const cachedPayload = getCachedValue(customerMessagesCache, userCacheKey);
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload);
+    }
 
     // Fetch from both communication collections in parallel
     const [inspectionComms, repairRequestComms] = await Promise.all([
@@ -391,11 +429,14 @@ router.get('/customer-messages', requireAdmin, async (req, res) => {
     messages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const limited = messages.slice(0, limit);
 
-    return res.status(200).json({
+    const responsePayload = {
       success: true,
       messages: limited,
       totalUnread: messages.length,
-    });
+    };
+
+    setCachedValue(customerMessagesCache, userCacheKey, responsePayload);
+    return res.status(200).json(responsePayload);
   } catch (error) {
     console.error('AdminDashboard: Error getting customer messages:', error);
     return res.status(500).json({

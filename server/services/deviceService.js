@@ -513,21 +513,28 @@ class DeviceService {
           },
         },
         {
+          $group: {
+            _id: '$brandId',
+            count: { $sum: 1 },
+            deviceType: { $first: '$deviceType' },
+          },
+        },
+        {
           $lookup: {
             from: 'devicebrands',
-            localField: 'brandId',
+            localField: '_id',
             foreignField: '_id',
             as: 'brand',
           },
         },
         { $unwind: '$brand' },
         {
-          $group: {
+          $project: {
             _id: '$brand._id',
-            name: { $first: '$brand.name' },
-            logo: { $first: '$brand.logo' },
-            deviceType: { $first: '$deviceType' },
-            count: { $sum: 1 },
+            name: '$brand.name',
+            logo: '$brand.logo',
+            deviceType: '$deviceType',
+            count: '$count',
           },
         },
         { $sort: { name: 1 } },
@@ -541,14 +548,25 @@ class DeviceService {
   }
 
   // Get models by type and manufacturer
-  static async getModelsByTypeAndManufacturer(deviceType, manufacturerId) {
+  static async getModelsByTypeAndManufacturer(deviceType, manufacturerId, options = {}) {
     try {
-      const models = await DeviceModel.find({
+      const lite = options.lite === true;
+      const baseQuery = {
         deviceType,
         brandId: manufacturerId,
         isActive: true,
+      };
+
+      const projection = lite
+        ? 'name brandId deviceType image series year slug synonyms commonProblems modelNumbers images count other.models other.modelNumbers'
+        : undefined;
+
+      const models = await DeviceModel.find({
+        ...baseQuery,
       })
+        .select(projection)
         .populate('brandId', 'name logo')
+        .lean()
         .sort({ name: 1 });
 
       return models.map((model) => {

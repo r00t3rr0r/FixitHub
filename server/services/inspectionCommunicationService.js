@@ -139,12 +139,14 @@ class InspectionCommunicationService {
   // Get communication threads visible to the current user
   static async getCommunicationsForUser(userId, userRole = 'customer', filters = {}) {
     try {
-      const page = parseInt(filters.page, 10) || 1;
-      const limit = parseInt(filters.limit, 10) || 20;
+      const page = Math.max(1, parseInt(filters.page, 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(filters.limit, 10) || 20));
       const skip = (page - 1) * limit;
       const search = (filters.search || '').trim();
 
-      const communicationQuery = {};
+      const communicationQuery = {
+        'messages.0': { $exists: true },
+      };
 
       // Customers can only see communications for their own orders.
       if (userRole !== 'staff' && userRole !== 'admin') {
@@ -183,19 +185,19 @@ class InspectionCommunicationService {
         communicationQuery.orderId = { $in: matchingOrderIds };
       }
 
-      let communications = await InspectionCommunication.find(communicationQuery)
-        .sort({ lastMessageAt: -1, updatedAt: -1 })
-        .populate('createdBy.userId', 'name email avatar')
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
+      const [communications, totalCount] = await Promise.all([
+        InspectionCommunication.find(communicationQuery)
+          .sort({ lastMessageAt: -1, updatedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate('createdBy.userId', 'name email avatar')
+          .populate('messages.senderId', 'name email role avatar')
+          .populate('messages.feedbackRequest.respondedBy', 'name email')
+          .lean(),
+        InspectionCommunication.countDocuments(communicationQuery),
+      ]);
 
-      // Filtere alle Kommunikations-Threads ohne Nachrichten heraus
-      communications = communications.filter(comm => Array.isArray(comm.messages) && comm.messages.length > 0);
-
-      const totalCount = communications.length;
-      const paginatedCommunications = communications.slice(skip, skip + limit);
-
-      const orderIds = paginatedCommunications
+      const orderIds = communications
         .map(comm => comm.orderId)
         .filter(Boolean);
 
@@ -206,7 +208,7 @@ class InspectionCommunicationService {
 
       const orderById = new Map(orders.map(order => [order._id.toString(), order]));
 
-      const normalizedCommunications = paginatedCommunications.map(comm => {
+      const normalizedCommunications = communications.map(comm => {
         const orderId = comm.orderId ? comm.orderId.toString() : null;
         const order = orderId ? orderById.get(orderId) : null;
 

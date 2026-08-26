@@ -65,6 +65,29 @@ const sanitizeMoney = (value) => {
 
 const formatMoney = (value) => sanitizeMoney(value).toFixed(2);
 
+const extractPaypalApiError = (error) => {
+  const data = error?.response?.data;
+  if (!data || typeof data !== 'object') {
+    return undefined;
+  }
+
+  const details = Array.isArray(data.details)
+    ? data.details.map((detail) => ({
+        issue: detail?.issue,
+        description: detail?.description,
+        field: detail?.field,
+        value: detail?.value
+      }))
+    : undefined;
+
+  return {
+    name: data.name,
+    message: data.message,
+    debugId: data.debug_id,
+    details: details && details.length > 0 ? details : undefined
+  };
+};
+
 const getFrontendBaseUrl = () => process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
 
 const roundCurrency = (value) => Number(Number(value || 0).toFixed(2));
@@ -383,8 +406,22 @@ const buildPaypalLineItems = (cart, currencyCode) => {
   return lineItems;
 };
 
-const buildPaypalAmount = (cart, lineItems, currencyCode, sendBreakdown = true) => {
-  const total = sanitizeMoney(cart?.total || 0);
+const buildPaypalAmount = (cart, lineItems, currencyCode, sendBreakdown = true, options = {}) => {
+  const itemTotal = sanitizeMoney(
+    lineItems.reduce((sum, item) => sum + Number(item.unit_amount?.value || 0) * Number(item.quantity || 1), 0)
+  );
+  const discount = sanitizeMoney(cart?.discount || 0);
+  const noShipping = String(options?.shippingPreference || 'NO_SHIPPING').toUpperCase() === 'NO_SHIPPING';
+
+  const fallbackTotal = sanitizeMoney(cart?.total || 0);
+  let shipping = 0;
+
+  if (!noShipping) {
+    shipping = sanitizeMoney(Math.max(0, fallbackTotal - itemTotal + discount));
+  }
+
+  const total = sanitizeMoney(itemTotal + shipping - discount);
+
   if (!sendBreakdown) {
     return {
       currency_code: currencyCode,
@@ -392,35 +429,29 @@ const buildPaypalAmount = (cart, lineItems, currencyCode, sendBreakdown = true) 
     };
   }
 
-  const itemTotal = sanitizeMoney(
-    lineItems.reduce((sum, item) => sum + Number(item.unit_amount?.value || 0) * Number(item.quantity || 1), 0)
-  );
-  const taxTotal = sanitizeMoney(cart?.tax || 0);
-  const discount = sanitizeMoney(cart?.discount || 0);
-  let shipping = sanitizeMoney(total - itemTotal - taxTotal + discount);
-  if (shipping < 0) shipping = 0;
-
-  return {
-    currency_code: currencyCode,
-    value: formatMoney(total),
-    breakdown: {
-      item_total: {
-        currency_code: currencyCode,
-        value: formatMoney(itemTotal)
-      },
-      tax_total: {
-        currency_code: currencyCode,
-        value: formatMoney(taxTotal)
-      },
+  const breakdown = {
+    item_total: {
+      currency_code: currencyCode,
+      value: formatMoney(itemTotal)
+    },
+    ...(noShipping ? {} : {
       shipping: {
         currency_code: currencyCode,
         value: formatMoney(shipping)
-      },
+      }
+    }),
+    ...(discount > 0 ? {
       discount: {
         currency_code: currencyCode,
         value: formatMoney(discount)
       }
-    }
+    } : {})
+  };
+
+  return {
+    currency_code: currencyCode,
+    value: formatMoney(total),
+    breakdown
   };
 };
 
@@ -452,7 +483,6 @@ const buildGuestPaypalPayload = async ({ cartData, guestInfo, currencyCode, send
 
   const lineItems = [];
   let total = 0;
-  let tax = 0;
   const discount = 0;
   const shipping = 0;
 
@@ -530,18 +560,18 @@ const buildGuestPaypalPayload = async ({ cartData, guestInfo, currencyCode, send
             currency_code: currencyCode,
             value: formatMoney(total)
           },
-          tax_total: {
-            currency_code: currencyCode,
-            value: formatMoney(tax)
-          },
-          shipping: {
-            currency_code: currencyCode,
-            value: formatMoney(shipping)
-          },
-          discount: {
-            currency_code: currencyCode,
-            value: formatMoney(discount)
-          }
+          ...(shipping > 0 ? {
+            shipping: {
+              currency_code: currencyCode,
+              value: formatMoney(shipping)
+            }
+          } : {}),
+          ...(discount > 0 ? {
+            discount: {
+              currency_code: currencyCode,
+              value: formatMoney(discount)
+            }
+          } : {})
         }
       }
     : {
@@ -710,7 +740,26 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
     };
 
     if (!hasGroupDiscount && config.send_breakdown !== false) {
-      purchaseUnit.amount = buildPaypalAmount(cart, lineItems, currencyCode, true);
+      const lineItemsTotal = sanitizeMoney(
+        lineItems.reduce((sum, item) => sum + Number(item.unit_amount?.value || 0) * Number(item.quantity || 1), 0)
+      );
+      const paypalDiscount = sanitizeMoney(Math.max(0, lineItemsTotal - discountedTotal));
+      purchaseUnit.amount = {
+        currency_code: currencyCode,
+        value: formatMoney(discountedTotal),
+        breakdown: {
+          item_total: {
+            currency_code: currencyCode,
+            value: formatMoney(lineItemsTotal)
+          },
+          ...(paypalDiscount > 0 ? {
+            discount: {
+              currency_code: currencyCode,
+              value: formatMoney(paypalDiscount)
+            }
+          } : {})
+        }
+      };
       purchaseUnit.items = lineItems;
     }
 
@@ -779,10 +828,12 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
   } catch (error) {
     console.error('CheckoutRoutes: Error creating PayPal order:', error?.response?.data || error);
     const missingFields = error?.missingFields;
+    const paypalError = extractPaypalApiError(error);
     return res.status(400).json({
       success: false,
       error: error.message || 'Failed to create PayPal order.',
-      missingFields: missingFields || undefined
+      missingFields: missingFields || undefined,
+      paypalError
     });
   }
 });
@@ -888,10 +939,12 @@ router.post('/paypal/guest/create-order', async (req, res) => {
     });
   } catch (error) {
     console.error('CheckoutRoutes: Error creating guest PayPal order:', error?.response?.data || error);
+    const paypalError = extractPaypalApiError(error);
     return res.status(400).json({
       success: false,
       error: error.message || 'Failed to create guest PayPal order.',
-      missingFields: error?.missingFields || undefined
+      missingFields: error?.missingFields || undefined,
+      paypalError
     });
   }
 });
@@ -2323,3 +2376,4 @@ router.post('/guest-complete', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.buildPaypalAmount = buildPaypalAmount;

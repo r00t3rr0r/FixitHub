@@ -2,6 +2,25 @@ const Service = require('../models/Service.js');
 const { DeviceType } = require('../models/Device.js');
 
 class ServiceService {
+  static deviceTypeCache = {
+    expiresAt: 0,
+    value: null,
+  };
+
+  static async getCachedDeviceTypes() {
+    const now = Date.now();
+    if (ServiceService.deviceTypeCache.value && ServiceService.deviceTypeCache.expiresAt > now) {
+      return ServiceService.deviceTypeCache.value;
+    }
+
+    const allDT = await DeviceType.find({ isActive: true }).lean();
+    ServiceService.deviceTypeCache = {
+      value: allDT,
+      expiresAt: now + 5 * 60 * 1000,
+    };
+    return allDT;
+  }
+
   static async list(filters = {}, pagination = {}, sorting = {}) {
     try {
       console.log('ServiceService: Listing services with filters:', filters, 'pagination:', pagination, 'sorting:', sorting);
@@ -25,7 +44,7 @@ class ServiceService {
         const typeVariants = new Set([rawType, lowerType]);
 
         try {
-          const allDT = await DeviceType.find({ isActive: true }).lean();
+          const allDT = await ServiceService.getCachedDeviceTypes();
           for (const dt of allDT) {
             const key = String(dt._id || '').trim();
             const name = String(dt.name || '').trim();
@@ -132,7 +151,7 @@ class ServiceService {
 
       // Execute query with pagination and sorting
       const [services, total] = await Promise.all([
-        Service.find(query).sort(sortObj).skip(skip).limit(limit),
+        Service.find(query).sort(sortObj).skip(skip).limit(limit).lean(),
         Service.countDocuments(query)
       ]);
 

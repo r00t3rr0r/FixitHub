@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { RepairOrderConfigurator } from './RepairOrderConfigurator';
@@ -14,6 +15,15 @@ export function DeviceSelectionHero({
   subtitle
 }: DeviceSelectionHeroProps) {
   const { t } = useTranslation();
+  const [shouldLoadConfigurator, setShouldLoadConfigurator] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShouldLoadConfigurator(true);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <section className="hero" id="hero">
@@ -67,14 +77,31 @@ export function DeviceSelectionHero({
                 style={{ textDecoration: 'none', color: 'inherit', flex: '1 1 100%', width: '100%' }}
               >
                 <h4>Individuelle Smartphone Reparatur anfragen</h4>
-                <p style={{ whiteSpace: 'nowrap' }}>Gerät nicht gefunden? Senden Sie uns eine Reparaturanfrage – wir helfen Ihnen weiter.</p>
+                <p style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  Gerät nicht gefunden? Senden Sie uns eine Reparaturanfrage – wir helfen Ihnen weiter.
+                </p>
               </Link>
             </div>
 
           </div>
 
           {/* Right Column: Repair Order Configurator with all 5 steps */}
-          <RepairOrderConfigurator />
+          {shouldLoadConfigurator ? (
+            <RepairOrderConfigurator />
+          ) : (
+            <div className="w-full max-w-[520px] min-h-[540px] rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur-sm">
+              <div className="flex flex-col gap-3 animate-pulse">
+                <div className="h-4 w-28 rounded bg-white/10" />
+                <div className="h-10 w-full rounded bg-white/10" />
+                <div className="grid grid-cols-2 gap-3 pt-3">
+                  <div className="h-24 rounded-2xl bg-white/10" />
+                  <div className="h-24 rounded-2xl bg-white/10" />
+                </div>
+                <div className="h-12 w-full rounded bg-white/10" />
+                <div className="h-12 w-full rounded bg-white/10" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>

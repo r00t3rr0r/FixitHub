@@ -56,8 +56,23 @@ const safeArray = (v: unknown) => (Array.isArray(v) ? v : [])
 const toId = (value: any): string => {
   if (!value) return ""
   if (typeof value === "string") return value
-  if (typeof value === "object" && value._id) return String(value._id)
-  return String(value)
+  if (typeof value === "object" && value._id) return toId(value._id)
+  if (typeof value === "object" && value.id) return toId(value.id)
+  try {
+    return String(value)
+  } catch {
+    return ""
+  }
+}
+
+const toText = (value: any): string => {
+  if (value == null) return ""
+  if (typeof value === "string") return value
+  try {
+    return String(value)
+  } catch {
+    return ""
+  }
 }
 
 const isAssignedToStaff = (entity: any, staffId?: string) => {
@@ -70,7 +85,7 @@ const isAssignedToStaff = (entity: any, staffId?: string) => {
     entity?.assignedStaffId ??
     entity?.assignedTo?._id ??
     entity?.assignedTo
-  return toId(assignedId) === String(staffId)
+  return toId(assignedId) === toId(staffId)
 }
 
 const isUnassignedRepairRequest = (entity: any) => {
@@ -176,7 +191,7 @@ const getOrderAssignmentDate = (order: any, staffId?: string) => {
   if (!order) return undefined
   if (Array.isArray(order.assignedStaff) && staffId) {
     const match = order.assignedStaff.find((staff: any) =>
-      toId(staff?.staffId ?? staff?._id ?? staff?.id ?? staff) === String(staffId)
+      toId(staff?.staffId ?? staff?._id ?? staff?.id ?? staff) === toId(staffId)
     )
     if (match?.assignedAt) return match.assignedAt
   }
@@ -184,7 +199,7 @@ const getOrderAssignmentDate = (order: any, staffId?: string) => {
 }
 
 const isOpenStatus = (status?: string) => {
-  const value = String(status || "").toLowerCase()
+  const value = toText(status).toLowerCase()
   return !["completed", "done", "cancelled", "canceled", "resolved", "closed"].includes(value)
 }
 
@@ -201,7 +216,7 @@ const getDeadlineState = (value?: string | Date | null) => {
 const listPreview = (items: string[], limit = 2) => items.slice(0, limit).join(", ")
 
 const normalizeWorkflowStatus = (status?: string) => {
-  const value = String(status || "").toLowerCase()
+  const value = toText(status).toLowerCase()
   if (value === "in_progress") return "in-progress"
   return value || "not-started"
 }
@@ -279,7 +294,7 @@ const getWorkflowSortWeight = (status?: string) => {
 const isWorkflowAssignedToStaff = (workflow: any, staffId?: string) => {
   if (!staffId || !workflow) return false
 
-  const normalizedStaffId = String(staffId)
+  const normalizedStaffId = toId(staffId)
   const workflowAssignedIds = [
     workflow?.assignedStaffId?._id,
     workflow?.assignedStaffId,
@@ -308,7 +323,7 @@ const isWorkflowAssignedToStaff = (workflow: any, staffId?: string) => {
 }
 
 const statusDot = (status: string) => {
-  const s = String(status || "").toLowerCase()
+  const s = toText(status).toLowerCase()
   if (s === "in-progress" || s === "in_progress" || s === "active") return "staff-dash-dot--blue"
   if (s === "completed" || s === "done") return "staff-dash-dot--green"
   if (s === "urgent" || s === "high") return "staff-dash-dot--red"
@@ -544,7 +559,7 @@ export function StaffDashboard() {
   const handleOpenRepairRequestDetails = (request: any) => {
     const requestId = request?._id
     if (!requestId) return
-    navigate(`/staff/repair-requests?requestId=${encodeURIComponent(String(requestId))}`)
+    navigate(`/staff/repair-requests?requestId=${encodeURIComponent(toText(requestId))}`)
   }
 
   useEffect(() => {
@@ -569,7 +584,7 @@ export function StaffDashboard() {
   }, [])
 
   const derived = useMemo(() => {
-    const myStaffId = user?._id || ""
+    const myStaffId = toId(user?._id)
     const assignedRepairRequests = data.repairRequests.filter((r: any) => isAssignedToStaff(r, myStaffId))
     const unassignedRepairRequests = data.repairRequests.filter((r: any) => isUnassignedRepairRequest(r))
     const unassignedOrders = data.unassignedOrders
@@ -588,13 +603,13 @@ export function StaffDashboard() {
       return bDate - aDate
     })
     const inProgress = data.orders.filter((o: any) =>
-      ["in-progress", "in_progress", "active"].includes(String(o?.status || "").toLowerCase())
+      ["in-progress", "in_progress", "active"].includes(toText(o?.status).toLowerCase())
     ).length
     const completed = data.orders.filter((o: any) =>
-      ["completed", "done"].includes(String(o?.status || "").toLowerCase())
+      ["completed", "done"].includes(toText(o?.status).toLowerCase())
     ).length
     const urgent = data.orders.filter((o: any) =>
-      ["urgent", "high"].includes(String(o?.priority || "").toLowerCase())
+      ["urgent", "high"].includes(toText(o?.priority).toLowerCase())
     ).length
     const pendingRepairs = unassignedRepairRequests.length
     const myTasksCount = data.orders.length + assignedRepairRequests.length
@@ -620,8 +635,8 @@ export function StaffDashboard() {
             : []),
         ]
           .filter(Boolean)
-          .map((value: any) => String(value))
-        const isDirectWorkflowAssignment = Boolean(myStaffId) && workflowAssignedIds.includes(String(myStaffId))
+          .map(toId)
+        const isDirectWorkflowAssignment = Boolean(myStaffId) && workflowAssignedIds.includes(myStaffId)
 
         return {
           id: `${orderId}-${toId(workflow?._id || workflow?.workflowTemplateId || workflow?.workflowName)}`,
@@ -638,8 +653,8 @@ export function StaffDashboard() {
           activeStepLabel: currentStep?.stepName || currentStep?.name || t('staffDashboard.noStepDefined'),
           createdAt: workflow?.startedAt || order?.updatedAt || order?.createdAt,
           updatedAt: workflow?.pausedAt || workflow?.completedAt || order?.updatedAt || order?.createdAt,
-          orderPriority: String(order?.priority || ""),
-          orderStatus: String(order?.status || ""),
+          orderPriority: toText(order?.priority),
+          orderStatus: toText(order?.status),
           progressPercentage: progress.percentage,
           completedSteps: progress.completedSteps,
           totalSteps: progress.totalSteps,
@@ -650,8 +665,8 @@ export function StaffDashboard() {
         const byStatus = getWorkflowSortWeight(a.workflowStatus) - getWorkflowSortWeight(b.workflowStatus)
         if (byStatus !== 0) return byStatus
 
-        const priorityA = ["urgent", "high"].includes(String(a.orderPriority || "").toLowerCase()) ? 0 : 1
-        const priorityB = ["urgent", "high"].includes(String(b.orderPriority || "").toLowerCase()) ? 0 : 1
+        const priorityA = ["urgent", "high"].includes(toText(a.orderPriority).toLowerCase()) ? 0 : 1
+        const priorityB = ["urgent", "high"].includes(toText(b.orderPriority).toLowerCase()) ? 0 : 1
         if (priorityA !== priorityB) return priorityA - priorityB
 
         return toTimestamp(b.updatedAt || b.createdAt) - toTimestamp(a.updatedAt || a.createdAt)
@@ -677,7 +692,7 @@ export function StaffDashboard() {
       .sort((a: any, b: any) => toTimestamp(b.when) - toTimestamp(a.when))
 
     const unreadNotificationMessages = data.notifications.filter((notification: any) =>
-      String(notification?.type || "").toLowerCase() === "message" && !isNotificationRead(notification)
+      toText(notification?.type).toLowerCase() === "message" && !isNotificationRead(notification)
     )
     const unreadTeamChatRooms = data.chatRooms.filter((room: any) => Number(room?.unreadCount || 0) > 0)
     const unreadTeamChatMessages = unreadTeamChatRooms.reduce(
@@ -703,12 +718,12 @@ export function StaffDashboard() {
       .filter((request: any) => request.isOverdue || request.isDueSoon)
 
     const statusUpdates = data.notifications.filter((notification: any) => {
-      const type = String(notification?.type || "").toLowerCase()
+      const type = toText(notification?.type).toLowerCase()
       return type === "order_update" && (!isNotificationRead(notification) || isRecent(notification?.createdAt, 72))
     })
 
     const unavailableTeamMembers = data.teamMembers.filter((member: any) =>
-      toId(member?._id) !== String(myStaffId) && ["inactive", "on_leave"].includes(String(member?.status || "").toLowerCase())
+      toId(member?._id) !== myStaffId && ["inactive", "on_leave"].includes(toText(member?.status).toLowerCase())
     )
 
     const dashboardHints: DashboardHint[] = []
@@ -758,7 +773,7 @@ export function StaffDashboard() {
         title: overdueEntries.length > 0 ? t('staffDashboard.overdueDeadlines') : t('staffDashboard.openDeadlines'),
         description: deadlineDescription,
         badge: deadlineLabel,
-        path: overdueEntries.some((entry: any) => String(entry.label).startsWith("RR #")) ? "/staff/repair-requests" : "/staff/orders",
+        path: overdueEntries.some((entry: any) => toText(entry.label).startsWith("RR #")) ? "/staff/repair-requests" : "/staff/orders",
         isUrgent: overdueEntries.length > 0,
       })
     }
@@ -959,7 +974,7 @@ export function StaffDashboard() {
                   <p className="staff-dash-empty">{t('staffDashboard.noPendingWorkflows')}</p>
                 )}
                 {derived.pendingWorkflows.slice(0, 8).map((workflow: DashboardWorkflowItem) => {
-                  const isUrgent = ["urgent", "high"].includes(String(workflow.orderPriority || "").toLowerCase())
+                  const isUrgent = ["urgent", "high"].includes(toText(workflow.orderPriority).toLowerCase())
 
                   return (
                     <button
@@ -1021,7 +1036,7 @@ export function StaffDashboard() {
                   <p className="staff-dash-empty">{t('staffDashboard.noWorkflowsToProcess')}</p>
                 )}
                 {derived.actionableWorkflows.slice(0, 8).map((workflow: DashboardWorkflowItem) => {
-                  const isUrgent = ["urgent", "high"].includes(String(workflow.orderPriority || "").toLowerCase())
+                  const isUrgent = ["urgent", "high"].includes(toText(workflow.orderPriority).toLowerCase())
                   const progressClass = workflow.workflowStatus === "on-hold"
                     ? "staff-dash-progress-fill staff-dash-progress-fill--yellow"
                     : "staff-dash-progress-fill"
@@ -1095,7 +1110,7 @@ export function StaffDashboard() {
                     const device = req.device
                       ? `${req.device.brand || ""} ${req.device.model || ""}`.trim() || req.device.type || t('staffDashboard.device')
                       : `${req.deviceBrand || ""} ${req.deviceModel || ""}`.trim() || req.deviceType || t('staffDashboard.device')
-                    const isUrgent = ["urgent", "high"].includes(String(req.priority || req.urgency || "").toLowerCase())
+                    const isUrgent = ["urgent", "high"].includes(toText(req.priority ?? req.urgency).toLowerCase())
                     return (
                       <button
                         key={`repair-${req._id || req.requestNumber}`}
@@ -1128,7 +1143,7 @@ export function StaffDashboard() {
                   const device = order.device
                     ? `${order.device.brand || ""} ${order.device.model || ""}`.trim() || order.device.type || t('staffDashboard.device')
                     : order.deviceType || t('staffDashboard.device')
-                  const isUrgent = ["urgent", "high"].includes(String(order.priority || "").toLowerCase())
+                  const isUrgent = ["urgent", "high"].includes(toText(order.priority).toLowerCase())
                   return (
                     <button
                       key={`order-${order._id || order.orderNumber}`}

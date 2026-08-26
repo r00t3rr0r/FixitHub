@@ -29,17 +29,17 @@ export function HeroSection({
   const defaultButtons = [
     {
       label: t('home.hero.mobileRepair'),
-      link: '/new-order',
+      link: '/#repair-order-configurator',
       variant: 'default' as const
     },
     {
       label: t('home.hero.tabletRepair'),
-      link: '/new-order',
+      link: '/#repair-order-configurator',
       variant: 'default' as const
     },
     {
       label: t('home.hero.notebookRepair'),
-      link: '/new-order',
+      link: '/#repair-order-configurator',
       variant: 'default' as const
     }
   ];

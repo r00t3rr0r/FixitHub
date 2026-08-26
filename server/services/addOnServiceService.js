@@ -1,9 +1,13 @@
 const AddOnService = require('../models/AddOnService.js');
+const isDevelopment = process.env.NODE_ENV === 'development';
+const enableServiceLogs = isDevelopment || process.env.LOG_SERVICE_DETAILS === 'true';
 
 class AddOnServiceService {
   static async list(filters = {}) {
     try {
-      console.log('AddOnServiceService: Listing add-on services with filters:', filters);
+      if (enableServiceLogs) {
+        console.log('AddOnServiceService: Listing add-on services with filters:', filters);
+      }
 
       const query = { isActive: true };
 
@@ -18,8 +22,8 @@ class AddOnServiceService {
       }
 
       // Extract pagination parameters with defaults
-      const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 10;
+      const page = Math.max(1, parseInt(filters.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 10));
       const skip = (page - 1) * limit;
 
       // Extract sorting parameters with defaults
@@ -27,20 +31,23 @@ class AddOnServiceService {
       const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
       const sortObj = { [sortBy]: sortOrder };
 
-      console.log(`AddOnServiceService: Pagination - page: ${page}, limit: ${limit}, skip: ${skip}`);
-      console.log(`AddOnServiceService: Sorting - sortBy: ${sortBy}, sortOrder: ${sortOrder}`);
+      if (enableServiceLogs) {
+        console.log(`AddOnServiceService: Pagination - page: ${page}, limit: ${limit}, skip: ${skip}`);
+        console.log(`AddOnServiceService: Sorting - sortBy: ${sortBy}, sortOrder: ${sortOrder}`);
+      }
 
-      // Get total count for pagination
-      const total = await AddOnService.countDocuments(query);
-      console.log(`AddOnServiceService: Total matching documents: ${total}`);
+      const [total, addOnServices] = await Promise.all([
+        AddOnService.countDocuments(query),
+        AddOnService.find(query)
+          .sort(sortObj)
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ]);
 
-      // Fetch paginated and sorted results
-      const addOnServices = await AddOnService.find(query)
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limit);
-
-      console.log(`AddOnServiceService: Returning ${addOnServices.length} add-on services`);
+      if (enableServiceLogs) {
+        console.log(`AddOnServiceService: Returning ${addOnServices.length} add-on services`);
+      }
 
       // Calculate pagination metadata
       const totalPages = Math.ceil(total / limit);

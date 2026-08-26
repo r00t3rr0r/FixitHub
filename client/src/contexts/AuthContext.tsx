@@ -119,6 +119,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth state on mount
   useEffect(() => {
     let isMounted = true;
+    const accessToken = localStorage.getItem('accessToken');
+
+    if (!accessToken) {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsHydrated(true);
+      return () => {
+        isMounted = false;
+      };
+    }
 
     const hydrateAuth = async () => {
       try {

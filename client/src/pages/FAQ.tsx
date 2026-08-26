@@ -40,6 +40,7 @@ export function FAQ() {
   const [groupedFAQs, setGroupedFAQs] = useState<Record<string, FAQType[]>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [expandedFAQs, setExpandedFAQs] = useState<Set<string>>(new Set());
 
@@ -55,26 +56,47 @@ export function FAQ() {
   ];
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchFAQs = async () => {
+      try {
+        setLoading(true);
+        const filters = {
+          category: selectedCategory !== 'all' ? selectedCategory : undefined,
+          search: debouncedSearchTerm || undefined,
+          isActive: true
+        };
+
+        const response = await getFAQs(filters, { signal: controller.signal });
+        setGroupedFAQs(response.groupedFAQs || {});
+      } catch (error: any) {
+        if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+          return;
+        }
+        console.error('Error fetching FAQs:', error);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
     fetchFAQs();
-  }, [selectedCategory, searchTerm]);
 
-  const fetchFAQs = async () => {
-    try {
-      setLoading(true);
-      const filters = {
-        category: selectedCategory !== 'all' ? selectedCategory : undefined,
-        search: searchTerm || undefined,
-        isActive: true
-      };
-
-      const response = await getFAQs(filters);
-      setGroupedFAQs(response.groupedFAQs || {});
-    } catch (error) {
-      console.error('Error fetching FAQs:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      controller.abort();
+    };
+  }, [selectedCategory, debouncedSearchTerm]);
 
   const toggleFAQ = (faqId: string) => {
     setExpandedFAQs(prev => {

@@ -10,6 +10,51 @@ const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
 class BookingService {
+  static shouldRefreshShipping(filters = {}) {
+    const value = String(
+      filters.refreshShipping ?? filters.includeLiveTracking ?? ''
+    ).toLowerCase();
+
+    return value === '1' || value === 'true' || value === 'yes';
+  }
+
+  static async applyLiveShippingTracking(bookings = [], maxItems = 10) {
+    if (!Array.isArray(bookings) || bookings.length === 0) {
+      return bookings;
+    }
+
+    const candidates = bookings
+      .filter(
+        (booking) =>
+          booking?.trackingNumber &&
+          !this.isDummyBookingTrackingNumber(booking.trackingNumber)
+      )
+      .slice(0, maxItems);
+
+    await Promise.all(
+      candidates.map(async (booking) => {
+        try {
+          const trackingInfo = await DHLService.getTrackingInfo(booking.trackingNumber);
+          const mappedStatus = this.mapTrackingStatusToBookingStatus(
+            trackingInfo.status || trackingInfo.statusCodeRaw
+          );
+
+          if (mappedStatus) booking.shippingStatus = mappedStatus;
+          if (trackingInfo.description) booking.shippingStatusDescription = trackingInfo.description;
+          if (trackingInfo.estimatedDelivery) booking.estimatedDelivery = trackingInfo.estimatedDelivery;
+        } catch (trackingError) {
+          console.error(
+            'BookingService: Failed to refresh shipping status for booking:',
+            booking._id,
+            trackingError.message
+          );
+        }
+      })
+    );
+
+    return bookings;
+  }
+
   static normalizeAddress(address) {
     if (!address || typeof address !== 'object') return null;
 
@@ -958,9 +1003,21 @@ class BookingService {
       const booking = await Booking.findById(bookingId)
         .setOptions({ skipAutoPopulate: true })
         .populate('customerId', 'firstName lastName name email phone avatar invoiceAddress paymentAddress')
-        .populate('orderIds')
-        .populate('repairOrderIds')
-        .populate('shopProductOrderId');
+        .populate({
+          path: 'orderIds',
+          select: 'orderNumber status totalCost progress deviceType deviceBrand deviceModel paymentStatus',
+          options: { skipAutoPopulate: true },
+        })
+        .populate({
+          path: 'repairOrderIds',
+          select: 'orderNumber status totalCost progress deviceBrand deviceModel paymentStatus',
+          options: { skipAutoPopulate: true },
+        })
+        .populate({
+          path: 'shopProductOrderId',
+          select: 'orderNumber status totalCost progress paymentStatus',
+          options: { skipAutoPopulate: true },
+        });
 
       if (!booking) {
         console.log('BookingService: Booking not found:', bookingId);
@@ -994,7 +1051,9 @@ class BookingService {
 
     const matchingOrders = await Order.find({
       orderNumber: orderRegex,
-    }).select('_id');
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id');
     const matchingOrderIds = matchingOrders.map((order) => order._id);
 
     return [
@@ -1068,6 +1127,7 @@ class BookingService {
       }
 
       const bookings = await Booking.find(query)
+        .setOptions({ skipAutoPopulate: true })
         .populate('customerId', 'firstName lastName email phone avatar name')
         .sort({ createdAt: -1 })
         .limit(filters.limit || 50)
@@ -1122,84 +1182,92 @@ class BookingService {
         ])
       );
 
+      const allOrders = bookingIds.length
+        ? await Order.find({ bookingId: { $in: bookingIds } })
+            .setOptions({ skipAutoPopulate: true })
+            .select('_id bookingId status progress')
+            .lean()
+        : [];
+
+      const ordersByBookingId = new Map();
+      const directOrderIds = [];
+
+      allOrders.forEach((order) => {
+        const bookingKey = String(order.bookingId);
+        if (!ordersByBookingId.has(bookingKey)) {
+          ordersByBookingId.set(bookingKey, []);
+        }
+
+        ordersByBookingId.get(bookingKey).push(order);
+        directOrderIds.push(order._id);
+      });
+
+      const complaintParents = directOrderIds.length
+        ? await Order.aggregate([
+            {
+              $match: {
+                isComplaintFollowup: true,
+                parentOrderId: { $in: directOrderIds },
+              },
+            },
+            {
+              $group: {
+                _id: '$parentOrderId',
+              },
+            },
+          ])
+        : [];
+
+      const complaintParentIdSet = new Set(
+        complaintParents.map((entry) => String(entry._id))
+      );
+
       // Calculate real-time progress for all bookings from their associated orders
-      const bookingsWithProgress = await Promise.all(
-        bookings.map(async (booking) => {
-          try {
-            // Get all orders for this booking
-            const allOrders = await Order.find({ bookingId: booking._id });
+      const bookingsWithProgress = bookings.map((booking) => {
+        try {
+          const bookingPlain = booking.toObject({ virtuals: true });
+          const bookingKey = String(booking._id);
+          const bookingOrders = ordersByBookingId.get(bookingKey) || [];
+          const invoiceSummary = invoiceSummaryByBookingId.get(bookingKey);
 
-            // Convert to plain object so we can attach computed fields freely
-            const bookingPlain = booking.toObject({ virtuals: true });
-            const invoiceSummary = invoiceSummaryByBookingId.get(String(booking._id));
+          if (invoiceSummary) {
+            const receivableOpen = Math.max(
+              0,
+              invoiceSummary.receivableTotal - invoiceSummary.receivablePaid
+            );
+            const customerCreditOpen = Math.max(
+              0,
+              invoiceSummary.creditTotal - invoiceSummary.creditPaid
+            );
 
-            if (invoiceSummary) {
-              const receivableOpen = Math.max(
-                0,
-                invoiceSummary.receivableTotal - invoiceSummary.receivablePaid
-              );
-              const customerCreditOpen = Math.max(
-                0,
-                invoiceSummary.creditTotal - invoiceSummary.creditPaid
-              );
+            bookingPlain.invoiceOpenAmount = receivableOpen;
+            bookingPlain.customerCreditOpenAmount = customerCreditOpen;
+            bookingPlain.netOpenAmount = receivableOpen - customerCreditOpen;
+          }
 
-              bookingPlain.invoiceOpenAmount = receivableOpen;
-              bookingPlain.customerCreditOpenAmount = customerCreditOpen;
-              bookingPlain.netOpenAmount = receivableOpen - customerCreditOpen;
-            }
-
-            if (allOrders.length === 0) {
-              if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
-                try {
-                  const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
-                  const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
-
-                  if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
-                  if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
-                  if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
-                } catch (trackingError) {
-                  console.error('BookingService: Failed to refresh shipping status in getAllBookings for booking:', booking._id, trackingError.message);
-                }
-              }
-
-              return bookingPlain;
-            }
-
-            // Calculate overall progress from all orders
+          if (bookingOrders.length > 0) {
             let totalProgress = 0;
-            allOrders.forEach(order => {
+            bookingOrders.forEach((order) => {
               totalProgress += this.resolveOrderProgress(order);
             });
-            bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
 
-            // Check for complaint follow-up orders linked to any direct order of this booking
-            const directOrderIds = allOrders.map(o => o._id);
-            const complaintOrderCount = await Order.countDocuments({
-              isComplaintFollowup: true,
-              parentOrderId: { $in: directOrderIds }
-            });
-            bookingPlain.hasComplaintOrders = complaintOrderCount > 0;
-
-            if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
-              try {
-                const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
-                const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
-
-                if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
-                if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
-                if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
-              } catch (trackingError) {
-                console.error('BookingService: Failed to refresh shipping status in getAllBookings for booking:', booking._id, trackingError.message);
-              }
-            }
-
-            return bookingPlain;
-          } catch (error) {
-            console.error('BookingService: Error calculating progress for booking:', booking._id, error);
-            return booking.toObject({ virtuals: true });
+            bookingPlain.overallProgress = Math.round(totalProgress / bookingOrders.length);
           }
-        })
-      );
+
+          bookingPlain.hasComplaintOrders = bookingOrders.some((order) =>
+            complaintParentIdSet.has(String(order._id))
+          );
+
+          return bookingPlain;
+        } catch (error) {
+          console.error('BookingService: Error calculating progress for booking:', booking._id, error);
+          return booking.toObject({ virtuals: true });
+        }
+      });
+
+      if (this.shouldRefreshShipping(filters)) {
+        await this.applyLiveShippingTracking(bookingsWithProgress);
+      }
 
       console.log('BookingService: Calculated real-time progress for all bookings');
       return bookingsWithProgress;
@@ -1227,60 +1295,51 @@ class BookingService {
       }
 
       const bookings = await Booking.find(query)
+        .setOptions({ skipAutoPopulate: true })
         .sort({ createdAt: -1 })
         .limit(filters.limit || 50)
         .skip(filters.skip || 0);
 
-      const bookingsWithProgress = await Promise.all(
-        bookings.map(async (booking) => {
-          try {
-            const allOrders = await Order.find({ bookingId: booking._id });
-            const bookingPlain = booking.toObject({ virtuals: true });
+      const bookingIds = bookings.map((booking) => booking._id);
+      const allOrders = bookingIds.length
+        ? await Order.find({ bookingId: { $in: bookingIds } })
+            .setOptions({ skipAutoPopulate: true })
+            .select('_id bookingId status progress')
+            .lean()
+        : [];
 
-            if (allOrders.length === 0) {
-              if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
-                try {
-                  const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
-                  const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
+      const ordersByBookingId = new Map();
+      allOrders.forEach((order) => {
+        const bookingKey = String(order.bookingId);
+        if (!ordersByBookingId.has(bookingKey)) {
+          ordersByBookingId.set(bookingKey, []);
+        }
+        ordersByBookingId.get(bookingKey).push(order);
+      });
 
-                  if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
-                  if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
-                  if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
-                } catch (trackingError) {
-                  console.error('BookingService: Failed to refresh shipping status in getByCustomer for booking:', booking._id, trackingError.message);
-                }
-              }
+      const bookingsWithProgress = bookings.map((booking) => {
+        try {
+          const bookingPlain = booking.toObject({ virtuals: true });
+          const bookingOrders = ordersByBookingId.get(String(booking._id)) || [];
 
-              return bookingPlain;
-            }
-
+          if (bookingOrders.length > 0) {
             let totalProgress = 0;
-            allOrders.forEach((order) => {
+            bookingOrders.forEach((order) => {
               totalProgress += this.resolveOrderProgress(order);
             });
-
-            bookingPlain.overallProgress = Math.round(totalProgress / allOrders.length);
-
-            if (bookingPlain.trackingNumber && !this.isDummyBookingTrackingNumber(bookingPlain.trackingNumber)) {
-              try {
-                const trackingInfo = await DHLService.getTrackingInfo(bookingPlain.trackingNumber);
-                const mappedStatus = this.mapTrackingStatusToBookingStatus(trackingInfo.status || trackingInfo.statusCodeRaw);
-
-                if (mappedStatus) bookingPlain.shippingStatus = mappedStatus;
-                if (trackingInfo.description) bookingPlain.shippingStatusDescription = trackingInfo.description;
-                if (trackingInfo.estimatedDelivery) bookingPlain.estimatedDelivery = trackingInfo.estimatedDelivery;
-              } catch (trackingError) {
-                console.error('BookingService: Failed to refresh shipping status in getByCustomer for booking:', booking._id, trackingError.message);
-              }
-            }
-
-            return bookingPlain;
-          } catch (error) {
-            console.error('BookingService: Error calculating customer booking progress for booking:', booking._id, error);
-            return booking.toObject({ virtuals: true });
+            bookingPlain.overallProgress = Math.round(totalProgress / bookingOrders.length);
           }
-        })
-      );
+
+          return bookingPlain;
+        } catch (error) {
+          console.error('BookingService: Error calculating customer booking progress for booking:', booking._id, error);
+          return booking.toObject({ virtuals: true });
+        }
+      });
+
+      if (this.shouldRefreshShipping(filters)) {
+        await this.applyLiveShippingTracking(bookingsWithProgress, 5);
+      }
 
       console.log('BookingService: Found', bookingsWithProgress.length, 'bookings for customer on current page');
       return bookingsWithProgress;
@@ -1439,8 +1498,9 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
+        .setOptions({ skipAutoPopulate: true })
         .populate('customerId', 'firstName lastName email phone')
-        .populate('orderIds');
+        .lean();
 
       if (!booking) {
         console.log('BookingService: Booking not found');
@@ -1451,14 +1511,14 @@ class BookingService {
         bookingId: booking._id,
         bookingNumber: booking.bookingNumber,
         customer: {
-          name: `${booking.customerId.firstName} ${booking.customerId.lastName}`,
-          email: booking.customerId.email,
-          phone: booking.customerId.phone,
+          name: `${booking.customerId?.firstName || ''} ${booking.customerId?.lastName || ''}`.trim(),
+          email: booking.customerId?.email || '',
+          phone: booking.customerId?.phone || '',
         },
         status: booking.status,
         billingStatus: booking.billingStatus,
         totalCost: booking.totalCost,
-        itemsCount: booking.items.length,
+        itemsCount: Array.isArray(booking.items) ? booking.items.length : 0,
         createdAt: booking.createdAt,
         updatedAt: booking.updatedAt,
       };
@@ -1542,6 +1602,8 @@ class BookingService {
 
       // Fetch all orders directly linked to booking
       const directOrders = await Order.find({ bookingId: bookingId })
+        .setOptions({ skipAutoPopulate: true })
+        .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline isComplaintFollowup sourceComplaintId parentOrderId')
         .populate('services.serviceId', 'name')
         .populate('shopProducts.productId', 'name');
 
@@ -1552,6 +1614,8 @@ class BookingService {
             isComplaintFollowup: true,
             parentOrderId: { $in: directOrderIds }
           })
+            .setOptions({ skipAutoPopulate: true })
+            .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline isComplaintFollowup sourceComplaintId parentOrderId')
             .populate('services.serviceId', 'name')
             .populate('shopProducts.productId', 'name')
         : [];
@@ -1645,6 +1709,8 @@ class BookingService {
     if (orderIds.length === 0) return [];
 
     const orders = await Order.find({ _id: { $in: orderIds } })
+      .setOptions({ skipAutoPopulate: true })
+      .select('orderNumber status totalCost deviceType deviceBrand deviceModel services shopProducts addOns')
       .populate('services.serviceId', 'name')
       .populate('shopProducts.productId', 'name');
 

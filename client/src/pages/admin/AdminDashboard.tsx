@@ -141,6 +141,9 @@ const FALLBACK_DATA: DashboardData = {
   },
 }
 
+const CORE_REFRESH_INTERVAL_MS = 30_000
+const OPERATIONS_REFRESH_INTERVAL_MS = 120_000
+
 const OPEN_CONTACT_STATUSES = new Set(["new", "read"])
 
 const CONTACT_SUBJECT_LABELS: Record<string, string> = {
@@ -225,6 +228,9 @@ export function AdminDashboard() {
 
   const dashboardDataSignatureRef = useRef<string>("")
   const seenUnlockUpdateIdsRef = useRef<Set<string>>(new Set())
+  const isCoreFetchInFlightRef = useRef(false)
+  const isOperationsFetchInFlightRef = useRef(false)
+  const lastOperationsRefreshAtRef = useRef(0)
 
   const captureScrollPositions = () => {
     const windowScrollTop = window.scrollY
@@ -391,7 +397,12 @@ export function AdminDashboard() {
     navigate(notificationPath)
   }
 
-  const fetchDashboardData = async (showToast = false, silent = true) => {
+  const fetchCoreDashboardData = async (showToast = false, silent = true) => {
+    if (isCoreFetchInFlightRef.current) {
+      return
+    }
+    isCoreFetchInFlightRef.current = true
+
     const scrollSnapshot = silent ? captureScrollPositions() : null
 
     try {
@@ -401,16 +412,7 @@ export function AdminDashboard() {
         setLoading(true)
       }
 
-      const [
-        data,
-        msgData,
-        contactData,
-        complaintsData,
-        invoicesData,
-        paymentsData,
-        reportData,
-        epartData,
-      ] = await Promise.all([
+      const [data, msgData, contactData] = await Promise.all([
         getDashboardSummary(),
         getCustomerMessages(15),
         getContactMessages({
@@ -419,33 +421,11 @@ export function AdminDashboard() {
           sortBy: "createdAt",
           sortOrder: "desc",
         }),
-        getAllComplaints({
-          limit: 20,
-          skip: 0,
-        }),
-        getInvoices({
-          limit: 50,
-          page: 1,
-        }),
-        getPayments({
-          limit: 50,
-          page: 1,
-        }),
-        getFinancialReports({ period: "month" }),
-        getEPartOrders({
-          limit: 20,
-          page: 1,
-        }),
       ])
-      setCustomerMessages(msgData.messages)
-      setTotalUnreadMessages(msgData.totalUnread)
 
       const unresolvedContactMessages = Array.isArray(contactData?.messages)
         ? contactData.messages.filter((message: ContactMessage) => OPEN_CONTACT_STATUSES.has(String(message?.status || "").toLowerCase()))
         : []
-
-      setOpenContactRequests(unresolvedContactMessages.slice(0, 5))
-      setUnansweredContactCount(unresolvedContactMessages.length)
 
       const processedData: DashboardData = {
         bookings: safeArray(data.bookings),
@@ -468,6 +448,84 @@ export function AdminDashboard() {
           assignedOrders: Number(data.sectionCounts?.assignedOrders || 0),
         },
       }
+
+      const signature = JSON.stringify({
+        processedData,
+        totalUnread: msgData.totalUnread,
+        customerMessageIds: msgData.messages.map((msg) => msg._id),
+        unresolvedContactIds: unresolvedContactMessages.map((message: ContactMessage) => message._id),
+      })
+
+      const hasChanged = dashboardDataSignatureRef.current !== signature
+
+      if (hasChanged) {
+        dashboardDataSignatureRef.current = signature
+        setDashboardData(processedData)
+        setCustomerMessages(msgData.messages)
+        setTotalUnreadMessages(msgData.totalUnread)
+        setOpenContactRequests(unresolvedContactMessages.slice(0, 5))
+        setUnansweredContactCount(unresolvedContactMessages.length)
+        setLastUpdatedAt(new Date())
+      }
+
+      if (!hasLoadedOnce) {
+        setHasLoadedOnce(true)
+      }
+
+      if (showToast) {
+        toast({
+          title: t('adminDashboard.updated'),
+          description: `${processedData.bookings.length} ${t('adminDashboard.bookingsLabel')}, ${processedData.repairRequests.length} ${t('adminDashboard.repairRequests')}, ${processedData.notificationMeta.unreadCount} ${t('adminDashboard.unreadNotices')}`,
+        })
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: t('adminDashboard.loadError'),
+        description: error?.message || t('adminDashboard.unknownError'),
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+      isCoreFetchInFlightRef.current = false
+
+      if (silent) {
+        window.requestAnimationFrame(() => {
+          restoreScrollPositions(scrollSnapshot)
+          window.requestAnimationFrame(() => {
+            restoreScrollPositions(scrollSnapshot)
+          })
+        })
+      }
+    }
+  }
+
+  const fetchOperationsData = async () => {
+    if (isOperationsFetchInFlightRef.current) {
+      return
+    }
+    isOperationsFetchInFlightRef.current = true
+
+    try {
+      const [complaintsData, invoicesData, paymentsData, reportData, epartData] = await Promise.all([
+        getAllComplaints({
+          limit: 20,
+          skip: 0,
+        }),
+        getInvoices({
+          limit: 50,
+          page: 1,
+        }),
+        getPayments({
+          limit: 50,
+          page: 1,
+        }),
+        getFinancialReports({ period: "month" }),
+        getEPartOrders({
+          limit: 20,
+          page: 1,
+        }),
+      ])
 
       const complaintItems = Array.isArray(complaintsData?.complaints) ? complaintsData.complaints : []
       const invoiceItems = Array.isArray(invoicesData?.invoices) ? invoicesData.invoices : []
@@ -503,70 +561,44 @@ export function AdminDashboard() {
         },
       }
 
-      const signature = JSON.stringify({
-        processedData,
-        nextOperationsData,
-        totalUnread: msgData.totalUnread,
-        customerMessageIds: msgData.messages.map((msg) => msg._id),
-        unresolvedContactIds: unresolvedContactMessages.map((message: ContactMessage) => message._id),
-      })
-
-      const hasChanged = dashboardDataSignatureRef.current !== signature
-
-      if (hasChanged) {
-        dashboardDataSignatureRef.current = signature
-        setDashboardData(processedData)
-        setOperationsData(nextOperationsData)
-        setCustomerMessages(msgData.messages)
-        setTotalUnreadMessages(msgData.totalUnread)
-        setOpenContactRequests(unresolvedContactMessages.slice(0, 5))
-        setUnansweredContactCount(unresolvedContactMessages.length)
-        setLastUpdatedAt(new Date())
-      }
-
-      if (!hasLoadedOnce) {
-        setHasLoadedOnce(true)
-      }
-
-      if (showToast) {
-        toast({
-          title: t('adminDashboard.updated'),
-          description: `${processedData.bookings.length} ${t('adminDashboard.bookingsLabel')}, ${processedData.repairRequests.length} ${t('adminDashboard.repairRequests')}, ${processedData.notificationMeta.unreadCount} ${t('adminDashboard.unreadNotices')}`,
-        })
-      }
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: t('adminDashboard.loadError'),
-        description: error?.message || t('adminDashboard.unknownError'),
-      })
+      setOperationsData(nextOperationsData)
+      lastOperationsRefreshAtRef.current = Date.now()
+    } catch (error) {
+      // Non-blocking section: keep last good snapshot if a refresh fails.
+      console.error("AdminDashboard: operations refresh failed", error)
     } finally {
-      setLoading(false)
-      setRefreshing(false)
-
-      if (silent) {
-        window.requestAnimationFrame(() => {
-          restoreScrollPositions(scrollSnapshot)
-          window.requestAnimationFrame(() => {
-            restoreScrollPositions(scrollSnapshot)
-          })
-        })
-      }
+      isOperationsFetchInFlightRef.current = false
     }
+  }
+
+  const fetchDashboardData = async (showToast = false, silent = true) => {
+    await Promise.all([
+      fetchCoreDashboardData(showToast, silent),
+      fetchOperationsData(),
+    ])
   }
 
   useEffect(() => {
     fetchDashboardData(false, false)
 
-    const interval = setInterval(() => {
+    const coreInterval = setInterval(() => {
       if (document.visibilityState === "visible") {
-        fetchDashboardData(false, true)
+        fetchCoreDashboardData(false, true)
       }
-    }, 5000)
+    }, CORE_REFRESH_INTERVAL_MS)
+
+    const operationsInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchOperationsData()
+      }
+    }, OPERATIONS_REFRESH_INTERVAL_MS)
 
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible") {
-        fetchDashboardData(false, true)
+        fetchCoreDashboardData(false, true)
+        if (Date.now() - lastOperationsRefreshAtRef.current >= CORE_REFRESH_INTERVAL_MS) {
+          fetchOperationsData()
+        }
       }
     }
 
@@ -575,7 +607,8 @@ export function AdminDashboard() {
     document.addEventListener("visibilitychange", refreshOnFocus)
 
     return () => {
-      clearInterval(interval)
+      clearInterval(coreInterval)
+      clearInterval(operationsInterval)
       window.removeEventListener("focus", refreshOnFocus)
       window.removeEventListener("online", refreshOnFocus)
       document.removeEventListener("visibilitychange", refreshOnFocus)

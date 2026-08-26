@@ -7,24 +7,33 @@ const REMEMBER_COOKIE_NAME = 'remember_me';
 
 const isProduction = () => process.env.NODE_ENV === 'production';
 
+const isSecureCookieEnabled = () => {
+  const override = process.env.COOKIE_SECURE;
+  if (typeof override === 'string') {
+    const normalized = override.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+  }
+  return isProduction();
+};
+
 const getCookieOptions = () => ({
   access: {
     httpOnly: true,
-    secure: isProduction(),
+    secure: isSecureCookieEnabled(),
     sameSite: 'lax',
     path: '/',
     maxAge: 15 * 60 * 1000,
   },
   refresh: {
     httpOnly: true,
-    secure: isProduction(),
+    secure: isSecureCookieEnabled(),
     sameSite: 'lax',
     path: '/api/auth/refresh',
     maxAge: 30 * 24 * 60 * 60 * 1000,
   },
   csrf: {
     httpOnly: false,
-    secure: isProduction(),
+    secure: isSecureCookieEnabled(),
     sameSite: 'lax',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
@@ -43,7 +52,7 @@ const setAuthCookies = (res, { accessToken, refreshToken, csrfToken = generateCs
     res.cookie(CSRF_COOKIE_NAME, csrfToken, options.csrf);
     res.cookie(REMEMBER_COOKIE_NAME, '1', {
       httpOnly: false,
-      secure: isProduction(),
+      secure: isSecureCookieEnabled(),
       sameSite: 'lax',
       path: '/',
       maxAge: options.refresh.maxAge,
@@ -58,7 +67,7 @@ const setAuthCookies = (res, { accessToken, refreshToken, csrfToken = generateCs
     res.cookie(CSRF_COOKIE_NAME, csrfToken, csrfSession);
     res.cookie(REMEMBER_COOKIE_NAME, '0', {
       httpOnly: false,
-      secure: isProduction(),
+      secure: isSecureCookieEnabled(),
       sameSite: 'lax',
       path: '/',
     });

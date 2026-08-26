@@ -4,6 +4,21 @@ import { defineConfig } from "vite"
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          charts: ['chart.js', 'recharts'],
+          docs: ['jspdf', 'html2canvas'],
+          forms: ['react-hook-form', 'zod', '@hookform/resolvers'],
+          editors: ['react-quill', 'react-quill-new'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -13,10 +28,6 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-      '/assets': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },

@@ -55,6 +55,18 @@ export const adminSearchIndex: AdminSearchItem[] = [
     ],
   },
   {
+    id: "legacy-orders",
+    title: "Altauftraege Archiv",
+    path: "/admin/legacy-orders",
+    group: "Kunden & Aufträge",
+    icon: "Archive",
+    description: "CSV-Import und Schnellsuche fuer alte Systemauftraege",
+    keywords: [
+      "legacy orders", "altauftraege", "altes system", "csv import", "historische auftraege",
+      "archiv", "auftragssuche", "auftrag filtern", "bestellhistorie",
+    ],
+  },
+  {
     id: "orders",
     title: "Bestellungen",
     path: "/admin/orders",
