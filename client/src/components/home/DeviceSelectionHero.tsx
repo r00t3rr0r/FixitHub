@@ -67,7 +67,9 @@ export function DeviceSelectionHero({
                 style={{ textDecoration: 'none', color: 'inherit', flex: '1 1 100%', width: '100%' }}
               >
                 <h4>Individuelle Smartphone Reparatur anfragen</h4>
-                <p style={{ whiteSpace: 'nowrap' }}>Gerät nicht gefunden? Senden Sie uns eine Reparaturanfrage – wir helfen Ihnen weiter.</p>
+                <p style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  Gerät nicht gefunden? Senden Sie uns eine Reparaturanfrage – wir helfen Ihnen weiter.
+                </p>
               </Link>
             </div>
 
