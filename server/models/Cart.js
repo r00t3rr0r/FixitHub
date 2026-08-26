@@ -99,6 +99,14 @@ const repairOrderItemSchema = new mongoose.Schema({
     enum: ['original', 'refurbished', 'unsure', ''],
     default: ''
   },
+  imei: {
+    type: String,
+    default: ''
+  },
+  serialNumber: {
+    type: String,
+    default: ''
+  },
   addedAt: {
     type: Date,
     default: Date.now

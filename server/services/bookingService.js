@@ -1942,6 +1942,15 @@ class BookingService {
 
     const duplicateError = new Error(duplicateMessage);
     duplicateError.statusCode = 409;
+    duplicateError.code = 'INVOICE_ALREADY_EXISTS';
+    duplicateError.existingInvoice = {
+      _id: String(existingInvoice._id),
+      invoiceNumber: existingInvoice.invoiceNumber || null,
+      status: existingInvoice.status || null,
+      repairOrderIds: Array.isArray(existingInvoice.repairOrderIds)
+        ? existingInvoice.repairOrderIds.map((orderId) => String(orderId))
+        : [],
+    };
     throw duplicateError;
   }
 

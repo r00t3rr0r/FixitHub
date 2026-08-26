@@ -7,6 +7,7 @@ const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 const NotificationService = require('./notificationService');
+const { Types } = require('mongoose');
 
 function parseDueDaysFromTerms(paymentTerms) {
   if (!paymentTerms) return null;
@@ -447,10 +448,31 @@ class FinancialService {
       if (filters.orderId) {
         const normalizedOrderId = String(filters.orderId).trim();
         if (normalizedOrderId) {
-          query.$or = [
+          const orderIdClauses = [
             { orderId: normalizedOrderId },
             { repairOrderIds: normalizedOrderId }
           ];
+
+          if (Types.ObjectId.isValid(normalizedOrderId)) {
+            const normalizedOrderObjectId = new Types.ObjectId(normalizedOrderId);
+            orderIdClauses.push(
+              { orderId: normalizedOrderObjectId },
+              { repairOrderIds: normalizedOrderObjectId }
+            );
+          }
+
+          query.$or = orderIdClauses;
+        }
+      }
+
+      if (filters.bookingId) {
+        const normalizedBookingId = String(filters.bookingId).trim();
+        if (normalizedBookingId) {
+          if (Types.ObjectId.isValid(normalizedBookingId)) {
+            query.bookingId = new Types.ObjectId(normalizedBookingId);
+          } else {
+            query.bookingId = normalizedBookingId;
+          }
         }
       }
 
@@ -1230,6 +1252,11 @@ class FinancialService {
         if (existingInvoice) {
           const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
           duplicateError.statusCode = 409;
+          duplicateError.code = 'INVOICE_ALREADY_EXISTS';
+          duplicateError.existingInvoice = {
+            _id: String(existingInvoice._id),
+            invoiceNumber: existingInvoice.invoiceNumber || null,
+          };
           throw duplicateError;
         }
       }

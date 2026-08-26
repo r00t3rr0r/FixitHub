@@ -171,7 +171,7 @@ const deviceTestSchema = new mongoose.Schema({
   charging: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: ['OK', 'Not OK', 'Not tested'],
       required: true,
     },
     current: String,
@@ -180,7 +180,7 @@ const deviceTestSchema = new mongoose.Schema({
   power: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: ['OK', 'Not OK', 'Not tested'],
       required: true,
     },
     notes: String,
@@ -188,7 +188,7 @@ const deviceTestSchema = new mongoose.Schema({
   wifi: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: ['OK', 'Not OK', 'Not tested'],
       required: true,
     },
     notes: String,
@@ -196,7 +196,7 @@ const deviceTestSchema = new mongoose.Schema({
   frontCamera: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: ['OK', 'Not OK', 'Not tested'],
       required: true,
     },
     notes: String,
@@ -204,7 +204,7 @@ const deviceTestSchema = new mongoose.Schema({
   mainCamera: {
     status: {
       type: String,
-      enum: ['OK', 'Not OK'],
+      enum: ['OK', 'Not OK', 'Not tested'],
       required: true,
     },
     notes: String,

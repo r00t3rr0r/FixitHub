@@ -624,6 +624,14 @@ const orderSchema = new mongoose.Schema({
     enum: ['original', 'refurbished', 'unsure', ''],
     default: '',
   },
+  imei: {
+    type: String,
+    default: '',
+  },
+  serialNumber: {
+    type: String,
+    default: '',
+  },
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',

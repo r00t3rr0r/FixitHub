@@ -1898,6 +1898,9 @@
       "previousRepairAttempts": "Previous repair attempts?",
       "previousRepairAttemptsPlaceholder": "Details about previous repair attempts...",
       "itemCondition": "Condition of the device",
+      "deviceIdentification": "Device identification",
+      "imeiPlaceholder": "IMEI (optional)",
+      "serialNumberPlaceholder": "Serial number (optional)",
       "uploadPhotos": "Upload photos (optional, max. 5)",
       "uploadedPhotos": "{{count}}/5 photos uploaded",
       "photoPreviewAlt": "Preview {{index}}",
@@ -2287,6 +2290,8 @@
         "original": "Original",
         "refurbished": "Refurbished"
       },
+      "imeiLabel": "IMEI",
+      "serialNumberLabel": "Serial number",
       "infoNotice": "This information helps our technicians better diagnose and repair your device. It will be reviewed before starting the repair process."
     }
   },

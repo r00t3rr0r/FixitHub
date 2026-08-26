@@ -386,6 +386,8 @@ export interface RepairOrderData {
   previousRepairAttempts?: string;
   previousRepairDetails?: string;
   itemCondition?: string;
+  imei?: string;
+  serialNumber?: string;
 }
 
 // Description: Add repair order to cart (handles both authenticated and guest users)

@@ -86,6 +86,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
     const map: Record<string, string> = {
       'OK': 'OK',
       'Not OK': 'Nicht OK',
+      'Not tested': 'Tests nicht durchgeführt',
       'light-wear': 'Leichte Abnutzung',
       'scratches-wear': 'Kratzer',
       'heavy-scratches-wear': 'Starke Kratzer',
@@ -371,16 +372,21 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 ].map(({ key, label }) => {
                   const test = inspection.deviceTest[key];
                   if (!test) return null;
-                  const ok = test.status === 'OK';
+                  const status = test.status || 'OK';
+                  const ok = status === 'OK';
+                  const notTested = status === 'Not tested';
                   return (
                     <div key={key}>
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[10px] text-muted-foreground">{label}</span>
-                        <span className={`text-[10px] font-medium ${ok ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {ok ? 'OK' : 'Fehler'}
+                        <span className={`text-[10px] font-medium ${ok ? 'text-emerald-600' : notTested ? 'text-amber-600' : 'text-red-600'}`}>
+                          {ok ? 'OK' : notTested ? 'Nicht durchgef.' : 'Fehler'}
                         </span>
                       </div>
-                      {!ok && test.notes && (
+                      {!ok && !notTested && test.notes && (
+                        <p className="text-[10px] text-muted-foreground italic pl-1">{test.notes}</p>
+                      )}
+                      {notTested && test.notes && (
                         <p className="text-[10px] text-muted-foreground italic pl-1">{test.notes}</p>
                       )}
                     </div>

@@ -336,7 +336,9 @@ class CartService {
         waterDamage,
         previousRepairAttempts,
         previousRepairDetails,
-        itemCondition
+        itemCondition,
+        imei,
+        serialNumber
       } = repairOrderData;
 
       // Validate required fields
@@ -367,6 +369,8 @@ class CartService {
         previousRepairAttempts: previousRepairAttempts || '',
         previousRepairDetails: previousRepairDetails || '',
         itemCondition: itemCondition || '',
+        imei: imei || '',
+        serialNumber: serialNumber || '',
         addedAt: new Date()
       };
 

@@ -40,7 +40,7 @@ import {
 type VerificationStatus = 'correct' | 'incorrect-more-expensive' | 'incorrect-same-cheaper' | 'unverifiable';
 type ConditionStatus = '--' | 'light-wear' | 'scratches-wear' | 'heavy-scratches-wear' | 'damaged';
 type ButtonsStatus = 'working' | 'not-working';
-type ChecklistStatus = 'OK' | 'Not OK';
+type ChecklistStatus = 'OK' | 'Not OK' | 'Not tested';
 type CompletionAction = 'repairable' | 'not-repairable' | 'inform-customer';
 
 type ModelsApiResponse = {
@@ -150,7 +150,7 @@ export function DeviceInspectionForm({
   const [defectActionNote, setDefectActionNote] = useState('');
 
   // Step 7: Summary & Completion
-  const [completionAction, setCompletionAction] = useState<CompletionAction | null>(null);
+  const [completionAction, setCompletionAction] = useState<CompletionAction>('repairable');
   const [isRepairable, setIsRepairable] = useState<boolean | null>(null);
   const [repairCost, setRepairCost] = useState('');
   const [repairTimeframe, setRepairTimeframe] = useState('');
@@ -465,10 +465,25 @@ export function DeviceInspectionForm({
   };
 
   const getChecklistStatusLabel = (value: ChecklistStatus) => {
-    if (value === 'OK') {
-      return t('inspection.status.ok', 'In Ordnung');
+    switch (value) {
+      case 'OK':
+        return t('inspection.status.ok', 'In Ordnung');
+      case 'Not OK':
+        return t('inspection.status.notOk', 'Nicht in Ordnung');
+      case 'Not tested':
+        return t('inspection.status.notTested', 'Tests nicht durchgeführt');
+      default:
+        return value;
     }
-    return t('inspection.status.notOk', 'Nicht in Ordnung');
+  };
+
+  const setAllDeviceTestsNotTested = () => {
+    setChargingStatus('Not tested');
+    setPowerStatus('Not tested');
+    setWifiStatus('Not tested');
+    setFrontCameraStatus('Not tested');
+    setMainCameraStatus('Not tested');
+    setChargingCurrent('');
   };
 
   const hydrateFromInspection = (insp: any) => {
@@ -1189,11 +1204,6 @@ export function DeviceInspectionForm({
   const handleCompleteInspection = async () => {
     if (submitting) return;
 
-    if (!completionAction) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Bitte Abschlussentscheidung waehlen.' });
-      return;
-    }
-
     const resolvedRepairable = completionAction === 'repairable';
 
     if (completionAction === 'repairable' && repairCost.trim()) {
@@ -1681,6 +1691,18 @@ export function DeviceInspectionForm({
         </CardHeader>
         {expandedSteps.includes(5) && (
           <CardContent className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={setAllDeviceTestsNotTested}
+                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              >
+                Alle Tests nicht durchgeführt
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { label: t('inspection.fields.charging', 'Laden'), state: chargingStatus, setter: setChargingStatus },
@@ -1704,6 +1726,11 @@ export function DeviceInspectionForm({
                       <SelectItem value="Not OK">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-red-500" /> {getChecklistStatusLabel('Not OK')}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Not tested">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-500" /> {getChecklistStatusLabel('Not tested')}
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -1852,45 +1879,6 @@ export function DeviceInspectionForm({
               </div>
             )}
 
-            <div>
-              <Label>Abschlussentscheidung</Label>
-              <div className="inspection-repairable-actions">
-                <Button
-                  variant={completionAction === 'repairable' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setCompletionAction('repairable');
-                    setIsRepairable(true);
-                  }}
-                  className={completionAction === 'repairable' ? 'inspection-primary-button' : ''}
-                >
-                  Reparierbar
-                </Button>
-                <Button
-                  variant={completionAction === 'not-repairable' ? 'destructive' : 'outline'}
-                  onClick={() => {
-                    setCompletionAction('not-repairable');
-                    setIsRepairable(false);
-                  }}
-                  className={completionAction === 'not-repairable' ? 'inspection-primary-button' : ''}
-                  data-destructive={completionAction === 'not-repairable' ? 'true' : 'false'}
-                >
-                  Nicht reparierbar
-                </Button>
-              </div>
-              <div className="mt-2">
-                <Button
-                  variant={completionAction === 'inform-customer' ? 'secondary' : 'outline'}
-                  onClick={() => {
-                    setCompletionAction('inform-customer');
-                    setIsRepairable(false);
-                    setInformCustomer(true);
-                  }}
-                >
-                  Kunde informieren
-                </Button>
-              </div>
-            </div>
-
             {completionAction === 'repairable' && (
               <>
                 <div>
@@ -1971,7 +1959,7 @@ export function DeviceInspectionForm({
 
             <Button
               onClick={handleCompleteInspection}
-              disabled={submitting || completionAction === null}
+              disabled={submitting}
               className="w-full inspection-primary-button"
             >
               {t('inspection.actions.completeInspection', 'Inspektion abschließen')}

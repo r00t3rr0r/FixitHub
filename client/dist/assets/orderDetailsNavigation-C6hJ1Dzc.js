@@ -1,0 +1,1 @@
+function t(e,a={}){return{...a.state||{},backTarget:{pathname:e.pathname,search:e.search||"",hash:e.hash||"",label:a.label,state:a.restoreState}}}function r(e){return`/orders/${e}`}export{t as b,r as g};

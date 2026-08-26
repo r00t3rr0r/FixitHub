@@ -389,9 +389,13 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error previewing invoice:', error);
+    const existingInvoiceId = error?.existingInvoice?._id || null;
     res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
+      code: error.code,
+      existingInvoice: error.existingInvoice,
+      redirectTo: existingInvoiceId ? `/admin/financial?tab=overview&highlightInvoiceId=${existingInvoiceId}` : null,
     });
   }
 });
@@ -423,9 +427,13 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error creating invoice:', error);
+    const existingInvoiceId = error?.existingInvoice?._id || null;
     res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
+      code: error.code,
+      existingInvoice: error.existingInvoice,
+      redirectTo: existingInvoiceId ? `/admin/financial?tab=overview&highlightInvoiceId=${existingInvoiceId}` : null,
     });
   }
 });

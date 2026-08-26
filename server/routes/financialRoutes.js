@@ -117,6 +117,7 @@ router.get('/invoices', requireUser, requireRole(['admin']), async (req, res) =>
       status: req.query.status,
       customerId: req.query.customerId,
       orderId: req.query.orderId,
+      bookingId: req.query.bookingId,
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
       page: req.query.page,
@@ -502,9 +503,13 @@ router.post('/orders/:orderId/invoice', requireUser, requireRole(['admin']), asy
     });
   } catch (error) {
     console.error('Error creating invoice from order:', error);
-    return res.status(400).json({
+    const existingInvoiceId = error?.existingInvoice?._id || null;
+    return res.status(error.statusCode || 400).json({
       success: false,
-      error: error.message || 'Failed to create invoice from order'
+      error: error.message || 'Failed to create invoice from order',
+      code: error.code,
+      existingInvoice: error.existingInvoice,
+      redirectTo: existingInvoiceId ? `/admin/financial?tab=overview&highlightInvoiceId=${existingInvoiceId}` : null,
     });
   }
 });

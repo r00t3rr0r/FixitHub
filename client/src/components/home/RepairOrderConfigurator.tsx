@@ -409,6 +409,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
   const [previousRepairAttempts, setPreviousRepairAttempts] = useState<'yes' | 'no' | 'unsure' | ''>('');
   const [previousRepairDetails, setPreviousRepairDetails] = useState('');
   const [itemCondition, setItemCondition] = useState<'original' | 'refurbished' | 'unsure' | ''>('');
+  const [imei, setImei] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
 
   // Multiple devices support (NEW)
@@ -1420,6 +1422,14 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       });
       return;
     }
+
+    if (currentStep === 5 && !showAdditionalInfo) {
+      setShowUnlockDetails(false);
+      setShowAdditionalInfo(true);
+      scrollAdditionalInfoIntoView();
+      return;
+    }
+
     setCurrentStep(prev => Math.min(prev + 1, 6)); // Max step is now 6
   };
 
@@ -1511,6 +1521,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setPreviousRepairAttempts('');
     setPreviousRepairDetails('');
     setItemCondition('');
+    setImei('');
+    setSerialNumber('');
     setCustomerNotes('');
     setDevices([]);
     setCurrentDeviceIndex(0);
@@ -1602,6 +1614,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
       previousRepairAttempts,
       previousRepairDetails,
       itemCondition,
+      imei,
+      serialNumber,
       customerNotes,
       photos: photoPreviewUrls,
       quantity: currentDeviceQuantity
@@ -1626,6 +1640,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
     setPreviousRepairAttempts('');
     setPreviousRepairDetails('');
     setItemCondition('');
+    setImei('');
+    setSerialNumber('');
     setCustomerNotes('');
     setCurrentDeviceQuantity(1);
     setCurrentStep(1);
@@ -1734,7 +1750,9 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           waterDamage: device.waterDamage,
           previousRepairAttempts: device.previousRepairAttempts,
           previousRepairDetails: device.previousRepairDetails,
-          itemCondition: device.itemCondition
+          itemCondition: device.itemCondition,
+          imei: device.imei || '',
+          serialNumber: device.serialNumber || ''
         };
 
         // Add to cart (handles multiple quantities)
@@ -2451,35 +2469,6 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         unlockCode={unlockCode}
                         noLock={noDeviceLock}
                       />
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUnlockDetails(false);
-                            setShowAdditionalInfo(true);
-                            scrollAdditionalInfoIntoView();
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '7px 14px',
-                            background: '#1a2a5e',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = '#2a3f7e'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = '#1a2a5e'; }}
-                        >
-                          {t('home.configurator.next')}
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -2783,6 +2772,58 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                       {/* Photo Upload */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
                         <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.72rem',
+                            fontWeight: '700',
+                            color: '#1a2a5e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                          }}
+                        >
+                          <Tag className="w-3 h-3" style={{ color: '#1a2a5e' }} />
+                          {t('home.configurator.deviceIdentification', 'Device identification')}
+                        </label>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
+                          <Input
+                            value={imei}
+                            onChange={(e) => setImei(e.target.value)}
+                            placeholder={t('home.configurator.imeiPlaceholder', 'IMEI (optional)')}
+                            maxLength={40}
+                            style={{
+                              width: '100%',
+                              height: '34px',
+                              padding: '8px 10px',
+                              border: '1.5px solid #d8dce6',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              background: '#fafbfc'
+                            }}
+                          />
+                          <Input
+                            value={serialNumber}
+                            onChange={(e) => setSerialNumber(e.target.value)}
+                            placeholder={t('home.configurator.serialNumberPlaceholder', 'Serial number (optional)')}
+                            maxLength={60}
+                            style={{
+                              width: '100%',
+                              height: '34px',
+                              padding: '8px 10px',
+                              border: '1.5px solid #d8dce6',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              background: '#fafbfc'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Photo Upload */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px 16px', background: '#ffffff' }}>
+                        <label
                           htmlFor="photos"
                           style={{
                             display: 'flex',
@@ -2903,6 +2944,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                         previousRepairAttempts,
                         previousRepairDetails,
                         itemCondition,
+                        imei,
+                        serialNumber,
                         customerNotes,
                         photos: photoPreviewUrls
                       });
