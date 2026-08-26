@@ -20,35 +20,83 @@ class TeamService {
         .populate('members.userId', 'name email avatar role')
         .sort({ createdAt: -1 });
 
-      // Enhance teams with performance data
-      const enhancedTeams = await Promise.all(
-        teams.map(async (team) => {
-          const memberIds = team.members.map(m => m.userId._id);
-          
-          // Calculate team performance
-          const totalOrders = await Order.countDocuments({
-            'assignedStaff.staffId': { $in: memberIds },
-            status: 'completed'
-          });
+      if (!teams.length) {
+        return [];
+      }
 
-          const totalTasks = await Task.countDocuments({
-            teamId: team._id,
-            status: 'completed'
-          });
+      const allMemberIds = [...new Set(
+        teams.flatMap((team) => team.members
+          .map((member) => (member.userId && member.userId._id ? member.userId._id : member.userId))
+          .filter(Boolean))
+      )];
 
-          return {
-            ...team.toObject(),
-            leaderName: team.leaderId ? team.leaderId.name : 'No Leader',
-            performance: {
-              totalOrders: totalOrders + totalTasks,
-              averageCompletionTime: 2.1,
-              customerSatisfaction: 4.5 + Math.random() * 0.4,
-              efficiency: 90 + Math.random() * 8,
-              memberCount: team.members.length
+      const [memberOrderCounts, teamTaskCounts] = await Promise.all([
+        Order.aggregate([
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: allMemberIds },
+              status: 'completed'
             }
-          };
-        })
+          },
+          { $unwind: '$assignedStaff' },
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: allMemberIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedStaff.staffId',
+              completedOrders: { $sum: 1 }
+            }
+          }
+        ]),
+        Task.aggregate([
+          {
+            $match: {
+              teamId: { $in: teams.map((team) => team._id) },
+              status: 'completed'
+            }
+          },
+          {
+            $group: {
+              _id: '$teamId',
+              completedTasks: { $sum: 1 }
+            }
+          }
+        ])
+      ]);
+
+      const memberOrderCountMap = new Map(
+        memberOrderCounts.map((entry) => [String(entry._id), Number(entry.completedOrders || 0)])
       );
+      const teamTaskCountMap = new Map(
+        teamTaskCounts.map((entry) => [String(entry._id), Number(entry.completedTasks || 0)])
+      );
+
+      const enhancedTeams = teams.map((team) => {
+        const memberIds = team.members
+          .map((member) => (member.userId && member.userId._id ? member.userId._id : member.userId))
+          .filter(Boolean);
+
+        const totalOrders = memberIds.reduce((sum, memberId) => {
+          return sum + (memberOrderCountMap.get(String(memberId)) || 0);
+        }, 0);
+
+        const totalTasks = teamTaskCountMap.get(String(team._id)) || 0;
+
+        return {
+          ...team.toObject(),
+          leaderName: team.leaderId ? team.leaderId.name : 'No Leader',
+          performance: {
+            totalOrders: totalOrders + totalTasks,
+            averageCompletionTime: 2.1,
+            customerSatisfaction: 4.5 + Math.random() * 0.4,
+            efficiency: 90 + Math.random() * 8,
+            memberCount: team.members.length
+          }
+        };
+      });
 
       console.log('TeamService: Found', enhancedTeams.length, 'teams');
       return enhancedTeams;

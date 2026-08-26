@@ -36,49 +36,118 @@ class StaffService {
         .select('-password -refreshToken')
         .sort({ createdAt: -1 });
 
-      // Enhance staff data with performance and workload info
-      const enhancedStaff = await Promise.all(
-        staff.map(async (member) => {
-          // Get current workload
-          const assignedTasks = await Task.countDocuments({
-            assignedTo: member._id,
-            status: { $in: ['pending', 'in_progress'] }
-          });
+      if (!staff.length) {
+        return [];
+      }
 
-          const assignedOrders = await Order.countDocuments({
-            'assignedStaff.staffId': member._id,
-            status: { $in: ['pending', 'in_progress', 'awaiting_parts'] }
-          });
+      const staffIds = staff.map((member) => member._id);
 
-          // Calculate performance metrics
-          const completedOrders = await Order.countDocuments({
-            'assignedStaff.staffId': member._id,
-            status: 'completed'
-          });
-
-          return {
-            ...member.toObject(),
-            specializations: member.specializations || ['General Repair'],
-            addOnCapabilities: member.addOnCapabilities || ['Basic Services'],
-            status: member.isActive ? 'active' : 'inactive',
-            hireDate: member.createdAt,
-            schedule: this.generateDefaultSchedule(),
-            performance: {
-              ordersCompleted: completedOrders,
-              averageCompletionTime: 2.5,
-              customerSatisfaction: Math.round((4.2 + Math.random() * 0.6) * 10) / 10,
-              efficiency: Math.round(85 + Math.random() * 10),
-              qualityScore: Math.round(90 + Math.random() * 8)
-            },
-            currentWorkload: {
-              assignedOrders: assignedOrders,
-              assignedTasks: assignedTasks,
-              capacity: 10,
-              utilizationRate: Math.min(((assignedOrders + assignedTasks) / 10) * 100, 100)
+      const [workloadByStaff, completedOrdersByStaff] = await Promise.all([
+        Order.aggregate([
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds },
+              status: { $in: ['pending', 'in_progress', 'awaiting_parts'] }
             }
-          };
-        })
-      );
+          },
+          { $unwind: '$assignedStaff' },
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedStaff.staffId',
+              assignedOrders: { $sum: 1 }
+            }
+          }
+        ]),
+        Task.aggregate([
+          {
+            $match: {
+              assignedTo: { $in: staffIds },
+              status: { $in: ['pending', 'in_progress'] }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedTo',
+              assignedTasks: { $sum: 1 }
+            }
+          }
+        ])
+      ]);
+
+      const completedOrders = await Order.aggregate([
+        {
+          $match: {
+            'assignedStaff.staffId': { $in: staffIds },
+            status: 'completed'
+          }
+        },
+        { $unwind: '$assignedStaff' },
+        {
+          $match: {
+            'assignedStaff.staffId': { $in: staffIds }
+          }
+        },
+        {
+          $group: {
+            _id: '$assignedStaff.staffId',
+            ordersCompleted: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const orderLoadMap = new Map(workloadByStaff.map((entry) => [String(entry._id), entry.assignedOrders]));
+      const taskLoadMap = new Map(workloadByStaff.map((entry) => [String(entry._id), 0]));
+      const completedOrdersMap = new Map(completedOrders.map((entry) => [String(entry._id), entry.ordersCompleted]));
+
+      (Task.aggregate ? [taskLoadMap] : [taskLoadMap]);
+      const taskLoadEntries = await Task.aggregate([
+        {
+          $match: {
+            assignedTo: { $in: staffIds },
+            status: { $in: ['pending', 'in_progress'] }
+          }
+        },
+        {
+          $group: {
+            _id: '$assignedTo',
+            assignedTasks: { $sum: 1 }
+          }
+        }
+      ]);
+      taskLoadEntries.forEach((entry) => taskLoadMap.set(String(entry._id), entry.assignedTasks));
+
+      const enhancedStaff = staff.map((member) => {
+        const assignedOrders = Number(orderLoadMap.get(String(member._id)) || 0);
+        const assignedTasks = Number(taskLoadMap.get(String(member._id)) || 0);
+        const completedOrderCount = Number(completedOrdersMap.get(String(member._id)) || 0);
+
+        return {
+          ...member.toObject(),
+          specializations: member.specializations || ['General Repair'],
+          addOnCapabilities: member.addOnCapabilities || ['Basic Services'],
+          status: member.isActive ? 'active' : 'inactive',
+          hireDate: member.createdAt,
+          schedule: this.generateDefaultSchedule(),
+          performance: {
+            ordersCompleted: completedOrderCount,
+            averageCompletionTime: 2.5,
+            customerSatisfaction: Math.round((4.2 + Math.random() * 0.6) * 10) / 10,
+            efficiency: Math.round(85 + Math.random() * 10),
+            qualityScore: Math.round(90 + Math.random() * 8)
+          },
+          currentWorkload: {
+            assignedOrders,
+            assignedTasks,
+            capacity: 10,
+            utilizationRate: Math.min(((assignedOrders + assignedTasks) / 10) * 100, 100)
+          }
+        };
+      });
 
       console.log('StaffService: Found', enhancedStaff.length, 'staff members');
       return enhancedStaff;

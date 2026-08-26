@@ -317,57 +317,90 @@ class AdminDashboardService {
         .sort({ name: 1 })
         .lean();
 
-      const staffStatusData = await Promise.all(
-        staff.map(async (member) => {
-          // Get assigned orders
-          const assignedOrders = await Order.countDocuments({
-            'assignedStaff.staffId': member._id,
-            status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
-          });
+      if (!staff.length) {
+        return [];
+      }
 
-          // Get assigned tasks
-          const assignedTasks = await Task.countDocuments({
-            assignedTo: member._id,
-            status: { $in: ['pending', 'in_progress'] }
-          });
+      const staffIds = staff.map(member => member._id);
 
-          // Calculate availability based on workload
-          const capacity = 10; // Default capacity
-          const currentLoad = assignedOrders + assignedTasks;
-          const utilizationRate = Math.min((currentLoad / capacity) * 100, 100);
-
-          // Determine availability status
-          let availability = 'available';
-          if (member.currentStatus === 'offline' || !member.currentStatus) {
-            availability = 'offline';
-          } else if (member.currentStatus === 'on_break') {
-            availability = 'on_break';
-          } else if (utilizationRate >= 90) {
-            availability = 'fully_booked';
-          } else if (utilizationRate >= 70) {
-            availability = 'limited';
+      const [orderCounts, taskCounts] = await Promise.all([
+        Order.aggregate([
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds },
+              status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
+            }
+          },
+          { $unwind: '$assignedStaff' },
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedStaff.staffId',
+              assignedOrders: { $sum: 1 }
+            }
           }
+        ]),
+        Task.aggregate([
+          {
+            $match: {
+              assignedTo: { $in: staffIds },
+              status: { $in: ['pending', 'in_progress'] }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedTo',
+              assignedTasks: { $sum: 1 }
+            }
+          }
+        ])
+      ]);
 
-          return {
-            _id: member._id,
-            name: member.name || member.email,
-            email: member.email,
-            avatar: member.avatar,
-            currentStatus: member.currentStatus || 'offline',
-            availability,
-            lastActivity: member.lastActivity,
-            currentOrder: member.currentOrderNumber || null,
-            assignedOrders,
-            assignedTasks,
-            totalAssignments: currentLoad,
-            capacity,
-            utilizationRate: Math.round(utilizationRate),
-            hoursThisWeek: member.hoursThisWeek || 0,
-            hoursThisMonth: member.hoursThisMonth || 0,
-            specializations: member.specializations || []
-          };
-        })
-      );
+      const orderCountMap = new Map(orderCounts.map(entry => [String(entry._id), entry.assignedOrders]));
+      const taskCountMap = new Map(taskCounts.map(entry => [String(entry._id), entry.assignedTasks]));
+
+      const staffStatusData = staff.map((member) => {
+        const assignedOrders = Number(orderCountMap.get(String(member._id)) || 0);
+        const assignedTasks = Number(taskCountMap.get(String(member._id)) || 0);
+
+        const capacity = 10;
+        const currentLoad = assignedOrders + assignedTasks;
+        const utilizationRate = Math.min((currentLoad / capacity) * 100, 100);
+
+        let availability = 'available';
+        if (member.currentStatus === 'offline' || !member.currentStatus) {
+          availability = 'offline';
+        } else if (member.currentStatus === 'on_break') {
+          availability = 'on_break';
+        } else if (utilizationRate >= 90) {
+          availability = 'fully_booked';
+        } else if (utilizationRate >= 70) {
+          availability = 'limited';
+        }
+
+        return {
+          _id: member._id,
+          name: member.name || member.email,
+          email: member.email,
+          avatar: member.avatar,
+          currentStatus: member.currentStatus || 'offline',
+          availability,
+          lastActivity: member.lastActivity,
+          currentOrder: member.currentOrderNumber || null,
+          assignedOrders,
+          assignedTasks,
+          totalAssignments: currentLoad,
+          capacity,
+          utilizationRate: Math.round(utilizationRate),
+          hoursThisWeek: member.hoursThisWeek || 0,
+          hoursThisMonth: member.hoursThisMonth || 0,
+          specializations: member.specializations || []
+        };
+      });
 
       console.log(`AdminDashboardService: Retrieved status for ${staffStatusData.length} staff members`);
       return staffStatusData;
@@ -387,7 +420,7 @@ class AdminDashboardService {
       console.log(`AdminDashboardService: Fetching ${limit} assigned orders with time metrics`);
 
       const orders = await Order.find({
-        'assignedStaff.0': { $exists: true }, // Has at least one assigned staff
+        'assignedStaff.0': { $exists: true },
         status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
       })
         .populate('customerId', 'firstName lastName email phone')
@@ -396,76 +429,88 @@ class AdminDashboardService {
         .limit(limit)
         .lean();
 
-      const ordersWithMetrics = await Promise.all(
-        orders.map(async (order) => {
-          // Calculate time metrics for each assigned staff member
-          const staffMetrics = await Promise.all(
-            (order.assignedStaff || []).map(async (staff) => {
-              // Get work sessions for this staff member on this order
-              const workSessions = await WorkSession.find({
-                staffId: staff.staffId,
-                'ordersWorked.orderId': order._id,
-                status: 'completed'
-              }).lean();
+      if (!orders.length) {
+        return [];
+      }
 
-              // Calculate total time spent
-              let totalMinutes = 0;
-              workSessions.forEach(session => {
-                const orderWork = session.ordersWorked.find(
-                  ow => ow.orderId && ow.orderId.toString() === order._id.toString()
-                );
-                if (orderWork && orderWork.duration) {
-                  totalMinutes += orderWork.duration;
-                }
-              });
+      const orderIds = orders.map(order => order._id);
+      const durationRows = await WorkSession.aggregate([
+        {
+          $match: {
+            status: 'completed',
+            'ordersWorked.orderId': { $in: orderIds }
+          }
+        },
+        { $unwind: '$ordersWorked' },
+        {
+          $match: {
+            'ordersWorked.orderId': { $in: orderIds }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              orderId: '$ordersWorked.orderId',
+              staffId: '$staffId'
+            },
+            totalMinutes: { $sum: { $ifNull: ['$ordersWorked.duration', 0] } }
+          }
+        }
+      ]);
 
-              const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+      const durationLookup = new Map();
+      durationRows.forEach(row => {
+        const orderId = String(row._id.orderId);
+        const staffId = String(row._id.staffId);
+        durationLookup.set(`${orderId}:${staffId}`, row.totalMinutes || 0);
+      });
 
-              return {
-                staffId: staff.staffId._id,
-                staffName: staff.staffId.name || staff.staffId.email,
-                assignedAt: staff.assignedAt,
-                timeSpent: totalHours,
-                timeSpentMinutes: totalMinutes
-              };
-            })
-          );
-
-          // Calculate total time spent by all staff
-          const totalTimeSpent = staffMetrics.reduce((sum, m) => sum + m.timeSpent, 0);
-
-          // Calculate estimated vs actual time
-          const estimatedTime = order.estimatedCompletionTime || 0;
-          const timeEfficiency = estimatedTime > 0
-            ? Math.round((estimatedTime / totalTimeSpent) * 100)
-            : 0;
+      const ordersWithMetrics = orders.map((order) => {
+        const staffMetrics = (order.assignedStaff || []).map((staff) => {
+          const staffId = staff.staffId && staff.staffId._id ? staff.staffId._id.toString() : String(staff.staffId || '');
+          const totalMinutes = durationLookup.get(`${order._id.toString()}:${staffId}`) || 0;
+          const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
 
           return {
-            _id: order._id,
-            orderNumber: order.orderNumber,
-            customer: order.customerId ? {
-              name: `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim(),
-              email: order.customerId.email,
-              phone: order.customerId.phone
-            } : null,
-            device: {
-              type: order.deviceType,
-              brand: order.deviceBrand,
-              model: order.deviceModel
-            },
-            status: order.status,
-            priority: order.priority || 'normal',
-            progress: order.progress || 0,
-            assignedStaff: staffMetrics,
-            totalTimeSpent,
-            estimatedTime,
-            timeEfficiency: isFinite(timeEfficiency) ? timeEfficiency : 0,
-            createdAt: order.createdAt,
-            estimatedCompletion: order.estimatedCompletion,
-            totalCost: order.totalCost
+            staffId,
+            staffName: staff.staffId?.name || staff.staffId?.email || 'Unknown staff',
+            assignedAt: staff.assignedAt,
+            timeSpent: totalHours,
+            timeSpentMinutes: totalMinutes
           };
-        })
-      );
+        });
+
+        const totalTimeSpent = staffMetrics.reduce((sum, metric) => sum + metric.timeSpent, 0);
+        const estimatedTime = order.estimatedCompletionTime || 0;
+        const timeEfficiency = estimatedTime > 0
+          ? Math.round((estimatedTime / totalTimeSpent) * 100)
+          : 0;
+
+        return {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          customer: order.customerId ? {
+            name: `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim(),
+            email: order.customerId.email,
+            phone: order.customerId.phone
+          } : null,
+          device: {
+            type: order.deviceType,
+            brand: order.deviceBrand,
+            model: order.deviceModel
+          },
+          status: order.status,
+          priority: order.priority || 'normal',
+          progress: order.progress || 0,
+          assignedStaff: staffMetrics,
+          totalTimeSpent,
+          estimatedTime,
+          timeEfficiency: isFinite(timeEfficiency) ? timeEfficiency : 0,
+          createdAt: order.createdAt,
+          estimatedCompletion: order.estimatedCompletion,
+          totalCost: order.totalCost
+        };
+      });
 
       console.log(`AdminDashboardService: Retrieved ${ordersWithMetrics.length} assigned orders with metrics`);
       return ordersWithMetrics;

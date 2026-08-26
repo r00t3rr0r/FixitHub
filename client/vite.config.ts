@@ -5,16 +5,29 @@ import { defineConfig } from "vite"
 export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 1200,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          ui: [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-tooltip',
+            '@radix-ui/react-alert-dialog',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-scroll-area',
+          ],
           charts: ['chart.js', 'recharts'],
           docs: ['jspdf', 'html2canvas'],
           forms: ['react-hook-form', 'zod', '@hookform/resolvers'],
           editors: ['react-quill', 'react-quill-new'],
+          data: ['papaparse', 'json-bigint', 'date-fns'],
+          dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities', 'react-beautiful-dnd'],
+          maps: ['leaflet'],
+          utils: ['lucide-react', 'clsx', 'tailwind-merge', 'sonner', 'next-themes'],
         },
       },
     },

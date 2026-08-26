@@ -1,6 +1,7 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
 const Team = require('../models/Team');
+const Order = require('../models/Order');
 
 class TaskService {
   // Get tasks with filtering
@@ -50,14 +51,41 @@ class TaskService {
       }
 
       const tasks = await Task.find(query)
-        .populate('assignedTo', 'name email avatar')
-        .populate('assignedBy', 'name email')
-        .populate('teamId', 'name')
-        .populate('orderId', 'orderNumber')
-        .sort({ dueDate: 1, priority: 1 });
+        .select('title description assignedTo assignedBy teamId orderId priority status category dueDate startDate completedDate estimatedHours actualHours comments createdAt updatedAt')
+        .sort({ dueDate: 1, priority: 1 })
+        .lean();
 
-      console.log('TaskService: Found', tasks.length, 'tasks');
-      return tasks;
+      if (!tasks.length) {
+        return [];
+      }
+
+      const userIds = [...new Set(tasks.flatMap((task) => [
+        task.assignedTo,
+        task.assignedBy,
+      ].filter(Boolean).map(id => String(id))))];
+      const teamIds = [...new Set(tasks.flatMap((task) => task.teamId ? [String(task.teamId)] : []))];
+      const orderIds = [...new Set(tasks.flatMap((task) => task.orderId ? [String(task.orderId)] : []))];
+
+      const [users, teams, orders] = await Promise.all([
+        User.find({ _id: { $in: userIds } }).select('name email avatar').lean(),
+        Team.find({ _id: { $in: teamIds } }).select('name').lean(),
+        Order.find({ _id: { $in: orderIds } }).select('_id orderNumber').lean(),
+      ]);
+
+      const userMap = new Map(users.map((user) => [String(user._id), user]));
+      const teamMap = new Map(teams.map((team) => [String(team._id), team]));
+      const orderMap = new Map(orders.map((order) => [String(order._id), order]));
+
+      const enrichedTasks = tasks.map((task) => ({
+        ...task,
+        assignedTo: task.assignedTo ? (userMap.get(String(task.assignedTo)) || null) : null,
+        assignedBy: task.assignedBy ? (userMap.get(String(task.assignedBy)) || null) : null,
+        teamId: task.teamId ? (teamMap.get(String(task.teamId)) || null) : null,
+        orderId: task.orderId ? (orderMap.get(String(task.orderId)) || null) : null,
+      }));
+
+      console.log('TaskService: Found', enrichedTasks.length, 'tasks');
+      return enrichedTasks;
     } catch (error) {
       console.error('TaskService: Error getting tasks:', error);
       throw error;

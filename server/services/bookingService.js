@@ -1128,12 +1128,20 @@ class BookingService {
 
       const bookings = await Booking.find(query)
         .setOptions({ skipAutoPopulate: true })
-        .populate('customerId', 'firstName lastName email phone avatar name')
+        .select('customerId bookingNumber status billingStatus paymentStatus totalCost items createdAt updatedAt shippingStatus trackingNumber guestInfo')
         .sort({ createdAt: -1 })
         .limit(filters.limit || 50)
-        .skip(filters.skip || 0);
+        .skip(filters.skip || 0)
+        .lean();
 
       console.log('BookingService: Found', bookings.length, 'bookings on current page');
+
+      const customerIds = [...new Set(bookings.map((booking) => booking.customerId).filter(Boolean).map((id) => String(id)))];
+      const customerMap = new Map(
+        customerIds.length
+          ? (await User.find({ _id: { $in: customerIds } }).select('firstName lastName email phone avatar name').lean()).map((user) => [String(user._id), user])
+          : []
+      );
 
       const bookingIds = bookings.map((booking) => booking._id);
       const invoiceSummaries = await Invoice.aggregate([
@@ -1225,7 +1233,10 @@ class BookingService {
       // Calculate real-time progress for all bookings from their associated orders
       const bookingsWithProgress = bookings.map((booking) => {
         try {
-          const bookingPlain = booking.toObject({ virtuals: true });
+          const bookingPlain = {
+            ...booking,
+            customerId: booking.customerId ? (customerMap.get(String(booking.customerId)) || null) : null,
+          };
           const bookingKey = String(booking._id);
           const bookingOrders = ordersByBookingId.get(bookingKey) || [];
           const invoiceSummary = invoiceSummaryByBookingId.get(bookingKey);
@@ -1261,7 +1272,7 @@ class BookingService {
           return bookingPlain;
         } catch (error) {
           console.error('BookingService: Error calculating progress for booking:', booking._id, error);
-          return booking.toObject({ virtuals: true });
+          return { ...booking, customerId: booking.customerId ? (customerMap.get(String(booking.customerId)) || null) : null };
         }
       });
 

@@ -148,20 +148,34 @@ class PerformanceService {
     try {
       const currentPeriod = period || new Date().toISOString().slice(0, 7);
       
-      // Get all staff members
-      const staffMembers = await User.find({ role: { $in: ['staff', 'admin'] } });
-      
-      const teamPerformance = await Promise.all(
-        staffMembers.map(async (staff) => {
-          const performance = await this.getStaffPerformance(staff._id, currentPeriod);
-          return {
-            staffId: staff._id,
-            staffName: staff.name,
-            avatar: staff.avatar,
-            performance: performance[0] || null
-          };
-        })
+      const staffMembers = await User.find({ role: { $in: ['staff', 'admin'] } }).select('_id name avatar');
+      if (!staffMembers.length) {
+        return [];
+      }
+
+      const staffIds = staffMembers.map((staff) => staff._id);
+      const existingMetrics = await PerformanceMetric.find({
+        staffId: { $in: staffIds },
+        period: currentPeriod
+      }).lean();
+
+      const metricsByStaff = new Map(
+        existingMetrics.map((metric) => [String(metric.staffId), metric])
       );
+
+      const missingMetrics = staffMembers.filter((staff) => !metricsByStaff.has(String(staff._id)));
+      const createdMetrics = await Promise.all(
+        missingMetrics.map((staff) => this.calculateStaffMetrics(staff._id, currentPeriod))
+      );
+
+      createdMetrics.forEach((metric) => metricsByStaff.set(String(metric.staffId), metric.toObject ? metric.toObject() : metric));
+
+      const teamPerformance = staffMembers.map((staff) => ({
+        staffId: staff._id,
+        staffName: staff.name,
+        avatar: staff.avatar,
+        performance: metricsByStaff.get(String(staff._id)) || null
+      }));
 
       console.log('PerformanceService: Calculated team performance for', staffMembers.length, 'staff members');
       return teamPerformance;
