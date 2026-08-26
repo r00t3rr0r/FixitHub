@@ -6,6 +6,18 @@ export default defineConfig({
   plugins: [react()],
   build: {
     chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          charts: ['chart.js', 'recharts'],
+          docs: ['jspdf', 'html2canvas'],
+          forms: ['react-hook-form', 'zod', '@hookform/resolvers'],
+          editors: ['react-quill', 'react-quill-new'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

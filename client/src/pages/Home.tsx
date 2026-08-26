@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useAdcellConfig } from '@/hooks/useAdcellConfig';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
@@ -9,15 +9,29 @@ import { McRepairNav } from '@/components/home/McRepairNav';
 import { DeviceSelectionHero } from '@/components/home/DeviceSelectionHero';
 import { TrustRow } from '@/components/home/TrustRow';
 import { ServicesOverview } from '@/components/home/ServicesOverview';
-import { ShopSection } from '@/components/home/ShopSectionSimple';
 import { SatisfiedCustomersSection } from '@/components/home/SatisfiedCustomersSection';
-import { BlogSection } from '@/components/home/BlogSection';
 import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
 import { ScrollToTopButton } from '@/components/home/ScrollToTopButton';
 import { saveDeviceInfo } from '@/utils/deviceDetection';
 import { SEO } from '@/components/SEO'
 import { getRepairCatalog, type RepairCatalogDeviceType } from '@/api/seo'
+
+const ShopSection = lazy(() => import('@/components/home/ShopSectionSimple').then((module) => ({ default: module.ShopSection })));
+const BlogSection = lazy(() => import('@/components/home/BlogSection').then((module) => ({ default: module.BlogSection })));
+
+function DeferredSectionFallback() {
+  return (
+    <div className="container py-10">
+      <div className="h-8 w-40 rounded bg-slate-200/70 animate-pulse" />
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-64 rounded-2xl bg-slate-200/70 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function Home() {
   const { t } = useTranslation();
@@ -85,7 +99,9 @@ export function Home() {
 
       {/* Shop Section */}
       <section id="shop" className="section section-alt">
-        <ShopSection />
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <ShopSection />
+        </Suspense>
       </section>
 
       {/* Satisfied Customers Section */}
@@ -95,7 +111,9 @@ export function Home() {
 
       {/* Blog Section */}
       <section id="blog" className="section section-alt">
-        <BlogSection />
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <BlogSection />
+        </Suspense>
       </section>
 
       {/* Footer with McRepair Design */}
