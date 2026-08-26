@@ -172,7 +172,13 @@ export const getDashboardSummary = async () => {
     return extractedData;
   } catch (error: any) {
     console.error('Error fetching dashboard summary:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw new Error(
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.data?.message ||
+      error?.message ||
+      'Failed to fetch dashboard summary'
+    );
   }
 };
 

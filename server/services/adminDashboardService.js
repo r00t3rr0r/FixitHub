@@ -7,6 +7,30 @@ const Task = require('../models/Task');
 const { WorkSession } = require('../models/TimeEntry');
 const mongoose = require('mongoose');
 
+const toObjectIdString = (value) => {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '[object Object]') return null;
+    return mongoose.Types.ObjectId.isValid(trimmed) ? trimmed : null;
+  }
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return String(value);
+  }
+
+  if (typeof value === 'object') {
+    return toObjectIdString(value._id || value.id || null);
+  }
+
+  return null;
+};
+
+const uniqueValidObjectIds = (values = []) => {
+  return [...new Set(values.map(toObjectIdString).filter(Boolean))];
+};
+
 /**
  * AdminDashboardService
  * Provides comprehensive data for the Admin Dashboard
@@ -157,17 +181,32 @@ class AdminDashboardService {
     try {
       console.log(`AdminDashboardService: Fetching ${limit} recent notifications`);
 
-      // Build query - if userId provided, get user-specific, otherwise get system-wide
-      const query = userId ? { userId } : {};
+      const normalizedUserId = toObjectIdString(userId);
+      const query = normalizedUserId ? { userId: normalizedUserId } : {};
 
       const notifications = await Notification.find(query)
-        .populate('orderId', 'orderNumber deviceBrand deviceModel status')
+        .select('_id userId title message type isRead orderId actionUrl metadata createdAt readAt')
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean();
 
+      const orderIds = [...new Set(
+        notifications
+          .map((notification) => notification.orderId)
+          .filter(Boolean)
+          .map((id) => String(id))
+      )];
+
+      const orderMap = new Map(
+        orderIds.length
+          ? (await Order.find({ _id: { $in: orderIds } })
+              .select('_id orderNumber deviceBrand deviceModel status')
+              .lean()).map((order) => [String(order._id), order])
+          : []
+      );
+
       const unreadCount = await Notification.countDocuments({
-        ...(userId ? { userId } : {}),
+        ...(normalizedUserId ? { userId: normalizedUserId } : {}),
         isRead: false
       });
 
@@ -177,22 +216,26 @@ class AdminDashboardService {
         n.message?.toLowerCase().includes('urgent')
       ).length;
 
-      const formattedNotifications = notifications.map(notification => ({
-        _id: notification._id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        isRead: notification.isRead,
-        isUrgent: notification.type === 'urgent' ||
-                  notification.title?.toLowerCase().includes('urgent') ||
-                  notification.message?.toLowerCase().includes('urgent'),
-        orderId: notification.orderId?._id,
-        orderNumber: notification.orderId?.orderNumber,
-        actionUrl: notification.actionUrl,
-        metadata: notification.metadata || {},
-        createdAt: notification.createdAt,
-        readAt: notification.readAt
-      }));
+      const formattedNotifications = notifications.map(notification => {
+        const relatedOrder = orderMap.get(String(notification.orderId));
+
+        return {
+          _id: notification._id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          isRead: notification.isRead,
+          isUrgent: notification.type === 'urgent' ||
+                    notification.title?.toLowerCase().includes('urgent') ||
+                    notification.message?.toLowerCase().includes('urgent'),
+          orderId: relatedOrder?._id || notification.orderId,
+          orderNumber: relatedOrder?.orderNumber,
+          actionUrl: notification.actionUrl,
+          metadata: notification.metadata || {},
+          createdAt: notification.createdAt,
+          readAt: notification.readAt
+        };
+      });
 
       console.log(`AdminDashboardService: Retrieved ${formattedNotifications.length} notifications (${unreadCount} unread, ${urgentCount} urgent)`);
 
@@ -217,40 +260,52 @@ class AdminDashboardService {
     try {
       console.log(`AdminDashboardService: Fetching ${limit} recent activities`);
 
-      // Get recent orders
-      const recentOrders = await Order.find({})
-        .populate('customerId', 'firstName lastName email')
-        .sort({ createdAt: -1 })
-        .limit(Math.ceil(limit / 3))
-        .lean();
+      const activityLimit = Math.ceil(limit / 3);
+      const [recentOrders, recentBookings, recentRequests] = await Promise.all([
+        Order.find({})
+          .select('_id orderNumber customerId deviceBrand deviceModel status totalCost updatedAt createdAt')
+          .sort({ createdAt: -1 })
+          .limit(activityLimit)
+          .lean(),
+        Booking.find({})
+          .select('_id bookingNumber customerId totalCost items status createdAt')
+          .sort({ createdAt: -1 })
+          .limit(activityLimit)
+          .lean(),
+        RepairRequest.find({})
+          .select('_id requestNumber customerId customerName customerEmail deviceBrand deviceModel status updatedAt createdAt')
+          .sort({ createdAt: -1 })
+          .limit(activityLimit)
+          .lean()
+      ]);
 
-      // Get recent bookings
-      const recentBookings = await Booking.find({})
-        .populate('customerId', 'firstName lastName email')
-        .sort({ createdAt: -1 })
-        .limit(Math.ceil(limit / 3))
-        .lean();
+      const customerIds = uniqueValidObjectIds([
+        ...recentOrders.map((order) => order.customerId),
+        ...recentBookings.map((booking) => booking.customerId),
+        ...recentRequests.map((request) => request.customerId)
+      ]);
 
-      // Get recent repair requests
-      const recentRequests = await RepairRequest.find({})
-        .populate('customerId', 'firstName lastName email')
-        .sort({ createdAt: -1 })
-        .limit(Math.ceil(limit / 3))
-        .lean();
+      const customerMap = new Map(
+        customerIds.length
+          ? (await User.find({ _id: { $in: customerIds } })
+              .select('_id firstName lastName email')
+              .lean()).map((user) => [String(user._id), user])
+          : []
+      );
 
-      // Combine and format activities
       const activities = [];
 
       recentOrders.forEach(order => {
+        const customer = customerMap.get(String(order.customerId));
         activities.push({
           id: order._id,
           type: 'order',
           action: order.status === 'pending' ? 'created' : 'updated',
           description: `Order ${order.orderNumber || order._id.toString().slice(-8).toUpperCase()} ${order.status === 'pending' ? 'created' : 'updated'}`,
           details: `${order.deviceBrand} ${order.deviceModel} - Status: ${order.status}`,
-          user: order.customerId ? {
-            name: `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim(),
-            email: order.customerId.email
+          user: customer ? {
+            name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+            email: customer.email
           } : null,
           timestamp: order.updatedAt || order.createdAt,
           status: order.status
@@ -258,15 +313,16 @@ class AdminDashboardService {
       });
 
       recentBookings.forEach(booking => {
+        const customer = customerMap.get(String(booking.customerId));
         activities.push({
           id: booking._id,
           type: 'booking',
           action: 'created',
           description: `Booking ${booking.bookingNumber} created`,
-          details: `Total: $${booking.totalCost.toFixed(2)} - ${booking.items?.length || 0} items`,
-          user: booking.customerId ? {
-            name: `${booking.customerId.firstName || ''} ${booking.customerId.lastName || ''}`.trim(),
-            email: booking.customerId.email
+          details: `Total: $${Number(booking.totalCost || 0).toFixed(2)} - ${booking.items?.length || 0} items`,
+          user: customer ? {
+            name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+            email: customer.email
           } : null,
           timestamp: booking.createdAt,
           status: booking.status
@@ -274,22 +330,22 @@ class AdminDashboardService {
       });
 
       recentRequests.forEach(request => {
+        const customer = customerMap.get(String(request.customerId));
         activities.push({
           id: request._id,
           type: 'repair_request',
           action: request.status === 'pending' ? 'submitted' : 'updated',
           description: `Repair request ${request.requestNumber} ${request.status === 'pending' ? 'submitted' : 'updated'}`,
           details: `${request.deviceBrand} ${request.deviceModel} - Status: ${request.status}`,
-          user: request.customerId ? {
-            name: request.customerName,
-            email: request.customerEmail
+          user: customer ? {
+            name: request.customerName || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+            email: request.customerEmail || customer.email
           } : null,
           timestamp: request.updatedAt || request.createdAt,
           status: request.status
         });
       });
 
-      // Sort by timestamp and limit
       activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       const limitedActivities = activities.slice(0, limit);
 
@@ -317,57 +373,90 @@ class AdminDashboardService {
         .sort({ name: 1 })
         .lean();
 
-      const staffStatusData = await Promise.all(
-        staff.map(async (member) => {
-          // Get assigned orders
-          const assignedOrders = await Order.countDocuments({
-            'assignedStaff.staffId': member._id,
-            status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
-          });
+      if (!staff.length) {
+        return [];
+      }
 
-          // Get assigned tasks
-          const assignedTasks = await Task.countDocuments({
-            assignedTo: member._id,
-            status: { $in: ['pending', 'in_progress'] }
-          });
+      const staffIds = staff.map(member => member._id);
 
-          // Calculate availability based on workload
-          const capacity = 10; // Default capacity
-          const currentLoad = assignedOrders + assignedTasks;
-          const utilizationRate = Math.min((currentLoad / capacity) * 100, 100);
-
-          // Determine availability status
-          let availability = 'available';
-          if (member.currentStatus === 'offline' || !member.currentStatus) {
-            availability = 'offline';
-          } else if (member.currentStatus === 'on_break') {
-            availability = 'on_break';
-          } else if (utilizationRate >= 90) {
-            availability = 'fully_booked';
-          } else if (utilizationRate >= 70) {
-            availability = 'limited';
+      const [orderCounts, taskCounts] = await Promise.all([
+        Order.aggregate([
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds },
+              status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
+            }
+          },
+          { $unwind: '$assignedStaff' },
+          {
+            $match: {
+              'assignedStaff.staffId': { $in: staffIds }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedStaff.staffId',
+              assignedOrders: { $sum: 1 }
+            }
           }
+        ]),
+        Task.aggregate([
+          {
+            $match: {
+              assignedTo: { $in: staffIds },
+              status: { $in: ['pending', 'in_progress'] }
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedTo',
+              assignedTasks: { $sum: 1 }
+            }
+          }
+        ])
+      ]);
 
-          return {
-            _id: member._id,
-            name: member.name || member.email,
-            email: member.email,
-            avatar: member.avatar,
-            currentStatus: member.currentStatus || 'offline',
-            availability,
-            lastActivity: member.lastActivity,
-            currentOrder: member.currentOrderNumber || null,
-            assignedOrders,
-            assignedTasks,
-            totalAssignments: currentLoad,
-            capacity,
-            utilizationRate: Math.round(utilizationRate),
-            hoursThisWeek: member.hoursThisWeek || 0,
-            hoursThisMonth: member.hoursThisMonth || 0,
-            specializations: member.specializations || []
-          };
-        })
-      );
+      const orderCountMap = new Map(orderCounts.map(entry => [String(entry._id), entry.assignedOrders]));
+      const taskCountMap = new Map(taskCounts.map(entry => [String(entry._id), entry.assignedTasks]));
+
+      const staffStatusData = staff.map((member) => {
+        const assignedOrders = Number(orderCountMap.get(String(member._id)) || 0);
+        const assignedTasks = Number(taskCountMap.get(String(member._id)) || 0);
+
+        const capacity = 10;
+        const currentLoad = assignedOrders + assignedTasks;
+        const utilizationRate = Math.min((currentLoad / capacity) * 100, 100);
+
+        let availability = 'available';
+        if (member.currentStatus === 'offline' || !member.currentStatus) {
+          availability = 'offline';
+        } else if (member.currentStatus === 'on_break') {
+          availability = 'on_break';
+        } else if (utilizationRate >= 90) {
+          availability = 'fully_booked';
+        } else if (utilizationRate >= 70) {
+          availability = 'limited';
+        }
+
+        return {
+          _id: member._id,
+          name: member.name || member.email,
+          email: member.email,
+          avatar: member.avatar,
+          currentStatus: member.currentStatus || 'offline',
+          availability,
+          lastActivity: member.lastActivity,
+          currentOrder: member.currentOrderNumber || null,
+          assignedOrders,
+          assignedTasks,
+          totalAssignments: currentLoad,
+          capacity,
+          utilizationRate: Math.round(utilizationRate),
+          hoursThisWeek: member.hoursThisWeek || 0,
+          hoursThisMonth: member.hoursThisMonth || 0,
+          specializations: member.specializations || []
+        };
+      });
 
       console.log(`AdminDashboardService: Retrieved status for ${staffStatusData.length} staff members`);
       return staffStatusData;
@@ -387,85 +476,112 @@ class AdminDashboardService {
       console.log(`AdminDashboardService: Fetching ${limit} assigned orders with time metrics`);
 
       const orders = await Order.find({
-        'assignedStaff.0': { $exists: true }, // Has at least one assigned staff
+        'assignedStaff.0': { $exists: true },
         status: { $in: ['pending', 'in-progress', 'quality-check', 'awaiting_parts'] }
       })
-        .populate('customerId', 'firstName lastName email phone')
-        .populate('assignedStaff.staffId', 'name email')
+        .select('_id orderNumber customerId deviceType deviceBrand deviceModel status priority progress assignedStaff estimatedCompletion createdAt totalCost')
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean();
 
-      const ordersWithMetrics = await Promise.all(
-        orders.map(async (order) => {
-          // Calculate time metrics for each assigned staff member
-          const staffMetrics = await Promise.all(
-            (order.assignedStaff || []).map(async (staff) => {
-              // Get work sessions for this staff member on this order
-              const workSessions = await WorkSession.find({
-                staffId: staff.staffId,
-                'ordersWorked.orderId': order._id,
-                status: 'completed'
-              }).lean();
+      if (!orders.length) {
+        return [];
+      }
 
-              // Calculate total time spent
-              let totalMinutes = 0;
-              workSessions.forEach(session => {
-                const orderWork = session.ordersWorked.find(
-                  ow => ow.orderId && ow.orderId.toString() === order._id.toString()
-                );
-                if (orderWork && orderWork.duration) {
-                  totalMinutes += orderWork.duration;
-                }
-              });
+      const customerIds = uniqueValidObjectIds(
+        orders.map((order) => order.customerId)
+      );
+      const staffIds = uniqueValidObjectIds(
+        orders
+          .flatMap((order) => Array.isArray(order.assignedStaff) ? order.assignedStaff : [])
+          .map((staff) => staff?.staffId)
+      );
 
-              const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+      const [customers, staffMembers, durationRows] = await Promise.all([
+        customerIds.length ? User.find({ _id: { $in: customerIds } }).select('_id firstName lastName email phone').lean() : [],
+        staffIds.length ? User.find({ _id: { $in: staffIds } }).select('_id name email').lean() : [],
+        WorkSession.aggregate([
+          {
+            $match: {
+              status: 'completed',
+              'ordersWorked.orderId': { $in: orders.map((order) => order._id) }
+            }
+          },
+          { $unwind: '$ordersWorked' },
+          {
+            $match: {
+              'ordersWorked.orderId': { $in: orders.map((order) => order._id) }
+            }
+          },
+          {
+            $group: {
+              _id: {
+                orderId: '$ordersWorked.orderId',
+                staffId: '$staffId'
+              },
+              totalMinutes: { $sum: { $ifNull: ['$ordersWorked.duration', 0] } }
+            }
+          }
+        ])
+      ]);
 
-              return {
-                staffId: staff.staffId._id,
-                staffName: staff.staffId.name || staff.staffId.email,
-                assignedAt: staff.assignedAt,
-                timeSpent: totalHours,
-                timeSpentMinutes: totalMinutes
-              };
-            })
-          );
+      const customerMap = new Map(customers.map((customer) => [String(customer._id), customer]));
+      const staffMap = new Map(staffMembers.map((member) => [String(member._id), member]));
+      const durationLookup = new Map();
+      durationRows.forEach((row) => {
+        const orderId = String(row._id.orderId);
+        const staffId = String(row._id.staffId);
+        durationLookup.set(`${orderId}:${staffId}`, row.totalMinutes || 0);
+      });
 
-          // Calculate total time spent by all staff
-          const totalTimeSpent = staffMetrics.reduce((sum, m) => sum + m.timeSpent, 0);
-
-          // Calculate estimated vs actual time
-          const estimatedTime = order.estimatedCompletionTime || 0;
-          const timeEfficiency = estimatedTime > 0
-            ? Math.round((estimatedTime / totalTimeSpent) * 100)
-            : 0;
+      const ordersWithMetrics = orders.map((order) => {
+        const customer = customerMap.get(String(order.customerId));
+        const staffMetrics = (order.assignedStaff || []).map((staff) => {
+          const staffId = staff.staffId ? String(staff.staffId) : '';
+          const staffMember = staffMap.get(staffId);
+          const totalMinutes = durationLookup.get(`${String(order._id)}:${staffId}`) || 0;
+          const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
 
           return {
-            _id: order._id,
-            orderNumber: order.orderNumber,
-            customer: order.customerId ? {
-              name: `${order.customerId.firstName || ''} ${order.customerId.lastName || ''}`.trim(),
-              email: order.customerId.email,
-              phone: order.customerId.phone
-            } : null,
-            device: {
-              type: order.deviceType,
-              brand: order.deviceBrand,
-              model: order.deviceModel
-            },
-            status: order.status,
-            priority: order.priority || 'normal',
-            progress: order.progress || 0,
-            assignedStaff: staffMetrics,
-            totalTimeSpent,
-            estimatedTime,
-            timeEfficiency: isFinite(timeEfficiency) ? timeEfficiency : 0,
-            createdAt: order.createdAt,
-            estimatedCompletion: order.estimatedCompletion,
-            totalCost: order.totalCost
+            staffId,
+            staffName: staffMember?.name || staffMember?.email || 'Unknown staff',
+            assignedAt: staff.assignedAt,
+            timeSpent: totalHours,
+            timeSpentMinutes: totalMinutes
           };
-        })
-      );
+        });
+
+        const totalTimeSpent = staffMetrics.reduce((sum, metric) => sum + metric.timeSpent, 0);
+        const estimatedTime = order.estimatedCompletionTime || 0;
+        const timeEfficiency = estimatedTime > 0
+          ? Math.round((estimatedTime / totalTimeSpent) * 100)
+          : 0;
+
+        return {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          customer: customer ? {
+            name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+            email: customer.email,
+            phone: customer.phone
+          } : null,
+          device: {
+            type: order.deviceType,
+            brand: order.deviceBrand,
+            model: order.deviceModel
+          },
+          status: order.status,
+          priority: order.priority || 'normal',
+          progress: order.progress || 0,
+          assignedStaff: staffMetrics,
+          totalTimeSpent,
+          estimatedTime,
+          timeEfficiency: isFinite(timeEfficiency) ? timeEfficiency : 0,
+          createdAt: order.createdAt,
+          estimatedCompletion: order.estimatedCompletion,
+          totalCost: order.totalCost
+        };
+      });
 
       console.log(`AdminDashboardService: Retrieved ${ordersWithMetrics.length} assigned orders with metrics`);
       return ordersWithMetrics;

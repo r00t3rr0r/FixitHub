@@ -245,17 +245,6 @@
   opacity: 0.7;
 }
 
-.inspection-repairable-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.inspection-repairable-actions .inspection-primary-button[data-destructive="true"] {
-  background: var(--danger);
-  border-color: var(--danger);
-}
-
 @media (max-width: 1100px) {
   .inspection-content-grid {
     grid-template-columns: 1fr;
@@ -294,14 +283,6 @@
     grid-template-columns: 1fr;
   }
 
-  .inspection-repairable-actions {
-    flex-direction: column;
-  }
-
-  .inspection-repairable-actions > button {
-    width: 100%;
-    justify-content: center;
-  }
 }
 
 /* CommunicationPanel fine tuning */

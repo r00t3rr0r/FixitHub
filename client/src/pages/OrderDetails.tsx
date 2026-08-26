@@ -260,14 +260,13 @@ export function OrderDetails() {
 
   const requestedWorkflowMode = (() => {
     const state = orderDetailsState as {
-      openWorkflowId?: string
       workflowMode?: 'start' | 'resume' | 'execute' | 'view'
     } | null
 
     return state?.workflowMode
   })()
 
-  const loadOrderInvoices = async (orderId: string) => {
+  const loadOrderInvoices = async (orderId: string, bookingId?: string | null) => {
     if (!orderId || user?.role !== 'admin') {
       setOrderInvoices([])
       return
@@ -275,9 +274,32 @@ export function OrderDetails() {
 
     try {
       setLoadingOrderInvoices(true)
-      const response = await getInvoices({ orderId, limit: 50 })
-      const invoices = Array.isArray((response as any)?.invoices) ? (response as any).invoices : []
-      setOrderInvoices(invoices)
+      const [orderInvoiceResponse, bookingInvoiceResponse] = await Promise.all([
+        getInvoices({ orderId, limit: 50 }),
+        bookingId ? getInvoices({ bookingId, limit: 50 }) : Promise.resolve(null),
+      ])
+
+      const orderInvoicesList = Array.isArray((orderInvoiceResponse as any)?.invoices)
+        ? ((orderInvoiceResponse as any).invoices as FinancialInvoice[])
+        : []
+
+      const bookingInvoicesList = Array.isArray((bookingInvoiceResponse as any)?.invoices)
+        ? ((bookingInvoiceResponse as any).invoices as FinancialInvoice[])
+        : []
+
+      const mergedInvoicesById = new Map<string, FinancialInvoice>()
+      for (const invoice of [...bookingInvoicesList, ...orderInvoicesList]) {
+        if (!invoice?._id) continue
+        mergedInvoicesById.set(String(invoice._id), invoice)
+      }
+
+      const mergedInvoices = Array.from(mergedInvoicesById.values()).sort((a, b) => {
+        const aDate = a?.createdAt ? new Date(a.createdAt).getTime() : 0
+        const bDate = b?.createdAt ? new Date(b.createdAt).getTime() : 0
+        return bDate - aDate
+      })
+
+      setOrderInvoices(mergedInvoices)
     } catch (error) {
       console.error('OrderDetails: Failed to load related invoices:', error)
       setOrderInvoices([])
@@ -397,7 +419,11 @@ export function OrderDetails() {
         setOrder(fetchedOrder)
 
         if (user.role === 'admin') {
-          await loadOrderInvoices(fetchedOrder?._id || id)
+            const bookingId = typeof fetchedOrder?.bookingId === 'string'
+              ? fetchedOrder.bookingId
+              : fetchedOrder?.bookingId?._id
+
+            await loadOrderInvoices(fetchedOrder?._id || id, bookingId ? String(bookingId) : null)
         } else {
           setOrderInvoices([])
         }
@@ -499,6 +525,14 @@ export function OrderDetails() {
 
     loadLinkedBooking()
   }, [order?.bookingId])
+
+  useEffect(() => {
+    if (!id || user?.role !== 'admin' || !linkedBooking?._id) {
+      return
+    }
+
+    loadOrderInvoices(id, String(linkedBooking._id))
+  }, [id, user?.role, linkedBooking?._id])
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {
@@ -900,7 +934,11 @@ export function OrderDetails() {
       }
       setOrder((orderResponse as any).order)
       if (user?.role === 'admin') {
-        await loadOrderInvoices(id)
+        const bookingId = typeof (orderResponse as any)?.order?.bookingId === 'string'
+          ? (orderResponse as any).order.bookingId
+          : (orderResponse as any)?.order?.bookingId?._id
+
+        await loadOrderInvoices(id, bookingId ? String(bookingId) : null)
       }
     } catch (error) {
       console.error("Error refreshing order:", error)
@@ -982,8 +1020,27 @@ export function OrderDetails() {
           : 'Die Rechnung wurde erfolgreich erstellt.',
       })
 
-      await loadOrderInvoices(id)
+      const bookingId = typeof order?.bookingId === 'string' ? order.bookingId : (order as any)?.bookingId?._id
+      await loadOrderInvoices(id, bookingId ? String(bookingId) : null)
     } catch (error: any) {
+      const isDuplicateInvoice = error?.status === 409 || error?.code === 'INVOICE_ALREADY_EXISTS'
+      if (isDuplicateInvoice) {
+        const existingInvoiceLabel = error?.existingInvoiceNumber
+          ? `#${error.existingInvoiceNumber}`
+          : 'die bestehende Rechnung'
+        const redirectTarget = error?.redirectTo
+          || (error?.existingInvoiceId
+            ? `/admin/financial?tab=overview&highlightInvoiceId=${encodeURIComponent(error.existingInvoiceId)}`
+            : '/admin/financial?tab=overview')
+
+        toast({
+          title: 'Rechnung bereits vorhanden',
+          description: `Fuer diese Buchung existiert bereits ${existingInvoiceLabel}. Sie werden direkt weitergeleitet.`,
+        })
+        navigate(redirectTarget)
+        return
+      }
+
       toast({
         title: 'Rechnung konnte nicht erstellt werden',
         description: error?.message || 'Bitte prüfen Sie die Auftragsdaten und versuchen Sie es erneut.',
@@ -1009,14 +1066,14 @@ export function OrderDetails() {
       await refreshOrder()
 
       toast({
-        title: 'Versandetikett erstellt',
+        title: 'Rueckweg-Label erstellt',
         description: response?.trackingNumber
           ? `Trackingnummer: ${response.trackingNumber}`
-          : 'Das Versandetikett wurde erfolgreich erstellt.',
+          : 'Das Rueckweg-Label wurde erfolgreich erstellt.',
       })
     } catch (error: any) {
       toast({
-        title: 'Versandetikett konnte nicht erstellt werden',
+        title: 'Rueckweg-Label konnte nicht erstellt werden',
         description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
         variant: 'destructive',
       })
@@ -1040,7 +1097,7 @@ export function OrderDetails() {
       })
 
       if (!response.ok) {
-        throw new Error('Versandetikett konnte nicht geladen werden.')
+        throw new Error('Rueckweg-Label konnte nicht geladen werden.')
       }
 
       const labelBlob = await response.blob()
@@ -1048,7 +1105,7 @@ export function OrderDetails() {
 
       const link = document.createElement('a')
       link.href = labelUrl
-      link.download = `versandlabel-${order.orderNumber || order._id}.pdf`
+      link.download = `rueckweg-label-${order.orderNumber || order._id}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -1058,7 +1115,7 @@ export function OrderDetails() {
       }, 60000)
     } catch (error: any) {
       toast({
-        title: 'Versandetikett konnte nicht heruntergeladen werden',
+        title: 'Rueckweg-Label konnte nicht heruntergeladen werden',
         description: error?.message || 'Bitte versuchen Sie es erneut.',
         variant: 'destructive',
       })
@@ -1998,6 +2055,63 @@ export function OrderDetails() {
       case 'overdue': return 'Überfällig'
       default: return status
     }
+  }
+
+  const translateInvoiceStatus = (status?: string) => {
+    const normalizedStatus = String(status || '').toLowerCase()
+    const statusMap: Record<string, string> = {
+      draft: 'Entwurf',
+      pending_approval: 'Freigabe ausstehend',
+      sent: 'Versendet',
+      viewed: 'Gesehen',
+      partially_paid: 'Teilbezahlt',
+      paid: 'Bezahlt',
+      overdue: 'Ueberfaellig',
+      cancelled: 'Storniert',
+      credited: 'Gutgeschrieben',
+    }
+
+    return statusMap[normalizedStatus] || (status || 'Unbekannt')
+  }
+
+  const getInvoiceStatusBadgeClass = (status?: string) => {
+    const normalizedStatus = String(status || '').toLowerCase()
+
+    if (normalizedStatus === 'paid') return 'bg-green-100 text-green-800 border border-green-300'
+    if (normalizedStatus === 'partially_paid') return 'bg-amber-100 text-amber-800 border border-amber-300'
+    if (normalizedStatus === 'overdue') return 'bg-red-100 text-red-800 border border-red-300'
+    if (normalizedStatus === 'cancelled') return 'bg-zinc-100 text-zinc-700 border border-zinc-300'
+    if (normalizedStatus === 'draft' || normalizedStatus === 'pending_approval') return 'bg-slate-100 text-slate-800 border border-slate-300'
+
+    return 'bg-blue-100 text-blue-800 border border-blue-300'
+  }
+
+  const getInvoiceScopeLabel = (invoice: FinancialInvoice) => {
+    const linkedBookingOrderCount = Array.isArray((linkedBooking as any)?.orderIds)
+      ? (linkedBooking as any).orderIds.length
+      : 0
+    const invoiceRepairOrderCount = Array.isArray(invoice?.repairOrderIds)
+      ? invoice.repairOrderIds.length
+      : 0
+
+    if (linkedBookingOrderCount > 0 && invoiceRepairOrderCount >= linkedBookingOrderCount) {
+      return 'Gesamtrechnung'
+    }
+
+    if (invoiceRepairOrderCount > 0) {
+      return 'Teilrechnung'
+    }
+
+    return 'Rechnung'
+  }
+
+  const formatInvoiceDate = (value?: string) => {
+    if (!value) return '-'
+
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return '-'
+
+    return parsed.toLocaleDateString('de-DE')
   }
 
   useEffect(() => {
@@ -3214,6 +3328,68 @@ export function OrderDetails() {
             <Badge variant="secondary" className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 text-xs px-2 py-0.5">
               {t('orderDetails.repairInfo.notSpecified') || 'Nicht angegeben'}
             </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* IMEI */}
+      {order.imei && order.imei.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-start gap-2">
+            <Smartphone className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
+                {t('orderDetails.repairInfo.imeiLabel', 'IMEI')}
+              </h4>
+              <p className="text-xs text-gray-700 dark:text-gray-300 break-all">
+                {order.imei}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.imeiLabel', 'IMEI')}
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
+                {t('orderDetails.repairInfo.notSpecified', 'Nicht angegeben')}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Serial Number */}
+      {order.serialNumber && order.serialNumber.trim() ? (
+        <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+          <div className="flex items-start gap-2">
+            <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-amber-900 dark:text-amber-100 mb-1">
+                {t('orderDetails.repairInfo.serialNumberLabel', 'Seriennummer')}
+              </h4>
+              <p className="text-xs text-gray-700 dark:text-gray-300 break-all">
+                {order.serialNumber}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-gray-400 dark:text-gray-600" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-xs text-gray-600 dark:text-gray-400">
+                {t('orderDetails.repairInfo.serialNumberLabel', 'Seriennummer')}
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-600 italic mt-1">
+                {t('orderDetails.repairInfo.notSpecified', 'Nicht angegeben')}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -5220,7 +5396,7 @@ export function OrderDetails() {
                           className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
                         >
                           <Send className="h-4 w-4 mr-1.5" />
-                          {creatingOrderShippingLabel ? 'Versand wird gestartet…' : 'Senden mit DHL/FedEx starten'}
+                          {creatingOrderShippingLabel ? 'Rueckweg wird gestartet…' : 'Rueckweg mit DHL/FedEx starten'}
                         </Button>
 
                         <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
@@ -5235,18 +5411,29 @@ export function OrderDetails() {
                                     <Link
                                       key={invoice._id}
                                       to={`/admin/financial?tab=overview&highlightInvoiceId=${encodeURIComponent(invoice._id)}`}
-                                      className="flex items-center justify-between rounded border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
+                                      className="flex items-start justify-between rounded border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
                                     >
-                                      <span className="flex items-center gap-1.5 min-w-0">
-                                        <FileText className="h-3.5 w-3.5 shrink-0" />
-                                        <span className="truncate">Rechnung {invoice.invoiceNumber || invoice._id}</span>
+                                      <span className="min-w-0">
+                                        <span className="flex items-center gap-1.5 min-w-0">
+                                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                                          <span className="truncate font-medium">Rechnung {invoice.invoiceNumber || invoice._id}</span>
+                                        </span>
+                                        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium leading-none">
+                                            {getInvoiceScopeLabel(invoice)}
+                                          </Badge>
+                                          <Badge className={`h-5 px-1.5 text-[10px] font-medium leading-none ${getInvoiceStatusBadgeClass(invoice.status)}`}>
+                                            {translateInvoiceStatus(invoice.status)}
+                                          </Badge>
+                                          <span>Datum: {formatInvoiceDate(invoice.createdAt)}</span>
+                                        </span>
                                       </span>
                                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                     </Link>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung für diesen Auftrag erstellt.</p>
+                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung fuer diesen Auftrag bzw. die zugehoerige Buchung erstellt.</p>
                               )
                             ) : (
                               <p className="text-xs text-muted-foreground mt-1">Rechnungslinks sind nur für Administratoren sichtbar.</p>
@@ -5263,11 +5450,11 @@ export function OrderDetails() {
                                   disabled={downloadingOrderShippingLabel}
                                 >
                                   <Download className="h-4 w-4 mr-1.5" />
-                                  {downloadingOrderShippingLabel ? 'Versandetikett wird heruntergeladen…' : 'Versandlabel herunterladen'}
+                                  {downloadingOrderShippingLabel ? 'Rueckweg-Label wird heruntergeladen…' : 'Rueckweg-Label herunterladen'}
                                 </Button>
                               </div>
                             ) : (
-                              <p className="text-xs text-muted-foreground">Noch kein Versandetikett verfügbar.</p>
+                              <p className="text-xs text-muted-foreground">Noch kein Rueckweg-Label verfuegbar.</p>
                             )}
                           </div>
                         </div>
@@ -5594,56 +5781,74 @@ export function OrderDetails() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
-                      {availableStaff.map((staff) => (
-                        <div key={staff._id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                          <Checkbox
-                            id={staff._id}
-                            checked={selectedStaff.includes(staff._id)}
-                            onCheckedChange={(checked) => handleStaffToggle(staff._id, checked as boolean)}
-                          />
-                          <div className="flex items-center gap-2 flex-1">
-                            <Avatar className="w-7 h-7">
-                              <AvatarImage src={staff.avatar} />
-                              <AvatarFallback className="text-xs">
-                                {staff.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{staff.name}</p>
-                              <p className="text-xs text-muted-foreground">{staff.email}</p>
-                              <div className="flex flex-wrap gap-1 mt-0.5">
-                                {staff.specializations.slice(0, 2).map((spec) => (
-                                  <Badge key={spec} variant="secondary" className="text-xs px-1.5 py-0">
-                                    {spec}
-                                  </Badge>
-                                ))}
-                                {staff.specializations.length > 2 && (
-                                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                                    +{staff.specializations.length - 2} {t('orderDetails.more')}
-                                  </Badge>
-                                )}
-                              </div>
-                              {staff.currentWorkload && (
-                                <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span>Active Orders: {staff.currentWorkload.assignedOrders}/{staff.currentWorkload.capacity}</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                      staff.currentWorkload.utilizationRate > 80 ? 'bg-red-100 text-red-800' :
-                                      staff.currentWorkload.utilizationRate > 60 ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-green-100 text-green-800'
-                                    }`}>
-                                      {staff.currentWorkload.utilizationRate}% utilized
-                                    </span>
-                                  </div>
-                                  {staff.currentWorkload.assignedTasks !== undefined && (
-                                    <div>Active Tasks: {staff.currentWorkload.assignedTasks}</div>
+                      {availableStaff.map((staff) => {
+                        const isSelected = selectedStaff.includes(staff._id)
+
+                        return (
+                          <div
+                            key={staff._id}
+                            className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer ${isSelected ? 'bg-muted/60 border-primary/50' : ''}`}
+                            onClick={() => handleStaffToggle(staff._id, !isSelected)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                handleStaffToggle(staff._id, !isSelected)
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={isSelected}
+                          >
+                            <Checkbox
+                              id={staff._id}
+                              checked={isSelected}
+                              onClick={(event) => event.stopPropagation()}
+                              onCheckedChange={(checked) => handleStaffToggle(staff._id, checked as boolean)}
+                            />
+                            <div className="flex items-center gap-2 flex-1">
+                              <Avatar className="w-7 h-7">
+                                <AvatarImage src={staff.avatar} />
+                                <AvatarFallback className="text-xs">
+                                  {staff.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{staff.name}</p>
+                                <p className="text-xs text-muted-foreground">{staff.email}</p>
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {staff.specializations.slice(0, 2).map((spec) => (
+                                    <Badge key={spec} variant="secondary" className="text-xs px-1.5 py-0">
+                                      {spec}
+                                    </Badge>
+                                  ))}
+                                  {staff.specializations.length > 2 && (
+                                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                      +{staff.specializations.length - 2} {t('orderDetails.more')}
+                                    </Badge>
                                   )}
                                 </div>
-                              )}
+                                {staff.currentWorkload && (
+                                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span>Active Orders: {staff.currentWorkload.assignedOrders}/{staff.currentWorkload.capacity}</span>
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        staff.currentWorkload.utilizationRate > 80 ? 'bg-red-100 text-red-800' :
+                                        staff.currentWorkload.utilizationRate > 60 ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-green-100 text-green-800'
+                                      }`}>
+                                        {staff.currentWorkload.utilizationRate}% utilized
+                                      </span>
+                                    </div>
+                                    {staff.currentWorkload.assignedTasks !== undefined && (
+                                      <div>Active Tasks: {staff.currentWorkload.assignedTasks}</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                     <DialogFooter>
                       <Button

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { Suspense, lazy, useEffect, useRef, useState } from "react"
 import { useAdcellConfig } from "@/hooks/useAdcellConfig"
 import { SEO } from '@/components/SEO'
 import { Link, useSearchParams } from "react-router-dom"
@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/useToast"
 import { getCart, updateCartItem, removeFromCart, removeRepairOrderFromCart, applyPromoCode, Cart, Product } from "@/api/shop"
-import { CheckoutDialog } from "@/components/checkout/CheckoutDialog"
-import { CartProductDetailsDialog } from "@/components/cart/CartProductDetailsDialog"
-import { RepairOrderDetailsDialog } from "@/components/cart/RepairOrderDetailsDialog"
+
+const CheckoutDialog = lazy(() => import('@/components/checkout/CheckoutDialog').then((module) => ({ default: module.CheckoutDialog })))
+const CartProductDetailsDialog = lazy(() => import('@/components/cart/CartProductDetailsDialog').then((module) => ({ default: module.CartProductDetailsDialog })))
+const RepairOrderDetailsDialog = lazy(() => import('@/components/cart/RepairOrderDetailsDialog').then((module) => ({ default: module.RepairOrderDetailsDialog })))
 import {
   ShoppingCart as ShoppingCartIcon,
   Plus,
@@ -180,9 +181,11 @@ export function ShoppingCartPage() {
     const fetchCart = async () => {
       try {
         console.log("Fetching cart...")
+
+        const shouldRetryForCheckoutFlow = checkoutFlowRef.current && sessionStorage.getItem('checkoutFlowPending') === '1'
+
         let currentCart: Cart | null = null
 
-        const shouldRetryForCheckoutFlow = checkoutFlowRef.current
         if (shouldRetryForCheckoutFlow) {
           currentCart = await fetchServerCartWithSession()
         }
@@ -196,10 +199,8 @@ export function ShoppingCartPage() {
           setCart(currentCart)
         }
 
-        // After email verification we can hit a short race where cart updates are not
-        // immediately visible on the first request. Retry briefly so users don't need reload.
         if (shouldRetryForCheckoutFlow && !hasCartContent(currentCart)) {
-          const retryDelaysMs = [300, 800, 1500, 2500, 4000]
+          const retryDelaysMs = [150, 450]
 
           for (const delay of retryDelaysMs) {
             await new Promise((resolve) => window.setTimeout(resolve, delay))
@@ -207,11 +208,7 @@ export function ShoppingCartPage() {
 
             try {
               const cookieCart = await fetchServerCartWithSession()
-              let nextCart: Cart | null = cookieCart
-              if (!nextCart) {
-                const retryResponse = await getCart()
-                nextCart = (retryResponse as any).cart || null
-              }
+              const nextCart = cookieCart || ((await getCart()) as any)?.cart || null
 
               if (cancelled) return
               setCart(nextCart)
@@ -225,6 +222,11 @@ export function ShoppingCartPage() {
               console.warn('Retry cart fetch failed after verification flow:', retryError)
             }
           }
+        }
+
+        if (currentCart && hasCartContent(currentCart)) {
+          checkoutFlowRef.current = false
+          sessionStorage.removeItem('checkoutFlowPending')
         }
       } catch (error) {
         console.error("Error fetching cart:", error)
@@ -1088,34 +1090,40 @@ export function ShoppingCartPage() {
       </AlertDialog>
 
       {/* Checkout Dialog */}
-      <CheckoutDialog
-        open={checkoutDialogOpen}
-        onOpenChange={setCheckoutDialogOpen}
-        onSuccess={handleCheckoutDialogSuccess}
-        cart={cart}
-      />
+      <Suspense fallback={null}>
+        <CheckoutDialog
+          open={checkoutDialogOpen}
+          onOpenChange={setCheckoutDialogOpen}
+          onSuccess={handleCheckoutDialogSuccess}
+          cart={cart}
+        />
+      </Suspense>
 
-      <RepairOrderDetailsDialog
-        open={Boolean(selectedRepairOrderGroup)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedRepairOrderGroup(null)
-          }
-        }}
-        order={selectedRepairOrderGroup?.order || null}
-        quantity={selectedRepairOrderGroup?.quantity || 1}
-      />
+      <Suspense fallback={null}>
+        <RepairOrderDetailsDialog
+          open={Boolean(selectedRepairOrderGroup)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedRepairOrderGroup(null)
+            }
+          }}
+          order={selectedRepairOrderGroup?.order || null}
+          quantity={selectedRepairOrderGroup?.quantity || 1}
+        />
+      </Suspense>
 
-      <CartProductDetailsDialog
-        open={Boolean(selectedProductItem)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedProductItem(null)
-          }
-        }}
-        product={selectedProductItem?.product || null}
-        quantity={selectedProductItem?.quantity || 1}
-      />
+      <Suspense fallback={null}>
+        <CartProductDetailsDialog
+          open={Boolean(selectedProductItem)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedProductItem(null)
+            }
+          }}
+          product={selectedProductItem?.product || null}
+          quantity={selectedProductItem?.quantity || 1}
+        />
+      </Suspense>
 
       {/* Custom animations */}
       <style>{`

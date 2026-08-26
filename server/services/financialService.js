@@ -7,6 +7,7 @@ const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 const NotificationService = require('./notificationService');
+const { Types } = require('mongoose');
 
 function parseDueDaysFromTerms(paymentTerms) {
   if (!paymentTerms) return null;
@@ -321,21 +322,27 @@ class FinancialService {
       const limit = parseInt(filters.limit) || 10;
       const skip = (page - 1) * limit;
 
-      const payments = await Payment.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-      const totalPayments = await Payment.countDocuments(query);
-      const totalPages = Math.ceil(totalPayments / limit);
-
-      // Calculate total amount
-      const totalAmountResult = await Payment.aggregate([
-        { $match: query },
-        { $group: { _id: null, totalAmount: { $sum: '$amount' } } }
+      const [paymentSummary] = await Payment.aggregate([
+        {
+          $match: query,
+        },
+        {
+          $facet: {
+            items: [
+              { $sort: { createdAt: -1 } },
+              { $skip: skip },
+              { $limit: limit },
+            ],
+            totalCount: [{ $count: 'count' }],
+            totalAmount: [{ $group: { _id: null, totalAmount: { $sum: '$amount' } } }],
+          },
+        },
       ]);
 
-      const totalAmount = totalAmountResult.length > 0 ? totalAmountResult[0].totalAmount : 0;
+      const payments = (paymentSummary?.items || []).map((payment) => ({ ...payment }));
+      const totalPayments = paymentSummary?.totalCount?.[0]?.count || 0;
+      const totalPages = Math.ceil(totalPayments / limit);
+      const totalAmount = paymentSummary?.totalAmount?.[0]?.totalAmount || 0;
 
       console.log('FinancialService: Found', payments.length, 'payments');
       return {
@@ -441,10 +448,31 @@ class FinancialService {
       if (filters.orderId) {
         const normalizedOrderId = String(filters.orderId).trim();
         if (normalizedOrderId) {
-          query.$or = [
+          const orderIdClauses = [
             { orderId: normalizedOrderId },
             { repairOrderIds: normalizedOrderId }
           ];
+
+          if (Types.ObjectId.isValid(normalizedOrderId)) {
+            const normalizedOrderObjectId = new Types.ObjectId(normalizedOrderId);
+            orderIdClauses.push(
+              { orderId: normalizedOrderObjectId },
+              { repairOrderIds: normalizedOrderObjectId }
+            );
+          }
+
+          query.$or = orderIdClauses;
+        }
+      }
+
+      if (filters.bookingId) {
+        const normalizedBookingId = String(filters.bookingId).trim();
+        if (normalizedBookingId) {
+          if (Types.ObjectId.isValid(normalizedBookingId)) {
+            query.bookingId = new Types.ObjectId(normalizedBookingId);
+          } else {
+            query.bookingId = normalizedBookingId;
+          }
         }
       }
 
@@ -463,23 +491,27 @@ class FinancialService {
       const limit = parseInt(filters.limit) || 10;
       const skip = (page - 1) * limit;
 
-      const invoices = await Invoice.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('repairOrderIds', 'orderNumber status deviceType')
-        .populate('orderId', 'orderNumber status deviceType');
-
-      const totalInvoices = await Invoice.countDocuments(query);
-      const totalPages = Math.ceil(totalInvoices / limit);
-
-      // Calculate total amount
-      const totalAmountResult = await Invoice.aggregate([
-        { $match: query },
-        { $group: { _id: null, totalAmount: { $sum: '$total' } } }
+      const [invoiceSummary] = await Invoice.aggregate([
+        {
+          $match: query,
+        },
+        {
+          $facet: {
+            items: [
+              { $sort: { createdAt: -1 } },
+              { $skip: skip },
+              { $limit: limit },
+            ],
+            totalCount: [{ $count: 'count' }],
+            totalAmount: [{ $group: { _id: null, totalAmount: { $sum: '$total' } } }],
+          },
+        },
       ]);
 
-      const totalAmount = totalAmountResult.length > 0 ? totalAmountResult[0].totalAmount : 0;
+      const invoices = (invoiceSummary?.items || []).map((invoice) => ({ ...invoice }));
+      const totalInvoices = invoiceSummary?.totalCount?.[0]?.count || 0;
+      const totalPages = Math.ceil(totalInvoices / limit);
+      const totalAmount = invoiceSummary?.totalAmount?.[0]?.totalAmount || 0;
 
       console.log('FinancialService: Found', invoices.length, 'invoices');
       return {
@@ -1220,6 +1252,11 @@ class FinancialService {
         if (existingInvoice) {
           const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
           duplicateError.statusCode = 409;
+          duplicateError.code = 'INVOICE_ALREADY_EXISTS';
+          duplicateError.existingInvoice = {
+            _id: String(existingInvoice._id),
+            invoiceNumber: existingInvoice.invoiceNumber || null,
+          };
           throw duplicateError;
         }
       }

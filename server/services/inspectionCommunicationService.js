@@ -190,9 +190,7 @@ class InspectionCommunicationService {
           .sort({ lastMessageAt: -1, updatedAt: -1 })
           .skip(skip)
           .limit(limit)
-          .populate('createdBy.userId', 'name email avatar')
-          .populate('messages.senderId', 'name email role avatar')
-          .populate('messages.feedbackRequest.respondedBy', 'name email')
+          .select('orderId inspectionId createdBy messages status pendingFeedbackCount pendingActionsCount lastMessageAt createdAt updatedAt')
           .lean(),
         InspectionCommunication.countDocuments(communicationQuery),
       ]);
@@ -201,16 +199,45 @@ class InspectionCommunicationService {
         .map(comm => comm.orderId)
         .filter(Boolean);
 
-      const orders = await Order.find({ _id: { $in: orderIds } })
-        .select('_id orderNumber deviceBrand deviceModel customerId guestInfo')
-        .populate('customerId', 'name email phone')
-        .lean();
+      const userIds = [...new Set(
+        communications.flatMap((comm) => {
+          const messageUserIds = (comm.messages || []).flatMap((message) => {
+            const ids = [];
+            if (message.senderId) ids.push(String(message.senderId));
+            if (message.feedbackRequest?.respondedBy) ids.push(String(message.feedbackRequest.respondedBy));
+            return ids;
+          });
+          if (comm.createdBy?.userId) {
+            messageUserIds.push(String(comm.createdBy.userId));
+          }
+          return messageUserIds;
+        })
+      )];
+
+      const [orders, users] = await Promise.all([
+        Order.find({ _id: { $in: orderIds } })
+          .select('_id orderNumber deviceBrand deviceModel customerId guestInfo')
+          .populate('customerId', 'name email phone')
+          .lean(),
+        userIds.length ? User.find({ _id: { $in: userIds } }).select('name email role avatar').lean() : Promise.resolve([]),
+      ]);
 
       const orderById = new Map(orders.map(order => [order._id.toString(), order]));
+      const userById = new Map(users.map(user => [user._id.toString(), user]));
 
       const normalizedCommunications = communications.map(comm => {
         const orderId = comm.orderId ? comm.orderId.toString() : null;
         const order = orderId ? orderById.get(orderId) : null;
+        const normalizedMessages = (comm.messages || []).map((message) => ({
+          ...message,
+          senderId: message.senderId ? (userById.get(String(message.senderId)) || null) : null,
+          feedbackRequest: message.feedbackRequest ? {
+            ...message.feedbackRequest,
+            respondedBy: message.feedbackRequest.respondedBy
+              ? (userById.get(String(message.feedbackRequest.respondedBy)) || null)
+              : null,
+          } : null,
+        }));
 
         return {
           _id: comm._id,
@@ -223,11 +250,16 @@ class InspectionCommunicationService {
             phone: order.customerId?.phone || order.guestInfo?.phone || '',
             isGuest: Boolean(order.guestInfo?.isGuest),
           } : null,
-          messages: comm.messages || [],
+          messages: normalizedMessages,
           status: comm.status,
           pendingFeedbackCount: comm.pendingFeedbackCount || 0,
           pendingActionsCount: comm.pendingActionsCount || 0,
-          createdBy: comm.createdBy,
+          createdBy: comm.createdBy && comm.createdBy.userId
+            ? {
+                ...comm.createdBy,
+                userId: userById.get(String(comm.createdBy.userId)) || null,
+              }
+            : comm.createdBy,
           lastMessageAt: comm.lastMessageAt || comm.updatedAt,
           createdAt: comm.createdAt,
           updatedAt: comm.updatedAt,

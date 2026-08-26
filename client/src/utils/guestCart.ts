@@ -27,6 +27,8 @@ export interface GuestRepairOrder {
   unlockPattern?: string[]
   unlockCode?: string
   noLock?: boolean
+  imei?: string
+  serialNumber?: string
 }
 
 export interface GuestCart {
@@ -167,7 +169,9 @@ export const addRepairOrderToGuestCart = (repairOrderData: any): GuestCart => {
     photos: repairOrderData.photos,
     unlockPattern: repairOrderData.unlockPattern,
     unlockCode: repairOrderData.unlockCode,
-    noLock: repairOrderData.noLock
+    noLock: repairOrderData.noLock,
+    imei: repairOrderData.imei,
+    serialNumber: repairOrderData.serialNumber
   }
 
   cart.repairOrders.push(repairOrder)

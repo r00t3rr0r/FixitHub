@@ -101,6 +101,8 @@ export interface Order {
   previousRepairAttempts?: 'yes' | 'no' | 'dont-know' | '';
   previousRepairDetails?: string;
   itemCondition?: 'original' | 'refurbished' | '';
+  imei?: string;
+  serialNumber?: string;
   // Shipping and tracking information
   shippingAddress?: {
     street: string;

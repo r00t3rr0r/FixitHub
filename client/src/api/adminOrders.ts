@@ -157,6 +157,8 @@ export interface AdminOrder {
   unlockCode?: string;
   noLock?: boolean;
   unlockConfirmation?: UnlockConfirmation;
+  imei?: string;
+  serialNumber?: string;
   createdAt: string;
 }
 

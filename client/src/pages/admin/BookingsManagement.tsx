@@ -2547,6 +2547,9 @@ function BookingDetailDialog({
   )
 
   const hasAnyShippingInfo = hasOutboundShippingInfo || hasReturnShippingInfo
+  const primaryShippingDirectionLabel = hasOutboundShippingInfo && !hasReturnShippingInfo
+    ? 'Rueckweg'
+    : 'Hinweg'
   const repairJobs = (detailOrders.length > 0 ? detailOrders : booking.items || []).filter((item: any) => item.type === 'repair')
 
   const bookingItemsForFinance = Array.isArray(booking.items) ? booking.items : []
@@ -3489,7 +3492,7 @@ function BookingDetailDialog({
                       style={{ color: '#f5c800', fontWeight: '700' }}
                     >
                       <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
-                      Versandinformationen (Hinweg)
+                      Versandinformationen ({primaryShippingDirectionLabel})
                     </h3>
                     {booking.shippingStatus && (
                       <Badge className={getShippingStatusBadgeClass(booking.shippingStatus)}>
@@ -3586,7 +3589,7 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <Clock className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Versandverlauf (Hinweg)</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Versandverlauf ({primaryShippingDirectionLabel})</p>
                             <div className="space-y-2 text-sm">
                               {booking.shippingCreatedAt && (
                                 <div className="flex items-center gap-2">
@@ -4191,6 +4194,7 @@ function InvoiceDialog({
   const [sendImmediately, setSendImmediately] = useState(true)
   const [invoiceMode, setInvoiceMode] = useState<'booking' | 'order'>('booking')
   const [selectedOrderId, setSelectedOrderId] = useState('')
+  const navigate = useNavigate()
   const { toast } = useToast()
 
   const bookingOrders = useMemo(() => {
@@ -4258,6 +4262,41 @@ function InvoiceDialog({
     }
   }, [open, booking, invoiceMode, selectedOrderId])
 
+  const handleInvoiceAlreadyExistsError = (error: unknown) => {
+    const typedError = error as {
+      status?: number;
+      code?: string;
+      existingInvoiceId?: string;
+      existingInvoiceNumber?: string;
+      redirectTo?: string;
+    };
+
+    const isDuplicateInvoiceError = typedError?.status === 409
+      || typedError?.code === 'INVOICE_ALREADY_EXISTS';
+
+    if (!isDuplicateInvoiceError) {
+      return false;
+    }
+
+    const invoiceLabel = typedError.existingInvoiceNumber
+      ? `#${typedError.existingInvoiceNumber}`
+      : 'der vorhandenen Rechnung';
+
+    toast({
+      title: 'Rechnung bereits vorhanden',
+      description: `Es existiert bereits eine Rechnung (${invoiceLabel}). Sie werden jetzt direkt weitergeleitet.`,
+    })
+
+    const redirectTarget = typedError.redirectTo
+      || (typedError.existingInvoiceId
+        ? `/admin/financial?tab=overview&highlightInvoiceId=${encodeURIComponent(typedError.existingInvoiceId)}`
+        : '/admin/financial?tab=overview');
+
+    onClose()
+    navigate(redirectTarget)
+    return true;
+  }
+
   const loadPreview = async () => {
     if (!canCreateAnyInvoice) {
       setPreview(null)
@@ -4284,6 +4323,10 @@ function InvoiceDialog({
       )
       setPreview(response.invoicePreview)
     } catch (error) {
+      if (handleInvoiceAlreadyExistsError(error)) {
+        return
+      }
+
       const message = error instanceof Error ? error.message : 'Rechnungsvorschau konnte nicht geladen werden'
       toast({
         title: "Fehler",
@@ -4333,6 +4376,10 @@ function InvoiceDialog({
       })
       onSuccess()
     } catch (error) {
+      if (handleInvoiceAlreadyExistsError(error)) {
+        return
+      }
+
       const message = error instanceof Error ? error.message : 'Rechnung konnte nicht erstellt werden'
       toast({
         title: "Fehler",

@@ -4,55 +4,56 @@ import { Helmet } from "react-helmet-async"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
 import { AuthProvider } from "./contexts/AuthContext"
-import { Home } from "./pages/Home"
-import { RepairCatalogPage } from "./pages/public/RepairCatalogPage"
-import { Login } from "./pages/Login"
-import { Register } from "./pages/Register"
-import { VerifyEmail } from "./pages/VerifyEmail"
-import { ForgotPassword } from "./pages/ForgotPassword"
-import { ResetPassword } from "./pages/ResetPassword"
-import { DebugLogin } from "./pages/DebugLogin"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Layout } from "./components/Layout"
 import { CustomerLayout } from "./components/CustomerLayout"
 import { BlankPage } from "./pages/BlankPage"
-import { NewOrder } from "./pages/NewOrder"
-import { OrderTracking } from "./pages/OrderTracking"
-import { OrderDetails } from "./pages/OrderDetails"
-import { Messages } from "./pages/Messages"
-import { Notifications } from "./pages/Notifications"
-import { WebShop } from "./pages/WebShop"
-import { ProductDetail } from "./pages/ProductDetail"
-import { ShoppingCartPage } from "./pages/ShoppingCart"
-import { Profile } from "./pages/Profile"
-import { Blog } from "./pages/Blog"
-import { BlogPostPage } from "./pages/BlogPost"
-import { CustomerBookings } from "./pages/CustomerBookings"
-import { CustomerInvoices } from "./pages/CustomerInvoices"
-import { CustomerRepairRequests } from "./pages/CustomerRepairRequests"
-import { CustomerComplaints } from "./pages/CustomerComplaints"
-import { RepairRequestQuestionnaire } from "./pages/RepairRequestQuestionnaire"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
-import { Widerrufsrecht } from "./pages/Widerrufsrecht"
-import { Privacy } from "./pages/Privacy"
-import { Imprint } from "./pages/Imprint"
-import { Terms } from "./pages/Terms"
-import { About } from "./pages/About"
-import { FAQ } from "./pages/FAQ"
-import { GuestOrderTracking } from "./pages/GuestOrderTracking"
-import { GuestBookingTracking } from "./pages/GuestBookingTracking"
-import { GuestRepairRequestTracking } from "./pages/GuestRepairRequestTracking"
-import { Vorabdiagnose } from "./pages/Vorabdiagnose"
-import { Annahmestellen } from "./pages/Annahmestellen"
-import { Contact } from "./pages/Contact"
-import { PartnerWerden } from "./pages/PartnerWerden"
-import Newsletter from "./pages/Newsletter"
-import { Sitemap } from "./pages/Sitemap"
-import { ShippingAndPayment } from "./pages/ShippingAndPayment"
-import { BatteryDisposal } from "./pages/BatteryDisposal"
-import { OrderSuccessPage } from "./pages/OrderSuccess"
 import { PageTracker } from "./components/PageTracker"
 import { GlobalScrollToTopButton } from "./components/GlobalScrollToTopButton"
+
+const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })))
+const RepairCatalogPage = lazy(() => import("./pages/public/RepairCatalogPage").then((m) => ({ default: m.RepairCatalogPage })))
+const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })))
+const Register = lazy(() => import("./pages/Register").then((m) => ({ default: m.Register })))
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail").then((m) => ({ default: m.VerifyEmail })))
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then((m) => ({ default: m.ForgotPassword })))
+const ResetPassword = lazy(() => import("./pages/ResetPassword").then((m) => ({ default: m.ResetPassword })))
+const DebugLogin = lazy(() => import("./pages/DebugLogin").then((m) => ({ default: m.DebugLogin })))
+const NewOrder = lazy(() => import("./pages/NewOrder").then((m) => ({ default: m.NewOrder })))
+const OrderTracking = lazy(() => import("./pages/OrderTracking").then((m) => ({ default: m.OrderTracking })))
+const OrderDetails = lazy(() => import("./pages/OrderDetails").then((m) => ({ default: m.OrderDetails })))
+const Messages = lazy(() => import("./pages/Messages").then((m) => ({ default: m.Messages })))
+const Notifications = lazy(() => import("./pages/Notifications").then((m) => ({ default: m.Notifications })))
+const WebShop = lazy(() => import("./pages/WebShop").then((m) => ({ default: m.WebShop })))
+const ProductDetail = lazy(() => import("./pages/ProductDetail").then((m) => ({ default: m.ProductDetail })))
+const ShoppingCartPage = lazy(() => import("./pages/ShoppingCart").then((m) => ({ default: m.ShoppingCartPage })))
+const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })))
+const Blog = lazy(() => import("./pages/Blog").then((m) => ({ default: m.Blog })))
+const BlogPostPage = lazy(() => import("./pages/BlogPost").then((m) => ({ default: m.BlogPostPage })))
+const CustomerBookings = lazy(() => import("./pages/CustomerBookings").then((m) => ({ default: m.CustomerBookings })))
+const CustomerInvoices = lazy(() => import("./pages/CustomerInvoices").then((m) => ({ default: m.CustomerInvoices })))
+const CustomerRepairRequests = lazy(() => import("./pages/CustomerRepairRequests").then((m) => ({ default: m.CustomerRepairRequests })))
+const CustomerComplaints = lazy(() => import("./pages/CustomerComplaints").then((m) => ({ default: m.CustomerComplaints })))
+const RepairRequestQuestionnaire = lazy(() => import("./pages/RepairRequestQuestionnaire").then((m) => ({ default: m.RepairRequestQuestionnaire })))
+const Widerrufsrecht = lazy(() => import("./pages/Widerrufsrecht").then((m) => ({ default: m.Widerrufsrecht })))
+const Privacy = lazy(() => import("./pages/Privacy").then((m) => ({ default: m.Privacy })))
+const Imprint = lazy(() => import("./pages/Imprint").then((m) => ({ default: m.Imprint })))
+const Terms = lazy(() => import("./pages/Terms").then((m) => ({ default: m.Terms })))
+const About = lazy(() => import("./pages/About").then((m) => ({ default: m.About })))
+const FAQ = lazy(() => import("./pages/FAQ").then((m) => ({ default: m.FAQ })))
+const GuestOrderTracking = lazy(() => import("./pages/GuestOrderTracking").then((m) => ({ default: m.GuestOrderTracking })))
+const GuestBookingTracking = lazy(() => import("./pages/GuestBookingTracking").then((m) => ({ default: m.GuestBookingTracking })))
+const GuestRepairRequestTracking = lazy(() => import("./pages/GuestRepairRequestTracking").then((m) => ({ default: m.GuestRepairRequestTracking })))
+const Vorabdiagnose = lazy(() => import("./pages/Vorabdiagnose").then((m) => ({ default: m.Vorabdiagnose })))
+const Annahmestellen = lazy(() => import("./pages/Annahmestellen").then((m) => ({ default: m.Annahmestellen })))
+const Contact = lazy(() => import("./pages/Contact").then((m) => ({ default: m.Contact })))
+const PartnerWerden = lazy(() => import("./pages/PartnerWerden").then((m) => ({ default: m.PartnerWerden })))
+const Newsletter = lazy(() => import("./pages/Newsletter"))
+const Sitemap = lazy(() => import("./pages/Sitemap").then((m) => ({ default: m.Sitemap })))
+const ShippingAndPayment = lazy(() => import("./pages/ShippingAndPayment").then((m) => ({ default: m.ShippingAndPayment })))
+const BatteryDisposal = lazy(() => import("./pages/BatteryDisposal").then((m) => ({ default: m.BatteryDisposal })))
+const OrderSuccessPage = lazy(() => import("./pages/OrderSuccess").then((m) => ({ default: m.OrderSuccessPage })))
 
 const StaffDashboard = lazy(() => import("./pages/staff/StaffDashboard").then((m) => ({ default: m.StaffDashboard })))
 const StaffOrders = lazy(() => import("./pages/staff/StaffOrders").then((m) => ({ default: m.StaffOrders })))

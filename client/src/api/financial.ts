@@ -437,7 +437,21 @@ export const createInvoiceFromOrder = async (orderId: string) => {
     const response = await api.post(`/api/admin/financial/orders/${orderId}/invoice`);
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    const apiError = new Error(error?.response?.data?.error || error.message) as Error & {
+      status?: number;
+      code?: string;
+      existingInvoice?: { _id?: string; invoiceNumber?: string };
+      existingInvoiceId?: string;
+      existingInvoiceNumber?: string;
+      redirectTo?: string;
+    };
+    apiError.status = error?.response?.status;
+    apiError.code = error?.response?.data?.code;
+    apiError.existingInvoice = error?.response?.data?.existingInvoice;
+    apiError.existingInvoiceId = error?.response?.data?.existingInvoice?._id;
+    apiError.existingInvoiceNumber = error?.response?.data?.existingInvoice?.invoiceNumber;
+    apiError.redirectTo = error?.response?.data?.redirectTo;
+    throw apiError;
   }
 };
 

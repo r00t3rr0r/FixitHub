@@ -1759,7 +1759,9 @@ router.post('/complete', requireUser, async (req, res) => {
             waterDamage: repairOrder.waterDamage || '',
             previousRepairAttempts: repairOrder.previousRepairAttempts || '',
             previousRepairDetails: repairOrder.previousRepairDetails || '',
-            itemCondition: repairOrder.itemCondition || ''
+            itemCondition: repairOrder.itemCondition || '',
+            imei: repairOrder.imei || '',
+            serialNumber: repairOrder.serialNumber || ''
           };
 
           console.log('CheckoutRoutes: Order data prepared:', orderData);
@@ -2133,7 +2135,9 @@ router.post('/guest-complete', async (req, res) => {
             waterDamage: repairOrder.waterDamage || '',
             previousRepairAttempts: repairOrder.previousRepairAttempts || '',
             previousRepairDetails: repairOrder.previousRepairDetails || '',
-            itemCondition: repairOrder.itemCondition || ''
+            itemCondition: repairOrder.itemCondition || '',
+            imei: repairOrder.imei || '',
+            serialNumber: repairOrder.serialNumber || ''
           };
 
           console.log('CheckoutRoutes: Guest order data prepared:', orderData);

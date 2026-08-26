@@ -275,20 +275,54 @@ class RepairRequestService {
 
       const [requests, total] = await Promise.all([
         RepairRequest.find(query)
-          .populate('customerId', 'firstName lastName email phone')
-          .populate('assignedStaffId', 'firstName lastName email')
-          .populate('convertedToOrderId', 'orderNumber status')
           .sort(sortOptions)
           .skip(skip)
           .limit(limit)
+          .select('customerId assignedStaffId convertedToOrderId requestNumber customerName customerEmail customerPhone deviceBrand deviceModel issueDescription status priority createdAt updatedAt reviewDeadline')
           .lean(),
         RepairRequest.countDocuments(query),
       ]);
 
-      console.log(`RepairRequestService: Found ${requests.length} repair requests out of ${total} total`);
+      const customerIds = [...new Set(requests
+        .map((request) => request.customerId)
+        .filter(Boolean)
+        .map((id) => String(id)))];
+      const staffIds = [...new Set(requests
+        .map((request) => request.assignedStaffId)
+        .filter(Boolean)
+        .map((id) => String(id)))];
+      const convertedOrderIds = [...new Set(requests
+        .map((request) => request.convertedToOrderId)
+        .filter(Boolean)
+        .map((id) => String(id)))];
+
+      const [customers, staffMembers, convertedOrders] = await Promise.all([
+        customerIds.length
+          ? User.find({ _id: { $in: customerIds } }).select('firstName lastName email phone').lean()
+          : [],
+        staffIds.length
+          ? User.find({ _id: { $in: staffIds } }).select('firstName lastName email').lean()
+          : [],
+        convertedOrderIds.length
+          ? Order.find({ _id: { $in: convertedOrderIds } }).select('orderNumber status').lean()
+          : [],
+      ]);
+
+      const customerMap = new Map(customers.map((customer) => [String(customer._id), customer]));
+      const staffMap = new Map(staffMembers.map((staff) => [String(staff._id), staff]));
+      const convertedOrderMap = new Map(convertedOrders.map((order) => [String(order._id), order]));
+
+      const hydratedRequests = requests.map((request) => ({
+        ...request,
+        customerId: customerMap.get(String(request.customerId)) || request.customerId || null,
+        assignedStaffId: staffMap.get(String(request.assignedStaffId)) || request.assignedStaffId || null,
+        convertedToOrderId: convertedOrderMap.get(String(request.convertedToOrderId)) || request.convertedToOrderId || null,
+      }));
+
+      console.log(`RepairRequestService: Found ${hydratedRequests.length} repair requests out of ${total} total`);
 
       return {
-        requests,
+        requests: hydratedRequests,
         pagination: {
           page,
           limit,

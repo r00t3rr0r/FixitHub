@@ -1128,12 +1128,20 @@ class BookingService {
 
       const bookings = await Booking.find(query)
         .setOptions({ skipAutoPopulate: true })
-        .populate('customerId', 'firstName lastName email phone avatar name')
+        .select('customerId bookingNumber status billingStatus paymentStatus totalCost items createdAt updatedAt shippingStatus trackingNumber guestInfo')
         .sort({ createdAt: -1 })
         .limit(filters.limit || 50)
-        .skip(filters.skip || 0);
+        .skip(filters.skip || 0)
+        .lean();
 
       console.log('BookingService: Found', bookings.length, 'bookings on current page');
+
+      const customerIds = [...new Set(bookings.map((booking) => booking.customerId).filter(Boolean).map((id) => String(id)))];
+      const customerMap = new Map(
+        customerIds.length
+          ? (await User.find({ _id: { $in: customerIds } }).select('firstName lastName email phone avatar name').lean()).map((user) => [String(user._id), user])
+          : []
+      );
 
       const bookingIds = bookings.map((booking) => booking._id);
       const invoiceSummaries = await Invoice.aggregate([
@@ -1225,7 +1233,10 @@ class BookingService {
       // Calculate real-time progress for all bookings from their associated orders
       const bookingsWithProgress = bookings.map((booking) => {
         try {
-          const bookingPlain = booking.toObject({ virtuals: true });
+          const bookingPlain = {
+            ...booking,
+            customerId: booking.customerId ? (customerMap.get(String(booking.customerId)) || null) : null,
+          };
           const bookingKey = String(booking._id);
           const bookingOrders = ordersByBookingId.get(bookingKey) || [];
           const invoiceSummary = invoiceSummaryByBookingId.get(bookingKey);
@@ -1261,7 +1272,7 @@ class BookingService {
           return bookingPlain;
         } catch (error) {
           console.error('BookingService: Error calculating progress for booking:', booking._id, error);
-          return booking.toObject({ virtuals: true });
+          return { ...booking, customerId: booking.customerId ? (customerMap.get(String(booking.customerId)) || null) : null };
         }
       });
 
@@ -1284,21 +1295,24 @@ class BookingService {
     try {
       const query = { customerId };
 
-      // Apply status filter if provided
       if (filters.status) {
         query.status = filters.status;
       }
 
-      // Apply billing status filter if provided
       if (filters.billingStatus) {
         query.billingStatus = filters.billingStatus;
       }
 
-      const bookings = await Booking.find(query)
-        .setOptions({ skipAutoPopulate: true })
-        .sort({ createdAt: -1 })
-        .limit(filters.limit || 50)
-        .skip(filters.skip || 0);
+      const [bookings, customer] = await Promise.all([
+        Booking.find(query)
+          .setOptions({ skipAutoPopulate: true })
+          .select('customerId bookingNumber status billingStatus paymentStatus totalCost items createdAt updatedAt shippingStatus trackingNumber guestInfo')
+          .sort({ createdAt: -1 })
+          .limit(filters.limit || 50)
+          .skip(filters.skip || 0)
+          .lean(),
+        User.findById(customerId).select('firstName lastName email phone avatar name').lean()
+      ]);
 
       const bookingIds = bookings.map((booking) => booking._id);
       const allOrders = bookingIds.length
@@ -1319,7 +1333,10 @@ class BookingService {
 
       const bookingsWithProgress = bookings.map((booking) => {
         try {
-          const bookingPlain = booking.toObject({ virtuals: true });
+          const bookingPlain = {
+            ...booking,
+            customerId: customer || booking.customerId || null,
+          };
           const bookingOrders = ordersByBookingId.get(String(booking._id)) || [];
 
           if (bookingOrders.length > 0) {
@@ -1333,7 +1350,10 @@ class BookingService {
           return bookingPlain;
         } catch (error) {
           console.error('BookingService: Error calculating customer booking progress for booking:', booking._id, error);
-          return booking.toObject({ virtuals: true });
+          return {
+            ...booking,
+            customerId: customer || booking.customerId || null,
+          };
         }
       });
 
@@ -1604,8 +1624,7 @@ class BookingService {
       const directOrders = await Order.find({ bookingId: bookingId })
         .setOptions({ skipAutoPopulate: true })
         .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline isComplaintFollowup sourceComplaintId parentOrderId')
-        .populate('services.serviceId', 'name')
-        .populate('shopProducts.productId', 'name');
+        .lean();
 
       // Also include complaint follow-up orders that may not have bookingId set yet
       const directOrderIds = directOrders.map((order) => order._id);
@@ -1616,12 +1635,35 @@ class BookingService {
           })
             .setOptions({ skipAutoPopulate: true })
             .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline isComplaintFollowup sourceComplaintId parentOrderId')
-            .populate('services.serviceId', 'name')
-            .populate('shopProducts.productId', 'name')
+            .lean()
         : [];
 
+      const allOrders = [...directOrders, ...followupOrders];
+      const serviceIds = [...new Set(
+        allOrders
+          .flatMap((order) => Array.isArray(order.services) ? order.services : [])
+          .map((service) => service?.serviceId)
+          .filter(Boolean)
+          .map((id) => String(id)))
+      ];
+      const productIds = [...new Set(
+        allOrders
+          .flatMap((order) => Array.isArray(order.shopProducts) ? order.shopProducts : [])
+          .map((product) => product?.productId)
+          .filter(Boolean)
+          .map((id) => String(id)))
+      ];
+
+      const [serviceDocs, productDocs] = await Promise.all([
+        serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('name').lean() : [],
+        productIds.length ? Product.find({ _id: { $in: productIds } }).select('name').lean() : [],
+      ]);
+
+      const serviceMap = new Map(serviceDocs.map((service) => [String(service._id), service]));
+      const productMap = new Map(productDocs.map((product) => [String(product._id), product]));
+
       const allOrdersById = new Map();
-      [...directOrders, ...followupOrders].forEach((order) => {
+      allOrders.forEach((order) => {
         allOrdersById.set(order._id.toString(), order);
       });
 
@@ -1670,7 +1712,7 @@ class BookingService {
         if (order.deviceType === 'Shop Products') {
           // Shop product order
           orderData.products = order.shopProducts.map(product => ({
-            name: product.productId?.name || 'Unknown Product',
+            name: productMap.get(String(product.productId))?.name || 'Unknown Product',
             quantity: product.quantity,
             price: product.priceAtOrder,
             totalPrice: product.priceAtOrder * product.quantity,
@@ -1680,7 +1722,7 @@ class BookingService {
           // Repair order
           orderData.device = `${order.deviceBrand} ${order.deviceModel}`;
           orderData.services = order.services.map(service => ({
-            name: service.serviceId?.name || 'Unknown Service',
+            name: serviceMap.get(String(service.serviceId))?.name || 'Unknown Service',
             price: service.price,
             estimatedTime: service.estimatedTime,
             status: service.status || 'pending',
@@ -1900,6 +1942,15 @@ class BookingService {
 
     const duplicateError = new Error(duplicateMessage);
     duplicateError.statusCode = 409;
+    duplicateError.code = 'INVOICE_ALREADY_EXISTS';
+    duplicateError.existingInvoice = {
+      _id: String(existingInvoice._id),
+      invoiceNumber: existingInvoice.invoiceNumber || null,
+      status: existingInvoice.status || null,
+      repairOrderIds: Array.isArray(existingInvoice.repairOrderIds)
+        ? existingInvoice.repairOrderIds.map((orderId) => String(orderId))
+        : [],
+    };
     throw duplicateError;
   }
 

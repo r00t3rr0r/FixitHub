@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/hooks/useToast"
-import { getProducts, addToCart, Product } from "@/api/shop"
+import { getProducts, getProductBrands, getProductCategories, addToCart, Product } from "@/api/shop"
 import {
   ShoppingCart,
   Search,
@@ -52,10 +52,13 @@ const OFF_WHITE = 'var(--off-white, #f8f9fc)'
 
 export function WebShop() {
   const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
-  const [paginatedProducts, setPaginatedProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [brands, setBrands] = useState<string[]>([])
+  const [totalProducts, setTotalProducts] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [brandFilter, setBrandFilter] = useState("all")
   const [stockFilter, setStockFilter] = useState("all")
@@ -65,7 +68,7 @@ export function WebShop() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [addingToCart, setAddingToCart] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(12)
+  const itemsPerPage = 12
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedQuickViewImage, setSelectedQuickViewImage] = useState<string | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
@@ -74,20 +77,83 @@ export function WebShop() {
   const adcell = useAdcellConfig()
 
   useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 250)
+
+    return () => window.clearTimeout(handle)
+  }, [searchTerm])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchTerm, categoryFilter, brandFilter, stockFilter, sortBy, priceRange])
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const [categoryResponse, brandResponse] = await Promise.all([
+          getProductCategories(),
+          getProductBrands(),
+        ])
+
+        const nextCategories = Array.isArray((categoryResponse as any)?.categories)
+          ? (categoryResponse as any).categories.map((entry: any) => entry.name)
+          : []
+        const nextBrands = Array.isArray((brandResponse as any)?.brands)
+          ? (brandResponse as any).brands.map((entry: any) => entry.name)
+          : []
+
+        setCategories(nextCategories)
+        setBrands(nextBrands)
+      } catch (error) {
+        console.error("Error fetching product metadata:", error)
+      }
+    }
+
+    fetchMetadata()
+  }, [])
+
+  useEffect(() => {
     const fetchProducts = async () => {
       try {
-        console.log("Fetching products...")
-        const response = await getProducts({ limit: 1000 })
-        const productsData = (response as any).products || []
-        setProducts(productsData)
-        setFilteredProducts(productsData)
+        setLoading(true)
 
-        // Calculate max price from products
-        if (productsData.length > 0) {
-          const prices = productsData.map((p: Product) => p.price)
-          const maxPriceValue = Math.ceil(Math.max(...prices))
-          setMaxPrice(maxPriceValue)
-          setPriceRange([0, maxPriceValue])
+        const sortMap: Record<string, { sortBy: string; sortOrder: "asc" | "desc" }> = {
+          name: { sortBy: "name", sortOrder: "asc" },
+          "price-low": { sortBy: "price", sortOrder: "asc" },
+          "price-high": { sortBy: "price", sortOrder: "desc" },
+          rating: { sortBy: "rating", sortOrder: "desc" },
+        }
+        const selectedSort = sortMap[sortBy] || sortMap.name
+
+        const response = await getProducts({
+          page: currentPage,
+          limit: itemsPerPage,
+          sortBy: selectedSort.sortBy,
+          sortOrder: selectedSort.sortOrder,
+          category: categoryFilter !== "all" ? categoryFilter : undefined,
+          brand: brandFilter !== "all" ? brandFilter : undefined,
+          search: debouncedSearchTerm.trim() || undefined,
+          inStock: stockFilter === "inStock" ? true : undefined,
+          stockFilter: stockFilter === "lowStock" ? "lowStock" : undefined,
+          minPrice: priceRange[0],
+          maxPrice: priceRange[1],
+        })
+
+        const productsData = Array.isArray((response as any)?.products) ? (response as any).products : []
+        const nextTotalProducts = Number((response as any)?.totalProducts) || productsData.length
+        const nextTotalPages = Number((response as any)?.totalPages) || 1
+
+        setProducts(productsData)
+        setTotalProducts(nextTotalProducts)
+        setTotalPages(nextTotalPages)
+
+        if (maxPrice === 1000 && productsData.length > 0) {
+          const maxPriceValue = Math.ceil(Math.max(...productsData.map((p: Product) => p.price)))
+          if (maxPriceValue > 0) {
+            setMaxPrice(maxPriceValue)
+            setPriceRange([0, maxPriceValue])
+          }
         }
       } catch (error) {
         console.error("Error fetching products:", error)
@@ -102,60 +168,7 @@ export function WebShop() {
     }
 
     fetchProducts()
-  }, [toast])
-
-  useEffect(() => {
-    let filtered = products
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.brand.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // Filter by category
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(product => product.category === categoryFilter)
-    }
-
-    // Filter by brand
-    if (brandFilter !== "all") {
-      filtered = filtered.filter(product => product.brand === brandFilter)
-    }
-
-    // Filter by stock availability
-    if (stockFilter === "inStock") {
-      filtered = filtered.filter(product => product.inStock)
-    } else if (stockFilter === "lowStock") {
-      filtered = filtered.filter(product => product.inStock && product.stockCount <= 5)
-    }
-
-    // Filter by price range
-    filtered = filtered.filter(product =>
-      product.price >= priceRange[0] && product.price <= priceRange[1]
-    )
-
-    // Sort products
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "price-low":
-          return a.price - b.price
-        case "price-high":
-          return b.price - a.price
-        case "rating":
-          return b.rating - a.rating
-        case "name":
-        default:
-          return a.name.localeCompare(b.name)
-      }
-    })
-
-    setFilteredProducts(filtered)
-    setCurrentPage(1) // Reset to first page when filters change
-  }, [products, searchTerm, categoryFilter, brandFilter, stockFilter, priceRange, sortBy])
+  }, [currentPage, itemsPerPage, categoryFilter, brandFilter, stockFilter, debouncedSearchTerm, sortBy, priceRange, maxPrice, toast])
 
   useEffect(() => {
     if (!selectedProduct) {
@@ -166,30 +179,22 @@ export function WebShop() {
     setSelectedQuickViewImage(selectedProduct.images?.[0] || null)
   }, [selectedProduct])
 
-  // Pagination logic
-  useEffect(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    setPaginatedProducts(filteredProducts.slice(startIndex, endIndex))
-  }, [filteredProducts, currentPage, itemsPerPage])
-
   // ADCELL Container Tag – Category/Search Page
   useEffect(() => {
-    if (paginatedProducts.length === 0 || !adcell.enabled || !adcell.containerTagsEnabled) return
-    const productIds = paginatedProducts.map((p) => p._id).join(',')
+    if (products.length === 0 || !adcell.enabled || !adcell.containerTagsEnabled) return
+    const productIds = products.map((p) => p._id).join(',')
     const categoryId = categoryFilter !== 'all' ? categoryFilter : ''
     const categoryName = categoryFilter !== 'all' ? categoryFilter : ''
-    const method = searchTerm ? 'search' : 'category'
 
     const script = document.createElement('script')
     script.type = 'text/javascript'
     script.async = true
 
-    if (searchTerm) {
+    if (debouncedSearchTerm) {
       script.src =
         `https://t.adcell.com/js/inlineretarget.js?method=search` +
         `&pid=${adcell.pid}` +
-        `&search=${encodeURIComponent(searchTerm)}` +
+        `&search=${encodeURIComponent(debouncedSearchTerm)}` +
         `&productIds=${encodeURIComponent(productIds)}` +
         `&productSeparator=,`
     } else {
@@ -204,9 +209,7 @@ export function WebShop() {
 
     document.body.appendChild(script)
     return () => { script.remove() }
-  }, [paginatedProducts, categoryFilter, searchTerm, adcell])
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+  }, [products, categoryFilter, debouncedSearchTerm, adcell])
 
   const handleAddToCart = async (productId: string) => {
     try {
@@ -250,8 +253,6 @@ export function WebShop() {
     setSortBy("name")
   }
 
-  const categories = [...new Set(products.map(p => p.category))]
-  const brands = [...new Set(products.map(p => p.brand))]
   const quickViewImages = selectedProduct?.images?.filter(Boolean) || []
   const quickViewPrimaryImage = selectedQuickViewImage || quickViewImages[0] || "/placeholder-product.png"
   const quickViewSavings = selectedProduct?.originalPrice ? selectedProduct.originalPrice - selectedProduct.price : 0
@@ -423,7 +424,7 @@ export function WebShop() {
                   style={{ backgroundColor: 'rgba(255,255,255,0.14)', color: '#ffffff' }}
                 >
                   <Package className="mr-1.5 h-3.5 w-3.5" />
-                  {filteredProducts.length} {filteredProducts.length === 1 ? 'Produkt' : 'Produkte'}
+                  {totalProducts} {totalProducts === 1 ? 'Produkt' : 'Produkte'}
                 </Badge>
                 <span className="text-xs font-medium text-blue-100 sm:text-sm flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 text-[#f5b800]" />
@@ -628,7 +629,7 @@ export function WebShop() {
 
                 {/* Results Count */}
                 <div className="text-xs text-gray-600 font-medium">
-                  Showing {paginatedProducts.length} of {filteredProducts.length} products
+                  Showing {products.length} of {totalProducts} products
                 </div>
               </div>
             )}
@@ -640,7 +641,7 @@ export function WebShop() {
           ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           : "space-y-3"
         }>
-          {paginatedProducts.length === 0 ? (
+          {products.length === 0 ? (
             <div className="col-span-full">
               <Card className="border shadow-sm">
                 <CardContent className="text-center py-12">
@@ -660,7 +661,7 @@ export function WebShop() {
               </Card>
             </div>
           ) : (
-            paginatedProducts.map((product, index) => (
+            products.map((product, index) => (
               <Card
                 key={product._id}
                 className={`group border shadow-sm hover:shadow-md hover:border-yellow-300 transition-all duration-300 overflow-hidden ${
@@ -1143,7 +1144,7 @@ export function WebShop() {
         </Dialog>
 
         {/* Benefits section */}
-        {paginatedProducts.length > 0 && (
+        {products.length > 0 && (
           <div className="grid gap-4 md:grid-cols-3 mt-6">
             {[
               {

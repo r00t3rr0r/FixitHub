@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ShoppingCart, Package, Wrench, ArrowRight, ChevronRight, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCart, Cart } from '@/api/shop';
@@ -65,67 +65,49 @@ export function CartIcon() {
   const [shouldBounce, setShouldBounce] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchCart = async () => {
-      try {
-        setIsLoading(true);
-        console.log('CartIcon: Fetching cart data...');
-        const response = await getCart();
-        const cartData = (response as any).cart;
+  const fetchCart = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      console.log('CartIcon: Fetching cart data...');
+      const response = await getCart();
+      const cartData = (response as any).cart;
 
-        if (cartData) {
-          setCart(cartData);
-          const newItemCount = cartData.totalItems || 0;
+      if (cartData) {
+        setCart(cartData);
+        const newItemCount = cartData.totalItems || 0;
 
-          // Trigger bounce animation when item count increases
-          if (newItemCount > itemCount) {
+        setItemCount((prevItemCount) => {
+          if (newItemCount > prevItemCount) {
             setShouldBounce(true);
             setTimeout(() => setShouldBounce(false), 500);
           }
+          return newItemCount;
+        });
 
-          setItemCount(newItemCount);
-          console.log('CartIcon: Cart loaded with', newItemCount, 'items');
-        }
-      } catch (error) {
-        console.error('CartIcon: Error fetching cart:', error);
-        // Silently fail - don't show error to user in nav
-      } finally {
-        setIsLoading(false);
+        console.log('CartIcon: Cart loaded with', newItemCount, 'items');
       }
-    };
+    } catch (error) {
+      console.error('CartIcon: Error fetching cart:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-    fetchCart();
+  useEffect(() => {
+    void fetchCart();
 
-    // Poll cart every 30 seconds to keep count updated
-    const interval = setInterval(fetchCart, 30000);
+    const interval = setInterval(() => {
+      void fetchCart();
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, [itemCount]);
+  }, [fetchCart]);
 
-  // Listen for cart update events (both authenticated and guest)
   useEffect(() => {
     const handleCartUpdate = () => {
-      getCart()
-        .then((response) => {
-          const cartData = (response as any).cart;
-          if (cartData) {
-            const newItemCount = cartData.totalItems || 0;
-
-            if (newItemCount > itemCount) {
-              setShouldBounce(true);
-              setTimeout(() => setShouldBounce(false), 500);
-            }
-
-            setCart(cartData);
-            setItemCount(newItemCount);
-          }
-        })
-        .catch((error) => {
-          console.error('CartIcon: Error fetching cart on update event:', error);
-        });
+      void fetchCart();
     };
 
-    // Listen for both authenticated and guest cart updates
     window.addEventListener('cartUpdated', handleCartUpdate);
     window.addEventListener('guestCartUpdate', handleCartUpdate);
 
@@ -133,7 +115,7 @@ export function CartIcon() {
       window.removeEventListener('cartUpdated', handleCartUpdate);
       window.removeEventListener('guestCartUpdate', handleCartUpdate);
     };
-  }, [itemCount]);
+  }, [fetchCart]);
 
   const hasRepairOrders = cart && cart.repairOrders && cart.repairOrders.length > 0;
   const hasProducts = cart && cart.items && cart.items.length > 0;

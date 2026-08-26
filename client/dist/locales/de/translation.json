@@ -1904,6 +1904,9 @@
       "previousRepairAttempts": "Vorherige Reparaturversuche?",
       "previousRepairAttemptsPlaceholder": "Details zu vorherigen Reparaturversuchen...",
       "itemCondition": "Zustand des Geräts",
+      "deviceIdentification": "Geräteidentifizierung",
+      "imeiPlaceholder": "IMEI (optional)",
+      "serialNumberPlaceholder": "Seriennummer (optional)",
       "uploadPhotos": "Fotos hochladen (optional, max. 5)",
       "uploadedPhotos": "{{count}}/5 Bilder hochgeladen",
       "photoPreviewAlt": "Vorschau {{index}}",
@@ -2299,6 +2302,8 @@
         "original": "Original",
         "refurbished": "Generalüberholt"
       },
+      "imeiLabel": "IMEI",
+      "serialNumberLabel": "Seriennummer",
       "infoNotice": "Diese Informationen helfen unseren Technikern, Ihr Gerät besser zu diagnostizieren und zu reparieren. Sie werden vor Beginn des Reparaturprozesses überprüft."
     }
   },
