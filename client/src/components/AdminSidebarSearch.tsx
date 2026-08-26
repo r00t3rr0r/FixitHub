@@ -7,6 +7,7 @@ import {
   ArrowUp,
   ArrowDown,
   Home,
+  Archive,
   Users,
   BookMarked,
   ExternalLink,
@@ -69,6 +70,7 @@ const GROUP_ORDER = [
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Home,
+  Archive,
   Users,
   BookMarked,
   ExternalLink,

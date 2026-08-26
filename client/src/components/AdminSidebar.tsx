@@ -29,6 +29,7 @@ import {
   FolderTree,
   Boxes,
   BookMarked,
+  Archive,
   Mail,
   Activity,
   Megaphone,
@@ -173,6 +174,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       </NavItem>
       <NavItem to="/admin/bookings" icon={BookMarked}>
         Aufträge
+      </NavItem>
+      <NavItem to="/admin/legacy-orders" icon={Archive}>
+        Altauftraege
       </NavItem>
       <NavItem to="/admin/financial" icon={DollarSign}>
         Rechnungen

@@ -89,6 +89,7 @@ const ComplaintsManagement = lazy(() => import("./pages/admin/ComplaintsManageme
 const EmailAdministration = lazy(() => import("./pages/admin/EmailAdministration").then((m) => ({ default: m.EmailAdministration })))
 const EPartOrderManagement = lazy(() => import("./pages/admin/EPartOrderManagement"))
 const TrackingLive = lazy(() => import("./pages/admin/TrackingLive"))
+const LegacyOrdersArchive = lazy(() => import("./pages/admin/LegacyOrdersArchive").then((m) => ({ default: m.LegacyOrdersArchive })))
 const MarketingPromoOverview = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoOverview").then((m) => ({ default: m.MarketingPromoOverview })))
 const MarketingPromoNewsletters = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoNewsletters").then((m) => ({ default: m.MarketingPromoNewsletters })))
 const MarketingPromoPromoCodes = lazy(() => import("./pages/admin/marketing-promo/MarketingPromoPromoCodes").then((m) => ({ default: m.MarketingPromoPromoCodes })))
@@ -498,6 +499,9 @@ function App() {
             </Route>
             <Route path="/admin/bookings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<BookingsManagement />} />
+            </Route>
+            <Route path="/admin/legacy-orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<LegacyOrdersArchive />} />
             </Route>
             <Route path="/staff/bookings" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<BookingsManagement />} />
