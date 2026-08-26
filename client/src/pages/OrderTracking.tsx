@@ -345,7 +345,7 @@ export function OrderTracking() {
           </p>
         </div>
         <Button asChild>
-          <Link to="/new-order">
+          <Link to="/#repair-order-configurator">
             <Plus className="h-4 w-4 mr-2" />
             New Order
           </Link>
@@ -402,7 +402,7 @@ export function OrderTracking() {
               </p>
               {!searchTerm && statusFilter === "all" && (
                 <Button asChild>
-                  <Link to="/new-order">
+                  <Link to="/#repair-order-configurator">
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Order
                   </Link>

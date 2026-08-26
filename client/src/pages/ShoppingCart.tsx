@@ -522,7 +522,7 @@ export function ShoppingCartPage() {
                     color: 'var(--primary-blue, #1a2a5e)'
                   }}
                 >
-                  <Link to="/new-order">
+                  <Link to="/#repair-order-configurator">
                     <Wrench className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" />
                     {t('orders.newOrder')}
                   </Link>

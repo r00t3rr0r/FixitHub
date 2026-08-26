@@ -421,6 +421,8 @@ deviceTypeSchema.pre('save', function(next) {
 // Indexes for better performance
 deviceModelSchema.index({ brandId: 1, deviceType: 1 });
 deviceModelSchema.index({ name: 1 });
+deviceModelSchema.index({ isActive: 1, deviceType: 1, brandId: 1, name: 1 });
+deviceModelSchema.index({ isActive: 1, deviceType: 1 });
 // deviceBrandSchema name already has unique: true index at line 46, no need for duplicate
 
 const DeviceModel = mongoose.model('DeviceModel', deviceModelSchema);

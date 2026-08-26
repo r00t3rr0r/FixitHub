@@ -557,7 +557,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 setLoadingModels(true);
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   matchedDeviceType._id,
-                  matchedManufacturer._id
+                  matchedManufacturer._id,
+                  { lite: true }
                 );
                 const modelsList = (modelsResponse as any).models || [];
                 setModels(modelsList);
@@ -621,7 +622,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
                 setLoadingModels(true);
                 const modelsResponse = await getModelsByTypeAndManufacturer(
                   matchedDeviceType._id,
-                  matchedManufacturer._id
+                  matchedManufacturer._id,
+                  { lite: true }
                 );
                 const modelsList = (modelsResponse as any).models || [];
                 setModels(modelsList);
@@ -743,7 +745,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               // Load models for this manufacturer
               const modelsResponse = await getModelsByTypeAndManufacturer(
                 matchingType._id,
-                matchingManufacturer._id
+                matchingManufacturer._id,
+                { lite: true }
               );
               const modelsList = (modelsResponse as any).models || [];
               setModels(modelsList);
@@ -779,7 +782,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
               
               const modelsResponse = await getModelsByTypeAndManufacturer(
                 matchingType._id,
-                matchingManufacturer._id
+                matchingManufacturer._id,
+                { lite: true }
               );
               const modelsList = (modelsResponse as any).models || [];
               setModels(modelsList);
@@ -846,7 +850,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
     try {
       setLoadingModels(true);
-      const response = await getModelsByTypeAndManufacturer(selectedDeviceType._id, brandId);
+      const response = await getModelsByTypeAndManufacturer(selectedDeviceType._id, brandId, { lite: true });
       const modelsList = (response as any).models || [];
       setModels(modelsList);
       setFilteredModels(modelsList);

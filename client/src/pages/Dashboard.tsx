@@ -265,7 +265,7 @@ export function Dashboard() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Button asChild className="h-auto p-6 flex-col gap-3 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
-              <Link to="/new-order">
+              <Link to="/#repair-order-configurator">
                 <div className="p-3 bg-white/20 rounded-full">
                   <Plus className="h-8 w-8" />
                 </div>
@@ -396,7 +396,7 @@ export function Dashboard() {
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="mb-2">No orders yet</p>
                 <Button asChild size="sm">
-                  <Link to="/new-order">Create your first order</Link>
+                  <Link to="/#repair-order-configurator">Create your first order</Link>
                 </Button>
               </div>
             )}

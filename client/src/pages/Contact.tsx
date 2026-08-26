@@ -402,7 +402,7 @@ export function Contact() {
                     <HelpCircle className="h-4 w-4" />
                     {t('home.contact.faqButton')}
                   </Link>
-                  <Link to="/new-order" className="inline-flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold" style={{ borderColor: 'rgba(26,42,94,0.15)', color: 'var(--primary-blue, #1a2a5e)' }}>
+                  <Link to="/#repair-order-configurator" className="inline-flex items-center justify-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold" style={{ borderColor: 'rgba(26,42,94,0.15)', color: 'var(--primary-blue, #1a2a5e)' }}>
                     <ArrowRight className="h-4 w-4" />
                     {t('home.contact.repairButton')}
                   </Link>

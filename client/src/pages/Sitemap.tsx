@@ -36,7 +36,7 @@ interface SectionDef {
 }
 
 const quickLinkDefs: QuickLinkDef[] = [
-  { to: '/new-order',     key: 'startRepair',  icon: Wrench },
+  { to: '/#repair-order-configurator',     key: 'startRepair',  icon: Wrench },
   { to: '/vorabdiagnose', key: 'preDiagnosis', icon: FileSearch },
   { to: '/faq',           key: 'faq',          icon: HelpCircle },
   { to: '/contact',       key: 'contact',      icon: FileCheck },
@@ -49,7 +49,7 @@ const sectionDefs: SectionDef[] = [
     icon: Wrench,
     links: [
       { to: '/',               key: 'home' },
-      { to: '/new-order',      key: 'newOrder' },
+      { to: '/#repair-order-configurator',      key: 'newOrder' },
       { to: '/repair-request', key: 'repairRequest' },
       { to: '/vorabdiagnose',  key: 'preDiagnosis' },
       { to: '/annahmestellen', key: 'locations' },
@@ -215,7 +215,7 @@ export function Sitemap() {
               <p>{t('sitemapPage.ctaDescription')}</p>
             </div>
             <div className="sitemap-cta-actions">
-              <Link to="/new-order" className="sitemap-cta-button primary">
+              <Link to="/#repair-order-configurator" className="sitemap-cta-button primary">
                 {t('sitemapPage.ctaStartRepair')}
               </Link>
               <Link to="/contact" className="sitemap-cta-button secondary">

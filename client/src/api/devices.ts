@@ -150,17 +150,52 @@ export interface SearchResult {
   displayName: string;
 }
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+type CachedValue = { value: any; expiresAt: number };
+
+const responseCache = new Map<string, CachedValue>();
+const pendingRequests = new Map<string, Promise<any>>();
+
+const getCached = (key: string) => {
+  const cached = responseCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt < Date.now()) {
+    responseCache.delete(key);
+    return null;
+  }
+  return cached.value;
+};
+
+const setCached = (key: string, value: any) => {
+  responseCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+};
+
 // Description: Get all device types from repair services
 // Endpoint: GET /api/devices/types
 // Request: {}
 // Response: { deviceTypes: DeviceType[] }
 export const getDeviceTypes = async () => {
+  const cacheKey = 'deviceTypes';
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
+  const pending = pendingRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = (async () => {
   try {
     const response = await api.get('/api/devices/types');
+    setCached(cacheKey, response.data);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
+  } finally {
+    pendingRequests.delete(cacheKey);
   }
+  })();
+
+  pendingRequests.set(cacheKey, request);
+  return request;
 };
 
 // Description: Create a new device type/category
@@ -207,33 +242,66 @@ export const deleteDeviceType = async (id: string) => {
 // Request: { deviceType: string }
 // Response: { manufacturers: Manufacturer[] }
 export const getManufacturersByDeviceType = async (deviceType: string) => {
-  console.log('API: Getting manufacturers for device type:', deviceType);
+  const cacheKey = `manufacturers:${deviceType}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
 
+  const pending = pendingRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = (async () => {
   try {
     const response = await api.get(`/api/devices/manufacturers?deviceType=${deviceType}`);
+    setCached(cacheKey, response.data);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
+  } finally {
+    pendingRequests.delete(cacheKey);
   }
+  })();
+
+  pendingRequests.set(cacheKey, request);
+  return request;
 };
 
 // Description: Get models by device type and manufacturer
 // Endpoint: GET /api/devices/models?deviceType=smartphone&manufacturer=apple
 // Request: { deviceType: string, manufacturer: string }
 // Response: { models: DeviceModel[] }
-export const getModelsByTypeAndManufacturer = async (deviceType: string, manufacturer: string) => {
-  console.log('=== API DEVICES DEBUG ===');
-  console.log('API: Getting models for device type:', deviceType, 'and manufacturer:', manufacturer);
+export const getModelsByTypeAndManufacturer = async (
+  deviceType: string,
+  manufacturer: string,
+  options?: { lite?: boolean }
+) => {
+  const lite = options?.lite === true;
+  const cacheKey = `models:${deviceType}:${manufacturer}:${lite ? 'lite' : 'full'}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
 
+  const pending = pendingRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = (async () => {
   try {
-    const response = await api.get(`/api/devices/models?deviceType=${deviceType}&manufacturer=${manufacturer}`);
-    console.log('=== FINAL RESULT ===');
-    console.log('Returning models:', response.data.models);
-    console.log('Models count:', response.data.models.length);
+    const response = await api.get('/api/devices/models', {
+      params: {
+        deviceType,
+        manufacturer,
+        lite: lite ? '1' : '0',
+      },
+    });
+    setCached(cacheKey, response.data);
     return response.data;
   } catch (error) {
     throw new Error(error?.response?.data?.error || error.message);
+  } finally {
+    pendingRequests.delete(cacheKey);
   }
+  })();
+
+  pendingRequests.set(cacheKey, request);
+  return request;
 };
 
 // Description: Search devices by query string (autocomplete)
