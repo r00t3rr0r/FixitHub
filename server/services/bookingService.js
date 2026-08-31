@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const Service = require('../models/Service');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
+const InspectionCommunication = require('../models/InspectionCommunication');
 const DHLService = require('./dhlService');
 const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
@@ -1067,6 +1068,42 @@ class BookingService {
     ];
   }
 
+  static async getCommunicationOrderIds(communication, userId) {
+    if (communication !== 'unread-customer-response' || !userId) {
+      return [];
+    }
+
+    const communications = await InspectionCommunication.find({
+      status: 'active',
+      $or: [
+        { 'messages.senderType': 'customer' },
+        {
+          'messages.feedbackRequest.status': 'responded',
+          'messages.feedbackRequest.respondedAt': { $exists: true },
+        },
+      ],
+    }).select('orderId messages').lean();
+
+    return communications
+      .filter((communicationThread) => communicationThread.messages.some((message) => {
+        const readByCurrentUser = (message.readBy || []).some(
+          (readEntry) => String(readEntry.userId || '') === String(userId)
+        );
+        const feedbackResponse = message.feedbackRequest?.status === 'responded'
+          && message.feedbackRequest?.respondedAt;
+
+        if (feedbackResponse) {
+          return !(message.readBy || []).some((readEntry) => (
+            String(readEntry.userId || '') === String(userId)
+            && new Date(readEntry.readAt) >= new Date(message.feedbackRequest.respondedAt)
+          ));
+        }
+
+        return message.senderType === 'customer' && !readByCurrentUser;
+      }))
+      .map((communicationThread) => communicationThread.orderId);
+  }
+
   // Get total count of bookings matching filters
   static async getBookingsCount(filters = {}) {
     console.log('BookingService: Getting bookings count with filters:', filters);
@@ -1077,6 +1114,10 @@ class BookingService {
       if (filters.status) query.status = filters.status;
       if (filters.billingStatus) query.billingStatus = filters.billingStatus;
       if (filters.customerId) query.customerId = filters.customerId;
+
+      if (filters.communication) {
+        query.orderIds = { $in: await BookingService.getCommunicationOrderIds(filters.communication, filters.communicationUserId) };
+      }
 
       if (filters.startDate || filters.endDate) {
         query.createdAt = {};
@@ -1111,6 +1152,10 @@ class BookingService {
 
       if (filters.status) query.status = filters.status;
       if (filters.billingStatus) query.billingStatus = filters.billingStatus;
+
+      if (filters.communication) {
+        query.orderIds = { $in: await BookingService.getCommunicationOrderIds(filters.communication, filters.communicationUserId) };
+      }
 
       if (filters.startDate || filters.endDate) {
         query.createdAt = {};

@@ -12,11 +12,15 @@ router.get('/', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting bookings for user:', req.user._id, 'Role:', req.user.role);
 
-    const { status, billingStatus, search, startDate, endDate, refreshShipping, includeLiveTracking, limit = 20, skip = 0 } = req.query;
+    const { status, billingStatus, communication, search, startDate, endDate, refreshShipping, includeLiveTracking, limit = 20, skip = 0 } = req.query;
 
     const filters = {};
     if (status) filters.status = status;
     if (billingStatus) filters.billingStatus = billingStatus;
+    if (communication === 'unread-customer-response') {
+      filters.communication = communication;
+      filters.communicationUserId = req.user._id;
+    }
     if (search) filters.search = search;
     if (startDate) filters.startDate = startDate;
     if (endDate) filters.endDate = endDate;
@@ -37,6 +41,10 @@ router.get('/', requireUser, async (req, res) => {
       const countFilters = {};
       if (status) countFilters.status = status;
       if (billingStatus) countFilters.billingStatus = billingStatus;
+      if (communication === 'unread-customer-response') {
+        countFilters.communication = communication;
+        countFilters.communicationUserId = req.user._id;
+      }
       if (search) countFilters.search = search;
       if (startDate) countFilters.startDate = startDate;
       if (endDate) countFilters.endDate = endDate;

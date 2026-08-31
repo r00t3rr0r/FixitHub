@@ -282,6 +282,7 @@ export function BookingsManagement() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [billingStatusFilter, setBillingStatusFilter] = useState("all")
+  const [communicationFilter, setCommunicationFilter] = useState("all")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -460,7 +461,7 @@ export function BookingsManagement() {
   useEffect(() => {
     console.log('BookingsManagement: useEffect - Fetching bookings (pagination/filter changed)')
     fetchBookings()
-  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter, debouncedSearch, dateFrom, dateTo])
+  }, [currentPage, itemsPerPage, statusFilter, billingStatusFilter, communicationFilter, debouncedSearch, dateFrom, dateTo])
 
   useEffect(() => {
     const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog
@@ -498,6 +499,7 @@ export function BookingsManagement() {
       try {
         setStatusFilter('all')
         setBillingStatusFilter('all')
+        setCommunicationFilter('all')
         setSearchTerm('')
         setDebouncedSearch('')
         setDateFrom('')
@@ -525,6 +527,7 @@ export function BookingsManagement() {
     setSearchTerm("")
     setStatusFilter("all")
     setBillingStatusFilter("all")
+    setCommunicationFilter("all")
     setCurrentPage(1)
     setActiveHighlightedBookingId(highlightBookingIdFromQuery)
   }, [highlightBookingIdFromQuery])
@@ -608,6 +611,10 @@ export function BookingsManagement() {
 
       if (billingStatusFilter !== "all") {
         filters.billingStatus = billingStatusFilter
+      }
+
+      if (communicationFilter !== "all") {
+        filters.communication = communicationFilter
       }
 
       if (debouncedSearch) {
@@ -1365,6 +1372,24 @@ export function BookingsManagement() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-full md:w-52">
+            <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Kommunikation</label>
+            <Select
+              value={communicationFilter}
+              onValueChange={(value) => {
+                setCommunicationFilter(value)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger style={{ border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)' }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Buchungen</SelectItem>
+                <SelectItem value="unread-customer-response">Ungelesene Kundenrückmeldungen</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="w-full md:w-40">
             <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
               <Calendar className="inline-block h-3 w-3 mr-1" />
@@ -1407,7 +1432,7 @@ export function BookingsManagement() {
               }}
             />
           </div>
-          {(searchTerm || statusFilter !== 'all' || billingStatusFilter !== 'all' || dateFrom || dateTo) && (
+          {(searchTerm || statusFilter !== 'all' || billingStatusFilter !== 'all' || communicationFilter !== 'all' || dateFrom || dateTo) && (
             <div className="flex items-end">
               <Button
                 variant="outline"
@@ -1417,6 +1442,7 @@ export function BookingsManagement() {
                   setDebouncedSearch('')
                   setStatusFilter('all')
                   setBillingStatusFilter('all')
+                  setCommunicationFilter('all')
                   setDateFrom('')
                   setDateTo('')
                   setCurrentPage(1)
