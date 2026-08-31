@@ -281,7 +281,10 @@ class DeviceInspectionService {
       // Check for failed tests
       const failedTests = [];
       Object.entries(testData).forEach(([testName, testResult]) => {
-        if (testResult.status === 'Not OK') {
+        const testFailed = testResult.status === 'Not OK'
+          || (testName === 'buttons' && testResult.status === 'not-working');
+
+        if (testFailed) {
           failedTests.push({
             testName: testName.charAt(0).toUpperCase() + testName.slice(1),
             reason: testResult.notes || 'Not functioning properly',

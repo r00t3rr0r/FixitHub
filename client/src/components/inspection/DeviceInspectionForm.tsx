@@ -129,30 +129,31 @@ export function DeviceInspectionForm({
   const [displayStatus, setDisplayStatus] = useState<ConditionStatus>('--');
   const [frameStatus, setFrameStatus] = useState<ConditionStatus>('--');
   const [backCoverStatus, setBackCoverStatus] = useState<ConditionStatus>('--');
+
+  // Step 5: Device Tests
   const [buttonsStatus, setButtonsStatus] = useState<ButtonsStatus>('working');
   const [buttonsDescription, setButtonsDescription] = useState('');
   const [hasDamage, setHasDamage] = useState(false);
   const [damageDescription, setDamageDescription] = useState('');
   const [externalNotes, setExternalNotes] = useState('');
 
-  // Step 5: Device Tests
   const [chargingStatus, setChargingStatus] = useState<ChecklistStatus>('OK');
   const [powerStatus, setPowerStatus] = useState<ChecklistStatus>('OK');
   const [wifiStatus, setWifiStatus] = useState<ChecklistStatus>('OK');
   const [frontCameraStatus, setFrontCameraStatus] = useState<ChecklistStatus>('OK');
   const [mainCameraStatus, setMainCameraStatus] = useState<ChecklistStatus>('OK');
   const [chargingCurrent, setChargingCurrent] = useState('');
+  const [deviceTestNotes, setDeviceTestNotes] = useState('');
 
   // Step 6: Apple-specific
   const [modemFirmwareStatus, setModemFirmwareStatus] = useState<'working' | 'defective' | 'not-testable'>('working');
-  const [touchIdFaceIdStatus, setTouchIdFaceIdStatus] = useState<'not-applicable' | 'working' | 'defective'>('not-applicable');
+  const [touchIdFaceIdStatus, setTouchIdFaceIdStatus] = useState<'not-applicable' | 'working' | 'defective' | 'not-testable'>('not-applicable');
   const [defectActionRequested, setDefectActionRequested] = useState(false);
   const [defectActionNote, setDefectActionNote] = useState('');
 
   // Step 7: Summary & Completion
   const [completionAction, setCompletionAction] = useState<CompletionAction>('repairable');
   const [isRepairable, setIsRepairable] = useState<boolean | null>(null);
-  const [repairCost, setRepairCost] = useState('');
   const [repairTimeframe, setRepairTimeframe] = useState('');
   const [repairDescription, setRepairDescription] = useState('');
   const [informCustomer, setInformCustomer] = useState(false);
@@ -541,6 +542,9 @@ export function DeviceInspectionForm({
       setFrontCameraStatus((insp.deviceTest.frontCamera?.status || 'OK') as ChecklistStatus);
       setMainCameraStatus((insp.deviceTest.mainCamera?.status || 'OK') as ChecklistStatus);
       setChargingCurrent(insp.deviceTest.charging?.current || '');
+      setButtonsStatus(normalizeButtons(insp.deviceTest.buttons?.status || insp.externalInspection?.buttons?.status));
+      setButtonsDescription(insp.deviceTest.buttons?.notes || insp.externalInspection?.buttons?.notes || '');
+      setDeviceTestNotes(insp.deviceTest.notes || '');
     }
 
     if (insp.appleSpecific) {
@@ -1117,7 +1121,6 @@ export function DeviceInspectionForm({
         display: { status: displayStatus },
         frame: { status: frameStatus },
         backCover: { status: backCoverStatus },
-        buttons: { status: buttonsStatus, notes: buttonsDescription },
         visibleDamages: { hasDamage, description: damageDescription },
         uniqueNotes: externalNotes,
       });
@@ -1151,6 +1154,8 @@ export function DeviceInspectionForm({
         wifi: { status: wifiStatus },
         frontCamera: { status: frontCameraStatus },
         mainCamera: { status: mainCameraStatus },
+        buttons: { status: buttonsStatus, notes: buttonsDescription },
+        notes: deviceTestNotes.trim(),
       });
       setInspection(result.inspection);
       toast({
@@ -1206,14 +1211,6 @@ export function DeviceInspectionForm({
 
     const resolvedRepairable = completionAction === 'repairable';
 
-    if (completionAction === 'repairable' && repairCost.trim()) {
-      const parsedCost = Number(repairCost);
-      if (!Number.isFinite(parsedCost)) {
-        toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Reparaturkosten sind ungueltig.' });
-        return;
-      }
-    }
-
     const shouldSendCustomerInfo = informCustomer || completionAction === 'inform-customer' || defectActionRequested;
     const generatedTemplate = customerInfoMailTemplate.trim() || [
       'Betreff: Wichtige Information zu Ihrer Reparatur',
@@ -1240,7 +1237,7 @@ export function DeviceInspectionForm({
 
       const repairOfferPayload = completionAction === 'repairable'
         ? {
-            cost: repairCost.trim() ? Number(repairCost) : 0,
+            cost: 0,
             timeframe: repairTimeframe,
             description: repairDescription,
           }
@@ -1607,31 +1604,7 @@ export function DeviceInspectionForm({
                 </div>
               ))}
 
-              <div>
-                <Label htmlFor="buttons-status">Tasten</Label>
-                <Select value={buttonsStatus} onValueChange={(value: ButtonsStatus) => setButtonsStatus(value)}>
-                  <SelectTrigger id="buttons-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="working">Funktionieren</SelectItem>
-                    <SelectItem value="not-working">Nicht funktionierend</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-
-            {buttonsStatus === 'not-working' && (
-              <div>
-                <Label htmlFor="buttons-description">Beschreibung (optional)</Label>
-                <Textarea
-                  id="buttons-description"
-                  value={buttonsDescription}
-                  onChange={(e) => setButtonsDescription(e.target.value)}
-                  placeholder="Welche Taste funktioniert nicht?"
-                />
-              </div>
-            )}
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -1740,12 +1713,47 @@ export function DeviceInspectionForm({
             </div>
 
             <div>
+              <Label htmlFor="buttons-status">Tasten</Label>
+              <Select value={buttonsStatus} onValueChange={(value: ButtonsStatus) => setButtonsStatus(value)}>
+                <SelectTrigger id="buttons-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="working">Funktionieren</SelectItem>
+                  <SelectItem value="not-working">Nicht funktionierend</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {buttonsStatus === 'not-working' && (
+              <div>
+                <Label htmlFor="buttons-description">Beschreibung (optional)</Label>
+                <Textarea
+                  id="buttons-description"
+                  value={buttonsDescription}
+                  onChange={(e) => setButtonsDescription(e.target.value)}
+                  placeholder="Welche Taste funktioniert nicht?"
+                />
+              </div>
+            )}
+
+            <div>
               <Label htmlFor="charging-current">Stromstaerke beim Laden (optional)</Label>
               <Input
                 id="charging-current"
                 value={chargingCurrent}
                 onChange={(e) => setChargingCurrent(e.target.value)}
                 placeholder="z. B. 1.7A"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="device-test-notes">Zusätzliche Hinweise zu den Gerätetests</Label>
+              <Textarea
+                id="device-test-notes"
+                value={deviceTestNotes}
+                onChange={(e) => setDeviceTestNotes(e.target.value)}
+                placeholder="z. B. Gerät lässt sich nicht einschalten"
               />
             </div>
 
@@ -1791,7 +1799,7 @@ export function DeviceInspectionForm({
 
               <div>
                 <Label htmlFor="touchid-status">Touch ID / Face ID</Label>
-                <Select value={touchIdFaceIdStatus} onValueChange={(value: 'not-applicable' | 'working' | 'defective') => setTouchIdFaceIdStatus(value)}>
+                <Select value={touchIdFaceIdStatus} onValueChange={(value: 'not-applicable' | 'working' | 'defective' | 'not-testable') => setTouchIdFaceIdStatus(value)}>
                   <SelectTrigger id="touchid-status">
                     <SelectValue />
                   </SelectTrigger>
@@ -1799,6 +1807,7 @@ export function DeviceInspectionForm({
                     <SelectItem value="not-applicable">Nicht vorhanden</SelectItem>
                     <SelectItem value="working">Funktioniert</SelectItem>
                     <SelectItem value="defective">Defekt</SelectItem>
+                    <SelectItem value="not-testable">Nicht testbar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1881,17 +1890,6 @@ export function DeviceInspectionForm({
 
             {completionAction === 'repairable' && (
               <>
-                <div>
-                  <Label htmlFor="repair-cost">Geschaetzte Reparaturkosten (EUR)</Label>
-                  <Input
-                    id="repair-cost"
-                    type="number"
-                    value={repairCost}
-                    onChange={(e) => setRepairCost(e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
                 <div>
                   <Label htmlFor="repair-timeframe">{t('inspection.fields.repairTimeframe', 'Reparaturzeitraum')}</Label>
                   <Input

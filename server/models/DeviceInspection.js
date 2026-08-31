@@ -209,6 +209,15 @@ const deviceTestSchema = new mongoose.Schema({
     },
     notes: String,
   },
+  buttons: {
+    status: {
+      type: String,
+      enum: ['working', 'not-working'],
+      default: 'working',
+    },
+    notes: String,
+  },
+  notes: String,
   testedAt: {
     type: Date,
     default: Date.now,
@@ -229,7 +238,7 @@ const appleSpecificSchema = new mongoose.Schema({
   touchIdFaceId: {
     status: {
       type: String,
-      enum: ['not-applicable', 'working', 'defective'],
+      enum: ['not-applicable', 'working', 'defective', 'not-testable'],
       default: 'not-applicable',
     },
     applicable: Boolean,
