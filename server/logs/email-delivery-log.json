@@ -11320,5 +11320,36 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1788175391418-rbn4mker7",
+    "timestamp": "2026-08-31T11:23:11.418Z",
+    "to": "admin@example.com",
+    "templateName": "Reklamation eingegangen",
+    "subject": "Ihre Reklamation CMP-2026-0001 wurde erfolgreich aufgenommen",
+    "messageId": "<6fd01336-1a02-13e0-3a13-108ee788a1c7@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1304,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
