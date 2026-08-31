@@ -8,10 +8,11 @@ router.get('/', requireUser, async (req, res) => {
   try {
     console.log('CartRoutes: Getting cart for user:', req.user._id);
     const cart = await CartService.getCart(req.user._id);
+    const pricedCart = await CartService.serializeCartWithPricing(cart, req.user._id);
     
     res.json({
       success: true,
-      cart
+      cart: pricedCart
     });
   } catch (error) {
     console.error('CartRoutes: Error getting cart:', error);

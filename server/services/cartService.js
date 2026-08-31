@@ -2,8 +2,46 @@ const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const PromoCode = require('../models/PromoCode');
 const PromoCodeRedemption = require('../models/PromoCodeRedemption');
+const FinancialService = require('./financialService');
 
 class CartService {
+  static async buildPricing({ cart, userId }) {
+    const financialProfile = await FinancialService.resolveFinancialProfile({ customerId: userId });
+    const subtotal = Number((cart?.subtotal || this.calculateCartSubtotal(cart)).toFixed(2));
+    const promoDiscount = Number(Number(cart?.discount || 0).toFixed(2));
+    const groupDiscountPercent = Math.max(0, Math.min(100, Number(financialProfile?.defaultDiscountPercent || 0)));
+    const groupDiscountAmount = Number(((subtotal - promoDiscount) * (groupDiscountPercent / 100)).toFixed(2));
+    const totalDiscount = Number((promoDiscount + Math.max(0, groupDiscountAmount)).toFixed(2));
+    const total = Number(Math.max(0, subtotal - totalDiscount).toFixed(2));
+    const taxRatePercent = Math.max(0, Number(financialProfile?.taxRate || 0));
+    const tax = taxRatePercent > 0
+      ? Number((total * (taxRatePercent / (100 + taxRatePercent))).toFixed(2))
+      : 0;
+
+    return {
+      currency: String(financialProfile?.currency || 'EUR').toUpperCase(),
+      taxMode: financialProfile?.taxMode || 'default',
+      taxRatePercent,
+      subtotal,
+      promoDiscount,
+      groupDiscountPercent,
+      groupDiscountAmount: Math.min(Math.max(0, subtotal - promoDiscount), Math.max(0, groupDiscountAmount)),
+      totalDiscount,
+      tax,
+      total,
+      normalTotal: subtotal,
+    };
+  }
+
+  static async serializeCartWithPricing(cart, userId) {
+    const pricing = await this.buildPricing({ cart, userId });
+    return {
+      ...(typeof cart?.toObject === 'function' ? cart.toObject() : cart),
+      ...pricing,
+      discount: pricing.totalDiscount,
+    };
+  }
+
   static calculateCartSubtotal(cart) {
     let subtotal = 0;
 

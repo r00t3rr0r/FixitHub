@@ -84,6 +84,10 @@ export interface Cart {
   totalItems: number;
   promoCode?: string;
   discount?: number;
+  promoDiscount?: number;
+  groupDiscountPercent?: number;
+  groupDiscountAmount?: number;
+  totalDiscount?: number;
   createdAt: string;
   updatedAt: string;
 }

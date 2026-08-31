@@ -953,7 +953,7 @@ export function ShoppingCartPage() {
                       Code "{cart.promoCode}" angewendet
                     </span>
                     <span className="font-bold text-base" style={{ color: 'var(--success, #38a169)' }}>
-                      -{formatEUR(cart.discount ?? 0)}
+                      -{formatEUR(cart.promoDiscount ?? cart.discount ?? 0)}
                     </span>
                   </div>
                 )}
@@ -1030,7 +1030,7 @@ export function ShoppingCartPage() {
                   </div>
                   <div>
                     <p className="font-bold" style={{ color: PRIMARY_BLUE }}>Kostenloser Versand</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--gray-600, #4a5568)' }}>Bei Bestellungen über 50 €</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--gray-600, #4a5568)' }}>Ohne Mindestbestellwert</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 text-sm">

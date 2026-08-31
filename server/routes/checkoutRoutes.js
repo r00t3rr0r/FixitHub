@@ -153,40 +153,18 @@ const isCheckoutPaymentMethodAllowed = ({ paymentMethod, allowedMethods }) => {
 };
 
 const buildCheckoutPricing = async ({ cart, userId }) => {
+  const pricing = await CartService.buildPricing({ cart, userId });
   const financialProfile = await FinancialService.resolveFinancialProfile({ customerId: userId });
 
-  const subtotal = roundCurrency(cart?.subtotal || CartService.calculateCartSubtotal(cart));
-  const promoDiscount = roundCurrency(cart?.discount || 0);
-  const discountBase = Math.max(0, subtotal - promoDiscount);
-  const groupDiscountPercent = Math.max(0, Math.min(100, Number(financialProfile?.defaultDiscountPercent || 0)));
-  const groupDiscountAmount = roundCurrency(discountBase * (groupDiscountPercent / 100));
-  const totalDiscount = roundCurrency(promoDiscount + groupDiscountAmount);
-  const grossAfterDiscount = Math.max(0, subtotal - totalDiscount);
-  const taxRatePercent = Math.max(0, Number(financialProfile?.taxRate || 0));
-  // Cart prices are gross (VAT included): extract VAT from gross instead of adding VAT on top.
-  const taxAmount = taxRatePercent > 0
-    ? roundCurrency(grossAfterDiscount * (taxRatePercent / (100 + taxRatePercent)))
-    : 0;
-  const payableTotal = roundCurrency(grossAfterDiscount);
-  const normalTotal = roundCurrency(payableTotal + totalDiscount);
-
   return {
-    currency: String(financialProfile?.currency || 'EUR').toUpperCase(),
-    taxMode: financialProfile?.taxMode || 'default',
-    taxRatePercent,
+    ...pricing,
+    taxAmount: pricing.tax,
+    payableTotal: pricing.total,
     paymentDueDays: Number(financialProfile?.paymentDueDays || 0),
     paymentTerms: financialProfile?.paymentTerms || '',
     cashDiscountPercent: Number(financialProfile?.cashDiscountPercent || 0),
     cashDiscountDays: Number(financialProfile?.cashDiscountDays || 0),
     creditLimit: Number(financialProfile?.creditLimit || 0),
-    subtotal,
-    promoDiscount,
-    groupDiscountPercent,
-    groupDiscountAmount,
-    totalDiscount,
-    taxAmount,
-    normalTotal,
-    payableTotal,
   };
 };
 
