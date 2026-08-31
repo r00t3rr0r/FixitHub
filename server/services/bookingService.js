@@ -1193,7 +1193,7 @@ class BookingService {
       const allOrders = bookingIds.length
         ? await Order.find({ bookingId: { $in: bookingIds } })
             .setOptions({ skipAutoPopulate: true })
-            .select('_id bookingId status progress')
+            .select('_id bookingId status progress hasComplaint')
             .lean()
         : [];
 
@@ -1338,6 +1338,19 @@ class BookingService {
             customerId: customer || booking.customerId || null,
           };
           const bookingOrders = ordersByBookingId.get(String(booking._id)) || [];
+          const orderById = new Map(bookingOrders.map((order) => [String(order._id), order]));
+
+          bookingPlain.items = (booking.items || []).map((item) => {
+            const currentOrder = item?.orderId ? orderById.get(String(item.orderId)) : null;
+            return currentOrder
+              ? {
+                  ...item,
+                  status: currentOrder.status,
+                  progress: this.resolveOrderProgress(currentOrder),
+                  hasComplaint: Boolean(currentOrder.hasComplaint),
+                }
+              : item;
+          });
 
           if (bookingOrders.length > 0) {
             let totalProgress = 0;
@@ -1623,7 +1636,7 @@ class BookingService {
       // Fetch all orders directly linked to booking
       const directOrders = await Order.find({ bookingId: bookingId })
         .setOptions({ skipAutoPopulate: true })
-        .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline isComplaintFollowup sourceComplaintId parentOrderId')
+        .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline hasComplaint isComplaintFollowup sourceComplaintId parentOrderId')
         .lean();
 
       // Also include complaint follow-up orders that may not have bookingId set yet
@@ -1634,7 +1647,7 @@ class BookingService {
             parentOrderId: { $in: directOrderIds }
           })
             .setOptions({ skipAutoPopulate: true })
-            .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline isComplaintFollowup sourceComplaintId parentOrderId')
+            .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline hasComplaint isComplaintFollowup sourceComplaintId parentOrderId')
             .lean()
         : [];
 
@@ -1699,6 +1712,7 @@ class BookingService {
           status: order.status || 'pending',
           paymentStatus: order.paymentStatus || 'pending',
           progress: orderProgress,
+          hasComplaint: Boolean(order.hasComplaint),
           cost: order.totalCost,
           bookingItemCost: Number(bookingItem?.cost || 0),
           hasDeviceChangeHistory: deviceChangeEntries.length > 0,

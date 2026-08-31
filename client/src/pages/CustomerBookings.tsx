@@ -39,6 +39,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
@@ -72,6 +73,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel, getBookingInvoices } from "@/api/bookings";
+import { createOrderComplaint } from "@/api/orders";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
@@ -134,6 +136,7 @@ interface Booking {
     cost: number;
     status?: string;
     progress?: number;
+    hasComplaint?: boolean;
   }>;
   totalCost: number;
   status: string;
@@ -199,6 +202,10 @@ export function CustomerBookings() {
   const [calculatedProgress, setCalculatedProgress] = useState<Record<string, number>>({});
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [complaintOrder, setComplaintOrder] = useState<Booking['items'][number] | null>(null);
+  const [complaintReason, setComplaintReason] = useState("");
+  const [complaintDescription, setComplaintDescription] = useState("");
+  const [submittingComplaint, setSubmittingComplaint] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -381,26 +388,62 @@ export function CustomerBookings() {
     }
   };
 
-  const handleViewDetails = async (booking: Booking) => {
-    try {
-      const response = await getBooking(booking._id);
-      setSelectedBooking(response.booking);
-      setShowDetailDialog(true);
-    } catch (error) {
-      toast({
-        title: t('common.error'),
-        description: "Failed to load booking details",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleViewOrder = (orderId: string) => {
     navigate(getOrderDetailsPath(orderId), {
       state: buildOrderDetailsState(location, {
         label: t('common.back'),
       }),
     });
+  };
+
+  const openComplaintDialog = (booking: Booking) => {
+    const eligibleOrder = booking.items.find((item) => item.orderId && item.status === 'completed' && !item.hasComplaint);
+    if (!eligibleOrder) return;
+
+    openOrderComplaintDialog(eligibleOrder);
+  };
+
+  const openOrderComplaintDialog = (order: Booking['items'][number]) => {
+    if (!order.orderId || order.status !== 'completed' || order.hasComplaint) return;
+
+    setComplaintOrder(order);
+    setComplaintReason("");
+    setComplaintDescription("");
+  };
+
+  const handleSubmitComplaint = async () => {
+    if (!complaintOrder?.orderId) return;
+
+    if (!complaintReason.trim() || !complaintDescription.trim()) {
+      toast({
+        title: "Fehlende Angaben",
+        description: "Bitte Reklamationsgrund und Beschreibung ausfüllen.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSubmittingComplaint(true);
+      await createOrderComplaint(complaintOrder.orderId, {
+        reason: complaintReason.trim(),
+        description: complaintDescription.trim()
+      });
+      toast({
+        title: "Reklamation eingereicht",
+        description: "Deine Reklamation wurde erfolgreich an das Admin-Team gesendet."
+      });
+      setComplaintOrder(null);
+      await fetchBookings();
+    } catch (error: unknown) {
+      toast({
+        title: "Reklamation fehlgeschlagen",
+        description: error instanceof Error ? error.message : "Reklamation konnte nicht angelegt werden.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmittingComplaint(false);
+    }
   };
 
   const bookingDialogTabTriggerClass = "booking-detail-tab-trigger";
@@ -700,7 +743,7 @@ export function CustomerBookings() {
                           // Don't trigger if clicking on buttons or interactive elements
                           const target = e.target as HTMLElement;
                           if (!target.closest('button') && !target.closest('a') && !target.closest('[role="menu"]') && !target.closest('[role="dialog"]')) {
-                            handleViewDetails(booking);
+                            toggleExpandBooking(booking._id);
                           }
                         }}
                       >
@@ -796,10 +839,12 @@ export function CustomerBookings() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                {t('common.viewDetails')}
-                              </DropdownMenuItem>
+                              {booking.items.some((item) => item.orderId && item.status === 'completed' && !item.hasComplaint) && (
+                                <DropdownMenuItem onClick={() => openComplaintDialog(booking)}>
+                                  <AlertCircle className="h-4 w-4 mr-2" />
+                                  Reklamation anmelden
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => toggleExpandBooking(booking._id)}>
                                 {expandedBookings.has(booking._id) ? (
                                   <>
@@ -953,6 +998,7 @@ export function CustomerBookings() {
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('common.status')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.messages')}</TableHead>
                                           <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">{t('bookings.costShort')}</TableHead>
+                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">{t('common.actions')}</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -1058,6 +1104,31 @@ export function CustomerBookings() {
                                             <TableCell className="text-right font-medium text-xs py-1" data-label="Kosten">
                                               {formatCurrency(item.cost || 0)}
                                             </TableCell>
+                                            <TableCell className="text-right py-1" data-label="Aktionen">
+                                              {item.orderId && item.status === 'completed' && !item.hasComplaint ? (
+                                                <DropdownMenu>
+                                                  <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      className="h-7 w-7 p-0"
+                                                      aria-label="Aktionen"
+                                                      onClick={(event) => event.stopPropagation()}
+                                                    >
+                                                      <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                  </DropdownMenuTrigger>
+                                                  <DropdownMenuContent align="end" className="w-48">
+                                                    <DropdownMenuItem onClick={() => openOrderComplaintDialog(item)}>
+                                                      <AlertCircle className="h-4 w-4 mr-2" />
+                                                      Reklamation anmelden
+                                                    </DropdownMenuItem>
+                                                  </DropdownMenuContent>
+                                                </DropdownMenu>
+                                              ) : (
+                                                <span className="text-xs text-foreground/40">—</span>
+                                              )}
+                                            </TableCell>
                                           </TableRow>
                                         ))}
                                       </TableBody>
@@ -1139,6 +1210,27 @@ export function CustomerBookings() {
                                           </div>
 
                                           <div className="orders-sub-card-actions">
+                                            {item.orderId && item.status === 'completed' && !item.hasComplaint && (
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 w-7 p-0"
+                                                    aria-label="Aktionen"
+                                                  >
+                                                    <MoreVertical className="h-3.5 w-3.5" />
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-48">
+                                                  <DropdownMenuItem onClick={() => openOrderComplaintDialog(item)}>
+                                                    <AlertCircle className="h-4 w-4 mr-2" />
+                                                    Reklamation anmelden
+                                                  </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
+                                            )}
+
                                             {item.orderId && (
                                               <Button
                                                 size="sm"
@@ -1280,6 +1372,38 @@ export function CustomerBookings() {
           </CardContent>
         </Card>
         )}
+
+      <Dialog open={Boolean(complaintOrder)} onOpenChange={(open) => !open && setComplaintOrder(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reklamation anmelden</DialogTitle>
+            <DialogDescription>
+              Auftrag {complaintOrder?.orderNumber || complaintOrder?.orderId}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Reklamationsgrund (z. B. Fehler wieder aufgetreten)"
+              value={complaintReason}
+              onChange={(event) => setComplaintReason(event.target.value)}
+            />
+            <Textarea
+              placeholder="Bitte beschreibe den Sachverhalt möglichst konkret"
+              value={complaintDescription}
+              onChange={(event) => setComplaintDescription(event.target.value)}
+              rows={5}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setComplaintOrder(null)} disabled={submittingComplaint}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSubmitComplaint} disabled={submittingComplaint}>
+              {submittingComplaint ? 'Wird gesendet...' : 'Reklamation senden'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Booking Detail Dialog */}
       {selectedBooking && (
