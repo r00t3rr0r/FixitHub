@@ -3,6 +3,7 @@ const Invoice = require('../models/Invoice');
 const DunningRun = require('../models/DunningRun');
 const Order = require('../models/Order');
 const Booking = require('../models/Booking');
+const Complaint = require('../models/Complaint');
 const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
@@ -1523,16 +1524,37 @@ class FinancialService {
       credited: 'refunded',
     };
 
+    const resolvedPaymentStatus = paymentStatusMap[invoice.status] || 'pending';
+
     await Order.updateMany(
       { _id: { $in: uniqueOrderIds } },
       {
         $set: {
-          paymentStatus: paymentStatusMap[invoice.status] || 'pending',
+          paymentStatus: resolvedPaymentStatus,
           paymentMethod: normalizeTrackedPaymentMethod(invoice.paymentMethod),
           paidAt: normalizeTrackedPaidAt(invoice.paidAt),
         }
       }
     );
+
+    if (resolvedPaymentStatus === 'paid') {
+      await Order.updateMany(
+        { _id: { $in: uniqueOrderIds }, requiresPaymentBeforeCompletion: true },
+        { $set: { requiresPaymentBeforeCompletion: false } }
+      );
+
+      const paidOrders = await Order.find({ _id: { $in: uniqueOrderIds }, sourceComplaintId: { $ne: null } })
+        .select('sourceComplaintId')
+        .lean();
+      const complaintIds = [...new Set(paidOrders.map((order) => String(order.sourceComplaintId)).filter(Boolean))];
+
+      if (complaintIds.length > 0) {
+        await Complaint.updateMany(
+          { _id: { $in: complaintIds }, status: 'awaiting_payment' },
+          { $set: { status: 'closed' } }
+        );
+      }
+    }
   }
 
   static async syncBookingPaymentStatus(invoiceInput) {

@@ -81,7 +81,8 @@ const complaintSchema = new mongoose.Schema({
       'rejected',
       'acknowledged',
       'denied',
-      'new_repair'
+      'new_repair',
+      'awaiting_payment'
     ],
     default: 'open'
   },

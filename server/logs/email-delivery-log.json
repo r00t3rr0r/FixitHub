@@ -11351,5 +11351,82 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1788180673898-xav24nwdy",
+    "timestamp": "2026-08-31T12:51:13.898Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<b994bc71-f1bb-aab3-5ab8-966b9bed8092@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2094,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1788180676585-cjmqhqnyj",
+    "timestamp": "2026-08-31T12:51:16.585Z",
+    "to": "customer@example.com",
+    "templateName": "Reklamation neue Nachricht",
+    "subject": "Neue Mitteilung zu Ihrer Reklamation R6a450ecd43ac7cbf887573d6",
+    "messageId": "<53b0bbeb-c3de-d6c7-debf-e9464fffd97c@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1509,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintStatus",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "senderName",
+        "messageSentAt",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "decision",
+        "decisionReason",
+        "decidedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

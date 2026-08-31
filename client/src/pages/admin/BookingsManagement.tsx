@@ -40,6 +40,7 @@ import {
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
+import { printInvoice } from "@/lib/invoicePrint"
 import {
   Search,
   Filter,
@@ -4394,12 +4395,13 @@ function InvoiceDialog({
 
     try {
       setLoading(true)
-      await createBookingInvoice(booking._id, {
+      const response = await createBookingInvoice(booking._id, {
         notes,
         sendImmediately,
         invoiceMode,
         orderId: invoiceMode === 'order' ? selectedOrderId : undefined,
       })
+      printInvoice(response?.invoice)
       onSuccess()
     } catch (error) {
       if (handleInvoiceAlreadyExistsError(error)) {

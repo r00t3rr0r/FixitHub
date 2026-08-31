@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/useToast';
+import { printInvoice } from '@/lib/invoicePrint';
 import {
   addDunningRunItem,
   addInvoicePayment,
@@ -1160,7 +1161,7 @@ export function FinancialManagement() {
     const tax = taxableAmount * (taxRate / 100);
 
     try {
-      await createInvoice({
+      const response = await createInvoice({
         orderId: invoiceForm.orderId,
         customerId: invoiceForm.customerId,
         customerName: invoiceForm.customerName,
@@ -1176,6 +1177,7 @@ export function FinancialManagement() {
         template: 'default'
       });
 
+      printInvoice(response?.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setInvoiceDialogOpen(false);
       setInvoiceForm(createInvoiceFormState(financialSettings));
@@ -1194,7 +1196,7 @@ export function FinancialManagement() {
     }
 
     try {
-      await generateInvoiceFromRepairs(repairOrderIds, {
+      const response = await generateInvoiceFromRepairs(repairOrderIds, {
         taxRate: Number(fromRepairForm.taxRate) / 100,
         discount: Number(fromRepairForm.discount),
         dueDate: fromRepairForm.dueDate,
@@ -1203,6 +1205,7 @@ export function FinancialManagement() {
         numberPrefix: fromRepairForm.numberPrefix
       });
 
+      printInvoice(response?.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setFromRepairDialogOpen(false);
       fetchFinancialData();

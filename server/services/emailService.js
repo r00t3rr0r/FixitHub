@@ -39,6 +39,7 @@ class EmailService {
     repair_request_message: 'Repair Request neue Nachricht',
     repair_request_completed: 'Repair Request abgeschlossen',
     complaint_created: 'Reklamation eingegangen',
+    complaint_approved: 'Reklamation in Bearbeitung',
     complaint_processing: 'Reklamation in Bearbeitung',
     complaint_message: 'Reklamation neue Nachricht',
     complaint_resolved: 'Reklamation geloest',

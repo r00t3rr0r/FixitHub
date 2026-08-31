@@ -659,6 +659,11 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // When true, blocks completion/shipping until paymentStatus becomes 'paid' (e.g. rejected complaint offer)
+  requiresPaymentBeforeCompletion: {
+    type: Boolean,
+    default: false,
+  },
   // Shipping and tracking information
   shippingAddress: {
     street: {

@@ -30,7 +30,8 @@ export interface Complaint {
     | 'rejected'
     | 'acknowledged'
     | 'denied'
-    | 'new_repair';
+    | 'new_repair'
+    | 'awaiting_payment';
   complaintReason?: string;
   rejectionReason?: string;
   technicianReason?: string;

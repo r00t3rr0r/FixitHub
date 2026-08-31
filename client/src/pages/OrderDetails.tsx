@@ -5148,6 +5148,11 @@ export function OrderDetails() {
       <div className="order-details-header">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="order-header-title-block">
+            {order.isComplaintFollowup && (
+              <p style={{ color: '#dc2626', fontWeight: 700, margin: 0 }}>
+                Reklamationsauftrag
+              </p>
+            )}
             {isStaffOrAdmin ? (
               <>
                 <h1>
@@ -5254,6 +5259,30 @@ export function OrderDetails() {
                 {getStatusIcon(order.status)}
                 <span className="ml-1">{translateOrderStatus(order.status)}</span>
               </span>
+            )}
+            {canRunComplaintTechnicianActions && (
+              <div className="flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 dark:border-rose-800 dark:bg-rose-950/30">
+                <span className="text-xs font-semibold text-rose-800 dark:text-rose-200">Reklamation entscheiden</span>
+                <Button
+                  size="sm"
+                  onClick={() => setComplaintActionDialog('ack')}
+                  disabled={complaintActionLoading !== ''}
+                  className="h-7 bg-green-600 px-2 text-xs text-white hover:bg-green-700"
+                >
+                  <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                  Anerkennen
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setComplaintActionDialog('deny')}
+                  disabled={complaintActionLoading !== ''}
+                  className="h-7 border-rose-300 px-2 text-xs text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/40"
+                >
+                  <X className="mr-1 h-3.5 w-3.5" />
+                  Ablehnen
+                </Button>
+              </div>
             )}
             {isStaffOrAdmin && order.status === 'ready-for-pickup' && !order.pickupConfirmation && (
               <Button

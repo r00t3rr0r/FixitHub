@@ -108,6 +108,11 @@ const STATUS_META: Record<
     className: "cc-badge-newrepair",
     icon: <Wrench size={12} />,
   },
+  awaiting_payment: {
+    label: "Warte auf Zahlung",
+    className: "cc-badge-pending",
+    icon: <Clock size={12} />,
+  },
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -131,6 +136,7 @@ const STATUS_ACCENT: Record<string, string> = {
   acknowledged: "#06b6d4",
   denied: "#ec4899",
   new_repair: "#8b5cf6",
+  awaiting_payment: "#f97316",
 }
 
 function formatDate(dateStr: string) {

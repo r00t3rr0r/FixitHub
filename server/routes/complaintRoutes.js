@@ -10,6 +10,7 @@ const User = require('../models/User');
 const NotificationService = require('../services/notificationService');
 const EmailService = require('../services/emailService');
 const InspectionCommunicationService = require('../services/inspectionCommunicationService');
+const FinancialService = require('../services/financialService');
 
 const ADMIN_NOTIFICATION_TYPE = 'system';
 
@@ -37,6 +38,7 @@ function getComplaintEmailTrigger(complaint, metadata = {}) {
   const status = String(complaint?.status || '').toLowerCase();
 
   if (event === 'complaint_created') return 'complaint_created';
+  if (event === 'admin_approved') return 'complaint_approved';
   if (event === 'comment_added' || event === 'message_added') return 'complaint_message';
   if (event === 'offer_rejected' || event === 'complaint_rejected') return 'complaint_rejected';
   if (event === 'complaint_resolved') return 'complaint_resolved';
@@ -277,6 +279,13 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
       duplicatedOrder = await Order.create(source);
     }
 
+    // Reklamationsauftrag uebernimmt den Preis aus dem angenommenen Reparaturangebot
+    const offerAmount = Number(complaint.repairOffer?.amount || 0);
+    if (offerAmount > 0) {
+      duplicatedOrder.totalCost = offerAmount;
+      await duplicatedOrder.save();
+    }
+
     const previousStatus = complaint.status;
     complaint.status = 'new_repair';
     complaint.newOrderId = duplicatedOrder._id;
@@ -349,7 +358,38 @@ router.post('/:id/reject-offer', requireUser, async (req, res) => {
     const serviceFee = Number(req.body?.serviceFee || 39);
     const previousStatus = complaint.status;
 
-    complaint.status = 'closed';
+    const complaintOrderId = complaint.newOrderId || complaint.orderId;
+    const complaintOrder = await Order.findById(complaintOrderId).setOptions({ skipAutoPopulate: true });
+    if (!complaintOrder) {
+      return res.status(404).json({ success: false, error: 'Reklamationsauftrag not found for complaint' });
+    }
+
+    // Gebuehr fuer abgelehnte Reklamation zusaetzlich zu den Reparaturkosten hinterlegen
+    const existingTotalCost = Number(complaintOrder.totalCost || 0);
+    complaintOrder.totalCost = existingTotalCost + serviceFee;
+    complaintOrder.requiresPaymentBeforeCompletion = true;
+    await complaintOrder.save();
+
+    let invoice = null;
+    try {
+      invoice = await FinancialService.createInvoiceFromOrder(complaintOrder._id);
+      const taxRate = invoice.subtotal > 0 ? Number(invoice.tax || 0) / invoice.subtotal : 0;
+      invoice.items.push({
+        description: 'Servicepauschale fuer abgelehnte Reklamation',
+        quantity: 1,
+        unitPrice: serviceFee,
+        total: serviceFee,
+        type: 'fee'
+      });
+      invoice.subtotal = invoice.items.reduce((sum, item) => sum + item.total, 0);
+      invoice.tax = invoice.subtotal * taxRate;
+      invoice.total = invoice.subtotal + invoice.tax - Number(invoice.discount || 0);
+      await invoice.save();
+    } catch (invoiceError) {
+      console.error('ComplaintRoutes: Error creating invoice for rejected offer:', invoiceError.message);
+    }
+
+    complaint.status = 'awaiting_payment';
     complaint.serviceFee = serviceFee;
     complaint.extraCosts = Number(complaint.extraCosts || 0) + serviceFee;
     complaint.repairOffer.status = 'rejected';
@@ -360,10 +400,12 @@ router.post('/:id/reject-offer', requireUser, async (req, res) => {
       actorRole: req.user.role,
       action: 'offer_rejected',
       fromStatus: previousStatus,
-      toStatus: 'closed',
-      notes: `Customer rejected offer. Service fee applied: ${serviceFee}`,
+      toStatus: 'awaiting_payment',
+      notes: `Customer rejected offer. Service fee applied: ${serviceFee}. Invoice: ${invoice?.invoiceNumber || 'n/a'}`,
       metadata: {
-        serviceFee
+        serviceFee,
+        invoiceId: invoice?._id,
+        invoiceNumber: invoice?.invoiceNumber
       }
     });
 
@@ -383,11 +425,11 @@ router.post('/:id/reject-offer', requireUser, async (req, res) => {
       complaint,
       complaint.customerId,
       'Reparaturangebot abgelehnt',
-      `Die Reklamation wurde geschlossen. Servicepauschale: ${serviceFee.toFixed(2)} EUR`,
-      { event: 'offer_rejected', serviceFee }
+      `Die Reklamation und Reparatur werden nach Zahlungseingang versendet. Rechnungsbetrag: ${Number(invoice?.total || serviceFee).toFixed(2)} EUR`,
+      { event: 'offer_rejected', serviceFee, invoiceId: invoice?._id, invoiceNumber: invoice?.invoiceNumber }
     );
 
-    return res.json({ success: true, complaint });
+    return res.json({ success: true, complaint, invoice });
   } catch (error) {
     console.error('ComplaintRoutes: Error rejecting offer:', error);
     return res.status(400).json({ success: false, error: error.message });

@@ -58,6 +58,7 @@ const STATUS_OPTIONS = [
   "acknowledged",
   "denied",
   "new_repair",
+  "awaiting_payment",
   "resolved",
   "closed"
 ]
@@ -92,6 +93,11 @@ const STATUS_META: Record<string, { label: string; icon: LucideIcon; className: 
     label: "Neuer Reparaturauftrag",
     icon: Wrench,
     className: "complaints-status-new-repair",
+  },
+  awaiting_payment: {
+    label: "Wartet auf Zahlung",
+    icon: AlertTriangle,
+    className: "complaints-status-pending",
   },
   resolved: {
     label: "Geloest",

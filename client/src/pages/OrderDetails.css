@@ -3115,7 +3115,7 @@
 
 .admin-order-workspace .order-total-cost .amount {
   font-size: 0.9rem;
-  color: var(--primary-blue, #1a2a5e);
+  color: #ffffff;
 }
 
 .admin-order-workspace .order-total-cost .label {
