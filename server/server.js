@@ -174,10 +174,75 @@ const parsedRequestLimitMb = Number.parseInt(process.env.MAX_REQUEST_SIZE_MB || 
 const requestLimitMb = Number.isFinite(parsedRequestLimitMb) && parsedRequestLimitMb > 0 ? parsedRequestLimitMb : 50;
 const requestLimit = `${requestLimitMb}mb`;
 
-const allowedOrigins = String(process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean);
+const DOMAIN_LIKE_HOSTNAME_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+
+const parseOrigin = (value) => {
+  try {
+    return new URL(value).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+};
+
+const addDomainAliases = (originSet, origin) => {
+  try {
+    const parsed = new URL(origin);
+    const hostname = parsed.hostname.toLowerCase();
+    const hasWwwPrefix = hostname.startsWith('www.');
+    const baseHost = hasWwwPrefix ? hostname.slice(4) : hostname;
+
+    if (!DOMAIN_LIKE_HOSTNAME_REGEX.test(baseHost)) {
+      return;
+    }
+
+    const aliasHost = hasWwwPrefix ? baseHost : `www.${baseHost}`;
+    const aliasOrigin = `${parsed.protocol}//${aliasHost}${parsed.port ? `:${parsed.port}` : ''}`.toLowerCase();
+    originSet.add(aliasOrigin);
+  } catch {
+    // Ignore invalid URL values in environment variables.
+  }
+};
+
+const buildAllowedOriginSet = () => {
+  const configuredValues = [process.env.CLIENT_URL, process.env.PUBLIC_SITE_URL, process.env.SERVER_URL]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (configuredValues.length === 0) {
+    configuredValues.push('http://localhost:5173');
+  }
+
+  const originSet = new Set();
+  for (const value of configuredValues) {
+    const hasProtocol = /^https?:\/\//i.test(value);
+    const candidates = hasProtocol ? [value] : [`https://${value}`, `http://${value}`];
+
+    for (const candidate of candidates) {
+      const parsedOrigin = parseOrigin(candidate);
+      if (parsedOrigin) {
+        originSet.add(parsedOrigin);
+        addDomainAliases(originSet, parsedOrigin);
+      }
+    }
+  }
+
+  return originSet;
+};
+
+const allowedOriginSet = buildAllowedOriginSet();
+
+const sortedAllowedOrigins = Array.from(allowedOriginSet).sort();
+console.log('Configured CORS allowed origins:', sortedAllowedOrigins.join(', ') || '(none)');
+
+const createCorsDeniedError = (origin) => {
+  const error = new Error('CORS origin denied');
+  error.name = 'CorsOriginDeniedError';
+  error.status = 403;
+  error.origin = origin;
+  return error;
+};
 
 const isPrivateDevOrigin = (origin) => {
   if (process.env.NODE_ENV !== 'development') {
@@ -212,11 +277,15 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin) || isPrivateDevOrigin(origin)) {
+    const normalizedOrigin = parseOrigin(origin);
+
+    if (normalizedOrigin && (allowedOriginSet.has(normalizedOrigin) || isPrivateDevOrigin(normalizedOrigin))) {
       return callback(null, true);
     }
 
-    return callback(new Error('CORS origin denied'));
+    console.warn(`CORS origin denied: ${origin}`);
+
+    return callback(createCorsDeniedError(origin));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -651,6 +720,12 @@ app.use((req, res, next) => {
 
 // Error handling middleware with specific handling for payload too large errors
 app.use((err, req, res, next) => {
+  if (err.name === 'CorsOriginDeniedError' || err.message === 'CORS origin denied') {
+    const deniedOrigin = err.origin || req.headers.origin || 'unknown';
+    console.warn(`Rejected request due to CORS policy: ${deniedOrigin}`);
+    return res.status(403).json({ error: 'Origin is not allowed by CORS policy.' });
+  }
+
   console.error(`Unhandled application error: ${err.message}`);
   console.error('Full error stack trace:', err.stack);
 
@@ -670,10 +745,6 @@ app.use((err, req, res, next) => {
       error: `Request payload exceeds maximum size limit of ${requestLimitMb}MB.`,
       details: err.message
     });
-  }
-
-  if (err.message === 'CORS origin denied') {
-    return res.status(403).json({ error: 'Origin is not allowed by CORS policy.' });
   }
 
   // Default error response

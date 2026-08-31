@@ -1,0 +1,1 @@
+{"timestamp":"2026-08-31T11:23:11.418Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Reklamation eingegangen) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"1304ms","messageId":"<6fd01336-1a02-13e0-3a13-108ee788a1c7@mcrepair.de>","to":"admin@example.com"},"pid":13953}

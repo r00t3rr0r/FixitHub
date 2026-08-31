@@ -97,7 +97,7 @@ DATABASE_URL=mongodb://127.0.0.1:27017/fixithub
 JWT_SECRET=$(openssl rand -hex 32)
 REFRESH_TOKEN_SECRET=$(openssl rand -hex 32)
 SESSION_SECRET=$(openssl rand -hex 32)
-CLIENT_URL=https://${DOMAIN}
+CLIENT_URL=https://${DOMAIN},https://www.${DOMAIN},http://66.29.145.165
 SERVER_URL=https://${DOMAIN}
 PUBLIC_SITE_URL=https://${DOMAIN}
 EOF
