@@ -195,8 +195,11 @@ class CartService {
       );
 
       if (existingItemIndex >= 0) {
-        // Update quantity
-        cart.items[existingItemIndex].quantity += quantity;
+        const newQuantity = cart.items[existingItemIndex].quantity + quantity;
+        if (product.stockCount < newQuantity) {
+          throw new Error('Insufficient stock');
+        }
+        cart.items[existingItemIndex].quantity = newQuantity;
       } else {
         // Add new item
         cart.items.push({

@@ -39,6 +39,7 @@ export interface GuestCart {
 }
 
 const GUEST_CART_KEY = 'guestCart'
+let guestCartMergePromise: Promise<void> | null = null
 
 // Initialize empty guest cart
 const getEmptyCart = (): GuestCart => ({
@@ -190,6 +191,13 @@ export const removeRepairOrderFromGuestCart = (repairOrderId: string): GuestCart
   return cart
 }
 
+const removeGuestCartItem = (itemId: string): void => {
+  const cart = getGuestCart()
+  cart.items = cart.items.filter(item => item._id !== itemId)
+  calculateCartTotals(cart)
+  saveGuestCart(cart)
+}
+
 // Clear guest cart
 export const clearGuestCart = (): GuestCart => {
   const emptyCart = getEmptyCart()
@@ -205,6 +213,19 @@ export const getGuestCartItemCount = (): number => {
 
 // Merge guest cart with user cart (called after login)
 export const mergeGuestCartWithUserCart = async (userCartService: any): Promise<void> => {
+  if (guestCartMergePromise) {
+    return guestCartMergePromise
+  }
+
+  guestCartMergePromise = mergeGuestCartWithUserCartOnce(userCartService)
+  try {
+    await guestCartMergePromise
+  } finally {
+    guestCartMergePromise = null
+  }
+}
+
+const mergeGuestCartWithUserCartOnce = async (userCartService: any): Promise<void> => {
   const guestCart = getGuestCart()
 
   // If guest cart is empty, nothing to merge
@@ -213,18 +234,16 @@ export const mergeGuestCartWithUserCart = async (userCartService: any): Promise<
   }
 
   try {
-    // Add all guest cart items to user cart
     for (const item of guestCart.items) {
       await userCartService.addToCart(item.product._id, item.quantity)
+      removeGuestCartItem(item._id)
     }
 
-    // Add all guest repair orders to user cart
     for (const order of guestCart.repairOrders) {
       await userCartService.addRepairOrderToCart(order)
+      removeRepairOrderFromGuestCart(order._id)
     }
 
-    // Clear guest cart after successful merge
-    clearGuestCart()
     console.log('Guest cart successfully merged with user cart')
   } catch (error) {
     console.error('Error merging guest cart with user cart:', error)

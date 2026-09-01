@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
 import { AlertCircle, Clock } from 'lucide-react';
+import { getInactiveWorkflows } from '@/api/repairWorkflow';
 
 interface InactiveRepair {
   _id: string;
@@ -32,14 +33,13 @@ export function InactiveRepairsList() {
     try {
       setLoading(true);
 
-      const response = await fetch('/api/repair-workflows/admin/inactive?thresholdHours=3');
-      if (!response.ok) throw new Error('Failed to load inactive repairs');
-
-      const data = await response.json();
+      const response = await getInactiveWorkflows(3);
+      const data = response.data;
       setInactiveRepairs(data.workflows || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load inactive repairs';
       console.error('Error loading inactive repairs:', err);
-      toast({ title: 'Error', description: err.message });
+      toast({ title: 'Error', description: message });
     } finally {
       setLoading(false);
     }

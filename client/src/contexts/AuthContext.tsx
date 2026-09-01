@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('AuthContext: Login successful, merging guest cart with user cart...');
         try {
           await mergeGuestCartWithUserCart({
-            addToCart,
+            addToCart: (productId: string, quantity: number) => addToCart({ productId, quantity }),
             addRepairOrderToCart
           });
           console.log('AuthContext: Guest cart merged successfully');

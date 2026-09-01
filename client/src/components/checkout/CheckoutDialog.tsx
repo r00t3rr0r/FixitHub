@@ -59,8 +59,7 @@ import {
   Clock,
   X,
 } from "lucide-react"
-import { addToCart, addRepairOrderToCart, Cart } from "@/api/shop"
-import { getGuestCart, clearGuestCart } from "@/utils/guestCart"
+import { Cart } from "@/api/shop"
 import { CountrySelect } from "@/components/checkout/CountrySelect"
 import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -678,9 +677,6 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     try {
       setInitializingCheckout(true)
 
-      // Preserve guest cart items after verification by merging once authenticated.
-      await mergeGuestCartIntoUserCart()
-
       const response = await initializeCheckout()
       const checkoutUserInfo = (response as any).userInfo || null
       const checkoutAvailablePaymentMethods = Array.isArray((response as any).availablePaymentMethods)
@@ -731,23 +727,6 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
     } finally {
       setInitializingCheckout(false)
     }
-  }
-
-  const mergeGuestCartIntoUserCart = async () => {
-    const localGuestCart = getGuestCart()
-    if (localGuestCart.items.length === 0 && localGuestCart.repairOrders.length === 0) {
-      return
-    }
-
-    for (const item of localGuestCart.items) {
-      await addToCart({ productId: item.product._id, quantity: item.quantity, product: item.product as any })
-    }
-
-    for (const repairOrder of localGuestCart.repairOrders) {
-      await addRepairOrderToCart(repairOrder as any)
-    }
-
-    clearGuestCart()
   }
 
   useEffect(() => {
