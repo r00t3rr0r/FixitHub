@@ -154,6 +154,7 @@ export function DeviceInspectionForm({
   // Step 7: Summary & Completion
   const [completionAction, setCompletionAction] = useState<CompletionAction>('repairable');
   const [isRepairable, setIsRepairable] = useState<boolean | null>(null);
+    const [repairCost, setRepairCost] = useState('');
   const [repairTimeframe, setRepairTimeframe] = useState('');
   const [repairDescription, setRepairDescription] = useState('');
   const [informCustomer, setInformCustomer] = useState(false);
