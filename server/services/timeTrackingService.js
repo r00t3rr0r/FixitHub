@@ -735,10 +735,29 @@ class TimeTrackingService {
   }
 
   /**
-   * Get all staff with their current status (for admin dashboard)
+   * Update a staff member's system presence without changing time tracking state.
+   */
+  static async updatePresence(staffId) {
+    const lastActivity = new Date();
+    const staff = await User.findOneAndUpdate(
+      { _id: staffId, role: { $in: ['staff', 'admin'] }, isActive: true },
+      { $set: { lastActivity } },
+      { new: true }
+    ).select('_id');
+
+    if (!staff) {
+      throw new Error('Active staff member not found');
+    }
+
+    return { success: true, lastActivity };
+  }
+
+  /**
+   * Get all staff with their time tracking and current system presence.
    */
   static async getAllStaffStatus() {
     try {
+      const onlineSince = Date.now() - 90 * 1000;
       const staff = await User.find({
         role: { $in: ['staff', 'admin'] },
         isActive: true
@@ -754,6 +773,7 @@ class TimeTrackingService {
           email: s.email,
           avatar: s.avatar,
           currentStatus: s.currentStatus || 'offline',
+          isOnline: Boolean(s.lastActivity && s.lastActivity.getTime() >= onlineSince),
           lastActivity: s.lastActivity,
           currentOrder: s.currentOrderNumber,
           hoursThisWeek: s.hoursThisWeek || 0,

@@ -27,6 +27,7 @@ import {
   type TimeTrackingSummary,
 } from "@/api/timeTracking"
 import { TimeTrackingBreakdown } from "@/components/staff/TimeTrackingBreakdown"
+import StaffStatusManagement from "@/components/admin/StaffStatusManagement"
 
 interface TimelineEntry {
   _id: string
@@ -476,6 +477,8 @@ export function TimeTracking() {
           )}
         </CardContent>
       </Card>
+
+      <StaffStatusManagement />
     </div>
   )
 }

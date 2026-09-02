@@ -24,6 +24,7 @@ import {
   type TeamChatMessageData,
   type StaffMember,
 } from "@/api/teamChat"
+import { getAllStaffStatus } from "@/api/timeTracking"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,10 @@ function staffMemberName(m: StaffMember, unknownLabel = "?"): string {
 function roomMemberName(m: RoomMember): string {
   if (typeof m.userId === "string") return m.userId
   return m.userId?.name ?? "?"
+}
+
+function roomMemberId(m: RoomMember): string {
+  return typeof m.userId === "string" ? m.userId : m.userId?._id ?? ""
 }
 
 function extractSenderId(raw: TeamChatMessageData['senderId']): string {
@@ -317,6 +322,7 @@ export function TeamChat() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [showOrderDrop, setShowOrderDrop] = useState(false)
   const [notifications, setNotifications] = useState<{ id: string; text: string; time: string }[]>([])
+  const [onlineStaffIds, setOnlineStaffIds] = useState<Set<string>>(new Set())
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -368,6 +374,21 @@ export function TeamChat() {
   useEffect(() => {
     fetchRooms()
   }, [fetchRooms])
+
+  useEffect(() => {
+    const fetchPresence = async () => {
+      try {
+        const result = await getAllStaffStatus()
+        setOnlineStaffIds(new Set(result.staff.filter((member) => member.isOnline).map((member) => String(member._id))))
+      } catch (error) {
+        console.error('TeamChat: Failed to load staff presence:', error)
+      }
+    }
+
+    fetchPresence()
+    const interval = window.setInterval(fetchPresence, 30000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   // ── Load messages when room changes ──────────────────────────────────────────
   useEffect(() => {
@@ -675,13 +696,14 @@ export function TeamChat() {
               <div className="space-y-1 max-h-24 overflow-y-auto">
                 {roomMembers.slice(0, 8).map((m, i) => {
                   const name = roomMemberName(m)
+                  const isOnline = onlineStaffIds.has(roomMemberId(m))
                   return (
                     <div key={i} className="flex items-center gap-1.5">
                       <div className="relative shrink-0">
                         <Avatar className="h-4 w-4">
                           <AvatarFallback className="bg-[#1a2a5e] text-white text-[8px]">{initials(name)}</AvatarFallback>
                         </Avatar>
-                        <OnlineDot isOnline={false} />
+                        <OnlineDot isOnline={isOnline} />
                       </div>
                       <span className="text-[10px] text-gray-600 truncate">{name}</span>
                     </div>

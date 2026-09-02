@@ -106,11 +106,20 @@ export interface StaffStatus {
   email: string;
   avatar?: string;
   currentStatus: 'offline' | 'online' | 'working' | 'pending' | 'on_break';
+  isOnline: boolean;
   lastActivity?: Date;
   currentOrder?: string;
   hoursThisWeek: number;
   hoursThisMonth: number;
 }
+
+export const updatePresence = async () => {
+  const response = await api.post('/api/time-tracking/presence');
+  if (response.status !== 200) {
+    throw new Error(response.data?.error || 'Failed to update presence');
+  }
+  return response.data;
+};
 
 // Description: Clock in for work
 // Endpoint: POST /api/time-tracking/clock-in
@@ -265,13 +274,16 @@ export const getTimeTrackingSummary = async (filters?: { date?: string }): Promi
   }
 };
 
-// Description: Get all staff members with their current status (admin only)
-// Endpoint: GET /api/time-tracking/admin/all-staff-status
+// Description: Get all staff members with their current status
+// Endpoint: GET /api/time-tracking/all-staff-status
 // Request: {}
 // Response: { success: boolean, staff: StaffStatus[] }
 export const getAllStaffStatus = async () => {
   try {
-    const response = await api.get('/api/time-tracking/admin/all-staff-status');
+    const response = await api.get('/api/time-tracking/all-staff-status');
+    if (response.status !== 200) {
+      throw new Error(response.data?.error || 'Failed to load staff status');
+    }
     return response.data;
   } catch (error) {
     console.error('Get all staff status error:', error);

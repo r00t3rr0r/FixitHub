@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const TimeTrackingService = require('../services/timeTrackingService');
-const { auth, requireAdmin } = require('./middleware/auth');
+const { auth, requireAdmin, requireStaff } = require('./middleware/auth');
 
 /**
  * Time Tracking Routes
@@ -188,6 +188,20 @@ router.get('/status', auth, async (req, res) => {
   }
 });
 
+// Keep the logged-in staff member's system presence current.
+router.post('/presence', ...requireStaff, async (req, res) => {
+  try {
+    const result = await TimeTrackingService.updatePresence(req.user._id);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Update staff presence error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Description: Get time entries for logged-in staff member
 // Endpoint: GET /api/time-tracking/entries
 // Request: { startDate?: string, endDate?: string, type?: string, orderId?: string, page?: number, limit?: number }
@@ -254,13 +268,13 @@ router.get('/summary', auth, async (req, res) => {
   }
 });
 
-// Description: Get all staff members with their current status (admin only)
-// Endpoint: GET /api/time-tracking/admin/all-staff-status
+// Description: Get all staff members with their current status
+// Endpoint: GET /api/time-tracking/all-staff-status
 // Request: {}
-// Response: { success: boolean, staff: Array<{ _id, name, email, avatar, currentStatus, lastActivity, currentOrder, hoursThisWeek, hoursThisMonth }> }
-router.get('/admin/all-staff-status', ...requireAdmin, async (req, res) => {
+// Response: { success: boolean, staff: Array<{ _id, name, email, avatar, currentStatus, isOnline, lastActivity, currentOrder, hoursThisWeek, hoursThisMonth }> }
+router.get('/all-staff-status', ...requireStaff, async (req, res) => {
   try {
-    console.log(`GET /api/time-tracking/admin/all-staff-status - Admin: ${req.user.email}`);
+    console.log(`GET /api/time-tracking/all-staff-status - User: ${req.user.email}`);
 
     const result = await TimeTrackingService.getAllStaffStatus();
 
@@ -271,6 +285,17 @@ router.get('/admin/all-staff-status', ...requireAdmin, async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+// Backwards-compatible admin endpoint for older clients.
+router.get('/admin/all-staff-status', ...requireAdmin, async (req, res) => {
+  try {
+    const result = await TimeTrackingService.getAllStaffStatus();
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Get all staff status error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
