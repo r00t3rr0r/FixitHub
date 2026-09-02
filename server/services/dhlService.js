@@ -406,6 +406,7 @@ class DHLService {
    */
   static async createShipment(orderId, shipmentData) {
     console.log('DHLService: Creating shipment for order:', orderId);
+    let labelCreationClaimed = false;
 
     try {
       // Get DHL configuration
@@ -420,6 +421,36 @@ class DHLService {
       }
 
       console.log('DHLService: Order found:', order.orderNumber);
+
+      // Repeated requests must reuse the existing shipment instead of creating another label.
+      if (order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created') {
+        return {
+          success: true,
+          trackingNumber: order.trackingNumber,
+          labelUrl: order.shippingLabelUrl,
+          estimatedDelivery: order.estimatedDelivery,
+          shipmentId: order.trackingNumber,
+          alreadyExists: true,
+        };
+      }
+
+      // Atomically reserve label creation so concurrent requests cannot both reach DHL.
+      const claimedOrder = await Order.findOneAndUpdate(
+        {
+          _id: orderId,
+          shippingLabelUrl: { $in: ['', null] },
+          trackingNumber: { $in: ['', null] },
+          shippingStatus: { $ne: 'label-created' },
+          shippingLabelCreationInProgress: { $ne: true },
+        },
+        { $set: { shippingLabelCreationInProgress: true } },
+        { new: true }
+      );
+
+      if (!claimedOrder) {
+        throw new Error('Rueckweg-Label wird bereits erstellt oder ist bereits vorhanden.');
+      }
+      labelCreationClaimed = true;
 
       // Use invoice address as fallback if shipping address is not complete
       // Convert Mongoose subdocument to plain object to access properties
@@ -644,6 +675,14 @@ class DHLService {
       };
 
     } catch (error) {
+      if (labelCreationClaimed) {
+        await Order.updateOne(
+          { _id: orderId, shippingLabelCreationInProgress: true },
+          { $set: { shippingLabelCreationInProgress: false } }
+        ).catch((releaseError) => {
+          console.error('DHLService: Could not release label creation lock:', releaseError.message);
+        });
+      }
       console.error('DHLService: Error creating shipment:', error);
       console.error('DHLService: Error response data:', error.response?.data);
       console.error('DHLService: Error response status:', error.response?.status);

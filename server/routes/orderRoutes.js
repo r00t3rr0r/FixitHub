@@ -1,5 +1,6 @@
 const express = require('express');
 const OrderService = require('../services/orderService');
+const Order = require('../models/Order');
 const ComplaintService = require('../services/complaintService');
 const Complaint = require('../models/Complaint');
 const EmailService = require('../services/emailService');
@@ -234,6 +235,11 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
     const complaint = await ComplaintService.create(complaintData);
     complaint.complaintNumber = complaintNumber;
     await complaint.save();
+
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { hasComplaint: true, complaintReason: reason } }
+    );
 
     const admins = await User.find({ role: 'admin', isActive: true }).select('_id email');
     const customerName = req.user.firstName

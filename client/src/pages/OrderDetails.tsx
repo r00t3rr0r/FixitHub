@@ -3,6 +3,22 @@ import { SEO } from '@/components/SEO'
 import type { MouseEvent as ReactMouseEvent } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+
+const COMPLAINT_STATUS_LABELS: Record<string, string> = {
+  pending_approval: 'Wird geprüft',
+  approved: 'Genehmigt',
+  rejected: 'Abgelehnt',
+  acknowledged: 'Anerkannt',
+  denied: 'Angebot vorhanden',
+  new_repair: 'Neue Reparatur',
+  awaiting_payment: 'Wartet auf Zahlung',
+  resolved: 'Gelöst',
+  closed: 'Geschlossen',
+}
+
+const getComplaintStatusLabel = (status?: string) =>
+  status ? COMPLAINT_STATUS_LABELS[status] || status : ''
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -1052,7 +1068,7 @@ export function OrderDetails() {
   }
 
   const handleCreateOrderShippingLabel = async () => {
-    if (!id || !order || creatingOrderShippingLabel) return
+    if (!id || !order || creatingOrderShippingLabel || order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created') return
 
     try {
       setCreatingOrderShippingLabel(true)
@@ -2371,7 +2387,7 @@ export function OrderDetails() {
               onClick={() => handleBackNavigation()}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {backButtonLabel}
+              {backTarget?.label || (user?.role === 'admin' ? t('orderDetails.backToOrders') : user?.role === 'staff' ? t('common.back') : t('common.back'))}
             </button>
           </div>
         </div>
@@ -2609,6 +2625,8 @@ export function OrderDetails() {
   const bookingReturnStatus = String(linkedBooking?.returnShipmentStatus || '').toLowerCase()
   const bookingShippingStatusDescription = String(linkedBooking?.shippingStatusDescription || '').trim()
   const bookingReturnStatusDescription = String(linkedBooking?.returnShipmentStatusDescription || '').trim()
+  const orderShippingStatus = String(order.shippingStatus || '').toLowerCase()
+  const orderShippingStatusDescription = String(order.shippingStatusDescription || '').trim()
   const buildDhlTrackingUrl = (trackingNumber: string) => `https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(trackingNumber)}`
   const getShipmentStatusMeta = (status: string) => {
     switch (String(status || '').toLowerCase()) {
@@ -4725,7 +4743,7 @@ export function OrderDetails() {
           </div>
         </div>
 
-        {(order.shippingAddress || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
+        {(order.shippingAddress || order.trackingNumber || order.shippingLabelUrl || order.shippingStatus || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
           <div className="customer-summary-subcard">
             <div className="customer-summary-subcard-title">
               <MapPin className="h-4 w-4" />
@@ -4807,6 +4825,55 @@ export function OrderDetails() {
                       : bookingReturnStatus === 'label-created'
                         ? 'Das Rücksendelabel wurde erzeugt und wird in Kürze hier zum Download angezeigt.'
                         : 'Wenn eine Rücksendung erforderlich ist, wird das passende DHL-Rücksendeetikett hier eingeblendet.'}
+                  </div>
+                )}
+              </div>
+            )}
+            {(order.trackingNumber || order.shippingLabelUrl || order.shippingStatus) && (
+              <div className="customer-summary-logistics-block">
+                <div className="customer-summary-logistics-title">Versand dieses Auftrags</div>
+                {order.shippingStatus && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(orderShippingStatus).className}`}>
+                    {getShipmentStatusMeta(orderShippingStatus).label}
+                  </Badge>
+                )}
+                {orderShippingStatusDescription && (
+                  <p className="customer-shipping-status-description">{orderShippingStatusDescription}</p>
+                )}
+                {order.trackingNumber && (
+                  <div className="customer-summary-tracking">
+                    <span>Sendungsverfolgungsnummer</span>
+                    <strong>{order.trackingNumber}</strong>
+                    {order.carrier && <p>{order.carrier}</p>}
+                    <a
+                      href={buildDhlTrackingUrl(order.trackingNumber)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-tracking-link"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Sendung verfolgen
+                    </a>
+                  </div>
+                )}
+                {order.shippingLabelUrl && (
+                  <div className="customer-summary-shipping-label">
+                    <span>Versandlabel</span>
+                    <button
+                      onClick={handleDownloadOrderShippingLabel}
+                      disabled={downloadingOrderShippingLabel}
+                      className="customer-summary-label-download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {downloadingOrderShippingLabel ? 'Versandlabel wird geladen…' : 'Versandlabel herunterladen'}
+                    </button>
+                  </div>
+                )}
+                {!order.shippingLabelUrl && order.shippingStatus && (
+                  <div className={`customer-summary-shipping-note ${orderShippingStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
+                    {orderShippingStatus === 'failed'
+                      ? 'Das Versandlabel konnte noch nicht bereitgestellt werden. Bitte nutzen Sie den Nachrichtenbereich für Rückfragen.'
+                      : 'Das Versandlabel wird vorbereitet und erscheint hier, sobald es verfügbar ist.'}
                   </div>
                 )}
               </div>
@@ -5314,13 +5381,34 @@ export function OrderDetails() {
               <CreditCard className="h-3 w-3 mr-1" />
               {translatePaymentStatus(order.paymentStatus)}
             </span>
+            {!isStaffOrAdmin && (order.hasComplaint || order.complaintId) && (
+              order.complaintId ? (
+                <Link to={`/my-complaints/${order.complaintId}`}>
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200 dark:hover:bg-amber-950/50"
+                  >
+                    <AlertCircle className="mr-1 h-3 w-3" />
+                    Reklamation angefragt{order.complaintStatus ? ` · ${getComplaintStatusLabel(order.complaintStatus)}` : ''}
+                  </Badge>
+                </Link>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+                >
+                  <AlertCircle className="mr-1 h-3 w-3" />
+                  Reklamation angefragt
+                </Badge>
+              )
+            )}
             {isStaffOrAdmin && (
               <div className="order-total-cost">
                 <div className="amount">{safeToNumber(order.totalCost).toFixed(2)} €</div>
                 <div className="label">Gesamt</div>
               </div>
             )}
-            {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && (
+            {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && !order.complaintId && (
               <Button
                 size="sm"
                 onClick={() => setComplaintDialogOpen(true)}
@@ -5421,11 +5509,15 @@ export function OrderDetails() {
                         <Button
                           size="sm"
                           onClick={handleCreateOrderShippingLabel}
-                          disabled={creatingOrderShippingLabel}
+                          disabled={creatingOrderShippingLabel || Boolean(order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created')}
                           className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
                         >
                           <Send className="h-4 w-4 mr-1.5" />
-                          {creatingOrderShippingLabel ? 'Rueckweg wird gestartet…' : 'Rueckweg mit DHL/FedEx starten'}
+                          {creatingOrderShippingLabel
+                            ? 'Rueckweg wird gestartet…'
+                            : order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
+                              ? 'Rueckweg-Label bereits erstellt'
+                              : 'Rueckweg mit DHL/FedEx starten'}
                         </Button>
 
                         <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">

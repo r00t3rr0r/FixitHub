@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Inventory = require('../models/Inventory');
 const NeedList = require('../models/NeedList');
 const Product = require('../models/Product');
+const Complaint = require('../models/Complaint');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 const NotificationService = require('./notificationService');
@@ -400,7 +401,7 @@ class OrderService {
 
     try {
       const order = await Order.findById(orderId)
-        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType services shopProducts assignedStaff guestInfo billingAddress shippingAddress trackingNumber carrier shippingStatus shippingStatusDescription estimatedDelivery actualDelivery shippingLabelUrl shippingCost trackingEvents timeline customerEmail customerName hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId')
+        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType imei serialNumber unlockPattern unlockCode noLock unlockConfirmation services shopProducts assignedStaff guestInfo billingAddress shippingAddress trackingNumber carrier shippingStatus shippingStatusDescription estimatedDelivery actualDelivery shippingLabelUrl shippingCost trackingEvents timeline customerEmail customerName hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId')
         .lean();
 
       if (!order) {
@@ -418,15 +419,26 @@ class OrderService {
         getUniqueQueryObjectIds(Array.isArray(order.shopProducts) ? order.shopProducts.map((product) => product?.productId) : [])
       )];
 
-      const [serviceDocs, productDocs] = await Promise.all([
+      const [serviceDocs, productDocs, linkedComplaint] = await Promise.all([
         serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('_id name').lean() : [],
-        productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : []
+        productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : [],
+        Complaint.findOne({ orderId: order._id })
+          .setOptions({ skipAutoPopulate: true })
+          .select('_id complaintNumber status createdAt')
+          .sort({ createdAt: -1 })
+          .lean()
       ]);
 
       const serviceNameMap = new Map(serviceDocs.map((service) => [String(service._id), service.name]));
       const productNameMap = new Map(productDocs.map((product) => [String(product._id), product.name]));
 
       const plain = { ...order, customerId: customer || order.customerId || null };
+
+      if (linkedComplaint) {
+        plain.complaintId = linkedComplaint._id;
+        plain.complaintNumber = linkedComplaint.complaintNumber;
+        plain.complaintStatus = linkedComplaint.status;
+      }
 
       if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {
         plain.totalCost = Number(plain.totalCost);

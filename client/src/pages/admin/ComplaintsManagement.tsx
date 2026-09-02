@@ -70,7 +70,7 @@ const STATUS_META: Record<string, { label: string; icon: LucideIcon; className: 
     className: "complaints-status-pending",
   },
   approved: {
-    label: "Genehmigt",
+    label: "Zur Prüfung eingesendet",
     icon: ShieldCheck,
     className: "complaints-status-approved",
   },
@@ -607,9 +607,9 @@ export function ComplaintsManagement() {
                     <Button
                       className="w-full complaints-primary-button"
                       disabled={actionLoading === "approve"}
-                      onClick={() => runAction("approve", () => approveComplaint(selectedComplaint._id), "Reklamation wurde genehmigt.")}
+                      onClick={() => runAction("approve", () => approveComplaint(selectedComplaint._id), "Reklamation wurde zur Prüfung eingesendet.")}
                     >
-                      {actionLoading === "approve" ? "Bitte warten..." : "Admin: Genehmigen"}
+                      {actionLoading === "approve" ? "Bitte warten..." : "Admin: Zur Prüfung einsenden"}
                     </Button>
                   )}
 

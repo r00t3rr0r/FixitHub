@@ -127,6 +127,9 @@ export interface Order {
   }>;
   hasComplaint?: boolean;
   complaintReason?: string;
+  complaintId?: string;
+  complaintNumber?: string;
+  complaintStatus?: string;
   isComplaintFollowup?: boolean;
   parentOrderId?: string;
   sourceComplaintId?: string;
