@@ -2507,6 +2507,8 @@ export function OrderDetails() {
     if (!workflowOrder) return ''
     return typeof workflowOrder === 'string' ? '' : (workflowOrder?.orderNumber || '')
   })()
+  const complaintOrderId = order.complaintOrderId || ''
+  const complaintOrderNumber = order.complaintOrderNumber || ''
   const latestDenyEscalationLog = (() => {
     const logs = complaintWorkflow?.complaintLogs || []
     for (let i = logs.length - 1; i >= 0; i -= 1) {
@@ -5268,6 +5270,24 @@ export function OrderDetails() {
                   </Link>
                 ) : (
                   <span className="font-medium">Nicht verknuepft</span>
+                )}
+              </div>
+            )}
+            {!isComplaintFollowupOrder && order.hasComplaint && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <Badge className="bg-rose-100 text-rose-800 border border-rose-300" variant="outline">
+                  Reklamation vorhanden
+                </Badge>
+                <span className="text-muted-foreground">Reklamationsauftrag:</span>
+                {complaintOrderId ? (
+                  <Link
+                    to={`/orders/${complaintOrderId}`}
+                    className="font-medium text-blue-600 underline"
+                  >
+                    {complaintOrderNumber || complaintOrderId}
+                  </Link>
+                ) : (
+                  <span className="font-medium">Noch nicht erstellt</span>
                 )}
               </div>
             )}

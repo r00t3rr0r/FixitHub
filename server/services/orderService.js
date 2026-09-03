@@ -424,7 +424,8 @@ class OrderService {
         productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : [],
         Complaint.findOne({ orderId: order._id })
           .setOptions({ skipAutoPopulate: true })
-          .select('_id complaintNumber status createdAt')
+          .select('_id complaintNumber status createdAt newOrderId')
+          .populate('newOrderId', '_id orderNumber')
           .sort({ createdAt: -1 })
           .lean()
       ]);
@@ -438,6 +439,8 @@ class OrderService {
         plain.complaintId = linkedComplaint._id;
         plain.complaintNumber = linkedComplaint.complaintNumber;
         plain.complaintStatus = linkedComplaint.status;
+        plain.complaintOrderId = linkedComplaint.newOrderId?._id || linkedComplaint.newOrderId || null;
+        plain.complaintOrderNumber = linkedComplaint.newOrderId?.orderNumber || '';
       }
 
       if (plain.totalCost !== undefined && typeof plain.totalCost === 'object') {

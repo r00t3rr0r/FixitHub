@@ -130,6 +130,8 @@ export interface Order {
   complaintId?: string;
   complaintNumber?: string;
   complaintStatus?: string;
+  complaintOrderId?: string;
+  complaintOrderNumber?: string;
   isComplaintFollowup?: boolean;
   parentOrderId?: string;
   sourceComplaintId?: string;
