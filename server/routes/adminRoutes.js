@@ -41,6 +41,7 @@ router.get('/users', requireUser, requireAdmin, async (req, res) => {
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },
+        { customerNumber: { $regex: search, $options: 'i' } },
         { customerGroup: { $regex: search, $options: 'i' } }
       ];
     }
