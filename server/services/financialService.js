@@ -272,16 +272,19 @@ class FinancialService {
     console.log('FinancialService: Searching customers with query:', query);
 
     try {
-      const searchRegex = new RegExp(query, 'i');
+      const searchRegex = new RegExp(String(query).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
       const customers = await User.find({
         $or: [
           { name: searchRegex },
-          { email: searchRegex }
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { customerNumber: searchRegex }
         ],
         role: 'customer'
       })
-      .select('name email phone invoiceAddress paymentAddress')
+      .select('name firstName lastName customerNumber email phone invoiceAddress paymentAddress')
       .limit(10);
 
       console.log('FinancialService: Found', customers.length, 'customers');

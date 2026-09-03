@@ -110,6 +110,44 @@
   font-weight: 600;
 }
 
+.manual-repair-customer-search {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.manual-repair-customer-results {
+  max-height: 12rem;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.manual-repair-customer-result {
+  display: grid;
+  width: 100%;
+  gap: 0.125rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--gray-200);
+  color: var(--primary-blue);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.manual-repair-customer-result:last-child {
+  border-bottom: 0;
+}
+
+.manual-repair-customer-result:hover {
+  background: var(--off-white);
+}
+
+.manual-repair-customer-result span:last-child {
+  color: var(--gray-500);
+  font-size: 0.75rem;
+}
+
 .manual-repair-field-wide {
   grid-column: span 2;
 }

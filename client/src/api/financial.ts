@@ -257,6 +257,9 @@ export interface PaymentGateway {
 export interface CustomerSearchResult {
   _id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  customerNumber?: string;
   email: string;
   phone?: string;
   invoiceAddress: {

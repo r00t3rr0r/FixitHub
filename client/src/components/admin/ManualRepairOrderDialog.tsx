@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { CheckCircle, Loader2, UserPlus, Wrench } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CheckCircle, Loader2, Search, UserPlus, Wrench } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RepairOrderConfigurator } from '@/components/home/RepairOrderConfigurator'
 import { createManualRepairBooking } from '@/api/bookings'
+import { CustomerSearchResult, searchCustomers } from '@/api/financial'
 import { useToast } from '@/hooks/useToast'
 
 interface CustomerData {
@@ -56,6 +57,36 @@ export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: Manua
   const [shippingAddressSameAsBilling, setShippingAddressSameAsBilling] = useState(true)
   const [createShippingLabel, setCreateShippingLabel] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('')
+  const [customerSearchResults, setCustomerSearchResults] = useState<CustomerSearchResult[]>([])
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false)
+
+  useEffect(() => {
+    const query = customerSearchQuery.trim()
+    if (query.length < 2) {
+      setCustomerSearchResults([])
+      setIsSearchingCustomers(false)
+      return
+    }
+
+    let cancelled = false
+    const timeoutId = window.setTimeout(async () => {
+      setIsSearchingCustomers(true)
+      try {
+        const response = await searchCustomers(query)
+        if (!cancelled) setCustomerSearchResults(Array.isArray(response.customers) ? response.customers : [])
+      } catch {
+        if (!cancelled) setCustomerSearchResults([])
+      } finally {
+        if (!cancelled) setIsSearchingCustomers(false)
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [customerSearchQuery])
 
   const updateCustomer = (field: keyof CustomerData, value: string) => {
     setCustomer((current) => ({ ...current, [field]: value }))
@@ -63,6 +94,23 @@ export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: Manua
 
   const updateShippingAddress = (field: keyof AddressData, value: string) => {
     setShippingAddress((current) => ({ ...current, [field]: value }))
+  }
+
+  const selectCustomer = (selectedCustomer: CustomerSearchResult) => {
+    const nameParts = selectedCustomer.name?.trim().split(/\s+/) || []
+    const billingAddress = selectedCustomer.invoiceAddress || selectedCustomer.paymentAddress
+    setCustomer({
+      firstName: selectedCustomer.firstName || nameParts[0] || '',
+      lastName: selectedCustomer.lastName || nameParts.slice(1).join(' ') || '',
+      email: selectedCustomer.email || '',
+      phone: selectedCustomer.phone || '',
+      street: billingAddress?.street || '',
+      zipCode: billingAddress?.zipCode || '',
+      city: billingAddress?.city || '',
+      country: billingAddress?.country || 'Deutschland',
+    })
+    setCustomerSearchQuery('')
+    setCustomerSearchResults([])
   }
 
   const handleComplete = async (repairOrders: any[]) => {
@@ -132,6 +180,33 @@ export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: Manua
           <h2 id="manual-repair-customer-heading" className="manual-repair-section-title">
             <UserPlus className="h-4 w-4" /> Kundendaten
           </h2>
+          <div className="manual-repair-customer-search">
+            <Label htmlFor="manual-customer-search">Bestehenden Kunden suchen</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="manual-customer-search"
+                className="pl-9"
+                value={customerSearchQuery}
+                onChange={(event) => setCustomerSearchQuery(event.target.value)}
+                placeholder="E-Mail, Vorname, Nachname oder Kundennummer"
+              />
+              {isSearchingCustomers && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+            </div>
+            {customerSearchQuery.trim().length >= 2 && !isSearchingCustomers && customerSearchResults.length > 0 && (
+              <div className="manual-repair-customer-results" role="listbox" aria-label="Gefundene Kunden">
+                {customerSearchResults.map((searchResult) => (
+                  <button key={searchResult._id} type="button" className="manual-repair-customer-result" onClick={() => selectCustomer(searchResult)}>
+                    <span>{[searchResult.firstName, searchResult.lastName].filter(Boolean).join(' ') || searchResult.name}</span>
+                    <span>{searchResult.email}{searchResult.customerNumber ? ` | ${searchResult.customerNumber}` : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {customerSearchQuery.trim().length >= 2 && !isSearchingCustomers && customerSearchResults.length === 0 && (
+              <p className="text-sm text-muted-foreground">Keine passenden Kunden gefunden.</p>
+            )}
+          </div>
           <div className="manual-repair-fields">
             {([
               ['firstName', 'Vorname', true],
