@@ -649,23 +649,27 @@ class BookingService {
 
   static buildBookingShipmentData(order, booking, dhlConfig) {
     const parcelDeConfig = DHLService.getParcelDEConfig(dhlConfig);
-    const receiverAddress = this.resolveBookingReceiverAddress(order, booking);
+    const customerAddress = order?.customerId?.invoiceAddress ||
+      order?.guestInfo?.shippingAddress ||
+      booking?.guestInfo?.shippingAddress ||
+      booking?.guestInfo?.billingAddress || {};
+    const customerStreet = this.splitStreetAndHouse(customerAddress.street || '');
     const shipper = dhlConfig?.settings?.shipper || {};
 
-    const receiverName =
+    const customerName =
       `${order?.customerId?.firstName || ''} ${order?.customerId?.lastName || ''}`.trim() ||
       order?.customerId?.name ||
       `${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() ||
       `${booking?.guestInfo?.firstName || ''} ${booking?.guestInfo?.lastName || ''}`.trim() ||
       'Customer';
 
-    const receiverEmail =
+    const customerEmail =
       order?.customerId?.email ||
       order?.guestInfo?.email ||
       booking?.guestInfo?.email ||
       '';
 
-    const receiverPhone =
+    const customerPhone =
       order?.customerId?.phone ||
       order?.guestInfo?.phone ||
       booking?.guestInfo?.phone ||
@@ -683,22 +687,22 @@ class BookingService {
     const weight = Number(order?.weight || 1);
 
     return {
-      receiverName,
-      receiverAddress: receiverAddress.street,
-      receiverNumber: receiverAddress.house,
-      receiverCity: receiverAddress.city,
-      receiverPostalCode: receiverAddress.postalCode,
-      receiverCountry: receiverAddress.country,
-      receiverEmail,
-      receiverPhone,
-      shipperName: dhlConfig?.settings?.shipperCompany || shipper.company || 'McRepair.de GmbH',
-      shipperStreet: dhlConfig?.settings?.shipperStreet || shipper.street || 'Company Street',
-      shipperNumber: dhlConfig?.settings?.shipperNumber || shipper.number || '1',
-      shipperCity: dhlConfig?.settings?.shipperCity || shipper.city || 'Berlin',
-      shipperPostalCode: dhlConfig?.settings?.shipperPostalCode || shipper.postalCode || '10115',
-      shipperCountry: dhlConfig?.settings?.shipperCountry || shipper.country || 'DE',
-      shipperEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
-      shipperPhone: dhlConfig?.settings?.shipperPhone || shipper.phone || '+49301234567',
+      shipperName: customerName,
+      shipperStreet: customerStreet.street,
+      shipperNumber: customerAddress.number || customerStreet.house || '1',
+      shipperCity: customerAddress.city || '',
+      shipperPostalCode: customerAddress.zipCode || '',
+      shipperCountry: customerAddress.country || 'DE',
+      shipperEmail: customerEmail,
+      shipperPhone: customerPhone,
+      receiverName: dhlConfig?.settings?.shipperCompany || shipper.company || 'McRepair.de GmbH',
+      receiverAddress: dhlConfig?.settings?.shipperStreet || shipper.street || '',
+      receiverNumber: dhlConfig?.settings?.shipperNumber || shipper.number || '1',
+      receiverCity: dhlConfig?.settings?.shipperCity || shipper.city || '',
+      receiverPostalCode: dhlConfig?.settings?.shipperPostalCode || shipper.postalCode || '',
+      receiverCountry: dhlConfig?.settings?.shipperCountry || shipper.country || 'DE',
+      receiverEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
+      receiverPhone: dhlConfig?.settings?.shipperPhone || shipper.phone || '+49301234567',
       profile: dhlConfig?.settings?.profile || dhlConfig?.metadata?.profile || parcelDeConfig.profile,
       product: dhlConfig?.settings?.product || dhlConfig?.metadata?.product || parcelDeConfig.product,
       accountNumber,

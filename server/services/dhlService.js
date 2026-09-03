@@ -462,10 +462,10 @@ class DHLService {
       console.log('DHLService: Customer payment address:', JSON.stringify(paymentAddress, null, 2));
 
       // Validate shipping address is complete, fall back to payment then invoice address if needed
-      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress || paymentAddress.street || invoiceAddress.street;
-      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity || paymentAddress.city || invoiceAddress.city;
-      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode || paymentAddress.zipCode || invoiceAddress.zipCode;
-      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || paymentAddress.country || invoiceAddress.country || 'NL';
+      const receiverStreet = shipmentData.receiverAddress || order.shippingAddress?.street || paymentAddress.street || invoiceAddress.street;
+      const receiverCity = shipmentData.receiverCity || order.shippingAddress?.city || paymentAddress.city || invoiceAddress.city;
+      const receiverPostalCode = shipmentData.receiverPostalCode || order.shippingAddress?.zipCode || paymentAddress.zipCode || invoiceAddress.zipCode;
+      const receiverCountry = shipmentData.receiverCountry || order.shippingAddress?.country || paymentAddress.country || invoiceAddress.country || 'NL';
 
       // Check if required address fields are missing or empty
       if (!receiverStreet || receiverStreet.trim() === '') {
@@ -555,7 +555,7 @@ class DHLService {
           return {
             name1: receiverName,
             addressStreet: receiverStreet,
-            addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
+            addressHouse: shipmentData.receiverNumber || order.shippingAddress?.number || '1',
             postalCode: receiverPostalCode,
             city: receiverCity,
             country: this.countryCodeToIso3(receiverCountry),
