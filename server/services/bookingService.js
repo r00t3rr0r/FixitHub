@@ -6,7 +6,6 @@ const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const InspectionCommunication = require('../models/InspectionCommunication');
 const DHLService = require('./dhlService');
-const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
@@ -495,47 +494,7 @@ class BookingService {
         console.log('BookingService: No repair orders in booking – no shipping label will be generated.');
       }
 
-      let bookingToReturn = savedBooking;
-
-      // Automatically generate DHL return label if enabled in configuration
-      try {
-        console.log('BookingService: Checking if automatic return label generation is enabled');
-        const systemConfig = await SystemConfiguration.findOne({});
-
-        if (systemConfig && systemConfig.integrations) {
-          const dhlReturnsIntegration = systemConfig.integrations.find(
-            integration => integration.name === 'DHL Returns' &&
-                          integration.type === 'shipping' &&
-                          integration.isActive
-          );
-
-          if (dhlReturnsIntegration && dhlReturnsIntegration.settings?.autoGenerateLabel) {
-            console.log('BookingService: Automatic return label generation is enabled, creating return label...');
-
-            try {
-              const returnLabelResult = await DHLReturnsService.createReturnLabel(
-                savedBooking._id.toString(),
-                { labelType: dhlReturnsIntegration.settings.defaultLabelType || 'BOTH' }
-              );
-
-              console.log('BookingService: Return label created successfully:', returnLabelResult.returnId);
-
-              // Reload booking to get updated return information
-              const updatedBooking = await Booking.findById(savedBooking._id);
-              if (updatedBooking) {
-                bookingToReturn = updatedBooking;
-              }
-            } catch (labelError) {
-              console.error('BookingService: Error creating return label (non-fatal):', labelError.message);
-              console.error('BookingService: Booking created successfully but return label generation failed');
-            }
-          } else {
-            console.log('BookingService: Automatic return label generation is disabled or integration not found');
-          }
-        }
-      } catch (configError) {
-        console.error('BookingService: Error checking DHL Returns configuration (non-fatal):', configError.message);
-      }
+      const bookingToReturn = savedBooking;
 
       // Send booking created notification email asynchronously
       setImmediate(async () => {
