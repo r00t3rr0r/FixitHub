@@ -1,5 +1,9 @@
+import { getInvoiceItemServiceName } from './invoiceItems'
+
 export interface PrintableInvoiceItem {
+  serviceName?: string
   description?: string
+  type?: string
   quantity?: number
   unitPrice?: number
   total?: number
@@ -57,7 +61,7 @@ const buildInvoiceHtml = (invoice: PrintableInvoice): string => {
       const total = Number(item.total ?? quantity * unitPrice)
       return `
         <tr>
-          <td>${escapeHtml(item.description)}</td>
+          <td>${escapeHtml(getInvoiceItemServiceName(item))}</td>
           <td class="num">${quantity}</td>
           <td class="num">${escapeHtml(formatCurrency(unitPrice))}</td>
           <td class="num">${escapeHtml(formatCurrency(total))}</td>
@@ -121,7 +125,7 @@ const buildInvoiceHtml = (invoice: PrintableInvoice): string => {
   <table>
     <thead>
       <tr>
-        <th>Beschreibung</th>
+        <th>Service Name</th>
         <th class="num">Menge</th>
         <th class="num">Einzelpreis</th>
         <th class="num">Gesamt</th>

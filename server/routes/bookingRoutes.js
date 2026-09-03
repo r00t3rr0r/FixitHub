@@ -496,18 +496,17 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
 
 // Description: Create invoice from booking (admin/staff only)
 // Endpoint: POST /api/bookings/:id/invoice
-// Request: { dueDate?: string, notes?: string, sendImmediately?: boolean, invoiceMode?: 'booking' | 'order', orderId?: string }
+// Request: { dueDate?: string, notes?: string, invoiceMode?: 'booking' | 'order', orderId?: string }
 // Response: { success: boolean, invoice: Invoice }
 router.post('/:id/invoice', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating invoice for booking:', req.params.id);
 
-    const { dueDate, notes, sendImmediately, invoiceMode, orderId } = req.body;
+    const { dueDate, notes, invoiceMode, orderId } = req.body;
 
     const invoiceData = {};
     if (dueDate) invoiceData.dueDate = new Date(dueDate);
     if (notes) invoiceData.notes = notes;
-    if (sendImmediately !== undefined) invoiceData.sendImmediately = sendImmediately;
     if (invoiceMode) invoiceData.invoiceMode = invoiceMode;
     if (orderId) invoiceData.orderId = orderId;
 

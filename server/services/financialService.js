@@ -649,6 +649,9 @@ class FinancialService {
         cleanedInvoiceData.total = Number(cleanedInvoiceData.subtotal) + Number(cleanedInvoiceData.tax || 0) - Number(cleanedInvoiceData.discount || 0);
       }
 
+      cleanedInvoiceData.status = 'sent';
+      cleanedInvoiceData.sentAt = new Date();
+
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
       await invoice.save();
@@ -1315,6 +1318,8 @@ class FinancialService {
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
         numberPrefix: invoicePrefix,
         paymentTerms,
+        status: 'sent',
+        sentAt: new Date(),
       });
 
       await invoice.save();
@@ -1426,7 +1431,8 @@ class FinancialService {
       dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
       paymentTerms:  options.paymentTerms || composePaymentTerms(financialProfile),
       notes:         options.notes || '',
-      status:        'draft'
+      status:        'sent',
+      sentAt:        new Date()
     };
 
     const invoice = new Invoice(invoiceData);

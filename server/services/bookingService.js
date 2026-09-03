@@ -1849,8 +1849,10 @@ class BookingService {
         if (order.shopProducts && order.shopProducts.length > 0) {
           for (const prod of order.shopProducts) {
             const qty = prod.quantity || 1;
+            const serviceName = prod.productId?.name || 'Produkt';
             invoiceItems.push({
-              description: prod.productId?.name || 'Produkt',
+              serviceName,
+              description: serviceName,
               quantity: qty,
               unitPrice: prod.priceAtOrder,
               total: prod.priceAtOrder * qty,
@@ -1859,6 +1861,7 @@ class BookingService {
           }
         } else {
           invoiceItems.push({
+            serviceName: 'Produkte',
             description: 'Produkte',
             quantity: 1,
             unitPrice: order.totalCost,
@@ -1870,8 +1873,10 @@ class BookingService {
         let hasItems = false;
 
         for (const svc of (order.services || [])) {
+          const serviceName = svc.serviceId?.name || 'Reparaturservice';
           invoiceItems.push({
-            description: `${deviceLabel} – ${svc.serviceId?.name || 'Reparaturservice'}`,
+            serviceName,
+            description: `${deviceLabel} – ${serviceName}`,
             quantity: 1,
             unitPrice: svc.price,
             total: svc.price,
@@ -1882,6 +1887,7 @@ class BookingService {
 
         for (const addon of (order.addOns || [])) {
           invoiceItems.push({
+            serviceName: addon.name,
             description: addon.name,
             quantity: 1,
             unitPrice: addon.price,
@@ -1892,8 +1898,10 @@ class BookingService {
         }
 
         if (!hasItems) {
+          const serviceName = `${deviceLabel} Reparatur`;
           invoiceItems.push({
-            description: `${deviceLabel} Reparatur`,
+            serviceName,
+            description: serviceName,
             quantity: 1,
             unitPrice: order.totalCost,
             total: order.totalCost,
@@ -2231,8 +2239,6 @@ class BookingService {
 
       console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
-      const shouldSendImmediately = Boolean(invoiceData.sendImmediately);
-
       // Create invoice
       const invoice = new Invoice({
         customerId: booking.customerId._id,
@@ -2248,10 +2254,10 @@ class BookingService {
         tax: invoiceTotals.tax,
         discount: invoiceTotals.discount,
         total: invoiceTotals.total,
-        status: shouldSendImmediately ? 'sent' : 'draft',
+        status: 'sent',
         dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         notes: invoiceData.notes || '',
-        sentAt: shouldSendImmediately ? new Date() : undefined,
+        sentAt: new Date(),
       });
 
       const savedInvoice = await invoice.save();
@@ -2267,8 +2273,7 @@ class BookingService {
       }
       await booking.save();
 
-      // Only send notification when invoice is explicitly sent to the customer.
-      if (shouldSendImmediately && customerEmail && customerEmail !== 'N/A') {
+      if (customerEmail && customerEmail !== 'N/A') {
         setImmediate(async () => {
           try {
             await EmailService.sendTriggerEmail('invoice_created', customerEmail, {

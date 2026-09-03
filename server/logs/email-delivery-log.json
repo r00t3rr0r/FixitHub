@@ -11935,5 +11935,71 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1788434358449-fujwpcmm4",
+    "timestamp": "2026-09-03T11:19:18.449Z",
+    "to": "admin@example.com",
+    "templateName": "Repair Request in Bearbeitung",
+    "subject": "Ihre Reparaturanfrage RR-1788428690845-00002 wird jetzt bearbeitet",
+    "messageId": "<b1ec8b17-c73d-98fd-ae06-365710614015@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1056,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "technicianName",
+        "processingStartedAt",
+        "estimatedResponseDate",
+        "diagnosisResult",
+        "recommendedAction",
+        "offerAmount",
+        "diagnosisDate",
+        "resolutionSummary",
+        "completedAt",
+        "approvalUrl",
+        "requestUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1788436518553-3ninyib0r",
+    "timestamp": "2026-09-03T11:55:18.553Z",
+    "to": "admin@example.com",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-2026-0007 von McRepair.de steht bereit",
+    "messageId": "<af157864-1b46-5ae9-d564-82a6eac718f1@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1418,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

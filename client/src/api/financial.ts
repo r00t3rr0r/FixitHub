@@ -66,6 +66,7 @@ export interface Invoice {
 
 export interface InvoiceItem {
   _id: string;
+  serviceName?: string;
   description: string;
   quantity: number;
   unitPrice: number;
