@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
 const DHLReturnsService = require('../services/dhlReturnsService');
+const FinancialService = require('../services/financialService');
 
 // Description: Get all bookings (admin) or bookings for authenticated user (customer) with pagination
 // Endpoint: GET /api/bookings
@@ -81,18 +82,25 @@ router.get('/', requireUser, async (req, res) => {
 // Endpoint: POST /api/bookings/manual-repair
 router.post('/manual-repair', requireAdmin, async (req, res) => {
   try {
-    const { repairOrders, guestInfo } = req.body || {};
+    const { repairOrders, guestInfo, createShippingLabel } = req.body || {};
 
     if (!Array.isArray(repairOrders) || repairOrders.length === 0) {
       return res.status(400).json({ success: false, error: 'At least one repair order is required' });
     }
 
     const customer = guestInfo || {};
-    const address = {
+    const billingAddress = {
       street: String(customer.street || '').trim(),
       city: String(customer.city || '').trim(),
       zipCode: String(customer.zipCode || customer.zip || '').trim(),
       country: String(customer.country || '').trim(),
+    };
+    const shippingCustomer = customer.shippingAddress || {};
+    const shippingAddress = {
+      street: String(shippingCustomer.street || billingAddress.street).trim(),
+      city: String(shippingCustomer.city || billingAddress.city).trim(),
+      zipCode: String(shippingCustomer.zipCode || shippingCustomer.zip || billingAddress.zipCode).trim(),
+      country: String(shippingCustomer.country || billingAddress.country).trim(),
     };
 
     if (!customer.firstName || !customer.lastName || !customer.email || !customer.phone) {
@@ -105,8 +113,8 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
       email: String(customer.email).trim().toLowerCase(),
       phone: String(customer.phone).trim(),
       isGuest: true,
-      billingAddress: address,
-      shippingAddress: address,
+      billingAddress,
+      shippingAddress,
     };
 
     const orders = [];
@@ -128,7 +136,7 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
         priority: 'normal',
         progress: 0,
         guestInfo: normalizedGuestInfo,
-        shippingAddress: address,
+        shippingAddress,
         unlockPattern: Array.isArray(repairOrder.unlockPattern) ? repairOrder.unlockPattern : [],
         unlockCode: String(repairOrder.unlockCode || ''),
         noLock: Boolean(repairOrder.noLock),
@@ -149,6 +157,7 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
       status: 'pending',
       billingStatus: 'unpaid',
       paymentStatus: 'pending',
+      createShippingLabel,
     });
 
     return res.status(201).json({
@@ -502,7 +511,7 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating invoice for booking:', req.params.id);
 
-    const { dueDate, notes, invoiceMode, orderId } = req.body;
+    const { dueDate, notes, invoiceMode, orderId, sendImmediately = true } = req.body;
 
     const invoiceData = {};
     if (dueDate) invoiceData.dueDate = new Date(dueDate);
@@ -511,6 +520,10 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
     if (orderId) invoiceData.orderId = orderId;
 
     const invoice = await BookingService.createInvoice(req.params.id, invoiceData);
+
+    if (sendImmediately) {
+      await FinancialService.sendInvoice(invoice._id, invoice.customerEmail);
+    }
 
     console.log('BookingRoutes: Invoice created successfully:', invoice._id);
 

@@ -479,7 +479,7 @@ class BookingService {
       console.log('BookingService: Booking creation completed. Total orders:', savedBooking.orderIds.length);
 
       // Versandlabel nur erzeugen, wenn mindestens eine Reparatur enthalten ist
-      if (repairOrderIds.length > 0) {
+      if (repairOrderIds.length > 0 && bookingData.createShippingLabel !== false) {
         try {
           const updatedBookingWithShipping = await this.createShippingLabelForBooking(savedBooking, {
             preferredOrderId: repairOrderIds[0] || bookingData.orderIds[0] || null,
@@ -491,7 +491,11 @@ class BookingService {
           console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
         }
       } else {
-        console.log('BookingService: No repair orders in booking – no shipping label will be generated.');
+        console.log(
+          bookingData.createShippingLabel === false
+            ? 'BookingService: Shipping label creation disabled for booking.'
+            : 'BookingService: No repair orders in booking – no shipping label will be generated.'
+        );
       }
 
       const bookingToReturn = savedBooking;

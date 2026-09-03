@@ -694,6 +694,9 @@ class FinancialService {
       const customerName = String(invoice.customerName || '').trim() || 'Kunde';
       const invoiceAmount = Number(invoice.total || 0);
       const invoiceUrl = await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`);
+      const InvoicePdfService = require('./invoicePdfService');
+      const invoicePdf = await InvoicePdfService.generate(invoice);
+      const safeInvoiceNumber = String(invoice.invoiceNumber || invoice._id).replace(/[^a-zA-Z0-9_-]/g, '_');
 
       const emailResult = await EmailService.sendTriggerEmail('invoice_created', recipientEmail, {
         companyName: process.env.COMPANY_NAME || 'McRepair.de',
@@ -707,6 +710,12 @@ class FinancialService {
         customMessage: String(message || '').trim(),
         supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+      }, {
+        attachments: [{
+          filename: `Rechnung_${safeInvoiceNumber}.pdf`,
+          content: invoicePdf,
+          contentType: 'application/pdf'
+        }]
       });
 
       if (!emailResult?.success) {

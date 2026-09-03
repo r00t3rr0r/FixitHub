@@ -1082,14 +1082,14 @@ export function OrderDetails() {
       await refreshOrder()
 
       toast({
-        title: 'Rueckweg-Label erstellt',
+        title: 'Einsendelabel erstellt',
         description: response?.trackingNumber
           ? `Trackingnummer: ${response.trackingNumber}`
-          : 'Das Rueckweg-Label wurde erfolgreich erstellt.',
+          : 'Das Einsendelabel wurde erfolgreich erstellt.',
       })
     } catch (error: any) {
       toast({
-        title: 'Rueckweg-Label konnte nicht erstellt werden',
+        title: 'Einsendelabel konnte nicht erstellt werden',
         description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
         variant: 'destructive',
       })
@@ -1113,7 +1113,7 @@ export function OrderDetails() {
       })
 
       if (!response.ok) {
-        throw new Error('Rueckweg-Label konnte nicht geladen werden.')
+        throw new Error('Einsendelabel konnte nicht geladen werden.')
       }
 
       const labelBlob = await response.blob()
@@ -1121,7 +1121,7 @@ export function OrderDetails() {
 
       const link = document.createElement('a')
       link.href = labelUrl
-      link.download = `rueckweg-label-${order.orderNumber || order._id}.pdf`
+      link.download = `einsendelabel-${order.orderNumber || order._id}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -1131,7 +1131,7 @@ export function OrderDetails() {
       }, 60000)
     } catch (error: any) {
       toast({
-        title: 'Rueckweg-Label konnte nicht heruntergeladen werden',
+        title: 'Einsendelabel konnte nicht heruntergeladen werden',
         description: error?.message || 'Bitte versuchen Sie es erneut.',
         variant: 'destructive',
       })
@@ -5534,10 +5534,10 @@ export function OrderDetails() {
                         >
                           <Send className="h-4 w-4 mr-1.5" />
                           {creatingOrderShippingLabel
-                            ? 'Rueckweg wird gestartet…'
+                            ? 'Einsendelabel wird erstellt…'
                             : order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
-                              ? 'Rueckweg-Label bereits erstellt'
-                              : 'Rueckweg mit DHL/FedEx starten'}
+                              ? 'Einsendelabel bereits erstellt'
+                              : 'Einsendelabel erstellen'}
                         </Button>
 
                         <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
@@ -5591,11 +5591,11 @@ export function OrderDetails() {
                                   disabled={downloadingOrderShippingLabel}
                                 >
                                   <Download className="h-4 w-4 mr-1.5" />
-                                  {downloadingOrderShippingLabel ? 'Rueckweg-Label wird heruntergeladen…' : 'Rueckweg-Label herunterladen'}
+                                  {downloadingOrderShippingLabel ? 'Einsendelabel wird heruntergeladen…' : 'Einsendelabel herunterladen'}
                                 </Button>
                               </div>
                             ) : (
-                              <p className="text-xs text-muted-foreground">Noch kein Rueckweg-Label verfuegbar.</p>
+                              <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
                             )}
                           </div>
                         </div>

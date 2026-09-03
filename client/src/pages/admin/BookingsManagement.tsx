@@ -3666,6 +3666,35 @@ function BookingDetailDialog({
                 </div>
               )}
 
+              {!hasReturnShippingInfo && (
+                <div
+                  className="text-center py-8"
+                  style={{
+                    background: 'var(--white, #ffffff)',
+                    border: '1px solid var(--gray-200, #d8dce6)',
+                    borderRadius: 'var(--radius-lg, 16px)',
+                    padding: '40px'
+                  }}
+                >
+                  <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
+                  <p style={{ color: 'var(--gray-600, #4a5568)' }}>Noch kein Rücksendelabel für diese Buchung vorhanden</p>
+                  <Button
+                    onClick={() => setShowReturnLabelDialog(true)}
+                    className="mt-4"
+                    style={{
+                      background: 'var(--primary-blue, #1a2a5e)',
+                      color: 'var(--white, #ffffff)',
+                      borderRadius: 'var(--radius-sm, 6px)',
+                      fontWeight: '600',
+                      padding: '10px 20px'
+                    }}
+                  >
+                    <Truck className="h-4 w-4 mr-2" />
+                    Rücksendelabel erstellen
+                  </Button>
+                </div>
+              )}
+
               {hasReturnShippingInfo && (
                 <div
                   style={{
@@ -4416,7 +4445,7 @@ function InvoiceDialog({
         invoiceMode,
         orderId: invoiceMode === 'order' ? selectedOrderId : undefined,
       })
-      printInvoice(response?.invoice)
+      await printInvoice(response?.invoice)
       onSuccess()
     } catch (error) {
       if (handleInvoiceAlreadyExistsError(error)) {

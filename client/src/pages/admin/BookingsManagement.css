@@ -114,6 +114,30 @@
   grid-column: span 2;
 }
 
+.manual-repair-label-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--gray-700);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manual-repair-delivery-fields {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.manual-repair-subsection-title {
+  margin-bottom: 10px;
+  color: var(--primary-blue);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .manual-repair-configurator .configurator-container {
   padding: 0;
 }

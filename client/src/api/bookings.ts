@@ -3,6 +3,7 @@ import api from './api';
 export const createManualRepairBooking = async (data: {
   repairOrders: Array<Record<string, any>>;
   guestInfo: Record<string, any>;
+  createShippingLabel?: boolean;
 }) => {
   try {
     const response = await api.post('/api/bookings/manual-repair', data);

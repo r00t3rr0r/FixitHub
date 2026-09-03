@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { RepairOrderConfigurator } from '@/components/home/RepairOrderConfigurator'
 import { createManualRepairBooking } from '@/api/bookings'
 import { useToast } from '@/hooks/useToast'
@@ -13,6 +14,13 @@ interface CustomerData {
   lastName: string
   email: string
   phone: string
+  street: string
+  zipCode: string
+  city: string
+  country: string
+}
+
+interface AddressData {
   street: string
   zipCode: string
   city: string
@@ -39,10 +47,22 @@ const initialCustomerData: CustomerData = {
 export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: ManualRepairOrderDialogProps) {
   const { toast } = useToast()
   const [customer, setCustomer] = useState(initialCustomerData)
+  const [shippingAddress, setShippingAddress] = useState<AddressData>({
+    street: '',
+    zipCode: '',
+    city: '',
+    country: 'Deutschland',
+  })
+  const [shippingAddressSameAsBilling, setShippingAddressSameAsBilling] = useState(true)
+  const [createShippingLabel, setCreateShippingLabel] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const updateCustomer = (field: keyof CustomerData, value: string) => {
     setCustomer((current) => ({ ...current, [field]: value }))
+  }
+
+  const updateShippingAddress = (field: keyof AddressData, value: string) => {
+    setShippingAddress((current) => ({ ...current, [field]: value }))
   }
 
   const handleComplete = async (repairOrders: any[]) => {
@@ -56,19 +76,36 @@ export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: Manua
       return
     }
 
+    if (!shippingAddressSameAsBilling && (!shippingAddress.street.trim() || !shippingAddress.zipCode.trim() || !shippingAddress.city.trim())) {
+      toast({ title: 'Lieferadresse fehlt', description: 'Bitte erfasse Straße, PLZ und Ort der Lieferadresse.', variant: 'destructive' })
+      return
+    }
+
     setIsSubmitting(true)
     try {
+      const billingAddress = {
+        street: customer.street,
+        zipCode: customer.zipCode,
+        city: customer.city,
+        country: customer.country,
+      }
+      const resolvedShippingAddress = shippingAddressSameAsBilling ? billingAddress : shippingAddress
+
       await createManualRepairBooking({
         repairOrders,
         guestInfo: {
           ...customer,
           isGuest: true,
-          billingAddress: customer,
-          shippingAddress: customer,
+          billingAddress,
+          shippingAddress: resolvedShippingAddress,
         },
+        createShippingLabel,
       })
       toast({ title: 'Auftrag angelegt', description: 'Der manuelle Reparaturauftrag wurde erfolgreich erstellt.' })
       setCustomer(initialCustomerData)
+      setShippingAddress({ street: '', zipCode: '', city: '', country: 'Deutschland' })
+      setShippingAddressSameAsBilling(true)
+      setCreateShippingLabel(true)
       onOpenChange(false)
       onCreated()
     } catch (error: any) {
@@ -118,7 +155,47 @@ export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: Manua
               </div>
             ))}
           </div>
+          <label className="manual-repair-label-option" htmlFor="manual-shipping-same-as-billing">
+            <Checkbox
+              id="manual-shipping-same-as-billing"
+              checked={shippingAddressSameAsBilling}
+              onCheckedChange={(checked) => setShippingAddressSameAsBilling(checked === true)}
+            />
+            <span>Lieferadresse ist gleich Rechnungsadresse</span>
+          </label>
+          {!shippingAddressSameAsBilling && (
+            <div className="manual-repair-delivery-fields">
+              <h3 className="manual-repair-subsection-title">Lieferadresse</h3>
+              <div className="manual-repair-fields">
+                {([
+                  ['street', 'Straße und Hausnummer'],
+                  ['zipCode', 'PLZ'],
+                  ['city', 'Ort'],
+                  ['country', 'Land'],
+                ] as Array<[keyof AddressData, string]>).map(([field, label]) => (
+                  <div key={field} className={field === 'street' ? 'manual-repair-field-wide' : ''}>
+                    <Label htmlFor={`manual-shipping-${field}`}>{label}{field !== 'country' ? ' *' : ''}</Label>
+                    <Input
+                      id={`manual-shipping-${field}`}
+                      value={shippingAddress[field]}
+                      onChange={(event) => updateShippingAddress(field, event.target.value)}
+                      required={field !== 'country'}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
+
+        <label className="manual-repair-label-option" htmlFor="manual-create-shipping-label">
+          <Checkbox
+            id="manual-create-shipping-label"
+            checked={createShippingLabel}
+            onCheckedChange={(checked) => setCreateShippingLabel(checked === true)}
+          />
+          <span>Einsende-Label für den Auftrag erstellen</span>
+        </label>
 
         <section className="manual-repair-configurator" aria-labelledby="manual-repair-configurator-heading">
           <h2 id="manual-repair-configurator-heading" className="manual-repair-section-title">

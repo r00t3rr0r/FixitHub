@@ -1181,7 +1181,8 @@ export function FinancialManagement() {
         template: 'default'
       });
 
-      printInvoice(response?.invoice);
+      await sendInvoice(response.invoice._id, response.invoice.customerEmail);
+      await printInvoice(response.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setInvoiceDialogOpen(false);
       setInvoiceForm(createInvoiceFormState(financialSettings));
@@ -1209,7 +1210,8 @@ export function FinancialManagement() {
         numberPrefix: fromRepairForm.numberPrefix
       });
 
-      printInvoice(response?.invoice);
+      await sendInvoice(response.invoice._id, response.invoice.customerEmail);
+      await printInvoice(response.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setFromRepairDialogOpen(false);
       fetchFinancialData();
