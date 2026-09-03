@@ -2413,7 +2413,7 @@ export function OrderDetails() {
   const isCustomer = user?.role === 'customer'
   const isComplaintFollowupOrder = Boolean((order as any)?.isComplaintFollowup)
   const complaintWorkflowStatus = complaintWorkflow?.status || ''
-  const canRunComplaintTechnicianActions = isComplaintFollowupOrder && user?.role === 'staff' && complaintWorkflowStatus === 'approved'
+  const canRunComplaintTechnicianActions = isComplaintFollowupOrder && isStaffOrAdmin && complaintWorkflowStatus === 'approved'
   const canRunComplaintAdminDenyReview = isComplaintFollowupOrder && user?.role === 'admin' && complaintWorkflowStatus === 'pending_approval'
   const fallbackBackPath = user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
   const backButtonLabel = backTarget?.label || (isStaffOrAdmin ? t('orderDetails.backToOrders') : t('common.back'))
