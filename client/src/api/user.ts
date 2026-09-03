@@ -8,6 +8,8 @@ export interface UserProfile {
   email: string;
   phone: string;
   role: 'customer' | 'staff' | 'admin';
+  customerNumber?: string;
+  internalKey?: string;
   invoiceAddress: {
     street: string;
     city: string;

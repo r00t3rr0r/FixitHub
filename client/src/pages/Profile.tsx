@@ -426,6 +426,12 @@ export function Profile() {
                   <span>{profile.phone}</span>
                 </div>
               )}
+              {profile.customerNumber && (
+                <div className="profile-customer-number">
+                  <span className="profile-customer-number-label">Kundennummer</span>
+                  <strong>{profile.customerNumber}</strong>
+                </div>
+              )}
             </div>
             <div className="profile-member-since">
               <Calendar className="h-4 w-4" />

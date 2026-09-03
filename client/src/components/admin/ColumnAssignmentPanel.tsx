@@ -51,7 +51,9 @@ export const ColumnAssignmentPanel: React.FC<ColumnAssignmentPanelProps> = ({
     { id: 'discount', label: 'Discount (0-100)', required: false },
     { id: 'status', label: 'Status (active/inactive/suspended/blocked)', required: false },
     { id: 'newsletter', label: 'Newsletter Subscription (true/false)', required: false },
-    { id: 'comment', label: 'Internal Comment', required: false }
+    { id: 'comment', label: 'Internal Comment', required: false },
+    { id: 'preferences', label: 'Notification Settings', required: false },
+    { id: 'unnamed_24', label: 'Unnamed: 24', required: false }
   ];
 
   const handleMappingChange = (fieldId: string, csvColumn: string) => {
