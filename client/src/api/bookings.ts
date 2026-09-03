@@ -1,5 +1,17 @@
 import api from './api';
 
+export const createManualRepairBooking = async (data: {
+  repairOrders: Array<Record<string, any>>;
+  guestInfo: Record<string, any>;
+}) => {
+  try {
+    const response = await api.post('/api/bookings/manual-repair', data);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
 // Description: Get all bookings for the authenticated user with pagination
 // Endpoint: GET /api/bookings
 // Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }

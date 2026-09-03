@@ -1,0 +1,147 @@
+import { useState } from 'react'
+import { CheckCircle, Loader2, UserPlus, Wrench } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { RepairOrderConfigurator } from '@/components/home/RepairOrderConfigurator'
+import { createManualRepairBooking } from '@/api/bookings'
+import { useToast } from '@/hooks/useToast'
+
+interface CustomerData {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  street: string
+  zipCode: string
+  city: string
+  country: string
+}
+
+interface ManualRepairOrderDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreated: () => void
+}
+
+const initialCustomerData: CustomerData = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  street: '',
+  zipCode: '',
+  city: '',
+  country: 'Deutschland',
+}
+
+export function ManualRepairOrderDialog({ open, onOpenChange, onCreated }: ManualRepairOrderDialogProps) {
+  const { toast } = useToast()
+  const [customer, setCustomer] = useState(initialCustomerData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const updateCustomer = (field: keyof CustomerData, value: string) => {
+    setCustomer((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleComplete = async (repairOrders: any[]) => {
+    if (!customer.firstName.trim() || !customer.lastName.trim() || !customer.email.trim() || !customer.phone.trim()) {
+      toast({ title: 'Kundendaten fehlen', description: 'Bitte erfasse Name, E-Mail-Adresse und Telefonnummer.', variant: 'destructive' })
+      return
+    }
+
+    if (!customer.street.trim() || !customer.zipCode.trim() || !customer.city.trim()) {
+      toast({ title: 'Adresse fehlt', description: 'Bitte erfasse Straße, PLZ und Ort für den manuellen Auftrag.', variant: 'destructive' })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await createManualRepairBooking({
+        repairOrders,
+        guestInfo: {
+          ...customer,
+          isGuest: true,
+          billingAddress: customer,
+          shippingAddress: customer,
+        },
+      })
+      toast({ title: 'Auftrag angelegt', description: 'Der manuelle Reparaturauftrag wurde erfolgreich erstellt.' })
+      setCustomer(initialCustomerData)
+      onOpenChange(false)
+      onCreated()
+    } catch (error: any) {
+      toast({ title: 'Auftrag konnte nicht angelegt werden', description: error.message, variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="manual-repair-dialog max-w-6xl max-h-[94vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[#1a2a5e]">
+            <Wrench className="h-5 w-5 text-[#f5b800]" />
+            Manuellen Reparaturauftrag anlegen
+          </DialogTitle>
+          <DialogDescription>
+            Erfasse zuerst die Kundendaten und konfiguriere anschließend alle Reparaturdetails.
+          </DialogDescription>
+        </DialogHeader>
+
+        <section className="manual-repair-customer-form" aria-labelledby="manual-repair-customer-heading">
+          <h2 id="manual-repair-customer-heading" className="manual-repair-section-title">
+            <UserPlus className="h-4 w-4" /> Kundendaten
+          </h2>
+          <div className="manual-repair-fields">
+            {([
+              ['firstName', 'Vorname', true],
+              ['lastName', 'Nachname', true],
+              ['email', 'E-Mail', true],
+              ['phone', 'Telefon', true],
+              ['street', 'Straße und Hausnummer', true],
+              ['zipCode', 'PLZ', true],
+              ['city', 'Ort', true],
+              ['country', 'Land', false],
+            ] as Array<[keyof CustomerData, string, boolean]>).map(([field, label, required]) => (
+              <div key={field} className={field === 'street' ? 'manual-repair-field-wide' : ''}>
+                <Label htmlFor={`manual-${field}`}>{label}{required ? ' *' : ''}</Label>
+                <Input
+                  id={`manual-${field}`}
+                  type={field === 'email' ? 'email' : 'text'}
+                  value={customer[field]}
+                  onChange={(event) => updateCustomer(field, event.target.value)}
+                  required={required}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="manual-repair-configurator" aria-labelledby="manual-repair-configurator-heading">
+          <h2 id="manual-repair-configurator-heading" className="manual-repair-section-title">
+            <Wrench className="h-4 w-4" /> Reparatur konfigurieren
+          </h2>
+          <RepairOrderConfigurator onComplete={handleComplete} />
+        </section>
+
+        {isSubmitting && (
+          <div className="manual-repair-submitting" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" /> Auftrag wird angelegt...
+          </div>
+        )}
+        {!isSubmitting && (
+          <div className="manual-repair-hint">
+            <CheckCircle className="h-4 w-4" /> Der Auftrag wird am Ende des Konfigurators angelegt.
+          </div>
+        )}
+
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          Abbrechen
+        </Button>
+      </DialogContent>
+    </Dialog>
+  )
+}

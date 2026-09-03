@@ -56,6 +56,96 @@
   line-height: 1.2;
 }
 
+.bookings-page-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.manual-repair-trigger {
+  flex-shrink: 0;
+  background: var(--accent-yellow);
+  color: var(--primary-blue-dark);
+  font-weight: 700;
+}
+
+.manual-repair-trigger:hover {
+  background: var(--accent-yellow-hover);
+}
+
+.manual-repair-dialog {
+  z-index: 12020;
+}
+
+.manual-repair-customer-form,
+.manual-repair-configurator {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: var(--off-white);
+}
+
+.manual-repair-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--primary-blue);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.manual-repair-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.manual-repair-fields label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gray-700);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.manual-repair-field-wide {
+  grid-column: span 2;
+}
+
+.manual-repair-configurator .configurator-container {
+  padding: 0;
+}
+
+.manual-repair-submitting,
+.manual-repair-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary-blue);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 720px) {
+  .bookings-page-heading-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manual-repair-trigger {
+    width: 100%;
+  }
+
+  .manual-repair-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-repair-field-wide {
+    grid-column: auto;
+  }
+}
+
 /* Blue dialog header for booking details */
 .bookings-detail-dialog .bookings-detail-header {
   background: linear-gradient(180deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);

@@ -401,7 +401,7 @@ class OrderService {
 
     try {
       const order = await Order.findById(orderId)
-        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType imei serialNumber unlockPattern unlockCode noLock unlockConfirmation services shopProducts assignedStaff guestInfo billingAddress shippingAddress trackingNumber carrier shippingStatus shippingStatusDescription estimatedDelivery actualDelivery shippingLabelUrl shippingCost trackingEvents timeline customerEmail customerName hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId')
+        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType imei serialNumber errorDescription waterDamage previousRepairAttempts previousRepairDetails itemCondition unlockPattern unlockCode noLock unlockConfirmation services shopProducts assignedStaff guestInfo billingAddress shippingAddress trackingNumber carrier shippingStatus shippingStatusDescription estimatedDelivery actualDelivery shippingLabelUrl shippingCost trackingEvents timeline customerEmail customerName hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId')
         .lean();
 
       if (!order) {

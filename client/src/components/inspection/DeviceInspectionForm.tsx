@@ -63,6 +63,7 @@ interface DeviceInspectionFormProps {
   deviceType: string;
   deviceBrand?: string;
   deviceModel?: string;
+  initialImei?: string;
   reportedDeviceImage?: string;
   bookedRepairs?: Array<{ name: string; price?: number; quantity?: number }>;
   orderTotalCost?: number;
@@ -77,6 +78,7 @@ export function DeviceInspectionForm({
   deviceType,
   deviceBrand,
   deviceModel,
+  initialImei = '',
   reportedDeviceImage,
   bookedRepairs = [],
   orderTotalCost,
@@ -507,9 +509,11 @@ export function DeviceInspectionForm({
     }
 
     if (insp.identification) {
-      setImei(insp.identification.imei || '');
+      setImei(insp.identification.imei || initialImei || '');
       setSerialNumber(insp.identification.serialNumber || '');
       setImeiRequiredAtCompletion(Boolean(insp.identification.imeiRequired));
+    } else if (initialImei) {
+      setImei(initialImei);
     }
 
     if (insp.accessories) {
@@ -711,7 +715,7 @@ export function DeviceInspectionForm({
     };
 
     init();
-  }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne]);
+  }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne, initialImei]);
 
   useEffect(() => {
     if (orderReportedModel) {

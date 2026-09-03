@@ -39,6 +39,7 @@ import {
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
+import { ManualRepairOrderDialog } from "@/components/admin/ManualRepairOrderDialog"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import { printInvoice } from "@/lib/invoicePrint"
 import {
@@ -303,6 +304,7 @@ export function BookingsManagement() {
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
+  const [showManualRepairDialog, setShowManualRepairDialog] = useState(false)
   const [quickPayBookingId, setQuickPayBookingId] = useState<string | null>(null)
   const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
   const [detailInvoiceStatusFocus, setDetailInvoiceStatusFocus] = useState<string | null>(null)
@@ -1248,8 +1250,15 @@ export function BookingsManagement() {
     <div className="section bookings-management-section" style={{ background: 'var(--off-white)', minHeight: 'calc(100vh - 200px)', paddingTop: '20px', paddingBottom: '36px' }}>
       <div className="container bookings-container">
         <div className="section-title bookings-page-header" style={{ marginBottom: '20px' }}>
-          <h1 className="bookings-page-title" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--white)', marginBottom: '4px' }}>Buchungsverwaltung</h1>
-          <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.82rem' }}>Verwalte und ueberwache alle buchungsbezogenen Aufgaben</p>
+          <div className="bookings-page-heading-row">
+            <div>
+              <h1 className="bookings-page-title" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--white)', marginBottom: '4px' }}>Buchungsverwaltung</h1>
+              <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.82rem' }}>Verwalte und ueberwache alle buchungsbezogenen Aufgaben</p>
+            </div>
+            <Button type="button" className="manual-repair-trigger" onClick={() => setShowManualRepairDialog(true)}>
+              <Wrench className="h-4 w-4" /> Reparaturauftrag anlegen
+            </Button>
+          </div>
           <div className="accent-line"></div>
         </div>
 
@@ -2227,6 +2236,12 @@ export function BookingsManagement() {
       )}
 
       {/* Create Shipping Label Dialog */}
+      <ManualRepairOrderDialog
+        open={showManualRepairDialog}
+        onOpenChange={setShowManualRepairDialog}
+        onCreated={fetchBookings}
+      />
+
       {selectedBooking && (
         <CreateBookingShippingLabelDialog
           bookingId={selectedBooking._id}

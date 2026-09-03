@@ -6386,6 +6386,7 @@ export function OrderDetails() {
                   deviceType={order.deviceType}
                   deviceBrand={(order as any)?.deviceBrand || ''}
                   deviceModel={(order as any)?.deviceModel || ''}
+                  initialImei={(order as any)?.imei || ''}
                   reportedDeviceImage={getDeviceModelPreviewImage(order) || undefined}
                   bookedRepairs={(repairServices || []).map((service: any) => ({
                     name: service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Reparaturservice',
