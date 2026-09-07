@@ -344,12 +344,14 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
     // Der bestehende Reklamationsauftrag wird mit dem angenommenen Angebot als Reparaturauftrag eroeffnet.
     const offerAmount = Number(complaint.repairOffer?.amount || 0);
     repairOrder.totalCost = offerAmount;
-    repairOrder.status = 'pending';
+    repairOrder.status = 'in-progress';
     repairOrder.progress = 0;
     repairOrder.actualCompletion = undefined;
     repairOrder.estimatedCompletion = undefined;
     repairOrder.hasComplaint = false;
     repairOrder.isComplaintFollowup = true;
+    repairOrder.paymentStatus = 'pending';
+    repairOrder.requiresPaymentBeforeCompletion = true;
     await repairOrder.save();
 
     const previousStatus = complaint.status;
