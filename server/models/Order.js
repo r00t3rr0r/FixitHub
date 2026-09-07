@@ -726,6 +726,10 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  shippingLabelCreationInProgress: {
+    type: Boolean,
+    default: false,
+  },
   shippingCost: {
     type: Number,
     default: 0,

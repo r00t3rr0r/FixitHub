@@ -66,6 +66,7 @@ export interface Invoice {
 
 export interface InvoiceItem {
   _id: string;
+  serviceName?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -256,6 +257,9 @@ export interface PaymentGateway {
 export interface CustomerSearchResult {
   _id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  customerNumber?: string;
   email: string;
   phone?: string;
   invoiceAddress: {

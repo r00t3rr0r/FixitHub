@@ -792,7 +792,7 @@ export function UserManagement() {
               <div className="search-wrapper">
                 <Search className="h-4 w-4" />
                 <Input
-                  placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone')}
+                  placeholder={t('userManagement.name') + ", " + t('userManagement.email') + ", " + t('userManagement.phone') + ", " + t('userManagement.customerNumber')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-input"
@@ -915,6 +915,7 @@ export function UserManagement() {
                         {getSortIcon('name')}
                       </div>
                     </TableHead>
+                    <TableHead>{t('userManagement.customerNumber')}</TableHead>
                     <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>
                       <div className="flex items-center gap-2">
                         {t('userManagement.role')} & {t('userManagement.status')}
@@ -946,7 +947,7 @@ export function UserManagement() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="empty-state text-center py-8">
+                      <TableCell colSpan={9} className="empty-state text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                         <h3 className="text-muted-foreground">{t('userManagement.noUsersFound')}</h3>
                         {searchTerm && (
@@ -991,6 +992,11 @@ export function UserManagement() {
                               )}
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium">
+                            {user.customerNumber || '–'}
+                          </span>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="space-y-2">

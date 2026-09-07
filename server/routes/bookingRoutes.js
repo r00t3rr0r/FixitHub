@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
 const DHLReturnsService = require('../services/dhlReturnsService');
+const FinancialService = require('../services/financialService');
 
 // Description: Get all bookings (admin) or bookings for authenticated user (customer) with pagination
 // Endpoint: GET /api/bookings
@@ -74,6 +75,100 @@ router.get('/', requireUser, async (req, res) => {
       success: false,
       error: error.message,
     });
+  }
+});
+
+// Create a manual repair booking from the admin configurator
+// Endpoint: POST /api/bookings/manual-repair
+router.post('/manual-repair', requireAdmin, async (req, res) => {
+  try {
+    const { repairOrders, guestInfo, createShippingLabel } = req.body || {};
+
+    if (!Array.isArray(repairOrders) || repairOrders.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one repair order is required' });
+    }
+
+    const customer = guestInfo || {};
+    const billingAddress = {
+      street: String(customer.street || '').trim(),
+      city: String(customer.city || '').trim(),
+      zipCode: String(customer.zipCode || customer.zip || '').trim(),
+      country: String(customer.country || '').trim(),
+    };
+    const shippingCustomer = customer.shippingAddress || {};
+    const shippingAddress = {
+      street: String(shippingCustomer.street || billingAddress.street).trim(),
+      city: String(shippingCustomer.city || billingAddress.city).trim(),
+      zipCode: String(shippingCustomer.zipCode || shippingCustomer.zip || billingAddress.zipCode).trim(),
+      country: String(shippingCustomer.country || billingAddress.country).trim(),
+    };
+
+    if (!customer.firstName || !customer.lastName || !customer.email || !customer.phone) {
+      return res.status(400).json({ success: false, error: 'Complete customer contact data is required' });
+    }
+
+    const normalizedGuestInfo = {
+      firstName: String(customer.firstName).trim(),
+      lastName: String(customer.lastName).trim(),
+      email: String(customer.email).trim().toLowerCase(),
+      phone: String(customer.phone).trim(),
+      isGuest: true,
+      billingAddress,
+      shippingAddress,
+    };
+
+    const orders = [];
+    for (const repairOrder of repairOrders) {
+      if (!repairOrder?.deviceBrand || !repairOrder?.deviceModel || !Array.isArray(repairOrder.services) || repairOrder.services.length === 0) {
+        return res.status(400).json({ success: false, error: 'Each repair order needs a device and at least one service' });
+      }
+
+      const order = await require('../services/orderService').create({
+        deviceBrand: String(repairOrder.deviceBrand).trim(),
+        deviceModel: String(repairOrder.deviceModel).trim(),
+        deviceType: String(repairOrder.deviceType || 'Smartphone').trim(),
+        services: repairOrder.services,
+        addOns: Array.isArray(repairOrder.addOns) ? repairOrder.addOns : [],
+        customerNotes: String(repairOrder.customerNotes || '').trim(),
+        photos: Array.isArray(repairOrder.photos) ? repairOrder.photos : [],
+        totalCost: Number(repairOrder.totalCost || 0),
+        status: 'pending',
+        priority: 'normal',
+        progress: 0,
+        guestInfo: normalizedGuestInfo,
+        shippingAddress,
+        unlockPattern: Array.isArray(repairOrder.unlockPattern) ? repairOrder.unlockPattern : [],
+        unlockCode: String(repairOrder.unlockCode || ''),
+        noLock: Boolean(repairOrder.noLock),
+        errorDescription: String(repairOrder.errorDescription || ''),
+        waterDamage: String(repairOrder.waterDamage || ''),
+        previousRepairAttempts: String(repairOrder.previousRepairAttempts || ''),
+        previousRepairDetails: String(repairOrder.previousRepairDetails || ''),
+        itemCondition: String(repairOrder.itemCondition || ''),
+        imei: String(repairOrder.imei || ''),
+        serialNumber: String(repairOrder.serialNumber || ''),
+      });
+      orders.push(order);
+    }
+
+    const booking = await BookingService.create({
+      guestInfo: normalizedGuestInfo,
+      orderIds: orders.map((order) => order._id),
+      status: 'pending',
+      billingStatus: 'unpaid',
+      paymentStatus: 'pending',
+      createShippingLabel,
+    });
+
+    return res.status(201).json({
+      success: true,
+      booking,
+      bookingId: booking._id.toString(),
+      orderIds: orders.map((order) => order._id.toString()),
+    });
+  } catch (error) {
+    console.error('BookingRoutes: Error creating manual repair booking:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to create manual repair booking' });
   }
 });
 
@@ -410,22 +505,25 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
 
 // Description: Create invoice from booking (admin/staff only)
 // Endpoint: POST /api/bookings/:id/invoice
-// Request: { dueDate?: string, notes?: string, sendImmediately?: boolean, invoiceMode?: 'booking' | 'order', orderId?: string }
+// Request: { dueDate?: string, notes?: string, invoiceMode?: 'booking' | 'order', orderId?: string }
 // Response: { success: boolean, invoice: Invoice }
 router.post('/:id/invoice', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating invoice for booking:', req.params.id);
 
-    const { dueDate, notes, sendImmediately, invoiceMode, orderId } = req.body;
+    const { dueDate, notes, invoiceMode, orderId, sendImmediately = true } = req.body;
 
     const invoiceData = {};
     if (dueDate) invoiceData.dueDate = new Date(dueDate);
     if (notes) invoiceData.notes = notes;
-    if (sendImmediately !== undefined) invoiceData.sendImmediately = sendImmediately;
     if (invoiceMode) invoiceData.invoiceMode = invoiceMode;
     if (orderId) invoiceData.orderId = orderId;
 
     const invoice = await BookingService.createInvoice(req.params.id, invoiceData);
+
+    if (sendImmediately) {
+      await FinancialService.sendInvoice(invoice._id, invoice.customerEmail);
+    }
 
     console.log('BookingRoutes: Invoice created successfully:', invoice._id);
 

@@ -135,6 +135,36 @@
   }
 }
 
+.profile-customer-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(245, 184, 0, 0.7);
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: rgba(245, 184, 0, 0.16);
+  color: #ffffff;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.profile-customer-number-label {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.profile-customer-number strong {
+  color: #f5b800;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 768px) {
+  .profile-customer-number {
+    justify-content: flex-start;
+  }
+}
+
 .profile-member-since {
   display: flex;
   align-items: center;

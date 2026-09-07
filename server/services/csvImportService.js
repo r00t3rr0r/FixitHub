@@ -80,6 +80,30 @@ class CSVImportService {
     return emailRegex.test(email);
   }
 
+  static parsePreferences(value) {
+    if (value === undefined || value === null || String(value).trim() === '') {
+      return undefined;
+    }
+
+    if (typeof value === 'object') {
+      return value;
+    }
+
+    const normalized = String(value)
+      .trim()
+      .replace(/\bTrue\b/g, 'true')
+      .replace(/\bFalse\b/g, 'false')
+      .replace(/\bNone\b/g, 'null')
+      .replace(/([{,]\s*)'([^']+)'\s*:/g, '$1"$2":')
+      .replace(/:\s*'([^']*)'/g, ': "$1"');
+
+    try {
+      return JSON.parse(normalized);
+    } catch (error) {
+      throw new Error('Invalid preferences format. Expected a JSON or Python-style object.');
+    }
+  }
+
   /**
    * Checks for duplicate emails in the data and database
    */
@@ -156,6 +180,10 @@ class CSVImportService {
 
       if (columnMapping.lastName) {
         cleanedUser.lastName = (row[columnMapping.lastName] || '').trim();
+      }
+
+      if (!cleanedUser.name && (cleanedUser.firstName || cleanedUser.lastName)) {
+        cleanedUser.name = [cleanedUser.firstName, cleanedUser.lastName].filter(Boolean).join(' ');
       }
 
       if (columnMapping.surname) {
@@ -277,6 +305,14 @@ class CSVImportService {
 
       if (columnMapping.comment) {
         cleanedUser.comment = (row[columnMapping.comment] || '').trim();
+      }
+
+      if (columnMapping.preferences) {
+        cleanedUser.preferences = this.parsePreferences(row[columnMapping.preferences]);
+      }
+
+      if (columnMapping.unnamed_24) {
+        cleanedUser.unnamed_24 = (row[columnMapping.unnamed_24] || '').trim();
       }
 
       cleanedData.push(cleanedUser);
@@ -537,6 +573,13 @@ class CSVImportService {
           company: userData.company,
           country: userData.country,
           vatId: userData.vatId || '',
+          invoiceAddress: {
+            street: userData.street || '',
+            city: userData.city || '',
+            state: userData.state || '',
+            zipCode: userData.zipCode || '',
+            country: userData.country || ''
+          },
           // Customer-specific fields
           customerNumber: userData.customerNumber || '',
           customerGroup: userData.customerGroup || '',
@@ -551,7 +594,9 @@ class CSVImportService {
           discount: userData.discount || 0,
           status: userData.status || 'active',
           newsletter: userData.newsletter || false,
-          comment: userData.comment || ''
+          comment: userData.comment || '',
+          preferences: userData.preferences,
+          unnamed_24: userData.unnamed_24 || ''
         });
 
         await newUser.save();

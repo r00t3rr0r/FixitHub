@@ -135,11 +135,17 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
           postId: ['post_id', 'postid', 'post'],
           paymentMethod: ['payment_method', 'paymentmethod', 'zahlungsart'],
           paymentTerms: ['payment_terms', 'paymentterms', 'zahlungsziel'],
-          internalKey: ['internal_key', 'internalkey', 'interner_schlüssel'],
+          internalKey: ['internal_key', 'internalkey', 'interner_schlüssel', 'interner_schlï¿½ssel'],
           discount: ['discount', 'rabatt', 'discount_percent'],
           status: ['status', 'user_status', 'account_status'],
           newsletter: ['newsletter', 'newsletter_subscription', 'subscribe'],
-          comment: ['comment', 'comments', 'notes', 'kommentar']
+          comment: ['comment', 'comments', 'notes', 'kommentar'],
+          street: ['street', 'strasse', 'straße', 'address_street', 'adresse'],
+          city: ['city', 'ort', 'address_city'],
+          state: ['state', 'bundesland', 'address_state'],
+          zipCode: ['zip_code', 'zipcode', 'zip', 'plz', 'postal_code', 'postleitzahl'],
+          preferences: ['preferences', 'notification_settings', 'notificationpreferences'],
+          unnamed_24: ['unnamed:_24', 'unnamed_24', 'unnamed:24']
         };
 
         Object.entries(commonMappings).forEach(([field, aliases]) => {

@@ -6,7 +6,6 @@ const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const InspectionCommunication = require('../models/InspectionCommunication');
 const DHLService = require('./dhlService');
-const DHLReturnsService = require('./dhlReturnsService');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
@@ -480,7 +479,7 @@ class BookingService {
       console.log('BookingService: Booking creation completed. Total orders:', savedBooking.orderIds.length);
 
       // Versandlabel nur erzeugen, wenn mindestens eine Reparatur enthalten ist
-      if (repairOrderIds.length > 0) {
+      if (repairOrderIds.length > 0 && bookingData.createShippingLabel !== false) {
         try {
           const updatedBookingWithShipping = await this.createShippingLabelForBooking(savedBooking, {
             preferredOrderId: repairOrderIds[0] || bookingData.orderIds[0] || null,
@@ -492,50 +491,14 @@ class BookingService {
           console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
         }
       } else {
-        console.log('BookingService: No repair orders in booking – no shipping label will be generated.');
+        console.log(
+          bookingData.createShippingLabel === false
+            ? 'BookingService: Shipping label creation disabled for booking.'
+            : 'BookingService: No repair orders in booking – no shipping label will be generated.'
+        );
       }
 
-      let bookingToReturn = savedBooking;
-
-      // Automatically generate DHL return label if enabled in configuration
-      try {
-        console.log('BookingService: Checking if automatic return label generation is enabled');
-        const systemConfig = await SystemConfiguration.findOne({});
-
-        if (systemConfig && systemConfig.integrations) {
-          const dhlReturnsIntegration = systemConfig.integrations.find(
-            integration => integration.name === 'DHL Returns' &&
-                          integration.type === 'shipping' &&
-                          integration.isActive
-          );
-
-          if (dhlReturnsIntegration && dhlReturnsIntegration.settings?.autoGenerateLabel) {
-            console.log('BookingService: Automatic return label generation is enabled, creating return label...');
-
-            try {
-              const returnLabelResult = await DHLReturnsService.createReturnLabel(
-                savedBooking._id.toString(),
-                { labelType: dhlReturnsIntegration.settings.defaultLabelType || 'BOTH' }
-              );
-
-              console.log('BookingService: Return label created successfully:', returnLabelResult.returnId);
-
-              // Reload booking to get updated return information
-              const updatedBooking = await Booking.findById(savedBooking._id);
-              if (updatedBooking) {
-                bookingToReturn = updatedBooking;
-              }
-            } catch (labelError) {
-              console.error('BookingService: Error creating return label (non-fatal):', labelError.message);
-              console.error('BookingService: Booking created successfully but return label generation failed');
-            }
-          } else {
-            console.log('BookingService: Automatic return label generation is disabled or integration not found');
-          }
-        }
-      } catch (configError) {
-        console.error('BookingService: Error checking DHL Returns configuration (non-fatal):', configError.message);
-      }
+      const bookingToReturn = savedBooking;
 
       // Send booking created notification email asynchronously
       setImmediate(async () => {
@@ -690,23 +653,27 @@ class BookingService {
 
   static buildBookingShipmentData(order, booking, dhlConfig) {
     const parcelDeConfig = DHLService.getParcelDEConfig(dhlConfig);
-    const receiverAddress = this.resolveBookingReceiverAddress(order, booking);
+    const customerAddress = order?.customerId?.invoiceAddress ||
+      order?.guestInfo?.shippingAddress ||
+      booking?.guestInfo?.shippingAddress ||
+      booking?.guestInfo?.billingAddress || {};
+    const customerStreet = this.splitStreetAndHouse(customerAddress.street || '');
     const shipper = dhlConfig?.settings?.shipper || {};
 
-    const receiverName =
+    const customerName =
       `${order?.customerId?.firstName || ''} ${order?.customerId?.lastName || ''}`.trim() ||
       order?.customerId?.name ||
       `${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() ||
       `${booking?.guestInfo?.firstName || ''} ${booking?.guestInfo?.lastName || ''}`.trim() ||
       'Customer';
 
-    const receiverEmail =
+    const customerEmail =
       order?.customerId?.email ||
       order?.guestInfo?.email ||
       booking?.guestInfo?.email ||
       '';
 
-    const receiverPhone =
+    const customerPhone =
       order?.customerId?.phone ||
       order?.guestInfo?.phone ||
       booking?.guestInfo?.phone ||
@@ -724,22 +691,22 @@ class BookingService {
     const weight = Number(order?.weight || 1);
 
     return {
-      receiverName,
-      receiverAddress: receiverAddress.street,
-      receiverNumber: receiverAddress.house,
-      receiverCity: receiverAddress.city,
-      receiverPostalCode: receiverAddress.postalCode,
-      receiverCountry: receiverAddress.country,
-      receiverEmail,
-      receiverPhone,
-      shipperName: dhlConfig?.settings?.shipperCompany || shipper.company || 'McRepair.de GmbH',
-      shipperStreet: dhlConfig?.settings?.shipperStreet || shipper.street || 'Company Street',
-      shipperNumber: dhlConfig?.settings?.shipperNumber || shipper.number || '1',
-      shipperCity: dhlConfig?.settings?.shipperCity || shipper.city || 'Berlin',
-      shipperPostalCode: dhlConfig?.settings?.shipperPostalCode || shipper.postalCode || '10115',
-      shipperCountry: dhlConfig?.settings?.shipperCountry || shipper.country || 'DE',
-      shipperEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
-      shipperPhone: dhlConfig?.settings?.shipperPhone || shipper.phone || '+49301234567',
+      shipperName: customerName,
+      shipperStreet: customerStreet.street,
+      shipperNumber: customerAddress.number || customerStreet.house || '1',
+      shipperCity: customerAddress.city || '',
+      shipperPostalCode: customerAddress.zipCode || '',
+      shipperCountry: customerAddress.country || 'DE',
+      shipperEmail: customerEmail,
+      shipperPhone: customerPhone,
+      receiverName: dhlConfig?.settings?.shipperCompany || shipper.company || 'McRepair.de GmbH',
+      receiverAddress: dhlConfig?.settings?.shipperStreet || shipper.street || '',
+      receiverNumber: dhlConfig?.settings?.shipperNumber || shipper.number || '1',
+      receiverCity: dhlConfig?.settings?.shipperCity || shipper.city || '',
+      receiverPostalCode: dhlConfig?.settings?.shipperPostalCode || shipper.postalCode || '',
+      receiverCountry: dhlConfig?.settings?.shipperCountry || shipper.country || 'DE',
+      receiverEmail: dhlConfig?.settings?.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
+      receiverPhone: dhlConfig?.settings?.shipperPhone || shipper.phone || '+49301234567',
       profile: dhlConfig?.settings?.profile || dhlConfig?.metadata?.profile || parcelDeConfig.profile,
       product: dhlConfig?.settings?.product || dhlConfig?.metadata?.product || parcelDeConfig.product,
       accountNumber,
@@ -1849,8 +1816,10 @@ class BookingService {
         if (order.shopProducts && order.shopProducts.length > 0) {
           for (const prod of order.shopProducts) {
             const qty = prod.quantity || 1;
+            const serviceName = prod.productId?.name || 'Produkt';
             invoiceItems.push({
-              description: prod.productId?.name || 'Produkt',
+              serviceName,
+              description: serviceName,
               quantity: qty,
               unitPrice: prod.priceAtOrder,
               total: prod.priceAtOrder * qty,
@@ -1859,6 +1828,7 @@ class BookingService {
           }
         } else {
           invoiceItems.push({
+            serviceName: 'Produkte',
             description: 'Produkte',
             quantity: 1,
             unitPrice: order.totalCost,
@@ -1870,8 +1840,10 @@ class BookingService {
         let hasItems = false;
 
         for (const svc of (order.services || [])) {
+          const serviceName = svc.serviceId?.name || 'Reparaturservice';
           invoiceItems.push({
-            description: `${deviceLabel} – ${svc.serviceId?.name || 'Reparaturservice'}`,
+            serviceName,
+            description: `${deviceLabel} – ${serviceName}`,
             quantity: 1,
             unitPrice: svc.price,
             total: svc.price,
@@ -1882,6 +1854,7 @@ class BookingService {
 
         for (const addon of (order.addOns || [])) {
           invoiceItems.push({
+            serviceName: addon.name,
             description: addon.name,
             quantity: 1,
             unitPrice: addon.price,
@@ -1892,8 +1865,10 @@ class BookingService {
         }
 
         if (!hasItems) {
+          const serviceName = `${deviceLabel} Reparatur`;
           invoiceItems.push({
-            description: `${deviceLabel} Reparatur`,
+            serviceName,
+            description: serviceName,
             quantity: 1,
             unitPrice: order.totalCost,
             total: order.totalCost,
@@ -2231,8 +2206,6 @@ class BookingService {
 
       console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
-      const shouldSendImmediately = Boolean(invoiceData.sendImmediately);
-
       // Create invoice
       const invoice = new Invoice({
         customerId: booking.customerId._id,
@@ -2248,10 +2221,10 @@ class BookingService {
         tax: invoiceTotals.tax,
         discount: invoiceTotals.discount,
         total: invoiceTotals.total,
-        status: shouldSendImmediately ? 'sent' : 'draft',
+        status: 'sent',
         dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         notes: invoiceData.notes || '',
-        sentAt: shouldSendImmediately ? new Date() : undefined,
+        sentAt: new Date(),
       });
 
       const savedInvoice = await invoice.save();
@@ -2267,8 +2240,7 @@ class BookingService {
       }
       await booking.save();
 
-      // Only send notification when invoice is explicitly sent to the customer.
-      if (shouldSendImmediately && customerEmail && customerEmail !== 'N/A') {
+      if (customerEmail && customerEmail !== 'N/A') {
         setImmediate(async () => {
           try {
             await EmailService.sendTriggerEmail('invoice_created', customerEmail, {

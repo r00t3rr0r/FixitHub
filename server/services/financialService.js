@@ -272,16 +272,19 @@ class FinancialService {
     console.log('FinancialService: Searching customers with query:', query);
 
     try {
-      const searchRegex = new RegExp(query, 'i');
+      const searchRegex = new RegExp(String(query).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
       const customers = await User.find({
         $or: [
           { name: searchRegex },
-          { email: searchRegex }
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { customerNumber: searchRegex }
         ],
         role: 'customer'
       })
-      .select('name email phone invoiceAddress paymentAddress')
+      .select('name firstName lastName customerNumber email phone invoiceAddress paymentAddress')
       .limit(10);
 
       console.log('FinancialService: Found', customers.length, 'customers');
@@ -649,6 +652,9 @@ class FinancialService {
         cleanedInvoiceData.total = Number(cleanedInvoiceData.subtotal) + Number(cleanedInvoiceData.tax || 0) - Number(cleanedInvoiceData.discount || 0);
       }
 
+      cleanedInvoiceData.status = 'sent';
+      cleanedInvoiceData.sentAt = new Date();
+
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
       await invoice.save();
@@ -691,6 +697,9 @@ class FinancialService {
       const customerName = String(invoice.customerName || '').trim() || 'Kunde';
       const invoiceAmount = Number(invoice.total || 0);
       const invoiceUrl = await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`);
+      const InvoicePdfService = require('./invoicePdfService');
+      const invoicePdf = await InvoicePdfService.generate(invoice);
+      const safeInvoiceNumber = String(invoice.invoiceNumber || invoice._id).replace(/[^a-zA-Z0-9_-]/g, '_');
 
       const emailResult = await EmailService.sendTriggerEmail('invoice_created', recipientEmail, {
         companyName: process.env.COMPANY_NAME || 'McRepair.de',
@@ -704,6 +713,12 @@ class FinancialService {
         customMessage: String(message || '').trim(),
         supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+      }, {
+        attachments: [{
+          filename: `Rechnung_${safeInvoiceNumber}.pdf`,
+          content: invoicePdf,
+          contentType: 'application/pdf'
+        }]
       });
 
       if (!emailResult?.success) {
@@ -1315,6 +1330,8 @@ class FinancialService {
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
         numberPrefix: invoicePrefix,
         paymentTerms,
+        status: 'sent',
+        sentAt: new Date(),
       });
 
       await invoice.save();
@@ -1426,7 +1443,8 @@ class FinancialService {
       dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
       paymentTerms:  options.paymentTerms || composePaymentTerms(financialProfile),
       notes:         options.notes || '',
-      status:        'draft'
+      status:        'sent',
+      sentAt:        new Date()
     };
 
     const invoice = new Invoice(invoiceData);

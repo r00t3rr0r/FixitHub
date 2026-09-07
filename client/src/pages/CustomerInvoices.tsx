@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { SEO } from '@/components/SEO'
 import { formatEUR } from '@/lib/utils';
+import { getInvoiceItemServiceName } from '@/lib/invoiceItems';
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -1133,7 +1134,7 @@ export function CustomerInvoices() {
       pdf.text("Pos.", xPos + 1.6, headerTextY);
       pdf.text("Menge", xQty + 1.6, headerTextY);
       pdf.text("Art.-Nr.", xArticle + 1.6, headerTextY);
-      pdf.text("Leistung / Beschreibung", xDesc + 1.6, headerTextY);
+      pdf.text("Service Name", xDesc + 1.6, headerTextY);
       pdf.text("USt.", xTax + 1.6, headerTextY);
       pdf.text("Einzel", xUnit + colWidths.unit - 1.8, headerTextY, { align: "right" });
       pdf.text("Gesamt", xTotal - 1.8, headerTextY, { align: "right" });
@@ -1150,7 +1151,7 @@ export function CustomerInvoices() {
       } else {
         invoice.items.forEach((item, index) => {
           const itemAny = item as Invoice["items"][number] & { articleNumber?: string; sku?: string };
-          const descLines = pdf.splitTextToSize(cleanText(item.description), colWidths.desc - 3.4);
+          const descLines = pdf.splitTextToSize(cleanText(getInvoiceItemServiceName(item)), colWidths.desc - 3.4);
           const descLineCount = Math.max(descLines.length, 1);
           const rowHeight = Math.max(9.5, descLineCount * 3.9 + 3.8);
           const rowBottom = tableCursorY + rowHeight;
@@ -1807,7 +1808,7 @@ export function CustomerInvoices() {
                       {selectedInvoice.items.map((item, idx) => (
                         <div key={item._id} className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-0 px-4 py-2.5 items-center ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                           <div className="min-w-0 pr-3">
-                            <p className="text-sm font-semibold text-slate-800 leading-tight truncate">{item.description}</p>
+                            <p className="text-sm font-semibold text-slate-800 leading-tight truncate">{getInvoiceItemServiceName(item)}</p>
                             {item.type && (
                               <span className="inline-block mt-0.5 text-[9px] font-bold text-[#1a2a5e] bg-[#f5b800]/20 border border-[#f5b800]/40 px-1.5 py-0.5 rounded-full leading-tight uppercase tracking-wide">
                                 {item.type}
@@ -2079,7 +2080,7 @@ export function CustomerInvoices() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDownloadInvoice(selectedInvoice)}
-                      className="h-8 text-xs px-3 border-slate-300 hover:border-slate-400 font-semibold"
+                      className="h-8 text-xs px-3 bg-[#1a2a5e] border-[#1a2a5e] text-[#f5b800] hover:bg-[#0f1d45] hover:border-[#0f1d45] hover:text-[#f5b800] font-semibold"
                     >
                       <Download className="h-3.5 w-3.5 mr-1.5" />
                       {t('common.download')}

@@ -113,6 +113,9 @@ function createOrders() {
 
 function createPopulateQuery(result) {
   return {
+    setOptions() {
+      return this;
+    },
     populate() {
       return this;
     },
@@ -229,7 +232,7 @@ async function testAllowsPartialInvoiceForCompletedOrderWithProratedDiscount() {
     assert.strictEqual(String(invoice.repairOrderIds[0]), ORDER_1_ID);
     assert.strictEqual(invoice.discount, 20);
     assert.strictEqual(invoice.total, 80);
-    assert.strictEqual(invoice.status, 'draft');
+    assert.strictEqual(invoice.status, 'sent');
   } finally {
     stubs.restore();
   }

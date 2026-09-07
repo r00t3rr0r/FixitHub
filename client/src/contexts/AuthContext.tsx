@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { login as apiLogin, register as apiRegister, getCurrentUser, logout as apiLogout } from "../api/auth";
 import { mergeGuestCartWithUserCart } from "../utils/guestCart";
 import { addToCart, addRepairOrderToCart } from "../api/shop";
+import { updatePresence } from "../api/timeTracking";
 
 type User = {
   _id?: string;
@@ -184,6 +185,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('auth-logout', handleAuthLogout);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user || !['staff', 'admin'].includes(user.role || '')) {
+      return;
+    }
+
+    const sendHeartbeat = () => {
+      if (document.visibilityState === 'visible') {
+        updatePresence().catch((error) => {
+          console.error('AuthContext: Presence heartbeat failed:', error);
+        });
+      }
+    };
+
+    sendHeartbeat();
+    const interval = window.setInterval(sendHeartbeat, 30000);
+    window.addEventListener('focus', sendHeartbeat);
+    document.addEventListener('visibilitychange', sendHeartbeat);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', sendHeartbeat);
+      document.removeEventListener('visibilitychange', sendHeartbeat);
+    };
+  }, [isAuthenticated, user]);
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout, isHydrated }}>

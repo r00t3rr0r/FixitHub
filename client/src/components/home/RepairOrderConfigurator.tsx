@@ -1723,8 +1723,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
         });
       }
 
-      // Add each device as a separate repair order to the cart
-      for (const device of allDevices) {
+      const repairOrders = allDevices.flatMap((device) => {
         const previewImage = deviceImages[String(device.deviceType?.name || device.deviceType || '').toLowerCase()] || deviceImages.smartphone;
         const repairOrderData = {
           deviceType: device.deviceType?.name || device.deviceType,
@@ -1741,7 +1740,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           })),
           customerNotes: device.customerNotes || '',
           photos: device.photos || [],
-          totalCost: device.repairs.reduce((s: number, r: any) => s + r.price, 0) + 
+          totalCost: device.repairs.reduce((s: number, r: any) => s + r.price, 0) +
                      device.addOns.reduce((s: number, a: any) => s + a.price, 0),
           unlockPattern: device.unlockPattern,
           unlockCode: device.unlockCode,
@@ -1755,11 +1754,18 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           serialNumber: device.serialNumber || ''
         };
 
-        // Add to cart (handles multiple quantities)
-        const quantity = device.quantity || 1;
-        for (let i = 0; i < quantity; i++) {
-          await addRepairOrderToCart(repairOrderData);
-        }
+        return Array.from({ length: device.quantity || 1 }, () => repairOrderData);
+      });
+
+      if (onComplete) {
+        onComplete(repairOrders);
+        resetConfigurator();
+        return;
+      }
+
+      // Add each device as a separate repair order to the cart
+      for (const repairOrderData of repairOrders) {
+        await addRepairOrderToCart(repairOrderData);
       }
 
       // Dispatch cart update event
@@ -3265,7 +3271,7 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
 
               {/* CTA Button */}
               <button className="config-result-cta" onClick={handleAddToCart} style={{ marginTop: '0.875rem' }}>
-                {t('home.configurator.addToCart')}
+                {onComplete ? 'Auftrag anlegen' : t('home.configurator.addToCart')}
                 <ChevronRight className="w-5 h-5 ml-2" />
               </button>
               <div className="config-nav" style={{ marginTop: '16px' }}>

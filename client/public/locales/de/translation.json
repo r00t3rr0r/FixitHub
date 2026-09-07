@@ -457,6 +457,7 @@
     "name": "Name",
     "email": "E-Mail",
     "phone": "Telefon",
+    "customerNumber": "Kundennummer",
     "role": "Rolle",
     "status": "Status",
     "createdAt": "Erstellt am",

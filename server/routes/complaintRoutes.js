@@ -11,6 +11,7 @@ const NotificationService = require('../services/notificationService');
 const EmailService = require('../services/emailService');
 const InspectionCommunicationService = require('../services/inspectionCommunicationService');
 const FinancialService = require('../services/financialService');
+const DHLService = require('../services/dhlService');
 
 const ADMIN_NOTIFICATION_TYPE = 'system';
 
@@ -96,7 +97,7 @@ async function notifyAdminsAboutComplaint(complaint, customer, order) {
   }));
 }
 
-async function notifyCustomer(complaint, customerId, title, message, metadata = {}) {
+async function notifyCustomer(complaint, customerId, title, message, metadata = {}, emailOptions = {}) {
   try {
     const event = String(metadata.event || '').toLowerCase();
     const isMessageEvent = ['comment_added', 'message_added', 'feedback_request', 'quick_action'].includes(event);
@@ -146,11 +147,64 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
         complaintUrl: await EmailService.buildSystemUrl(`/my-complaints/${complaint._id}`),
         supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-      });
+      }, emailOptions);
     }
   } catch (error) {
     console.error('ComplaintRoutes: Error notifying customer:', error.message);
   }
+}
+
+async function createComplaintReturnLabel(complaintOrder, customer) {
+  const dhlConfig = await DHLService.getDHLConfig();
+  const parcelDeConfig = DHLService.getParcelDEConfig(dhlConfig);
+  const companyAddress = dhlConfig.settings?.shipper || {};
+  const addresses = [complaintOrder.shippingAddress, customer.shippingAddress, customer.invoiceAddress, customer.paymentAddress].filter(Boolean);
+  const firstAddressValue = (...fields) => fields.find((value) => String(value || '').trim()) || '';
+  const customerAddress = {
+    street: firstAddressValue(...addresses.map((address) => address.street)),
+    number: firstAddressValue(...addresses.map((address) => address.number || address.house)),
+    city: firstAddressValue(...addresses.map((address) => address.city)),
+    zipCode: firstAddressValue(...addresses.map((address) => address.zipCode || address.postalCode)),
+    country: firstAddressValue(...addresses.map((address) => address.country)) || 'DE'
+  };
+  const customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.name || customer.email || 'Customer';
+  const receiverStreet = dhlConfig.settings?.shipperStreet || companyAddress.street;
+  const receiverCity = dhlConfig.settings?.shipperCity || companyAddress.city;
+  const receiverPostalCode = dhlConfig.settings?.shipperPostalCode || companyAddress.postalCode;
+
+  if (!receiverStreet || !receiverCity || !receiverPostalCode) {
+    throw new Error('McRepair-Empfaengeradresse ist fuer das Reklamationslabel nicht vollstaendig konfiguriert.');
+  }
+
+  const shipmentResult = await DHLService.createShipment(complaintOrder._id, {
+    receiverName: dhlConfig.settings?.shipperCompany || companyAddress.company || 'McRepair.de GmbH',
+    receiverAddress: receiverStreet,
+    receiverNumber: dhlConfig.settings?.shipperNumber || companyAddress.number || '1',
+    receiverCity,
+    receiverPostalCode,
+    receiverCountry: dhlConfig.settings?.shipperCountry || companyAddress.country || 'DE',
+    receiverEmail: dhlConfig.settings?.shipperEmail || companyAddress.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
+    receiverPhone: dhlConfig.settings?.shipperPhone || companyAddress.phone || '+49301234567',
+    shipperName: customerName,
+    shipperStreet: customerAddress.street,
+    shipperNumber: customerAddress.number || customerAddress.house || '1',
+    shipperCity: customerAddress.city,
+    shipperPostalCode: customerAddress.zipCode || customerAddress.postalCode,
+    shipperCountry: customerAddress.country || 'DE',
+    shipperEmail: customer.email,
+    shipperPhone: customer.phone,
+    accountNumber: parcelDeConfig.accountNumber,
+    profile: parcelDeConfig.profile,
+    product: parcelDeConfig.product,
+    weight: Number(complaintOrder.weight || 1),
+    shipmentDate: new Date().toISOString().slice(0, 10)
+  });
+
+  if (!/^data:application\/pdf;base64,/.test(shipmentResult?.labelUrl || '')) {
+    throw new Error('DHL hat kein PDF fuer das Reklamationslabel zurueckgegeben.');
+  }
+
+  return shipmentResult;
 }
 
 function complaintToAdminRow(complaint) {
@@ -181,6 +235,20 @@ function buildComplaintOrderPayload(sourceOrder, complaint) {
   delete source.orderNumber;
   delete source.createdAt;
   delete source.updatedAt;
+
+  source.deviceBrand = sourceOrder.deviceBrand;
+  source.deviceModel = sourceOrder.deviceModel;
+  source.deviceType = sourceOrder.deviceType;
+  source.imei = sourceOrder.imei || '';
+  source.serialNumber = sourceOrder.serialNumber || '';
+  source.unlockPattern = Array.isArray(sourceOrder.unlockPattern)
+    ? [...sourceOrder.unlockPattern]
+    : [];
+  source.unlockCode = sourceOrder.unlockCode || '';
+  source.noLock = sourceOrder.noLock ?? false;
+  source.unlockConfirmation = sourceOrder.unlockConfirmation
+    ? sourceOrder.unlockConfirmation.toObject?.() || { ...sourceOrder.unlockConfirmation }
+    : undefined;
 
   source.status = 'pending';
   source.progress = 0;
@@ -559,11 +627,18 @@ router.patch('/:id/approve', requireAdmin, async (req, res) => {
       complaint.newOrderId = complaintOrder._id;
     }
 
+    const customer = await User.findById(complaint.customerId)
+      .select('name firstName lastName email phone shippingAddress invoiceAddress paymentAddress');
+    if (!customer?.email) {
+      return res.status(400).json({ success: false, error: 'Kunde besitzt keine E-Mail-Adresse' });
+    }
+
+    const shipmentResult = await createComplaintReturnLabel(complaintOrder, customer);
     const previousStatus = complaint.status;
     complaint.status = 'approved';
     complaint.adminApprovedAt = new Date();
     complaint.adminApprovedBy = req.user._id;
-    complaint.shippingLabelUrl = complaint.shippingLabelUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/labels/${complaint.complaintNumber || `R${complaint.orderId}`}.pdf`;
+    complaint.shippingLabelUrl = shipmentResult.labelUrl;
     complaint.complaintLogs.push({
       actorId: req.user._id,
       actorName: actorName(req.user),
@@ -574,6 +649,7 @@ router.patch('/:id/approve', requireAdmin, async (req, res) => {
       notes: 'Complaint approved and shipping label generated',
       metadata: {
         shippingLabelUrl: complaint.shippingLabelUrl,
+        trackingNumber: shipmentResult.trackingNumber,
         complaintOrderId: complaintOrder?._id,
         complaintOrderNumber: complaintOrder?.orderNumber
       }
@@ -589,8 +665,17 @@ router.patch('/:id/approve', requireAdmin, async (req, res) => {
       {
         event: 'admin_approved',
         shippingLabelUrl: complaint.shippingLabelUrl,
+        trackingNumber: shipmentResult.trackingNumber,
         complaintOrderId: complaintOrder?._id,
         complaintOrderNumber: complaintOrder?.orderNumber
+      },
+      {
+        attachments: [{
+          filename: `Reklamationslabel-${complaint.complaintNumber || complaint._id}.pdf`,
+          content: complaint.shippingLabelUrl.replace(/^data:application\/pdf;base64,/, ''),
+          encoding: 'base64',
+          contentType: 'application/pdf'
+        }]
       }
     );
 

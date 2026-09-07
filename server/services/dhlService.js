@@ -406,6 +406,7 @@ class DHLService {
    */
   static async createShipment(orderId, shipmentData) {
     console.log('DHLService: Creating shipment for order:', orderId);
+    let labelCreationClaimed = false;
 
     try {
       // Get DHL configuration
@@ -421,6 +422,36 @@ class DHLService {
 
       console.log('DHLService: Order found:', order.orderNumber);
 
+      // Repeated requests must reuse the existing shipment instead of creating another label.
+      if (order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created') {
+        return {
+          success: true,
+          trackingNumber: order.trackingNumber,
+          labelUrl: order.shippingLabelUrl,
+          estimatedDelivery: order.estimatedDelivery,
+          shipmentId: order.trackingNumber,
+          alreadyExists: true,
+        };
+      }
+
+      // Atomically reserve label creation so concurrent requests cannot both reach DHL.
+      const claimedOrder = await Order.findOneAndUpdate(
+        {
+          _id: orderId,
+          shippingLabelUrl: { $in: ['', null] },
+          trackingNumber: { $in: ['', null] },
+          shippingStatus: { $ne: 'label-created' },
+          shippingLabelCreationInProgress: { $ne: true },
+        },
+        { $set: { shippingLabelCreationInProgress: true } },
+        { new: true }
+      );
+
+      if (!claimedOrder) {
+        throw new Error('Rueckweg-Label wird bereits erstellt oder ist bereits vorhanden.');
+      }
+      labelCreationClaimed = true;
+
       // Use invoice address as fallback if shipping address is not complete
       // Convert Mongoose subdocument to plain object to access properties
       const customer = order.customerId?.toObject ? order.customerId.toObject() : order.customerId;
@@ -431,10 +462,10 @@ class DHLService {
       console.log('DHLService: Customer payment address:', JSON.stringify(paymentAddress, null, 2));
 
       // Validate shipping address is complete, fall back to payment then invoice address if needed
-      const receiverStreet = order.shippingAddress?.street || shipmentData.receiverAddress || paymentAddress.street || invoiceAddress.street;
-      const receiverCity = order.shippingAddress?.city || shipmentData.receiverCity || paymentAddress.city || invoiceAddress.city;
-      const receiverPostalCode = order.shippingAddress?.zipCode || shipmentData.receiverPostalCode || paymentAddress.zipCode || invoiceAddress.zipCode;
-      const receiverCountry = order.shippingAddress?.country || shipmentData.receiverCountry || paymentAddress.country || invoiceAddress.country || 'NL';
+      const receiverStreet = shipmentData.receiverAddress || order.shippingAddress?.street || paymentAddress.street || invoiceAddress.street;
+      const receiverCity = shipmentData.receiverCity || order.shippingAddress?.city || paymentAddress.city || invoiceAddress.city;
+      const receiverPostalCode = shipmentData.receiverPostalCode || order.shippingAddress?.zipCode || paymentAddress.zipCode || invoiceAddress.zipCode;
+      const receiverCountry = shipmentData.receiverCountry || order.shippingAddress?.country || paymentAddress.country || invoiceAddress.country || 'NL';
 
       // Check if required address fields are missing or empty
       if (!receiverStreet || receiverStreet.trim() === '') {
@@ -524,7 +555,7 @@ class DHLService {
           return {
             name1: receiverName,
             addressStreet: receiverStreet,
-            addressHouse: order.shippingAddress?.number || shipmentData.receiverNumber || '1',
+            addressHouse: shipmentData.receiverNumber || order.shippingAddress?.number || '1',
             postalCode: receiverPostalCode,
             city: receiverCity,
             country: this.countryCodeToIso3(receiverCountry),
@@ -644,6 +675,14 @@ class DHLService {
       };
 
     } catch (error) {
+      if (labelCreationClaimed) {
+        await Order.updateOne(
+          { _id: orderId, shippingLabelCreationInProgress: true },
+          { $set: { shippingLabelCreationInProgress: false } }
+        ).catch((releaseError) => {
+          console.error('DHLService: Could not release label creation lock:', releaseError.message);
+        });
+      }
       console.error('DHLService: Error creating shipment:', error);
       console.error('DHLService: Error response data:', error.response?.data);
       console.error('DHLService: Error response status:', error.response?.status);

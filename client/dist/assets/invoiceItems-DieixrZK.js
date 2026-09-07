@@ -1,0 +1,1 @@
+const n=r=>{var i,s;const t=(i=r.serviceName)==null?void 0:i.trim();if(t)return t;const e=((s=r.description)==null?void 0:s.trim())||"";if(r.type==="service"){const c=e.lastIndexOf(" – ");if(c>=0)return e.slice(c+3).trim()||e}return e||"-"};export{n as g};

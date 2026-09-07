@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const invoiceItemSchema = new mongoose.Schema({
+  serviceName: {
+    type: String,
+    trim: true
+  },
   description: {
     type: String,
     required: true
@@ -140,7 +144,7 @@ const invoiceSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'paid', 'overdue', 'cancelled', 'credited'],
-    default: 'draft'
+    default: 'sent'
   },
   paidAmount: {
     type: Number,

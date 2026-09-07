@@ -3,6 +3,14 @@ const mongoose = require('mongoose');
 const { validatePassword, isPasswordHash } = require('../utils/password.js');
 const {randomUUID} = require("crypto");
 
+const customerNumberCounterSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  sequence: { type: Number, default: 0 },
+}, { versionKey: false });
+
+const CustomerNumberCounter = mongoose.models.CustomerNumberCounter ||
+  mongoose.model('CustomerNumberCounter', customerNumberCounterSchema);
+
 const schema = new mongoose.Schema({
   email: {
     type: String,
@@ -117,6 +125,10 @@ const schema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100,
+  },
+  unnamed_24: {
+    type: String,
+    default: '',
   },
   role: {
     type: String,
@@ -319,6 +331,44 @@ const schema = new mongoose.Schema({
 schema.index({ role: 1, isActive: 1 });
 schema.index({ department: 1 });
 schema.index({ specializations: 1 });
+
+schema.statics.allocateCustomerNumber = async function allocateCustomerNumber() {
+  let attempts = 0;
+  while (attempts < 100000) {
+    const counter = await CustomerNumberCounter.findOneAndUpdate(
+      { _id: 'customerNumber' },
+      { $inc: { sequence: 1 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    if (counter.sequence > 99999) {
+      throw new Error('Customer number range KD00001-KD99999 is exhausted');
+    }
+
+    const candidate = `KD${String(counter.sequence).padStart(5, '0')}`;
+    const alreadyUsed = await this.exists({ customerNumber: candidate });
+    if (!alreadyUsed) {
+      return candidate;
+    }
+
+    attempts += 1;
+  }
+
+  throw new Error('Could not generate a unique customer number');
+};
+
+schema.pre('save', async function generateCustomerNumber(next) {
+  if (!this.isNew || this.customerNumber) {
+    return next();
+  }
+
+  try {
+    this.customerNumber = await this.constructor.allocateCustomerNumber();
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+});
 
 schema.set('toJSON', {
   /* eslint-disable */

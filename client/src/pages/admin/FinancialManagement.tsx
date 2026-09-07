@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/useToast';
 import { printInvoice } from '@/lib/invoicePrint';
+import { getInvoiceItemServiceName } from '@/lib/invoiceItems';
 import {
   addDunningRunItem,
   addInvoicePayment,
@@ -571,6 +572,7 @@ export function FinancialManagement() {
     const activeItems =
       creditForm.scope === 'full'
         ? srcItems.map((item) => ({
+          serviceName: item.serviceName,
             description: item.description,
             quantity: item.quantity,
             unitPrice: -Math.abs(item.unitPrice),
@@ -584,6 +586,7 @@ export function FinancialManagement() {
               const qty = Number(ov?.quantity) > 0 ? Number(ov.quantity) : item.quantity;
               const price = Number(ov?.unitPrice) >= 0 ? Number(ov.unitPrice) : Math.abs(item.unitPrice);
               return {
+                serviceName: item.serviceName,
                 description: item.description,
                 quantity: qty,
                 unitPrice: -price,
@@ -712,7 +715,7 @@ export function FinancialManagement() {
       lines.push('');
       lines.push('Positionen:');
       for (const item of selectedInvoice.items) {
-        lines.push(`- ${item.description || '-'} | ${item.quantity} x ${formatCurrency(item.unitPrice || 0)} = ${formatCurrency(item.total || 0)}`);
+        lines.push(`- ${getInvoiceItemServiceName(item)} | ${item.quantity} x ${formatCurrency(item.unitPrice || 0)} = ${formatCurrency(item.total || 0)}`);
       }
     }
 
@@ -1144,6 +1147,7 @@ export function FinancialManagement() {
       .map((item, index) => ({
         _id: `draft-item-${index}`,
         ...item,
+        serviceName: item.description.trim(),
         quantity: Number(item.quantity || 0),
         unitPrice: Number(item.unitPrice || 0),
         total: Number(item.quantity || 0) * Number(item.unitPrice || 0)
@@ -1177,7 +1181,8 @@ export function FinancialManagement() {
         template: 'default'
       });
 
-      printInvoice(response?.invoice);
+      await sendInvoice(response.invoice._id, response.invoice.customerEmail);
+      await printInvoice(response.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setInvoiceDialogOpen(false);
       setInvoiceForm(createInvoiceFormState(financialSettings));
@@ -1205,7 +1210,8 @@ export function FinancialManagement() {
         numberPrefix: fromRepairForm.numberPrefix
       });
 
-      printInvoice(response?.invoice);
+      await sendInvoice(response.invoice._id, response.invoice.customerEmail);
+      await printInvoice(response.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setFromRepairDialogOpen(false);
       fetchFinancialData();
@@ -2198,7 +2204,7 @@ export function FinancialManagement() {
                           </div>
                           {invoiceForm.items.map((item, index) => (
                             <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] p-3 md:grid-cols-12">
-                              <div className="md:col-span-5"><Input placeholder="Beschreibung" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
+                              <div className="md:col-span-5"><Input placeholder="Service Name" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
                               <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} /></div>
                               <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} /></div>
                               <div className="md:col-span-2">
@@ -3446,7 +3452,7 @@ export function FinancialManagement() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Beschreibung</TableHead>
+                          <TableHead>Service Name</TableHead>
                           <TableHead>Typ</TableHead>
                           <TableHead>Menge</TableHead>
                           <TableHead>Einzelpreis</TableHead>
@@ -3456,7 +3462,7 @@ export function FinancialManagement() {
                       <TableBody>
                         {(selectedInvoice.items || []).map((item, idx) => (
                           <TableRow key={item._id || `dunning-item-${idx}`}>
-                            <TableCell>{item.description || '-'}</TableCell>
+                            <TableCell>{getInvoiceItemServiceName(item)}</TableCell>
                             <TableCell>{item.type || '-'}</TableCell>
                             <TableCell>{item.quantity ?? '-'}</TableCell>
                             <TableCell>{formatCurrency(item.unitPrice || 0)}</TableCell>
@@ -3948,7 +3954,7 @@ export function FinancialManagement() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Beschreibung</TableHead>
+                          <TableHead>Service Name</TableHead>
                           <TableHead>Typ</TableHead>
                           <TableHead>Menge</TableHead>
                           <TableHead>Einzelpreis</TableHead>
@@ -3958,7 +3964,7 @@ export function FinancialManagement() {
                       <TableBody>
                         {(selectedInvoice.items || []).map((item, idx) => (
                           <TableRow key={item._id || `invoice-item-${idx}`}>
-                            <TableCell>{item.description || '-'}</TableCell>
+                            <TableCell>{getInvoiceItemServiceName(item)}</TableCell>
                             <TableCell>{item.type || '-'}</TableCell>
                             <TableCell>{item.quantity ?? '-'}</TableCell>
                             <TableCell>{formatCurrency(item.unitPrice || 0)}</TableCell>
@@ -4572,7 +4578,7 @@ export function FinancialManagement() {
                   <thead className="bg-muted/40">
                     <tr>
                       <th className="w-8 px-2 py-1.5 text-left font-medium text-muted-foreground"></th>
-                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Beschreibung</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Service Name</th>
                       <th className="w-20 px-2 py-1.5 text-right font-medium text-muted-foreground">Menge</th>
                       <th className="w-24 px-2 py-1.5 text-right font-medium text-muted-foreground">Preis (€)</th>
                     </tr>
@@ -4596,7 +4602,7 @@ export function FinancialManagement() {
                               }
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-foreground">{item.description}</td>
+                          <td className="px-2 py-1.5 text-foreground">{getInvoiceItemServiceName(item)}</td>
                           <td className="px-2 py-1.5 text-right">
                             <Input
                               type="number"

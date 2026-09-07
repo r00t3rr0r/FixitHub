@@ -6,6 +6,7 @@ const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const FinancialService = require('../services/financialService');
+const InvoicePdfService = require('../services/invoicePdfService');
 const NotificationService = require('../services/notificationService');
 
 const getFrontendBaseUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -811,6 +812,33 @@ router.post('/:id/pay', requireUser, async (req, res) => {
       success: false,
       error: error.message || 'Failed to process invoice payment'
     });
+  }
+});
+
+// Description: Download a specific invoice as PDF
+// Endpoint: GET /api/invoices/:id/pdf
+router.get('/:id/pdf', requireUser, async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    assertInvoiceOwner(invoice, req.user);
+
+    if (req.user.role !== 'admin' && req.user.role !== 'staff' && invoice.status === 'draft') {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    const pdf = await InvoicePdfService.generate(invoice);
+    const safeInvoiceNumber = String(invoice.invoiceNumber || invoice._id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="Rechnung_${safeInvoiceNumber}.pdf"`,
+      'Content-Length': pdf.length
+    });
+    return res.send(pdf);
+  } catch (error) {
+    const status = error.message === 'Invoice not found'
+      ? 404
+      : (error.message.includes('permission') ? 403 : 500);
+    return res.status(status).json({ success: false, error: error.message || 'Invoice PDF could not be generated' });
   }
 });
 

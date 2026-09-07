@@ -66,13 +66,17 @@ const StaffStatusManagement: React.FC = () => {
 
     // Filter by status
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(s => s.currentStatus === statusFilter);
+      filtered = filtered.filter(s => {
+        if (statusFilter === 'online') return s.isOnline;
+        if (statusFilter === 'offline') return !s.isOnline;
+        return s.isOnline && s.currentStatus === statusFilter;
+      });
     }
 
     setFilteredStaff(filtered);
   }, [searchQuery, statusFilter, staff]);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (member: StaffStatus) => {
     const statusConfig = {
       offline: { label: t('timeTracking.offline') || 'Offline', variant: 'secondary' as const, color: 'bg-gray-500' },
       online: { label: t('timeTracking.online') || 'Online', variant: 'default' as const, color: 'bg-green-500' },
@@ -81,7 +85,10 @@ const StaffStatusManagement: React.FC = () => {
       pending: { label: t('timeTracking.pending') || 'Pending', variant: 'outline' as const, color: 'bg-orange-500' }
     };
 
-    const config = statusConfig[status] || statusConfig.offline;
+    const effectiveStatus = member.isOnline
+      ? (member.currentStatus === 'offline' ? 'online' : member.currentStatus)
+      : 'offline';
+    const config = statusConfig[effectiveStatus] || statusConfig.offline;
     return (
       <div className="flex items-center gap-2">
         <div className={`h-2 w-2 rounded-full ${config.color}`} />
@@ -116,10 +123,10 @@ const StaffStatusManagement: React.FC = () => {
 
   // Calculate summary statistics
   const statusCounts = {
-    online: staff.filter(s => s.currentStatus === 'online').length,
-    working: staff.filter(s => s.currentStatus === 'working').length,
-    on_break: staff.filter(s => s.currentStatus === 'on_break').length,
-    offline: staff.filter(s => s.currentStatus === 'offline').length
+    online: staff.filter(s => s.isOnline && !['working', 'on_break'].includes(s.currentStatus)).length,
+    working: staff.filter(s => s.isOnline && s.currentStatus === 'working').length,
+    on_break: staff.filter(s => s.isOnline && s.currentStatus === 'on_break').length,
+    offline: staff.filter(s => !s.isOnline).length
   };
 
   const totalHoursThisWeek = staff.reduce((sum, s) => sum + (s.hoursThisWeek || 0), 0);
@@ -311,7 +318,7 @@ const StaffStatusManagement: React.FC = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{getStatusBadge(member.currentStatus)}</TableCell>
+                      <TableCell>{getStatusBadge(member)}</TableCell>
                       <TableCell>
                         {member.currentOrder ? (
                           <span className="font-mono text-sm">{member.currentOrder}</span>

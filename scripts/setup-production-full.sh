@@ -155,7 +155,7 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
-    location /uploads/ {
+    location ^~ /uploads/ {
         proxy_pass http://127.0.0.1:${APP_PORT};
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
