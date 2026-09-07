@@ -40,6 +40,7 @@ function getComplaintEmailTrigger(complaint, metadata = {}) {
 
   if (event === 'complaint_created') return 'complaint_created';
   if (event === 'admin_approved') return 'complaint_approved';
+  if (event === 'technician_acknowledged') return 'complaint_approved';
   if (event === 'comment_added' || event === 'message_added') return 'complaint_message';
   if (event === 'offer_rejected' || event === 'complaint_rejected') return 'complaint_rejected';
   if (event === 'complaint_resolved') return 'complaint_resolved';
@@ -801,7 +802,7 @@ router.patch('/:id/acknowledge', requireUser, requireRole(['staff', 'admin']), a
       complaint.customerId,
       'Reklamation anerkannt',
       'Der Techniker hat die Reklamation anerkannt. Wir starten die Ausbesserung.',
-      { event: 'technician_acknowledged' }
+      { event: 'technician_acknowledged', technicianReason }
     );
 
     return res.json({ success: true, complaint });
@@ -839,13 +840,6 @@ router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (r
     const existingOfferDescription = (complaint.repairOffer?.description || '').trim();
     const resolvedOfferAmount = hasOfferAmountField ? offerAmount : existingOfferAmount;
     const resolvedOfferDescription = offerDescription || existingOfferDescription;
-
-    if (req.user.role === 'staff' && (!hasOfferAmountField || !resolvedOfferDescription)) {
-      return res.status(400).json({
-        success: false,
-        error: 'offer_amount and offer_description are required to escalate denied complaint',
-      });
-    }
 
     if (req.user.role === 'admin' && !resolvedOfferDescription) {
       return res.status(400).json({

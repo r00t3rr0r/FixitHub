@@ -239,8 +239,6 @@ export function OrderDetails() {
   const [denyReasonPreset, setDenyReasonPreset] = useState("")
   const [technicianAckReason, setTechnicianAckReason] = useState("")
   const [technicianDenyReason, setTechnicianDenyReason] = useState("")
-  const [denyOfferAmount, setDenyOfferAmount] = useState("")
-  const [denyOfferDescription, setDenyOfferDescription] = useState("")
   const [complaintActionLoading, setComplaintActionLoading] = useState<"ack" | "deny" | "">("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
   const [convertOfferBookingLoading, setConvertOfferBookingLoading] = useState(false)
@@ -854,8 +852,6 @@ export function OrderDetails() {
       setComplaintActionLoading("deny")
       const response = await denyComplaint(complaintWorkflow._id, {
         technician_reason: technicianDenyReason.trim(),
-        offer_amount: denyOfferAmount ? parseFloat(denyOfferAmount) : 0,
-        offer_description: denyOfferDescription.trim() || 'Neues Reparaturangebot nach Reklamationspruefung',
       })
 
       if ((response as any)?.escalated) {
@@ -875,8 +871,6 @@ export function OrderDetails() {
       setComplaintActionDialog(null)
       setDenyReasonPreset("")
       setTechnicianDenyReason("")
-      setDenyOfferAmount("")
-      setDenyOfferDescription("")
     } catch (error: any) {
       toast({
         title: "Aktion fehlgeschlagen",
@@ -5371,6 +5365,16 @@ export function OrderDetails() {
                 </Button>
               </div>
             )}
+            {isComplaintFollowupOrder && complaintWorkflowStatus === 'pending_approval' && latestDenyEscalationLog && (
+              <div className="flex max-w-xl flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                <span className="font-semibold">Reklamation abgelehnt · Admin-Freigabe ausstehend</span>
+                <span>
+                  {escalationActorName ? `Von ${escalationActorName}` : 'Durch den Techniker'}
+                  {escalationCreatedAt ? ` am ${new Date(escalationCreatedAt).toLocaleString('de-DE')}` : ''}
+                  {complaintWorkflow.technicianReason ? `: ${complaintWorkflow.technicianReason}` : ''}
+                </span>
+              </div>
+            )}
             {isStaffOrAdmin && order.status === 'ready-for-pickup' && !order.pickupConfirmation && (
               <Button
                 size="sm"
@@ -6204,7 +6208,7 @@ export function OrderDetails() {
             <DialogDescription>
               {user?.role === 'admin'
                 ? 'Bitte Ablehnungsgrund und Reparaturangebot pruefen. Nach Bestaetigung wird das Angebot an den Kunden gesendet.'
-                : 'Bitte den Ablehnungsgrund angeben und ein Reparaturangebot konfigurieren. Danach wird die Reklamation zur Admin-Pruefung eskaliert.'}
+                : 'Bitte den Ablehnungsgrund angeben. Danach wird die Reklamation zur Admin-Pruefung eskaliert.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -6258,59 +6262,6 @@ export function OrderDetails() {
               />
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-dashed border-muted-foreground/30" />
-
-            {/* Section 2: Reparaturangebot */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="h-5 w-1 rounded bg-blue-400" />
-                <p className="text-sm font-semibold">2. Reparaturangebot konfigurieren</p>
-              </div>
-
-              {/* Device info summary (read-only context) */}
-              {((order as any)?.deviceBrand || (order as any)?.deviceModel) && (
-                <div className="rounded-md bg-muted/50 border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="font-medium text-foreground">{(order as any)?.deviceBrand} {(order as any)?.deviceModel}</span>
-                  {((order as any)?.services || []).filter((s: any) => s?._id).length > 0 && (
-                    <span className="text-muted-foreground">&bull; {((order as any)?.services || []).filter((s: any) => s?._id).length} Leistung(en)</span>
-                  )}
-                </div>
-              )}
-
-              {/* Offer amount */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Angebotspreis (EUR)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">€</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={denyOfferAmount}
-                    onChange={(e) => setDenyOfferAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="pl-7 text-sm"
-                  />
-                </div>
-                {denyOfferAmount && !isNaN(parseFloat(denyOfferAmount)) && (
-                  <p className="text-xs text-muted-foreground">Urspruenglicher Auftragswert: {safeToNumber((order as any)?.totalCost).toFixed(2)} EUR</p>
-                )}
-              </div>
-
-              {/* Offer description */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Angebotsbeschreibung</label>
-                <Textarea
-                  value={denyOfferDescription}
-                  onChange={(e) => setDenyOfferDescription(e.target.value)}
-                  rows={5}
-                  placeholder="Beschreibung des Reparaturangebots..."
-                  className="text-sm resize-none"
-                />
-                <p className="text-xs text-muted-foreground">Vorausgefuellt anhand der Auftragsdaten. Bitte bei Bedarf anpassen.</p>
-              </div>
-            </div>
           </div>
 
           <DialogFooter className="gap-2 pt-2">
@@ -6324,8 +6275,6 @@ export function OrderDetails() {
             >
               {complaintActionLoading === 'deny'
                 ? 'Wird verarbeitet...'
-                : user?.role === 'admin'
-                ? 'Ablehnung bestaetigen & Angebot senden'
                 : 'Ablehnen'}
             </Button>
           </DialogFooter>

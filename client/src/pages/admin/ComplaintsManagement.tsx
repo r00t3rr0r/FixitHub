@@ -29,7 +29,6 @@ import {
   getAllComplaints,
   getComplaint,
   approveComplaint,
-  rejectComplaint,
   acknowledgeComplaint,
   denyComplaint,
   Complaint,
@@ -85,7 +84,7 @@ const STATUS_META: Record<string, { label: string; icon: LucideIcon; className: 
     className: "complaints-status-acknowledged",
   },
   denied: {
-    label: "Technisch abgelehnt",
+    label: "Reklamation abgelehnt",
     icon: Ban,
     className: "complaints-status-denied",
   },
@@ -128,7 +127,6 @@ export function ComplaintsManagement() {
   const [technicianFilter, setTechnicianFilter] = useState("")
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
-  const [rejectionReason, setRejectionReason] = useState("")
   const [ackTechnicianReason, setAckTechnicianReason] = useState("")
   const [denyTechnicianReason, setDenyTechnicianReason] = useState("")
   const [partialRefund, setPartialRefund] = useState("0")
@@ -144,7 +142,6 @@ export function ComplaintsManagement() {
   const { toast } = useToast()
 
   const resetActionForms = () => {
-    setRejectionReason("")
     setAckTechnicianReason("")
     setDenyTechnicianReason("")
     setPartialRefund("0")
@@ -310,6 +307,13 @@ export function ComplaintsManagement() {
 
   const openActionDialog = (dialogType: ActionDialogType) => {
     resetActionForms()
+    if (dialogType === "reject") {
+      setDenyTechnicianReason(selectedComplaint?.technicianReason || "")
+    }
+    if (dialogType === "reject" && selectedComplaint?.repairOffer) {
+      setOfferAmount(String(selectedComplaint.repairOffer.amount ?? 0))
+      setOfferDescription(selectedComplaint.repairOffer.description || "")
+    }
     setActionDialog(dialogType)
   }
 
@@ -524,7 +528,11 @@ export function ComplaintsManagement() {
 
                   {selectedComplaint.technicianReason && (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Techniker-Begruendung</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedComplaint.status === "pending_approval"
+                          ? "Techniker-Ablehnung (wartet auf Admin-Freigabe)"
+                          : "Techniker-Begruendung"}
+                      </p>
                       <p>{selectedComplaint.technicianReason}</p>
                     </div>
                   )}
@@ -619,7 +627,7 @@ export function ComplaintsManagement() {
                       className="w-full"
                       onClick={() => openActionDialog("reject")}
                     >
-                      Admin: Ablehnen
+                      Admin: Ablehnen & Angebot senden
                     </Button>
                   )}
 
@@ -723,29 +731,63 @@ export function ComplaintsManagement() {
       </Card>
 
       <Dialog open={actionDialog === "reject"} onOpenChange={(open) => !open && closeActionDialog()}>
-        <DialogContent className="sm:max-w-lg complaints-dialog-surface">
+        <DialogContent className="sm:max-w-xl complaints-dialog-surface">
           <DialogHeader>
-            <DialogTitle>Reklamation ablehnen</DialogTitle>
-            <DialogDescription>Bitte den verpflichtenden Ablehnungsgrund hinterlegen.</DialogDescription>
+            <DialogTitle>Reklamation ablehnen und Angebot senden</DialogTitle>
+            <DialogDescription>Bitte das vom Techniker eskalierte Reparaturangebot prüfen und für den Kunden vervollständigen.</DialogDescription>
           </DialogHeader>
-          <Textarea
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            placeholder="rejection_reason"
-            rows={4}
-          />
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ablehnungsgrund des Technikers</label>
+              <Textarea
+                value={denyTechnicianReason}
+                onChange={(e) => setDenyTechnicianReason(e.target.value)}
+                placeholder="Ablehnungsgrund des Technikers..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Angebotspreis (EUR)</label>
+              <Input
+                value={offerAmount}
+                onChange={(e) => setOfferAmount(e.target.value)}
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Angebotsbeschreibung</label>
+              <Textarea
+                value={offerDescription}
+                onChange={(e) => setOfferDescription(e.target.value)}
+                placeholder="Beschreibung des Reparaturangebots..."
+                rows={5}
+              />
+              <p className="text-xs text-muted-foreground">Das Angebot wird nach der Bestätigung an den Kunden übermittelt.</p>
+            </div>
+          </div>
           <DialogFooter>
             <Button className="complaints-secondary-button" variant="outline" onClick={closeActionDialog}>Abbrechen</Button>
             <Button
               variant="destructive"
-              disabled={!selectedComplaint || !rejectionReason.trim() || actionLoading === "reject"}
+              disabled={!selectedComplaint || !denyTechnicianReason.trim() || !offerDescription.trim() || actionLoading === "reject"}
               onClick={async () => {
                 if (!selectedComplaint) return
-                await runAction("reject", () => rejectComplaint(selectedComplaint._id, rejectionReason.trim()), "Reklamation wurde abgelehnt.")
+                await runAction(
+                  "reject",
+                  () => denyComplaint(selectedComplaint._id, {
+                    technician_reason: denyTechnicianReason.trim(),
+                    offer_amount: Number(offerAmount || 0),
+                    offer_description: offerDescription.trim(),
+                  }),
+                  "Reklamation wurde abgelehnt und das Angebot an den Kunden gesendet."
+                )
                 closeActionDialog()
               }}
             >
-              {actionLoading === "reject" ? "Bitte warten..." : "Ablehnen"}
+              {actionLoading === "reject" ? "Bitte warten..." : "Ablehnen und Angebot senden"}
             </Button>
           </DialogFooter>
         </DialogContent>
