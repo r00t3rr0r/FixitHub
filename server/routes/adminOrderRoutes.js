@@ -58,6 +58,7 @@ router.get('/assigned', requireUser, async (req, res) => {
       status: req.query.status,
       priority: req.query.priority,
       assignedStaff: req.user._id.toString(),
+      includeComplaintFollowups: true,
       page: req.query.page || 1,
       limit: req.query.limit || 50
     };

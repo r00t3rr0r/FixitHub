@@ -1831,8 +1831,8 @@ router.post('/complete', requireUser, async (req, res) => {
       booking = await BookingService.create({
         customerId: req.user._id,
         orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
-        discount: cart.discount || 0,
         discount: Number((cart.discount || 0) + (checkoutPricing.groupDiscountAmount || 0)),
+        checkoutPricing,
         appliedPromoCode: cart.promoCode || '',
         status: 'pending',
         billingStatus: resolvedBillingStatus,

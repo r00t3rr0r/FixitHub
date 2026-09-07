@@ -95,6 +95,29 @@ class BookingService {
     return Math.round(Number(amount || 0) * 100) / 100;
   }
 
+  static resolveBookingPricing({ orderGrossTotal, bookingData = {} }) {
+    const checkoutPricing = bookingData.checkoutPricing || {};
+    const hasCheckoutTotal = Number.isFinite(Number(checkoutPricing.total));
+
+    if (hasCheckoutTotal) {
+      return {
+        subtotal: this.roundCurrency(checkoutPricing.subtotal),
+        discount: this.roundCurrency(checkoutPricing.totalDiscount),
+        tax: this.roundCurrency(checkoutPricing.tax),
+        totalCost: this.roundCurrency(checkoutPricing.total),
+      };
+    }
+
+    const subtotal = this.roundCurrency(orderGrossTotal);
+    const discount = this.roundCurrency(bookingData.discount);
+    return {
+      subtotal,
+      discount,
+      tax: 0,
+      totalCost: Math.max(0, this.roundCurrency(subtotal - discount)),
+    };
+  }
+
   static parseDeviceLabel(deviceLabel = '') {
     const normalized = String(deviceLabel || '').replace(/\s+/g, ' ').trim();
     if (!normalized) {
@@ -379,10 +402,10 @@ class BookingService {
       }
 
       // Calculate totals from orders
-      let totalCost = 0;
+      let orderGrossTotal = 0;
       let subtotal = 0;
       let tax = 0;
-      let discount = bookingData.discount || 0;
+      let discount = 0;
       const items = [];
       const repairOrderIds = [];
       let shopProductOrderId = null;
@@ -405,8 +428,7 @@ class BookingService {
         }
 
         // Calculate costs
-        totalCost += order.totalCost;
-        subtotal += order.totalCost;
+        orderGrossTotal += Number(order.totalCost || 0);
 
         // Build booking item from order
         let itemData = {
@@ -439,11 +461,14 @@ class BookingService {
         items.push(itemData);
       }
 
-      // Calculate tax (8% by default)
-      tax = subtotal * 0.08;
-
-      // Calculate final total
-      const finalTotal = subtotal + tax - discount;
+      // Order prices are gross. Use the checkout calculation as the authoritative
+      // financial snapshot so VAT is never added a second time during booking creation.
+      const bookingPricing = this.resolveBookingPricing({
+        orderGrossTotal,
+        bookingData,
+      });
+      ({ subtotal, discount, tax } = bookingPricing);
+      const finalTotal = bookingPricing.totalCost;
 
       // Create booking data
       const booking = new Booking({

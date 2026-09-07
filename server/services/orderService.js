@@ -305,6 +305,7 @@ class OrderService {
             { 'workflows.assignedStaff.staffId': filters.assignedStaff },
             { 'workflows.steps.assignedStaffId': filters.assignedStaff },
             { 'workflows.steps.assignedStaff.staffId': filters.assignedStaff },
+            ...(filters.includeComplaintFollowups ? [{ isComplaintFollowup: true }] : []),
           ],
         });
       }

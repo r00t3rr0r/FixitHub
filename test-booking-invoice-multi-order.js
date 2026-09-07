@@ -122,6 +122,9 @@ function createPopulateQuery(result) {
     select() {
       return this;
     },
+    setOptions() {
+      return this;
+    },
     lean: async () => result,
     then(resolve, reject) {
       return Promise.resolve(result).then(resolve, reject);
