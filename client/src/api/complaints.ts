@@ -286,17 +286,6 @@ export const rejectComplaintOffer = async (complaintId: string, serviceFee?: num
   }
 };
 
-// Description: Convert an accepted repair offer into a booking with its follow-up order
-// Endpoint: POST /api/complaints/:id/convert-offer-to-booking
-export const convertAcceptedOfferToBooking = async (complaintId: string) => {
-  try {
-    const response = await api.post(`/api/complaints/${complaintId}/convert-offer-to-booking`);
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
-  }
-};
-
 // Description: Admin approves complaint
 // Endpoint: PATCH /api/complaints/:id/approve
 export const approveComplaint = async (complaintId: string) => {

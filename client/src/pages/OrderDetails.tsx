@@ -30,7 +30,7 @@ import { safeToNumber, formatPrice } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
 import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
-import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, convertAcceptedOfferToBooking, Complaint as ComplaintRecord } from "@/api/complaints"
+import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
 import { createInvoiceFromOrder, getInvoices, Invoice as FinancialInvoice } from "@/api/financial"
@@ -241,7 +241,6 @@ export function OrderDetails() {
   const [technicianDenyReason, setTechnicianDenyReason] = useState("")
   const [complaintActionLoading, setComplaintActionLoading] = useState<"ack" | "deny" | "">("")
   const [offerActionLoading, setOfferActionLoading] = useState<"accept" | "reject" | "">("")
-  const [convertOfferBookingLoading, setConvertOfferBookingLoading] = useState(false)
   const [commFeedbackOpen, setCommFeedbackOpen] = useState(false)
   const [commQuickActionOpen, setCommQuickActionOpen] = useState(false)
   const [linkedBooking, setLinkedBooking] = useState<any | null>(null)
@@ -2458,39 +2457,6 @@ export function OrderDetails() {
     }
   }
 
-  const handleConvertAcceptedOfferToBooking = async () => {
-    if (!complaintWorkflow?._id) return
-
-    try {
-      setConvertOfferBookingLoading(true)
-      const response = await convertAcceptedOfferToBooking(complaintWorkflow._id)
-
-      const refreshed = await getComplaint(complaintWorkflow._id)
-      setComplaintWorkflow((refreshed as any)?.complaint || null)
-
-      if (response?.converted) {
-        toast({
-          title: 'Buchung erstellt',
-          description: response?.bookingNumber
-            ? `Neue Buchung ${response.bookingNumber} wurde erstellt.`
-            : 'Neue Buchung mit Auftrag wurde erstellt.',
-        })
-      } else {
-        toast({
-          title: 'Bereits umgewandelt',
-          description: 'Der Auftrag ist bereits einer Buchung zugeordnet.',
-        })
-      }
-    } catch (err: any) {
-      toast({
-        title: 'Fehler',
-        description: err?.message || 'Die Umwandlung in eine Buchung ist fehlgeschlagen.',
-        variant: 'destructive',
-      })
-    } finally {
-      setConvertOfferBookingLoading(false)
-    }
-  }
   const originalComplaintOrderId = (() => {
     const workflowOrder = (complaintWorkflow as any)?.orderId
     if (!workflowOrder) return (order as any)?.parentOrderId || ''
@@ -2516,21 +2482,6 @@ export function OrderDetails() {
   const escalationCreatedAt = (latestDenyEscalationLog as any)?.createdAt
   const escalationOfferAmount = (latestDenyEscalationLog as any)?.metadata?.offerAmount
   const escalationOfferDescription = (latestDenyEscalationLog as any)?.metadata?.offerDescription || ''
-  const latestOfferConversionLog = (() => {
-    const logs = complaintWorkflow?.complaintLogs || []
-    for (let i = logs.length - 1; i >= 0; i -= 1) {
-      if (logs[i]?.action === 'offer_converted_to_booking') {
-        return logs[i]
-      }
-    }
-    return null
-  })()
-  const convertedBookingId = (latestOfferConversionLog as any)?.metadata?.bookingId
-  const convertedBookingNumber = (latestOfferConversionLog as any)?.metadata?.bookingNumber
-  const convertedOrderId = (latestOfferConversionLog as any)?.metadata?.orderId
-  const convertedOrderNumber = (latestOfferConversionLog as any)?.metadata?.orderNumber
-  const hasConvertedAcceptedOffer = Boolean(convertedBookingId && convertedOrderId)
-  const bookingOverviewPath = user?.role === 'admin' ? '/admin/bookings' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
   const staffCount = order.assignedStaff?.length || 0
   const serviceCount = (repairServices?.filter((s) => s && s._id).length || 0) + (order.addOns?.length || 0)
   const lastUpdate = order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '-'
@@ -5021,29 +4972,6 @@ export function OrderDetails() {
                       ? new Date(complaintWorkflow.repairOffer.rejectedAt).toLocaleDateString('de-DE')
                       : ''}
                   </p>
-                  {complaintWorkflow.repairOffer.status === 'accepted' && !hasConvertedAcceptedOffer && (
-                    <Button
-                      size="sm"
-                      className="mt-2 h-8 text-xs"
-                      onClick={handleConvertAcceptedOfferToBooking}
-                      disabled={convertOfferBookingLoading}
-                    >
-                      {convertOfferBookingLoading ? 'Wird umgewandelt...' : 'In neue Buchung mit Auftrag umwandeln'}
-                    </Button>
-                  )}
-                  {complaintWorkflow.repairOffer.status === 'accepted' && hasConvertedAcceptedOffer && (
-                    <div className="mt-2 rounded-md border border-green-300 bg-green-100/60 px-3 py-2 text-xs text-green-900 dark:text-green-200 dark:bg-green-900/30 dark:border-green-800 space-y-1">
-                      <p className="font-medium">In neue Buchung mit Auftrag umgewandelt.</p>
-                      <div className="flex flex-wrap gap-3">
-                        <Link to={bookingOverviewPath} className="underline underline-offset-2 hover:no-underline">
-                          Buchung {convertedBookingNumber || convertedBookingId}
-                        </Link>
-                        <Link to={`/orders/${convertedOrderId}`} className="underline underline-offset-2 hover:no-underline">
-                          Auftrag {convertedOrderNumber || convertedOrderId}
-                        </Link>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -5787,29 +5715,6 @@ export function OrderDetails() {
                               ? new Date(complaintWorkflow.repairOffer.rejectedAt).toLocaleDateString('de-DE')
                               : ''}
                           </p>
-                          {complaintWorkflow.repairOffer.status === 'accepted' && !hasConvertedAcceptedOffer && (
-                            <Button
-                              size="sm"
-                              className="mt-2 h-8 text-xs"
-                              onClick={handleConvertAcceptedOfferToBooking}
-                              disabled={convertOfferBookingLoading}
-                            >
-                              {convertOfferBookingLoading ? 'Wird umgewandelt...' : 'In neue Buchung mit Auftrag umwandeln'}
-                            </Button>
-                          )}
-                          {complaintWorkflow.repairOffer.status === 'accepted' && hasConvertedAcceptedOffer && (
-                            <div className="mt-2 rounded-md border border-green-300 bg-green-100/60 px-3 py-2 text-xs text-green-900 dark:text-green-200 dark:bg-green-900/30 dark:border-green-800 space-y-1">
-                              <p className="font-medium">In neue Buchung mit Auftrag umgewandelt.</p>
-                              <div className="flex flex-wrap gap-3">
-                                <Link to={bookingOverviewPath} className="underline underline-offset-2 hover:no-underline">
-                                  Buchung {convertedBookingNumber || convertedBookingId}
-                                </Link>
-                                <Link to={`/orders/${convertedOrderId}`} className="underline underline-offset-2 hover:no-underline">
-                                  Auftrag {convertedOrderNumber || convertedOrderId}
-                                </Link>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}

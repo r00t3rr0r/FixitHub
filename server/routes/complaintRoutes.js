@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { requireUser, requireAdmin, requireRole } = require('./middleware/auth');
 const ComplaintService = require('../services/complaintService');
-const BookingService = require('../services/bookingService');
 const OrderService = require('../services/orderService');
 const Complaint = require('../models/Complaint');
 const Order = require('../models/Order');
@@ -333,31 +332,28 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
 
     ensureTransition(complaint.status, ['denied'], 'Accept offer');
 
-    let duplicatedOrder = null;
-    if (complaint.newOrderId) {
-      duplicatedOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
+    if (!complaint.newOrderId) {
+      return res.status(400).json({ success: false, error: 'No complaint repair order available' });
     }
 
-    if (!duplicatedOrder) {
-      const sourceOrder = await Order.findById(complaint.orderId).setOptions({ skipAutoPopulate: true });
-      if (!sourceOrder) {
-        return res.status(404).json({ success: false, error: 'Source order not found for complaint' });
-      }
-
-      const source = buildComplaintOrderPayload(sourceOrder, complaint);
-      duplicatedOrder = await Order.create(source);
+    const repairOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
+    if (!repairOrder) {
+      return res.status(404).json({ success: false, error: 'Complaint repair order not found' });
     }
 
-    // Reklamationsauftrag uebernimmt den Preis aus dem angenommenen Reparaturangebot
+    // Der bestehende Reklamationsauftrag wird mit dem angenommenen Angebot als Reparaturauftrag eroeffnet.
     const offerAmount = Number(complaint.repairOffer?.amount || 0);
-    if (offerAmount > 0) {
-      duplicatedOrder.totalCost = offerAmount;
-      await duplicatedOrder.save();
-    }
+    repairOrder.totalCost = offerAmount;
+    repairOrder.status = 'pending';
+    repairOrder.progress = 0;
+    repairOrder.actualCompletion = undefined;
+    repairOrder.estimatedCompletion = undefined;
+    repairOrder.hasComplaint = false;
+    repairOrder.isComplaintFollowup = true;
+    await repairOrder.save();
 
     const previousStatus = complaint.status;
     complaint.status = 'new_repair';
-    complaint.newOrderId = duplicatedOrder._id;
     complaint.repairOffer.status = 'accepted';
     complaint.repairOffer.acceptedAt = new Date();
     complaint.complaintLogs.push({
@@ -369,7 +365,9 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
       toStatus: 'new_repair',
       notes: 'Customer accepted technician repair offer',
       metadata: {
-        newOrderId: duplicatedOrder._id
+        repairOrderId: repairOrder._id,
+        repairOrderNumber: repairOrder.orderNumber,
+        offerAmount
       }
     });
 
@@ -389,17 +387,17 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
       complaint,
       complaint.customerId,
       'Neues Reparaturangebot angenommen',
-      `Ein neuer Reparaturauftrag wurde erstellt: ${duplicatedOrder.orderNumber}`,
-      { event: 'offer_accepted', newOrderId: duplicatedOrder._id }
+      `Der Reklamationsauftrag wurde als Reparaturauftrag eroeffnet: ${repairOrder.orderNumber}`,
+      { event: 'offer_accepted', repairOrderId: repairOrder._id, offerAmount }
     );
 
     return res.json({
       success: true,
       complaint,
       newOrder: {
-        _id: duplicatedOrder._id,
-        orderNumber: duplicatedOrder.orderNumber,
-        status: duplicatedOrder.status
+        _id: repairOrder._id,
+        orderNumber: repairOrder.orderNumber,
+        status: repairOrder.status
       }
     });
   } catch (error) {
@@ -501,98 +499,6 @@ router.post('/:id/reject-offer', requireUser, async (req, res) => {
     return res.json({ success: true, complaint, invoice });
   } catch (error) {
     console.error('ComplaintRoutes: Error rejecting offer:', error);
-    return res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// Description: Convert accepted repair offer into a new booking with a newly generated order
-// Endpoint: POST /api/complaints/:id/convert-offer-to-booking
-router.post('/:id/convert-offer-to-booking', requireUser, async (req, res) => {
-  try {
-    const complaint = await Complaint.findById(req.params.id);
-    if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
-    }
-
-    const complaintCustomerId = getComplaintCustomerId(complaint);
-    if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
-    }
-
-    if (!complaint.repairOffer || complaint.repairOffer.status !== 'accepted') {
-      return res.status(400).json({ success: false, error: 'Repair offer must be accepted before conversion' });
-    }
-
-    if (!complaint.newOrderId) {
-      return res.status(400).json({ success: false, error: 'No follow-up order available for conversion' });
-    }
-
-    const complaintOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
-    if (!complaintOrder) {
-      return res.status(404).json({ success: false, error: 'Follow-up order not found' });
-    }
-
-    // Always generate a brand-new order for the new booking, independent from existing booking links.
-    const newOrderPayload = complaintOrder.toObject();
-    delete newOrderPayload._id;
-    delete newOrderPayload.orderNumber;
-    delete newOrderPayload.createdAt;
-    delete newOrderPayload.updatedAt;
-    delete newOrderPayload.bookingId;
-
-    newOrderPayload.status = 'pending';
-    newOrderPayload.progress = 0;
-    newOrderPayload.completedAt = undefined;
-    newOrderPayload.assignedStaff = [];
-    newOrderPayload.staffNotes = [];
-    newOrderPayload.timeline = [];
-    newOrderPayload.workflows = [];
-    newOrderPayload.hasComplaint = false;
-    newOrderPayload.complaintReason = undefined;
-    newOrderPayload.parentOrderId = complaintOrder._id;
-    newOrderPayload.sourceComplaintId = complaint._id;
-    newOrderPayload.isComplaintFollowup = false;
-    newOrderPayload.customerNotes = `${newOrderPayload.customerNotes || ''}\nNeuer Auftrag aus angenommenem Reparaturangebot (${complaint.complaintNumber})`.trim();
-
-    const newOrder = await Order.create(newOrderPayload);
-    const booking = await BookingService.groupOrders([newOrder._id], complaintCustomerId);
-
-    await OrderService.updateStatus(
-      complaintOrder._id,
-      'completed',
-      'Reklamationsauftrag wurde nach Angebotsumwandlung abgeschlossen',
-      req.user._id
-    );
-
-    complaint.complaintLogs.push({
-      actorId: req.user._id,
-      actorName: actorName(req.user),
-      actorRole: req.user.role,
-      action: 'offer_converted_to_booking',
-      fromStatus: complaint.status,
-      toStatus: complaint.status,
-      notes: `Accepted repair offer converted to booking ${booking.bookingNumber}`,
-      metadata: {
-        bookingId: booking._id,
-        bookingNumber: booking.bookingNumber,
-        orderId: newOrder._id,
-        orderNumber: newOrder.orderNumber,
-        closedComplaintOrderId: complaintOrder._id,
-      },
-    });
-
-    await complaint.save();
-
-    return res.json({
-      success: true,
-      converted: true,
-      bookingId: booking._id,
-      bookingNumber: booking.bookingNumber,
-      orderId: newOrder._id,
-      orderNumber: newOrder.orderNumber,
-    });
-  } catch (error) {
-    console.error('ComplaintRoutes: Error converting accepted offer to booking:', error);
     return res.status(400).json({ success: false, error: error.message });
   }
 });
