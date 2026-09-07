@@ -12434,5 +12434,70 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1788775265712-4yur6huhq",
+    "timestamp": "2026-09-07T10:01:05.712Z",
+    "to": "dieter.senf@icloud.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0006 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<6198768a-fe54-a159-6e8f-67a94a99dcec@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1828,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1788775368016-d47bc923l",
+    "timestamp": "2026-09-07T10:02:48.016Z",
+    "to": "dieter.senf@icloud.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<19961c63-5f5d-bc6a-6941-ce0aa9140782@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 989,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]

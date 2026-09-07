@@ -1717,6 +1717,8 @@ export function RepairOrderConfigurator({ onComplete }: RepairOrderConfiguratorP
           previousRepairAttempts,
           previousRepairDetails,
           itemCondition,
+          imei,
+          serialNumber,
           customerNotes,
           photos: photoPreviewUrls,
           quantity: currentDeviceQuantity
