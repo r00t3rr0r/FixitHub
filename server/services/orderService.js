@@ -7,6 +7,7 @@ const Complaint = require('../models/Complaint');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 const NotificationService = require('./notificationService');
+const OrderRevisionService = require('./orderRevisionService');
 const mongoose = require('mongoose');
 
 const toIdString = (value) => {
@@ -191,6 +192,17 @@ class OrderService {
 
       const order = new Order(orderData);
       const savedOrder = await order.save();
+
+      // Historize initial order creation
+      try {
+        await OrderRevisionService.recordRevision(savedOrder, {
+          triggerReason: 'initial_creation',
+          previousGrossAmount: 0,
+          notes: `Initial order created with total gross amount EUR ${savedOrder.totalCost}`
+        });
+      } catch (revError) {
+        console.warn('OrderService: Warning recording initial revision:', revError.message);
+      }
 
       console.log('OrderService: Order created successfully with ID:', savedOrder._id);
       console.log('OrderService: Order unlock data - Pattern:', savedOrder.unlockPattern, 'Code:', savedOrder.unlockCode, 'NoLock:', savedOrder.noLock);
@@ -949,6 +961,7 @@ class OrderService {
         progress: 0
       };
 
+      const prevGrossAmount = order.totalCost;
       order.addOns.push(newAddon);
 
       // Update total cost
@@ -968,6 +981,19 @@ class OrderService {
       // Use validateModifiedOnly to avoid validating unmodified services array
       // This prevents validation errors on existing incomplete service objects
       const updatedOrder = await order.save({ validateModifiedOnly: true });
+
+      // Historize order change
+      try {
+        await OrderRevisionService.recordRevision(updatedOrder, {
+          triggerReason: 'addon_added',
+          previousGrossAmount: prevGrossAmount,
+          changedBy: staffId || undefined,
+          changedByName: staff ? staff.name : 'Staff Member',
+          notes: `Added addon "${addonData.name}" (+EUR ${addonData.price})`
+        });
+      } catch (revErr) {
+        console.warn('OrderService: Warning recording revision on addon add:', revErr.message);
+      }
 
       console.log('OrderService: Add-on added successfully');
       return updatedOrder;
@@ -994,6 +1020,7 @@ class OrderService {
 
       // Store old price for total cost adjustment
       const oldPrice = addon.price;
+      const prevTotalCost = order.totalCost;
 
       // Update add-on fields
       if (updateData.name !== undefined) addon.name = updateData.name;
@@ -1021,6 +1048,19 @@ class OrderService {
 
       const updatedOrder = await order.save();
 
+      // Historize order change if price changed or data updated
+      try {
+        await OrderRevisionService.recordRevision(updatedOrder, {
+          triggerReason: 'addon_updated',
+          previousGrossAmount: prevTotalCost,
+          changedBy: staffId || undefined,
+          changedByName: staff ? staff.name : 'Staff Member',
+          notes: `Updated addon "${addon.name}" (EUR ${oldPrice} -> EUR ${addon.price})`
+        });
+      } catch (revErr) {
+        console.warn('OrderService: Warning recording revision on addon update:', revErr.message);
+      }
+
       console.log('OrderService: Add-on updated successfully');
       return updatedOrder;
     } catch (error) {
@@ -1047,6 +1087,7 @@ class OrderService {
       // Store add-on details before removing
       const addonName = addon.name;
       const addonPrice = addon.price;
+      const prevTotalCost = order.totalCost;
 
       // Remove add-on from order
       order.addOns.pull(addonId);
@@ -1066,6 +1107,19 @@ class OrderService {
       });
 
       const updatedOrder = await order.save();
+
+      // Historize order change
+      try {
+        await OrderRevisionService.recordRevision(updatedOrder, {
+          triggerReason: 'addon_removed',
+          previousGrossAmount: prevTotalCost,
+          changedBy: staffId || undefined,
+          changedByName: staff ? staff.name : 'Staff Member',
+          notes: `Removed addon "${addonName}" (-EUR ${addonPrice})`
+        });
+      } catch (revErr) {
+        console.warn('OrderService: Warning recording revision on addon removal:', revErr.message);
+      }
 
       console.log('OrderService: Add-on removed successfully');
       return updatedOrder;

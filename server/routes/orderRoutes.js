@@ -6,6 +6,7 @@ const Complaint = require('../models/Complaint');
 const EmailService = require('../services/emailService');
 const DHLService = require('../services/dhlService');
 const NotificationService = require('../services/notificationService');
+const OrderRevisionService = require('../services/orderRevisionService');
 const User = require('../models/User');
 const { requireUser, requireRole } = require('./middleware/auth');
 
@@ -486,6 +487,24 @@ router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (r
     return res.status(400).json({
       success: false,
       error: error.message || 'Failed to update order status'
+    });
+  }
+});
+
+// Description: Get order revisions (history of modifications)
+// Endpoint: GET /api/orders/:id/revisions
+router.get('/:id/revisions', requireUser, async (req, res) => {
+  try {
+    const revisions = await OrderRevisionService.getOrderRevisions(req.params.id);
+    return res.status(200).json({
+      success: true,
+      revisions
+    });
+  } catch (error) {
+    console.error('Error fetching order revisions:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch order revisions'
     });
   }
 });

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const CalculationHelper = require('../services/calculationHelper');
 
 const invoiceItemSchema = new mongoose.Schema({
   serviceName: {
@@ -17,6 +18,22 @@ const invoiceItemSchema = new mongoose.Schema({
   unitPrice: {
     type: Number,
     required: true
+  },
+  unitGrossPrice: {
+    type: Number
+  },
+  unitNetPrice: {
+    type: Number
+  },
+  lineGrossTotal: {
+    type: Number
+  },
+  lineNetTotal: {
+    type: Number
+  },
+  taxRate: {
+    type: Number,
+    default: 19
   },
   total: {
     type: Number,
@@ -57,6 +74,14 @@ const invoiceSchema = new mongoose.Schema({
   isCreditNote: {
     type: Boolean,
     default: false
+  },
+  correctionType: {
+    type: String,
+    enum: ['full_cancellation', 'partial_refund', 'price_adjustment', null],
+    default: null
+  },
+  lockedAt: {
+    type: Date
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -140,6 +165,20 @@ const invoiceSchema = new mongoose.Schema({
   total: {
     type: Number,
     required: true
+  },
+  // Rechnungssumme-Konzept (Finale Basis für MwSt-Berechnung)
+  invoiceGrossTotal: {
+    type: Number
+  },
+  invoiceNetTotal: {
+    type: Number
+  },
+  invoiceTaxTotal: {
+    type: Number
+  },
+  taxRate: {
+    type: Number,
+    default: 19
   },
   status: {
     type: String,
@@ -227,32 +266,45 @@ invoiceSchema.pre('save', async function(next) {
 // Calculate totals before saving
 invoiceSchema.pre('save', function(next) {
   if (this.items && this.items.length > 0) {
-    const itemsTotal = this.items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-    const hasSubtotal = Number.isFinite(Number(this.subtotal));
-    const hasTax = Number.isFinite(Number(this.tax));
-    const hasDiscount = Number.isFinite(Number(this.discount));
-    const hasTotal = Number.isFinite(Number(this.total));
+    const hasExplicitTotal = Number.isFinite(Number(this.total));
+    const discount = Number.isFinite(Number(this.discount)) ? Number(this.discount) : 0;
+    const taxRate = Number.isFinite(Number(this.taxRate)) ? Number(this.taxRate) : 19;
 
-    // Keep explicit values from services/routes. Only derive missing fields.
-    if (!hasSubtotal) {
-      if (hasTotal) {
-        this.subtotal = Number(this.total) - Number(this.tax || 0) + Number(this.discount || 0);
-      } else {
-        this.subtotal = itemsTotal;
+    const calculated = CalculationHelper.calculateInvoiceTotals(this.items, {
+      taxRatePercent: taxRate,
+      additionalDiscount: discount
+    });
+
+    // Populate item calculations (unitNetPrice, unitGrossPrice, lineGrossTotal, lineNetTotal)
+    this.items.forEach((item, index) => {
+      const calcItem = calculated.items[index];
+      if (calcItem) {
+        if (!item.unitGrossPrice) item.unitGrossPrice = calcItem.unitGrossPrice;
+        if (!item.unitNetPrice) item.unitNetPrice = calcItem.unitNetPrice;
+        if (!item.lineGrossTotal) item.lineGrossTotal = calcItem.lineGrossTotal;
+        if (!item.lineNetTotal) item.lineNetTotal = calcItem.lineNetTotal;
+        if (!item.taxRate) item.taxRate = calcItem.taxRate;
       }
+    });
+
+    if (!hasExplicitTotal) {
+      this.total = calculated.invoiceGrossTotal;
+      this.subtotal = calculated.invoiceNetTotal;
+      this.tax = calculated.invoiceTaxTotal;
+    } else {
+      // If total was explicitly set (e.g., custom override), recalculate Net & Tax from it
+      const explicitGross = Number(this.total);
+      const taxDivisor = 1 + (taxRate / 100);
+      const explicitNet = CalculationHelper.round(explicitGross / taxDivisor);
+      const explicitTax = CalculationHelper.round(explicitGross - explicitNet);
+
+      this.subtotal = Number.isFinite(Number(this.subtotal)) ? Number(this.subtotal) : explicitNet;
+      this.tax = Number.isFinite(Number(this.tax)) ? Number(this.tax) : explicitTax;
     }
 
-    if (!hasTax) {
-      this.tax = 0;
-    }
-
-    if (!hasDiscount) {
-      this.discount = 0;
-    }
-
-    if (!hasTotal) {
-      this.total = Number(this.subtotal || 0) + Number(this.tax || 0) - Number(this.discount || 0);
-    }
+    this.invoiceGrossTotal = this.total;
+    this.invoiceNetTotal = this.subtotal;
+    this.invoiceTaxTotal = this.tax;
   }
   next();
 });

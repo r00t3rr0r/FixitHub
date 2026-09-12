@@ -28,6 +28,11 @@ const dunningRunItemSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  dunningFee: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   status: {
     type: String,
     enum: ['pending', 'processing', 'sent', 'escalated', 'skipped', 'failed'],

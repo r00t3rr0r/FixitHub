@@ -1,4 +1,5 @@
 const Payment = require('../models/Payment');
+const PaymentAllocation = require('../models/PaymentAllocation');
 const Invoice = require('../models/Invoice');
 const DunningRun = require('../models/DunningRun');
 const Order = require('../models/Order');
@@ -6,6 +7,8 @@ const Booking = require('../models/Booking');
 const Complaint = require('../models/Complaint');
 const User = require('../models/User');
 const SystemConfiguration = require('../models/SystemConfiguration');
+const CalculationHelper = require('./calculationHelper');
+const OrderRevisionService = require('./orderRevisionService');
 const EmailService = require('./emailService');
 const NotificationService = require('./notificationService');
 const { Types } = require('mongoose');
@@ -1639,18 +1642,39 @@ class FinancialService {
     // Create payment record
     const payment = new Payment({
       invoiceId: invoice._id,
+      orderId:        invoice.orderId || undefined,
       customerId:    invoice.customerId,
       customerName:  invoice.customerName,
       amount,
       currency:       paymentData.currency || 'EUR',
       paymentMethod:  paymentData.paymentMethod || 'bank_transfer',
+      paymentDate:    paymentData.paymentDate || new Date(),
       status:         'completed',
-      processedAt:    new Date(),
+      processedAt:    paymentData.paymentDate || new Date(),
+      transactionId:  paymentData.transactionId || undefined,
+      paymentReference: paymentData.paymentReference || (invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : ''),
+      note:           paymentData.note || paymentData.gatewayResponse || '',
+      allocatedAmount: amount,
       gatewayResponse: paymentData.gatewayResponse || '',
       metadata:       paymentData.metadata || {}
     });
 
     await payment.save();
+
+    // Create PaymentAllocation record
+    try {
+      const allocation = new PaymentAllocation({
+        paymentId: payment._id,
+        invoiceId: invoice._id,
+        orderId: invoice.orderId || undefined,
+        allocatedAmount: amount,
+        allocatedAt: payment.processedAt || new Date(),
+        note: paymentData.note || `Payment of ${amount} for invoice ${invoice.invoiceNumber || invoice._id}`
+      });
+      await allocation.save();
+    } catch (allocError) {
+      console.warn('FinancialService: Warning creating payment allocation:', allocError.message);
+    }
 
     // Update invoice paidAmount and status
     invoice.paidAmount = (invoice.paidAmount || 0) + amount;
@@ -1703,23 +1727,27 @@ class FinancialService {
     const creditNotePrefix = options.numberPrefix || settings.defaults.creditNotePrefix;
 
     const creditNote = new Invoice({
-      creditNoteOf:  original._id,
-      isCreditNote:  true,
-      numberPrefix:  creditNotePrefix,
+      creditNoteOf:   original._id,
+      isCreditNote:   true,
+      correctionType: options.correctionType || (options.items ? 'partial_refund' : 'full_cancellation'),
+      numberPrefix:   creditNotePrefix,
       repairOrderIds: original.repairOrderIds,
-      orderId:       original.orderId,
-      customerId:    original.customerId,
-      customerName:  original.customerName,
-      customerEmail: original.customerEmail,
-      items:         creditItems,
+      orderId:        original.orderId,
+      customerId:     original.customerId,
+      customerName:   original.customerName,
+      customerEmail:  original.customerEmail,
+      items:          creditItems,
       subtotal,
       tax,
       discount,
       total,
-      dueDate:       options.dueDate ? new Date(options.dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      paymentTerms:  'Sofort',
-      notes:         options.reason || `Gutschrift für Rechnung ${original.invoiceNumber}`,
-      status:        'draft'
+      invoiceGrossTotal: total,
+      invoiceNetTotal:   subtotal,
+      invoiceTaxTotal:   tax,
+      dueDate:        options.dueDate ? new Date(options.dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      paymentTerms:   'Sofort',
+      notes:          options.reason || `Gutschrift für Rechnung ${original.invoiceNumber}`,
+      status:         'draft'
     });
 
     await creditNote.save();

@@ -40,8 +40,12 @@ const paymentSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'USD',
+    default: 'EUR',
     enum: ['USD', 'EUR', 'GBP', 'CAD']
+  },
+  paymentDate: {
+    type: Date,
+    default: Date.now
   },
   status: {
     type: String,
@@ -50,7 +54,7 @@ const paymentSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['credit_card', 'debit_card', 'paypal', 'stripe', 'bank_transfer', 'invoice'],
+    enum: ['credit_card', 'debit_card', 'paypal', 'stripe', 'bank_transfer', 'invoice', 'sepa', 'cash', 'apple_pay', 'google_pay'],
     required: true
   },
   transactionId: {
@@ -58,6 +62,19 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     unique: true,
     default: () => `txn_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+  },
+  paymentReference: {
+    type: String,
+    default: ''
+  },
+  note: {
+    type: String,
+    default: ''
+  },
+  allocatedAmount: {
+    type: Number,
+    default: 0,
+    min: 0
   },
   gatewayResponse: {
     type: String,

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const CalculationHelper = require('../services/calculationHelper');
 
 const addOnServiceSchema = new mongoose.Schema({
   name: {
@@ -552,6 +553,37 @@ const orderSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  // Auftragswert-Konzept (immer Brutto, Händlerrabatt vor Steuerabzug)
+  originalGrossAmount: {
+    type: Number,
+    min: 0,
+  },
+  dealerDiscountPercent: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  dealerDiscountAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  netAmount: {
+    type: Number,
+    min: 0,
+  },
+  taxAmount: {
+    type: Number,
+    min: 0,
+  },
+  taxRate: {
+    type: Number,
+    default: 19,
+  },
+  revisionCount: {
+    type: Number,
+    default: 0,
+  },
   photos: [{
     type: String,
   }],
@@ -795,6 +827,23 @@ orderSchema.pre('save', async function(next) {
     this.guestTrackingToken = crypto.randomBytes(32).toString('hex');
     console.log('Order: Generated guest tracking token for order:', this.orderNumber);
   }
+
+  // Calculate order values according to domain model (Gross based, dealer discount subtracted first)
+  const currentGross = Number(this.totalCost || 0);
+  if (this.isNew && (this.originalGrossAmount == null || Number.isNaN(Number(this.originalGrossAmount)))) {
+    this.originalGrossAmount = currentGross;
+  }
+
+  const orderValueCalc = CalculationHelper.calculateOrderValue(
+    this.isNew ? (this.originalGrossAmount || currentGross) : currentGross,
+    this.dealerDiscountPercent || 0,
+    this.taxRate || 19
+  );
+
+  this.dealerDiscountAmount = orderValueCalc.dealerDiscountAmount;
+  this.netAmount = orderValueCalc.netAmount;
+  this.taxAmount = orderValueCalc.taxAmount;
+  this.taxRate = orderValueCalc.taxRate;
 
   this.updatedAt = new Date();
   next();
