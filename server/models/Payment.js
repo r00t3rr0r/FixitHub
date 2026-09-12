@@ -9,6 +9,10 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Invoice'
   },
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking'
+  },
   orderNumber: {
     type: String,
     default: ''
@@ -75,6 +79,15 @@ const paymentSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: 0
+  },
+  source: {
+    type: String,
+    enum: ['manual', 'gateway', 'checkout', 'paypal_import'],
+    default: 'gateway'
+  },
+  recordedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   gatewayResponse: {
     type: String,
@@ -149,6 +162,8 @@ paymentSchema.pre(/^find/, function(next) {
 
 // Index for efficient queries
 paymentSchema.index({ customerId: 1, createdAt: -1 });
+paymentSchema.index({ bookingId: 1, createdAt: -1 });
+paymentSchema.index({ invoiceId: 1, createdAt: -1 });
 paymentSchema.index({ guestEmail: 1, createdAt: -1 });
 paymentSchema.index({ status: 1 });
 // transactionId already has unique: true index, no need for duplicate

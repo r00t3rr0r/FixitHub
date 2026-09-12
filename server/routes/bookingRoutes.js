@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth');
 const BookingService = require('../services/bookingService');
+const BookingPaymentService = require('../services/bookingPaymentService');
 const DHLReturnsService = require('../services/dhlReturnsService');
 const FinancialService = require('../services/financialService');
 
@@ -566,6 +567,98 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
       success: false,
       error: error.message,
     });
+  }
+});
+
+// ============================================
+// BOOKING PAYMENT ROUTES
+// ============================================
+
+// Description: Get the payment overview of a booking (order value vs. payments vs. invoices)
+// Endpoint: GET /api/bookings/:id/payments
+// Request: {}
+// Response: { success: boolean, booking: object, invoices: [], payments: [], summary: object }
+router.get('/:id/payments', requireStaff, async (req, res) => {
+  try {
+    const overview = await BookingPaymentService.getOverview(req.params.id);
+    res.json({ success: true, ...overview });
+  } catch (error) {
+    console.error('BookingRoutes: Error loading booking payments:', error);
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+  }
+});
+
+// Description: Import/link PayPal payments for a booking
+// Endpoint: POST /api/bookings/:id/payments/paypal/import
+// Request: {}
+// Response: { success: boolean, importResult: object, payments: [], summary: object }
+router.post('/:id/payments/paypal/import', requireStaff, async (req, res) => {
+  try {
+    const result = await BookingPaymentService.importPaypalPayments(req.params.id);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('BookingRoutes: Error importing PayPal payments:', error);
+    res.status(error.statusCode || 500).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+// Description: Record a manual payment for a booking
+// Endpoint: POST /api/bookings/:id/payments
+// Request: { amount: number, paymentDate?: string, paymentMethod: string, note?: string, paymentReference?: string, invoiceId?: string }
+// Response: { success: boolean, payments: [], summary: object }
+router.post('/:id/payments', requireStaff, async (req, res) => {
+  try {
+    const overview = await BookingPaymentService.addManualPayment(req.params.id, req.body, req.user?._id);
+    res.status(201).json({ success: true, ...overview });
+  } catch (error) {
+    console.error('BookingRoutes: Error recording booking payment:', error);
+    res.status(error.statusCode || 500).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+// Description: Allocate an existing payment to an invoice of the booking
+// Endpoint: POST /api/bookings/:id/payments/:paymentId/allocations
+// Request: { invoiceId: string, amount?: number, note?: string }
+// Response: { success: boolean, payments: [], summary: object }
+router.post('/:id/payments/:paymentId/allocations', requireStaff, async (req, res) => {
+  try {
+    const overview = await BookingPaymentService.allocatePayment(req.params.id, req.params.paymentId, req.body);
+    res.status(201).json({ success: true, ...overview });
+  } catch (error) {
+    console.error('BookingRoutes: Error allocating payment:', error);
+    res.status(error.statusCode || 500).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+// Description: Remove an invoice allocation from a payment
+// Endpoint: DELETE /api/bookings/:id/payments/:paymentId/allocations/:allocationId
+// Request: {}
+// Response: { success: boolean, payments: [], summary: object }
+router.delete('/:id/payments/:paymentId/allocations/:allocationId', requireStaff, async (req, res) => {
+  try {
+    const overview = await BookingPaymentService.removeAllocation(
+      req.params.id,
+      req.params.paymentId,
+      req.params.allocationId
+    );
+    res.json({ success: true, ...overview });
+  } catch (error) {
+    console.error('BookingRoutes: Error removing payment allocation:', error);
+    res.status(error.statusCode || 500).json({ success: false, error: error.message, code: error.code });
+  }
+});
+
+// Description: Delete a manually recorded payment (admin only)
+// Endpoint: DELETE /api/bookings/:id/payments/:paymentId
+// Request: {}
+// Response: { success: boolean, payments: [], summary: object }
+router.delete('/:id/payments/:paymentId', requireAdmin, async (req, res) => {
+  try {
+    const overview = await BookingPaymentService.deleteManualPayment(req.params.id, req.params.paymentId);
+    res.json({ success: true, ...overview });
+  } catch (error) {
+    console.error('BookingRoutes: Error deleting booking payment:', error);
+    res.status(error.statusCode || 500).json({ success: false, error: error.message, code: error.code });
   }
 });
 

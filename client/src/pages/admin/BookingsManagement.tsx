@@ -39,6 +39,7 @@ import {
 } from "@/api/inspectionCommunication"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
+import { BookingPaymentsDialog } from "@/components/admin/BookingPaymentsDialog"
 import { ManualRepairOrderDialog } from "@/components/admin/ManualRepairOrderDialog"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import { printInvoice } from "@/lib/invoicePrint"
@@ -304,6 +305,7 @@ export function BookingsManagement() {
   const [showReminderDialog, setShowReminderDialog] = useState(false)
   const [showComplaintDialog, setShowComplaintDialog] = useState(false)
   const [showCreateShippingLabelDialog, setShowCreateShippingLabelDialog] = useState(false)
+  const [showPaymentsDialog, setShowPaymentsDialog] = useState(false)
   const [showManualRepairDialog, setShowManualRepairDialog] = useState(false)
   const [quickPayBookingId, setQuickPayBookingId] = useState<string | null>(null)
   const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
@@ -1766,6 +1768,13 @@ export function BookingsManagement() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setSelectedBooking(booking)
+                              setShowPaymentsDialog(true)
+                            }}>
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Zahlungen
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedBooking(booking)
                               setShowReminderDialog(true)
                             }}>
                               <Bell className="h-4 w-4 mr-2" />
@@ -2241,6 +2250,21 @@ export function BookingsManagement() {
         onOpenChange={setShowManualRepairDialog}
         onCreated={fetchBookings}
       />
+
+      {selectedBooking && (
+        <BookingPaymentsDialog
+          bookingId={selectedBooking._id}
+          bookingNumber={selectedBooking.bookingNumber}
+          open={showPaymentsDialog}
+          onOpenChange={(open) => {
+            setShowPaymentsDialog(open)
+            if (!open) {
+              setSelectedBooking(null)
+            }
+          }}
+          onChanged={fetchBookings}
+        />
+      )}
 
       {selectedBooking && (
         <CreateBookingShippingLabelDialog
@@ -3973,6 +3997,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null)
+  const [showPaymentsDialog, setShowPaymentsDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -4074,6 +4099,26 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
     })
   }
 
+  const paymentsHeader = (
+    <div className="flex items-center justify-between gap-2">
+      <h3 className="text-sm font-semibold">Rechnungen</h3>
+      <Button variant="outline" size="sm" onClick={() => setShowPaymentsDialog(true)}>
+        <CreditCard className="h-4 w-4 mr-2" />
+        Zahlungen
+      </Button>
+    </div>
+  )
+
+  const paymentsDialog = (
+    <BookingPaymentsDialog
+      bookingId={booking._id}
+      bookingNumber={booking.bookingNumber}
+      open={showPaymentsDialog}
+      onOpenChange={setShowPaymentsDialog}
+      onChanged={loadInvoices}
+    />
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -4084,9 +4129,13 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
 
   if (invoices.length === 0) {
     return (
-      <div className="text-center py-8">
-        <FileText className="h-12 w-12 mx-auto mb-4 opacity-40" />
-        <p className="text-foreground/60">Fuer diese Buchung wurden noch keine Rechnungen erstellt</p>
+      <div className="space-y-3">
+        {paymentsHeader}
+        <div className="text-center py-8">
+          <FileText className="h-12 w-12 mx-auto mb-4 opacity-40" />
+          <p className="text-foreground/60">Fuer diese Buchung wurden noch keine Rechnungen erstellt</p>
+        </div>
+        {paymentsDialog}
       </div>
     )
   }
@@ -4094,6 +4143,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
   return (
     <>
       <div className="space-y-3">
+        {paymentsHeader}
         {invoices.map((invoice) => (
           <div
             key={invoice._id}
@@ -4173,6 +4223,8 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
           </div>
         ))}
       </div>
+
+      {paymentsDialog}
 
       {/* Reminder Dialog for Invoice */}
       {selectedInvoice && (
