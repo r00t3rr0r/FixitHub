@@ -3221,7 +3221,9 @@ export function FinancialManagement() {
             </CardContent>
           </Card>
 
-          {/* Zahlungsabgleich & Sondertransaktionen */}
+        </TabsContent>
+
+        {(activeTab === 'overview' || activeTab === 'payments') && (
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="border-[#d8dce6] shadow-sm flex flex-col justify-between">
               <div>
@@ -3574,7 +3576,7 @@ export function FinancialManagement() {
               </div>
             </Card>
           </div>
-        </TabsContent>
+        )}
 
         <TabsContent value="gateways" className="space-y-4">
           <Card className="border-[#d8dce6]">
