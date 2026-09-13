@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
@@ -2554,217 +2554,12 @@ export function FinancialManagement() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')}</CardTitle>
                 <div className="flex gap-2">
-                  <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-                    <DialogTrigger asChild><Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
-                      <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
-                        <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
-                          <Plus className="h-5 w-5" />
-                          {t('financialManagement.createInvoice')}
-                        </DialogTitle>
-                        <DialogDescription className="text-blue-200 text-sm">
-                          {t('financialManagement.description')}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
-                        <div className="space-y-2">
-                          <Label>Kunde suchen</Label>
-                          <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
-                          {customerResults.length > 0 && (
-                            <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
-                              {customerResults.map((c: CustomerSearchResult) => (
-                                <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
-                                  const isEuCrossBorder = Boolean(c.vatId && c.country && c.country !== 'DE');
-                                  setInvoiceForm((prev) => ({
-                                    ...prev,
-                                    customerId: c._id,
-                                    customerName: c.name,
-                                    customerEmail: c.email,
-                                    customerVatId: c.vatId || prev.customerVatId,
-                                    isReverseCharge: isEuCrossBorder ? true : prev.isReverseCharge,
-                                    taxRate: isEuCrossBorder ? '0' : prev.taxRate,
-                                    zmRelevant: isEuCrossBorder ? true : prev.zmRelevant,
-                                  }));
-                                  setCustomerResults([]);
-                                  setCustomerQuery(c.name);
-                                }}>
-                                  <div className="font-medium text-[#1a2a5e] flex items-center gap-2">
-                                    <span>{c.name}</span>
-                                    {c.vatId && <Badge variant="outline" className="text-[10px] text-indigo-700 bg-indigo-50 border-indigo-200">USt-ID: {c.vatId}</Badge>}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">{c.email} {c.country ? `· ${c.country}` : ''}</div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div><Label>Kunden-ID</Label><Input value={invoiceForm.customerId} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerId: e.target.value }))} /></div>
-                          <div><Label>Order-ID</Label><Input value={invoiceForm.orderId} onChange={(e) => setInvoiceForm((p) => ({ ...p, orderId: e.target.value }))} /></div>
-                          <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
-                          <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
-                          <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-                          <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
-                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} disabled={invoiceForm.isReverseCharge} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
-                        </div>
-
-                        {/* Reverse Charge / Innergemeinschaftliche Lieferung Card */}
-                        <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-3.5 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <Label className="text-sm font-semibold text-indigo-950 flex items-center gap-2">
-                                Innergemeinschaftliche Lieferung (Reverse Charge)
-                                {invoiceForm.isReverseCharge && (
-                                  <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2">ZM-Relevant</Badge>
-                                )}
-                              </Label>
-                              <p className="text-xs text-indigo-800/80">
-                                Steuerschuldnerschaft des Leistungsempfängers (0% MwSt.) gem. § 13b / § 14a UStG
-                              </p>
-                            </div>
-                            <Switch
-                              checked={invoiceForm.isReverseCharge}
-                              onCheckedChange={(checked) => {
-                                setInvoiceForm((prev) => ({
-                                  ...prev,
-                                  isReverseCharge: checked,
-                                  taxRate: checked ? '0' : String(financialSettings.defaults.taxRate),
-                                  zmRelevant: checked,
-                                }));
-                              }}
-                            />
-                          </div>
-
-                          {invoiceForm.isReverseCharge && (
-                            <div className="space-y-3 pt-2 border-t border-indigo-200/70">
-                              <div className="grid gap-3 md:grid-cols-2">
-                                <div>
-                                  <Label className="text-xs font-semibold text-indigo-950">USt-IdNr. des Kunden (Empfänger)</Label>
-                                  <Input
-                                    placeholder="z.B. ATU12345678 oder FR12345678901"
-                                    value={invoiceForm.customerVatId}
-                                    onChange={(e) => setInvoiceForm((p) => ({ ...p, customerVatId: e.target.value }))}
-                                    className="bg-white border-indigo-200 text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="text-xs font-semibold text-indigo-950">USt-IdNr. des Ausstellers (Leistender)</Label>
-                                  <Input
-                                    placeholder="DE318981969"
-                                    value={invoiceForm.sellerVatId}
-                                    onChange={(e) => setInvoiceForm((p) => ({ ...p, sellerVatId: e.target.value }))}
-                                    className="bg-white border-indigo-200 text-xs"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs font-semibold text-indigo-950">Rechnungshinweis</Label>
-                                <Input
-                                  value={invoiceForm.reverseChargeNotice}
-                                  onChange={(e) => setInvoiceForm((p) => ({ ...p, reverseChargeNotice: e.target.value }))}
-                                  className="bg-white border-indigo-200 text-xs"
-                                />
-                              </div>
-                              <div className="rounded bg-indigo-100/70 p-2 text-[11px] text-indigo-950 leading-relaxed">
-                                <strong>Hinweis:</strong> Bei aktivierter Option beträgt der Steuerbetrag <strong>0,00 € (0%)</strong>. Beide USt-IdNrn. sowie der gesetzliche Reverse-Charge-Hinweis werden auf der Rechnung ausgewiesen. Dieser Umsatz wird für die <strong>Zusammenfassende Meldung (ZM)</strong> erfasst.
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <Separator />
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="font-semibold text-[#1a2a5e]">Positionen (Line Items)</Label>
-                            <Button variant="outline" size="sm" type="button" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position hinzufügen</Button>
-                          </div>
-                          {invoiceForm.items.map((item, index) => (
-                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 md:grid-cols-12 items-center">
-                              <div className="md:col-span-5"><Input placeholder="Bezeichnung / Service Name" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} className="bg-white" /></div>
-                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} className="bg-white" placeholder="Menge" /></div>
-                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} className="bg-white" placeholder="Preis €" /></div>
-                              <div className="md:col-span-2">
-                                <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value as InvoiceItem['type'])}>
-                                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="service">Service</SelectItem>
-                                    <SelectItem value="addon">Add-On</SelectItem>
-                                    <SelectItem value="product">Teil</SelectItem>
-                                    <SelectItem value="fee">Gebuehr</SelectItem>
-                                    <SelectItem value="discount">Rabatt</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="md:col-span-1 text-right">
-                                <Button variant="ghost" size="icon" type="button" title="Position entfernen" onClick={() => onRemoveInvoiceLineItem(index)}>
-                                  <Trash2 className="h-4 w-4 text-red-600 hover:text-red-800" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
-                          <div className="flex justify-between"><span>Netto</span><span>{formatCurrencyValue(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
-                          {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrencyValue(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
-                          <div className="flex justify-between">
-                            <span>Steuer {invoiceForm.isReverseCharge ? '(0% - Reverse Charge)' : `(${invoiceForm.taxRate}%)`}</span>
-                            <span>{formatCurrencyValue(invoiceDraftTotals.tax, invoiceForm.currency)}</span>
-                          </div>
-                          <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrencyValue(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
-                        </div>
-                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Interne oder kundenrelevante Notiz zur Rechnung..." /></div>
-                      </div>
-                      <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
-                        <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
-                        <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                  <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
-                    <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
-                    <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden flex flex-col">
-                      <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
-                        <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
-                          <FileSpreadsheet className="h-5 w-5" />
-                          Rechnung aus RepairOrder-IDs
-                        </DialogTitle>
-                        <DialogDescription className="text-blue-200 text-sm">
-                          Mehrere Reparaturauftrags-IDs kommasepariert eingeben.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="px-6 py-4 space-y-4">
-                        <div className="space-y-2">
-                          <Label className="font-semibold text-[#1a2a5e]">RepairOrder IDs *</Label>
-                          <Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1001, RO-1002" rows={3} />
-                          <p className="text-xs text-muted-foreground">Mehrere IDs mit Komma trennen.</p>
-                        </div>
-                        <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-3">
-                          <div>
-                            <Label className="text-xs font-semibold text-indigo-950">Innergemeinschaftliche Lieferung (Reverse Charge)</Label>
-                            <p className="text-[11px] text-indigo-800">Steuerbetrag 0% / ZM-Relevant</p>
-                          </div>
-                          <Switch
-                            checked={fromRepairForm.isReverseCharge}
-                            onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, isReverseCharge: checked, taxRate: checked ? '0' : String(financialSettings.defaults.taxRate) }))}
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt %</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-                          <div><Label>Zahlungsziel</Label><Input value={fromRepairForm.paymentTerms} onChange={(e) => setFromRepairForm((p) => ({ ...p, paymentTerms: e.target.value }))} placeholder="Net 14" /></div>
-                          <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
-                        </div>
-                      </div>
-                      <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
-                        <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button>
-                        <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoiceFromRepairs}>Generieren</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setInvoiceDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}
+                  </Button>
+                  <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setFromRepairDialogOpen(true)}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -3745,6 +3540,217 @@ export function FinancialManagement() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+              <Plus className="h-5 w-5" />
+              {t('financialManagement.createInvoice')}
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              {t('financialManagement.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+            <div className="space-y-2">
+              <Label>Kunde suchen</Label>
+              <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
+              {customerResults.length > 0 && (
+                <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
+                  {customerResults.map((c: CustomerSearchResult) => (
+                    <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
+                      const isEuCrossBorder = Boolean(c.vatId && c.country && c.country !== 'DE');
+                      setInvoiceForm((prev) => ({
+                        ...prev,
+                        customerId: c._id,
+                        customerName: c.name,
+                        customerEmail: c.email,
+                        customerVatId: c.vatId || prev.customerVatId,
+                        isReverseCharge: isEuCrossBorder ? true : prev.isReverseCharge,
+                        taxRate: isEuCrossBorder ? '0' : prev.taxRate,
+                        zmRelevant: isEuCrossBorder ? true : prev.zmRelevant,
+                      }));
+                      setCustomerResults([]);
+                      setCustomerQuery(c.name);
+                    }}>
+                      <div className="font-medium text-[#1a2a5e] flex items-center gap-2">
+                        <span>{c.name}</span>
+                        {c.vatId && <Badge variant="outline" className="text-[10px] text-indigo-700 bg-indigo-50 border-indigo-200">USt-ID: {c.vatId}</Badge>}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{c.email} {c.country ? `· ${c.country}` : ''}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div><Label>Kunden-ID</Label><Input value={invoiceForm.customerId} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerId: e.target.value }))} /></div>
+              <div><Label>Order-ID</Label><Input value={invoiceForm.orderId} onChange={(e) => setInvoiceForm((p) => ({ ...p, orderId: e.target.value }))} /></div>
+              <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
+              <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
+              <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+              <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
+              <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} disabled={invoiceForm.isReverseCharge} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+              <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+            </div>
+
+            {/* Reverse Charge / Innergemeinschaftliche Lieferung Card */}
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-semibold text-indigo-950 flex items-center gap-2">
+                    Innergemeinschaftliche Lieferung (Reverse Charge)
+                    {invoiceForm.isReverseCharge && (
+                      <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2">ZM-Relevant</Badge>
+                    )}
+                  </Label>
+                  <p className="text-xs text-indigo-800/80">
+                    Steuerschuldnerschaft des Leistungsempfängers (0% MwSt.) gem. § 13b / § 14a UStG
+                  </p>
+                </div>
+                <Switch
+                  checked={invoiceForm.isReverseCharge}
+                  onCheckedChange={(checked) => {
+                    setInvoiceForm((prev) => ({
+                      ...prev,
+                      isReverseCharge: checked,
+                      taxRate: checked ? '0' : String(financialSettings.defaults.taxRate),
+                      zmRelevant: checked,
+                    }));
+                  }}
+                />
+              </div>
+
+              {invoiceForm.isReverseCharge && (
+                <div className="space-y-3 pt-2 border-t border-indigo-200/70">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <Label className="text-xs font-semibold text-indigo-950">USt-IdNr. des Kunden (Empfänger)</Label>
+                      <Input
+                        placeholder="z.B. ATU12345678 oder FR12345678901"
+                        value={invoiceForm.customerVatId}
+                        onChange={(e) => setInvoiceForm((p) => ({ ...p, customerVatId: e.target.value }))}
+                        className="bg-white border-indigo-200 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-semibold text-indigo-950">USt-IdNr. des Ausstellers (Leistender)</Label>
+                      <Input
+                        placeholder="DE318981969"
+                        value={invoiceForm.sellerVatId}
+                        onChange={(e) => setInvoiceForm((p) => ({ ...p, sellerVatId: e.target.value }))}
+                        className="bg-white border-indigo-200 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-indigo-950">Rechnungshinweis</Label>
+                    <Input
+                      value={invoiceForm.reverseChargeNotice}
+                      onChange={(e) => setInvoiceForm((p) => ({ ...p, reverseChargeNotice: e.target.value }))}
+                      className="bg-white border-indigo-200 text-xs"
+                    />
+                  </div>
+                  <div className="rounded bg-indigo-100/70 p-2 text-[11px] text-indigo-950 leading-relaxed">
+                    <strong>Hinweis:</strong> Bei aktivierter Option beträgt der Steuerbetrag <strong>0,00 € (0%)</strong>. Beide USt-IdNrn. sowie der gesetzliche Reverse-Charge-Hinweis werden auf der Rechnung ausgewiesen. Dieser Umsatz wird für die <strong>Zusammenfassende Meldung (ZM)</strong> erfasst.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="font-semibold text-[#1a2a5e]">Positionen (Line Items)</Label>
+                <Button variant="outline" size="sm" type="button" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position hinzufügen</Button>
+              </div>
+              {invoiceForm.items.map((item, index) => (
+                <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 md:grid-cols-12 items-center">
+                  <div className="md:col-span-5"><Input placeholder="Bezeichnung / Service Name" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} className="bg-white" /></div>
+                  <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} className="bg-white" placeholder="Menge" /></div>
+                  <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} className="bg-white" placeholder="Preis €" /></div>
+                  <div className="md:col-span-2">
+                    <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value as InvoiceItem['type'])}>
+                      <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="service">Service</SelectItem>
+                        <SelectItem value="addon">Add-On</SelectItem>
+                        <SelectItem value="product">Teil</SelectItem>
+                        <SelectItem value="fee">Gebuehr</SelectItem>
+                        <SelectItem value="discount">Rabatt</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-1 text-right">
+                    <Button variant="ghost" size="icon" type="button" title="Position entfernen" onClick={() => onRemoveInvoiceLineItem(index)}>
+                      <Trash2 className="h-4 w-4 text-red-600 hover:text-red-800" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
+              <div className="flex justify-between"><span>Netto</span><span>{formatCurrencyValue(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
+              {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrencyValue(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
+              <div className="flex justify-between">
+                <span>Steuer {invoiceForm.isReverseCharge ? '(0% - Reverse Charge)' : `(${invoiceForm.taxRate}%)`}</span>
+                <span>{formatCurrencyValue(invoiceDraftTotals.tax, invoiceForm.currency)}</span>
+              </div>
+              <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrencyValue(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
+            </div>
+            <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Interne oder kundenrelevante Notiz zur Rechnung..." /></div>
+          </div>
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
+        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+              <FileSpreadsheet className="h-5 w-5" />
+              Rechnung aus RepairOrder-IDs
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              Mehrere Reparaturauftrags-IDs kommasepariert eingeben.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-4 space-y-4">
+            <div className="space-y-2">
+              <Label className="font-semibold text-[#1a2a5e]">RepairOrder IDs *</Label>
+              <Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1001, RO-1002" rows={3} />
+              <p className="text-xs text-muted-foreground">Mehrere IDs mit Komma trennen.</p>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-3">
+              <div>
+                <Label className="text-xs font-semibold text-indigo-950">Innergemeinschaftliche Lieferung (Reverse Charge)</Label>
+                <p className="text-[11px] text-indigo-800">Steuerbetrag 0% / ZM-Relevant</p>
+              </div>
+              <Switch
+                checked={fromRepairForm.isReverseCharge}
+                onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, isReverseCharge: checked, taxRate: checked ? '0' : String(financialSettings.defaults.taxRate) }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+              <div><Label>Rabatt %</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+              <div><Label>Zahlungsziel</Label><Input value={fromRepairForm.paymentTerms} onChange={(e) => setFromRepairForm((p) => ({ ...p, paymentTerms: e.target.value }))} placeholder="Net 14" /></div>
+              <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
+            </div>
+          </div>
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoiceFromRepairs}>Generieren</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={sendComposerOpen} onOpenChange={setSendComposerOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
@@ -4218,9 +4224,10 @@ export function FinancialManagement() {
               </Card>
             </div>
           )}
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => {
               setDunningCaseDialogOpen(false);
               setSelectedInvoice(null);
             }}>
@@ -5559,14 +5566,18 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={gatewayDialogOpen} onOpenChange={setGatewayDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.paymentGateways')}</DialogTitle>
-            <DialogDescription>
-              Einstellungen fuer Zahlungsanbieter bearbeiten und speichern.
+        <DialogContent className="max-h-[90vh] max-w-5xl p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+              <Settings className="h-5 w-5" />
+              {t('financialManagement.paymentGateways')}
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              Einstellungen für Zahlungsanbieter bearbeiten und speichern.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
           {selectedGateway && (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2">
@@ -6937,10 +6948,12 @@ export function FinancialManagement() {
               </>
             );
           })()}
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGatewayDialogOpen(false)}>{t('common.cancel')}</Button>
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setGatewayDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
+              className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]"
               onClick={onUpdateGateway}
               disabled={(() => {
                 const validation = validateGatewayConfiguration();
