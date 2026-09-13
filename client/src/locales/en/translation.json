@@ -1123,7 +1123,18 @@
     "completed": "Completed",
     "pending": "Pending",
     "failed": "Failed",
-    "refunded": "Refunded"
+    "refunded": "Refunded",
+    "reverseCharge": "Intra-Community Supply (Reverse Charge)",
+    "reverseChargeNotice": "Notice 'Reverse Charge / Recipient is liable for VAT'",
+    "reverseChargeNoticeText": "Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge",
+    "customerVatId": "Customer VAT ID",
+    "sellerVatId": "Issuer VAT ID",
+    "zmRelevant": "Relevant for EC Sales List / Summary Report (ZM)",
+    "zmExport": "ZM Export (Reverse Charge)",
+    "taxType": "Tax Type",
+    "allTaxTypes": "All Tax Types",
+    "regularTax": "Standard (19%)",
+    "reverseChargeTax": "Reverse Charge (0% / ZM)"
   },
   "addOnServices": {
     "title": "Add-On Services",

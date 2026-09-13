@@ -329,6 +329,11 @@ const createInvoiceFormState = (settings: FinancialSettingsState) => ({
   dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
   paymentTerms: settings.defaults.paymentTerms,
   notes: '',
+  isReverseCharge: false,
+  customerVatId: '',
+  sellerVatId: settings.invoiceMetadata?.sellerVatId || 'DE318981969',
+  reverseChargeNotice: 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge',
+  zmRelevant: false,
   items: [emptyLineItem()],
 });
 
@@ -340,6 +345,10 @@ const createFromRepairFormState = (settings: FinancialSettingsState) => ({
   paymentTerms: settings.defaults.paymentTerms,
   notes: '',
   numberPrefix: settings.defaults.invoicePrefix,
+  isReverseCharge: false,
+  customerVatId: '',
+  sellerVatId: settings.invoiceMetadata?.sellerVatId || 'DE318981969',
+  reverseChargeNotice: 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge',
 });
 
 const createPaymentFormState = (
@@ -388,7 +397,7 @@ export function FinancialManagement() {
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [overdueInvoices, setOverdueInvoices] = useState<Invoice[]>([]);
 
-  const [invoiceFilters, setInvoiceFilters] = useState({ status: 'all', dateFrom: '', dateTo: '' });
+  const [invoiceFilters, setInvoiceFilters] = useState({ status: 'all', taxType: 'all', dateFrom: '', dateTo: '' });
   const [paymentFilters, setPaymentFilters] = useState({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
 
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -919,13 +928,14 @@ export function FinancialManagement() {
 
   const invoiceDraftTotals = useMemo(() => {
     const subtotal = invoiceForm.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
-    const taxRate = Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
+    const isReverseCharge = Boolean(invoiceForm.isReverseCharge);
+    const taxRate = isReverseCharge ? 0 : Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
     const discount = Number(invoiceForm.discount || 0);
     const discountAmount = subtotal * (discount / 100);
     const taxableAmount = subtotal - discountAmount;
-    const tax = taxableAmount * (taxRate / 100);
-    return { subtotal, discount: discountAmount, tax, total: subtotal - discountAmount + tax };
-  }, [invoiceForm.taxRate, invoiceForm.discount, invoiceForm.items, financialSettings.defaults.taxRate]);
+    const tax = isReverseCharge ? 0 : taxableAmount * (taxRate / 100);
+    return { subtotal, discount: discountAmount, tax, total: subtotal - discountAmount + tax, isReverseCharge };
+  }, [invoiceForm.isReverseCharge, invoiceForm.taxRate, invoiceForm.discount, invoiceForm.items, financialSettings.defaults.taxRate]);
 
   const fetchFinancialData = async () => {
     setLoading(true);
@@ -1093,6 +1103,8 @@ export function FinancialManagement() {
       if (invoiceFilters.status !== 'all') params.status = invoiceFilters.status;
       if (invoiceFilters.dateFrom) params.dateFrom = invoiceFilters.dateFrom;
       if (invoiceFilters.dateTo) params.dateTo = invoiceFilters.dateTo;
+      if (invoiceFilters.taxType === 'reverse_charge') params.isReverseCharge = 'true';
+      if (invoiceFilters.taxType === 'regular') params.isReverseCharge = 'false';
       const res = await getInvoices(params);
       setInvoices(res?.invoices || []);
     } catch (error: any) {
@@ -1158,11 +1170,12 @@ export function FinancialManagement() {
       return;
     }
 
+    const isReverseCharge = Boolean(invoiceForm.isReverseCharge);
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
     const discountAmount = subtotal * (Number(invoiceForm.discount || 0) / 100);
     const taxableAmount = subtotal - discountAmount;
-    const taxRate = Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
-    const tax = taxableAmount * (taxRate / 100);
+    const taxRate = isReverseCharge ? 0 : Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
+    const tax = isReverseCharge ? 0 : taxableAmount * (taxRate / 100);
 
     try {
       const response = await createInvoice({
@@ -1170,6 +1183,12 @@ export function FinancialManagement() {
         customerId: invoiceForm.customerId,
         customerName: invoiceForm.customerName,
         customerEmail: invoiceForm.customerEmail,
+        isReverseCharge,
+        customerVatId: invoiceForm.customerVatId,
+        sellerVatId: invoiceForm.sellerVatId,
+        reverseChargeNotice: invoiceForm.reverseChargeNotice,
+        zmRelevant: isReverseCharge,
+        taxRate,
         items,
         subtotal,
         tax,
@@ -1193,16 +1212,21 @@ export function FinancialManagement() {
   };
 
   const onCreateInvoiceFromRepairs = async () => {
-        setFromRepairForm(createFromRepairFormState(financialSettings));
     const repairOrderIds = fromRepairForm.repairOrderIds.split(',').map((id) => id.trim()).filter(Boolean);
     if (repairOrderIds.length === 0) {
       toast({ title: t('common.error'), description: t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
       return;
     }
 
+    const isReverseCharge = Boolean(fromRepairForm.isReverseCharge);
+
     try {
       const response = await generateInvoiceFromRepairs(repairOrderIds, {
-        taxRate: Number(fromRepairForm.taxRate) / 100,
+        isReverseCharge,
+        customerVatId: fromRepairForm.customerVatId,
+        sellerVatId: fromRepairForm.sellerVatId,
+        reverseChargeNotice: fromRepairForm.reverseChargeNotice,
+        taxRate: isReverseCharge ? 0 : Number(fromRepairForm.taxRate) / 100,
         discount: Number(fromRepairForm.discount),
         dueDate: fromRepairForm.dueDate,
         paymentTerms: fromRepairForm.paymentTerms,
@@ -2093,16 +2117,26 @@ export function FinancialManagement() {
       .map((entry) => entry.trim())
       .filter(Boolean);
 
-  const onExport = async (type: 'payments' | 'invoices', format: 'csv' | 'json') => {
+  const onExport = async (type: 'payments' | 'invoices' | 'zm', format: 'csv' | 'json') => {
     try {
-      const response = type === 'payments' ? await exportPayments({}, format) : await exportInvoicesData({}, format);
+      let response;
+      if (type === 'payments') {
+        response = await exportPayments({}, format);
+      } else if (type === 'zm') {
+        response = await exportInvoicesData({ isReverseCharge: true }, format);
+      } else {
+        response = await exportInvoicesData({}, format);
+      }
 
       if (format === 'csv') {
         const blob = response.data as Blob;
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+        const filename = type === 'zm'
+          ? `zusammenfassende-meldung-zm-${new Date().toISOString().slice(0, 10)}.csv`
+          : `${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -2173,14 +2207,27 @@ export function FinancialManagement() {
                           <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
                           {customerResults.length > 0 && (
                             <div className="max-h-40 overflow-y-auto rounded-md border border-[#d8dce6]">
-                              {customerResults.map((c) => (
+                              {customerResults.map((c: any) => (
                                 <button key={c._id} type="button" className="w-full border-b border-[#d8dce6] p-2 text-left hover:bg-[#f8f9fc] last:border-b-0" onClick={() => {
-                                  setInvoiceForm((prev) => ({ ...prev, customerId: c._id, customerName: c.name, customerEmail: c.email }));
+                                  const isEuCrossBorder = Boolean(c.vatId && c.country && c.country !== 'DE');
+                                  setInvoiceForm((prev) => ({
+                                    ...prev,
+                                    customerId: c._id,
+                                    customerName: c.name,
+                                    customerEmail: c.email,
+                                    customerVatId: c.vatId || prev.customerVatId,
+                                    isReverseCharge: isEuCrossBorder ? true : prev.isReverseCharge,
+                                    taxRate: isEuCrossBorder ? '0' : prev.taxRate,
+                                    zmRelevant: isEuCrossBorder ? true : prev.zmRelevant,
+                                  }));
                                   setCustomerResults([]);
                                   setCustomerQuery(c.name);
                                 }}>
-                                  <div className="font-medium text-[#1a2a5e]">{c.name}</div>
-                                  <div className="text-xs text-muted-foreground">{c.email}</div>
+                                  <div className="font-medium text-[#1a2a5e] flex items-center gap-2">
+                                    <span>{c.name}</span>
+                                    {c.vatId && <Badge variant="outline" className="text-[10px] text-indigo-700 bg-indigo-50 border-indigo-200">USt-ID: {c.vatId}</Badge>}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{c.email} {c.country ? `· ${c.country}` : ''}</div>
                                 </button>
                               ))}
                             </div>
@@ -2193,9 +2240,74 @@ export function FinancialManagement() {
                           <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
                           <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
                           <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
-                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} disabled={invoiceForm.isReverseCharge} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
                           <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
                         </div>
+
+                        {/* Reverse Charge / Innergemeinschaftliche Lieferung Card */}
+                        <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-3.5 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label className="text-sm font-semibold text-indigo-950 flex items-center gap-2">
+                                Innergemeinschaftliche Lieferung (Reverse Charge)
+                                {invoiceForm.isReverseCharge && (
+                                  <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.2">ZM-Relevant</Badge>
+                                )}
+                              </Label>
+                              <p className="text-xs text-indigo-800/80">
+                                Steuerschuldnerschaft des Leistungsempfängers (0% MwSt.) gem. § 13b / § 14a UStG
+                              </p>
+                            </div>
+                            <Switch
+                              checked={invoiceForm.isReverseCharge}
+                              onCheckedChange={(checked) => {
+                                setInvoiceForm((prev) => ({
+                                  ...prev,
+                                  isReverseCharge: checked,
+                                  taxRate: checked ? '0' : String(financialSettings.defaults.taxRate),
+                                  zmRelevant: checked,
+                                }));
+                              }}
+                            />
+                          </div>
+
+                          {invoiceForm.isReverseCharge && (
+                            <div className="space-y-3 pt-2 border-t border-indigo-200/70">
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                  <Label className="text-xs font-semibold text-indigo-950">USt-IdNr. des Kunden (Empfänger)</Label>
+                                  <Input
+                                    placeholder="z.B. ATU12345678 oder FR12345678901"
+                                    value={invoiceForm.customerVatId}
+                                    onChange={(e) => setInvoiceForm((p) => ({ ...p, customerVatId: e.target.value }))}
+                                    className="bg-white border-indigo-200 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs font-semibold text-indigo-950">USt-IdNr. des Ausstellers (Leistender)</Label>
+                                  <Input
+                                    placeholder="DE318981969"
+                                    value={invoiceForm.sellerVatId}
+                                    onChange={(e) => setInvoiceForm((p) => ({ ...p, sellerVatId: e.target.value }))}
+                                    className="bg-white border-indigo-200 text-xs"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-semibold text-indigo-950">Rechnungshinweis</Label>
+                                <Input
+                                  value={invoiceForm.reverseChargeNotice}
+                                  onChange={(e) => setInvoiceForm((p) => ({ ...p, reverseChargeNotice: e.target.value }))}
+                                  className="bg-white border-indigo-200 text-xs"
+                                />
+                              </div>
+                              <div className="rounded bg-indigo-100/70 p-2 text-[11px] text-indigo-950 leading-relaxed">
+                                <strong>Hinweis:</strong> Bei aktivierter Option beträgt der Steuerbetrag <strong>0,00 € (0%)</strong>. Beide USt-IdNrn. sowie der gesetzliche Reverse-Charge-Hinweis werden auf der Rechnung ausgewiesen. Dieser Umsatz wird für die <strong>Zusammenfassende Meldung (ZM)</strong> erfasst.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         <Separator />
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -2226,7 +2338,10 @@ export function FinancialManagement() {
                         <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
                           <div className="flex justify-between"><span>Netto</span><span>{formatCurrency(invoiceDraftTotals.subtotal, invoiceForm.currency)}</span></div>
                           {invoiceDraftTotals.discount > 0 && <div className="flex justify-between text-orange-600"><span>Rabatt ({invoiceForm.discount}%)</span><span>-{formatCurrency(invoiceDraftTotals.discount, invoiceForm.currency)}</span></div>}
-                          <div className="flex justify-between"><span>Steuer ({invoiceForm.taxRate}%)</span><span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span></div>
+                          <div className="flex justify-between">
+                            <span>Steuer {invoiceForm.isReverseCharge ? '(0% - Reverse Charge)' : `(${invoiceForm.taxRate}%)`}</span>
+                            <span>{formatCurrency(invoiceDraftTotals.tax, invoiceForm.currency)}</span>
+                          </div>
                           <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrency(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
                         </div>
                         <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
@@ -2241,10 +2356,23 @@ export function FinancialManagement() {
                     <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
                     <DialogContent>
                       <DialogHeader><DialogTitle>Rechnung aus RepairOrder-IDs</DialogTitle><DialogDescription>Mehrere IDs kommasepariert eingeben.</DialogDescription></DialogHeader>
-                      <div className="space-y-2">
-                        <Label>RepairOrder IDs</Label><Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label>RepairOrder IDs</Label>
+                          <Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-2.5">
+                          <div>
+                            <Label className="text-xs font-semibold text-indigo-950">Innergemeinschaftliche Lieferung (Reverse Charge)</Label>
+                            <p className="text-[11px] text-indigo-800">Steuerbetrag 0% / ZM-Relevant</p>
+                          </div>
+                          <Switch
+                            checked={fromRepairForm.isReverseCharge}
+                            onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, isReverseCharge: checked, taxRate: checked ? '0' : String(financialSettings.defaults.taxRate) }))}
+                          />
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <div><Label>Steuer %</Label><Input type="number" value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+                          <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
                           <div><Label>Rabatt</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
@@ -2259,11 +2387,11 @@ export function FinancialManagement() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-3 grid gap-2 md:grid-cols-4">
+              <div className="mb-3 grid gap-2 md:grid-cols-5">
                 <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
                   <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="all">Alle Status</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="pending_approval">Pending Approval</SelectItem>
                     <SelectItem value="sent">Sent</SelectItem>
@@ -2272,6 +2400,14 @@ export function FinancialManagement() {
                     <SelectItem value="overdue">Overdue</SelectItem>
                     <SelectItem value="cancelled">Canceled</SelectItem>
                     <SelectItem value="credited">Credited</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={invoiceFilters.taxType} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, taxType: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Steuerart" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Steuerarten</SelectItem>
+                    <SelectItem value="regular">Regulär (19%)</SelectItem>
+                    <SelectItem value="reverse_charge">Reverse Charge (0% / ZM)</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
@@ -2313,6 +2449,9 @@ export function FinancialManagement() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span>{invoice.invoiceNumber}</span>
+                            {invoice.isReverseCharge && (
+                              <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 border-0">Reverse Charge</Badge>
+                            )}
                             {invoicePayments.length > 0 && (
                               <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
                             )}
@@ -3046,9 +3185,10 @@ export function FinancialManagement() {
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>Berichte &amp; Export</CardTitle><CardDescription className="text-[#c8d0e7]">Daten als CSV/JSON exportieren und Kennzahlen einsehen.</CardDescription></CardHeader>
           </Card>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-4">
             <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
             <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
+            <Card className="border-indigo-200 bg-indigo-50/40"><CardHeader className="bg-indigo-900 rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>ZM-Meldung (Reverse Charge)</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full bg-white border-indigo-300 text-indigo-950 hover:bg-indigo-50" onClick={() => onExport('zm', 'csv')}><Download className="mr-2 h-4 w-4 text-indigo-600" />ZM CSV</Button><Button variant="outline" className="w-full bg-white border-indigo-300 text-indigo-950 hover:bg-indigo-50" onClick={() => onExport('zm', 'json')}><Download className="mr-2 h-4 w-4 text-indigo-600" />ZM JSON</Button></CardContent></Card>
             <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
           </div>
         </TabsContent>
@@ -3537,6 +3677,9 @@ export function FinancialManagement() {
               {selectedInvoice?.isCreditNote && (
                 <Badge className="bg-violet-500/90 text-white border border-violet-300 ml-2">Gutschrift</Badge>
               )}
+              {selectedInvoice?.isReverseCharge && (
+                <Badge className="bg-indigo-600 text-white border border-indigo-300 ml-2">Reverse Charge</Badge>
+              )}
               {selectedInvoice?.status === 'credited' && !selectedInvoice?.isCreditNote && (
                 <Badge className="bg-orange-500/90 text-white border border-orange-300 ml-2">Gutgeschrieben</Badge>
               )}
@@ -3556,6 +3699,24 @@ export function FinancialManagement() {
 
           {selectedInvoice && (
             <div className="space-y-4">
+              {/* ── Reverse Charge Banner ─────────────────────────────────── */}
+              {selectedInvoice.isReverseCharge && (
+                <div className="flex items-start gap-3 rounded-md border border-indigo-300 bg-indigo-50 p-3.5 text-sm text-indigo-950">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+                  <div className="w-full">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-indigo-950">Innergemeinschaftliche Lieferung / Reverse Charge</span>
+                      <Badge className="bg-indigo-600 text-white text-[10px] px-2 py-0.5">ZM-Relevant</Badge>
+                    </div>
+                    <div className="mt-0.5 text-xs text-indigo-800">{selectedInvoice.reverseChargeNotice || 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge'}</div>
+                    <div className="mt-2.5 grid grid-cols-2 gap-3 text-xs bg-white/80 p-2.5 rounded border border-indigo-200">
+                      <div><span className="font-semibold text-indigo-950">USt-IdNr. Aussteller:</span> {selectedInvoice.sellerVatId || 'DE318981969'}</div>
+                      <div><span className="font-semibold text-indigo-950">USt-IdNr. Empfänger:</span> {selectedInvoice.customerVatId || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── Credit-note / Credited banner ─────────────────────────── */}
               {selectedInvoice.isCreditNote && (
                 <div className="flex items-start gap-3 rounded-md border border-violet-300 bg-violet-50 p-3 text-sm text-violet-800">

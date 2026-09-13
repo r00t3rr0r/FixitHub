@@ -232,6 +232,28 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: 'Net 30'
   },
+  isReverseCharge: {
+    type: Boolean,
+    default: false
+  },
+  reverseChargeNotice: {
+    type: String,
+    default: 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge'
+  },
+  customerVatId: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  sellerVatId: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  zmRelevant: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -266,13 +288,24 @@ invoiceSchema.pre('save', async function(next) {
 // Calculate totals before saving
 invoiceSchema.pre('save', function(next) {
   if (this.items && this.items.length > 0) {
+    const isReverseCharge = Boolean(this.isReverseCharge);
+    if (isReverseCharge) {
+      this.taxRate = 0;
+      this.tax = 0;
+      this.zmRelevant = true;
+      if (!this.reverseChargeNotice) {
+        this.reverseChargeNotice = 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge';
+      }
+    }
+
     const hasExplicitTotal = Number.isFinite(Number(this.total));
     const discount = Number.isFinite(Number(this.discount)) ? Number(this.discount) : 0;
-    const taxRate = Number.isFinite(Number(this.taxRate)) ? Number(this.taxRate) : 19;
+    const taxRate = isReverseCharge ? 0 : (Number.isFinite(Number(this.taxRate)) ? Number(this.taxRate) : 19);
 
     const calculated = CalculationHelper.calculateInvoiceTotals(this.items, {
       taxRatePercent: taxRate,
-      additionalDiscount: discount
+      additionalDiscount: discount,
+      isReverseCharge
     });
 
     // Populate item calculations (unitNetPrice, unitGrossPrice, lineGrossTotal, lineNetTotal)
@@ -296,22 +329,22 @@ invoiceSchema.pre('save', function(next) {
       const explicitGross = Number(this.total);
       const taxDivisor = 1 + (taxRate / 100);
       const explicitNet = CalculationHelper.round(explicitGross / taxDivisor);
-      const explicitTax = CalculationHelper.round(explicitGross - explicitNet);
+      const explicitTax = isReverseCharge ? 0 : CalculationHelper.round(explicitGross - explicitNet);
 
       this.subtotal = Number.isFinite(Number(this.subtotal)) ? Number(this.subtotal) : explicitNet;
-      this.tax = Number.isFinite(Number(this.tax)) ? Number(this.tax) : explicitTax;
+      this.tax = isReverseCharge ? 0 : (Number.isFinite(Number(this.tax)) ? Number(this.tax) : explicitTax);
     }
 
     this.invoiceGrossTotal = this.total;
     this.invoiceNetTotal = this.subtotal;
-    this.invoiceTaxTotal = this.tax;
+    this.invoiceTaxTotal = isReverseCharge ? 0 : this.tax;
   }
   next();
 });
 
 // Populate customer and order info
 invoiceSchema.pre(/^find/, function(next) {
-  this.populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
+  this.populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email vatId')
       .populate('orderId', 'orderNumber deviceBrand deviceModel');
   next();
 });

@@ -69,9 +69,13 @@ class CalculationHelper {
    * @param {object} options
    * @param {number} options.taxRatePercent - Steuersatz (Standard 19)
    * @param {number} options.additionalDiscount - Zusätzlicher Rabattbetrag (Brutto)
+   * @param {boolean} options.isReverseCharge - Innergemeinschaftliche Lieferung (Reverse Charge / 0% MwSt)
    */
   static calculateInvoiceTotals(items = [], options = {}) {
-    const taxRate = Number.isFinite(Number(options.taxRatePercent)) ? Number(options.taxRatePercent) : CalculationHelper.DEFAULT_TAX_RATE;
+    const isReverseCharge = Boolean(options.isReverseCharge);
+    const taxRate = isReverseCharge
+      ? 0
+      : (Number.isFinite(Number(options.taxRatePercent)) ? Number(options.taxRatePercent) : CalculationHelper.DEFAULT_TAX_RATE);
     const taxDivisor = 1 + (taxRate / 100);
     const additionalDiscount = CalculationHelper.round(options.additionalDiscount || 0);
 
@@ -112,6 +116,7 @@ class CalculationHelper {
       invoiceGrossTotal,
       invoiceNetTotal,
       invoiceTaxTotal,
+      isReverseCharge,
       // Kompatibilitätsfelder für bestehenden Code
       total: invoiceGrossTotal,
       subtotal: invoiceNetTotal,

@@ -24,6 +24,12 @@ export interface PrintableInvoice {
   notes?: string
   paymentTerms?: string
   isCreditNote?: boolean
+  isReverseCharge?: boolean
+  reverseChargeNotice?: string
+  customerVatId?: string
+  sellerVatId?: string
+  zmRelevant?: boolean
+  taxRate?: number
 }
 
 /**

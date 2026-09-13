@@ -260,6 +260,8 @@ class FinancialService {
       creditLimit: groupFinanceProfile.creditLimit ?? 0,
       cashDiscountPercent: groupFinanceProfile.cashDiscountPercent ?? settings.discountPolicy.earlyPaymentDiscountPercent,
       cashDiscountDays: groupFinanceProfile.cashDiscountDays ?? 0,
+      sellerVatId: settings.invoiceMetadata?.sellerVatId || 'DE318981969',
+      invoiceMetadata: settings.invoiceMetadata || {},
       customer: resolvedCustomer,
       group: resolvedCustomer?.primaryCustomerGroupId || null,
     };
@@ -287,7 +289,7 @@ class FinancialService {
         ],
         role: 'customer'
       })
-      .select('name firstName lastName customerNumber email phone invoiceAddress paymentAddress')
+      .select('name firstName lastName customerNumber email phone invoiceAddress paymentAddress company country vatId')
       .limit(10);
 
       console.log('FinancialService: Found', customers.length, 'customers');
@@ -483,6 +485,14 @@ class FinancialService {
         }
       }
 
+      if (filters.isReverseCharge !== undefined && filters.isReverseCharge !== null && filters.isReverseCharge !== '') {
+        query.isReverseCharge = filters.isReverseCharge === true || filters.isReverseCharge === 'true';
+      }
+
+      if (filters.zmRelevant !== undefined && filters.zmRelevant !== null && filters.zmRelevant !== '') {
+        query.zmRelevant = filters.zmRelevant === true || filters.zmRelevant === 'true';
+      }
+
       if (filters.dateFrom || filters.dateTo) {
         query.createdAt = {};
         if (filters.dateFrom) {
@@ -643,11 +653,40 @@ class FinancialService {
         cleanedInvoiceData.paymentTerms = financialProfile.paymentTerms;
       }
 
+      const isReverseCharge = Boolean(
+        cleanedInvoiceData.isReverseCharge ||
+        financialProfile.taxMode === 'reverse_charge'
+      );
+
+      if (isReverseCharge) {
+        cleanedInvoiceData.isReverseCharge = true;
+        cleanedInvoiceData.taxRate = 0;
+        cleanedInvoiceData.tax = 0;
+        cleanedInvoiceData.zmRelevant = true;
+        if (!cleanedInvoiceData.reverseChargeNotice) {
+          cleanedInvoiceData.reverseChargeNotice = 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge';
+        }
+      }
+
+      if (cleanedInvoiceData.customerVatId === undefined || cleanedInvoiceData.customerVatId === null) {
+        cleanedInvoiceData.customerVatId = (financialProfile.customer?.vatId || '').trim();
+      } else {
+        cleanedInvoiceData.customerVatId = String(cleanedInvoiceData.customerVatId).trim();
+      }
+
+      if (!cleanedInvoiceData.sellerVatId) {
+        cleanedInvoiceData.sellerVatId = (financialProfile.sellerVatId || 'DE318981969').trim();
+      } else {
+        cleanedInvoiceData.sellerVatId = String(cleanedInvoiceData.sellerVatId).trim();
+      }
+
       if ((cleanedInvoiceData.discount === undefined || cleanedInvoiceData.discount === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
         cleanedInvoiceData.discount = calculateDiscountAmount(cleanedInvoiceData.subtotal, financialProfile.defaultDiscountPercent);
       }
 
-      if ((cleanedInvoiceData.tax === undefined || cleanedInvoiceData.tax === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
+      if (isReverseCharge) {
+        cleanedInvoiceData.tax = 0;
+      } else if ((cleanedInvoiceData.tax === undefined || cleanedInvoiceData.tax === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
         cleanedInvoiceData.tax = Number(cleanedInvoiceData.subtotal) * (financialProfile.taxRate / 100);
       }
 
@@ -1310,9 +1349,13 @@ class FinancialService {
         });
       });
 
+      const isReverseCharge = Boolean(
+        financialProfile.taxMode === 'reverse_charge' ||
+        Boolean(order.customerId?.vatId && order.customerId?.country && order.customerId.country !== 'DE')
+      );
       const subtotal = items.reduce((sum, item) => sum + item.total, 0);
       const discount = calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
-      const taxRate = financialProfile.taxRate / 100;
+      const taxRate = isReverseCharge ? 0 : (financialProfile.taxRate / 100);
       const dueDays = financialProfile.paymentDueDays || 30;
       const invoicePrefix = financialProfile.invoicePrefix;
       const paymentTerms = composePaymentTerms(financialProfile);
@@ -1323,13 +1366,19 @@ class FinancialService {
         customerId: order.customerId._id,
         customerName: order.customerId.name,
         customerEmail: order.customerId.email,
+        customerVatId: (order.customerId?.vatId || '').trim(),
+        sellerVatId: (financialProfile.sellerVatId || 'DE318981969').trim(),
+        isReverseCharge,
+        reverseChargeNotice: isReverseCharge ? 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge' : undefined,
+        zmRelevant: isReverseCharge,
+        taxRate: isReverseCharge ? 0 : financialProfile.taxRate,
         billingAddress: resolveBillingAddressFromOrder(order),
         shippingAddress: resolveShippingAddressFromOrder(order),
         items,
         subtotal,
-        tax: subtotal * taxRate,
+        tax: isReverseCharge ? 0 : (subtotal * taxRate),
         discount,
-        total: subtotal + (subtotal * taxRate) - discount,
+        total: subtotal + (isReverseCharge ? 0 : (subtotal * taxRate)) - discount,
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
         numberPrefix: invoicePrefix,
         paymentTerms,
@@ -1406,9 +1455,14 @@ class FinancialService {
       }
     });
 
+    const isReverseCharge = Boolean(
+      options.isReverseCharge !== undefined
+        ? options.isReverseCharge
+        : (financialProfile.taxMode === 'reverse_charge' || (customer?.vatId && customer?.country && customer.country !== 'DE'))
+    );
     const subtotal = items.reduce((s, i) => s + i.total, 0);
-    const taxRate  = options.taxRate != null ? options.taxRate : financialProfile.taxRate / 100;
-    const tax      = subtotal * taxRate;
+    const taxRate  = isReverseCharge ? 0 : (options.taxRate != null ? options.taxRate : financialProfile.taxRate / 100);
+    const tax      = isReverseCharge ? 0 : (subtotal * taxRate);
     const discount = options.discount != null
       ? options.discount
       : calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
@@ -1435,6 +1489,11 @@ class FinancialService {
       customerId:    customer._id,
       customerName:  customer.name,
       customerEmail: customer.email,
+      customerVatId: (options.customerVatId || customer.vatId || '').trim(),
+      sellerVatId:   (options.sellerVatId || financialProfile.sellerVatId || 'DE318981969').trim(),
+      isReverseCharge,
+      reverseChargeNotice: isReverseCharge ? (options.reverseChargeNotice || 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge') : undefined,
+      zmRelevant:    isReverseCharge,
       billingAddress: resolveBillingAddressFromOrder(orders[0]),
       shippingAddress: resolveShippingAddressFromOrder(orders[0]),
       items,
@@ -2048,6 +2107,12 @@ class FinancialService {
 
     if (filters.status)     query.status    = filters.status;
     if (filters.customerId) query.customerId = filters.customerId;
+    if (filters.isReverseCharge !== undefined && filters.isReverseCharge !== null && filters.isReverseCharge !== '') {
+      query.isReverseCharge = filters.isReverseCharge === true || filters.isReverseCharge === 'true';
+    }
+    if (filters.zmRelevant !== undefined && filters.zmRelevant !== null && filters.zmRelevant !== '') {
+      query.zmRelevant = filters.zmRelevant === true || filters.zmRelevant === 'true';
+    }
     if (filters.dateFrom || filters.dateTo) {
       query.createdAt = {};
       if (filters.dateFrom) query.createdAt.$gte = new Date(filters.dateFrom);
@@ -2058,12 +2123,35 @@ class FinancialService {
 
     if (format === 'json') return invoices;
 
-    // CSV with tax breakdown
-    const headers = ['invoiceNumber','customerName','customerEmail','subtotal','tax','discount','total','paidAmount','status','dueDate','createdAt','isCreditNote'];
+    // CSV with tax breakdown & reverse charge data
+    const headers = [
+      'invoiceNumber',
+      'customerName',
+      'customerEmail',
+      'customerVatId',
+      'sellerVatId',
+      'isReverseCharge',
+      'reverseChargeNotice',
+      'zmRelevant',
+      'subtotal',
+      'tax',
+      'discount',
+      'total',
+      'paidAmount',
+      'status',
+      'dueDate',
+      'createdAt',
+      'isCreditNote'
+    ];
     const rows = invoices.map(inv => [
       inv.invoiceNumber,
       inv.customerName,
       inv.customerEmail,
+      inv.customerVatId || '',
+      inv.sellerVatId || '',
+      inv.isReverseCharge ? '1' : '0',
+      `"${(inv.reverseChargeNotice || '').replace(/"/g, '""')}"`,
+      inv.zmRelevant ? '1' : '0',
       inv.subtotal.toFixed(2),
       inv.tax.toFixed(2),
       inv.discount.toFixed(2),

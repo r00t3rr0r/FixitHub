@@ -1124,7 +1124,18 @@
     "completed": "Abgeschlossen",
     "pending": "Ausstehend",
     "failed": "Fehlgeschlagen",
-    "refunded": "Rückerstattung"
+    "refunded": "Rückerstattung",
+    "reverseCharge": "Innergemeinschaftliche Lieferung (Reverse Charge)",
+    "reverseChargeNotice": "Hinweis „Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge“",
+    "reverseChargeNoticeText": "Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge",
+    "customerVatId": "USt-IdNr. des Kunden",
+    "sellerVatId": "USt-IdNr. des Ausstellers",
+    "zmRelevant": "Relevant für Zusammenfassende Meldung (ZM)",
+    "zmExport": "ZM-Meldung Export (Reverse Charge)",
+    "taxType": "Steuerart",
+    "allTaxTypes": "Alle Steuerarten",
+    "regularTax": "Regulär (19%)",
+    "reverseChargeTax": "Reverse Charge (0% / ZM)"
   },
   "addOnServices": {
     "title": "Zusatzdienste",

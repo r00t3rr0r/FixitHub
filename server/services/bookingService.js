@@ -2161,7 +2161,7 @@ class BookingService {
 
     try {
       const booking = await Booking.findById(bookingId)
-        .populate('customerId', 'firstName lastName name email phone invoiceAddress paymentAddress');
+        .populate('customerId', 'firstName lastName name email phone invoiceAddress paymentAddress vatId country');
 
       if (!booking) {
         throw new Error('Booking not found');
@@ -2231,19 +2231,30 @@ class BookingService {
 
       console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
+      const isReverseCharge = Boolean(invoiceData.isReverseCharge);
+      const customerVatId = String(invoiceData.customerVatId || booking.customerId?.vatId || '').trim();
+      const sellerVatId = String(invoiceData.sellerVatId || '').trim();
+      const reverseChargeNotice = invoiceData.reverseChargeNotice || (isReverseCharge ? 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge' : undefined);
+
       // Create invoice
       const invoice = new Invoice({
         customerId: booking.customerId._id,
         customerName: customerName,
         customerEmail: customerEmail,
+        customerVatId: customerVatId || undefined,
+        sellerVatId: sellerVatId || undefined,
+        isReverseCharge,
+        reverseChargeNotice,
+        zmRelevant: isReverseCharge,
+        taxRate: isReverseCharge ? 0 : 19,
         billingAddress: billingAddress || undefined,
         shippingAddress: shippingAddress || undefined,
         orderId: primaryOrderId,
         repairOrderIds: selectedOrderIds,
         bookingId: booking._id,
         items: invoiceItems,
-        subtotal: invoiceTotals.subtotal,
-        tax: invoiceTotals.tax,
+        subtotal: isReverseCharge ? invoiceTotals.total : invoiceTotals.subtotal,
+        tax: isReverseCharge ? 0 : invoiceTotals.tax,
         discount: invoiceTotals.discount,
         total: invoiceTotals.total,
         status: 'sent',

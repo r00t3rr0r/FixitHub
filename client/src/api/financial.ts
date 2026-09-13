@@ -62,6 +62,12 @@ export interface Invoice {
   notes?: string;
   template: string;
   paymentTerms: string;
+  isReverseCharge?: boolean;
+  reverseChargeNotice?: string;
+  customerVatId?: string;
+  sellerVatId?: string;
+  zmRelevant?: boolean;
+  taxRate?: number;
 }
 
 export interface InvoiceItem {

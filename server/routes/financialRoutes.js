@@ -118,6 +118,8 @@ router.get('/invoices', requireUser, requireRole(['admin']), async (req, res) =>
       customerId: req.query.customerId,
       orderId: req.query.orderId,
       bookingId: req.query.bookingId,
+      isReverseCharge: req.query.isReverseCharge,
+      zmRelevant: req.query.zmRelevant,
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
       page: req.query.page,

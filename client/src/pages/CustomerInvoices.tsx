@@ -980,6 +980,19 @@ export function CustomerInvoices() {
         (customerIdRaw ? `KD${String(customerIdRaw).slice(-6).toUpperCase()}` : ""),
       );
 
+      const isReverseCharge = Boolean(sourceInvoice.isReverseCharge);
+      const reverseChargeNotice = cleanText(sourceInvoice.reverseChargeNotice, "Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge");
+      const customerVatId = cleanText(
+        sourceInvoice.customerVatId ||
+        (typeof rawInvoice.customerId === "object" ? (rawInvoice.customerId as any)?.vatId : ""),
+        ""
+      );
+      const sellerVatId = cleanText(sourceInvoice.sellerVatId, "DE318981969");
+
+      if (customerVatId) {
+        customerLines.push(`USt-IdNr.: ${customerVatId}`);
+      }
+
       const invoiceDate = formatDate(sourceInvoice.createdAt);
       const dueDate = formatDate(sourceInvoice.dueDate);
       const paymentMethod = cleanText(sourceInvoice.paymentMethod || "-");
@@ -987,10 +1000,10 @@ export function CustomerInvoices() {
       const amountPaid = normalizeAmount(sourceInvoice.amountPaid ?? sourceInvoice.paidAmount ?? 0);
       const subtotal = normalizeAmount(sourceInvoice.subtotal);
       const total = normalizeAmount(sourceInvoice.total);
-      const taxAmount = normalizeAmount(sourceInvoice.tax);
+      const taxAmount = isReverseCharge ? 0 : normalizeAmount(sourceInvoice.tax);
       const discountAmount = normalizeAmount(sourceInvoice.discount);
       const openAmount = total - amountPaid;
-      const defaultTaxRate = sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0);
+      const defaultTaxRate = isReverseCharge ? 0 : (sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0));
 
       const latestPayment = sourceInvoice.paymentHistory && sourceInvoice.paymentHistory.length > 0 ? sourceInvoice.paymentHistory[0] : undefined;
       const paymentDate = formatDate(latestPayment?.date || sourceInvoice.createdAt);
@@ -1096,9 +1109,16 @@ export function CustomerInvoices() {
       pdf.text("Seite: 1", left, 65);
       pdf.text(invoiceDate, right, 65, { align: "right" });
       pdf.text(`Rechnungsnr. ${invoiceNumber} bzgl. Bestellnummer: ${orderNumber}`, left, 71);
-      pdf.text(`Kundennummer: ${customerNumber}`, left, 77);
-      if (!strictTemplateMode) {
-        pdf.text(`Faelligkeitsdatum: ${dueDate}`, right, 77, { align: "right" });
+      if (isReverseCharge) {
+        pdf.text(`Kundennummer: ${customerNumber} | USt-IdNr. Empfänger: ${customerVatId || '-'}`, left, 77);
+        pdf.text(`USt-IdNr. Aussteller: ${sellerVatId}`, right, 77, { align: "right" });
+      } else {
+        pdf.text(`Kundennummer: ${customerNumber}`, left, 77);
+        if (customerVatId) {
+          pdf.text(`USt-IdNr. Kunde: ${customerVatId}`, right, 77, { align: "right" });
+        } else if (!strictTemplateMode) {
+          pdf.text(`Faelligkeitsdatum: ${dueDate}`, right, 77, { align: "right" });
+        }
       }
       drawLine(left, 79.8, right, 79.8);
 
@@ -1203,6 +1223,9 @@ export function CustomerInvoices() {
         `Faelligkeitsdatum: ${dueDate}`,
         `E-Mail: ${cleanText(sourceInvoice.customerEmail, "-")}`,
       ];
+      if (isReverseCharge) {
+        detailLines.push(`Hinweis: ${reverseChargeNotice}`);
+      }
 
       const notes = cleanText(sourceInvoice.notes, "");
       const rawNoteLines = notes ? pdf.splitTextToSize(notes, infoWidth - 8) : [];
@@ -1211,7 +1234,11 @@ export function CustomerInvoices() {
       const rowHeight = 5.9;
       const totalsRows = [
         { label: "Gesamt Netto", value: formatMoney(subtotal), emphasize: false },
-        { label: `zzgl. ${formatTax(defaultTaxRate)} MwSt. ${groupedTaxLabel}`, value: formatMoney(taxAmount), emphasize: false },
+        {
+          label: isReverseCharge ? "zzgl. 0,00% MwSt. (Reverse Charge)" : `zzgl. ${formatTax(defaultTaxRate)} MwSt. ${groupedTaxLabel}`,
+          value: formatMoney(isReverseCharge ? 0 : taxAmount),
+          emphasize: false
+        },
       ];
       if (discountAmount > 0) {
         totalsRows.push({ label: "Betrag vor Rabatt", value: formatMoney(subtotal + taxAmount), emphasize: false });
@@ -1722,13 +1749,20 @@ export function CustomerInvoices() {
                   </div>
                 </div>
                 {selectedInvoice && (
-                  <Badge
-                    variant={getStatusBadgeVariant(selectedInvoice.status)}
-                    className="text-xs font-semibold px-2 py-0.5 shrink-0 flex items-center gap-1"
-                  >
-                    {getStatusIcon(selectedInvoice.status)}
-                    {getStatusLabel(selectedInvoice.status)}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {selectedInvoice.isReverseCharge && (
+                      <Badge className="bg-indigo-600 text-white border border-indigo-400 text-xs font-semibold px-2 py-0.5">
+                        Reverse Charge
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={getStatusBadgeVariant(selectedInvoice.status)}
+                      className="text-xs font-semibold px-2 py-0.5 flex items-center gap-1"
+                    >
+                      {getStatusIcon(selectedInvoice.status)}
+                      {getStatusLabel(selectedInvoice.status)}
+                    </Badge>
+                  </div>
                 )}
               </div>
             </DialogHeader>
@@ -1736,6 +1770,19 @@ export function CustomerInvoices() {
             {selectedInvoice && (
               <div className="overflow-y-auto max-h-[calc(90vh-68px)]">
                 <div className="p-4 space-y-3">
+                  {selectedInvoice.isReverseCharge && (
+                    <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3 text-xs text-indigo-900">
+                      <p className="font-bold flex items-center gap-1.5 text-indigo-950">
+                        <CheckCircle className="h-4 w-4 text-indigo-600" />
+                        {selectedInvoice.reverseChargeNotice || 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge'}
+                      </p>
+                      <div className="mt-1 grid grid-cols-2 gap-2 text-indigo-800 text-[11px]">
+                        <p><strong>USt-IdNr. Aussteller:</strong> {selectedInvoice.sellerVatId || 'DE318981969'}</p>
+                        <p><strong>USt-IdNr. Empfänger:</strong> {selectedInvoice.customerVatId || '-'}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Basic Info Grid */}
                   <div className="grid grid-cols-3 gap-x-3 gap-y-2 bg-slate-50 rounded-lg p-3 border border-slate-100">
                     <div>
@@ -1771,7 +1818,13 @@ export function CustomerInvoices() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zahlungsart</p>
                       <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || '-'}</p>
                     </div>
-                    <div className="col-span-3">
+                    {selectedInvoice.customerVatId && (
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">USt-IdNr. Kunde</p>
+                        <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.customerVatId}</p>
+                      </div>
+                    )}
+                    <div className={selectedInvoice.customerVatId ? "col-span-2" : "col-span-3"}>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rechnungsadresse</p>
                       <p className="text-xs font-semibold text-slate-700 mt-0.5">
                         {(() => {
