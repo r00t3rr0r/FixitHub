@@ -138,7 +138,7 @@ const invoiceStatusTransitions: Record<InvoiceStatus, InvoiceStatus[]> = {
   credited: []
 };
 
-const invoiceStatusLabel: Record<InvoiceStatus, string> = {
+const invoiceStatusFallbackLabel: Record<InvoiceStatus, string> = {
   draft: 'Draft',
   pending_approval: 'Pending Approval',
   sent: 'Sent',
@@ -159,6 +159,18 @@ const paymentMethodLabel: Record<Payment['paymentMethod'], string> = {
   paypal: 'PayPal',
   stripe: 'Stripe'
 };
+
+const getInvoiceStatusLabel = (status: InvoiceStatus, t: (key: string, options?: Record<string, unknown>) => string) =>
+  t(`financialManagement.invoiceStatuses.${status}`, { defaultValue: invoiceStatusFallbackLabel[status] || status });
+
+const getPaymentStatusLabel = (status: Payment['status'], t: (key: string, options?: Record<string, unknown>) => string) =>
+  t(`financialManagement.paymentStatuses.${status}`, { defaultValue: status });
+
+const getDunningStatusLabel = (status: string, t: (key: string, options?: Record<string, unknown>) => string) =>
+  t(`financialManagement.dunningStatuses.${status}`, { defaultValue: status });
+
+const getPaymentMethodLabel = (method: string, t: (key: string, options?: Record<string, unknown>) => string) =>
+  t(`financialManagement.paymentMethods.${method}`, { defaultValue: paymentMethodLabel[method as Payment['paymentMethod']] || method });
 
 const trackedPaymentMethodOptions = [
   { value: 'credit_card', label: 'Kreditkarte' },
@@ -1115,7 +1127,7 @@ export function FinancialManagement() {
   </div>
 </div>
 `;
-  }, [selectedInvoice, sendComposerForm, sendComposerMode, generatedSendMessage]);
+  }, [selectedInvoice, sendComposerForm, sendComposerMode]);
 
   const dunningTimeline = useMemo(() => {
     if (!selectedInvoice) return [] as Array<{ id: string; title: string; detail: string; at?: string; severity: 'neutral' | 'info' | 'warning' | 'success' | 'critical' }>;
@@ -1125,7 +1137,7 @@ export function FinancialManagement() {
     entries.push({
       id: 'created',
       title: 'Rechnung erstellt',
-      detail: `Status bei Anlage: ${selectedInvoice.status}`,
+      detail: `Status bei Anlage: ${getInvoiceStatusLabel(selectedInvoice.status, t)}`,
       at: selectedInvoice.createdAt,
       severity: 'neutral'
     });
@@ -1150,14 +1162,11 @@ export function FinancialManagement() {
     if (selectedInvoice.cancelledAt) {
       entries.push({ id: 'cancelled', title: 'Rechnung storniert', detail: 'Rechnung wurde storniert', at: selectedInvoice.cancelledAt, severity: 'critical' });
     }
-    if (selectedInvoice.cancelledAt) {
-      entries.push({ id: 'cancelled', title: 'Rechnung storniert', detail: 'Rechnung wurde storniert', at: selectedInvoice.cancelledAt, severity: 'critical' });
-    }
 
     entries.push({
       id: 'updated',
       title: 'Letzte Aktualisierung',
-      detail: `Aktueller Status: ${selectedInvoice.status}`,
+      detail: `Aktueller Status: ${getInvoiceStatusLabel(selectedInvoice.status, t)}`,
       at: selectedInvoice.updatedAt,
       severity: 'neutral'
     });
@@ -1166,7 +1175,7 @@ export function FinancialManagement() {
       entries.push({
         id: 'queue_state',
         title: 'Aktueller Mahnlauf-Queue Status',
-        detail: `${selectedDunningQueueItem.status}${selectedDunningQueueItem.note ? ` - ${selectedDunningQueueItem.note}` : ''}`,
+        detail: `${getDunningStatusLabel(selectedDunningQueueItem.status, t)}${selectedDunningQueueItem.note ? ` - ${selectedDunningQueueItem.note}` : ''}`,
         at: selectedInvoice.updatedAt,
         severity:
           selectedDunningQueueItem.status === 'failed'
@@ -1188,7 +1197,7 @@ export function FinancialManagement() {
       const tsB = b.at ? new Date(b.at).getTime() : 0;
       return tsA - tsB;
     });
-  }, [selectedInvoice, selectedDunningQueueItem]);
+  }, [selectedInvoice, selectedDunningQueueItem, t]);
 
   const totals = useMemo(() => {
     const paidAmount = payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount || 0), 0);
@@ -1667,7 +1676,7 @@ export function FinancialManagement() {
         ? 'Für Gutschriften können keine Teilzahlungen erfasst werden.'
         : remaining <= 0
           ? 'Diese Rechnung ist bereits vollständig bezahlt.'
-          : `Für Rechnungsstatus "${invoice.status}" kann keine Zahlung erfasst werden.`;
+          : `Für Rechnungsstatus "${getInvoiceStatusLabel(invoice.status, t)}" kann keine Zahlung erfasst werden.`;
       toast({ title: t('common.error'), description: reason, variant: 'destructive' });
       return;
     }
@@ -1801,13 +1810,13 @@ export function FinancialManagement() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button size="sm" variant="outline" className="min-w-[110px]">
-            Aktionen
+            {t('financialManagement.actions')}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           {includeDetails && (
             <DropdownMenuItem onClick={() => openInvoiceDetails(invoice)}>
-              <Eye className="mr-2 h-4 w-4" />Details
+              <Eye className="mr-2 h-4 w-4" />{t('common.details', 'Details')}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
@@ -1816,7 +1825,7 @@ export function FinancialManagement() {
               openSendComposer(invoice, 'invoice');
             }}
           >
-            <Send className="mr-2 h-4 w-4" />Senden
+            <Send className="mr-2 h-4 w-4" />{t('financialManagement.send')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
@@ -1824,7 +1833,7 @@ export function FinancialManagement() {
               openStatusDialog(invoice);
             }}
           >
-            <CheckCircle2 className="mr-2 h-4 w-4" />Status aendern
+            <CheckCircle2 className="mr-2 h-4 w-4" />{t('financialManagement.changeStatus')}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -1836,7 +1845,7 @@ export function FinancialManagement() {
               openPaymentDialog(invoice);
             }}
           >
-            <Banknote className="mr-2 h-4 w-4" />Teilzahlung
+            <Banknote className="mr-2 h-4 w-4" />{t('financialManagement.partialPayment')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
@@ -1845,7 +1854,7 @@ export function FinancialManagement() {
             }}
           >
             <Wallet className="mr-2 h-4 w-4" />
-            {expandedInvoiceIds.has(invoice._id) ? 'Prozesse einklappen' : 'Zahlungsprozesse anzeigen'}
+            {expandedInvoiceIds.has(invoice._id) ? t('financialManagement.collapseProcesses') : t('financialManagement.showProcesses')}
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={!creditAllowed}
@@ -1854,11 +1863,11 @@ export function FinancialManagement() {
               openCreditDialog(invoice);
             }}
           >
-            Gutschrift erstellen
+            {t('financialManagement.createCreditNote')}
           </DropdownMenuItem>
           {inDetailsDialog && (
             <DropdownMenuItem disabled={!refundAllowed} onClick={openRefundDialogFromDetails}>
-              <Wallet className="mr-2 h-4 w-4" />Erstattung
+              <Wallet className="mr-2 h-4 w-4" />{t('financialManagement.refund')}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -2721,25 +2730,25 @@ export function FinancialManagement() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 border border-[#d8dce6] bg-[#f8f9fc] p-1">
           <TabsTrigger value="overview" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <TrendingUp className="mr-1.5 h-4 w-4" />Uebersicht
+            <TrendingUp className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.overview')}
           </TabsTrigger>
           <TabsTrigger value="invoices" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <FileSpreadsheet className="mr-1.5 h-4 w-4" />Rechnungen
+            <FileSpreadsheet className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.invoices')}
           </TabsTrigger>
           <TabsTrigger value="dunning" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <Mail className="mr-1.5 h-4 w-4" />Mahnwesen
+            <Mail className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.dunning')}
           </TabsTrigger>
           <TabsTrigger value="payments" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <Wallet className="mr-1.5 h-4 w-4" />Zahlungen
+            <Wallet className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.payments')}
           </TabsTrigger>
           <TabsTrigger value="gateways" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <ShieldCheck className="mr-1.5 h-4 w-4" />Gateways
+            <ShieldCheck className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.gateways')}
           </TabsTrigger>
           <TabsTrigger value="reports" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <Banknote className="mr-1.5 h-4 w-4" />Berichte
+            <Banknote className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.reports')}
           </TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
-            <Settings className="mr-1.5 h-4 w-4" />Einstellungen
+            <Settings className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.settings')}
           </TabsTrigger>
         </TabsList>
 
@@ -2749,78 +2758,78 @@ export function FinancialManagement() {
             <Card className="border-[#d8dce6]">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Bezahlter Umsatz</span>
+                  <span>{t('financialManagement.kpiPaidRevenue')}</span>
                   <Banknote className="h-4 w-4 text-green-600" />
                 </div>
                 <div className="mt-2 text-xl font-bold text-[#1a2a5e]">
                   {formatCurrencyValue(totals.paidAmount)}
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">Abgeschlossene Zahlungen</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{t('financialManagement.kpiCompletedPayments')}</div>
               </CardContent>
             </Card>
 
             <Card className="border-[#d8dce6]">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Offene Rechnungen</span>
+                  <span>{t('financialManagement.kpiOpenInvoices')}</span>
                   <FileSpreadsheet className="h-4 w-4 text-amber-600" />
                 </div>
                 <div className="mt-2 text-xl font-bold text-[#1a2a5e]">
                   {formatCurrencyValue(totals.openAmount)}
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{totals.openCount} Rechnungen ausstehend</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{t('financialManagement.kpiInvoicesPending', { count: totals.openCount })}</div>
               </CardContent>
             </Card>
 
             <Card className="border-[#d8dce6]">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Mahnvolumen / Überfällig</span>
+                  <span>{t('financialManagement.kpiOverdueVolume')}</span>
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </div>
                 <div className="mt-2 text-xl font-bold text-red-700">
                   {formatCurrencyValue(totals.overdueAmount)}
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{totals.overdueCount} Fälle in Mahnung</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{t('financialManagement.kpiCasesInDunning', { count: totals.overdueCount })}</div>
               </CardContent>
             </Card>
 
             <Card className="border-[#d8dce6]">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Zahlungs-Erfolgsquote</span>
+                  <span>{t('financialManagement.kpiSuccessRate')}</span>
                   <TrendingUp className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div className="mt-2 text-xl font-bold text-[#1a2a5e]">
                   {paymentOverview.successRate.toFixed(1)}%
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{paymentOverview.completedCount} von {paymentOverview.totalCount} Vorgängen</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{t('financialManagement.kpiOfTransactions', { completed: paymentOverview.completedCount, total: paymentOverview.totalCount })}</div>
               </CardContent>
             </Card>
 
             <Card className="border-[#d8dce6]">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Rückerstattungen</span>
+                  <span>{t('financialManagement.kpiRefunds')}</span>
                   <RefreshCw className="h-4 w-4 text-purple-600" />
                 </div>
                 <div className="mt-2 text-xl font-bold text-purple-800">
                   {formatCurrencyValue(paymentOverview.refundedVolume)}
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{paymentOverview.refundedCount} Erstattungen</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{t('financialManagement.kpiRefundsCount', { count: paymentOverview.refundedCount })}</div>
               </CardContent>
             </Card>
 
             <Card className="border-indigo-200 bg-indigo-50/40">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-indigo-900 font-medium">
-                  <span>Reverse Charge (0%)</span>
+                  <span>{t('financialManagement.reverseCharge')}</span>
                   <ShieldCheck className="h-4 w-4 text-indigo-600" />
                 </div>
                 <div className="mt-2 text-xl font-bold text-indigo-950">
                   {invoices.filter((i) => i.isReverseCharge).length}
                 </div>
-                <div className="mt-1 text-[11px] text-indigo-800">ZM-Relevante Rechnungen</div>
+                <div className="mt-1 text-[11px] text-indigo-800">{t('financialManagement.kpiZmInvoices')}</div>
               </CardContent>
             </Card>
           </div>
@@ -2828,24 +2837,24 @@ export function FinancialManagement() {
           {/* Quick Action Shortcuts */}
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
-              <CardTitle className="text-sm font-semibold" style={{ color: "#f5c800" }}>Schnellzugriffe &amp; Finanzaktionen</CardTitle>
+              <CardTitle className="text-sm font-semibold" style={{ color: "#f5c800" }}>{t('financialManagement.quickActions')}</CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
               <div className="flex flex-wrap gap-2">
                 <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setInvoiceDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />Neue Rechnung erstellen
+                  <Plus className="mr-2 h-4 w-4" />{t('financialManagement.createNewInvoice')}
                 </Button>
                 <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e]" onClick={() => setFromRepairDialogOpen(true)}>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders generieren
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />{t('financialManagement.generateFromRepairs')}
                 </Button>
                 <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e]" onClick={onRunDunning}>
-                  <Mail className="mr-2 h-4 w-4" />Mahnlauf ausführen
+                  <Mail className="mr-2 h-4 w-4" />{t('financialManagement.runDunning')}
                 </Button>
                 <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e]" onClick={() => setActiveTab('payments')}>
-                  <Wallet className="mr-2 h-4 w-4" />Zahlungen &amp; Erstattungen
+                  <Wallet className="mr-2 h-4 w-4" />{t('financialManagement.paymentsAndRefunds')}
                 </Button>
                 <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e]" onClick={() => setActiveTab('reports')}>
-                  <Banknote className="mr-2 h-4 w-4" />Finanzberichte
+                  <Banknote className="mr-2 h-4 w-4" />{t('financialManagement.reports')}
                 </Button>
               </div>
             </CardContent>
@@ -2855,9 +2864,9 @@ export function FinancialManagement() {
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
               <div className="flex items-center justify-between">
-                <CardTitle style={{ color: "#f5c800" }}>Aktuelle Rechnungen (Übersicht)</CardTitle>
+                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.recentInvoicesOverview')}</CardTitle>
                 <Button variant="link" className="text-[#f5c800] hover:text-yellow-300 text-xs" onClick={() => setActiveTab('invoices')}>
-                  Alle Rechnungen anzeigen ({invoices.length}) →
+                  {t('financialManagement.viewAllInvoices', { count: invoices.length })}
                 </Button>
               </div>
             </CardHeader>
@@ -2866,13 +2875,13 @@ export function FinancialManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rechnungs-Nr.</TableHead>
-                      <TableHead>Kunde</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Fälligkeit</TableHead>
-                      <TableHead>Gesamt</TableHead>
-                      <TableHead>Offen</TableHead>
-                      <TableHead className="text-right">Aktionen</TableHead>
+                      <TableHead>{t('financialManagement.invoiceNumber')}</TableHead>
+                      <TableHead>{t('financialManagement.customer')}</TableHead>
+                      <TableHead>{t('financialManagement.status')}</TableHead>
+                      <TableHead>{t('financialManagement.dueDate')}</TableHead>
+                      <TableHead>{t('financialManagement.totalAmount')}</TableHead>
+                      <TableHead>{t('financialManagement.openAmount')}</TableHead>
+                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2880,20 +2889,20 @@ export function FinancialManagement() {
                       <TableRow key={`overview-inv-${invoice._id}`}>
                         <TableCell className="font-medium text-[#1a2a5e]">{invoice.invoiceNumber}</TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge></TableCell>
                         <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell>{formatCurrencyValue(invoice.total)}</TableCell>
                         <TableCell>{formatCurrencyValue(Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)))}</TableCell>
                         <TableCell className="text-right">
                           <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}>
-                            <Eye className="mr-1 h-3.5 w-3.5" />Details
+                            <Eye className="mr-1 h-3.5 w-3.5" />{t('common.details', 'Details')}
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                     {invoices.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">Keine Rechnungen vorhanden.</TableCell>
+                        <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">{t('financialManagement.noInvoices')}</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -2913,7 +2922,7 @@ export function FinancialManagement() {
                     <Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}
                   </Button>
                   <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setFromRepairDialogOpen(true)}>
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />{t('financialManagement.generateFromRepairs')}
                   </Button>
                 </div>
               </div>
@@ -2921,25 +2930,25 @@ export function FinancialManagement() {
             <CardContent>
               <div className="mb-3 grid gap-2 md:grid-cols-5">
                 <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('financialManagement.status')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Status</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="cancelled">Canceled</SelectItem>
-                    <SelectItem value="credited">Credited</SelectItem>
+                    <SelectItem value="all">{t('financialManagement.allStatuses')}</SelectItem>
+                    <SelectItem value="draft">{t('financialManagement.invoiceStatuses.draft')}</SelectItem>
+                    <SelectItem value="pending_approval">{t('financialManagement.invoiceStatuses.pending_approval')}</SelectItem>
+                    <SelectItem value="sent">{t('financialManagement.invoiceStatuses.sent')}</SelectItem>
+                    <SelectItem value="partially_paid">{t('financialManagement.invoiceStatuses.partially_paid')}</SelectItem>
+                    <SelectItem value="paid">{t('financialManagement.invoiceStatuses.paid')}</SelectItem>
+                    <SelectItem value="overdue">{t('financialManagement.invoiceStatuses.overdue')}</SelectItem>
+                    <SelectItem value="cancelled">{t('financialManagement.invoiceStatuses.cancelled')}</SelectItem>
+                    <SelectItem value="credited">{t('financialManagement.invoiceStatuses.credited')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={invoiceFilters.taxType} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, taxType: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Steuerart" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('financialManagement.taxType')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Steuerarten</SelectItem>
-                    <SelectItem value="regular">Regulär (19%)</SelectItem>
-                    <SelectItem value="reverse_charge">Reverse Charge (0% / ZM)</SelectItem>
+                    <SelectItem value="all">{t('financialManagement.allTaxTypes')}</SelectItem>
+                    <SelectItem value="regular">{t('financialManagement.regularTax')}</SelectItem>
+                    <SelectItem value="reverse_charge">{t('financialManagement.reverseChargeTax')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
@@ -2948,7 +2957,7 @@ export function FinancialManagement() {
               </div>
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                 <Table>
-                  <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead>Buchung</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.booking')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {invoices.map((invoice) => {
                       const invoicePayments = paymentsByInvoiceId.get(invoice._id) || [];
@@ -2965,7 +2974,7 @@ export function FinancialManagement() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            title={isExpanded ? 'Zahlungsprozesse einklappen' : invoicePayments.length === 0 ? 'Zahlungsprozesse aufklappen (0 vorhanden)' : `${invoicePayments.length} Zahlungsprozess(e) aufklappen`}
+                            title={isExpanded ? t('financialManagement.collapseProcesses') : `${invoicePayments.length} ${t('financialManagement.paymentProcesses')}`}
                             onClick={() => toggleInvoiceExpanded(invoice._id)}
                           >
                             {isExpanded ? (
@@ -2987,7 +2996,7 @@ export function FinancialManagement() {
                           </div>
                         </TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{invoice.status}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge></TableCell>
                         <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell>{formatCurrencyValue(invoice.total)}</TableCell>
                         <TableCell>{formatCurrencyValue(invoice.paidAmount || 0)}</TableCell>
@@ -3003,7 +3012,7 @@ export function FinancialManagement() {
                               title="Zur verknüpften Buchung"
                             >
                               <Package className="h-3 w-3" />
-                              Bestellung
+                              {t('financialManagement.order')}
                             </button>
                           ) : invoice.bookingId ? (
                             <button
@@ -3013,7 +3022,7 @@ export function FinancialManagement() {
                               title="Zur verknüpften Buchung"
                             >
                               <Calendar className="h-3 w-3" />
-                              Buchung
+                              {t('financialManagement.booking')}
                             </button>
                           ) : invoice.repairOrderIds && invoice.repairOrderIds.length > 0 ? (
                             <button
@@ -3025,7 +3034,7 @@ export function FinancialManagement() {
                               ).join(', ')}
                             >
                               <Wrench className="h-3 w-3" />
-                              {invoice.repairOrderIds.length} Auftrag{invoice.repairOrderIds.length > 1 ? 'e' : ''}
+                              {invoice.repairOrderIds.length} {invoice.repairOrderIds.length > 1 ? t('financialManagement.ordersPlural') : t('financialManagement.orders')}
                             </button>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
@@ -3041,7 +3050,7 @@ export function FinancialManagement() {
                             <div className="px-4 py-3">
                               <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]">
                                 <span className="flex items-center gap-2">
-                                  <Wallet className="h-3.5 w-3.5" />Zahlungsprozesse ({invoicePayments.length})
+                                  <Wallet className="h-3.5 w-3.5" />{t('financialManagement.paymentProcesses')} ({invoicePayments.length})
                                 </span>
                               </div>
                               {invoicePayments.length > 0 ? (
@@ -3049,7 +3058,7 @@ export function FinancialManagement() {
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
-                                        <TableHead>Prozess</TableHead>
+                                        <TableHead>{t('common.process', 'Prozess')}</TableHead>
                                         <TableHead>{t('financialManagement.status')}</TableHead>
                                         <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
                                         <TableHead>{t('financialManagement.amount')}</TableHead>
@@ -3064,7 +3073,7 @@ export function FinancialManagement() {
                                         const processLabel = payment.status === 'refunded'
                                           ? 'Erstattung abgeschlossen'
                                           : payment.status === 'completed'
-                                            ? (metadata.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung')
+                                            ? (metadata.scope === 'full' ? t('financialManagement.fullPayment') : t('financialManagement.partialPayment'))
                                             : payment.status === 'disputed'
                                               ? 'Dispute in Klärung'
                                               : 'Zahlungsvorgang';
@@ -3079,8 +3088,8 @@ export function FinancialManagement() {
                                                 )}
                                               </div>
                                             </TableCell>
-                                            <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
-                                            <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                                            <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{getPaymentStatusLabel(payment.status, t)}</Badge></TableCell>
+                                            <TableCell>{getPaymentMethodLabel(payment.paymentMethod, t)}</TableCell>
                                             <TableCell>{formatCurrencyValue(payment.amount, payment.currency || 'EUR')}</TableCell>
                                             <TableCell>
                                               <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
@@ -3093,7 +3102,7 @@ export function FinancialManagement() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                               {payment.status === 'completed' && (
-                                                <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>Erstattung</Button>
+                                                <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>{t('financialManagement.refund')}</Button>
                                               )}
                                             </TableCell>
                                           </TableRow>
@@ -3106,12 +3115,12 @@ export function FinancialManagement() {
                                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#d8dce6] bg-white p-3 text-xs">
                                   <div className="flex items-center gap-2 text-muted-foreground">
                                     <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                                    <span>Keine Zahlungs- oder Erstattungsprozesse direkt für diese Rechnung hinterlegt.</span>
+                                    <span>{t('financialManagement.noPaymentProcesses')}</span>
                                   </div>
                                   {canRecordPayment(invoice) && (
                                     <Button size="sm" variant="outline" onClick={() => openPaymentDialog(invoice)}>
                                       <Banknote className="mr-1.5 h-3.5 w-3.5 text-[#1a2a5e]" />
-                                      Zahlung erfassen
+                                      {t('financialManagement.recordPayment')}
                                     </Button>
                                   )}
                                 </div>
@@ -3133,33 +3142,33 @@ export function FinancialManagement() {
         <TabsContent value="payments" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Zahlungsverwaltung &amp; Erstattungen</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Echtzeitansicht aller Zahlungen, Rückerstattungen und Sondertransaktionen.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.paymentsManagementTitle')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.paymentsManagementDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-3 grid gap-2 md:grid-cols-6">
                 <Select value={paymentFilters.status} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, status: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('financialManagement.status')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="refunded">Refunded</SelectItem>
-                    <SelectItem value="disputed">Disputed</SelectItem>
+                    <SelectItem value="all">{t('financialManagement.allStatuses')}</SelectItem>
+                    <SelectItem value="pending">{t('financialManagement.paymentStatuses.pending')}</SelectItem>
+                    <SelectItem value="processing">{t('financialManagement.paymentStatuses.processing')}</SelectItem>
+                    <SelectItem value="completed">{t('financialManagement.paymentStatuses.completed')}</SelectItem>
+                    <SelectItem value="failed">{t('financialManagement.paymentStatuses.failed')}</SelectItem>
+                    <SelectItem value="refunded">{t('financialManagement.paymentStatuses.refunded')}</SelectItem>
+                    <SelectItem value="disputed">{t('financialManagement.paymentStatuses.disputed')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={paymentFilters.method} onValueChange={(value) => setPaymentFilters((p) => ({ ...p, method: value }))}>
-                  <SelectTrigger><SelectValue placeholder="Methode" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('financialManagement.paymentMethod')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Methoden</SelectItem>
-                    <SelectItem value="credit_card">Kreditkarte</SelectItem>
-                    <SelectItem value="debit_card">Debitkarte</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
-                    <SelectItem value="cash">Bar</SelectItem>
+                    <SelectItem value="all">{t('financialManagement.allMethods')}</SelectItem>
+                    <SelectItem value="credit_card">{t('financialManagement.paymentMethods.credit_card')}</SelectItem>
+                    <SelectItem value="debit_card">{t('financialManagement.paymentMethods.debit_card')}</SelectItem>
+                    <SelectItem value="paypal">{t('financialManagement.paymentMethods.paypal')}</SelectItem>
+                    <SelectItem value="stripe">{t('financialManagement.paymentMethods.stripe')}</SelectItem>
+                    <SelectItem value="bank_transfer">{t('financialManagement.paymentMethods.bank_transfer')}</SelectItem>
+                    <SelectItem value="cash">{t('financialManagement.paymentMethods.cash')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input type="date" value={paymentFilters.dateFrom} onChange={(e) => setPaymentFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
@@ -3180,13 +3189,13 @@ export function FinancialManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Transaktions-ID</TableHead>
-                      <TableHead>Kunde</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Zahlungsmethode</TableHead>
-                      <TableHead>Betrag</TableHead>
-                      <TableHead>Datum</TableHead>
-                      <TableHead className="text-right">Aktionen</TableHead>
+                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                      <TableHead>{t('financialManagement.customer')}</TableHead>
+                      <TableHead>{t('financialManagement.status')}</TableHead>
+                      <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                      <TableHead>{t('financialManagement.amount')}</TableHead>
+                      <TableHead>{t('financialManagement.date')}</TableHead>
+                      <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3197,14 +3206,14 @@ export function FinancialManagement() {
                           {payment.invoiceId && <div className="text-xs text-muted-foreground">Invoice ID: {payment.invoiceId}</div>}
                         </TableCell>
                         <TableCell>{payment.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{payment.status}</Badge></TableCell>
-                        <TableCell>{paymentMethodLabel[payment.paymentMethod]}</TableCell>
+                        <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{getPaymentStatusLabel(payment.status, t)}</Badge></TableCell>
+                        <TableCell>{getPaymentMethodLabel(payment.paymentMethod, t)}</TableCell>
                         <TableCell className="font-semibold">{formatCurrencyValue(payment.amount, payment.currency || 'EUR')}</TableCell>
                         <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
                         <TableCell className="text-right">
                           {payment.status === 'completed' && (
                             <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>
-                              Erstattung
+                              {t('financialManagement.refund')}
                             </Button>
                           )}
                         </TableCell>
@@ -3212,7 +3221,7 @@ export function FinancialManagement() {
                     ))}
                     {payments.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">Keine Zahlungen vorhanden.</TableCell>
+                        <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">{t('financialManagement.noPayments')}</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -3624,8 +3633,8 @@ export function FinancialManagement() {
         <TabsContent value="reports" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Finanzberichte &amp; Kennzahlen</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Übersicht über Umsätze, Erstattungen, Streitfälle und Erlösarten.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reportsAndKpis')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.reportsAndKpisDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
               <div className="grid gap-4 md:grid-cols-4 text-sm">
@@ -3634,35 +3643,35 @@ export function FinancialManagement() {
                   <div className="text-lg font-bold text-[#1a2a5e]">{formatCurrencyValue(report?.totalRevenue || 0)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Rückerstattungen (Refunds)</div>
+                  <div className="text-xs text-muted-foreground">{t('financialManagement.kpiRefunds')}</div>
                   <div className="text-lg font-bold text-purple-700">{formatCurrencyValue(report?.refundAmount || 0)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Anfechtungen (Disputes)</div>
+                  <div className="text-xs text-muted-foreground">{t('financialManagement.disputes')}</div>
                   <div className="text-lg font-bold text-amber-700">{formatCurrencyValue(report?.disputeAmount || 0)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Nettogewinn</div>
+                  <div className="text-xs text-muted-foreground">{t('financialManagement.netProfit')}</div>
                   <div className="text-lg font-bold text-green-700">{formatCurrencyValue(report?.netProfit || 0)}</div>
                 </div>
               </div>
 
               {report?.paymentMethodBreakdown && report.paymentMethodBreakdown.length > 0 && (
                 <div className="space-y-2">
-                  <div className="font-medium text-[#1a2a5e] text-sm">Aufschlüsselung nach Zahlungsarten</div>
+                  <div className="font-medium text-[#1a2a5e] text-sm">{t('financialManagement.paymentMethodBreakdown')}</div>
                   <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Zahlungsart</TableHead>
-                          <TableHead>Betrag</TableHead>
-                          <TableHead>Anteil (%)</TableHead>
+                          <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
+                          <TableHead>{t('financialManagement.amount')}</TableHead>
+                          <TableHead>{t('financialManagement.sharePercentage')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {report.paymentMethodBreakdown.map((item, idx) => (
                           <TableRow key={`report-pm-${idx}`}>
-                            <TableCell className="font-medium">{item.method}</TableCell>
+                            <TableCell className="font-medium">{getPaymentMethodLabel(item.method, t)}</TableCell>
                             <TableCell>{formatCurrencyValue(item.amount)}</TableCell>
                             <TableCell>{item.percentage?.toFixed(1)}%</TableCell>
                           </TableRow>
@@ -3679,13 +3688,13 @@ export function FinancialManagement() {
         <TabsContent value="dunning" className="space-y-4">
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Gespeicherte Mahnlaeufe</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Persistente Mahnlaeufe laden, Status einsehen und den aktuellen Lauf zur Bearbeitung waehlen.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.savedDunningRuns')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.savedDunningRunsDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="md:col-span-2">
-                  <Label>Mahnlauf auswaehlen</Label>
+                  <Label>{t('financialManagement.selectDunningRun')}</Label>
                   <Select
                     value={selectedDunningRunId || 'none'}
                     onValueChange={(value) => {
@@ -3697,19 +3706,19 @@ export function FinancialManagement() {
                       onLoadDunningRun(value);
                     }}
                   >
-                    <SelectTrigger><SelectValue placeholder="Gespeicherten Mahnlauf waehlen" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('financialManagement.selectDunningRun')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Kein Lauf ausgewaehlt</SelectItem>
+                      <SelectItem value="none">{t('financialManagement.noRunSelected')}</SelectItem>
                       {dunningRuns.map((run) => (
                         <SelectItem key={run._id} value={run._id}>
-                          {run.name} · {run.status} · {run.items?.length || 0} Faelle
+                          {run.name} · {getDunningStatusLabel(run.status, t)} · {run.items?.length || 0} Faelle
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex items-end">
-                  <Button variant="outline" className="w-full" onClick={fetchFinancialData}><RefreshCw className="mr-2 h-4 w-4" />Runs neu laden</Button>
+                  <Button variant="outline" className="w-full" onClick={fetchFinancialData}><RefreshCw className="mr-2 h-4 w-4" />{t('financialManagement.reloadRuns')}</Button>
                 </div>
               </div>
 
@@ -3724,18 +3733,18 @@ export function FinancialManagement() {
                     setDunningRunDetailsOpen(true);
                   }}
                 >
-                  <Eye className="mr-2 h-4 w-4" />Details zum aktiven Lauf
+                  <Eye className="mr-2 h-4 w-4" />{t('financialManagement.activeRunDetails')}
                 </Button>
                 {selectedDunningRunId && (
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] px-3 py-2 text-sm">
-                    Aktiver Lauf: {dunningRuns.find((run) => run._id === selectedDunningRunId)?.name || 'Unbekannt'}
+                    {t('financialManagement.activeRun')}: {dunningRuns.find((run) => run._id === selectedDunningRunId)?.name || 'Unbekannt'}
                   </div>
                 )}
               </div>
 
               {selectedDunningRunId && (
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm">
-                  <div className="mb-2 font-medium text-[#1a2a5e]">Laufhistorie (letzte Eintraege)</div>
+                  <div className="mb-2 font-medium text-[#1a2a5e]">{t('financialManagement.runHistory')}</div>
                   <div className="space-y-2">
                     {(dunningRuns.find((run) => run._id === selectedDunningRunId)?.logs || []).slice(-5).reverse().map((log, index) => (
                       <div key={`${log.at || 'log'}-${index}`} className="rounded border border-[#d8dce6] bg-white px-3 py-2">
@@ -3751,56 +3760,56 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Manueller Mahnlauf-Builder</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Mahnlauf haendisch erstellen, Fallliste steuern und waehrend der Verarbeitung eingreifen.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.manualDunningBuilder')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.manualDunningBuilderDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 md:grid-cols-3">
                 <div>
-                  <Label>Laufname</Label>
+                  <Label>{t('financialManagement.runName')}</Label>
                   <Input value={dunningRunName} onChange={(e) => setDunningRunName(e.target.value)} placeholder="z.B. Mahnlauf Ende Monat" />
                 </div>
                 <div>
-                  <Label>Standard-Eskalationsstatus</Label>
+                  <Label>{t('financialManagement.defaultEscalationStatus')}</Label>
                   <Select value={dunningDefaultStatus} onValueChange={(value) => setDunningDefaultStatus(value as InvoiceStatus)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                      <SelectItem value="sent">Sent</SelectItem>
-                      <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                      <SelectItem value="cancelled">Canceled</SelectItem>
+                      <SelectItem value="overdue">{t('financialManagement.invoiceStatuses.overdue')}</SelectItem>
+                      <SelectItem value="pending_approval">{t('financialManagement.invoiceStatuses.pending_approval')}</SelectItem>
+                      <SelectItem value="sent">{t('financialManagement.invoiceStatuses.sent')}</SelectItem>
+                      <SelectItem value="partially_paid">{t('financialManagement.invoiceStatuses.partially_paid')}</SelectItem>
+                      <SelectItem value="cancelled">{t('financialManagement.invoiceStatuses.cancelled')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Standard-Notiz</Label>
+                  <Label>{t('financialManagement.defaultNote')}</Label>
                   <Input value={dunningDefaultNote} onChange={(e) => setDunningDefaultNote(e.target.value)} placeholder="Notiz fuer Statuswechsel" />
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={onSelectAllOverdue}><ListChecks className="mr-2 h-4 w-4" />Alle ueberfaelligen auswaehlen</Button>
-                <Button variant="outline" onClick={onClearDunningSelection}><XCircle className="mr-2 h-4 w-4" />Auswahl leeren</Button>
-                <Button onClick={onCreateManualDunningRun} className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><PlayCircle className="mr-2 h-4 w-4" />Lauf aus Auswahl erstellen</Button>
-                <Button variant="outline" onClick={onExecuteDunningQueue} disabled={dunningExecuting || dunningPaused}><Send className="mr-2 h-4 w-4" />Auto-Verarbeitung starten</Button>
+                <Button variant="outline" onClick={onSelectAllOverdue}><ListChecks className="mr-2 h-4 w-4" />{t('financialManagement.selectAllOverdue')}</Button>
+                <Button variant="outline" onClick={onClearDunningSelection}><XCircle className="mr-2 h-4 w-4" />{t('financialManagement.clearSelection')}</Button>
+                <Button onClick={onCreateManualDunningRun} className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><PlayCircle className="mr-2 h-4 w-4" />{t('financialManagement.createRunFromSelection')}</Button>
+                <Button variant="outline" onClick={onExecuteDunningQueue} disabled={dunningExecuting || dunningPaused}><Send className="mr-2 h-4 w-4" />{t('financialManagement.startAutoProcessing')}</Button>
                 <Button variant="outline" onClick={onToggleDunningPause}>
                   {dunningPaused ? <PlayCircle className="mr-2 h-4 w-4" /> : <PauseCircle className="mr-2 h-4 w-4" />}
-                  {dunningPaused ? 'Fortsetzen' : 'Pausieren'}
+                  {dunningPaused ? t('financialManagement.resume') : t('financialManagement.pause')}
                 </Button>
-                <Button variant="outline" onClick={onRunDunning}><Mail className="mr-2 h-4 w-4" />System-Mahnlauf</Button>
+                <Button variant="outline" onClick={onRunDunning}><Mail className="mr-2 h-4 w-4" />{t('financialManagement.systemDunningRun')}</Button>
               </div>
 
               <div className="rounded-md border border-[#d8dce6] p-3 text-sm text-muted-foreground">
-                Ausgewaehlt: {dunningSelection.length} · In Queue: {dunningQueue.length} · Laufstatus: {dunningPaused ? 'Pausiert' : dunningExecuting ? 'In Verarbeitung' : 'Bereit'}
+                Ausgewaehlt: {dunningSelection.length} · In Queue: {dunningQueue.length} · Laufstatus: {dunningPaused ? t('financialManagement.dunningStatuses.paused') : dunningExecuting ? t('financialManagement.dunningStatuses.processing') : 'Bereit'}
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Ueberfaellige Rechnungen (manuelle Auswahl)</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Selektiere Faelle fuer den naechsten Mahnlauf und greife pro Rechnung direkt ein.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.overdueInvoices')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.overdueInvoicesDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
@@ -3808,13 +3817,13 @@ export function FinancialManagement() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[56px]">Auswahl</TableHead>
-                      <TableHead>Rechnung</TableHead>
-                      <TableHead>Kunde</TableHead>
-                      <TableHead>Ursprüngliches Ziel</TableHead>
-                      <TableHead>Überfällig</TableHead>
-                      <TableHead>Nächste Frist</TableHead>
-                      <TableHead>Offener Betrag</TableHead>
-                      <TableHead className="text-right">Interaktion</TableHead>
+                      <TableHead>{t('financialManagement.invoices')}</TableHead>
+                      <TableHead>{t('financialManagement.customer')}</TableHead>
+                      <TableHead>{t('financialManagement.originalDueDate')}</TableHead>
+                      <TableHead>{t('financialManagement.daysOverdue')}</TableHead>
+                      <TableHead>{t('financialManagement.nextDueDate')}</TableHead>
+                      <TableHead>{t('financialManagement.openAmount')}</TableHead>
+                      <TableHead className="text-right">{t('financialManagement.interaction')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3831,7 +3840,7 @@ export function FinancialManagement() {
                         <TableCell>
                           <div className="flex flex-wrap items-center gap-2">
                             <span>{invoice.invoiceNumber}</span>
-                            {invoice.isCreditNote && <Badge variant="outline">Gutschrift</Badge>}
+                            {invoice.isCreditNote && <Badge variant="outline">{t('financialManagement.creditNote')}</Badge>}
                           </div>
                           {invoice.isCreditNote && invoice.creditNoteOf && (
                             <div className="text-xs text-muted-foreground">Original: {formatReferenceValue(invoice.creditNoteOf)}</div>
@@ -3840,14 +3849,14 @@ export function FinancialManagement() {
                         <TableCell>{invoice.customerName}</TableCell>
                         <TableCell>{formatDate(invoice.originalDueDate || invoice.dueDate)}</TableCell>
                         <TableCell>{getDaysPastDue(invoice.originalDueDate || invoice.dueDate)} Tage</TableCell>
-                        <TableCell>{invoice.dunningStage === 'collection' ? 'Inkasso' : formatDate(invoice.nextDunningDueDate)}</TableCell>
+                        <TableCell>{invoice.dunningStage === 'collection' ? t('financialManagement.collection') : formatDate(invoice.nextDunningDueDate)}</TableCell>
                         <TableCell>{formatCurrency(Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)))}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}><Eye className="mr-1 h-3.5 w-3.5" />Details</Button>
-                            <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(invoice._id)}><Send className="mr-1 h-3.5 w-3.5" />Senden</Button>
-                            <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(invoice._id)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />Eskalieren</Button>
-                            <Button size="sm" variant="outline" disabled={invoice.dunningStage === 'collection'} onClick={() => onActivateCollection(invoice._id)}>Inkasso</Button>
+                            <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}><Eye className="mr-1 h-3.5 w-3.5" />{t('common.details', 'Details')}</Button>
+                            <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(invoice._id)}><Send className="mr-1 h-3.5 w-3.5" />{t('financialManagement.send')}</Button>
+                            <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(invoice._id)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.escalate')}</Button>
+                            <Button size="sm" variant="outline" disabled={invoice.dunningStage === 'collection'} onClick={() => onActivateCollection(invoice._id)}>{t('financialManagement.collection')}</Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -3865,20 +3874,20 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Aktiver Mahnlauf</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Im laufenden Prozess einzelne Faelle erneut senden, ueberspringen, eskalieren oder entfernen.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.activeDunningRun')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.activeDunningRunDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Rechnung</TableHead>
-                      <TableHead>Kunde</TableHead>
-                      <TableHead>Offen</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Notiz</TableHead>
-                      <TableHead className="text-right">Eingriff</TableHead>
+                      <TableHead>{t('financialManagement.invoices')}</TableHead>
+                      <TableHead>{t('financialManagement.customer')}</TableHead>
+                      <TableHead>{t('financialManagement.openAmount')}</TableHead>
+                      <TableHead>{t('financialManagement.status')}</TableHead>
+                      <TableHead>{t('financialManagement.notes')}</TableHead>
+                      <TableHead className="text-right">{t('financialManagement.interaction')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -3904,23 +3913,23 @@ export function FinancialManagement() {
                                         : 'bg-gray-100 text-gray-700 border-gray-200'
                             }
                           >
-                            {item.status}
+                            {getDunningStatusLabel(item.status, t)}
                           </Badge>
                         </TableCell>
                         <TableCell>{item.note || '-'}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(item.invoiceId)}><Send className="mr-1 h-3.5 w-3.5" />Erneut senden</Button>
-                            <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(item.invoiceId)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />Status setzen</Button>
-                            <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(item.invoiceId)}><SkipForward className="mr-1 h-3.5 w-3.5" />Ueberspringen</Button>
-                            <Button size="sm" variant="outline" onClick={() => onDunningRemoveItem(item.invoiceId)}><XCircle className="mr-1 h-3.5 w-3.5" />Entfernen</Button>
+                            <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(item.invoiceId)}><Send className="mr-1 h-3.5 w-3.5" />{t('financialManagement.resend')}</Button>
+                            <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(item.invoiceId)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.changeStatus')}</Button>
+                            <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(item.invoiceId)}><SkipForward className="mr-1 h-3.5 w-3.5" />{t('financialManagement.skip')}</Button>
+                            <Button size="sm" variant="outline" onClick={() => onDunningRemoveItem(item.invoiceId)}><XCircle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.remove')}</Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
                     {dunningQueue.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">Noch kein manueller Mahnlauf aktiv.</TableCell>
+                        <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">{t('financialManagement.noActiveDunningRun')}</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -3962,13 +3971,13 @@ export function FinancialManagement() {
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <CardTitle style={{ color: "#f5c800" }}>Abrechnungs- und Zahlungsparameter</CardTitle>
+                  <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.billingPaymentParams')}</CardTitle>
                   <CardDescription className="text-[#c8d0e7]">
-                    Konfiguriere zentrale Defaults fuer Steuer, Waehrung, Rabatte, Rechnungs-Metadaten und Versandlogik.
+                    {t('financialManagement.billingPaymentParamsDesc')}
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span>Letzte Aenderung: {systemConfig?.updatedAt ? formatDateTime(systemConfig.updatedAt) : '-'}</span>
+                  <span>{t('financialManagement.lastModified')}: {systemConfig?.updatedAt ? formatDateTime(systemConfig.updatedAt) : '-'}</span>
                   <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || !systemConfig}>
                     <RefreshCw className={`mr-2 h-4 w-4 ${savingFinancialSettings ? 'animate-spin' : ''}`} />{t('common.save')}
                   </Button>
@@ -3980,13 +3989,13 @@ export function FinancialManagement() {
           <div className="grid gap-4 xl:grid-cols-3">
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-                <CardTitle style={{ color: "#f5c800" }}>Steuer, Waehrung & Fristen</CardTitle>
-                <CardDescription className="text-[#c8d0e7]">Defaults fuer neue Rechnungen, Zahlungsbuchungen und Gutschriften.</CardDescription>
+                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.taxCurrencyDeadlines')}</CardTitle>
+                <CardDescription className="text-[#c8d0e7]">{t('financialManagement.taxCurrencyDeadlinesDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>Standardwaehrung</Label>
+                    <Label>{t('financialManagement.defaultCurrency')}</Label>
                     <Input value={financialSettings.defaults.currency} onChange={(e) => updateFinancialSetting('defaults', 'currency', e.target.value.toUpperCase())} maxLength={3} />
                   </div>
                   <div>
@@ -3994,44 +4003,44 @@ export function FinancialManagement() {
                     <Input value={financialSettings.defaults.locale} onChange={(e) => updateFinancialSetting('defaults', 'locale', e.target.value)} placeholder="de-DE" />
                   </div>
                   <div>
-                    <Label>Steuersatz %</Label>
+                    <Label>{t('financialManagement.taxRate')}</Label>
                     <Input type="number" value={financialSettings.defaults.taxRate} onChange={(e) => updateFinancialSetting('defaults', 'taxRate', Number(e.target.value || 0))} />
                   </div>
                   <div>
-                    <Label>Zahlungsziel in Tagen</Label>
+                    <Label>{t('financialManagement.dueDays')}</Label>
                     <Input type="number" value={financialSettings.defaults.paymentDueDays} onChange={(e) => updateFinancialSetting('defaults', 'paymentDueDays', Number(e.target.value || 0))} />
                   </div>
                 </div>
 
                 <div>
-                  <Label>Standard-Zahlungsbedingungen</Label>
+                  <Label>{t('financialManagement.defaultPaymentTerms')}</Label>
                   <Input value={financialSettings.defaults.paymentTerms} onChange={(e) => updateFinancialSetting('defaults', 'paymentTerms', e.target.value)} />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>Rechnungs-Prefix</Label>
+                    <Label>{t('financialManagement.invoicePrefix')}</Label>
                     <Input value={financialSettings.defaults.invoicePrefix} onChange={(e) => updateFinancialSetting('defaults', 'invoicePrefix', e.target.value)} />
                   </div>
                   <div>
-                    <Label>Gutschrift-Prefix</Label>
+                    <Label>{t('financialManagement.creditNotePrefix')}</Label>
                     <Input value={financialSettings.defaults.creditNotePrefix} onChange={(e) => updateFinancialSetting('defaults', 'creditNotePrefix', e.target.value)} />
                   </div>
                 </div>
 
                 <div>
-                  <Label>Standard-Zahlungsmethode</Label>
+                  <Label>{t('financialManagement.defaultPaymentMethod')}</Label>
                   <Select
                     value={financialSettings.defaults.defaultPaymentMethod}
                     onValueChange={(value) => updateFinancialSetting('defaults', 'defaultPaymentMethod', value as FinancialSettingsState['defaults']['defaultPaymentMethod'])}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bank_transfer">Bankueberweisung</SelectItem>
-                      <SelectItem value="credit_card">Kreditkarte</SelectItem>
-                      <SelectItem value="debit_card">Debitkarte</SelectItem>
-                      <SelectItem value="paypal">PayPal</SelectItem>
-                      <SelectItem value="stripe">Stripe</SelectItem>
+                      <SelectItem value="bank_transfer">{t('financialManagement.paymentMethods.bank_transfer')}</SelectItem>
+                      <SelectItem value="credit_card">{t('financialManagement.paymentMethods.credit_card')}</SelectItem>
+                      <SelectItem value="debit_card">{t('financialManagement.paymentMethods.debit_card')}</SelectItem>
+                      <SelectItem value="paypal">{t('financialManagement.paymentMethods.paypal')}</SelectItem>
+                      <SelectItem value="stripe">{t('financialManagement.paymentMethods.stripe')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -4040,41 +4049,41 @@ export function FinancialManagement() {
 
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-                <CardTitle style={{ color: "#f5c800" }}>Rabatte & Zahlungslogik</CardTitle>
-                <CardDescription className="text-[#c8d0e7]">Steuere Nachlaesse, Teilzahlungen und Versandverhalten zentral.</CardDescription>
+                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.discountsAndPaymentLogic')}</CardTitle>
+                <CardDescription className="text-[#c8d0e7]">{t('financialManagement.discountsAndPaymentLogicDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>Standardrabatt</Label>
+                    <Label>{t('financialManagement.defaultDiscount')}</Label>
                     <Input type="number" value={financialSettings.defaults.defaultDiscount} onChange={(e) => updateFinancialSetting('defaults', 'defaultDiscount', Number(e.target.value || 0))} />
                   </div>
                   <div>
-                    <Label>Max. Rabatt %</Label>
+                    <Label>{t('financialManagement.maxDiscount')}</Label>
                     <Input type="number" value={financialSettings.discountPolicy.maxDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'maxDiscountPercent', Number(e.target.value || 0))} />
                   </div>
                   <div>
-                    <Label>Skonto %</Label>
+                    <Label>{t('financialManagement.earlyDiscount')}</Label>
                     <Input type="number" value={financialSettings.discountPolicy.earlyPaymentDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'earlyPaymentDiscountPercent', Number(e.target.value || 0))} />
                   </div>
                   <div>
-                    <Label>Verzugspauschale %</Label>
+                    <Label>{t('financialManagement.lateFee')}</Label>
                     <Input type="number" value={financialSettings.discountPolicy.lateFeePercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'lateFeePercent', Number(e.target.value || 0))} />
                   </div>
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="flex items-center justify-between"><span className="text-sm">Manuelle Rabatte erlauben</span><Switch checked={financialSettings.discountPolicy.allowManualDiscounts} onCheckedChange={(value) => updateFinancialSetting('discountPolicy', 'allowManualDiscounts', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Teilzahlungen erlauben</span><Switch checked={financialSettings.paymentPreferences.partialPaymentsAllowed} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'partialPaymentsAllowed', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">PDF automatisch anhaengen</span><Switch checked={financialSettings.paymentPreferences.autoAttachPdf} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'autoAttachPdf', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Interne Versandkopie senden</span><Switch checked={financialSettings.paymentPreferences.sendInternalCopy} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'sendInternalCopy', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Steueraufschluesselung zeigen</span><Switch checked={financialSettings.paymentPreferences.showTaxBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showTaxBreakdown', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Rabattaufschluesselung zeigen</span><Switch checked={financialSettings.paymentPreferences.showDiscountBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showDiscountBreakdown', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.allowManualDiscounts')}</span><Switch checked={financialSettings.discountPolicy.allowManualDiscounts} onCheckedChange={(value) => updateFinancialSetting('discountPolicy', 'allowManualDiscounts', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.allowPartialPayments')}</span><Switch checked={financialSettings.paymentPreferences.partialPaymentsAllowed} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'partialPaymentsAllowed', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.autoAttachPdf')}</span><Switch checked={financialSettings.paymentPreferences.autoAttachPdf} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'autoAttachPdf', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.sendInternalCopy')}</span><Switch checked={financialSettings.paymentPreferences.sendInternalCopy} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'sendInternalCopy', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.showTaxBreakdown')}</span><Switch checked={financialSettings.paymentPreferences.showTaxBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showTaxBreakdown', value)} /></div>
+                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.showDiscountBreakdown')}</span><Switch checked={financialSettings.paymentPreferences.showDiscountBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showDiscountBreakdown', value)} /></div>
                 </div>
 
                 {financialSettings.paymentPreferences.sendInternalCopy && (
                   <div>
-                    <Label>Interne Kopie an</Label>
+                    <Label>{t('financialManagement.internalCopyEmail')}</Label>
                     <Input value={financialSettings.paymentPreferences.internalCopyEmail} onChange={(e) => updateFinancialSetting('paymentPreferences', 'internalCopyEmail', e.target.value)} placeholder="finance@mcrepair.de" />
                   </div>
                 )}
@@ -4083,13 +4092,13 @@ export function FinancialManagement() {
 
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-                <CardTitle style={{ color: "#f5c800" }}>Rechnungs-Meta-Daten</CardTitle>
-                <CardDescription className="text-[#c8d0e7]">Absender, Kennungen und visuelle Versand-Defaults fuer Rechnungen.</CardDescription>
+                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoiceMetadata')}</CardTitle>
+                <CardDescription className="text-[#c8d0e7]">{t('financialManagement.invoiceMetadataDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>Absender / Firma</Label>
+                    <Label>{t('financialManagement.senderCompany')}</Label>
                     <Input value={financialSettings.invoiceMetadata.sellerName} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerName', e.target.value)} />
                   </div>
                   <div>
@@ -4097,23 +4106,23 @@ export function FinancialManagement() {
                     <Input value={financialSettings.invoiceMetadata.sellerVatId} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerVatId', e.target.value)} />
                   </div>
                   <div>
-                    <Label>Handelsregister / Reg.-Nr.</Label>
+                    <Label>{t('financialManagement.registrationNumber')}</Label>
                     <Input value={financialSettings.invoiceMetadata.sellerRegistrationNumber} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerRegistrationNumber', e.target.value)} />
                   </div>
                   <div>
-                    <Label>Billing E-Mail</Label>
+                    <Label>{t('financialManagement.billingEmail')}</Label>
                     <Input value={financialSettings.invoiceMetadata.issuerEmail} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'issuerEmail', e.target.value)} />
                   </div>
                 </div>
 
                 <div>
-                  <Label>Billing Telefon</Label>
+                  <Label>{t('financialManagement.billingPhone')}</Label>
                   <Input value={financialSettings.invoiceMetadata.issuerPhone} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'issuerPhone', e.target.value)} />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <Label>Default Theme</Label>
+                    <Label>{t('financialManagement.defaultTheme')}</Label>
                     <Select
                       value={financialSettings.paymentPreferences.defaultVisualTheme}
                       onValueChange={(value) => updateFinancialSetting('paymentPreferences', 'defaultVisualTheme', value as FinancialSettingsState['paymentPreferences']['defaultVisualTheme'])}
@@ -4127,18 +4136,18 @@ export function FinancialManagement() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Akzentfarbe</Label>
+                    <Label>{t('financialManagement.accentColor')}</Label>
                     <Input type="color" value={financialSettings.paymentPreferences.accentColor} onChange={(e) => updateFinancialSetting('paymentPreferences', 'accentColor', e.target.value)} className="h-10 p-1" />
                   </div>
                 </div>
 
                 <div>
-                  <Label>Rechnungs-Footer</Label>
+                  <Label>{t('financialManagement.invoiceFooter')}</Label>
                   <Textarea value={financialSettings.invoiceMetadata.invoiceFooter} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'invoiceFooter', e.target.value)} className="min-h-[90px]" />
                 </div>
 
                 <div>
-                  <Label>Rechtlicher Footer</Label>
+                  <Label>{t('financialManagement.legalFooter')}</Label>
                   <Textarea value={financialSettings.invoiceMetadata.legalFooter} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'legalFooter', e.target.value)} className="min-h-[90px]" />
                 </div>
               </CardContent>
@@ -4147,18 +4156,18 @@ export function FinancialManagement() {
 
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
-              <CardTitle style={{ color: "#f5c800" }}>Wirkung der aktuellen Defaults</CardTitle>
-              <CardDescription className="text-[#c8d0e7]">Die Werte unten fliessen direkt in neue Rechnungen, Teilzahlungen, Gutschriften und den Versand-Composer ein.</CardDescription>
+              <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.effectOfDefaults')}</CardTitle>
+              <CardDescription className="text-[#c8d0e7]">{t('financialManagement.effectOfDefaultsDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Standardsteuer:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.taxRate}%</div></div>
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Standardwaehrung:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.currency}</div></div>
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Zahlungsziel:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.paymentTerms} / {financialSettings.defaults.paymentDueDays} Tage</div></div>
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Versandtheme:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.paymentPreferences.defaultVisualTheme}</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.standardTax')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.taxRate}%</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.defaultCurrency')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.currency}</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.paymentTerms')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.paymentTerms} / {financialSettings.defaults.paymentDueDays} Tage</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.dispatchTheme')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.paymentPreferences.defaultVisualTheme}</div></div>
             </CardContent>
           </Card>
           <Card className="border-[#d8dce6]">
-            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>Berichte &amp; Export</CardTitle><CardDescription className="text-[#c8d0e7]">Daten als CSV/JSON exportieren und Kennzahlen einsehen.</CardDescription></CardHeader>
+            <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reportsAndExport')}</CardTitle><CardDescription className="text-[#c8d0e7]">{t('financialManagement.reportsAndExportDesc')}</CardDescription></CardHeader>
           </Card>
           <div className="grid gap-4 lg:grid-cols-4">
             <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
@@ -4662,13 +4671,13 @@ export function FinancialManagement() {
                             <TableCell>{item.invoiceNumber}</TableCell>
                             <TableCell>{item.customerName}</TableCell>
                             <TableCell>{formatCurrency(item.amountOpen || 0)}</TableCell>
-                            <TableCell>{item.status}</TableCell>
+                            <TableCell><Badge variant="outline">{getDunningStatusLabel(item.status, t)}</Badge></TableCell>
                             <TableCell>{item.note || '-'}</TableCell>
                             <TableCell>
                               <div className="flex flex-wrap justify-end gap-2">
-                                <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(String(item.invoiceId))}>Senden</Button>
-                                <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(String(item.invoiceId))}>Eskalieren</Button>
-                                <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(String(item.invoiceId))}>Skip</Button>
+                                <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(String(item.invoiceId))}>{t('financialManagement.send')}</Button>
+                                <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(String(item.invoiceId))}>{t('financialManagement.escalate')}</Button>
+                                <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(String(item.invoiceId))}>{t('financialManagement.skip')}</Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -4705,7 +4714,7 @@ export function FinancialManagement() {
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
               <AlertTriangle className="h-5 w-5" />
-              Mahnfall-Management
+              {t('financialManagement.dunningCaseManagement')}
             </DialogTitle>
             <DialogDescription className="text-blue-200 text-sm">
               Strukturierte Detailansicht und direkte Eingriffe für den aktuellen Mahnfall.
@@ -4717,15 +4726,15 @@ export function FinancialManagement() {
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Rechnung</div>
+                  <div className="text-xs text-muted-foreground">{t('financialManagement.invoiceNumber')}</div>
                   <div className="font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Status</div>
-                  <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge></div>
+                  <div className="text-xs text-muted-foreground">{t('financialManagement.status')}</div>
+                  <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge></div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">Offener Betrag</div>
+                  <div className="text-xs text-muted-foreground">{t('financialManagement.openAmount')}</div>
                   <div className="font-semibold text-red-700">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
@@ -4740,9 +4749,9 @@ export function FinancialManagement() {
                     <CardTitle className="text-base" style={{ color: "#f5c800" }}>Mahnungsdaten</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
-                    <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
+                    <div><span className="text-muted-foreground">{t('financialManagement.customer')}:</span> {selectedInvoice.customerName}</div>
                     <div><span className="text-muted-foreground">E-Mail:</span> {selectedInvoice.customerEmail}</div>
-                    <div><span className="text-muted-foreground">Faelligkeit:</span> {formatDate(selectedInvoice.dueDate)}</div>
+                    <div><span className="text-muted-foreground">{t('financialManagement.dueDate')}:</span> {formatDate(selectedInvoice.dueDate)}</div>
                     <div><span className="text-muted-foreground">Mahnstufe:</span> {selectedInvoice.dunningLevel ?? 0}</div>
                     <div><span className="text-muted-foreground">Zuletzt erinnert:</span> {formatDate(selectedInvoice.dunningNotifiedAt)}</div>
                     <div><span className="text-muted-foreground">Order-ID:</span> {formatReferenceValue(selectedInvoice.orderId)}</div>
@@ -4760,11 +4769,11 @@ export function FinancialManagement() {
                       <Select value={dunningCaseStatus} onValueChange={(value) => setDunningCaseStatus(value as InvoiceStatus)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="overdue">Overdue</SelectItem>
-                          <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                          <SelectItem value="sent">Sent</SelectItem>
-                          <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                          <SelectItem value="cancelled">Canceled</SelectItem>
+                          <SelectItem value="overdue">{t('financialManagement.invoiceStatuses.overdue')}</SelectItem>
+                          <SelectItem value="pending_approval">{t('financialManagement.invoiceStatuses.pending_approval')}</SelectItem>
+                          <SelectItem value="sent">{t('financialManagement.invoiceStatuses.sent')}</SelectItem>
+                          <SelectItem value="partially_paid">{t('financialManagement.invoiceStatuses.partially_paid')}</SelectItem>
+                          <SelectItem value="cancelled">{t('financialManagement.invoiceStatuses.cancelled')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -4773,11 +4782,11 @@ export function FinancialManagement() {
                       <Textarea value={dunningCaseNote} onChange={(e) => setDunningCaseNote(e.target.value)} placeholder="z.B. Kunde telefonisch erreicht" />
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(selectedInvoice._id)}><Send className="mr-1 h-3.5 w-3.5" />Mahnung senden</Button>
-                      <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(selectedInvoice._id, dunningCaseStatus, dunningCaseNote)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />Status setzen</Button>
+                      <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(selectedInvoice._id)}><Send className="mr-1 h-3.5 w-3.5" />{t('financialManagement.send')}</Button>
+                      <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(selectedInvoice._id, dunningCaseStatus, dunningCaseNote)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.changeStatus')}</Button>
                       <Button size="sm" variant="outline" onClick={() => onAddInvoiceToDunningQueue(selectedInvoice)}><ListChecks className="mr-1 h-3.5 w-3.5" />Zu aktivem Lauf</Button>
-                      <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(selectedInvoice._id)}><SkipForward className="mr-1 h-3.5 w-3.5" />Ueberspringen</Button>
-                      <Button size="sm" variant="outline" onClick={() => onDunningRemoveItem(selectedInvoice._id)}><XCircle className="mr-1 h-3.5 w-3.5" />Aus Lauf entfernen</Button>
+                      <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(selectedInvoice._id)}><SkipForward className="mr-1 h-3.5 w-3.5" />{t('financialManagement.skip')}</Button>
+                      <Button size="sm" variant="outline" onClick={() => onDunningRemoveItem(selectedInvoice._id)}><XCircle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.remove')}</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -4785,18 +4794,18 @@ export function FinancialManagement() {
 
               <Card className="border-[#d8dce6]">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>Relevante Rechnungspositionen</CardTitle>
+                  <CardTitle className="text-base" style={{ color: "#f5c800" }}>{t('financialManagement.invoiceItems')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Service Name</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Menge</TableHead>
-                          <TableHead>Einzelpreis</TableHead>
-                          <TableHead>Gesamt</TableHead>
+                          <TableHead>{t('financialManagement.descriptionServiceName')}</TableHead>
+                          <TableHead>{t('financialManagement.itemType')}</TableHead>
+                          <TableHead>{t('financialManagement.quantity')}</TableHead>
+                          <TableHead>{t('financialManagement.unitPrice')}</TableHead>
+                          <TableHead>{t('financialManagement.total')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -4871,22 +4880,22 @@ export function FinancialManagement() {
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
             <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
               <FileSpreadsheet className="h-5 w-5" />
-              Rechnungsdetails
+              {t('financialManagement.invoiceDetails')}
               {selectedInvoice?.invoiceNumber && (
                 <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoice.invoiceNumber}</span>
               )}
               {selectedInvoice?.isCreditNote && (
-                <Badge className="bg-violet-500/90 text-white border border-violet-300 ml-2">Gutschrift</Badge>
+                <Badge className="bg-violet-500/90 text-white border border-violet-300 ml-2">{t('financialManagement.creditNote')}</Badge>
               )}
               {selectedInvoice?.isReverseCharge && (
                 <Badge className="bg-indigo-600 text-white border border-indigo-300 ml-2">Reverse Charge</Badge>
               )}
               {selectedInvoice?.status === 'credited' && !selectedInvoice?.isCreditNote && (
-                <Badge className="bg-orange-500/90 text-white border border-orange-300 ml-2">Gutgeschrieben</Badge>
+                <Badge className="bg-orange-500/90 text-white border border-orange-300 ml-2">{t('financialManagement.credited')}</Badge>
               )}
             </DialogTitle>
             <DialogDescription className="text-[#c8d0e7]">
-              Vollstaendige Detailansicht inkl. Zahlungen, Erstattungen und Gutschriften.
+              {t('financialManagement.invoiceDetailsDesc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -4906,13 +4915,13 @@ export function FinancialManagement() {
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
                   <div className="w-full">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-indigo-950">Innergemeinschaftliche Lieferung / Reverse Charge</span>
+                      <span className="font-semibold text-indigo-950">{t('financialManagement.reverseCharge')}</span>
                       <Badge className="bg-indigo-600 text-white text-[10px] px-2 py-0.5">ZM-Relevant</Badge>
                     </div>
                     <div className="mt-0.5 text-xs text-indigo-800">{selectedInvoice.reverseChargeNotice || 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge'}</div>
                     <div className="mt-2.5 grid grid-cols-2 gap-3 text-xs bg-white/80 p-2.5 rounded border border-indigo-200">
-                      <div><span className="font-semibold text-indigo-950">USt-IdNr. Aussteller:</span> {selectedInvoice.sellerVatId || 'DE318981969'}</div>
-                      <div><span className="font-semibold text-indigo-950">USt-IdNr. Empfänger:</span> {selectedInvoice.customerVatId || '-'}</div>
+                      <div><span className="font-semibold text-indigo-950">{t('financialManagement.sellerVatId')}:</span> {selectedInvoice.sellerVatId || 'DE318981969'}</div>
+                      <div><span className="font-semibold text-indigo-950">{t('financialManagement.customerVatId')}:</span> {selectedInvoice.customerVatId || '-'}</div>
                     </div>
                   </div>
                 </div>
@@ -4923,13 +4932,13 @@ export function FinancialManagement() {
                 <div className="flex items-start gap-3 rounded-md border border-violet-300 bg-violet-50 p-3 text-sm text-violet-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <div>
-                    <span className="font-medium">Diese Rechnung ist eine Gutschrift</span>
+                    <span className="font-medium">{t('financialManagement.isCreditNoteNotice')}</span>
                     {(() => {
                       const orig = selectedInvoice.creditNoteOf as unknown as Record<string, unknown> | string | undefined;
                       const origNum = typeof orig === 'object' && orig !== null ? (orig.invoiceNumber as string) : (typeof orig === 'string' ? orig : null);
                       const origTotal = typeof orig === 'object' && orig !== null ? (orig.total as number) : undefined;
                       return origNum ? (
-                        <span> zur Ursprungsrechnung <span className="font-semibold">{origNum}</span>
+                        <span> {t('financialManagement.toOriginalInvoice')} <span className="font-semibold">{origNum}</span>
                           {origTotal !== undefined && <span> ({formatCurrencyValue(origTotal)})</span>}
                         </span>
                       ) : null;
@@ -4942,9 +4951,9 @@ export function FinancialManagement() {
                 <div className="flex items-start gap-3 rounded-md border border-orange-300 bg-orange-50 p-3 text-sm text-orange-800">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                   <div>
-                    <span className="font-medium">Diese Rechnung wurde gutgeschrieben.</span>
+                    <span className="font-medium">{t('financialManagement.isCreditedNotice')}</span>
                     {invoiceDetailCreditNotes.length > 0 && (
-                      <span> Gutschrift: <span className="font-semibold">{invoiceDetailCreditNotes[0].invoiceNumber}</span></span>
+                      <span> {t('financialManagement.creditNote')}: <span className="font-semibold">{invoiceDetailCreditNotes[0].invoiceNumber}</span></span>
                     )}
                   </div>
                 </div>
@@ -4953,26 +4962,26 @@ export function FinancialManagement() {
               {/* ── Stat cards ────────────────────────────────────────────── */}
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsnummer</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.invoiceNumber')}</div>
                   <div className="mt-1 font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
-                  <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge></div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.status')}</div>
+                  <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge></div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamtbetrag</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.totalAmount')}</div>
                   <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(selectedInvoice.total)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.openAmount')}</div>
                   <div className="mt-1 font-semibold text-red-700">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
                 </div>
               </div>
 
               <Card className="border-[#d8dce6] overflow-hidden">
                 <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Schnellaktionen</CardTitle>
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.quickActions')}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -4984,7 +4993,7 @@ export function FinancialManagement() {
                         openSendComposer(selectedInvoice, 'invoice');
                       }}
                     >
-                      <Send className="mr-1 h-3.5 w-3.5" />Senden
+                      <Send className="mr-1 h-3.5 w-3.5" />{t('financialManagement.send')}
                     </Button>
                     <Button
                       size="sm"
@@ -4994,21 +5003,21 @@ export function FinancialManagement() {
                         openStatusDialog(selectedInvoice);
                       }}
                     >
-                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />Status aendern
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />{t('financialManagement.changeStatus')}
                     </Button>
                     <Button
                       size="sm"
                       className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e] disabled:opacity-50"
                       disabled={!canRecordPayment(selectedInvoice)}
                       title={canRecordPayment(selectedInvoice)
-                        ? 'Teilzahlung erfassen'
-                        : `Teilzahlung nicht moeglich (Status: ${selectedInvoice.status})`}
+                        ? t('financialManagement.partialPayment')
+                        : `Teilzahlung nicht moeglich (Status: ${getInvoiceStatusLabel(selectedInvoice.status, t)})`}
                       onClick={() => {
                         setInvoiceDetailsDialogOpen(false);
                         openPaymentDialog(selectedInvoice);
                       }}
                     >
-                      <Banknote className="mr-1 h-3.5 w-3.5" />Teilzahlung
+                      <Banknote className="mr-1 h-3.5 w-3.5" />{t('financialManagement.partialPayment')}
                     </Button>
                     <Button
                       size="sm"
@@ -5023,7 +5032,7 @@ export function FinancialManagement() {
                         openCreditDialog(selectedInvoice);
                       }}
                     >
-                      <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />Gutschrift erstellen
+                      <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />{t('financialManagement.createCreditNote')}
                     </Button>
                   </div>
                 </CardContent>
@@ -5033,12 +5042,12 @@ export function FinancialManagement() {
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card className="border-[#d8dce6] overflow-hidden">
                   <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Kundendaten</CardTitle>
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.customerData')}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 space-y-3 text-sm">
                     <div className="flex flex-wrap gap-x-6 gap-y-1 items-center">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Kunde:</span>
+                        <span className="text-muted-foreground">{t('financialManagement.customer')}:</span>
                         {selectedInvoice.customerId ? (
                           <Badge
                             className="cursor-pointer bg-[#1a2a5e] text-white hover:bg-[#243680] border border-[#1a2a5e] gap-1"
@@ -5063,7 +5072,7 @@ export function FinancialManagement() {
                     <div className="grid gap-3 md:grid-cols-2">
                       {/* Rechnungsadresse */}
                       <div className="rounded-md border border-[#d8dce6] overflow-hidden">
-                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>Rechnungsadresse</div>
+                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>{t('financialManagement.invoiceAddress')}</div>
                         <div className="p-3">
                           {hasAddressData(selectedInvoiceAddress) ? (
                             <div className="space-y-0.5">
@@ -5074,16 +5083,16 @@ export function FinancialManagement() {
                               <div className="text-muted-foreground">{(selectedInvoiceAddress?.country as string) || '-'}</div>
                             </div>
                           ) : (
-                            <div className="text-muted-foreground text-xs italic">Keine Rechnungsadresse enthalten.</div>
+                            <div className="text-muted-foreground text-xs italic">{t('financialManagement.noBillingAddress')}</div>
                           )}
                         </div>
                       </div>
                       {/* Lieferadresse */}
                       <div className="rounded-md border border-[#d8dce6] overflow-hidden">
-                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>Lieferadresse</div>
+                        <div className="bg-[#1a2a5e] px-3 py-1.5 text-xs font-semibold" style={{ color: "#f5c800" }}>{t('financialManagement.shippingAddress')}</div>
                         <div className="p-3">
                           {selectedInvoiceShippingSameAsBilling ? (
-                            <div className="text-muted-foreground italic text-xs">↑ Identisch mit Rechnungsadresse</div>
+                            <div className="text-muted-foreground italic text-xs">↑ {t('financialManagement.identicalToBilling')}</div>
                           ) : hasAddressData(selectedInvoiceShippingAddress) ? (
                             <div className="space-y-0.5">
                               <div className="font-medium">{(selectedInvoiceShippingAddress?.company as string) || (selectedInvoiceShippingAddress?.name as string) || '-'}</div>
@@ -5093,7 +5102,7 @@ export function FinancialManagement() {
                               <div className="text-muted-foreground">{(selectedInvoiceShippingAddress?.country as string) || '-'}</div>
                             </div>
                           ) : (
-                            <div className="text-muted-foreground text-xs italic">Keine Lieferadresse angegeben.</div>
+                            <div className="text-muted-foreground text-xs italic">{t('financialManagement.noShippingAddress')}</div>
                           )}
                         </div>
                       </div>
@@ -5103,13 +5112,13 @@ export function FinancialManagement() {
 
                 <Card className="border-[#d8dce6] overflow-hidden">
                   <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Orders &amp; Lifecycle</CardTitle>
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.linkedOrdersLifecycle')}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 space-y-2 text-sm">
                     <div className="flex flex-wrap gap-x-6 gap-y-2">
                       {/* Order-ID Badge */}
                       <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Buchung:</span>
+                        <span className="text-muted-foreground">{t('financialManagement.booking')}:</span>
                         {selectedInvoice.orderId ? (() => {
                           const isObj = typeof selectedInvoice.orderId === 'object' && selectedInvoice.orderId !== null;
                           const oid = isObj ? (selectedInvoice.orderId as { _id: string })._id : selectedInvoice.orderId as string;
@@ -5133,7 +5142,7 @@ export function FinancialManagement() {
                       {/* RepairOrder Badges */}
                       {selectedInvoice.repairOrderIds && selectedInvoice.repairOrderIds.length > 0 && (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-muted-foreground">Reparaturaufträge:</span>
+                          <span className="text-muted-foreground">{t('financialManagement.repairOrders')}:</span>
                           {selectedInvoice.repairOrderIds.map((rid) => {
                             const isObj = typeof rid === 'object' && rid !== null;
                             const id = isObj ? (rid as { _id: string })._id : (rid as string);
@@ -5163,11 +5172,11 @@ export function FinancialManagement() {
                       )}
                     </div>
                     <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 pt-1 border-t border-[#d8dce6]">
-                      <div><span className="text-muted-foreground">Erstellt:</span> {formatDate(selectedInvoice.createdAt)}</div>
-                      <div><span className="text-muted-foreground">Faellig:</span> {formatDate(selectedInvoice.dueDate)}</div>
-                      <div><span className="text-muted-foreground">Gesendet:</span> {formatDate(selectedInvoice.sentAt)}</div>
-                      <div><span className="text-muted-foreground">Bezahlt:</span> {formatDate(selectedInvoice.paidAt)}</div>
-                      <div><span className="text-muted-foreground">Zahlungsziel:</span> {selectedInvoice.paymentTerms || '-'}</div>
+                      <div><span className="text-muted-foreground">{t('financialManagement.created')}:</span> {formatDate(selectedInvoice.createdAt)}</div>
+                      <div><span className="text-muted-foreground">{t('financialManagement.due')}:</span> {formatDate(selectedInvoice.dueDate)}</div>
+                      <div><span className="text-muted-foreground">{t('financialManagement.sentAt')}:</span> {formatDate(selectedInvoice.sentAt)}</div>
+                      <div><span className="text-muted-foreground">{t('financialManagement.paidAt')}:</span> {formatDate(selectedInvoice.paidAt)}</div>
+                      <div><span className="text-muted-foreground">{t('financialManagement.paymentTerms')}:</span> {selectedInvoice.paymentTerms || '-'}</div>
                       <div><span className="text-muted-foreground">Template:</span> {selectedInvoice.template || '-'}</div>
                     </div>
                   </CardContent>
@@ -5178,12 +5187,12 @@ export function FinancialManagement() {
               {!invoiceDetailLoading && (
                 <Card className="border-[#d8dce6] overflow-hidden">
                   <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Zahlungen &amp; Erstattungen</CardTitle>
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.paymentsAndRefundsSection')}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3">
                     {invoiceDetailPayments.length === 0 ? (
                       <div className="rounded-md border border-dashed border-[#d8dce6] p-3 text-center text-sm text-muted-foreground">
-                        Keine Zahlungen fuer diese Rechnung erfasst.
+                        {t('financialManagement.noPaymentsForInvoice')}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -5193,8 +5202,8 @@ export function FinancialManagement() {
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-[#1a2a5e]">{formatCurrency(pmt.amount, pmt.currency || 'EUR')}</span>
-                                  <Badge variant="outline" className={paymentStatusClass[pmt.status]}>{pmt.status}</Badge>
-                                  <span className="text-muted-foreground text-xs">{pmt.paymentMethod}</span>
+                                  <Badge variant="outline" className={paymentStatusClass[pmt.status]}>{getPaymentStatusLabel(pmt.status, t)}</Badge>
+                                  <span className="text-muted-foreground text-xs">{getPaymentMethodLabel(pmt.paymentMethod, t)}</span>
                                 </div>
                                 <div className="text-muted-foreground text-xs">
                                   {pmt.transactionId && <span>TxID: {pmt.transactionId} · </span>}
@@ -5222,17 +5231,17 @@ export function FinancialManagement() {
                                     setRefundDialogOpen(true);
                                   }}
                                 >
-                                  Erstatten
+                                  {t('financialManagement.refund')}
                                 </Button>
                               )}
                             </div>
                             {/* Refund details */}
                             {pmt.status === 'refunded' && (
                               <div className="mt-2 space-y-1 border-t border-purple-200 pt-2">
-                                <div className="font-medium text-purple-700">↩ Erstattung</div>
+                                <div className="font-medium text-purple-700">↩ {t('financialManagement.refund')}</div>
                                 <div className="grid gap-x-4 gap-y-1 text-xs text-muted-foreground md:grid-cols-2">
-                                  <div><span className="font-medium text-purple-700">Betrag:</span> {formatCurrency(pmt.refundAmount || pmt.amount, pmt.currency || 'EUR')}</div>
-                                  <div><span className="font-medium text-purple-700">Datum:</span> {formatDate(pmt.refundedAt)}</div>
+                                  <div><span className="font-medium text-purple-700">{t('financialManagement.amount')}:</span> {formatCurrency(pmt.refundAmount || pmt.amount, pmt.currency || 'EUR')}</div>
+                                  <div><span className="font-medium text-purple-700">{t('financialManagement.date')}:</span> {formatDate(pmt.refundedAt)}</div>
                                   <div><span className="font-medium text-purple-700">Modus:</span> {pmt.refundMode === 'gateway' ? 'Gateway' : pmt.refundMode === 'manual' ? 'Manuell' : '-'}</div>
                                   {pmt.refundGatewayProvider && (
                                     <div><span className="font-medium text-purple-700">Gateway:</span> {pmt.refundGatewayProvider}</div>
@@ -5249,14 +5258,14 @@ export function FinancialManagement() {
                           </div>
                         ))}
                         <div className="flex justify-between border-t border-[#d8dce6] pt-2 text-sm">
-                          <span className="text-muted-foreground">Summe Zahlungen:</span>
+                          <span className="text-muted-foreground">{t('financialManagement.totalPayments')}:</span>
                           <span className="font-semibold text-[#1a2a5e]">
                             {formatCurrency(invoiceDetailPayments.filter(p => p.status === 'completed' || p.status === 'refunded').reduce((s, p) => s + p.amount, 0))}
                           </span>
                         </div>
                         {invoiceDetailPayments.some(p => p.status === 'refunded') && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">davon erstattet:</span>
+                            <span className="text-muted-foreground">{t('financialManagement.thereofRefunded')}:</span>
                             <span className="font-semibold text-purple-700">
                               {formatCurrency(invoiceDetailPayments.filter(p => p.status === 'refunded').reduce((s, p) => s + (p.refundAmount || p.amount), 0))}
                             </span>
@@ -5272,7 +5281,7 @@ export function FinancialManagement() {
               {!invoiceDetailLoading && invoiceDetailCreditNotes.length > 0 && (
                 <Card className="border-[#d8dce6] overflow-hidden">
                   <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Verknuepfte Gutschriften</CardTitle>
+                    <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.linkedCreditNotes')}</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3">
                     <div className="space-y-2">
@@ -5281,8 +5290,8 @@ export function FinancialManagement() {
                           <div>
                             <div className="font-medium text-violet-800">{cn.invoiceNumber}</div>
                             <div className="text-xs text-muted-foreground">
-                              Erstellt: {formatDate(cn.createdAt)} ·{' '}
-                              <Badge variant="outline" className={invoiceStatusClass[(cn.status as InvoiceStatus) || 'draft']}>{cn.status}</Badge>
+                              {t('financialManagement.created')}: {formatDate(cn.createdAt)} ·{' '}
+                              <Badge variant="outline" className={invoiceStatusClass[(cn.status as InvoiceStatus) || 'draft']}>{getInvoiceStatusLabel((cn.status as InvoiceStatus) || 'draft', t)}</Badge>
                             </div>
                             {cn.notes && <div className="mt-1 text-xs text-violet-600">{cn.notes}</div>}
                           </div>
@@ -5297,7 +5306,7 @@ export function FinancialManagement() {
                                 openInvoiceDetails(cn as Invoice);
                               }}
                             >
-                              <Eye className="mr-1 h-3 w-3" />Details
+                              <Eye className="mr-1 h-3 w-3" />{t('common.details', 'Details')}
                             </Button>
                           </div>
                         </div>
@@ -5310,18 +5319,18 @@ export function FinancialManagement() {
               {/* ── Invoice items ─────────────────────────────────────────── */}
               <Card className="border-[#d8dce6] overflow-hidden">
                 <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Rechnungsposten</CardTitle>
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.invoiceItems')}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3">
                   <div className="overflow-x-auto rounded-md border border-[#d8dce6]">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Service Name</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Menge</TableHead>
-                          <TableHead>Einzelpreis</TableHead>
-                          <TableHead>Gesamt</TableHead>
+                          <TableHead>{t('financialManagement.descriptionServiceName')}</TableHead>
+                          <TableHead>{t('financialManagement.itemType')}</TableHead>
+                          <TableHead>{t('financialManagement.quantity')}</TableHead>
+                          <TableHead>{t('financialManagement.unitPrice')}</TableHead>
+                          <TableHead>{t('financialManagement.total')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -5344,10 +5353,10 @@ export function FinancialManagement() {
                   </div>
 
                   <div className="mt-3 grid gap-2 md:grid-cols-4 text-sm">
-                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">Netto:</span> {formatCurrency(selectedInvoice.subtotal || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">Steuer:</span> {formatCurrency(selectedInvoice.tax || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">Rabatt:</span> {formatCurrency(selectedInvoice.discount || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2 font-semibold text-[#1a2a5e]"><span className="text-muted-foreground">Gesamt:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.net')}:</span> {formatCurrency(selectedInvoice.subtotal || 0)}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.tax')}:</span> {formatCurrency(selectedInvoice.tax || 0)}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.discount')}:</span> {formatCurrency(selectedInvoice.discount || 0)}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2 font-semibold text-[#1a2a5e]"><span className="text-muted-foreground">{t('financialManagement.total')}:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -5355,10 +5364,10 @@ export function FinancialManagement() {
               {/* ── Notes ─────────────────────────────────────────────────── */}
               <Card className="border-[#d8dce6] overflow-hidden">
                 <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
-                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Notizen &amp; Zusatzinfos</CardTitle>
+                  <CardTitle className="text-sm" style={{ color: "#f5c800" }}>{t('financialManagement.notesAndAdditionalInfo')}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 text-sm">
-                  {selectedInvoice.notes ? selectedInvoice.notes : <span className="text-muted-foreground">Keine Notiz vorhanden.</span>}
+                  {selectedInvoice.notes ? selectedInvoice.notes : <span className="text-muted-foreground">{t('financialManagement.noNotes')}</span>}
                 </CardContent>
               </Card>
             </div>
@@ -5389,10 +5398,10 @@ export function FinancialManagement() {
             <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-1">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="font-semibold text-[#1a2a5e]">{selectedPayment.customerName}</div>
-                <Badge variant="outline" className={paymentStatusClass[selectedPayment.status]}>{selectedPayment.status}</Badge>
+                <Badge variant="outline" className={paymentStatusClass[selectedPayment.status]}>{getPaymentStatusLabel(selectedPayment.status, t)}</Badge>
               </div>
               <div className="grid gap-x-6 gap-y-0.5 text-muted-foreground md:grid-cols-3">
-                <div><span className="text-foreground font-medium">Methode:</span> {selectedPayment.paymentMethod}</div>
+                <div><span className="text-foreground font-medium">{t('financialManagement.paymentMethod')}:</span> {getPaymentMethodLabel(selectedPayment.paymentMethod, t)}</div>
                 <div><span className="text-foreground font-medium">Bezahlt:</span> {formatCurrency(selectedPayment.amount, selectedPayment.currency || 'EUR')}</div>
                 {selectedPayment.transactionId && (
                   <div><span className="text-foreground font-medium">TxID:</span> <span className="font-mono text-xs">{selectedPayment.transactionId}</span></div>
@@ -5554,9 +5563,9 @@ export function FinancialManagement() {
           {/* ── Summary card ────────────────────────────────────────── */}
           {Number(refundForm.amount) > 0 && (
             <div className="rounded-md border border-[#d8dce6] bg-slate-50 p-3 text-sm space-y-1">
-              <div className="font-semibold text-[#1a2a5e]">Zusammenfassung</div>
+              <div className="font-semibold text-[#1a2a5e]">{t('financialManagement.summary')}</div>
               <div className="grid gap-x-4 gap-y-0.5 md:grid-cols-2">
-                <div><span className="text-muted-foreground">Betrag:</span> <span className="font-semibold text-purple-700">{formatCurrency(Number(refundForm.amount))}</span></div>
+                <div><span className="text-muted-foreground">{t('financialManagement.amount')}:</span> <span className="font-semibold text-purple-700">{formatCurrency(Number(refundForm.amount))}</span></div>
                 <div><span className="text-muted-foreground">Abwicklung:</span> {refundForm.mode === 'gateway' ? `Gateway (${refundForm.gatewayProvider || '–'})` : 'Manuell'}</div>
                 {(refundForm.reasonCategory || refundForm.reason) && (
                   <div className="md:col-span-2"><span className="text-muted-foreground">Grund:</span> {[refundForm.reasonCategory, refundForm.reason].filter(Boolean).join(' – ')}</div>
@@ -5577,7 +5586,7 @@ export function FinancialManagement() {
               onClick={onRefund}
               disabled={!refundForm.amount || Number(refundForm.amount) <= 0 || (!refundForm.reason.trim() && !refundForm.reasonCategory)}
             >
-              Erstattung buchen
+              {t('financialManagement.bookRefund')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -5587,10 +5596,10 @@ export function FinancialManagement() {
         <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 border-b border-[#0f1d45]">
             <DialogTitle className="text-xl font-bold flex items-center gap-2" style={{ color: '#f5c800' }}>
-              <Wrench className="h-5 w-5" /> Rechnungsstatus ändern
+              <Wrench className="h-5 w-5" /> {t('financialManagement.changeInvoiceStatus')}
             </DialogTitle>
             <DialogDescription className="text-blue-200 text-sm">
-              Status aktualisieren und bei Zahlungseingang Zahlungsart sowie Zeitpunkt dokumentieren.
+              {t('financialManagement.changeInvoiceStatusDesc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -5601,15 +5610,15 @@ export function FinancialManagement() {
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="font-semibold text-sm" style={{ color: '#f5c800' }}>{selectedInvoice.invoiceNumber}</div>
                     <div className="flex items-center gap-1.5 text-xs">
-                      <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge>
+                      <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge>
                       <span className="text-blue-200">→</span>
-                      <Badge variant="outline" className={invoiceStatusClass[statusForm.status]}>{statusForm.status}</Badge>
+                      <Badge variant="outline" className={invoiceStatusClass[statusForm.status]}>{getInvoiceStatusLabel(statusForm.status, t)}</Badge>
                     </div>
                   </div>
                 </div>
                 <div className="bg-[#f8f9fc] p-3 text-sm space-y-1">
                   <div className="grid gap-2 md:grid-cols-3">
-                    <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
+                    <div><span className="text-muted-foreground">{t('financialManagement.customer')}:</span> {selectedInvoice.customerName}</div>
                     <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
                     <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
                   </div>
@@ -5619,24 +5628,24 @@ export function FinancialManagement() {
 
             <div className="rounded-md border border-[#0f1d45] overflow-hidden">
               <div className="bg-[#1a2a5e] px-3 py-2">
-                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Neuer Status</span>
+                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{t('financialManagement.newStatus')}</span>
               </div>
               <div className="bg-[#f8f9fc] p-3">
                 <Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}>
                   <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {selectedInvoice && (
-                      <SelectItem value={selectedInvoice.status}>{invoiceStatusLabel[selectedInvoice.status]} (aktuell)</SelectItem>
+                      <SelectItem value={selectedInvoice.status}>{getInvoiceStatusLabel(selectedInvoice.status, t)} ({t('common.current', 'aktuell')})</SelectItem>
                     )}
                     {(selectedInvoice ? invoiceStatusTransitions[selectedInvoice.status] : []).map((status) => (
-                      <SelectItem key={status} value={status}>{invoiceStatusLabel[status]}</SelectItem>
+                      <SelectItem key={status} value={status}>{getInvoiceStatusLabel(status, t)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {selectedInvoice && invoiceStatusTransitions[selectedInvoice.status].length === 0 && (
                   <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    Für den Status "{invoiceStatusLabel[selectedInvoice.status]}" sind keine weiteren Statuswechsel möglich.
+                    Für den Status "{getInvoiceStatusLabel(selectedInvoice.status, t)}" sind keine weiteren Statuswechsel möglich.
                   </p>
                 )}
               </div>
@@ -5645,7 +5654,7 @@ export function FinancialManagement() {
             <div className="rounded-md border border-[#0f1d45] overflow-hidden">
               <div className="bg-[#1a2a5e] px-3 py-2 flex items-center justify-between">
                 <span className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#f5c800' }}>
-                  <Banknote className="h-4 w-4" /> Zahlungsinformationen
+                  <Banknote className="h-4 w-4" /> {t('financialManagement.paymentInfo')}
                 </span>
                 {statusForm.status === 'paid' && (
                   <Badge className="bg-[#f5c800] text-[#1a2a5e] text-[10px]">Erforderlich</Badge>
@@ -5655,14 +5664,14 @@ export function FinancialManagement() {
                 {statusForm.status === 'paid' ? (
                   <p className="flex items-center gap-1.5 text-xs text-amber-700">
                     <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    Für den Status "Paid" müssen Zahlungsart und Zahlungszeitpunkt angegeben werden.
+                    {t('financialManagement.paymentInfoRequired')}
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">Optional – hilfreich zur Dokumentation bereits erhaltener Zahlungen.</p>
                 )}
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label>Zahlungsart {statusForm.status === 'paid' && <span className="text-red-600">*</span>}</Label>
+                    <Label>{t('financialManagement.paymentMethod')} {statusForm.status === 'paid' && <span className="text-red-600">*</span>}</Label>
                     <Select
                       value={statusForm.paymentMethod || undefined}
                       onValueChange={(value) => setStatusForm((p) => ({ ...p, paymentMethod: value as NonNullable<Invoice['paymentMethod']> }))}
@@ -5672,14 +5681,14 @@ export function FinancialManagement() {
                       </SelectTrigger>
                       <SelectContent>
                         {trackedPaymentMethodOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          <SelectItem key={option.value} value={option.value}>{getPaymentMethodLabel(option.value, t)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-1">
-                    <Label>Zahlungszeitpunkt {statusForm.status === 'paid' && <span className="text-red-600">*</span>}</Label>
+                    <Label>{t('financialManagement.paymentTime')} {statusForm.status === 'paid' && <span className="text-red-600">*</span>}</Label>
                     <Input
                       type="datetime-local"
                       className="bg-white"
@@ -5716,7 +5725,7 @@ export function FinancialManagement() {
               {t('common.cancel')}
             </Button>
             <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onChangeStatus}>
-              Status speichern
+              {t('financialManagement.saveStatus')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -5725,8 +5734,8 @@ export function FinancialManagement() {
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
-            <DialogTitle className="text-xl font-bold" style={{ color: '#f5c800' }}>{t('financialManagement.markAsPaid')}</DialogTitle>
-            <DialogDescription className="text-blue-200 text-sm">Teilzahlungen und Vollzahlungen strukturiert erfassen, prüfen und dokumentieren.</DialogDescription>
+            <DialogTitle className="text-xl font-bold" style={{ color: '#f5c800' }}>{t('financialManagement.recordPaymentTitle')}</DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">{t('financialManagement.recordPaymentDesc')}</DialogDescription>
           </DialogHeader>
 
           <div className="px-6 py-4 space-y-4">
@@ -5736,19 +5745,19 @@ export function FinancialManagement() {
               <div className="bg-[#1a2a5e] px-3 py-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="font-semibold text-sm" style={{ color: '#f5c800' }}>{selectedInvoice.invoiceNumber}</div>
-                  <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge>
+                  <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge>
                 </div>
               </div>
               <div className="bg-[#f8f9fc] p-3 text-sm space-y-2">
                 <div className="grid gap-2 md:grid-cols-3">
-                  <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
+                  <div><span className="text-muted-foreground">{t('financialManagement.customer')}:</span> {selectedInvoice.customerName}</div>
                   <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
                   <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Zahlungsfortschritt</span>
-                    <span>{formatCurrency(selectedInvoiceOpenAmount)} offen</span>
+                    <span>{t('financialManagement.paymentProgress')}</span>
+                    <span>{formatCurrency(selectedInvoiceOpenAmount)} {t('financialManagement.openAmount').toLowerCase()}</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                     <div
@@ -5763,7 +5772,7 @@ export function FinancialManagement() {
 
           <div className="rounded-md border border-[#0f1d45] overflow-hidden">
             <div className="bg-[#1a2a5e] px-3 py-2">
-              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zahlungsart</span>
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{t('financialManagement.paymentMethod')}</span>
             </div>
             <div className="bg-[#f8f9fc] p-3">
             <div className="grid grid-cols-2 gap-2">
@@ -5772,14 +5781,14 @@ export function FinancialManagement() {
                 className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${paymentForm.scope === 'partial' ? 'border-[#f5c800] bg-[#f5c800] text-[#1a2a5e]' : 'border-[#d8dce6] bg-white text-[#1a2a5e] hover:bg-[#f5c800]/10'}`}
                 onClick={() => setPaymentForm((p) => ({ ...p, scope: 'partial' }))}
               >
-                Teilzahlung
+                {t('financialManagement.partialPayment')}
               </button>
               <button
                 type="button"
                 className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${paymentForm.scope === 'full' ? 'border-[#f5c800] bg-[#f5c800] text-[#1a2a5e]' : 'border-[#d8dce6] bg-white text-[#1a2a5e] hover:bg-[#f5c800]/10'}`}
                 onClick={() => setPaymentForm((p) => ({ ...p, scope: 'full', amount: String(selectedInvoiceOpenAmount) }))}
               >
-                Vollzahlung (Restbetrag)
+                {t('financialManagement.fullPayment')} ({t('financialManagement.openAmount')})
               </button>
             </div>
             </div>
@@ -5787,13 +5796,13 @@ export function FinancialManagement() {
 
           <div className="rounded-md border border-[#0f1d45] overflow-hidden">
             <div className="bg-[#1a2a5e] px-3 py-2">
-              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zahlungsdetails</span>
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{t('financialManagement.paymentDetails')}</span>
             </div>
             <div className="bg-[#f8f9fc] p-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label>Betrag *</Label>
+                <Label>{t('financialManagement.amount')} *</Label>
                 <button
                   type="button"
                   className="text-xs text-[#1a2a5e] underline-offset-2 hover:underline font-medium"
@@ -5821,7 +5830,7 @@ export function FinancialManagement() {
             </div>
 
             <div className="space-y-1">
-              <Label>Datum Zahlungseingang</Label>
+              <Label>{t('financialManagement.datePaymentReceived')}</Label>
               <Input
                 type="date"
                 value={paymentForm.paymentDate}
@@ -5830,23 +5839,23 @@ export function FinancialManagement() {
             </div>
 
             <div className="space-y-1">
-              <Label>Methode *</Label>
+              <Label>{t('financialManagement.paymentMethod')} *</Label>
               <Select value={paymentForm.paymentMethod} onValueChange={(v) => setPaymentForm((p) => ({ ...p, paymentMethod: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bank_transfer">Banküberweisung</SelectItem>
-                  <SelectItem value="prepayment">Vorkasse</SelectItem>
-                  <SelectItem value="cash">Bar</SelectItem>
-                  <SelectItem value="credit_card">Kreditkarte</SelectItem>
-                  <SelectItem value="debit_card">Debitkarte</SelectItem>
-                  <SelectItem value="paypal">PayPal</SelectItem>
-                  <SelectItem value="stripe">Stripe</SelectItem>
+                  <SelectItem value="bank_transfer">{t('financialManagement.paymentMethods.bank_transfer')}</SelectItem>
+                  <SelectItem value="prepayment">{t('financialManagement.paymentMethods.prepayment')}</SelectItem>
+                  <SelectItem value="cash">{t('financialManagement.paymentMethods.cash')}</SelectItem>
+                  <SelectItem value="credit_card">{t('financialManagement.paymentMethods.credit_card')}</SelectItem>
+                  <SelectItem value="debit_card">{t('financialManagement.paymentMethods.debit_card')}</SelectItem>
+                  <SelectItem value="paypal">{t('financialManagement.paymentMethods.paypal')}</SelectItem>
+                  <SelectItem value="stripe">{t('financialManagement.paymentMethods.stripe')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1">
-              <Label>Referenz (optional)</Label>
+              <Label>{t('financialManagement.referenceOptional')}</Label>
               <Input
                 value={paymentForm.reference}
                 onChange={(e) => setPaymentForm((p) => ({ ...p, reference: e.target.value }))}
@@ -5859,7 +5868,7 @@ export function FinancialManagement() {
 
           <div className="rounded-md border border-[#0f1d45] overflow-hidden">
             <div className="bg-[#1a2a5e] px-3 py-2">
-              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zusatzinformationen</span>
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{t('financialManagement.additionalInfo')}</span>
             </div>
             <div className="bg-[#f8f9fc] p-3 space-y-3">
           <div className="space-y-1">
@@ -5888,20 +5897,20 @@ export function FinancialManagement() {
               checked={paymentForm.notifyCustomer}
               onCheckedChange={(v) => setPaymentForm((p) => ({ ...p, notifyCustomer: v }))}
             />
-            <Label htmlFor="payment-notify" className="cursor-pointer">Kunden über Zahlungseingang informieren</Label>
+            <Label htmlFor="payment-notify" className="cursor-pointer">{t('financialManagement.notifyCustomerPayment')}</Label>
           </div>
             </div>
           </div>
 
           <div className="rounded-md border border-[#0f1d45] overflow-hidden">
             <div className="bg-[#1a2a5e] px-3 py-2">
-              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Zusammenfassung</span>
+              <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{t('financialManagement.summary')}</span>
             </div>
             <div className="bg-[#f8f9fc] p-3 text-sm space-y-1">
             <div className="grid gap-x-4 gap-y-0.5 md:grid-cols-2">
-              <div><span className="text-muted-foreground">Vorgang:</span> {paymentForm.scope === 'full' ? 'Vollzahlung' : 'Teilzahlung'}</div>
-              <div><span className="text-muted-foreground">Methode:</span> {paymentMethodLabel[paymentForm.paymentMethod as Payment['paymentMethod']] || paymentForm.paymentMethod}</div>
-              <div><span className="text-muted-foreground">Betrag:</span> <span className="font-semibold text-[#1a2a5e]">{formatCurrency(Number(paymentForm.amount || 0))}</span></div>
+              <div><span className="text-muted-foreground">Vorgang:</span> {paymentForm.scope === 'full' ? t('financialManagement.fullPayment') : t('financialManagement.partialPayment')}</div>
+              <div><span className="text-muted-foreground">{t('financialManagement.paymentMethod')}:</span> {getPaymentMethodLabel(paymentForm.paymentMethod, t)}</div>
+              <div><span className="text-muted-foreground">{t('financialManagement.amount')}:</span> <span className="font-semibold text-[#1a2a5e]">{formatCurrency(Number(paymentForm.amount || 0))}</span></div>
               <div><span className="text-muted-foreground">Rest nach Buchung:</span> {formatCurrency(Math.max(0, selectedInvoiceOpenAmount - Number(paymentForm.amount || 0)))}</div>
             </div>
             </div>
@@ -5910,24 +5919,24 @@ export function FinancialManagement() {
           {selectedInvoicePaymentHistory.length > 0 && (
             <div className="rounded-md border border-[#0f1d45] overflow-hidden">
               <div className="bg-[#1a2a5e] px-3 py-2">
-                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Bisherige Zahlungen zur Rechnung</span>
+                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{t('financialManagement.previousPaymentsForInvoice')}</span>
               </div>
               <div className="overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-[#f8f9fc]">
-                      <TableHead className="text-[#1a2a5e] font-semibold">Datum</TableHead>
-                      <TableHead className="text-[#1a2a5e] font-semibold">Status</TableHead>
-                      <TableHead className="text-[#1a2a5e] font-semibold">Methode</TableHead>
-                      <TableHead className="text-right text-[#1a2a5e] font-semibold">Betrag</TableHead>
+                      <TableHead className="text-[#1a2a5e] font-semibold">{t('financialManagement.date')}</TableHead>
+                      <TableHead className="text-[#1a2a5e] font-semibold">{t('financialManagement.status')}</TableHead>
+                      <TableHead className="text-[#1a2a5e] font-semibold">{t('financialManagement.paymentMethod')}</TableHead>
+                      <TableHead className="text-right text-[#1a2a5e] font-semibold">{t('financialManagement.amount')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {selectedInvoicePaymentHistory.slice(0, 5).map((entry) => (
                       <TableRow key={entry._id}>
                         <TableCell>{formatDate(entry.processedAt || entry.createdAt)}</TableCell>
-                        <TableCell><Badge variant="outline" className={paymentStatusClass[entry.status]}>{entry.status}</Badge></TableCell>
-                        <TableCell>{paymentMethodLabel[entry.paymentMethod]}</TableCell>
+                        <TableCell><Badge variant="outline" className={paymentStatusClass[entry.status]}>{getPaymentStatusLabel(entry.status, t)}</Badge></TableCell>
+                        <TableCell>{getPaymentMethodLabel(entry.paymentMethod, t)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(entry.amount, entry.currency || 'EUR')}</TableCell>
                       </TableRow>
                     ))}
@@ -5946,7 +5955,7 @@ export function FinancialManagement() {
               disabled={!paymentForm.amount || Number(paymentForm.amount) <= 0 || Number(paymentForm.amount) > selectedInvoiceOpenAmount + 0.01}
               className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800] disabled:opacity-50"
             >
-              Zahlung buchen
+              {t('financialManagement.bookPayment')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -5957,7 +5966,7 @@ export function FinancialManagement() {
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
             <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
               <FileSpreadsheet className="h-5 w-5" />
-              Gutschrift erstellen
+              {t('financialManagement.createCreditNote')}
               {selectedInvoice?.invoiceNumber && (
                 <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoice.invoiceNumber}</span>
               )}
@@ -5973,11 +5982,11 @@ export function FinancialManagement() {
             <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 text-sm space-y-1">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="font-semibold text-[#1a2a5e]">{selectedInvoice.invoiceNumber}</div>
-                <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge>
+                <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge>
               </div>
               <div className="grid gap-x-6 gap-y-0.5 text-muted-foreground md:grid-cols-2">
-                <div><span className="text-foreground font-medium">Kunde:</span> {selectedInvoice.customerName}</div>
-                <div><span className="text-foreground font-medium">Gesamtbetrag:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
+                <div><span className="text-foreground font-medium">{t('financialManagement.customer')}:</span> {selectedInvoice.customerName}</div>
+                <div><span className="text-foreground font-medium">{t('financialManagement.totalAmount')}:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
                 {selectedInvoice.items?.length ? (
                   <div className="md:col-span-2"><span className="text-foreground font-medium">Positionen:</span> {selectedInvoice.items.length}</div>
                 ) : null}
@@ -6188,7 +6197,7 @@ export function FinancialManagement() {
                 (creditPreview == null || creditPreview.items.length === 0)
               }
             >
-              Gutschrift erstellen
+              {t('financialManagement.createCreditNote')}
             </Button>
           </DialogFooter>
         </DialogContent>
