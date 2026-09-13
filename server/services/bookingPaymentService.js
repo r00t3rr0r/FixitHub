@@ -54,11 +54,41 @@ const parsePaymentDate = (value) => {
 
 class BookingPaymentService {
   static async loadContext(bookingId) {
-    if (!mongoose.Types.ObjectId.isValid(String(bookingId))) {
-      throw buildValidationError('Ungültige Auftrags-ID.');
+    let booking = null;
+    const rawId = String(bookingId || '').trim();
+    const cleanId = rawId.replace(/^#/, '').trim();
+
+    if (mongoose.Types.ObjectId.isValid(rawId)) {
+      booking = await Booking.findById(rawId).lean();
+    }
+    if (!booking && cleanId) {
+      booking = await Booking.findOne({
+        $or: [
+          { bookingNumber: cleanId },
+          { bookingNumber: `#${cleanId}` },
+          { bookingNumber: { $regex: new RegExp(`^#?${cleanId}$`, 'i') } }
+        ]
+      }).lean();
+    }
+    if (!booking && cleanId) {
+      let order = null;
+      if (mongoose.Types.ObjectId.isValid(rawId)) {
+        order = await Order.findById(rawId).lean();
+      }
+      if (!order) {
+        order = await Order.findOne({
+          $or: [
+            { orderNumber: cleanId },
+            { orderNumber: `#${cleanId}` },
+            { orderNumber: { $regex: new RegExp(`^#?${cleanId}$`, 'i') } }
+          ]
+        }).lean();
+      }
+      if (order && order.bookingId) {
+        booking = await Booking.findById(order.bookingId).lean();
+      }
     }
 
-    const booking = await Booking.findById(bookingId).lean();
     if (!booking) {
       const error = new Error('Auftrag wurde nicht gefunden.');
       error.statusCode = 404;

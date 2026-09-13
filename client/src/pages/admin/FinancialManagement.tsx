@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,9 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { printInvoice } from '@/lib/invoicePrint';
 import { getInvoiceItemServiceName } from '@/lib/invoiceItems';
+import { getAdminBookings } from '@/api/bookings';
+import { getAdminOrders } from '@/api/adminOrders';
+import { getBookingPayments, type BookingPaymentOverview } from '@/api/bookingPayments';
 import {
   activateCollection,
   addDunningRunItem,
@@ -44,9 +47,12 @@ import {
   getPaymentGateways,
   getPayments,
   processRefund,
+  reconcileOverpayment,
+  requestAdditionalPayment,
   runDunningJob,
   searchCustomers,
   sendInvoice,
+  syncBookingFinancials,
   updateDunningRun,
   updateDunningRunItem,
   updatePaymentGateway,
@@ -75,6 +81,7 @@ import {
   Eye,
   FileSpreadsheet,
   ListChecks,
+  Loader2,
   Mail,
   Package,
   PauseCircle,
@@ -91,6 +98,7 @@ import {
   User,
   Wallet,
   Wrench,
+  X,
   XCircle
 } from 'lucide-react';
 
@@ -403,6 +411,241 @@ const createCreditFormState = (settings: FinancialSettingsState) => ({
   numberPrefix: settings.defaults.creditNotePrefix,
   notifyCustomer: false,
 });
+
+interface BookingSearchResultItem {
+  _id: string;
+  bookingNumber?: string;
+  orderNumber?: string;
+  status?: string;
+  billingStatus?: string;
+  paymentStatus?: string;
+  totalCost?: number;
+  cost?: number;
+  createdAt?: string;
+  customerId?: {
+    _id?: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+  } | null;
+  guestInfo?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    isGuest?: boolean;
+  } | null;
+  items?: Array<{
+    type?: string;
+    device?: string;
+    cost?: number;
+    services?: Array<{ name?: string; price?: number }>;
+  }>;
+  deviceType?: string;
+}
+
+const getSearchResultCustomerName = (item: BookingSearchResultItem): string => {
+  if (item.customerId && typeof item.customerId === 'object') {
+    const full = `${item.customerId.firstName || ''} ${item.customerId.lastName || ''}`.trim();
+    if (full) return full;
+    if (item.customerId.name) return item.customerId.name;
+    if (item.customerId.email) return item.customerId.email;
+  }
+  if (item.guestInfo) {
+    const full = `${item.guestInfo.firstName || ''} ${item.guestInfo.lastName || ''}`.trim();
+    if (full) return `${full} (Gast)`;
+    if (item.guestInfo.email) return `${item.guestInfo.email} (Gast)`;
+  }
+  return 'Kunde';
+};
+
+const getSearchResultCustomerEmail = (item: BookingSearchResultItem): string => {
+  if (item.customerId && typeof item.customerId === 'object' && item.customerId.email) {
+    return item.customerId.email;
+  }
+  if (item.guestInfo && item.guestInfo.email) {
+    return item.guestInfo.email;
+  }
+  return '';
+};
+
+interface BookingSearchAutocompleteProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSelectItem?: (item: BookingSearchResultItem) => void;
+  placeholder?: string;
+  type?: 'booking' | 'order';
+  disabled?: boolean;
+}
+
+function BookingSearchAutocomplete({
+  value,
+  onChange,
+  onSelectItem,
+  placeholder = 'Buchungs-ID oder Kundenname eingeben...',
+  type = 'booking',
+  disabled = false,
+}: BookingSearchAutocompleteProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<BookingSearchResultItem[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchSuggestions = useCallback(async (searchTerm: string) => {
+    setLoading(true);
+    try {
+      if (type === 'order') {
+        const res = await getAdminOrders({ search: searchTerm.trim(), limit: 8 });
+        const orders = res?.orders || (Array.isArray(res) ? res : []);
+        setResults(orders);
+      } else {
+        const res = await getAdminBookings({ search: searchTerm.trim(), limit: 8 });
+        setResults(res?.bookings || []);
+      }
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [type]);
+
+  const handleInputChange = (text: string) => {
+    onChange(text);
+    setIsOpen(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      void fetchSuggestions(text);
+    }, 250);
+  };
+
+  const handleFocus = () => {
+    setIsOpen(true);
+    void fetchSuggestions(value);
+  };
+
+  const handleSelect = (item: BookingSearchResultItem) => {
+    const identifier = type === 'order' ? (item.orderNumber || item._id) : (item.bookingNumber || item._id);
+    onChange(identifier);
+    if (onSelectItem) {
+      onSelectItem(item);
+    }
+    setIsOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          value={value}
+          disabled={disabled}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={handleFocus}
+          placeholder={placeholder}
+          className="h-8 pl-8 pr-7 text-xs bg-background"
+        />
+        {value && !disabled && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange('');
+              setResults([]);
+              setIsOpen(false);
+            }}
+            className="absolute right-2 text-muted-foreground hover:text-foreground p-0.5 rounded-full"
+            title="Eingabe leeren"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg animate-in fade-in-50 zoom-in-95">
+          {loading ? (
+            <div className="flex items-center justify-center p-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-2 text-primary" />
+              Suche {type === 'order' ? 'Bestellungen' : 'Buchungen'}...
+            </div>
+          ) : results.length > 0 ? (
+            <div className="p-1 divide-y divide-border/40">
+              {results.map((item) => {
+                const idLabel = type === 'order' ? (item.orderNumber || item._id) : (item.bookingNumber || item._id);
+                const custName = getSearchResultCustomerName(item);
+                const custEmail = getSearchResultCustomerEmail(item);
+                const cost = Number(item.totalCost || item.cost || 0);
+                const status = item.status || item.billingStatus || 'pending';
+                const device = item.items?.[0]?.device || item.deviceType || '';
+
+                return (
+                  <button
+                    key={item._id}
+                    type="button"
+                    onClick={() => handleSelect(item)}
+                    className="w-full text-left p-2 rounded hover:bg-accent hover:text-accent-foreground flex items-center justify-between transition-colors text-xs group"
+                  >
+                    <div className="space-y-0.5 min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-primary font-mono">{idLabel}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-[#1a2a5e]/30 text-[#1a2a5e] dark:text-[#f5c800] dark:border-[#f5c800]/30 font-normal">
+                          {status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1 text-foreground font-medium truncate">
+                        <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="truncate">{custName}</span>
+                      </div>
+                      {(custEmail || device) && (
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground truncate">
+                          {custEmail && (
+                            <span className="flex items-center gap-1 truncate">
+                              <Mail className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">{custEmail}</span>
+                            </span>
+                          )}
+                          {device && (
+                            <span className="truncate text-slate-500 dark:text-slate-400">
+                              • {device}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0 pl-2">
+                      <div className="font-semibold text-xs text-foreground">
+                        {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cost)}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString('de-DE') : ''}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-3 text-center text-xs text-muted-foreground">
+              Keine {type === 'order' ? 'Bestellungen' : 'Buchungen'} gefunden.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function FinancialManagement() {
   const { t } = useTranslation()
@@ -2243,61 +2486,173 @@ export function FinancialManagement() {
 
   const [overpaymentBookingId, setOverpaymentBookingId] = useState('');
   const [overpaymentReason, setOverpaymentReason] = useState('Guthaben-Ausgleich');
+  const [overpaymentAmount, setOverpaymentAmount] = useState('');
   const [overpaymentProcessRefund, setOverpaymentProcessRefund] = useState(false);
   const [overpaymentRefundMode, setOverpaymentRefundMode] = useState<'manual' | 'gateway'>('manual');
+  const [selectedOverpaymentBooking, setSelectedOverpaymentBooking] = useState<BookingSearchResultItem | null>(null);
+  const [overpaymentOverview, setOverpaymentOverview] = useState<BookingPaymentOverview | null>(null);
+  const [loadingOverpaymentOverview, setLoadingOverpaymentOverview] = useState(false);
+  const [isReconcilingOverpayment, setIsReconcilingOverpayment] = useState(false);
 
   const [paymentRequestBookingId, setPaymentRequestBookingId] = useState('');
+  const [paymentRequestAmount, setPaymentRequestAmount] = useState('');
   const [paymentRequestNote, setPaymentRequestNote] = useState('Bitte begleichen Sie den offenen Betrag.');
+  const [selectedPaymentRequestBooking, setSelectedPaymentRequestBooking] = useState<BookingSearchResultItem | null>(null);
+  const [paymentRequestOverview, setPaymentRequestOverview] = useState<BookingPaymentOverview | null>(null);
+  const [loadingPaymentRequestOverview, setLoadingPaymentRequestOverview] = useState(false);
+  const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
 
   const [syncBookingId, setSyncBookingId] = useState('');
   const [syncType, setSyncType] = useState<'booking' | 'order'>('booking');
+  const [selectedSyncItem, setSelectedSyncItem] = useState<BookingSearchResultItem | null>(null);
+  const [isSyncingFinancials, setIsSyncingFinancials] = useState(false);
+
+  const loadOverpaymentOverview = async (bookingId: string) => {
+    if (!bookingId) {
+      setOverpaymentOverview(null);
+      return;
+    }
+    setLoadingOverpaymentOverview(true);
+    try {
+      const overview = await getBookingPayments(bookingId);
+      setOverpaymentOverview(overview);
+      if (overview?.summary?.isOverpaid) {
+        const overpaidVal = Math.max(0, (overview.summary.receivedTotal || 0) - (overview.summary.orderValue || 0));
+        if (overpaidVal > 0) {
+          setOverpaymentAmount(overpaidVal.toFixed(2));
+          setOverpaymentReason(`Überzahlungsausgleich (${overpaidVal.toFixed(2)} €)`);
+        }
+      }
+    } catch {
+      setOverpaymentOverview(null);
+    } finally {
+      setLoadingOverpaymentOverview(false);
+    }
+  };
+
+  const loadPaymentRequestOverview = async (bookingId: string) => {
+    if (!bookingId) {
+      setPaymentRequestOverview(null);
+      return;
+    }
+    setLoadingPaymentRequestOverview(true);
+    try {
+      const overview = await getBookingPayments(bookingId);
+      setPaymentRequestOverview(overview);
+      const openBal = overview?.summary?.openOrderBalance || 0;
+      if (openBal > 0) {
+        setPaymentRequestAmount(openBal.toFixed(2));
+        setPaymentRequestNote(`Bitte begleichen Sie den offenen Restbetrag in Höhe von ${formatCurrencyValue(openBal)}.`);
+      }
+    } catch {
+      setPaymentRequestOverview(null);
+    } finally {
+      setLoadingPaymentRequestOverview(false);
+    }
+  };
+
+  const onSelectOverpaymentBooking = (item: BookingSearchResultItem) => {
+    setSelectedOverpaymentBooking(item);
+    void loadOverpaymentOverview(item._id || item.bookingNumber || '');
+  };
+
+  const onSelectPaymentRequestBooking = (item: BookingSearchResultItem) => {
+    setSelectedPaymentRequestBooking(item);
+    void loadPaymentRequestOverview(item._id || item.bookingNumber || '');
+  };
+
+  const onSelectSyncItem = (item: BookingSearchResultItem) => {
+    setSelectedSyncItem(item);
+  };
 
   const onReconcileOverpaymentHandler = async () => {
     if (!overpaymentBookingId.trim()) {
-      toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben oder aus den Vorschlägen auswählen.', variant: 'destructive' });
       return;
     }
+    setIsReconcilingOverpayment(true);
     try {
-      await reconcileOverpayment(overpaymentBookingId.trim(), {
-        reason: overpaymentReason,
+      const parsedAmount = overpaymentAmount ? parseFloat(overpaymentAmount.replace(',', '.')) : undefined;
+      const res = await reconcileOverpayment(overpaymentBookingId.trim(), {
+        amount: parsedAmount,
+        reason: overpaymentReason.trim() || 'Guthaben-Ausgleich',
         processRefund: overpaymentProcessRefund,
         refundMode: overpaymentRefundMode
       });
-      toast({ title: t('common.success'), description: 'Überzahlung erfolgreich ausgeglichen.' });
+      if (res?.isOverpaid === false && !parsedAmount) {
+        toast({
+          title: 'Hinweis',
+          description: res.message || 'Keine Überzahlung für diesen Auftrag festgestellt.',
+          variant: 'default'
+        });
+      } else {
+        toast({
+          title: t('common.success'),
+          description: `Überzahlung für ${overpaymentBookingId} erfolgreich ausgeglichen.${overpaymentProcessRefund ? ' Erstattung wurde veranlasst.' : ''}`
+        });
+      }
+      if (selectedOverpaymentBooking?._id || overpaymentBookingId) {
+        void loadOverpaymentOverview(selectedOverpaymentBooking?._id || overpaymentBookingId);
+      }
       void fetchFinancialData();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Fehler beim Ausgleichen';
+      const msg = error instanceof Error ? error.message : 'Fehler beim Ausgleichen der Überzahlung';
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setIsReconcilingOverpayment(false);
     }
   };
 
   const onRequestAdditionalPaymentHandler = async () => {
     if (!paymentRequestBookingId.trim()) {
-      toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben oder aus den Vorschlägen auswählen.', variant: 'destructive' });
       return;
     }
+    setIsSendingPaymentRequest(true);
     try {
-      await requestAdditionalPayment(paymentRequestBookingId.trim(), { note: paymentRequestNote });
-      toast({ title: t('common.success'), description: 'Zahlungsaufforderung erfolgreich gesendet.' });
+      const parsedAmount = paymentRequestAmount ? parseFloat(paymentRequestAmount.replace(',', '.')) : undefined;
+      const res = await requestAdditionalPayment(paymentRequestBookingId.trim(), {
+        amount: parsedAmount,
+        note: paymentRequestNote.trim()
+      });
+      if (res?.success === false) {
+        toast({ title: 'Hinweis', description: res.message || 'Keine offene Restforderung vorhanden.', variant: 'default' });
+      } else {
+        toast({
+          title: t('common.success'),
+          description: `Zahlungsaufforderung erfolgreich an ${res?.recipientEmail || 'den Kunden'} gesendet.`
+        });
+      }
       void fetchFinancialData();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Fehler beim Senden';
+      const msg = error instanceof Error ? error.message : 'Fehler beim Senden der Zahlungsaufforderung';
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setIsSendingPaymentRequest(false);
     }
   };
 
   const onSyncBookingFinancialsHandler = async () => {
     if (!syncBookingId.trim()) {
-      toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben.', variant: 'destructive' });
+      toast({ title: t('common.error'), description: 'Bitte ID angeben oder aus den Vorschlägen auswählen.', variant: 'destructive' });
       return;
     }
+    setIsSyncingFinancials(true);
     try {
-      await syncBookingFinancials(syncBookingId.trim(), syncType);
-      toast({ title: t('common.success'), description: 'Finanzdaten der Buchung erfolgreich synchronisiert.' });
+      const res = await syncBookingFinancials(syncBookingId.trim(), syncType);
+      toast({
+        title: t('common.success'),
+        description: `Finanzdaten für ${syncType === 'booking' ? 'Buchung' : 'Bestellung'} ${syncBookingId} erfolgreich synchronisiert.`
+      });
+      if (selectedSyncItem) {
+        setSelectedSyncItem((prev) => prev ? { ...prev, ...res?.overview?.booking } : null);
+      }
       void fetchFinancialData();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Fehler bei der Synchronisierung';
+      const msg = error instanceof Error ? error.message : 'Fehler bei der Synchronisierung der Finanzdaten';
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setIsSyncingFinancials(false);
     }
   };
 
@@ -2868,83 +3223,355 @@ export function FinancialManagement() {
 
           {/* Zahlungsabgleich & Sondertransaktionen */}
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
-                <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Überzahlung ausgleichen</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3 text-xs">
-                <div>
-                  <Label className="text-xs">Buchungs-ID</Label>
-                  <Input value={overpaymentBookingId} onChange={(e) => setOverpaymentBookingId(e.target.value)} placeholder="z.B. 64a..." className="h-8 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Grund</Label>
-                  <Input value={overpaymentReason} onChange={(e) => setOverpaymentReason(e.target.value)} className="h-8 text-xs" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Rückerstattung veranlassen</span>
-                  <Switch checked={overpaymentProcessRefund} onCheckedChange={setOverpaymentProcessRefund} />
-                </div>
-                {overpaymentProcessRefund && (
+            <Card className="border-[#d8dce6] shadow-sm flex flex-col justify-between">
+              <div>
+                <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
+                  <CardTitle className="text-sm flex items-center justify-between" style={{ color: "#f5c800" }}>
+                    <span className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4" />
+                      Überzahlung ausgleichen
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-[#f5c800]/40 text-[#f5c800] py-0 px-1.5 h-4 font-normal">
+                      Gutschrift / Erstattung
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3 text-xs">
                   <div>
-                    <Label className="text-xs">Erstattungsmodus</Label>
-                    <Select value={overpaymentRefundMode} onValueChange={(v) => setOverpaymentRefundMode(v as 'manual' | 'gateway')}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-xs font-medium">Buchungs-ID / Kunde</Label>
+                      {loadingOverpaymentOverview && (
+                        <span className="flex items-center text-[10px] text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
+                          Prüfe Saldo...
+                        </span>
+                      )}
+                    </div>
+                    <BookingSearchAutocomplete
+                      value={overpaymentBookingId}
+                      onChange={(val) => {
+                        setOverpaymentBookingId(val);
+                        if (!val) {
+                          setSelectedOverpaymentBooking(null);
+                          setOverpaymentOverview(null);
+                        }
+                      }}
+                      onSelectItem={onSelectOverpaymentBooking}
+                      placeholder="Buchung suchen (z.B. BKG-... oder Kunde)..."
+                      type="booking"
+                    />
+                  </div>
+
+                  {/* Selected Booking Info Box */}
+                  {(selectedOverpaymentBooking || overpaymentOverview) && (
+                    <div className="p-2.5 rounded-md border bg-muted/40 space-y-1.5 animate-in fade-in-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground truncate">
+                          <User className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="truncate">
+                            {selectedOverpaymentBooking ? getSearchResultCustomerName(selectedOverpaymentBooking) : 'Kunde'}
+                          </span>
+                        </div>
+                        {overpaymentOverview?.summary?.isOverpaid ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border-emerald-200 text-[10px] h-4 px-1.5">
+                            Überzahlt (+{formatCurrencyValue(Math.max(0, (overpaymentOverview.summary.receivedTotal || 0) - (overpaymentOverview.summary.orderValue || 0)))})
+                          </Badge>
+                        ) : overpaymentOverview ? (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
+                            Ausgeglichen
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      {overpaymentOverview && (
+                        <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                          <div>Auftragswert: <span className="font-semibold text-foreground">{formatCurrencyValue(overpaymentOverview.summary.orderValue)}</span></div>
+                          <div>Erhalten: <span className="font-semibold text-foreground">{formatCurrencyValue(overpaymentOverview.summary.receivedTotal)}</span></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2 sm:col-span-1">
+                      <Label className="text-xs font-medium">Grund</Label>
+                      <Input
+                        value={overpaymentReason}
+                        onChange={(e) => setOverpaymentReason(e.target.value)}
+                        placeholder="z.B. Guthaben-Ausgleich"
+                        className="h-8 text-xs mt-1"
+                      />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <Label className="text-xs font-medium">Betrag (€ optional)</Label>
+                      <Input
+                        value={overpaymentAmount}
+                        onChange={(e) => setOverpaymentAmount(e.target.value)}
+                        placeholder="Auto (Überzahlung)"
+                        className="h-8 text-xs mt-1 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-md border p-2 bg-background">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="font-medium text-xs">Rückerstattung veranlassen</span>
+                      <p className="text-[10px] text-muted-foreground">Guthaben direkt an Zahlungsmethode erstatten</p>
+                    </div>
+                    <Switch checked={overpaymentProcessRefund} onCheckedChange={setOverpaymentProcessRefund} />
+                  </div>
+
+                  {overpaymentProcessRefund && (
+                    <div className="animate-in fade-in-50">
+                      <Label className="text-xs font-medium">Erstattungsmodus</Label>
+                      <Select value={overpaymentRefundMode} onValueChange={(v) => setOverpaymentRefundMode(v as 'manual' | 'gateway')}>
+                        <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual">Manuell (z.B. Banküberweisung durch Admin)</SelectItem>
+                          <SelectItem value="gateway">Automatisches Gateway (Stripe/PayPal Refund)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </CardContent>
+              </div>
+              <div className="p-6 pt-0 mt-3">
+                <Button
+                  size="sm"
+                  className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] font-medium"
+                  disabled={isReconcilingOverpayment || !overpaymentBookingId.trim()}
+                  onClick={onReconcileOverpaymentHandler}
+                >
+                  {isReconcilingOverpayment ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Wird ausgeglichen...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="mr-1.5 h-3.5 w-3.5" />
+                      Überzahlung abgleichen
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="border-[#d8dce6] shadow-sm flex flex-col justify-between">
+              <div>
+                <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
+                  <CardTitle className="text-sm flex items-center justify-between" style={{ color: "#f5c800" }}>
+                    <span className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Zahlungsaufforderung senden
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-[#f5c800]/40 text-[#f5c800] py-0 px-1.5 h-4 font-normal">
+                      E-Mail Benachrichtigung
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3 text-xs">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-xs font-medium">Buchungs-ID / Kunde</Label>
+                      {loadingPaymentRequestOverview && (
+                        <span className="flex items-center text-[10px] text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
+                          Prüfe Restforderung...
+                        </span>
+                      )}
+                    </div>
+                    <BookingSearchAutocomplete
+                      value={paymentRequestBookingId}
+                      onChange={(val) => {
+                        setPaymentRequestBookingId(val);
+                        if (!val) {
+                          setSelectedPaymentRequestBooking(null);
+                          setPaymentRequestOverview(null);
+                        }
+                      }}
+                      onSelectItem={onSelectPaymentRequestBooking}
+                      placeholder="Buchung suchen (z.B. BKG-... oder Kunde)..."
+                      type="booking"
+                    />
+                  </div>
+
+                  {/* Selected Booking Info Box */}
+                  {(selectedPaymentRequestBooking || paymentRequestOverview) && (
+                    <div className="p-2.5 rounded-md border bg-muted/40 space-y-1.5 animate-in fade-in-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground truncate">
+                          <User className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="truncate">
+                            {selectedPaymentRequestBooking ? getSearchResultCustomerName(selectedPaymentRequestBooking) : 'Kunde'}
+                          </span>
+                        </div>
+                        {paymentRequestOverview?.summary?.openOrderBalance && paymentRequestOverview.summary.openOrderBalance > 0 ? (
+                          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 border-amber-200 text-[10px] h-4 px-1.5">
+                            Offen: {formatCurrencyValue(paymentRequestOverview.summary.openOrderBalance)}
+                          </Badge>
+                        ) : paymentRequestOverview ? (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
+                            Keine Restforderung
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      {selectedPaymentRequestBooking && getSearchResultCustomerEmail(selectedPaymentRequestBooking) && (
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                          <Mail className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{getSearchResultCustomerEmail(selectedPaymentRequestBooking)}</span>
+                        </div>
+                      )}
+
+                      {paymentRequestOverview && (
+                        <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                          <div>Auftrag: <span className="font-semibold text-foreground">{formatCurrencyValue(paymentRequestOverview.summary.orderValue)}</span></div>
+                          <div>Bezahlt: <span className="font-semibold text-foreground">{formatCurrencyValue(paymentRequestOverview.summary.receivedTotal)}</span></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-xs font-medium">Betrag (€ optional)</Label>
+                    <Input
+                      value={paymentRequestAmount}
+                      onChange={(e) => setPaymentRequestAmount(e.target.value)}
+                      placeholder="Auto (gesamter offener Betrag)"
+                      className="h-8 text-xs mt-1 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-medium">Hinweis / Notiz</Label>
+                    <Textarea
+                      value={paymentRequestNote}
+                      onChange={(e) => setPaymentRequestNote(e.target.value)}
+                      placeholder="Nachricht an den Kunden..."
+                      className="text-xs min-h-[60px] mt-1"
+                    />
+                  </div>
+                </CardContent>
+              </div>
+              <div className="p-6 pt-0 mt-3">
+                <Button
+                  size="sm"
+                  className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] font-medium"
+                  disabled={isSendingPaymentRequest || !paymentRequestBookingId.trim()}
+                  onClick={onRequestAdditionalPaymentHandler}
+                >
+                  {isSendingPaymentRequest ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Wird gesendet...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-1.5 h-3.5 w-3.5" />
+                      Zahlungsaufforderung senden
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="border-[#d8dce6] shadow-sm flex flex-col justify-between">
+              <div>
+                <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
+                  <CardTitle className="text-sm flex items-center justify-between" style={{ color: "#f5c800" }}>
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      Finanzdaten synchronisieren
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-[#f5c800]/40 text-[#f5c800] py-0 px-1.5 h-4 font-normal">
+                      Positions-Abgleich
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3 text-xs">
+                  <div>
+                    <Label className="text-xs font-medium">Typ</Label>
+                    <Select
+                      value={syncType}
+                      onValueChange={(v) => {
+                        const newType = v as 'booking' | 'order';
+                        setSyncType(newType);
+                        setSyncBookingId('');
+                        setSelectedSyncItem(null);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="manual">Manuell</SelectItem>
-                        <SelectItem value="gateway">Gateway</SelectItem>
+                        <SelectItem value="booking">Buchung (Booking)</SelectItem>
+                        <SelectItem value="order">Bestellung (Order)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-                <Button size="sm" className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onReconcileOverpaymentHandler}>
-                  Überzahlung abgleichen
-                </Button>
-              </CardContent>
-            </Card>
 
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
-                <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Zahlungsaufforderung senden</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3 text-xs">
-                <div>
-                  <Label className="text-xs">Buchungs-ID</Label>
-                  <Input value={paymentRequestBookingId} onChange={(e) => setPaymentRequestBookingId(e.target.value)} placeholder="z.B. 64a..." className="h-8 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Hinweis / Notiz</Label>
-                  <Textarea value={paymentRequestNote} onChange={(e) => setPaymentRequestNote(e.target.value)} className="text-xs min-h-[60px]" />
-                </div>
-                <Button size="sm" className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onRequestAdditionalPaymentHandler}>
-                  Zahlungsaufforderung senden
-                </Button>
-              </CardContent>
-            </Card>
+                  <div>
+                    <Label className="text-xs font-medium">
+                      {syncType === 'booking' ? 'Buchungs-ID / Kunde' : 'Bestell-ID / Kunde'}
+                    </Label>
+                    <div className="mt-1">
+                      <BookingSearchAutocomplete
+                        key={syncType}
+                        value={syncBookingId}
+                        onChange={(val) => {
+                          setSyncBookingId(val);
+                          if (!val) setSelectedSyncItem(null);
+                        }}
+                        onSelectItem={onSelectSyncItem}
+                        placeholder={syncType === 'booking' ? 'Buchung suchen (z.B. BKG-... oder Kunde)...' : 'Bestellung suchen (z.B. ORD-... oder Kunde)...'}
+                        type={syncType}
+                      />
+                    </div>
+                  </div>
 
-            <Card className="border-[#d8dce6]">
-              <CardHeader className="bg-[#1a2a5e] rounded-t-lg py-3">
-                <CardTitle className="text-sm" style={{ color: "#f5c800" }}>Finanzdaten synchronisieren</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3 text-xs">
-                <div>
-                  <Label className="text-xs">Buchungs- / Bestell-ID</Label>
-                  <Input value={syncBookingId} onChange={(e) => setSyncBookingId(e.target.value)} placeholder="z.B. 64a..." className="h-8 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Typ</Label>
-                  <Select value={syncType} onValueChange={(v) => setSyncType(v as 'booking' | 'order')}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="booking">Buchung (Booking)</SelectItem>
-                      <SelectItem value="order">Bestellung (Order)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button size="sm" className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSyncBookingFinancialsHandler}>
-                  Synchronisieren
+                  {/* Selected Sync Item Info Box */}
+                  {selectedSyncItem && (
+                    <div className="p-2.5 rounded-md border bg-muted/40 space-y-1.5 animate-in fade-in-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground truncate">
+                          <User className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="truncate">{getSearchResultCustomerName(selectedSyncItem)}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                          {selectedSyncItem.status || 'Status'}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                        <div>Typ: <span className="font-semibold text-foreground">{syncType === 'booking' ? 'Buchung' : 'Bestellung'}</span></div>
+                        <div>Wert: <span className="font-semibold text-foreground">{formatCurrencyValue(selectedSyncItem.totalCost || selectedSyncItem.cost || 0)}</span></div>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-muted-foreground">
+                    Synchronisiert Auftragswertänderungen mit zugehörigen Rechnungen, Zahlungsallokationen und Mahnstufen.
+                  </p>
+                </CardContent>
+              </div>
+              <div className="p-6 pt-0 mt-3">
+                <Button
+                  size="sm"
+                  className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] font-medium"
+                  disabled={isSyncingFinancials || !syncBookingId.trim()}
+                  onClick={onSyncBookingFinancialsHandler}
+                >
+                  {isSyncingFinancials ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Synchronisiere...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                      Synchronisieren
+                    </>
+                  )}
                 </Button>
-              </CardContent>
+              </div>
             </Card>
           </div>
         </TabsContent>

@@ -1803,9 +1803,9 @@ class FinancialService {
     const original = await Invoice.findById(invoiceId);
     if (!original) throw new Error('Invoice not found');
 
-    const allowedStatuses = ['paid', 'cancelled', 'credited'];
+    const allowedStatuses = ['paid', 'cancelled', 'credited', 'partially_paid', 'sent', 'viewed', 'overdue'];
     if (!allowedStatuses.includes(original.status)) {
-      throw new Error(`Credit notes can only be created for paid or cancelled invoices (current: "${original.status}")`);
+      throw new Error(`Credit notes can only be created for active or completed invoices (current: "${original.status}")`);
     }
 
     // Load financial settings
@@ -2378,16 +2378,54 @@ class FinancialService {
     try {
       let bookingId = null;
       let orderId = null;
+      const rawId = String(targetId || '').trim();
+      const cleanId = rawId.replace(/^#/, '').trim();
 
-      if (targetType === 'order' || (targetId && Types.ObjectId.isValid(String(targetId)))) {
-        const order = await Order.findById(targetId);
+      if (targetType === 'order') {
+        let order = null;
+        if (Types.ObjectId.isValid(rawId)) {
+          order = await Order.findById(rawId);
+        }
+        if (!order && cleanId) {
+          order = await Order.findOne({
+            $or: [
+              { orderNumber: cleanId },
+              { orderNumber: `#${cleanId}` },
+              { orderNumber: { $regex: new RegExp(`^#?${cleanId}$`, 'i') } }
+            ]
+          });
+        }
         if (order) {
           orderId = order._id;
           bookingId = order.bookingId;
         }
-      }
-      if (!bookingId && (targetType === 'booking' || (targetId && Types.ObjectId.isValid(String(targetId))))) {
-        const booking = await Booking.findById(targetId);
+      } else {
+        let booking = null;
+        if (Types.ObjectId.isValid(rawId)) {
+          booking = await Booking.findById(rawId);
+        }
+        if (!booking && cleanId) {
+          booking = await Booking.findOne({
+            $or: [
+              { bookingNumber: cleanId },
+              { bookingNumber: `#${cleanId}` },
+              { bookingNumber: { $regex: new RegExp(`^#?${cleanId}$`, 'i') } }
+            ]
+          });
+        }
+        if (!booking && cleanId) {
+          const order = await Order.findOne({
+            $or: [
+              { orderNumber: cleanId },
+              { orderNumber: `#${cleanId}` },
+              { orderNumber: { $regex: new RegExp(`^#?${cleanId}$`, 'i') } }
+            ]
+          });
+          if (order && order.bookingId) {
+            booking = await Booking.findById(order.bookingId);
+            orderId = order._id;
+          }
+        }
         if (booking) {
           bookingId = booking._id;
         }
@@ -2507,10 +2545,13 @@ class FinancialService {
   static async handleOverpayment(bookingId, options = {}) {
     const BookingPaymentService = require('./bookingPaymentService');
     const overview = await BookingPaymentService.getOverview(bookingId);
-    if (!overview.summary.isOverpaid) {
-      return { isOverpaid: false, overpaidAmount: 0 };
+    const calculatedOverpaid = CalculationHelper.round(Math.max(0, (overview.summary.receivedTotal || 0) - (overview.summary.orderValue || 0)));
+    const specifiedAmount = options.amount != null ? Number(options.amount) : null;
+    const overpaidAmount = (specifiedAmount && specifiedAmount > 0) ? CalculationHelper.round(specifiedAmount) : calculatedOverpaid;
+
+    if (!overview.summary.isOverpaid && overpaidAmount <= 0) {
+      return { isOverpaid: false, overpaidAmount: 0, message: 'Keine Überzahlung für diese Buchung vorhanden.' };
     }
-    const overpaidAmount = CalculationHelper.round(overview.summary.receivedTotal - overview.summary.orderValue);
 
     const mainInvoice = overview.invoices.find(inv => !inv.isCreditNote);
     let creditNote = null;

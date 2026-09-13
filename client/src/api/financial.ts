@@ -618,7 +618,7 @@ export const exportInvoicesData = async (filters: Record<string, unknown> = {}, 
   }
 };
 
-export const reconcileOverpayment = async (bookingId: string, options?: { reason?: string; processRefund?: boolean; refundMode?: 'manual' | 'gateway' }) => {
+export const reconcileOverpayment = async (bookingId: string, options?: { amount?: number; reason?: string; processRefund?: boolean; refundMode?: 'manual' | 'gateway' }) => {
   try {
     const response = await api.post(`/api/admin/financial/bookings/${bookingId}/overpayment/reconcile`, options || {});
     return response.data;
@@ -627,7 +627,7 @@ export const reconcileOverpayment = async (bookingId: string, options?: { reason
   }
 };
 
-export const requestAdditionalPayment = async (bookingId: string, options?: { note?: string }) => {
+export const requestAdditionalPayment = async (bookingId: string, options?: { amount?: number; note?: string }) => {
   try {
     const response = await api.post(`/api/admin/financial/bookings/${bookingId}/payment-request`, options || {});
     return response.data;

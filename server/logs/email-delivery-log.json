@@ -13495,5 +13495,48 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1789285845340-hvgs424gb",
+    "timestamp": "2026-09-13T07:50:45.340Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Reklamation in Bearbeitung",
+    "subject": "Ihre Reklamation R6a96bf5f1d17fb8875855fec wird bearbeitet",
+    "messageId": "<f781bc09-8c70-2d0a-07ad-f5b08a34e4b5@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3880,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintStatus",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "senderName",
+        "messageSentAt",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "decision",
+        "decisionReason",
+        "decidedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]
