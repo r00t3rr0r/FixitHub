@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/useToast';
 import { printInvoice } from '@/lib/invoicePrint';
 import { getInvoiceItemServiceName } from '@/lib/invoiceItems';
 import {
+  activateCollection,
   addDunningRunItem,
   addInvoicePayment,
   changeInvoiceStatus,
@@ -1658,6 +1659,16 @@ export function FinancialManagement() {
     }
   };
 
+  const onActivateCollection = async (invoiceId: string) => {
+    try {
+      await activateCollection(invoiceId);
+      toast({ title: t('common.success'), description: 'Inkasso wurde manuell aktiviert.' });
+      fetchFinancialData();
+    } catch (error: any) {
+      toast({ title: t('common.error'), description: error.message || 'Inkasso konnte nicht aktiviert werden.', variant: 'destructive' });
+    }
+  };
+
   const getInvoiceById = (invoiceId: string) => invoices.find((i) => i._id === invoiceId) || dunningEligibleInvoices.find((i) => i._id === invoiceId) || null;
 
   const paymentsByInvoiceId = useMemo(() => {
@@ -2840,7 +2851,9 @@ export function FinancialManagement() {
                       <TableHead className="w-[56px]">Auswahl</TableHead>
                       <TableHead>Rechnung</TableHead>
                       <TableHead>Kunde</TableHead>
-                      <TableHead>Faellig</TableHead>
+                      <TableHead>Ursprüngliches Ziel</TableHead>
+                      <TableHead>Überfällig</TableHead>
+                      <TableHead>Nächste Frist</TableHead>
                       <TableHead>Offener Betrag</TableHead>
                       <TableHead className="text-right">Interaktion</TableHead>
                     </TableRow>
@@ -2866,20 +2879,23 @@ export function FinancialManagement() {
                           )}
                         </TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                        <TableCell>{formatDate(invoice.originalDueDate || invoice.dueDate)}</TableCell>
+                        <TableCell>{getDaysPastDue(invoice.originalDueDate || invoice.dueDate)} Tage</TableCell>
+                        <TableCell>{invoice.dunningStage === 'collection' ? 'Inkasso' : formatDate(invoice.nextDunningDueDate)}</TableCell>
                         <TableCell>{formatCurrency(Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)))}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}><Eye className="mr-1 h-3.5 w-3.5" />Details</Button>
                             <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(invoice._id)}><Send className="mr-1 h-3.5 w-3.5" />Senden</Button>
                             <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(invoice._id)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />Eskalieren</Button>
+                            <Button size="sm" variant="outline" disabled={invoice.dunningStage === 'collection'} onClick={() => onActivateCollection(invoice._id)}>Inkasso</Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
                     {dunningEligibleInvoices.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">Keine ueberfaelligen Rechnungen vorhanden.</TableCell>
+                        <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">Keine ueberfaelligen Rechnungen vorhanden.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>

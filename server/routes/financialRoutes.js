@@ -359,6 +359,17 @@ router.post('/dunning/run', requireUser, requireRole(['admin']), async (req, res
   }
 });
 
+// Transfer an overdue invoice to collection manually; collection is never auto-escalated.
+router.post('/dunning/invoices/:id/collection', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const invoice = await FinancialService.activateCollection(req.params.id, req.user?._id);
+    return res.status(200).json({ success: true, invoice });
+  } catch (error) {
+    console.error('Error activating collection:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to activate collection' });
+  }
+});
+
 // Create persistent dunning run (admin only)
 router.post('/dunning/runs', requireUser, requireRole(['admin']), async (req, res) => {
   try {

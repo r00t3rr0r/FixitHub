@@ -111,6 +111,11 @@ const schema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  paymentDueDays: {
+    type: Number,
+    min: 1,
+    max: 14,
+  },
   internalKey: {
     type: String,
     default: '',

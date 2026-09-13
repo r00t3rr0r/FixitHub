@@ -47,6 +47,10 @@ class EmailService {
     appointment_reminder: 'Terminerinnerung',
     warranty_reminder: 'Garantieerinnerung',
     invoice_created: 'Neue Rechnung verfuegbar',
+    payment_reminder: 'Zahlungserinnerung',
+    dunning_notice: 'Mahnung',
+    final_dunning_notice: 'Letzte Mahnung',
+    collection_notice: 'Inkasso',
     pickup_reminder: 'Abholung bereit Erinnerung',
     contact_form_confirmation: 'Kontaktformular Bestaetigung an Absender',
     system_notification: 'Allgemeine Systemnachricht'

@@ -1,4 +1,4 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 16;
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 17;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -1332,6 +1332,50 @@ function getDefaultNotificationTemplates() {
       ],
       isActive: true
     },
+    ...[
+      ['Zahlungserinnerung', 'Zahlungserinnerung zu Rechnung {{invoiceNumber}}', 'Zahlungserinnerung', 'wir erinnern Sie freundlich an den noch offenen Rechnungsbetrag.'],
+      ['Mahnung', 'Mahnung zu Rechnung {{invoiceNumber}}', 'Mahnung', 'bitte begleichen Sie den offenen Rechnungsbetrag innerhalb des unten genannten Zahlungsziels.'],
+      ['Letzte Mahnung', 'Letzte Mahnung zu Rechnung {{invoiceNumber}}', 'Letzte Mahnung', 'dies ist die letzte Aufforderung zur Zahlung vor einer möglichen manuellen Übergabe an das Inkasso.'],
+      ['Inkasso', 'Inkassoankündigung zu Rechnung {{invoiceNumber}}', 'Inkasso', 'der Vorgang wurde zur weiteren manuellen Bearbeitung an das Inkasso übergeben.']
+    ].map(([name, subject, stage, message]) => ({
+      name,
+      type: 'email',
+      subject,
+      content: renderEmailTemplate({
+        preheader: `${stage} für Ihre offene Rechnung.`,
+        eyebrow: 'Zahlungserinnerung & Mahnwesen',
+        title: stage,
+        intro: 'Hallo {{customerName}}, ' + message,
+        highlights: [
+          { label: 'Offener Betrag', value: '{{amountOpen}}' },
+          { label: 'Neues Zahlungsziel', value: '{{dueDate}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Rechnungsnummer', value: '{{invoiceNumber}}' },
+          { label: 'Ursprüngliches Zahlungsziel', value: '{{originalDueDate}}' },
+          { label: 'Mahnstufe', value: '{{dunningStage}}' },
+          { label: 'Offener Betrag', value: '{{amountOpen}}' }
+        ],
+        body: '<p style="margin:0;">Bitte nutzen Sie den folgenden Link, um Ihre Rechnung einzusehen und die Zahlung zu veranlassen.</p>',
+        ctaLabel: 'Rechnung ansehen',
+        ctaUrl: '{{invoiceUrl}}',
+        closing: 'Bei Fragen zu Ihrer Rechnung helfen wir Ihnen gerne weiter.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde im Rahmen unseres Mahnwesens erstellt.'
+      }),
+      variables: [
+        createVariable('companyName', 'Name des Unternehmens', true),
+        createVariable('customerName', 'Vor- und Nachname des Kunden', true),
+        createVariable('invoiceNumber', 'Rechnungsnummer', true),
+        createVariable('amountOpen', 'Offener Rechnungsbetrag', true),
+        createVariable('originalDueDate', 'Ursprüngliches Zahlungsziel', true),
+        createVariable('dueDate', 'Neues Zahlungsziel', true),
+        createVariable('dunningStage', 'Aktuelle Mahnstufe', true),
+        createVariable('invoiceUrl', 'Link zur Rechnung', true),
+        createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
+        createVariable('supportPhone', 'Service-Telefonnummer')
+      ],
+      isActive: true
+    })),
     {
       name: 'Allgemeine Systemnachricht',
       type: 'email',

@@ -194,11 +194,41 @@ const invoiceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: 0,
-    max: 3
+    max: 4
+  },
+  dunningStage: {
+    type: String,
+    enum: ['none', 'payment_reminder', 'dunning_notice', 'final_notice', 'collection'],
+    default: 'none'
   },
   dunningNotifiedAt: {
     type: Date
   },
+  originalDueDate: {
+    type: Date
+  },
+  nextDunningDueDate: {
+    type: Date
+  },
+  dunningHistory: [{
+    stage: {
+      type: String,
+      enum: ['payment_reminder', 'dunning_notice', 'final_notice', 'collection'],
+      required: true
+    },
+    executedAt: {
+      type: Date,
+      required: true
+    },
+    previousDueDate: Date,
+    nextDueDate: Date,
+    dunningRunId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'DunningRun'
+    },
+    emailSentAt: Date,
+    emailError: String
+  }],
   dueDate: {
     type: Date,
     required: true

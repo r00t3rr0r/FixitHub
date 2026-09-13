@@ -50,7 +50,10 @@ export interface Invoice {
   paidAmount: number;
   status: InvoiceStatus;
   dunningLevel?: number;
+  dunningStage?: 'none' | 'payment_reminder' | 'dunning_notice' | 'final_notice' | 'collection';
   dunningNotifiedAt?: string;
+  originalDueDate?: string;
+  nextDunningDueDate?: string;
   dueDate: string;
   sentAt?: string;
   approvedAt?: string;
@@ -477,6 +480,15 @@ export const getOverdueInvoices = async () => {
 export const runDunningJob = async () => {
   try {
     const response = await api.post('/api/admin/financial/dunning/run');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+export const activateCollection = async (invoiceId: string) => {
+  try {
+    const response = await api.post(`/api/admin/financial/dunning/invoices/${invoiceId}/collection`);
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

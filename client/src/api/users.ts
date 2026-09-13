@@ -28,6 +28,7 @@ export interface User {
   comment?: string;
   paymentMethod?: string;
   paymentTerms?: string;
+  paymentDueDays?: number;
   internalKey?: string;
   status?: string;
   discount?: number;

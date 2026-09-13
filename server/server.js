@@ -144,6 +144,8 @@ console.log('Loading database config...');
 const { connectDB } = require("./config/database");
 console.log('Loading SeedService...');
 const SeedService = require("./services/seedService");
+const cron = require('node-cron');
+const FinancialService = require('./services/financialService');
 console.log('Loading cors...');
 const cors = require("cors");
 const compression = require('compression');
@@ -367,6 +369,18 @@ const initializeDatabase = async () => {
     }
 
     console.log('Database initialization completed successfully');
+
+    if (process.env.DUNNING_CRON_ENABLED === 'true') {
+      cron.schedule(process.env.DUNNING_CRON_SCHEDULE || '0 7 * * *', async () => {
+        try {
+          const result = await FinancialService.runDunningJob();
+          console.log(`Automatic dunning run completed: ${result.actions.length} notices processed`);
+        } catch (error) {
+          console.error('Automatic dunning run failed:', error.message);
+        }
+      }, { timezone: process.env.DUNNING_CRON_TIMEZONE || 'Europe/Berlin' });
+      console.log('Automatic dunning schedule enabled');
+    }
   } catch (error) {
     console.error('Database initialization error:', error);
     console.error('Stack trace:', error.stack);

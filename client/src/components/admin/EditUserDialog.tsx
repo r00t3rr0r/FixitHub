@@ -70,6 +70,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
     comment: "",
     paymentMethod: "",
     paymentTerms: "",
+    paymentDueDays: 7,
     internalKey: "",
     status: "active",
     discount: 0,
@@ -155,6 +156,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         comment: (user as any).comment || "",
         paymentMethod: (user as any).paymentMethod || "",
         paymentTerms: (user as any).paymentTerms || "",
+        paymentDueDays: Math.min(14, Math.max(1, Number((user as any).paymentDueDays) || 7)),
         internalKey: (user as any).internalKey || "",
         status: (user as any).status || "active",
         discount: (user as any).discount || 0,
@@ -226,6 +228,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         comment: formData.comment,
         paymentMethod: formData.paymentMethod,
         paymentTerms: formData.paymentTerms,
+        paymentDueDays: Math.min(14, Math.max(1, Number(formData.paymentDueDays) || 7)),
         internalKey: formData.internalKey,
         status: formData.status,
         discount: formData.discount,
@@ -581,6 +584,17 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
                       value={formData.paymentTerms}
                       onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
                       placeholder="Payment terms (e.g., Net 30)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentDueDays">Internal Payment Due Days</Label>
+                    <Input
+                      id="paymentDueDays"
+                      type="number"
+                      min="1"
+                      max="14"
+                      value={formData.paymentDueDays}
+                      onChange={(e) => setFormData({ ...formData, paymentDueDays: Math.min(14, Math.max(1, Number(e.target.value) || 7)) })}
                     />
                   </div>
                   <div className="space-y-2">

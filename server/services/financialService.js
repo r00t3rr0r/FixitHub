@@ -23,6 +23,24 @@ function parseDueDaysFromTerms(paymentTerms) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizePaymentDueDays(value, fallback = 7) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return fallback;
+  return Math.min(14, Math.max(1, Math.floor(numericValue)));
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+const DUNNING_STAGES = [
+  { level: 1, stage: 'payment_reminder', trigger: 'payment_reminder', label: 'Zahlungserinnerung' },
+  { level: 2, stage: 'dunning_notice', trigger: 'dunning_notice', label: 'Mahnung' },
+  { level: 3, stage: 'final_notice', trigger: 'final_dunning_notice', label: 'Letzte Mahnung' }
+];
+
 function calculateDiscountAmount(subtotal, discountPercent) {
   const numericSubtotal = Number(subtotal);
   const numericDiscountPercent = Number(discountPercent);
@@ -152,8 +170,8 @@ const DEFAULT_FINANCIAL_SETTINGS = {
     currency: 'EUR',
     locale: 'de-DE',
     taxRate: 19,
-    paymentDueDays: 14,
-    paymentTerms: 'Net 14',
+    paymentDueDays: 7,
+    paymentTerms: 'Net 7',
     invoicePrefix: 'INV-',
     creditNotePrefix: 'CN-',
     defaultDiscount: 0,
@@ -237,7 +255,7 @@ class FinancialService {
 
     const groupFinanceProfile = resolvedCustomer?.primaryCustomerGroupId?.financeProfile || {};
     const customerPaymentTerms = resolvedCustomer?.paymentTerms || '';
-    const customerDueDays = parseDueDaysFromTerms(customerPaymentTerms);
+    const customerDueDays = resolvedCustomer?.paymentDueDays ?? parseDueDaysFromTerms(customerPaymentTerms);
     const taxMode = groupFinanceProfile.taxMode || 'default';
     const resolvedTaxRate = taxMode === 'tax_free' || taxMode === 'reverse_charge'
       ? 0
@@ -248,7 +266,9 @@ class FinancialService {
       locale: settings.defaults.locale,
       taxRate: resolvedTaxRate,
       taxMode,
-      paymentDueDays: customerDueDays ?? groupFinanceProfile.paymentDueDays ?? settings.defaults.paymentDueDays,
+      paymentDueDays: normalizePaymentDueDays(
+        customerDueDays ?? groupFinanceProfile.paymentDueDays ?? settings.defaults.paymentDueDays
+      ),
       paymentTerms: customerPaymentTerms || groupFinanceProfile.paymentTermsLabel || settings.defaults.paymentTerms,
       invoicePrefix: groupFinanceProfile.invoicePrefix || settings.defaults.invoicePrefix,
       defaultDiscountPercent: typeof resolvedCustomer?.discount === 'number' && resolvedCustomer.discount > 0
@@ -645,8 +665,12 @@ class FinancialService {
       }
       
       if (!cleanedInvoiceData.dueDate && cleanedInvoiceData.dueDate !== false) {
-        const dueDays = financialProfile.paymentDueDays || 14;
+        const dueDays = normalizePaymentDueDays(financialProfile.paymentDueDays);
         cleanedInvoiceData.dueDate = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+      }
+
+      if (cleanedInvoiceData.dueDate) {
+        cleanedInvoiceData.originalDueDate = new Date(cleanedInvoiceData.dueDate);
       }
       
       if (!cleanedInvoiceData.paymentTerms) {
@@ -1876,7 +1900,7 @@ class FinancialService {
     return { invoice, payments, creditNotes };
   }
 
-  // Get all overdue invoices (dueDate passed, status not terminal)
+  // Get all overdue invoices, preserving the original customer payment deadline.
   static async getOverdueInvoices() {
     const now = new Date();
     return Invoice.find({
@@ -1885,53 +1909,148 @@ class FinancialService {
     }).sort({ dueDate: 1 });
   }
 
-  // Dunning job: find overdue invoices, escalate dunning level, return list with actions
+  // Marks expired invoices overdue, then advances a case only after its current 7-day dunning deadline.
   static async runDunningJob() {
     console.log('FinancialService: Running dunning job');
 
     const now = new Date();
-    const overdueInvoices = await Invoice.find({
+    const openInvoices = await Invoice.find({
       dueDate: { $lt: now },
-      status:  { $nin: ['paid', 'cancelled', 'credited'] }
+      status: { $nin: ['paid', 'cancelled', 'credited', 'draft'] }
     });
 
-    const actions = [];
-
-    for (const invoice of overdueInvoices) {
-      // Mark overdue if not already
-      if (!['overdue', 'partially_paid'].includes(invoice.status)) {
+    for (const invoice of openInvoices) {
+      if (invoice.status !== 'overdue') {
         invoice.status = 'overdue';
       }
-
-      const daysPastDue = Math.floor((now - invoice.dueDate) / (1000 * 60 * 60 * 24));
-      let newLevel = invoice.dunningLevel || 0;
-
-      if (daysPastDue >= 30 && newLevel < 3) newLevel = 3;
-      else if (daysPastDue >= 14 && newLevel < 2) newLevel = 2;
-      else if (daysPastDue >= 3  && newLevel < 1) newLevel = 1;
-
-      const escalated = newLevel > (invoice.dunningLevel || 0);
-
-      if (escalated) {
-        invoice.dunningLevel      = newLevel;
-        invoice.dunningNotifiedAt = now;
-        await invoice.save();
-
-        actions.push({
-          invoiceId:    invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          customerName:  invoice.customerName,
-          customerEmail: invoice.customerEmail,
-          dunningLevel:  newLevel,
-          daysPastDue,
-          amount:        invoice.total,
-          action:        `Send dunning notice level ${newLevel}`
-        });
+      if (!invoice.originalDueDate) invoice.originalDueDate = invoice.dueDate;
+      if (!invoice.nextDunningDueDate && invoice.dunningStage !== 'collection') {
+        invoice.nextDunningDueDate = addDays(invoice.dueDate, 7);
       }
+      await invoice.save();
     }
 
-    console.log(`FinancialService: Dunning job complete — ${actions.length} notices queued`);
-    return { processed: overdueInvoices.length, actions };
+    const eligibleInvoices = openInvoices.filter((invoice) => (
+      invoice.dunningStage !== 'collection'
+      && invoice.nextDunningDueDate
+      && new Date(invoice.nextDunningDueDate) < now
+      && Number(invoice.dunningLevel || 0) < DUNNING_STAGES.length
+    ));
+
+    if (eligibleInvoices.length === 0) {
+      return { processed: openInvoices.length, actions: [], run: null };
+    }
+
+    const run = new DunningRun({
+      name: `Mahnlauf ${now.toLocaleDateString('de-DE')}`,
+      status: 'running',
+      defaultStatus: 'overdue',
+      defaultNote: 'Automatischer fristbasierter Mahnlauf',
+      items: eligibleInvoices.map((invoice) => ({
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        customerName: invoice.customerName,
+        customerEmail: invoice.customerEmail,
+        dueDate: invoice.nextDunningDueDate,
+        amountOpen: Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)),
+        dunningLevel: Number(invoice.dunningLevel || 0),
+        status: 'processing'
+      })),
+      logs: [{ type: 'started', message: `Mahnlauf mit ${eligibleInvoices.length} faelligen Faellen gestartet`, at: now }]
+    });
+    await run.save();
+
+    const actions = [];
+    for (const invoice of eligibleInvoices) {
+      const stage = DUNNING_STAGES[Number(invoice.dunningLevel || 0)];
+      const previousDueDate = invoice.nextDunningDueDate;
+      const nextDueDate = addDays(now, 7);
+      const emailResult = await EmailService.sendTriggerEmail(stage.trigger, invoice.customerEmail, {
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
+        customerName: invoice.customerName || 'Kunde',
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceAmount: `EUR ${Number(invoice.total || 0).toFixed(2)}`,
+        amountOpen: `EUR ${Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)).toFixed(2)}`,
+        originalDueDate: new Date(invoice.originalDueDate || invoice.dueDate).toLocaleDateString('de-DE'),
+        dueDate: nextDueDate.toLocaleDateString('de-DE'),
+        dunningStage: stage.label,
+        invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`),
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+      });
+
+      invoice.status = 'overdue';
+      invoice.dunningLevel = stage.level;
+      invoice.dunningStage = stage.stage;
+      invoice.dunningNotifiedAt = now;
+      invoice.nextDunningDueDate = nextDueDate;
+      invoice.dunningHistory.push({
+        stage: stage.stage,
+        executedAt: now,
+        previousDueDate,
+        nextDueDate,
+        dunningRunId: run._id,
+        ...(emailResult?.success ? { emailSentAt: now } : { emailError: emailResult?.error || 'E-Mail-Versand fehlgeschlagen' })
+      });
+      await invoice.save();
+
+      const item = run.items.find((entry) => String(entry.invoiceId) === String(invoice._id));
+      if (item) {
+        item.dunningLevel = stage.level;
+        item.status = emailResult?.success ? 'sent' : 'failed';
+        item.lastActionAt = now;
+      }
+      actions.push({
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        customerName: invoice.customerName,
+        customerEmail: invoice.customerEmail,
+        dunningLevel: stage.level,
+        dunningStage: stage.stage,
+        daysPastDue: Math.floor((now - new Date(invoice.originalDueDate || invoice.dueDate)) / 86400000),
+        amount: invoice.total,
+        action: `${stage.label} ${emailResult?.success ? 'versendet' : 'nicht versendet'}`
+      });
+    }
+
+    run.status = 'completed';
+    run.logs.push({ type: 'completed', message: `${actions.length} Faelle verarbeitet`, at: new Date() });
+    await run.save();
+    return { processed: openInvoices.length, actions, run };
+  }
+
+  static async activateCollection(invoiceId, userId) {
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) throw new Error('Invoice not found');
+    if (!['overdue', 'partially_paid'].includes(invoice.status)) throw new Error('Only overdue invoices can be transferred to collection');
+    if (invoice.dunningStage === 'collection') return invoice;
+
+    const now = new Date();
+    const previousDueDate = invoice.nextDunningDueDate;
+    const emailResult = await EmailService.sendTriggerEmail('collection_notice', invoice.customerEmail, {
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
+      customerName: invoice.customerName || 'Kunde',
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceAmount: `EUR ${Number(invoice.total || 0).toFixed(2)}`,
+      amountOpen: `EUR ${Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)).toFixed(2)}`,
+      originalDueDate: new Date(invoice.originalDueDate || invoice.dueDate).toLocaleDateString('de-DE'),
+      dueDate: '-',
+      dunningStage: 'Inkasso',
+      invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`),
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    });
+    invoice.dunningLevel = 4;
+    invoice.dunningStage = 'collection';
+    invoice.nextDunningDueDate = undefined;
+    invoice.dunningHistory.push({
+      stage: 'collection',
+      executedAt: now,
+      previousDueDate,
+      ...(emailResult?.success ? { emailSentAt: now } : { emailError: emailResult?.error || 'E-Mail-Versand fehlgeschlagen' })
+    });
+    await invoice.save();
+    return invoice;
   }
 
   static async createDunningRun(payload = {}, userId) {
