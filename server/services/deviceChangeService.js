@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Service = require('../models/Service');
 const User = require('../models/User');
+const FinancialService = require('./financialService');
 const { sendNotification } = require('./notificationService');
 
 class DeviceChangeService {
@@ -343,6 +344,11 @@ class DeviceChangeService {
 
       // Save the order with updated device and services
       await order.save();
+      try {
+        await FinancialService.syncOrderAndBookingValue(order._id, 'order');
+      } catch (syncErr) {
+        console.warn(`[DeviceChange] Warning syncing financial value: ${syncErr.message}`);
+      }
 
       console.log(
         `[DeviceChange] Device successfully changed for order ${orderId}. Requires confirmation: ${pricingChangesSummary.requiresConfirmation}`

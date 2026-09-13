@@ -604,6 +604,36 @@ export const exportInvoicesData = async (filters: any = {}, format: 'csv' | 'jso
   }
 };
 
+export const reconcileOverpayment = async (bookingId: string, options?: { reason?: string; processRefund?: boolean; refundMode?: 'manual' | 'gateway' }) => {
+  try {
+    const response = await api.post(`/api/admin/financial/bookings/${bookingId}/overpayment/reconcile`, options || {});
+    return response.data;
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } }; message?: string };
+    throw new Error(err?.response?.data?.error || err.message || 'Error reconciling overpayment');
+  }
+};
+
+export const requestAdditionalPayment = async (bookingId: string, options?: { note?: string }) => {
+  try {
+    const response = await api.post(`/api/admin/financial/bookings/${bookingId}/payment-request`, options || {});
+    return response.data;
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } }; message?: string };
+    throw new Error(err?.response?.data?.error || err.message || 'Error requesting payment');
+  }
+};
+
+export const syncBookingFinancials = async (bookingId: string, type: 'booking' | 'order' = 'booking') => {
+  try {
+    const response = await api.post(`/api/admin/financial/bookings/${bookingId}/sync`, { type });
+    return response.data;
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string } }; message?: string };
+    throw new Error(err?.response?.data?.error || err.message || 'Error syncing financials');
+  }
+};
+
 // ── Reports ───────────────────────────────────────────────────────────────────
 export const getFinancialReports = async (filters: any = {}) => {
   try {

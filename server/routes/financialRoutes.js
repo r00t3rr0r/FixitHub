@@ -439,6 +439,41 @@ router.post('/dunning/runs/:id/items', requireUser, requireRole(['admin']), asyn
   }
 });
 
+// Reconcile overpayment for a booking (admin only)
+router.post('/bookings/:bookingId/overpayment/reconcile', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.handleOverpayment(req.params.bookingId, req.body || {});
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error reconciling overpayment:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to reconcile overpayment' });
+  }
+});
+
+// Send payment request / Zahlungsaufforderung for a booking (admin only)
+router.post('/bookings/:bookingId/payment-request', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.requestAdditionalPayment(req.params.bookingId, req.body || {});
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error sending payment request:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to send payment request' });
+  }
+});
+
+// Force financial synchronization for a booking or order (admin only)
+router.post('/bookings/:bookingId/sync', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    await FinancialService.syncOrderAndBookingValue(req.params.bookingId, req.body?.type || 'booking');
+    const BookingPaymentService = require('../services/bookingPaymentService');
+    const overview = await BookingPaymentService.getOverview(req.params.bookingId);
+    return res.status(200).json({ success: true, overview });
+  } catch (error) {
+    console.error('Error syncing order/booking value:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to sync financial values' });
+  }
+});
+
 // Export payments (admin only)
 router.get('/export/payments', requireUser, requireRole(['admin']), async (req, res) => {
   try {

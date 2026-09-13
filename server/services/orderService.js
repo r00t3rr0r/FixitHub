@@ -8,6 +8,7 @@ const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
 const NotificationService = require('./notificationService');
 const OrderRevisionService = require('./orderRevisionService');
+const FinancialService = require('./financialService');
 const mongoose = require('mongoose');
 
 const toIdString = (value) => {
@@ -991,6 +992,7 @@ class OrderService {
           changedByName: staff ? staff.name : 'Staff Member',
           notes: `Added addon "${addonData.name}" (+EUR ${addonData.price})`
         });
+        await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
       } catch (revErr) {
         console.warn('OrderService: Warning recording revision on addon add:', revErr.message);
       }
@@ -1057,6 +1059,7 @@ class OrderService {
           changedByName: staff ? staff.name : 'Staff Member',
           notes: `Updated addon "${addon.name}" (EUR ${oldPrice} -> EUR ${addon.price})`
         });
+        await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
       } catch (revErr) {
         console.warn('OrderService: Warning recording revision on addon update:', revErr.message);
       }
@@ -1117,6 +1120,7 @@ class OrderService {
           changedByName: staff ? staff.name : 'Staff Member',
           notes: `Removed addon "${addonName}" (-EUR ${addonPrice})`
         });
+        await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
       } catch (revErr) {
         console.warn('OrderService: Warning recording revision on addon removal:', revErr.message);
       }

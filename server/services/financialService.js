@@ -724,6 +724,9 @@ class FinancialService {
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
       await invoice.save();
+      if (invoice.bookingId) {
+        await FinancialService.autoAllocateUnallocatedPayments(invoice.bookingId);
+      }
       await FinancialService.syncBookingPaymentStatus(invoice);
 
       console.log('FinancialService: Invoice created successfully with defaults applied');
@@ -2283,6 +2286,286 @@ class FinancialService {
     ]);
 
     return [headers, ...rows].map(r => r.join(',')).join('\n');
+  }
+
+  /**
+   * Automatisches Zuordnen unzugeordneter Zahlungen zu offenen Rechnungen eines Auftrags
+   */
+  static async autoAllocateUnallocatedPayments(bookingId) {
+    if (!bookingId) return;
+    try {
+      const BookingPaymentService = require('./bookingPaymentService');
+      const { booking, invoices } = await BookingPaymentService.loadContext(bookingId);
+      if (!invoices || invoices.length === 0) return;
+
+      const openInvoiceSummary = invoices.find(inv => !inv.isCreditNote && inv.isOpen);
+      if (!openInvoiceSummary) return;
+
+      const invoice = await Invoice.findById(openInvoiceSummary._id);
+      if (!invoice) return;
+
+      const payments = await Payment.find({
+        $or: [{ bookingId: booking._id }, { invoiceId: invoice._id }],
+        status: 'completed'
+      });
+
+      let updatedPaidAmount = Number(invoice.paidAmount || 0);
+
+      for (const payment of payments) {
+        const existingAllocations = await PaymentAllocation.find({ paymentId: payment._id }).lean();
+        const alreadyAllocated = CalculationHelper.round(existingAllocations.reduce((sum, entry) => sum + Number(entry.allocatedAmount || 0), 0));
+        const effectiveAmount = CalculationHelper.round(Number(payment.amount || 0) - Number(payment.refundAmount || 0));
+        const unallocated = CalculationHelper.round(effectiveAmount - alreadyAllocated);
+
+        const invoiceOpenAmount = CalculationHelper.round(Number(invoice.total || 0) - updatedPaidAmount);
+        if (unallocated > 0.009 && invoiceOpenAmount > 0.009) {
+          const allocatable = Math.min(unallocated, invoiceOpenAmount);
+          await PaymentAllocation.create({
+            paymentId: payment._id,
+            invoiceId: invoice._id,
+            orderId: invoice.orderId || payment.orderId || undefined,
+            allocatedAmount: allocatable,
+            allocatedAt: new Date(),
+            note: `Automatische Zuordnung (${invoice.invoiceNumber || invoice._id})`
+          });
+
+          payment.allocatedAmount = CalculationHelper.round(alreadyAllocated + allocatable);
+          if (!payment.invoiceId) payment.invoiceId = invoice._id;
+          await payment.save();
+
+          updatedPaidAmount = CalculationHelper.round(updatedPaidAmount + allocatable);
+        }
+      }
+
+      invoice.paidAmount = updatedPaidAmount;
+      if (updatedPaidAmount >= Number(invoice.total || 0) - 0.01 && Number(invoice.total || 0) > 0) {
+        invoice.status = 'paid';
+        invoice.paidAt = invoice.paidAt || new Date();
+        invoice.dunningLevel = 0;
+        invoice.dunningStage = 'none';
+        invoice.nextDunningDueDate = undefined;
+      } else if (updatedPaidAmount > 0) {
+        invoice.status = 'partially_paid';
+      }
+
+      await invoice.save();
+      await FinancialService.syncOrderPaymentTracking(invoice);
+      await FinancialService.syncBookingPaymentStatus(invoice);
+    } catch (error) {
+      console.error('FinancialService: Error in autoAllocateUnallocatedPayments:', error.message);
+    }
+  }
+
+  /**
+   * Synchronisiert Auftragswertänderungen (Order/Booking) mit Rechnung, Zahlungen & Mahnstatus
+   */
+  static async syncOrderAndBookingValue(targetId, targetType = 'booking') {
+    try {
+      let bookingId = null;
+      let orderId = null;
+
+      if (targetType === 'order' || (targetId && Types.ObjectId.isValid(String(targetId)))) {
+        const order = await Order.findById(targetId);
+        if (order) {
+          orderId = order._id;
+          bookingId = order.bookingId;
+        }
+      }
+      if (!bookingId && (targetType === 'booking' || (targetId && Types.ObjectId.isValid(String(targetId))))) {
+        const booking = await Booking.findById(targetId);
+        if (booking) {
+          bookingId = booking._id;
+        }
+      }
+
+      if (!bookingId && !orderId) return;
+
+      let booking = null;
+      if (bookingId) {
+        booking = await Booking.findById(bookingId);
+        if (booking) {
+          const orders = await Order.find({ bookingId: booking._id }).lean();
+          if (orders.length > 0) {
+            const sumOrders = orders.reduce((sum, o) => sum + Number(o.totalCost || 0), 0);
+            booking.totalCost = CalculationHelper.round(sumOrders);
+            await booking.save();
+          }
+        }
+      }
+
+      const invoiceQuery = [];
+      if (bookingId) invoiceQuery.push({ bookingId });
+      if (orderId) invoiceQuery.push({ orderId }, { repairOrderIds: orderId });
+
+      const invoices = await Invoice.find({ $or: invoiceQuery }).sort({ createdAt: -1 });
+      if (!invoices || invoices.length === 0) return;
+
+      const mainInvoice = invoices.find(inv => !inv.isCreditNote) || invoices[0];
+      const newOrderValue = booking ? booking.totalCost : Number(mainInvoice.total);
+
+      const mutableStatuses = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
+      if (mutableStatuses.includes(mainInvoice.status)) {
+        if (booking) {
+          const orders = await Order.find({ bookingId: booking._id }).lean();
+          const items = [];
+          orders.forEach(o => {
+            (o.services || []).forEach(s => {
+              items.push({
+                description: typeof s === 'string' ? s : (s.name || 'Service'),
+                quantity: 1,
+                unitPrice: s.price || (o.totalCost / (o.services.length || 1)),
+                total: s.price || (o.totalCost / (o.services.length || 1)),
+                type: 'service'
+              });
+            });
+            (o.addOns || []).forEach(a => {
+              items.push({
+                description: a.name || 'Add-on',
+                quantity: 1,
+                unitPrice: a.price || 0,
+                total: a.price || 0,
+                type: 'addon'
+              });
+            });
+          });
+          if (items.length > 0) {
+            mainInvoice.items = items;
+          }
+        }
+
+        mainInvoice.total = CalculationHelper.round(newOrderValue);
+        mainInvoice.invoiceGrossTotal = mainInvoice.total;
+        const taxRate = mainInvoice.isReverseCharge ? 0 : (mainInvoice.taxRate || 19);
+        const taxDivisor = 1 + (taxRate / 100);
+        mainInvoice.subtotal = CalculationHelper.round(mainInvoice.total / taxDivisor);
+        mainInvoice.invoiceNetTotal = mainInvoice.subtotal;
+        mainInvoice.tax = mainInvoice.isReverseCharge ? 0 : CalculationHelper.round(mainInvoice.total - mainInvoice.subtotal);
+        mainInvoice.invoiceTaxTotal = mainInvoice.tax;
+
+        const allocations = await PaymentAllocation.find({ invoiceId: mainInvoice._id }).lean();
+        const paidAmount = CalculationHelper.round(allocations.reduce((sum, a) => sum + Number(a.allocatedAmount || 0), 0));
+        mainInvoice.paidAmount = paidAmount;
+
+        if (paidAmount >= mainInvoice.total - 0.01 && mainInvoice.total > 0) {
+          mainInvoice.status = 'paid';
+          mainInvoice.paidAt = mainInvoice.paidAt || new Date();
+          mainInvoice.dunningLevel = 0;
+          mainInvoice.dunningStage = 'none';
+          mainInvoice.nextDunningDueDate = undefined;
+        } else if (paidAmount > 0) {
+          mainInvoice.status = 'partially_paid';
+          mainInvoice.paidAt = null;
+        } else {
+          mainInvoice.status = mainInvoice.dueDate && new Date(mainInvoice.dueDate) < new Date() ? 'overdue' : 'sent';
+          mainInvoice.paidAt = null;
+        }
+
+        await mainInvoice.save();
+        await FinancialService.syncOrderPaymentTracking(mainInvoice);
+        await FinancialService.syncBookingPaymentStatus(mainInvoice);
+      } else if (['paid', 'credited'].includes(mainInvoice.status)) {
+        const currentInvoiceTotal = Number(mainInvoice.total || 0);
+        const diff = CalculationHelper.round(newOrderValue - currentInvoiceTotal);
+        if (diff < -0.01) {
+          await FinancialService.createCreditNote(mainInvoice._id, {
+            reason: `Automatische Korrekturrechnung wegen Auftragswertminderung (-EUR ${Math.abs(diff).toFixed(2)})`,
+            correctionType: 'price_adjustment',
+            discount: 0,
+            items: [{
+              description: 'Auftragswertanpassung (Minderung)',
+              quantity: 1,
+              unitPrice: Math.abs(diff),
+              total: Math.abs(diff),
+              type: 'fee'
+            }]
+          });
+        }
+      }
+    } catch (error) {
+      console.error('FinancialService: Error in syncOrderAndBookingValue:', error.message);
+    }
+  }
+
+  /**
+   * Verarbeitet Überzahlungen (Erstellung Korrekturrechnung & optional Erstattung)
+   */
+  static async handleOverpayment(bookingId, options = {}) {
+    const BookingPaymentService = require('./bookingPaymentService');
+    const overview = await BookingPaymentService.getOverview(bookingId);
+    if (!overview.summary.isOverpaid) {
+      return { isOverpaid: false, overpaidAmount: 0 };
+    }
+    const overpaidAmount = CalculationHelper.round(overview.summary.receivedTotal - overview.summary.orderValue);
+
+    const mainInvoice = overview.invoices.find(inv => !inv.isCreditNote);
+    let creditNote = null;
+    if (mainInvoice) {
+      creditNote = await FinancialService.createCreditNote(mainInvoice._id, {
+        reason: options.reason || `Überzahlungsgutschrift (${overpaidAmount.toFixed(2)} €)`,
+        correctionType: 'partial_refund',
+        items: [{
+          description: 'Gutschrift für Überzahlung',
+          quantity: 1,
+          unitPrice: overpaidAmount,
+          total: overpaidAmount,
+          type: 'fee'
+        }]
+      });
+    }
+
+    let refundResult = null;
+    if (options.processRefund && overview.payments.length > 0) {
+      const eligiblePayment = overview.payments.find(p => p.status === 'completed' && p.amount > 0);
+      if (eligiblePayment) {
+        refundResult = await FinancialService.processRefund(eligiblePayment._id, overpaidAmount, options.reason || 'Erstattung Überzahlung', {
+          mode: options.refundMode || 'manual'
+        });
+      }
+    }
+
+    return {
+      isOverpaid: true,
+      overpaidAmount,
+      creditNote,
+      refundResult
+    };
+  }
+
+  /**
+   * Sendet eine Zahlungsaufforderung für offene Restforderungen
+   */
+  static async requestAdditionalPayment(bookingId, options = {}) {
+    const BookingPaymentService = require('./bookingPaymentService');
+    const overview = await BookingPaymentService.getOverview(bookingId);
+    const openBalance = overview.summary.openOrderBalance;
+    if (openBalance <= 0) {
+      return { success: false, message: 'Keine offene Restforderung vorhanden.' };
+    }
+
+    const { booking, invoices } = await BookingPaymentService.loadContext(bookingId);
+    const mainInvoice = invoices.find(inv => !inv.isCreditNote);
+    const customer = booking.customerId ? await User.findById(booking.customerId).lean() : null;
+    const recipientEmail = customer?.email || booking.guestInfo?.email;
+
+    if (recipientEmail) {
+      await EmailService.sendTriggerEmail('payment_request', recipientEmail, {
+        companyName: process.env.COMPANY_NAME || 'McRepair.de',
+        customerName: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.name : booking.guestInfo?.firstName || 'Kunde',
+        invoiceNumber: mainInvoice?.invoiceNumber || booking.bookingNumber,
+        openAmount: `EUR ${openBalance.toFixed(2)}`,
+        dueDate: mainInvoice?.dueDate ? new Date(mainInvoice.dueDate).toLocaleDateString('de-DE') : 'sofort',
+        invoiceUrl: mainInvoice ? await EmailService.buildSystemUrl(`/invoices?invoiceId=${mainInvoice._id}`) : '#',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
+        customNote: options.note || 'Bitte begleichen Sie den offenen Restbetrag.'
+      });
+    }
+
+    return {
+      success: true,
+      openBalance,
+      recipientEmail
+    };
   }
 
   // ──────────────────────────────────────────────

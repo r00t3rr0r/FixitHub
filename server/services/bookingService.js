@@ -2266,6 +2266,12 @@ class BookingService {
       const savedInvoice = await invoice.save();
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
 
+      try {
+        await FinancialService.autoAllocateUnallocatedPayments(booking._id);
+      } catch (allocErr) {
+        console.warn('BookingService: Warning auto-allocating payments:', allocErr.message);
+      }
+
       booking.paymentStatus = savedInvoice.status;
       if (savedInvoice.status === 'paid') {
         booking.billingStatus = 'paid';

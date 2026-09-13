@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Service = require('../models/Service');
+const FinancialService = require('./financialService');
 const { sendNotification } = require('./notificationService');
 
 const toIdString = (value) => {
@@ -109,6 +110,11 @@ class OrderServiceManagementService {
       }
 
       await order.save();
+      try {
+        await FinancialService.syncOrderAndBookingValue(order._id, 'order');
+      } catch (syncErr) {
+        console.warn(`[OrderServiceManagement] Warning syncing financial value: ${syncErr.message}`);
+      }
 
       console.log(`[OrderServiceManagement] Service ${serviceId} updated in order ${orderId}. New price: ${updateData.price}`);
 
@@ -215,6 +221,11 @@ class OrderServiceManagementService {
       }
 
       await order.save();
+      try {
+        await FinancialService.syncOrderAndBookingValue(order._id, 'order');
+      } catch (syncErr) {
+        console.warn(`[OrderServiceManagement] Warning syncing financial value: ${syncErr.message}`);
+      }
 
       console.log(
         `[OrderServiceManagement] Service ${serviceId} added to order ${orderId}. Price: ${newService.price}`
@@ -288,6 +299,11 @@ class OrderServiceManagementService {
       }
 
       await order.save();
+      try {
+        await FinancialService.syncOrderAndBookingValue(order._id, 'order');
+      } catch (syncErr) {
+        console.warn(`[OrderServiceManagement] Warning syncing financial value: ${syncErr.message}`);
+      }
 
       console.log(`[OrderServiceManagement] Service ${serviceId} removed from order ${orderId}`);
 
