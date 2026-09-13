@@ -288,23 +288,32 @@ export interface CustomerSearchResult {
   };
 }
 
+const extractErrorMessage = (error: unknown, fallback = 'Operation failed'): string => {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const err = error as { response?: { data?: { error?: string } } };
+    if (err.response?.data?.error) return err.response.data.error;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+};
+
 // ── Customer Search ──────────────────────────────────────────────────────────
 export const searchCustomers = async (query: string) => {
   try {
     const response = await api.get('/api/admin/financial/customers/search', { params: { query } });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to search customers'));
   }
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-export const getPayments = async (filters: any = {}) => {
+export const getPayments = async (filters: Record<string, unknown> = {}) => {
   try {
     const response = await api.get('/api/admin/financial/payments', { params: filters });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch payments'));
   }
 };
 
@@ -325,18 +334,18 @@ export const processRefund = async (
       ...options
     });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to process refund'));
   }
 };
 
 // ── Invoices ──────────────────────────────────────────────────────────────────
-export const getInvoices = async (filters: any = {}) => {
+export const getInvoices = async (filters: Record<string, unknown> = {}) => {
   try {
     const response = await api.get('/api/admin/financial/invoices', { params: filters });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch invoices'));
   }
 };
 
@@ -348,8 +357,8 @@ export const getInvoiceDetails = async (invoiceId: string): Promise<{
   try {
     const response = await api.get(`/api/admin/financial/invoices/${invoiceId}`);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch invoice details'));
   }
 };
 
@@ -357,8 +366,8 @@ export const createInvoice = async (invoiceData: Partial<Invoice>) => {
   try {
     const response = await api.post('/api/admin/financial/invoices', invoiceData);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to create invoice'));
   }
 };
 
@@ -376,8 +385,8 @@ export const generateInvoiceFromRepairs = async (
   try {
     const response = await api.post('/api/admin/financial/invoices/from-repairs', { repairOrderIds, options });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to generate invoice from repair orders'));
   }
 };
 
@@ -398,8 +407,8 @@ export const changeInvoiceStatus = async (
       paidAt: payload?.paidAt,
     });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to change invoice status'));
   }
 };
 
@@ -416,8 +425,8 @@ export const addInvoicePayment = async (
   try {
     const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/payments`, paymentData);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to add invoice payment'));
   }
 };
 
@@ -438,8 +447,8 @@ export const createCreditNote = async (invoiceId: string, options: {
   try {
     const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/credit-note`, options);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to create credit note'));
   }
 };
 
@@ -449,8 +458,9 @@ export const createInvoiceFromOrder = async (orderId: string) => {
   try {
     const response = await api.post(`/api/admin/financial/orders/${orderId}/invoice`);
     return response.data;
-  } catch (error: any) {
-    const apiError = new Error(error?.response?.data?.error || error.message) as Error & {
+  } catch (error: unknown) {
+    const err = error as { response?: { status?: number; data?: { error?: string; code?: string; existingInvoice?: { _id?: string; invoiceNumber?: string }; redirectTo?: string } }; message?: string };
+    const apiError = new Error(err.response?.data?.error || err.message || 'Failed to create invoice from order') as Error & {
       status?: number;
       code?: string;
       existingInvoice?: { _id?: string; invoiceNumber?: string };
@@ -458,12 +468,12 @@ export const createInvoiceFromOrder = async (orderId: string) => {
       existingInvoiceNumber?: string;
       redirectTo?: string;
     };
-    apiError.status = error?.response?.status;
-    apiError.code = error?.response?.data?.code;
-    apiError.existingInvoice = error?.response?.data?.existingInvoice;
-    apiError.existingInvoiceId = error?.response?.data?.existingInvoice?._id;
-    apiError.existingInvoiceNumber = error?.response?.data?.existingInvoice?.invoiceNumber;
-    apiError.redirectTo = error?.response?.data?.redirectTo;
+    apiError.status = err.response?.status;
+    apiError.code = err.response?.data?.code;
+    apiError.existingInvoice = err.response?.data?.existingInvoice;
+    apiError.existingInvoiceId = err.response?.data?.existingInvoice?._id;
+    apiError.existingInvoiceNumber = err.response?.data?.existingInvoice?.invoiceNumber;
+    apiError.redirectTo = err.response?.data?.redirectTo;
     throw apiError;
   }
 };
@@ -472,8 +482,8 @@ export const getOverdueInvoices = async () => {
   try {
     const response = await api.get('/api/admin/financial/invoices/overdue');
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch overdue invoices'));
   }
 };
 
@@ -481,8 +491,8 @@ export const runDunningJob = async () => {
   try {
     const response = await api.post('/api/admin/financial/dunning/run');
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to run dunning job'));
   }
 };
 
@@ -490,8 +500,8 @@ export const activateCollection = async (invoiceId: string) => {
   try {
     const response = await api.post(`/api/admin/financial/dunning/invoices/${invoiceId}/collection`);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to activate collection'));
   }
 };
 
@@ -505,8 +515,8 @@ export const createDunningRun = async (payload: {
   try {
     const response = await api.post('/api/admin/financial/dunning/runs', payload);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to create dunning run'));
   }
 };
 
@@ -514,8 +524,8 @@ export const getDunningRuns = async (filters: { status?: string } = {}) => {
   try {
     const response = await api.get('/api/admin/financial/dunning/runs', { params: filters });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch dunning runs'));
   }
 };
 
@@ -523,8 +533,8 @@ export const getDunningRunById = async (runId: string) => {
   try {
     const response = await api.get(`/api/admin/financial/dunning/runs/${runId}`);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch dunning run details'));
   }
 };
 
@@ -539,8 +549,8 @@ export const updateDunningRun = async (runId: string, updates: Partial<{
   try {
     const response = await api.patch(`/api/admin/financial/dunning/runs/${runId}`, updates);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to update dunning run'));
   }
 };
 
@@ -557,8 +567,8 @@ export const updateDunningRunItem = async (
   try {
     const response = await api.patch(`/api/admin/financial/dunning/runs/${runId}/items/${invoiceId}`, updates);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to update dunning run item'));
   }
 };
 
@@ -566,8 +576,8 @@ export const addDunningRunItem = async (runId: string, invoiceId: string) => {
   try {
     const response = await api.post(`/api/admin/financial/dunning/runs/${runId}/items`, { invoiceId });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to add dunning run item'));
   }
 };
 
@@ -575,32 +585,32 @@ export const sendInvoice = async (invoiceId: string, email?: string, message?: s
   try {
     const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/send`, { email, message });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to send invoice'));
   }
 };
 
-export const exportPayments = async (filters: any = {}, format: 'csv' | 'json' = 'csv') => {
+export const exportPayments = async (filters: Record<string, unknown> = {}, format: 'csv' | 'json' = 'csv') => {
   try {
     const response = await api.get('/api/admin/financial/export/payments', {
       params: { ...filters, format },
       responseType: format === 'csv' ? 'blob' : 'json'
     });
     return response;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to export payments'));
   }
 };
 
-export const exportInvoicesData = async (filters: any = {}, format: 'csv' | 'json' = 'csv') => {
+export const exportInvoicesData = async (filters: Record<string, unknown> = {}, format: 'csv' | 'json' = 'csv') => {
   try {
     const response = await api.get('/api/admin/financial/export/invoices', {
       params: { ...filters, format },
       responseType: format === 'csv' ? 'blob' : 'json'
     });
     return response;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to export invoices'));
   }
 };
 
@@ -609,8 +619,7 @@ export const reconcileOverpayment = async (bookingId: string, options?: { reason
     const response = await api.post(`/api/admin/financial/bookings/${bookingId}/overpayment/reconcile`, options || {});
     return response.data;
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { error?: string } }; message?: string };
-    throw new Error(err?.response?.data?.error || err.message || 'Error reconciling overpayment');
+    throw new Error(extractErrorMessage(error, 'Error reconciling overpayment'));
   }
 };
 
@@ -619,8 +628,7 @@ export const requestAdditionalPayment = async (bookingId: string, options?: { no
     const response = await api.post(`/api/admin/financial/bookings/${bookingId}/payment-request`, options || {});
     return response.data;
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { error?: string } }; message?: string };
-    throw new Error(err?.response?.data?.error || err.message || 'Error requesting payment');
+    throw new Error(extractErrorMessage(error, 'Error requesting payment'));
   }
 };
 
@@ -629,18 +637,17 @@ export const syncBookingFinancials = async (bookingId: string, type: 'booking' |
     const response = await api.post(`/api/admin/financial/bookings/${bookingId}/sync`, { type });
     return response.data;
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { error?: string } }; message?: string };
-    throw new Error(err?.response?.data?.error || err.message || 'Error syncing financials');
+    throw new Error(extractErrorMessage(error, 'Error syncing financials'));
   }
 };
 
 // ── Reports ───────────────────────────────────────────────────────────────────
-export const getFinancialReports = async (filters: any = {}) => {
+export const getFinancialReports = async (filters: Record<string, unknown> = {}) => {
   try {
     const response = await api.get('/api/admin/financial/reports', { params: filters });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch financial reports'));
   }
 };
 
@@ -649,8 +656,8 @@ export const getPaymentGateways = async () => {
   try {
     const response = await api.get('/api/admin/financial/gateways');
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch payment gateways'));
   }
 };
 
@@ -658,7 +665,7 @@ export const updatePaymentGateway = async (gatewayId: string, updates: Partial<P
   try {
     const response = await api.put(`/api/admin/financial/gateways/${gatewayId}`, updates);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to update payment gateway'));
   }
 };

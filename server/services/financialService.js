@@ -348,7 +348,7 @@ class FinancialService {
 
       // Pagination
       const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 10;
+      const limit = filters.limit ? parseInt(filters.limit) : 500;
       const skip = (page - 1) * limit;
 
       const [paymentSummary] = await Payment.aggregate([

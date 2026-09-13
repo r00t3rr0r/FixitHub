@@ -13086,5 +13086,163 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1789279042188-rjmt0pmue",
+    "timestamp": "2026-09-13T05:57:22.188Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung CN-CN-2026-0008 von McRepair.de steht bereit",
+    "messageId": "<071d30d7-c3ed-d0cc-6892-cd782a66245c@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4326,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789279043079-s4l8amqde",
+    "timestamp": "2026-09-13T05:57:23.079Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung CN-CN-2026-0008 von McRepair.de steht bereit",
+    "messageId": "<b185545c-2a2b-dece-cd1d-114ca5758881@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3986,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789279046021-nv0zb6tb9",
+    "timestamp": "2026-09-13T05:57:26.021Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung CN-CN-2026-0008 von McRepair.de steht bereit",
+    "messageId": "<59e21039-32f8-abbe-4b5f-7e1efe3644e3@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3763,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789279051006-u5ly4s1ui",
+    "timestamp": "2026-09-13T05:57:31.006Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung CN-CN-2026-0008 von McRepair.de steht bereit",
+    "messageId": "<290dc141-058c-1011-6b9d-b21284325ca2@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3852,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789279596971-22lg393ls",
+    "timestamp": "2026-09-13T06:06:36.971Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<9ee3751b-5d02-aa33-d090-41d73b557abd@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2465,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
   }
 ]

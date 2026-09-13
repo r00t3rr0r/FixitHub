@@ -104,7 +104,7 @@ export interface InvoicePaymentPayload {
   amount: number;
   gatewayId: string;
   gatewayProvider: 'stripe' | 'paypal' | 'bank_transfer';
-  paymentData: Record<string, any>;
+  paymentData: Record<string, unknown>;
   isJsSdk?: boolean;
 }
 
@@ -115,6 +115,15 @@ export interface InvoicePaymentInitializationResponse {
   redirectUrl: string;
   providerReference: string;
 }
+
+const extractErrorMessage = (error: unknown, fallback = 'Operation failed'): string => {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const err = error as { response?: { data?: { error?: string } } };
+    if (err.response?.data?.error) return err.response.data.error;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+};
 
 // Description: Get all invoices for the authenticated customer
 // Endpoint: GET /api/invoices
@@ -136,8 +145,8 @@ export const getCustomerInvoices = async (filters?: {
 
     const response = await api.get(endpoint);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch customer invoices'));
   }
 };
 
@@ -149,8 +158,8 @@ export const getInvoice = async (invoiceId: string) => {
   try {
     const response = await api.get(`/api/invoices/${invoiceId}`);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch invoice'));
   }
 };
 
@@ -162,8 +171,8 @@ export const markInvoiceAsViewed = async (invoiceId: string) => {
   try {
     const response = await api.put(`/api/invoices/${invoiceId}/view`);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to mark invoice as viewed'));
   }
 };
 
@@ -175,8 +184,8 @@ export const getInvoiceStats = async () => {
   try {
     const response = await api.get('/api/invoices/stats/summary');
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch invoice stats'));
   }
 };
 
@@ -188,8 +197,8 @@ export const getInvoicePaymentGateways = async () => {
   try {
     const response = await api.get('/api/invoices/payment-gateways');
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch payment gateways'));
   }
 };
 
@@ -201,8 +210,8 @@ export const payInvoice = async (invoiceId: string, payload: InvoicePaymentPaylo
   try {
     const response = await api.post(`/api/invoices/${invoiceId}/pay`, payload);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to pay invoice'));
   }
 };
 
@@ -214,8 +223,8 @@ export const initializeInvoicePayment = async (invoiceId: string, payload: Invoi
   try {
     const response = await api.post(`/api/invoices/${invoiceId}/payments/initialize`, payload);
     return response.data as InvoicePaymentInitializationResponse;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to initialize payment'));
   }
 };
 
@@ -235,8 +244,8 @@ export const confirmInvoicePayment = async (
   try {
     const response = await api.post(`/api/invoices/${invoiceId}/payments/confirm`, payload);
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to confirm payment'));
   }
 };
 
@@ -266,7 +275,7 @@ export const getInvoicePaypalConfig = async (gatewayId?: string): Promise<Invoic
       : '/api/invoices/paypal/config';
     const response = await api.get(url);
     return response.data as InvoicePaypalSdkConfig;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Failed to fetch PayPal config'));
   }
 };

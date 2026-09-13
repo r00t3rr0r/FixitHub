@@ -116,13 +116,13 @@ export function CustomerInvoices() {
 
   // Handle incoming navigation state for invoice highlight + dialog open
   useEffect(() => {
-    const state = location.state as any;
+    const state = location.state as { highlightInvoiceId?: string; openInvoiceId?: string } | null;
     if (state?.highlightInvoiceId) {
       setPendingHighlightId(state.highlightInvoiceId);
       setPendingOpenId(state.openInvoiceId || state.highlightInvoiceId);
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     if (!pendingHighlightId || loading || invoices.length === 0) return;
@@ -140,12 +140,12 @@ export function CustomerInvoices() {
       }
       if (openId) {
         const inv = invoices.find((i) => i._id === openId);
-        if (inv) setTimeout(() => handleViewInvoice(inv), 900);
+        if (inv) setTimeout(() => void handleViewInvoice(inv), 900);
       }
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [pendingHighlightId, loading, invoices]);
+  }, [pendingHighlightId, pendingOpenId, loading, invoices]);
 
   // Load PayPal JS SDK when a PayPal gateway is selected
   useEffect(() => {
@@ -336,16 +336,12 @@ export function CustomerInvoices() {
     buttons.render(paypalInvoiceButtonRef.current);
   }, [showInvoiceDialog, paypalInvoiceSdkReady, paypalInvoiceConfig]);
 
-  useEffect(() => {
-    fetchInvoices();
-  }, [statusFilter]);
-
   const fetchInvoices = async () => {
     try {
       setLoading(true);
       console.log('CustomerInvoices: Fetching invoices with status filter:', statusFilter);
 
-      const filters: any = {};
+      const filters: { status?: string } = {};
       if (statusFilter !== "all") {
         filters.status = statusFilter;
       }
@@ -354,17 +350,22 @@ export function CustomerInvoices() {
       console.log('CustomerInvoices: Received invoices:', response.invoices?.length);
 
       setInvoices(response.invoices || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('CustomerInvoices: Error fetching invoices:', error);
+      const msg = error instanceof Error ? error.message : t('invoices.errorFetchingInvoices');
       toast({
         title: t('common.error'),
-        description: error.message || t('invoices.errorFetchingInvoices'),
+        description: msg,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    void fetchInvoices();
+  }, [statusFilter]);
 
   const handleViewInvoice = async (invoice: Invoice) => {
     try {
