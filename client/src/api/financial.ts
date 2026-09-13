@@ -289,9 +289,13 @@ export interface CustomerSearchResult {
 }
 
 const extractErrorMessage = (error: unknown, fallback = 'Operation failed'): string => {
-  if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as { response?: { data?: { error?: string } } };
-    if (err.response?.data?.error) return err.response.data.error;
+  if (error && typeof error === 'object') {
+    // The response interceptor rejects with the raw AxiosResponse for status >= 400,
+    // but network-level errors still arrive as an AxiosError with a nested `.response`.
+    const err = error as { data?: { error?: string; message?: string }; response?: { data?: { error?: string; message?: string } } };
+    const data = err.response?.data || err.data;
+    if (data?.error) return data.error;
+    if (data?.message) return data.message;
   }
   if (error instanceof Error) return error.message;
   return fallback;

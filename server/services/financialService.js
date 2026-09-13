@@ -215,6 +215,18 @@ function normalizeTrackedPaidAt(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+// Safely extracts a Mongo id string from an ObjectId, populated doc, or plain id string.
+function toIdString(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    if (value._id != null) return toIdString(value._id);
+    if (value.id != null) return toIdString(value.id);
+    if (typeof value.toHexString === 'function') return value.toHexString();
+  }
+  return String(value);
+}
+
 class FinancialService {
   // Helper: Load financial settings from SystemConfiguration
   static async getFinancialSettings() {
@@ -1495,7 +1507,7 @@ class FinancialService {
       : calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
     const total    = subtotal + tax - discount;
 
-    const bookingIds = [...new Set(orders.map((order) => order.bookingId ? String(order.bookingId) : '').filter(Boolean))];
+    const bookingIds = [...new Set(orders.map((order) => toIdString(order.bookingId)).filter(Boolean))];
     const bookingId = bookingIds.length === 1 ? bookingIds[0] : undefined;
 
     if (bookingId) {
@@ -1622,7 +1634,7 @@ class FinancialService {
       orderIds.push(...invoice.repairOrderIds);
     }
 
-    const uniqueOrderIds = [...new Set(orderIds.map((entry) => String(entry)).filter(Boolean))];
+    const uniqueOrderIds = [...new Set(orderIds.map((entry) => toIdString(entry)).filter(Boolean))];
     if (uniqueOrderIds.length === 0) return;
 
     const paymentStatusMap = {
@@ -1653,7 +1665,7 @@ class FinancialService {
       const paidOrders = await Order.find({ _id: { $in: uniqueOrderIds }, sourceComplaintId: { $ne: null } })
         .select('sourceComplaintId')
         .lean();
-      const complaintIds = [...new Set(paidOrders.map((order) => String(order.sourceComplaintId)).filter(Boolean))];
+      const complaintIds = [...new Set(paidOrders.map((order) => toIdString(order.sourceComplaintId)).filter(Boolean))];
 
       if (complaintIds.length > 0) {
         await Complaint.updateMany(
@@ -1678,10 +1690,13 @@ class FinancialService {
     }
 
     if (!bookingId && Array.isArray(invoice.repairOrderIds) && invoice.repairOrderIds.length > 0) {
-      const linkedOrder = await Order.findOne({
-        _id: { $in: invoice.repairOrderIds },
-        bookingId: { $ne: null }
-      }).select('bookingId').lean();
+      const repairOrderIds = invoice.repairOrderIds.map((entry) => toIdString(entry)).filter(Boolean);
+      const linkedOrder = repairOrderIds.length > 0
+        ? await Order.findOne({
+            _id: { $in: repairOrderIds },
+            bookingId: { $ne: null }
+          }).select('bookingId').lean()
+        : null;
       bookingId = linkedOrder?.bookingId;
     }
 

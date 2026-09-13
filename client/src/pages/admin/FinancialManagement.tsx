@@ -86,6 +86,7 @@ import {
   SkipForward,
   Settings,
   ShieldCheck,
+  Trash2,
   TrendingUp,
   User,
   Wallet,
@@ -115,6 +116,31 @@ const paymentStatusClass: Record<Payment['status'], string> = {
 };
 
 const paymentEligibleInvoiceStatuses: InvoiceStatus[] = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
+
+// Mirrors server-side INVOICE_STATUS_TRANSITIONS (financialService.js) to prevent invalid transitions in the UI.
+const invoiceStatusTransitions: Record<InvoiceStatus, InvoiceStatus[]> = {
+  draft: ['pending_approval', 'sent', 'cancelled'],
+  pending_approval: ['sent', 'draft', 'cancelled'],
+  sent: ['viewed', 'partially_paid', 'paid', 'overdue', 'cancelled'],
+  viewed: ['partially_paid', 'paid', 'overdue', 'cancelled'],
+  partially_paid: ['paid', 'overdue', 'cancelled'],
+  paid: ['credited'],
+  overdue: ['partially_paid', 'paid', 'cancelled'],
+  cancelled: ['credited'],
+  credited: []
+};
+
+const invoiceStatusLabel: Record<InvoiceStatus, string> = {
+  draft: 'Draft',
+  pending_approval: 'Pending Approval',
+  sent: 'Sent',
+  viewed: 'Viewed',
+  partially_paid: 'Partially Paid',
+  paid: 'Paid',
+  overdue: 'Overdue',
+  cancelled: 'Canceled',
+  credited: 'Credited'
+};
 
 const paymentMethodLabel: Record<Payment['paymentMethod'], string> = {
   bank_transfer: 'Banküberweisung',
@@ -2530,9 +2556,17 @@ export function FinancialManagement() {
                 <div className="flex gap-2">
                   <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
                     <DialogTrigger asChild><Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}</Button></DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-                      <DialogHeader><DialogTitle>{t('financialManagement.createInvoice')}</DialogTitle><DialogDescription>{t('financialManagement.description')}</DialogDescription></DialogHeader>
-                      <div className="space-y-3">
+                    <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
+                      <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+                          <Plus className="h-5 w-5" />
+                          {t('financialManagement.createInvoice')}
+                        </DialogTitle>
+                        <DialogDescription className="text-blue-200 text-sm">
+                          {t('financialManagement.description')}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
                         <div className="space-y-2">
                           <Label>Kunde suchen</Label>
                           <Input value={customerQuery} onChange={(e) => onSearchCustomers(e.target.value)} placeholder="Name oder E-Mail" />
@@ -2642,17 +2676,17 @@ export function FinancialManagement() {
                         <Separator />
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label>Line Items</Label>
-                            <Button variant="outline" size="sm" type="button" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position</Button>
+                            <Label className="font-semibold text-[#1a2a5e]">Positionen (Line Items)</Label>
+                            <Button variant="outline" size="sm" type="button" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={onAddInvoiceLineItem}><Plus className="mr-2 h-4 w-4" />Position hinzufügen</Button>
                           </div>
                           {invoiceForm.items.map((item, index) => (
-                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] p-3 md:grid-cols-12">
-                              <div className="md:col-span-5"><Input placeholder="Service Name" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} /></div>
-                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} /></div>
-                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} /></div>
+                            <div key={`line-item-${index}`} className="grid gap-2 rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 md:grid-cols-12 items-center">
+                              <div className="md:col-span-5"><Input placeholder="Bezeichnung / Service Name" value={item.description} onChange={(e) => onUpdateInvoiceLineItem(index, 'description', e.target.value)} className="bg-white" /></div>
+                              <div className="md:col-span-2"><Input type="number" min="1" value={item.quantity} onChange={(e) => onUpdateInvoiceLineItem(index, 'quantity', e.target.value)} className="bg-white" placeholder="Menge" /></div>
+                              <div className="md:col-span-2"><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => onUpdateInvoiceLineItem(index, 'unitPrice', e.target.value)} className="bg-white" placeholder="Preis €" /></div>
                               <div className="md:col-span-2">
                                 <Select value={item.type} onValueChange={(value) => onUpdateInvoiceLineItem(index, 'type', value as InvoiceItem['type'])}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="service">Service</SelectItem>
                                     <SelectItem value="addon">Add-On</SelectItem>
@@ -2662,7 +2696,11 @@ export function FinancialManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="md:col-span-1"><Button variant="ghost" size="icon" type="button" onClick={() => onRemoveInvoiceLineItem(index)}><AlertTriangle className="h-4 w-4 text-red-600" /></Button></div>
+                              <div className="md:col-span-1 text-right">
+                                <Button variant="ghost" size="icon" type="button" title="Position entfernen" onClick={() => onRemoveInvoiceLineItem(index)}>
+                                  <Trash2 className="h-4 w-4 text-red-600 hover:text-red-800" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -2675,24 +2713,33 @@ export function FinancialManagement() {
                           </div>
                           <div className="mt-1 flex justify-between font-semibold text-[#1a2a5e]"><span>Gesamt</span><span>{formatCurrencyValue(invoiceDraftTotals.total, invoiceForm.currency)}</span></div>
                         </div>
-                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} /></div>
+                        <div><Label>Notiz</Label><Textarea value={invoiceForm.notes} onChange={(e) => setInvoiceForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Interne oder kundenrelevante Notiz zur Rechnung..." /></div>
                       </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
-                        <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
+                      <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+                        <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setInvoiceDialogOpen(false)}>{t('common.cancel')}</Button>
+                        <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoice}>{t('financialManagement.createInvoice')}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
                   <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
                     <DialogTrigger asChild><Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]"><FileSpreadsheet className="mr-2 h-4 w-4" />Aus RepairOrders</Button></DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Rechnung aus RepairOrder-IDs</DialogTitle><DialogDescription>Mehrere IDs kommasepariert eingeben.</DialogDescription></DialogHeader>
-                      <div className="space-y-3">
+                    <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden flex flex-col">
+                      <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+                          <FileSpreadsheet className="h-5 w-5" />
+                          Rechnung aus RepairOrder-IDs
+                        </DialogTitle>
+                        <DialogDescription className="text-blue-200 text-sm">
+                          Mehrere Reparaturauftrags-IDs kommasepariert eingeben.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="px-6 py-4 space-y-4">
                         <div className="space-y-2">
-                          <Label>RepairOrder IDs</Label>
-                          <Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1, RO-2" />
+                          <Label className="font-semibold text-[#1a2a5e]">RepairOrder IDs *</Label>
+                          <Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1001, RO-1002" rows={3} />
+                          <p className="text-xs text-muted-foreground">Mehrere IDs mit Komma trennen.</p>
                         </div>
-                        <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-2.5">
+                        <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-3">
                           <div>
                             <Label className="text-xs font-semibold text-indigo-950">Innergemeinschaftliche Lieferung (Reverse Charge)</Label>
                             <p className="text-[11px] text-indigo-800">Steuerbetrag 0% / ZM-Relevant</p>
@@ -2702,16 +2749,20 @@ export function FinancialManagement() {
                             onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, isReverseCharge: checked, taxRate: checked ? '0' : String(financialSettings.defaults.taxRate) }))}
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-3">
                           <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-                          <div><Label>Rabatt</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+                          <div><Label>Rabatt %</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-3">
                           <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+                          <div><Label>Zahlungsziel</Label><Input value={fromRepairForm.paymentTerms} onChange={(e) => setFromRepairForm((p) => ({ ...p, paymentTerms: e.target.value }))} placeholder="Net 14" /></div>
                           <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
                         </div>
                       </div>
-                      <DialogFooter><Button variant="outline" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button><Button onClick={onCreateInvoiceFromRepairs}>Generieren</Button></DialogFooter>
+                      <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+                        <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button>
+                        <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoiceFromRepairs}>Generieren</Button>
+                      </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -3695,16 +3746,18 @@ export function FinancialManagement() {
       </Tabs>
 
       <Dialog open={sendComposerOpen} onOpenChange={setSendComposerOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+              <Send className="h-5 w-5" />
               {sendComposerMode === 'reminder' ? 'Mahnungsversand konfigurieren' : 'Rechnungsversand konfigurieren'}
             </DialogTitle>
-            <DialogDescription>
-              Vor dem Versand alle relevanten Inhalte pruefen, Formulierungen bearbeiten und Verrechnungsfunktionen festlegen.
+            <DialogDescription className="text-blue-200 text-sm">
+              Vor dem Versand alle relevanten Inhalte prüfen, Formulierungen bearbeiten und Verrechnungsfunktionen festlegen.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
           {selectedInvoice && (
             <div className="grid gap-4 lg:grid-cols-2">
               <Card className="border-[#d8dce6]">
@@ -3873,21 +3926,28 @@ export function FinancialManagement() {
               </Card>
             </div>
           )}
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSendComposerOpen(false)}>{t('common.cancel')}</Button>
-            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSubmitSendComposer}>Jetzt senden</Button>
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setSendComposerOpen(false)}>{t('common.cancel')}</Button>
+            <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onSubmitSendComposer}>Jetzt senden</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dunningRunDetailsOpen} onOpenChange={setDunningRunDetailsOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Mahnlauf Details</DialogTitle>
-            <DialogDescription>Vollstaendige Einsicht in den aktiven Mahnlauf mit Verlauf, Status und Interventionsmoeglichkeiten.</DialogDescription>
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+              <ListChecks className="h-5 w-5" />
+              Mahnlauf Details
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              Vollständige Einsicht in den aktiven Mahnlauf mit Verlauf, Status und Interventionsmöglichkeiten.
+            </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
           {selectedDunningRun && (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-4">
@@ -3997,22 +4057,27 @@ export function FinancialManagement() {
               </Card>
             </div>
           )}
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDunningRunDetailsOpen(false)}>{t('common.close')}</Button>
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setDunningRunDetailsOpen(false)}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={dunningCaseDialogOpen} onOpenChange={setDunningCaseDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Mahnfall-Management</DialogTitle>
-            <DialogDescription>
-              Strukturierte Detailansicht und direkte Eingriffe fuer den aktuellen Mahnfall.
+        <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
+              <AlertTriangle className="h-5 w-5" />
+              Mahnfall-Management
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              Strukturierte Detailansicht und direkte Eingriffe für den aktuellen Mahnfall.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
           {selectedInvoice && (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-4">
@@ -4883,64 +4948,140 @@ export function FinancialManagement() {
       </Dialog>
 
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('financialManagement.status')}</DialogTitle>
+        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 border-b border-[#0f1d45]">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2" style={{ color: '#f5c800' }}>
+              <Wrench className="h-5 w-5" /> Rechnungsstatus ändern
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              Status aktualisieren und bei Zahlungseingang Zahlungsart sowie Zeitpunkt dokumentieren.
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>{t('financialManagement.status')}</Label>
-              <Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="pending_approval">Pending Approval</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="cancelled">Canceled</SelectItem>
-                  <SelectItem value="credited">Credited</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="grid gap-2 md:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Zahlungsart</Label>
-                <Select
-                  value={statusForm.paymentMethod || undefined}
-                  onValueChange={(value) => setStatusForm((p) => ({ ...p, paymentMethod: value as NonNullable<Invoice['paymentMethod']> }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Zahlungsart waehlen" />
-                  </SelectTrigger>
+          <div className="px-6 py-4 space-y-4">
+            {selectedInvoice && (
+              <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+                <div className="bg-[#1a2a5e] px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="font-semibold text-sm" style={{ color: '#f5c800' }}>{selectedInvoice.invoiceNumber}</div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{selectedInvoice.status}</Badge>
+                      <span className="text-blue-200">→</span>
+                      <Badge variant="outline" className={invoiceStatusClass[statusForm.status]}>{statusForm.status}</Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-[#f8f9fc] p-3 text-sm space-y-1">
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <div><span className="text-muted-foreground">Kunde:</span> {selectedInvoice.customerName}</div>
+                    <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
+                    <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+              <div className="bg-[#1a2a5e] px-3 py-2">
+                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Neuer Status</span>
+              </div>
+              <div className="bg-[#f8f9fc] p-3">
+                <Select value={statusForm.status} onValueChange={(v) => setStatusForm((p) => ({ ...p, status: v as InvoiceStatus }))}>
+                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {trackedPaymentMethodOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    {selectedInvoice && (
+                      <SelectItem value={selectedInvoice.status}>{invoiceStatusLabel[selectedInvoice.status]} (aktuell)</SelectItem>
+                    )}
+                    {(selectedInvoice ? invoiceStatusTransitions[selectedInvoice.status] : []).map((status) => (
+                      <SelectItem key={status} value={status}>{invoiceStatusLabel[status]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedInvoice && invoiceStatusTransitions[selectedInvoice.status].length === 0 && (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                    Für den Status "{invoiceStatusLabel[selectedInvoice.status]}" sind keine weiteren Statuswechsel möglich.
+                  </p>
+                )}
               </div>
+            </div>
 
-              <div className="grid gap-2">
-                <Label>Zahlungszeitpunkt</Label>
-                <Input
-                  type="datetime-local"
-                  value={statusForm.paidAt}
-                  onChange={(e) => setStatusForm((p) => ({ ...p, paidAt: e.target.value }))}
+            <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+              <div className="bg-[#1a2a5e] px-3 py-2 flex items-center justify-between">
+                <span className="text-sm font-semibold flex items-center gap-1.5" style={{ color: '#f5c800' }}>
+                  <Banknote className="h-4 w-4" /> Zahlungsinformationen
+                </span>
+                {statusForm.status === 'paid' && (
+                  <Badge className="bg-[#f5c800] text-[#1a2a5e] text-[10px]">Erforderlich</Badge>
+                )}
+              </div>
+              <div className="bg-[#f8f9fc] p-3 space-y-3">
+                {statusForm.status === 'paid' ? (
+                  <p className="flex items-center gap-1.5 text-xs text-amber-700">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                    Für den Status "Paid" müssen Zahlungsart und Zahlungszeitpunkt angegeben werden.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Optional – hilfreich zur Dokumentation bereits erhaltener Zahlungen.</p>
+                )}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label>Zahlungsart {statusForm.status === 'paid' && <span className="text-red-600">*</span>}</Label>
+                    <Select
+                      value={statusForm.paymentMethod || undefined}
+                      onValueChange={(value) => setStatusForm((p) => ({ ...p, paymentMethod: value as NonNullable<Invoice['paymentMethod']> }))}
+                    >
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Zahlungsart wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trackedPaymentMethodOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label>Zahlungszeitpunkt {statusForm.status === 'paid' && <span className="text-red-600">*</span>}</Label>
+                    <Input
+                      type="datetime-local"
+                      className="bg-white"
+                      value={statusForm.paidAt}
+                      onChange={(e) => setStatusForm((p) => ({ ...p, paidAt: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-[#0f1d45] overflow-hidden">
+              <div className="bg-[#1a2a5e] px-3 py-2">
+                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Notiz (optional)</span>
+              </div>
+              <div className="bg-[#f8f9fc] p-3">
+                <Textarea
+                  className="bg-white"
+                  rows={3}
+                  placeholder="Interne Bemerkung zur Statusänderung"
+                  value={statusForm.notes}
+                  onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))}
                 />
               </div>
             </div>
-
-            <div className="grid gap-2">
-              <Label>Notiz</Label>
-              <Textarea value={statusForm.notes} onChange={(e) => setStatusForm((p) => ({ ...p, notes: e.target.value }))} />
-            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={onChangeStatus}>{t('common.save')}</Button>
+
+          <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg">
+            <Button
+              variant="outline"
+              className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
+              onClick={() => setStatusDialogOpen(false)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onChangeStatus}>
+              Status speichern
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
