@@ -6,6 +6,7 @@
     "postinstall": "concurrently -n \"client,server\" \"npm run client-install\" \"npm run server-install\"",
     "test": "npm run test:e2e",
     "test:e2e": "playwright test tests/e2e/complete-repair-platform.spec.js",
+    "test:email-templates": "node tests/email-template-receipt.test.js",
     "test:admin-bookings-read-flow": "node test-admin-bookings-read-flow.js",
     "test:admin-bookings-read-flow:multi-order": "node test-admin-bookings-read-flow-multi-order.js",
     "client": "cd client && npm run dev",

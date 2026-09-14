@@ -19511,5 +19511,2403 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1789406308028-9xwwtvn6d",
+    "timestamp": "2026-09-14T17:18:28.028Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<dd7448e2-20fa-4052-9d12-00dbadee589e@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 9,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406311198-2j3nuccmm",
+    "timestamp": "2026-09-14T17:18:31.198Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-E2E-0001 ist bei McRepair.de eingegangen",
+    "messageId": "<8ef72235-34ae-504d-cbdb-2ca681c1f4fa@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "companyName",
+        "customerName",
+        "orderDeviceVisual",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406314713-scqe5ps7s",
+    "timestamp": "2026-09-14T17:18:34.713Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Statusupdate Auftrag oder Buchung",
+    "subject": "Statusupdate zu Ihrem Auftrag ORD-E2E-0001: In Bearbeitung",
+    "messageId": "<de84818b-47c5-4305-f8a0-dfe19d4792e9@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "orderStatus",
+        "customerName",
+        "statusMessage",
+        "orderDeviceVisual",
+        "bookingStatus",
+        "statusUpdatedAt",
+        "trackingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406317721-g1dppgik5",
+    "timestamp": "2026-09-14T17:18:37.721Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Geraet eingegangen",
+    "subject": "Ihr Gerät ist bei McRepair.de eingetroffen",
+    "messageId": "<38456d7c-0646-eb22-b20d-5653c1fabb02@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "orderDeviceVisual",
+        "receivedAt",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406321003-75fp7iyqw",
+    "timestamp": "2026-09-14T17:18:41.003Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-E2E-0001 – Apple iPhone 15",
+    "messageId": "<a8f10a42-982c-0004-5ad4-9da9f7e92646@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "customerName",
+        "diagnosisResult",
+        "orderDeviceVisual",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406324741-g7as2dfgi",
+    "timestamp": "2026-09-14T17:18:44.741Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Kostenvoranschlag zur Freigabe",
+    "subject": "Bitte prüfen Sie Ihren Kostenvoranschlag zu Auftrag ORD-E2E-0001",
+    "messageId": "<df6e87e3-b77a-0b80-1db5-5898aaecf004@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "quoteAmount",
+        "orderDeviceVisual",
+        "serviceName",
+        "approvalDeadline",
+        "approvalUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406327917-az1u9ps9s",
+    "timestamp": "2026-09-14T17:18:47.917Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reparatur abgeschlossen und Rueckversand",
+    "subject": "Gute Nachrichten: Ihr Auftrag ORD-E2E-0001 ist abgeschlossen",
+    "messageId": "<1fda3355-2fcc-62cf-071f-40fca2c933a4@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "returnShipmentStatus",
+        "orderDeviceVisual",
+        "returnTrackingNumber",
+        "trackingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406331939-cdkte5vhn",
+    "timestamp": "2026-09-14T17:18:51.939Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Zahlung bestaetigt",
+    "subject": "Zahlung zu Auftrag ORD-E2E-0001 erfolgreich eingegangen",
+    "messageId": "<af1b53cc-6b5f-7922-d414-f665a81ca3f3@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "amountPaid",
+        "paymentMethod",
+        "paidAt",
+        "invoiceNumber",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406335913-mrxfnnb2p",
+    "timestamp": "2026-09-14T17:18:55.913Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Passwort zuruecksetzen",
+    "subject": "Passwort für Ihr McRepair.de Konto zurücksetzen",
+    "messageId": "<f05bd738-ca23-d5fa-00ba-a35632bafcaa@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "resetExpiresAt",
+        "passwordResetUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406338585-ujixmtjk5",
+    "timestamp": "2026-09-14T17:18:58.585Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-E2E-0001 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<cd8580cc-c903-b0a4-6d6b-3513907cc0c5@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "companyName",
+        "customerName",
+        "totalAmount",
+        "bookingDate",
+        "itemSummary",
+        "bookingStatus",
+        "bookingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406341439-vivhebjq4",
+    "timestamp": "2026-09-14T17:19:01.439Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-E2E-0001 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<a2e78c21-4cc9-d6f5-ead4-d88f53bfe029@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "customerName",
+        "totalAmount",
+        "bookingDate",
+        "itemSummary",
+        "bookingStatus",
+        "trackingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406344582-7cu24kub9",
+    "timestamp": "2026-09-14T17:19:04.582Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung Statusupdate",
+    "subject": "Statusupdate zu Ihrer Buchung BKG-E2E-0001: In Bearbeitung",
+    "messageId": "<d932b034-487e-ad2a-f892-09bad2a4e69b@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "bookingStatus",
+        "customerName",
+        "statusNote",
+        "itemSummary",
+        "progressPercent",
+        "updatedAt",
+        "bookingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406350251-zt2qwv6o4",
+    "timestamp": "2026-09-14T17:19:10.251Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung bereit zur Abholung",
+    "subject": "Ihre Buchung BKG-E2E-0001 steht zur Abholung bereit",
+    "messageId": "<8471cc3c-cd8b-7870-c0ab-957737613950@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "customerName",
+        "pickupHours",
+        "workshopAddress",
+        "orderDeviceVisual",
+        "readySince",
+        "holdUntil",
+        "bookingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406353733-5p0dna50z",
+    "timestamp": "2026-09-14T17:19:13.733Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung storniert",
+    "subject": "Ihre Buchung BKG-E2E-0001 wurde storniert",
+    "messageId": "<e6a9be82-9f9a-686f-b82d-c077e5d43365@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "customerName",
+        "cancellationReason",
+        "refundInfo",
+        "cancelledAt",
+        "cancelledBy",
+        "refundAmount",
+        "newBookingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406357286-xuda5k9qf",
+    "timestamp": "2026-09-14T17:19:17.286Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage REQ-E2E-0001 ist bei uns eingegangen",
+    "messageId": "<60c8fe28-c2aa-b4b9-dfcc-42d2e6b62a6a@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406360474-8ru0fyile",
+    "timestamp": "2026-09-14T17:19:20.474Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request in Bearbeitung",
+    "subject": "Ihre Reparaturanfrage REQ-E2E-0001 wird jetzt bearbeitet",
+    "messageId": "<ff8b8c76-83fb-9246-a15a-9d145b46c2a8@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "technicianName",
+        "deviceBrand",
+        "deviceModel",
+        "processingStartedAt",
+        "estimatedResponseDate",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406363570-0cb6jyu76",
+    "timestamp": "2026-09-14T17:19:23.570Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request Diagnose abgeschlossen",
+    "subject": "Diagnoseergebnis zu Ihrer Anfrage REQ-E2E-0001 liegt vor",
+    "messageId": "<f61ba957-5ea9-e7b4-95d2-5ac81a3f5867@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "diagnosisResult",
+        "recommendedAction",
+        "deviceBrand",
+        "deviceModel",
+        "offerAmount",
+        "diagnosisDate",
+        "approvalUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406365849-p2go2ethv",
+    "timestamp": "2026-09-14T17:19:25.849Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request neue Nachricht",
+    "subject": "Neue Nachricht zu Ihrer Reparaturanfrage REQ-E2E-0001",
+    "messageId": "<a5bc59dc-b45b-dfaa-be93-81a5d55ed239@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "senderName",
+        "deviceBrand",
+        "deviceModel",
+        "messageSentAt",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406369412-mgpzywaql",
+    "timestamp": "2026-09-14T17:19:29.412Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request abgeschlossen",
+    "subject": "Ihre Reparaturanfrage REQ-E2E-0001 wurde erfolgreich abgeschlossen",
+    "messageId": "<1f6aa15a-4d31-4d92-0798-89499d24d2e4@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "resolutionSummary",
+        "completedAt",
+        "deviceBrand",
+        "deviceModel",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406372470-byzm30ftt",
+    "timestamp": "2026-09-14T17:19:32.470Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation eingegangen",
+    "subject": "Ihre Reklamation R-E2E-0001 wurde erfolgreich aufgenommen",
+    "messageId": "<778fa874-4fe5-2d8e-a0f5-2d05fd0ceeac@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "priority",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "submittedAt",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406374817-tq2pkv460",
+    "timestamp": "2026-09-14T17:19:34.817Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation in Bearbeitung",
+    "subject": "Ihre Reklamation R-E2E-0001 wird bearbeitet",
+    "messageId": "<c4327d4e-af9f-98b4-d530-5ada64bcd0c0@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406376974-crxva42h5",
+    "timestamp": "2026-09-14T17:19:36.974Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation neue Nachricht",
+    "subject": "Neue Mitteilung zu Ihrer Reklamation R-E2E-0001",
+    "messageId": "<d7595617-50b6-e02c-8cf8-5da349068a13@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "senderName",
+        "messageSentAt",
+        "complaintStatus",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406378843-z5006a20n",
+    "timestamp": "2026-09-14T17:19:38.843Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation geloest",
+    "subject": "Ihre Reklamation R-E2E-0001 wurde gelöst",
+    "messageId": "<881084d8-54e8-40fa-5d98-05c48b15429b@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406381226-19gs6yo1y",
+    "timestamp": "2026-09-14T17:19:41.226Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation abgelehnt",
+    "subject": "Entscheidung zu Ihrer Reklamation R-E2E-0001",
+    "messageId": "<e612b10d-872e-90dd-b359-b58ecea656b6@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "decision",
+        "decisionReason",
+        "complaintCategory",
+        "decidedAt",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406383272-f9g8o66dt",
+    "timestamp": "2026-09-14T17:19:43.272Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Terminerinnerung",
+    "subject": "Erinnerung: Ihr Termin bei McRepair.de am 14.09.2026",
+    "messageId": "<7d61cd26-86aa-0199-5595-43f8fe825077@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "appointmentDate",
+        "customerName",
+        "appointmentTime",
+        "workshopAddress",
+        "appointmentType",
+        "orderNumber",
+        "appointmentUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406385346-6mfqsf92r",
+    "timestamp": "2026-09-14T17:19:45.346Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Garantieerinnerung",
+    "subject": "Ihre Gerätegarantie bei McRepair.de laeuft bald ab",
+    "messageId": "<e65a9808-143d-e6e4-1d40-b76b7c0047f4@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "warrantyExpiryDate",
+        "remainingWarrantyDays",
+        "deviceBrand",
+        "deviceModel",
+        "orderNumber",
+        "warrantyStartDate",
+        "warrantyUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406387964-nusrihypj",
+    "timestamp": "2026-09-14T17:19:47.964Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-E2E-0001 von McRepair.de steht bereit",
+    "messageId": "<0d9b5930-c318-14fd-a5c4-9221135989d6@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "companyName",
+        "customerName",
+        "invoiceAmount",
+        "dueDate",
+        "orderNumber",
+        "paymentMethod",
+        "invoiceUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406390321-09hekg5r2",
+    "timestamp": "2026-09-14T17:19:50.321Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Zahlungserinnerung",
+    "subject": "Zahlungserinnerung zu Rechnung INV-E2E-0001",
+    "messageId": "<6a369619-23b0-9b41-69c7-d45a25fced25@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406395925-ylwd8mugu",
+    "timestamp": "2026-09-14T17:19:55.925Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Mahnung",
+    "subject": "Mahnung zu Rechnung INV-E2E-0001",
+    "messageId": "<fced8973-a4d7-e243-9893-fc80e53b42d4@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406397841-uz5bh6ch3",
+    "timestamp": "2026-09-14T17:19:57.841Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Letzte Mahnung",
+    "subject": "Letzte Mahnung zu Rechnung INV-E2E-0001",
+    "messageId": "<58d564b6-b633-9208-528a-917ab947aa7b@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406400361-dfmdm5pzd",
+    "timestamp": "2026-09-14T17:20:00.361Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Inkasso",
+    "subject": "Inkassoankündigung zu Rechnung INV-E2E-0001",
+    "messageId": "<65392127-5d81-fb8a-31e8-21b02c8db3e6@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406402805-ee8wbdida",
+    "timestamp": "2026-09-14T17:20:02.805Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Allgemeine Systemnachricht",
+    "subject": "E2E notificationTitle – McRepair.de",
+    "messageId": "<10f7e56e-df91-1df2-99ed-304d87203165@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "notificationTitle",
+        "companyName",
+        "notificationPreview",
+        "customerName",
+        "notificationTopic",
+        "effectiveDate",
+        "notificationDate",
+        "notificationBody",
+        "ctaUrl",
+        "ctaLabel",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406405394-2ahmer0xw",
+    "timestamp": "2026-09-14T17:20:05.394Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Abholung bereit Erinnerung",
+    "subject": "Bitte holen Sie Ihr Gerät bei McRepair.de ab – Auftrag ORD-E2E-0001",
+    "messageId": "<2bc8bbc4-0629-3a2c-b1c6-a7d22562bf7b@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "orderNumber",
+        "customerName",
+        "readySince",
+        "holdUntil",
+        "deviceBrand",
+        "deviceModel",
+        "pickupHours",
+        "workshopAddress",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406407949-9woqm8fbc",
+    "timestamp": "2026-09-14T17:20:07.949Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: E2E notificationCategoryLabel",
+    "messageId": "<0f7e3b3a-bbcc-f485-4f2f-070cfff8e33a@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "notificationCategoryLabel",
+        "customerName",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationTypeSummary",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406410543-02oz06pao",
+    "timestamp": "2026-09-14T17:20:10.543Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Kontaktformular Bestaetigung an Absender",
+    "subject": "Wir haben Ihre Anfrage erhalten - McRepair.de",
+    "messageId": "<da26dfa2-af66-702b-36f4-5bfa7a020914@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "contactSubject",
+        "submittedAt",
+        "customerEmail",
+        "messagePreview",
+        "contactUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406413171-7zmcbl1uw",
+    "timestamp": "2026-09-14T17:20:13.171Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Defektes Bauteil gemeldet",
+    "subject": "Zwischenfall bei Reparatur: Defektes Bauteil – Auftrag ORD-E2E-0001",
+    "messageId": "<71d6864a-783d-6675-8462-b894ca17f6b7@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406415540-wg5ri90a0",
+    "timestamp": "2026-09-14T17:20:15.540Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Ersatzteil benötigt",
+    "subject": "Reparaturupdate: Ersatzteil erforderlich – Auftrag ORD-E2E-0001",
+    "messageId": "<d3ee1c92-c779-50fe-ae02-088a46ed8ff0@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406417936-6uaslym4c",
+    "timestamp": "2026-09-14T17:20:17.936Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Info von Kunde benötigt",
+    "subject": "Wir benötigen Ihre Hilfe – Auftrag ORD-E2E-0001",
+    "messageId": "<88c06316-460d-4e2e-f779-9b77e3908bd5@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406420763-iwnksmxhe",
+    "timestamp": "2026-09-14T17:20:20.763Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Zusätzliche Reparatur notwendig",
+    "subject": "Zusätzliche Reparatur erforderlich – Auftrag ORD-E2E-0001",
+    "messageId": "<0c50780d-4dc6-c60e-7d03-9eae0393a07d@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "timeMinutes",
+        "priceEur",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "technicianName",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406423036-wu2tjvpe8",
+    "timestamp": "2026-09-14T17:20:23.036Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Übergabe an anderen Techniker",
+    "subject": "Reparaturstatus Update – Auftrag ORD-E2E-0001",
+    "messageId": "<1710371c-123a-d4ad-678f-0a0737b62d7e@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406425955-xhtlhh04n",
+    "timestamp": "2026-09-14T17:20:25.955Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reparatur braucht Zeit",
+    "subject": "Reparaturstatus Update – Auftrag ORD-E2E-0001",
+    "messageId": "<4585039f-104d-0247-b009-d49d2b219295@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "timeHours",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406973508-k0a46gw1r",
+    "timestamp": "2026-09-14T17:29:33.508Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<05cfaa79-3b2f-cefd-59b3-dbf2e6b70de0@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 5,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406977588-19dnfh9q2",
+    "timestamp": "2026-09-14T17:29:37.588Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-E2E-0001 ist bei McRepair.de eingegangen",
+    "messageId": "<f2b68a30-098f-7c82-f633-46a5555a7524@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "companyName",
+        "customerName",
+        "orderDeviceVisual",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406980710-qgqdhcpto",
+    "timestamp": "2026-09-14T17:29:40.710Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Statusupdate Auftrag oder Buchung",
+    "subject": "Statusupdate zu Ihrem Auftrag ORD-E2E-0001: In Bearbeitung",
+    "messageId": "<006f76d5-9401-bf86-2a00-658302af74e8@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "orderStatus",
+        "customerName",
+        "statusMessage",
+        "orderDeviceVisual",
+        "bookingStatus",
+        "statusUpdatedAt",
+        "trackingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406983112-uyp49mew3",
+    "timestamp": "2026-09-14T17:29:43.112Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Geraet eingegangen",
+    "subject": "Ihr Gerät ist bei McRepair.de eingetroffen",
+    "messageId": "<4d598eb4-d194-1b8e-669e-52742c601e47@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "orderDeviceVisual",
+        "receivedAt",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406986068-0ciw6nh8a",
+    "timestamp": "2026-09-14T17:29:46.068Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-E2E-0001 – Apple iPhone 15",
+    "messageId": "<ac8e2265-2fa2-bb31-a555-b87dcfd3a90e@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "customerName",
+        "diagnosisResult",
+        "orderDeviceVisual",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406989112-31i0ti46d",
+    "timestamp": "2026-09-14T17:29:49.112Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Kostenvoranschlag zur Freigabe",
+    "subject": "Bitte prüfen Sie Ihren Kostenvoranschlag zu Auftrag ORD-E2E-0001",
+    "messageId": "<0a361ffd-a18f-28e6-875d-2e6477eff691@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "quoteAmount",
+        "orderDeviceVisual",
+        "serviceName",
+        "approvalDeadline",
+        "approvalUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406992600-0m5be0bz2",
+    "timestamp": "2026-09-14T17:29:52.600Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reparatur abgeschlossen und Rueckversand",
+    "subject": "Gute Nachrichten: Ihr Auftrag ORD-E2E-0001 ist abgeschlossen",
+    "messageId": "<671c5277-f46f-e0f8-a5c5-b370a8479991@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "returnShipmentStatus",
+        "orderDeviceVisual",
+        "returnTrackingNumber",
+        "trackingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789406995152-40gfd6uh4",
+    "timestamp": "2026-09-14T17:29:55.152Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Zahlung bestaetigt",
+    "subject": "Zahlung zu Auftrag ORD-E2E-0001 erfolgreich eingegangen",
+    "messageId": "<8f517219-a0ba-9ad8-2480-056e687a1117@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "amountPaid",
+        "paymentMethod",
+        "paidAt",
+        "invoiceNumber",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789406998560-dfarphn8e",
+    "timestamp": "2026-09-14T17:29:58.560Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Passwort zuruecksetzen",
+    "subject": "Passwort für Ihr McRepair.de Konto zurücksetzen",
+    "messageId": "<596df546-71ef-a696-2903-68f700770969@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "resetExpiresAt",
+        "passwordResetUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407002022-a34olmrsx",
+    "timestamp": "2026-09-14T17:30:02.022Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-E2E-0001 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<12b7748d-8291-7879-054e-48c918ed8050@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "companyName",
+        "customerName",
+        "totalAmount",
+        "bookingDate",
+        "itemSummary",
+        "bookingStatus",
+        "bookingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407007756-1ro8ae2k1",
+    "timestamp": "2026-09-14T17:30:07.756Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-E2E-0001 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<3f6f4e5e-1932-d5ac-c6b5-d1112b5ab80a@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "customerName",
+        "totalAmount",
+        "bookingDate",
+        "itemSummary",
+        "bookingStatus",
+        "trackingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407011440-p3h7u1py9",
+    "timestamp": "2026-09-14T17:30:11.440Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung Statusupdate",
+    "subject": "Statusupdate zu Ihrer Buchung BKG-E2E-0001: In Bearbeitung",
+    "messageId": "<8d1a1ed1-ffaf-4c06-5dc1-c6ef42ed652f@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "bookingStatus",
+        "customerName",
+        "statusNote",
+        "itemSummary",
+        "progressPercent",
+        "updatedAt",
+        "bookingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407015285-sd40a3q5z",
+    "timestamp": "2026-09-14T17:30:15.285Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung bereit zur Abholung",
+    "subject": "Ihre Buchung BKG-E2E-0001 steht zur Abholung bereit",
+    "messageId": "<10d4756e-54c2-7359-2bb5-374dd809a07d@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "customerName",
+        "pickupHours",
+        "workshopAddress",
+        "orderDeviceVisual",
+        "readySince",
+        "holdUntil",
+        "bookingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "deviceBrand",
+        "deviceModel",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789407018785-t9runy23b",
+    "timestamp": "2026-09-14T17:30:18.785Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Buchung storniert",
+    "subject": "Ihre Buchung BKG-E2E-0001 wurde storniert",
+    "messageId": "<80bc3053-c92e-a7e3-417e-76dded5afa65@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "bookingNumber",
+        "customerName",
+        "cancellationReason",
+        "refundInfo",
+        "cancelledAt",
+        "cancelledBy",
+        "refundAmount",
+        "newBookingUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407022848-d705kwhnv",
+    "timestamp": "2026-09-14T17:30:22.848Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage REQ-E2E-0001 ist bei uns eingegangen",
+    "messageId": "<cdd866c5-ed40-dcec-6b53-70c96e5c3cd4@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407027010-zewb8v5hx",
+    "timestamp": "2026-09-14T17:30:27.010Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request in Bearbeitung",
+    "subject": "Ihre Reparaturanfrage REQ-E2E-0001 wird jetzt bearbeitet",
+    "messageId": "<b63f4092-3219-b2e7-6fff-8ebc129d4a63@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 0,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "technicianName",
+        "deviceBrand",
+        "deviceModel",
+        "processingStartedAt",
+        "estimatedResponseDate",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407030277-hwj5at89o",
+    "timestamp": "2026-09-14T17:30:30.277Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request Diagnose abgeschlossen",
+    "subject": "Diagnoseergebnis zu Ihrer Anfrage REQ-E2E-0001 liegt vor",
+    "messageId": "<8165ca45-f72a-5e81-622a-77e053445433@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "diagnosisResult",
+        "recommendedAction",
+        "deviceBrand",
+        "deviceModel",
+        "offerAmount",
+        "diagnosisDate",
+        "approvalUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407034506-01bimsiky",
+    "timestamp": "2026-09-14T17:30:34.506Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request neue Nachricht",
+    "subject": "Neue Nachricht zu Ihrer Reparaturanfrage REQ-E2E-0001",
+    "messageId": "<4894d1e8-fc01-7198-ec14-a0538cc57723@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "senderName",
+        "deviceBrand",
+        "deviceModel",
+        "messageSentAt",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407037293-4rps2r5n7",
+    "timestamp": "2026-09-14T17:30:37.293Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Repair Request abgeschlossen",
+    "subject": "Ihre Reparaturanfrage REQ-E2E-0001 wurde erfolgreich abgeschlossen",
+    "messageId": "<d0f5c2c5-4087-c375-f7c1-17a3d5fe9816@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "requestNumber",
+        "customerName",
+        "resolutionSummary",
+        "completedAt",
+        "deviceBrand",
+        "deviceModel",
+        "requestUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407040805-e14fsz971",
+    "timestamp": "2026-09-14T17:30:40.805Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation eingegangen",
+    "subject": "Ihre Reklamation R-E2E-0001 wurde erfolgreich aufgenommen",
+    "messageId": "<9a21ef8a-3a1e-4449-b33c-74b2367687a2@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "priority",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "submittedAt",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407044850-hk7udocmr",
+    "timestamp": "2026-09-14T17:30:44.850Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation in Bearbeitung",
+    "subject": "Ihre Reklamation R-E2E-0001 wird bearbeitet",
+    "messageId": "<5af380cd-72a4-6a87-5d28-119a7faaa915@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407048861-ovupfinwi",
+    "timestamp": "2026-09-14T17:30:48.861Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation neue Nachricht",
+    "subject": "Neue Mitteilung zu Ihrer Reklamation R-E2E-0001",
+    "messageId": "<337e5aad-0ffb-5965-2c9b-b921fcdd15fa@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "senderName",
+        "messageSentAt",
+        "complaintStatus",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407054413-0r9mexjlh",
+    "timestamp": "2026-09-14T17:30:54.413Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation geloest",
+    "subject": "Ihre Reklamation R-E2E-0001 wurde gelöst",
+    "messageId": "<03bd3e0a-55be-cbc6-0e66-9c903f592208@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407057450-jvx3bnw75",
+    "timestamp": "2026-09-14T17:30:57.450Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reklamation abgelehnt",
+    "subject": "Entscheidung zu Ihrer Reklamation R-E2E-0001",
+    "messageId": "<bfcbfcf6-55eb-4892-c43f-15c432ad3101@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "complaintNumber",
+        "customerName",
+        "decision",
+        "decisionReason",
+        "complaintCategory",
+        "decidedAt",
+        "complaintUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407059595-31orgg9v9",
+    "timestamp": "2026-09-14T17:30:59.595Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Terminerinnerung",
+    "subject": "Erinnerung: Ihr Termin bei McRepair.de am 14.09.2026",
+    "messageId": "<76529994-cf40-6900-bd6b-42f5f93e9c06@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "appointmentDate",
+        "customerName",
+        "appointmentTime",
+        "workshopAddress",
+        "appointmentType",
+        "orderNumber",
+        "appointmentUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407062027-9krlxev6q",
+    "timestamp": "2026-09-14T17:31:02.027Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Garantieerinnerung",
+    "subject": "Ihre Gerätegarantie bei McRepair.de laeuft bald ab",
+    "messageId": "<c1fe5f05-11e8-e131-01ea-c7ac57c8e0ea@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "warrantyExpiryDate",
+        "remainingWarrantyDays",
+        "deviceBrand",
+        "deviceModel",
+        "orderNumber",
+        "warrantyStartDate",
+        "warrantyUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407064820-28wsqrsr6",
+    "timestamp": "2026-09-14T17:31:04.820Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung INV-E2E-0001 von McRepair.de steht bereit",
+    "messageId": "<e7fecba7-d50a-f3ec-4ce4-4664929ec8f0@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "companyName",
+        "customerName",
+        "invoiceAmount",
+        "dueDate",
+        "orderNumber",
+        "paymentMethod",
+        "invoiceUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407067634-s6yqpf1us",
+    "timestamp": "2026-09-14T17:31:07.634Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Zahlungserinnerung",
+    "subject": "Zahlungserinnerung zu Rechnung INV-E2E-0001",
+    "messageId": "<0e280620-1441-4d84-dc71-08329b540c94@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407070038-bsg6qusac",
+    "timestamp": "2026-09-14T17:31:10.038Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Mahnung",
+    "subject": "Mahnung zu Rechnung INV-E2E-0001",
+    "messageId": "<6a94ecc0-a45a-3977-e936-914b4ef72081@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407072101-jrv4yyuyz",
+    "timestamp": "2026-09-14T17:31:12.101Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Letzte Mahnung",
+    "subject": "Letzte Mahnung zu Rechnung INV-E2E-0001",
+    "messageId": "<e3c4026a-9189-bd3a-34bb-451bbde6fc3f@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407075625-lamaug6ot",
+    "timestamp": "2026-09-14T17:31:15.625Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Inkasso",
+    "subject": "Inkassoankündigung zu Rechnung INV-E2E-0001",
+    "messageId": "<aa3be9ce-c592-c67b-0752-b94169584b5d@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "invoiceNumber",
+        "customerName",
+        "amountOpen",
+        "dueDate",
+        "originalDueDate",
+        "dunningStage",
+        "invoiceUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407079164-evzmk6cqw",
+    "timestamp": "2026-09-14T17:31:19.164Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Allgemeine Systemnachricht",
+    "subject": "E2E notificationTitle – McRepair.de",
+    "messageId": "<838ae6b2-58ed-805b-4afc-589dd9c37717@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "notificationTitle",
+        "companyName",
+        "notificationPreview",
+        "customerName",
+        "notificationTopic",
+        "effectiveDate",
+        "notificationDate",
+        "notificationBody",
+        "ctaUrl",
+        "ctaLabel",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407082807-kpx10iw2d",
+    "timestamp": "2026-09-14T17:31:22.807Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Abholung bereit Erinnerung",
+    "subject": "Bitte holen Sie Ihr Gerät bei McRepair.de ab – Auftrag ORD-E2E-0001",
+    "messageId": "<f4efba78-ea53-235b-0b9c-19c10831b518@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "orderNumber",
+        "customerName",
+        "readySince",
+        "holdUntil",
+        "deviceBrand",
+        "deviceModel",
+        "pickupHours",
+        "workshopAddress",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407086971-5pqchktvu",
+    "timestamp": "2026-09-14T17:31:26.971Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: E2E notificationCategoryLabel",
+    "messageId": "<c55aebcd-c448-9542-2b78-f441387f7d3a@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "notificationCategoryLabel",
+        "customerName",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationTypeSummary",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407090355-dftv07f6g",
+    "timestamp": "2026-09-14T17:31:30.355Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Kontaktformular Bestaetigung an Absender",
+    "subject": "Wir haben Ihre Anfrage erhalten - McRepair.de",
+    "messageId": "<b577ce62-dff0-d625-fa8a-78d734014a71@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "contactSubject",
+        "submittedAt",
+        "customerEmail",
+        "messagePreview",
+        "contactUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407093942-zla7zw6u6",
+    "timestamp": "2026-09-14T17:31:33.942Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Defektes Bauteil gemeldet",
+    "subject": "Zwischenfall bei Reparatur: Defektes Bauteil – Auftrag ORD-E2E-0001",
+    "messageId": "<e678b766-bb17-2de3-10c2-885424fe09a1@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407098899-yvxehv0mx",
+    "timestamp": "2026-09-14T17:31:38.899Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Ersatzteil benötigt",
+    "subject": "Reparaturupdate: Ersatzteil erforderlich – Auftrag ORD-E2E-0001",
+    "messageId": "<8c8c8238-855d-ab20-3cc5-af31d4d2a414@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407101885-lrst102gq",
+    "timestamp": "2026-09-14T17:31:41.885Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Info von Kunde benötigt",
+    "subject": "Wir benötigen Ihre Hilfe – Auftrag ORD-E2E-0001",
+    "messageId": "<58962963-bdb9-5332-1ee9-14f38ead2186@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407104922-dps2rw14p",
+    "timestamp": "2026-09-14T17:31:44.922Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Zusätzliche Reparatur notwendig",
+    "subject": "Zusätzliche Reparatur erforderlich – Auftrag ORD-E2E-0001",
+    "messageId": "<2980d29e-6f40-fb09-3309-fdc7aec5fbbe@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "reason",
+        "timeMinutes",
+        "priceEur",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "technicianName",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407108061-vpxmm9iu5",
+    "timestamp": "2026-09-14T17:31:48.061Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Übergabe an anderen Techniker",
+    "subject": "Reparaturstatus Update – Auftrag ORD-E2E-0001",
+    "messageId": "<78e7ea3e-247a-d9e0-322b-042f80e59529@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "technicianName",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789407110733-7edkwu8k8",
+    "timestamp": "2026-09-14T17:31:50.733Z",
+    "to": "e2e-email-receipt@example.test",
+    "templateName": "Reparatur braucht Zeit",
+    "subject": "Reparaturstatus Update – Auftrag ORD-E2E-0001",
+    "messageId": "<da967b0c-27fd-b6c4-7379-c7396f11c9ec@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2,
+    "metadata": {
+      "variables": [
+        "orderNumber",
+        "customerName",
+        "deviceBrand",
+        "deviceModel",
+        "timeHours",
+        "orderUrl",
+        "companyName",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

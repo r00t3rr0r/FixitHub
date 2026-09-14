@@ -461,6 +461,17 @@ class EmailService {
    */
   static async getTransporter() {
     try {
+      if (String(process.env.EMAIL_TEST_TRANSPORT || '').trim().toLowerCase() === 'stream') {
+        if (!this.testTransporter) {
+          this.testTransporter = nodemailer.createTransport({
+            streamTransport: true,
+            buffer: true,
+            newline: 'unix',
+          });
+        }
+        return this.testTransporter;
+      }
+
       const config = await SystemConfigService.getSystemConfiguration();
       let transporterConfig;
       let configSource;
