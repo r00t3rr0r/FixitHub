@@ -686,7 +686,8 @@ router.post('/:id/pay', requireUser, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Invoice not found' });
     }
 
-    if (invoice.customerId.toString() !== req.user._id.toString()) {
+    const invoiceCustomerId = invoice.customerId?._id || invoice.customerId;
+    if (!invoiceCustomerId || String(invoiceCustomerId) !== String(req.user._id)) {
       return res.status(403).json({ success: false, error: 'You do not have permission to pay this invoice' });
     }
 

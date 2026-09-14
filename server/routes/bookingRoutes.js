@@ -137,6 +137,7 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
         priority: 'normal',
         progress: 0,
         guestInfo: normalizedGuestInfo,
+        billingAddress,
         shippingAddress,
         unlockPattern: Array.isArray(repairOrder.unlockPattern) ? repairOrder.unlockPattern : [],
         unlockCode: String(repairOrder.unlockCode || ''),

@@ -212,6 +212,23 @@ router.post('/delete-repair-requests', requireUser, requireRole(['admin']), asyn
   }
 });
 
+// Delete all customer order workflow data (admin only)
+// Endpoint: POST /api/database/delete-customer-order-data
+router.post('/delete-customer-order-data', requireUser, requireRole(['admin']), async (req, res) => {
+  console.log('DatabaseRoutes: Delete all customer order workflow data request');
+
+  try {
+    const result = await DatabaseService.deleteAllCustomerOrderData();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('DatabaseRoutes: Error deleting customer order workflow data:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete customer order workflow data'
+    });
+  }
+});
+
 // --- Monitoring Metrics ---
 router.get('/metrics', requireUser, requireRole(['admin']), async (req, res) => {
   try {

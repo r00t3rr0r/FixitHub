@@ -251,3 +251,13 @@ export const deleteAllContactMessages = async () => {
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+
+// Description: Delete all customer-order workflow data in one operation
+// Endpoint: POST /api/database/delete-customer-order-data
+export const deleteAllCustomerOrderData = async () => {
+  try {
+    return await api.post('/api/database/delete-customer-order-data');
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};

@@ -31,6 +31,7 @@ import {
   deleteAllNeedslists,
   deleteAllPayments,
   deleteAllContactMessages,
+  deleteAllCustomerOrderData,
   type DatabaseStats,
   type DatabaseOperation,
   type DatabaseBackup,
@@ -147,6 +148,7 @@ export function DatabaseManagement() {
   const [deleteNeedslistsLoading, setDeleteNeedslistsLoading] = useState(false);
   const [deletePaymentsLoading, setDeletePaymentsLoading] = useState(false);
   const [deleteContactMessagesLoading, setDeleteContactMessagesLoading] = useState(false);
+  const [deleteCustomerOrderDataLoading, setDeleteCustomerOrderDataLoading] = useState(false);
 
   useEffect(() => {
     fetchDatabaseData();
@@ -235,6 +237,34 @@ export function DatabaseManagement() {
       });
     } finally {
       setDeleteContactMessagesLoading(false);
+    }
+  };
+
+  const handleDeleteCustomerOrderData = async () => {
+    try {
+      setDeleteCustomerOrderDataLoading(true);
+      const response = await deleteAllCustomerOrderData();
+      const countDeleted = (value: unknown): number => {
+        if (!value || typeof value !== 'object') return 0;
+        if ('deleted' in value && typeof value.deleted === 'number') return value.deleted;
+        return Object.values(value).reduce((total, child) => total + countDeleted(child), 0);
+      };
+      const deleted = countDeleted(response.data.results || {});
+
+      toast({
+        title: t('common.success'),
+        description: `Deleted ${deleted} customer order workflow records`,
+      });
+      fetchDatabaseData();
+    } catch (error) {
+      console.error('Error deleting customer order workflow data:', error);
+      toast({
+        title: t('common.error'),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteCustomerOrderDataLoading(false);
     }
   };
 
@@ -696,6 +726,46 @@ export function DatabaseManagement() {
                       disabled={deleteDevicesLoading || !deleteDevicesPassword}
                     >
                       Löschen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Delete All Customer Order Data
+              </CardTitle>
+              <CardDescription>
+                Deletes notifications, messages, needslists, payments, contact requests, bookings, orders, invoices, complaints and repair requests in one operation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={deleteCustomerOrderDataLoading}>
+                    {deleteCustomerOrderDataLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    Delete All Customer Order Data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all customer order data?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3 mt-4">
+                      <p>
+                        This permanently deletes all notifications, messages, needslists, payments, contact requests, bookings, orders, invoices, complaints and repair requests.
+                      </p>
+                      <p className="font-semibold text-red-600">
+                        Warning: This action cannot be undone. Create a backup before proceeding.
+                      </p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteCustomerOrderData} className="bg-red-600 hover:bg-red-700">
+                      Delete All
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

@@ -30,6 +30,27 @@ export interface Order {
   orderNumber: string;
   bookingId?: string;
   customerId: CustomerInfo;
+  guestInfo?: {
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    isGuest?: boolean;
+    billingAddress?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+      country?: string;
+    };
+    shippingAddress?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+      country?: string;
+    };
+  };
   deviceBrand: string;
   deviceModel: string;
   deviceType?: string;

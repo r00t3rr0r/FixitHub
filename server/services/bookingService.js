@@ -529,10 +529,6 @@ class BookingService {
       setImmediate(async () => {
         try {
           const isGuestBooking = Boolean(bookingData?.guestInfo?.isGuest);
-          if (isGuestBooking) {
-            return;
-          }
-
           let customerEmail = bookingData?.guestInfo?.email || '';
           let customerName = `${bookingData?.guestInfo?.firstName || ''} ${bookingData?.guestInfo?.lastName || ''}`.trim();
 
@@ -553,7 +549,13 @@ class BookingService {
           // For emails, link to the bookings page (data: URLs don't work in email clients)
           const labelDataUrl = savedBooking.shippingLabelUrl || bookingToReturn?.shippingLabelUrl;
           const hasLabel = !!labelDataUrl;
-          const shippingLabelUrl = hasLabel ? (await EmailService.buildSystemUrl('/bookings')) : '';
+          const guestTrackingPath = savedBooking.guestTrackingToken
+            ? `/track-order/booking?token=${encodeURIComponent(savedBooking.guestTrackingToken)}&email=${encodeURIComponent(customerEmail)}`
+            : '/track-order/booking';
+          const trackingUrl = await EmailService.buildSystemUrl(
+            isGuestBooking ? guestTrackingPath : '/bookings'
+          );
+          const shippingLabelUrl = hasLabel ? trackingUrl : '';
 
           // Build PDF attachment from base64 data URL if available
           const emailOptions = {};
@@ -571,7 +573,7 @@ class BookingService {
           const firstRepairItem = (savedBooking.items || []).find((item) => item?.type !== 'product');
           const primaryDevice = this.parseDeviceLabel(firstRepairItem?.device || '');
 
-          await EmailService.sendTriggerEmail('booking_created', customerEmail, {
+          await EmailService.sendTriggerEmail(isGuestBooking ? 'guest_booking_created' : 'booking_created', customerEmail, {
             companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName: customerName || customerEmail,
             bookingNumber: savedBooking.bookingNumber,
@@ -581,7 +583,8 @@ class BookingService {
             bookingStatus: savedBooking.status,
             deviceBrand: primaryDevice.deviceBrand,
             deviceModel: primaryDevice.deviceModel,
-            bookingUrl: await EmailService.buildSystemUrl('/bookings'),
+            bookingUrl: trackingUrl,
+            trackingUrl,
             shippingLabelUrl,
             supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'

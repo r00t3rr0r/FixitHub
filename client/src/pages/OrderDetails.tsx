@@ -2388,14 +2388,23 @@ export function OrderDetails() {
     )
   }
 
-  const customer = order.customerId ?? {
+  const guestInfo = order.guestInfo
+  const customer = order.customerId ?? (guestInfo?.isGuest || guestInfo?.email ? {
+    _id: '',
+    name: `${guestInfo.firstName || ''} ${guestInfo.lastName || ''}`.trim() || guestInfo.email,
+    email: guestInfo.email || 'unknown@customer.local',
+    phone: guestInfo.phone || '',
+    avatar: '',
+    createdAt: '',
+    address: guestInfo.billingAddress,
+  } : {
     _id: '',
     name: 'Unknown customer',
     email: 'unknown@customer.local',
     phone: '',
     avatar: '',
     createdAt: '',
-  }
+  })
   const customerInitials = customer.name
     ? customer.name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase()
     : 'U'
@@ -2410,6 +2419,9 @@ export function OrderDetails() {
   const canRunComplaintAdminDenyReview = isComplaintFollowupOrder && user?.role === 'admin' && complaintWorkflowStatus === 'pending_approval'
   const fallbackBackPath = user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings'
   const backButtonLabel = backTarget?.label || (isStaffOrAdmin ? t('orderDetails.backToOrders') : t('common.back'))
+  const guestTrackingUrl = order.guestInfo?.isGuest && linkedBooking?.guestTrackingToken && order.guestInfo.email
+    ? `/track-order/booking?token=${encodeURIComponent(linkedBooking.guestTrackingToken)}&email=${encodeURIComponent(order.guestInfo.email)}`
+    : ''
 
   const handleBackNavigation = () => {
     if (backTarget?.pathname) {
@@ -5333,6 +5345,18 @@ export function OrderDetails() {
               <CreditCard className="h-3 w-3 mr-1" />
               {translatePaymentStatus(order.paymentStatus)}
             </span>
+            {guestTrackingUrl && (
+              <a
+                href={guestTrackingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-900/50"
+                title="Gast-Tracking-Link öffnen"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Gast-Tracking
+              </a>
+            )}
             {!isStaffOrAdmin && (order.hasComplaint || order.complaintId) && (
               order.complaintId ? (
                 <Link to={`/my-complaints/${order.complaintId}`}>

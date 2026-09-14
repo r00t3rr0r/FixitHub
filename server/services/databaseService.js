@@ -598,6 +598,40 @@ class DatabaseService {
     }
   }
 
+  // Delete all data created by the normal customer order workflow
+  async deleteAllCustomerOrderData() {
+    console.log('DatabaseService: Deleting all customer order workflow data');
+
+    try {
+      const results = {};
+      const operations = [
+        ['notifications', () => this.deleteAllNotifications()],
+        ['messages', () => this.deleteAllMessages()],
+        ['needslists', () => this.deleteAllNeedslists()],
+        ['payments', () => this.deleteAllPayments()],
+        ['contactMessages', () => this.deleteAllContactMessages()],
+        ['bookingsAndOrders', () => this.deleteAllBookingsAndOrders()],
+        ['invoices', () => this.deleteAllInvoices()],
+        ['complaints', () => this.deleteAllComplaints()],
+        ['repairRequests', () => this.deleteAllRepairRequests()]
+      ];
+
+      for (const [name, operation] of operations) {
+        results[name] = (await operation()).results;
+      }
+
+      return {
+        success: true,
+        message: 'All customer order workflow data deleted successfully',
+        results,
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('DatabaseService: Error deleting customer order workflow data:', error);
+      throw new Error(`Failed to delete customer order workflow data: ${error.message}`);
+    }
+  }
+
   // --- Monitoring Metrics ---
   /**
    * Returns live database metrics for dashboard monitoring

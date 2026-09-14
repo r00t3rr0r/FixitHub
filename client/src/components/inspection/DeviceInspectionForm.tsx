@@ -1126,6 +1126,7 @@ export function DeviceInspectionForm({
         display: { status: displayStatus },
         frame: { status: frameStatus },
         backCover: { status: backCoverStatus },
+        buttons: { status: buttonsStatus, notes: buttonsDescription },
         visibleDamages: { hasDamage, description: damageDescription },
         uniqueNotes: externalNotes,
       });
