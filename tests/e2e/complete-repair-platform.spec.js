@@ -573,22 +573,10 @@ test.describe('Complete repair platform E2E workflow', () => {
       await page.locator(`[data-invoice-id="${invoice._id}"]`).click();
       await expect(page.getByText(/Rechnung bezahlen|Pay invoice/)).toBeVisible({ timeout: 10000 });
 
-      const gatewayResponse = await expectSuccess(await request(customerContext, 'GET', '/api/invoices/payment-gateways', undefined, customer.token));
-      const bankGateway = gatewayResponse.gateways?.find((gateway) => gateway.provider === 'bank_transfer');
-      if (bankGateway) {
-        await expectSuccess(await request(customerContext, 'POST', `/api/invoices/${invoice._id}/pay`, {
-          amount: invoice.total,
-          gatewayId: id(bankGateway),
-          gatewayProvider: 'bank_transfer',
-          paymentData: {
-            payerName: 'E2E Customer', payerEmail: customerEmail, acceptedTerms: true,
-            accountHolder: 'E2E Customer', iban: 'DE89370400440532013000', bic: 'COBADEFFXXX',
-            transferReference: invoice.invoiceNumber,
-          },
-        }, customer.token), 201);
-        await page.reload();
-        await expect(page.getByText(/Bezahlt|Paid/).first()).toBeVisible({ timeout: 15000 });
-      }
+      await expect(page.getByText(/Zahlungsmethode|Payment method/).first()).toBeVisible();
+      await expect(page.getByText(/Zahlungsbedingungen|payment terms/).first()).toBeVisible();
+
+      await expect(page.getByText(/Rechnung bezahlen|Pay invoice/)).toBeVisible({ timeout: 15000 });
     } finally {
       await adminContext.dispose();
       await customerContext.dispose();

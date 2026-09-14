@@ -18628,5 +18628,888 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1789404337154-ynq8hwqzh",
+    "timestamp": "2026-09-14T16:45:37.154Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-076 ist bei McRepair.de eingegangen",
+    "messageId": "<ab00b48c-62ec-7b76-4483-f67674d47327@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4466,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404362451-gs7qbkn1c",
+    "timestamp": "2026-09-14T16:46:02.451Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-077 ist bei McRepair.de eingegangen",
+    "messageId": "<e92d0bd5-49f0-9c0f-c0bc-030de0e7acbe@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2659,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404393827-glrj8nico",
+    "timestamp": "2026-09-14T16:46:33.827Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-078 ist bei McRepair.de eingegangen",
+    "messageId": "<2cdd9ec0-4be8-16e3-6ced-3564d3baddae@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2483,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404419627-auk7nl8z5",
+    "timestamp": "2026-09-14T16:46:59.627Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-079 ist bei McRepair.de eingegangen",
+    "messageId": "<e4ab4c6f-d343-bdc5-c87b-3160401e0af8@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3484,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404467570-5b07qpjki",
+    "timestamp": "2026-09-14T16:47:47.570Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-080 ist bei McRepair.de eingegangen",
+    "messageId": "<cf5e18cd-e6f6-405c-bdd9-77609ca8e4dc@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3832,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404485615-z1cmbliw1",
+    "timestamp": "2026-09-14T16:48:05.615Z",
+    "to": "e2e-registration-1789404478820@example.test",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<d920573b-fa93-0cba-66a7-6146cc4f9618@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2951,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404496084-w0m33t4dk",
+    "timestamp": "2026-09-14T16:48:16.084Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-082 ist bei McRepair.de eingegangen",
+    "messageId": "<d58ccef8-45d7-16ed-6fd4-c17748ba82e4@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2862,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404497182-9f95kuxc5",
+    "timestamp": "2026-09-14T16:48:17.182Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-081 ist bei McRepair.de eingegangen",
+    "messageId": "<cffddb94-f425-b8ee-78d0-b2aef6e026b3@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2981,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404500555-65tp6ymcw",
+    "timestamp": "2026-09-14T16:48:20.555Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-083 ist bei McRepair.de eingegangen",
+    "messageId": "<73d8aaf8-213e-dd18-e232-fefffdf109e3@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3207,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404510688-vtdz7nq4u",
+    "timestamp": "2026-09-14T16:48:30.688Z",
+    "to": "customer@example.com",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0012 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<29727a5c-6b8e-3f6a-8f78-eee42cda4597@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 5122,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "trackingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404517130-30v0uea79",
+    "timestamp": "2026-09-14T16:48:37.130Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-085 ist bei McRepair.de eingegangen",
+    "messageId": "<4c534a7f-d810-cb1e-aa4f-d772cf65e3b7@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3493,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404519134-jt3ybhoqm",
+    "timestamp": "2026-09-14T16:48:39.134Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-084 ist bei McRepair.de eingegangen",
+    "messageId": "<c30c6872-f28f-3b02-bd08-b7b1742038fd@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3706,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404521666-qsqahiq9i",
+    "timestamp": "2026-09-14T16:48:41.666Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-086 ist bei McRepair.de eingegangen",
+    "messageId": "<299d9ac2-5d91-fcb2-c69f-9caef7b6c118@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2096,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404534452-qex9p0gf5",
+    "timestamp": "2026-09-14T16:48:54.452Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<a05e6779-d3e1-dc24-e9de-7713abee67ed@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3528,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789404544885-9fghzvn08",
+    "timestamp": "2026-09-14T16:49:04.885Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Nachrichten",
+    "messageId": "<a343b8db-ecce-fc5f-ab02-264dcab9fc25@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2463,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789404556781-vblen50hk",
+    "timestamp": "2026-09-14T16:49:16.781Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<0cbeb54b-2207-80ee-1f71-f7a8b4d60b81@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2010,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789404564879-niotnc1va",
+    "timestamp": "2026-09-14T16:49:24.879Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-087 ist bei McRepair.de eingegangen",
+    "messageId": "<aa245b34-4f7d-2d6f-d1a7-90a31293d715@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1444,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404572244-kr9pc35j5",
+    "timestamp": "2026-09-14T16:49:32.244Z",
+    "to": "customer@example.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-087 – Apple iPhone 15",
+    "messageId": "<742ac8af-0e4c-803d-e111-cc2c0e73aae1@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3995,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404585870-q237c8rbi",
+    "timestamp": "2026-09-14T16:49:45.870Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-088 ist bei McRepair.de eingegangen",
+    "messageId": "<b141412c-38df-8cc4-e227-71f07b3ef587@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3810,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404600899-9ywabf69t",
+    "timestamp": "2026-09-14T16:50:00.899Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-089 ist bei McRepair.de eingegangen",
+    "messageId": "<2af8b91a-7b2f-4440-b871-d0f5d4871571@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 4550,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404618113-snazrsf6h",
+    "timestamp": "2026-09-14T16:50:18.113Z",
+    "to": "guest-1789404609429@example.test",
+    "templateName": "Repair Requests eingegangen",
+    "subject": "Ihre Reparaturanfrage RR-1789404609488-00014 ist bei uns eingegangen",
+    "messageId": "<9f204fde-9111-a62c-b888-8208cb200552@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 5163,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "requestNumber",
+        "deviceBrand",
+        "deviceModel",
+        "issueDescription",
+        "submittedAt",
+        "requestUrl",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404620261-mxns4x044",
+    "timestamp": "2026-09-14T16:50:20.261Z",
+    "to": "customer@example.com",
+    "templateName": "Auftragsbestaetigung Reparatur",
+    "subject": "Ihr Reparaturauftrag ORD-2026-090 ist bei McRepair.de eingegangen",
+    "messageId": "<575b5ad2-7e7b-0810-75c2-a6ca3e1942c1@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1449,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "serviceName",
+        "estimatedCompletion",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404630458-w2dcf3mg6",
+    "timestamp": "2026-09-14T16:50:30.458Z",
+    "to": "customer@example.com",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<73b2413c-d5a4-08b5-75a1-e6c356f9980d@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2613,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789404641063-zcz3jlgw5",
+    "timestamp": "2026-09-14T16:50:41.063Z",
+    "to": "admin@example.com",
+    "templateName": "Statusupdate Auftrag oder Buchung",
+    "subject": "Statusupdate zu Ihrem Auftrag ORD-2026-090: Neue Reklamation",
+    "messageId": "<1ce42371-9cb6-9b89-77f0-f80d27ee677b@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 3842,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderId",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderStatus",
+        "statusMessage",
+        "statusUpdatedAt",
+        "trackingUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404647128-ree2w9hf0",
+    "timestamp": "2026-09-14T16:50:47.128Z",
+    "to": "customer@example.com",
+    "templateName": "Reklamation eingegangen",
+    "subject": "Ihre Reklamation R6aa825c35c9df9044fe1d985 wurde erfolgreich aufgenommen",
+    "messageId": "<35cc1f37-1001-0cc2-d964-5569d470a69c@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2080,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404654590-igwabqmz9",
+    "timestamp": "2026-09-14T16:50:54.590Z",
+    "to": "customer@example.com",
+    "templateName": "Reklamation abgelehnt",
+    "subject": "Entscheidung zu Ihrer Reklamation R6aa825c35c9df9044fe1d985",
+    "messageId": "<1dc7baec-0d2d-48d6-5210-9e3bf1b92cde@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2198,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "complaintNumber",
+        "complaintStatus",
+        "complaintCategory",
+        "complaintSubject",
+        "orderNumber",
+        "priority",
+        "submittedAt",
+        "handlerName",
+        "processingStartedAt",
+        "estimatedResolutionDate",
+        "senderName",
+        "messageSentAt",
+        "resolutionSummary",
+        "compensationInfo",
+        "resolvedAt",
+        "decision",
+        "decisionReason",
+        "decidedAt",
+        "complaintUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404661563-ruuo82x8x",
+    "timestamp": "2026-09-14T16:51:01.563Z",
+    "to": "customer@example.com",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-088 – Samsung Galaxy S23",
+    "messageId": "<5e41085f-058b-6db6-bd58-7a795c69ebe0@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 71204,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404667760-pwebrvimf",
+    "timestamp": "2026-09-14T16:51:07.760Z",
+    "to": "contact-1789404655643@example.test",
+    "templateName": "Kontaktformular Bestaetigung an Absender",
+    "subject": "Wir haben Ihre Anfrage erhalten - McRepair.de",
+    "messageId": "<97caca2d-530b-104a-9728-ce08810d55ad@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 6544,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "contactSubject",
+        "submittedAt",
+        "messagePreview",
+        "supportEmail",
+        "supportPhone",
+        "contactUrl",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789404678068-9t2glnyk4",
+    "timestamp": "2026-09-14T16:51:18.068Z",
+    "to": "order-1789404667932@example.test",
+    "templateName": "Gast Buchung Tracking",
+    "subject": "Buchung BKG-2026-0013 bestätigt – Tracking-Link zu Ihrer Gastbestellung",
+    "messageId": "<8ab726e7-1f70-b70e-68fa-3c62a8265aeb@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2289,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "trackingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

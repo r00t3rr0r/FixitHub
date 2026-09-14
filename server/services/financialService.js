@@ -1702,19 +1702,22 @@ class FinancialService {
 
     if (!bookingId) return;
 
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return;
+
     const invoiceStatus = String(invoice.status || 'draft');
     const invoiceLikeStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
-    const paymentStatus = invoiceLikeStatuses.includes(invoiceStatus) ? invoiceStatus : 'pending';
-    const billingStatus = invoiceStatus === 'paid'
-      ? 'paid'
-      : invoiceStatus === 'partially_paid'
-        ? 'partially-paid'
-        : 'unpaid';
+    booking.paymentStatus = invoiceLikeStatuses.includes(invoiceStatus) ? invoiceStatus : 'pending';
 
-    await Booking.updateOne(
-      { _id: bookingId },
-      { $set: { paymentStatus, billingStatus, updatedAt: new Date() } }
-    );
+    if (invoiceStatus === 'paid') {
+      booking.billingStatus = 'paid';
+    } else if (invoiceStatus === 'partially_paid') {
+      booking.billingStatus = 'partially-paid';
+    } else {
+      booking.billingStatus = 'unpaid';
+    }
+
+    await booking.save();
   }
 
   // Record a partial (or full) payment against an invoice
