@@ -498,8 +498,16 @@ export function DeviceInspectionForm({
     setReportedModel(insp.modelVerification?.reportedModel || orderReportedModel || '');
 
     if (insp.modelVerification) {
-      setActualModel(insp.modelVerification.actualModel || '');
-      setActualModelSearchQuery(insp.modelVerification.actualModel || '');
+      const persistedActual = insp.modelVerification.actualModel || '';
+      // The order's current device is the source of truth for corrections made via
+      // "Geraet aendern". If it diverges from the persisted actualModel, the device was
+      // changed after the inspection was last saved, so the persisted value is stale and
+      // must not be shown in Step 7 - the order's current device wins.
+      const effectiveActual = orderReportedModel && orderReportedModel !== persistedActual
+        ? orderReportedModel
+        : persistedActual;
+      setActualModel(effectiveActual);
+      setActualModelSearchQuery(effectiveActual);
       setVerificationStatus((insp.modelVerification.verificationStatus || 'correct') as VerificationStatus);
       setCostDifference(Number(insp.modelVerification.costDifference || 0));
       setModelNotes(insp.modelVerification.notes || '');
@@ -1876,6 +1884,9 @@ export function DeviceInspectionForm({
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="font-semibold text-slate-800 mb-1">Zusammenfassung</p>
               <p><strong>Modell:</strong> {actualModel || '-'}</p>
+              {reportedModel && actualModel && reportedModel.trim().toLowerCase() !== actualModel.trim().toLowerCase() && (
+                <p className="text-xs text-amber-700">Korrigiert von: {reportedModel}</p>
+              )}
               <p><strong>Identifikation:</strong> {imei || serialNumber || 'Noch nicht erfasst'}</p>
               <p><strong>Aeusserer Zustand:</strong> Display {getConditionLabel(displayStatus)}, Rahmen {getConditionLabel(frameStatus)}, Rueckseite {getConditionLabel(backCoverStatus)}</p>
               <p><strong>Tasten:</strong> {buttonsStatus === 'working' ? 'Funktionieren' : 'Nicht funktionierend'}</p>
