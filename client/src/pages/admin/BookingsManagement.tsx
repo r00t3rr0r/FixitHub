@@ -1567,7 +1567,7 @@ export function BookingsManagement() {
                     <TableRow
                       data-booking-row-id={booking._id}
                       className={`hover:bg-muted/50 cursor-pointer ${activeHighlightedBookingId === booking._id ? 'booking-row-highlight' : ''}`}
-                      onClick={() => handleViewDetails(booking)}
+                      onClick={() => toggleExpandBooking(booking._id)}
                     >
                       <TableCell className="w-12">
                         <Button

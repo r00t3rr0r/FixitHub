@@ -33,7 +33,7 @@ import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, ad
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
-import { createInvoiceFromOrder, getInvoices, Invoice as FinancialInvoice } from "@/api/financial"
+import { createInvoiceFromOrder, getInvoices, getInvoiceDetails, Invoice as FinancialInvoice } from "@/api/financial"
 import { createShippingLabel } from "@/api/shipping"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
@@ -215,6 +215,11 @@ export function OrderDetails() {
   const [downloadingOrderReturnLabel, setDownloadingOrderReturnLabel] = useState(false)
   const [orderInvoices, setOrderInvoices] = useState<FinancialInvoice[]>([])
   const [loadingOrderInvoices, setLoadingOrderInvoices] = useState(false)
+  const [invoiceDetailsDialogOpen, setInvoiceDetailsDialogOpen] = useState(false)
+  const [selectedInvoiceDetails, setSelectedInvoiceDetails] = useState<FinancialInvoice | null>(null)
+  const [invoiceDetailLoading, setInvoiceDetailLoading] = useState(false)
+  const [invoiceDetailPayments, setInvoiceDetailPayments] = useState<any[]>([])
+  const [invoiceDetailCreditNotes, setInvoiceDetailCreditNotes] = useState<Partial<FinancialInvoice>[]>([])
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false)
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0)
@@ -1005,6 +1010,27 @@ export function OrderDetails() {
       toast({ title: 'Fehler', description: error.message || 'Abholung konnte nicht bestätigt werden.', variant: 'destructive' })
     } finally {
       setConfirmingPickup(false)
+    }
+  }
+
+  const openInvoiceDetailsDialog = async (invoice: FinancialInvoice) => {
+    setSelectedInvoiceDetails(invoice)
+    setInvoiceDetailPayments([])
+    setInvoiceDetailCreditNotes([])
+    setInvoiceDetailLoading(true)
+    setInvoiceDetailsDialogOpen(true)
+
+    try {
+      const result = await getInvoiceDetails(invoice._id)
+      setInvoiceDetailPayments(result.payments || [])
+      setInvoiceDetailCreditNotes(result.creditNotes || [])
+      if (result.invoice) {
+        setSelectedInvoiceDetails(result.invoice as FinancialInvoice)
+      }
+    } catch {
+      // silently keep the invoice data already in state
+    } finally {
+      setInvoiceDetailLoading(false)
     }
   }
 
@@ -5588,10 +5614,11 @@ export function OrderDetails() {
                               ) : orderInvoices.length > 0 ? (
                                 <div className="mt-2 space-y-1.5">
                                   {orderInvoices.map((invoice) => (
-                                    <Link
+                                    <button
                                       key={invoice._id}
-                                      to={`/admin/financial?tab=overview&highlightInvoiceId=${encodeURIComponent(invoice._id)}`}
-                                      className="flex items-start justify-between rounded border bg-background px-2.5 py-1.5 text-xs hover:bg-accent"
+                                      type="button"
+                                      onClick={() => void openInvoiceDetailsDialog(invoice)}
+                                      className="flex w-full items-start justify-between rounded border bg-background px-2.5 py-1.5 text-left text-xs hover:bg-accent"
                                     >
                                       <span className="min-w-0">
                                         <span className="flex items-center gap-1.5 min-w-0">
@@ -5609,7 +5636,7 @@ export function OrderDetails() {
                                         </span>
                                       </span>
                                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                    </Link>
+                                    </button>
                                   ))}
                                 </div>
                               ) : (
@@ -6150,6 +6177,284 @@ export function OrderDetails() {
           </div>
         </>
       )}
+
+      <Dialog open={invoiceDetailsDialogOpen} onOpenChange={(open) => {
+        setInvoiceDetailsDialogOpen(open)
+        if (!open) {
+          setSelectedInvoiceDetails(null)
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <FileText className="h-5 w-5" />
+              Rechnungsdetails
+              {selectedInvoiceDetails?.invoiceNumber && (
+                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoiceDetails.invoiceNumber}</span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-[#c8d0e7]">
+              Vollständige Detailansicht inklusive Zahlungen und zugehöriger Gutschriften.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-4">
+            {invoiceDetailLoading ? (
+              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Lade Rechnungsdetails…
+              </div>
+            ) : selectedInvoiceDetails ? (
+              <div className="space-y-5">
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsnummer</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{selectedInvoiceDetails.invoiceNumber}</div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-[10px] font-medium leading-none">
+                        {selectedInvoiceDetails.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamt</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatPrice(selectedInvoiceDetails.total)}</div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
+                    <div className="mt-1 font-semibold text-red-700">
+                      {formatPrice(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Kunde</div>
+                    <div className="space-y-1 text-sm">
+                      <div>{selectedInvoiceDetails.customerName || '-'}</div>
+                      <div className="text-muted-foreground">{selectedInvoiceDetails.customerEmail || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Rechnung</div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <div>Erstellt: {selectedInvoiceDetails.createdAt ? new Date(selectedInvoiceDetails.createdAt).toLocaleDateString('de-DE') : '-'}</div>
+                      <div>Fällig: {selectedInvoiceDetails.dueDate ? new Date(selectedInvoiceDetails.dueDate).toLocaleDateString('de-DE') : '-'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                  <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Positionen</div>
+                  {selectedInvoiceDetails.items && selectedInvoiceDetails.items.length > 0 ? (
+                    <div className="space-y-2 text-sm">
+                      {selectedInvoiceDetails.items.map((item) => (
+                        <div key={item._id} className="flex items-center justify-between gap-3 border-b border-[#e5e7eb] pb-2 last:border-b-0 last:pb-0">
+                          <div>
+                            <div className="font-medium text-slate-800">{item.description}</div>
+                            <div className="text-xs text-muted-foreground">{item.type} • {item.quantity}x</div>
+                          </div>
+                          <div className="font-medium text-slate-800">{formatPrice(item.total || 0)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Keine Positionen vorhanden.</div>
+                  )}
+                </div>
+
+                <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                  <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Zahlungen</div>
+                  {invoiceDetailPayments.length > 0 ? (
+                    <div className="space-y-2 text-sm">
+                      {invoiceDetailPayments.map((payment) => (
+                        <div key={payment._id} className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div>
+                            <div className="font-medium text-slate-800">{payment.paymentMethod || 'Zahlung'}</div>
+                            <div className="text-xs text-muted-foreground">{payment.status}</div>
+                          </div>
+                          <div className="font-semibold text-slate-800">{formatPrice(Number(payment.amount || 0))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Noch keine Zahlungen verzeichnet.</div>
+                  )}
+                </div>
+
+                {invoiceDetailCreditNotes.length > 0 && (
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Gutschriften</div>
+                    <div className="space-y-2 text-sm">
+                      {invoiceDetailCreditNotes.map((note) => (
+                        <div key={String(note._id)} className="flex items-center justify-between gap-3 rounded border border-violet-200 bg-violet-50 px-3 py-2">
+                          <div>
+                            <div className="font-medium text-violet-800">{note.invoiceNumber || 'Gutschrift'}</div>
+                            <div className="text-xs text-violet-700">{note.status}</div>
+                          </div>
+                          <div className="font-semibold text-violet-800">{formatPrice(Number(note.total || 0))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-sm text-muted-foreground">Keine Rechnungsdetails verfügbar.</div>
+            )}
+          </div>
+
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]" onClick={() => setInvoiceDetailsDialogOpen(false)}>
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={invoiceDetailsDialogOpen} onOpenChange={(open) => {
+        setInvoiceDetailsDialogOpen(open)
+        if (!open) {
+          setSelectedInvoiceDetails(null)
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
+            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
+              <FileText className="h-5 w-5" />
+              Rechnungsdetails
+              {selectedInvoiceDetails?.invoiceNumber && (
+                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoiceDetails.invoiceNumber}</span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-[#c8d0e7]">
+              Vollständige Detailansicht inklusive Zahlungen und zugehöriger Gutschriften.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-4">
+            {invoiceDetailLoading ? (
+              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Lade Rechnungsdetails…
+              </div>
+            ) : selectedInvoiceDetails ? (
+              <div className="space-y-5">
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsnummer</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{selectedInvoiceDetails.invoiceNumber}</div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-[10px] font-medium leading-none">
+                        {selectedInvoiceDetails.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamt</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatPrice(selectedInvoiceDetails.total)}</div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
+                    <div className="mt-1 font-semibold text-red-700">
+                      {formatPrice(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Kunde</div>
+                    <div className="space-y-1 text-sm">
+                      <div>{selectedInvoiceDetails.customerName || '-'}</div>
+                      <div className="text-muted-foreground">{selectedInvoiceDetails.customerEmail || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Rechnung</div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <div>Erstellt: {selectedInvoiceDetails.createdAt ? new Date(selectedInvoiceDetails.createdAt).toLocaleDateString('de-DE') : '-'}</div>
+                      <div>Fällig: {selectedInvoiceDetails.dueDate ? new Date(selectedInvoiceDetails.dueDate).toLocaleDateString('de-DE') : '-'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
+                  <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Positionen</div>
+                  {selectedInvoiceDetails.items && selectedInvoiceDetails.items.length > 0 ? (
+                    <div className="space-y-2 text-sm">
+                      {selectedInvoiceDetails.items.map((item) => (
+                        <div key={item._id} className="flex items-center justify-between gap-3 border-b border-[#e5e7eb] pb-2 last:border-b-0 last:pb-0">
+                          <div>
+                            <div className="font-medium text-slate-800">{item.description}</div>
+                            <div className="text-xs text-muted-foreground">{item.type} • {item.quantity}x</div>
+                          </div>
+                          <div className="font-medium text-slate-800">{formatPrice(item.total || 0)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Keine Positionen vorhanden.</div>
+                  )}
+                </div>
+
+                <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                  <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Zahlungen</div>
+                  {invoiceDetailPayments.length > 0 ? (
+                    <div className="space-y-2 text-sm">
+                      {invoiceDetailPayments.map((payment) => (
+                        <div key={payment._id} className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div>
+                            <div className="font-medium text-slate-800">{payment.paymentMethod || 'Zahlung'}</div>
+                            <div className="text-xs text-muted-foreground">{payment.status}</div>
+                          </div>
+                          <div className="font-semibold text-slate-800">{formatPrice(Number(payment.amount || 0))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Noch keine Zahlungen verzeichnet.</div>
+                  )}
+                </div>
+
+                {invoiceDetailCreditNotes.length > 0 && (
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Gutschriften</div>
+                    <div className="space-y-2 text-sm">
+                      {invoiceDetailCreditNotes.map((note) => (
+                        <div key={String(note._id)} className="flex items-center justify-between gap-3 rounded border border-violet-200 bg-violet-50 px-3 py-2">
+                          <div>
+                            <div className="font-medium text-violet-800">{note.invoiceNumber || 'Gutschrift'}</div>
+                            <div className="text-xs text-violet-700">{note.status}</div>
+                          </div>
+                          <div className="font-semibold text-violet-800">{formatPrice(Number(note.total || 0))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-sm text-muted-foreground">Keine Rechnungsdetails verfügbar.</div>
+            )}
+          </div>
+
+          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
+            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]" onClick={() => setInvoiceDetailsDialogOpen(false)}>
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={complaintDialogOpen} onOpenChange={setComplaintDialogOpen}>
         <DialogContent className="w-[calc(100vw-12px)] sm:max-w-lg max-h-[92dvh] overflow-y-auto">
