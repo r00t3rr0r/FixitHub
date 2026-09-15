@@ -165,6 +165,7 @@ export function DeviceInspectionForm({
   const [customerInfoMailTemplate, setCustomerInfoMailTemplate] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  const [submittingStep, setSubmittingStep] = useState<number | null>(null);
 
   const draftKey = `inspection-draft-${orderId}`;
   const orderReportedModel = [
@@ -1088,7 +1089,11 @@ export function DeviceInspectionForm({
       }
 
       setSubmitting(true);
+      setSubmittingStep(2);
       const result = await updateIdentification(orderId, deviceType, imei.trim() || undefined, serialNumber.trim() || undefined);
+      if (!result?.inspection) {
+        throw new Error('Identifikation konnte nicht gespeichert werden. Bitte erneut versuchen.');
+      }
       setInspection(result.inspection);
       setImeiRequiredAtCompletion(Boolean(result.inspection?.identification?.imeiRequired));
       toast({
@@ -1101,6 +1106,7 @@ export function DeviceInspectionForm({
       toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1137,6 +1143,7 @@ export function DeviceInspectionForm({
 
     try {
       setSubmitting(true);
+      setSubmittingStep(4);
       const result = await updateExternalInspection(orderId, {
         display: { status: displayStatus },
         frame: { status: frameStatus },
@@ -1145,6 +1152,9 @@ export function DeviceInspectionForm({
         visibleDamages: { hasDamage, description: damageDescription },
         uniqueNotes: externalNotes,
       });
+      if (!result?.inspection) {
+        throw new Error('Äußere Inspektion konnte nicht gespeichert werden. Bitte erneut versuchen.');
+      }
       setInspection(result.inspection);
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
@@ -1156,6 +1166,7 @@ export function DeviceInspectionForm({
       toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1489,8 +1500,8 @@ export function DeviceInspectionForm({
               </div>
             )}
 
-            <Button onClick={handleIdentification} disabled={submitting} className="inspection-primary-button">
-              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
+            <Button onClick={handleIdentification} disabled={submitting} aria-busy={submittingStep === 2} className="inspection-primary-button">
+              {submittingStep === 2 ? 'Speichert...' : t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -1660,8 +1671,8 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleExternalInspection} disabled={submitting} className="inspection-primary-button">
-              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
+            <Button onClick={handleExternalInspection} disabled={submitting} aria-busy={submittingStep === 4} className="inspection-primary-button">
+              {submittingStep === 4 ? 'Speichert...' : t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}

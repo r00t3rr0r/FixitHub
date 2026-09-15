@@ -1,6 +1,13 @@
+import type { AxiosResponse } from 'axios';
 import api from './api';
 
-const unwrapInspectionResponse = (response: any) => {
+type InspectionApiPayload = {
+  error?: string;
+  message?: string;
+  [key: string]: unknown;
+};
+
+const unwrapInspectionResponse = (response: AxiosResponse<InspectionApiPayload>) => {
   if (response.status < 200 || response.status >= 300) {
     throw new Error(response.data?.error || response.data?.message || 'Inspection request failed');
   }
