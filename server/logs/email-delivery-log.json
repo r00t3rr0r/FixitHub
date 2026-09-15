@@ -21909,5 +21909,31 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1789439526667-ji28xxchl",
+    "timestamp": "2026-09-15T02:32:06.667Z",
+    "to": "booking-test-1789439521087@example.com",
+    "templateName": "Registrierung und Kontoaktivierung",
+    "subject": "Willkommen bei McRepair.de - bitte Konto aktivieren",
+    "messageId": "<38e004e2-7385-acc2-a030-cc3436c28225@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 2742,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "customerEmail",
+        "verificationUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

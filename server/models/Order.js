@@ -568,6 +568,18 @@ const orderSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  // Cart/promo-level discount (proportional share of the checkout discount applied to
+  // this order). totalCost already has this subtracted; kept separately so the
+  // discount stays visible/consistent in order details, payment mask and invoices.
+  discount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  appliedPromoCode: {
+    type: String,
+    default: '',
+  },
   netAmount: {
     type: Number,
     min: 0,

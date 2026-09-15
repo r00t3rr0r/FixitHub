@@ -2599,8 +2599,11 @@ class OrderService {
       });
     }
 
-    order.totalCost = total;
-    console.log('OrderService: Total cost recalculated:', total);
+    // Keep any previously applied cart/promo discount intact so it doesn't silently
+    // disappear from the order total when services/add-ons/products are edited.
+    const discount = Number(order.discount || 0);
+    order.totalCost = Number(Math.max(0, total - discount).toFixed(2));
+    console.log('OrderService: Total cost recalculated:', order.totalCost);
   }
 
   // Remove workflow from order

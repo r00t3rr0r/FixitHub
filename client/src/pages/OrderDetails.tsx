@@ -4696,6 +4696,12 @@ export function OrderDetails() {
             <span>Zahlung</span>
             <strong>{translatePaymentStatus(order.paymentStatus)}</strong>
           </div>
+          {safeToNumber(order.discount) > 0 && (
+            <div className="customer-summary-row">
+              <span>Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}</span>
+              <strong className="text-green-600">−{formatPrice(safeToNumber(order.discount))}</strong>
+            </div>
+          )}
           <div className="customer-summary-row">
             <span>Gesamtbetrag</span>
             <strong>{formatPrice(safeToNumber(order.totalCost))}</strong>
@@ -5382,6 +5388,11 @@ export function OrderDetails() {
               <div className="order-total-cost">
                 <div className="amount">{safeToNumber(order.totalCost).toFixed(2)} €</div>
                 <div className="label">Gesamt</div>
+                {safeToNumber(order.discount) > 0 && (
+                  <div className="label text-green-600">
+                    inkl. −{safeToNumber(order.discount).toFixed(2)} € Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
+                  </div>
+                )}
               </div>
             )}
             {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && !order.complaintId && (

@@ -59,6 +59,8 @@ export interface Order {
   status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup';
   estimatedCompletion: string;
   totalCost: number;
+  discount?: number;
+  appliedPromoCode?: string;
   createdAt: string;
   updatedAt?: string;
   photos: string[];

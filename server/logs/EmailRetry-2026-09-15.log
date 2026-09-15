@@ -1,0 +1,1 @@
+{"timestamp":"2026-09-15T02:32:06.666Z","service":"EmailRetry","level":"INFO","message":"sendTemplateEmail(Registrierung und Kontoaktivierung) succeeded","context":{"retryHandler":true},"data":{"attempt":1,"duration":"2742ms","messageId":"<38e004e2-7385-acc2-a030-cc3436c28225@mcrepair.de>","to":"booking-test-1789439521087@example.com"},"pid":24245}

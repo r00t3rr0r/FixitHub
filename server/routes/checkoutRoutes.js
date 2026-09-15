@@ -14,6 +14,34 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
 
+// Distributes a cart-level discount across the individual orders created from that cart,
+// proportional to each order's raw (pre-discount) total. This keeps the order total
+// consistent with what the customer saw in the cart/booking summary, instead of the
+// order silently reverting to the undiscounted price.
+const allocateProportionalAmount = (rawAmounts, totalAmount) => {
+  const grandTotal = rawAmounts.reduce((sum, amount) => sum + Number(amount || 0), 0);
+  const safeTotal = Math.max(0, Math.min(Number(totalAmount || 0), grandTotal));
+
+  if (grandTotal <= 0 || safeTotal <= 0) {
+    return rawAmounts.map(() => 0);
+  }
+
+  const shares = rawAmounts.map((amount) => Number(((Number(amount || 0) / grandTotal) * safeTotal).toFixed(2)));
+  const allocated = shares.reduce((sum, share) => sum + share, 0);
+  const roundingDiff = Number((safeTotal - allocated).toFixed(2));
+
+  if (roundingDiff !== 0 && shares.length > 0) {
+    // Assign any rounding remainder to the largest order to minimize relative impact
+    let largestIndex = 0;
+    for (let i = 1; i < rawAmounts.length; i++) {
+      if (Number(rawAmounts[i] || 0) > Number(rawAmounts[largestIndex] || 0)) largestIndex = i;
+    }
+    shares[largestIndex] = Number((shares[largestIndex] + roundingDiff).toFixed(2));
+  }
+
+  return shares;
+};
+
 const normalizeCheckoutAddress = (address) => {
   const normalized = {
     street: String(address?.street || '').trim(),
@@ -1681,11 +1709,15 @@ router.post('/complete', requireUser, async (req, res) => {
     })();
     console.log('CheckoutRoutes: Resolved shippingAddress for orders:', fallbackAddress);
 
-    // Create orders from repair orders in the cart
+    // Build order specs first (without persisting) so the cart-level discount can be
+    // allocated proportionally across all orders before any order is created.
+    const orderSpecs = [];
+
+    // Prepare orders from repair orders in the cart
     if (hasRepairOrders) {
       for (const repairOrder of cart.repairOrders) {
         try {
-          console.log('CheckoutRoutes: Creating order from repair order:', repairOrder);
+          console.log('CheckoutRoutes: Preparing order from repair order:', repairOrder);
 
           // Fetch service details to get price and estimated time
           const serviceDetails = await Service.find({ _id: { $in: repairOrder.services } });
@@ -1719,7 +1751,6 @@ router.post('/complete', requireUser, async (req, res) => {
             addOns: repairOrder.addOns || [],
             customerNotes: repairOrder.customerNotes || '',
             photos: repairOrder.photos || [],
-            totalCost: totalCost,
             status: 'pending',
             priority: 'normal',
             progress: 0,
@@ -1742,25 +1773,18 @@ router.post('/complete', requireUser, async (req, res) => {
             serialNumber: repairOrder.serialNumber || ''
           };
 
-          console.log('CheckoutRoutes: Order data prepared:', orderData);
-
-          // Create the order
-          const order = await OrderService.create(orderData);
-          console.log('CheckoutRoutes: Order created successfully:', order._id);
-
-          createdOrders.push(order);
-          orderIds.push(order._id.toString());
+          orderSpecs.push({ orderData, rawTotalCost: totalCost });
         } catch (orderError) {
-          console.error('CheckoutRoutes: Error creating order from repair order:', orderError);
+          console.error('CheckoutRoutes: Error preparing order from repair order:', orderError);
           // Continue with other orders even if one fails
         }
       }
     }
 
-    // Create an order from shop products if present
+    // Prepare an order from shop products if present
     if (hasShopProducts && cart.items.length > 0) {
       try {
-        console.log('CheckoutRoutes: Creating order from shop products');
+        console.log('CheckoutRoutes: Preparing order from shop products');
 
         // Populate product details
         const Product = require('../models/Product');
@@ -1792,7 +1816,6 @@ router.post('/complete', requireUser, async (req, res) => {
           shopProducts: populatedItems,
           customerNotes: 'Order containing shop products only',
           photos: [],
-          totalCost: totalCost,
           status: 'pending',
           priority: 'normal',
           progress: 0,
@@ -1801,17 +1824,39 @@ router.post('/complete', requireUser, async (req, res) => {
           shippingAddress: fallbackAddress
         };
 
-        console.log('CheckoutRoutes: Shop order data prepared:', shopOrderData);
-
-        // Create the shop product order
-        const shopOrder = await OrderService.create(shopOrderData);
-        console.log('CheckoutRoutes: Shop product order created successfully:', shopOrder._id);
-
-        createdOrders.push(shopOrder);
-        orderIds.push(shopOrder._id.toString());
+        orderSpecs.push({ orderData: shopOrderData, rawTotalCost: totalCost });
       } catch (shopOrderError) {
-        console.error('CheckoutRoutes: Error creating shop product order:', shopOrderError);
+        console.error('CheckoutRoutes: Error preparing order from shop products:', shopOrderError);
         // Log but don't fail the entire checkout
+      }
+    }
+
+    // Allocate the cart-level discount (promo code + customer group discount)
+    // proportionally across the prepared orders so the order price stays in sync
+    // with what the customer saw in the cart/booking summary.
+    const totalCheckoutDiscount = Number((cart.discount || 0) + (checkoutPricing.groupDiscountAmount || 0));
+    const discountShares = allocateProportionalAmount(
+      orderSpecs.map((spec) => spec.rawTotalCost),
+      totalCheckoutDiscount
+    );
+
+    for (let i = 0; i < orderSpecs.length; i++) {
+      const { orderData, rawTotalCost } = orderSpecs[i];
+      const allocatedDiscount = discountShares[i] || 0;
+      orderData.totalCost = Number((rawTotalCost - allocatedDiscount).toFixed(2));
+      orderData.discount = allocatedDiscount;
+      orderData.appliedPromoCode = cart.promoCode || '';
+
+      try {
+        console.log('CheckoutRoutes: Order data prepared:', orderData);
+        const order = await OrderService.create(orderData);
+        console.log('CheckoutRoutes: Order created successfully:', order._id);
+
+        createdOrders.push(order);
+        orderIds.push(order._id.toString());
+      } catch (orderError) {
+        console.error('CheckoutRoutes: Error creating order:', orderError);
+        // Continue with other orders even if one fails
       }
     }
 
@@ -2060,12 +2105,13 @@ router.post('/guest-complete', async (req, res) => {
 
     const createdOrders = [];
     const orderIds = [];
+    const orderSpecs = [];
 
-    // Create orders from repair orders in the guest cart
+    // Prepare orders from repair orders in the guest cart
     if (hasRepairOrders) {
       for (const repairOrder of cartData.repairOrders) {
         try {
-          console.log('CheckoutRoutes: Creating order from guest repair order:', repairOrder);
+          console.log('CheckoutRoutes: Preparing order from guest repair order:', repairOrder);
 
           // Fetch service details to get price and estimated time
           const serviceDetails = await Service.find({ _id: { $in: repairOrder.services.map(s => s._id || s) } });
@@ -2100,7 +2146,6 @@ router.post('/guest-complete', async (req, res) => {
             addOns: repairOrder.addOns || [],
             customerNotes: repairOrder.customerNotes || '',
             photos: repairOrder.photos || [],
-            totalCost: totalCost,
             status: 'pending',
             priority: 'normal',
             progress: 0,
@@ -2118,25 +2163,18 @@ router.post('/guest-complete', async (req, res) => {
             serialNumber: repairOrder.serialNumber || ''
           };
 
-          console.log('CheckoutRoutes: Guest order data prepared:', orderData);
-
-          // Create the order
-          const order = await OrderService.create(orderData);
-          console.log('CheckoutRoutes: Guest order created successfully:', order._id);
-
-          createdOrders.push(order);
-          orderIds.push(order._id.toString());
+          orderSpecs.push({ orderData, rawTotalCost: totalCost });
         } catch (orderError) {
-          console.error('CheckoutRoutes: Error creating guest order from repair order:', orderError);
+          console.error('CheckoutRoutes: Error preparing guest order from repair order:', orderError);
           // Continue with other orders even if one fails
         }
       }
     }
 
-    // Create an order from shop products if present
+    // Prepare an order from shop products if present
     if (hasShopProducts && cartData.items.length > 0) {
       try {
-        console.log('CheckoutRoutes: Creating order from guest shop products');
+        console.log('CheckoutRoutes: Preparing order from guest shop products');
 
         const Product = require('../models/Product');
         const populatedItems = [];
@@ -2168,7 +2206,6 @@ router.post('/guest-complete', async (req, res) => {
           shopProducts: populatedItems,
           customerNotes: 'Order containing shop products only',
           photos: [],
-          totalCost: totalCost,
           status: 'pending',
           priority: 'normal',
           progress: 0,
@@ -2176,15 +2213,62 @@ router.post('/guest-complete', async (req, res) => {
           estimatedCompletion: null
         };
 
-        console.log('CheckoutRoutes: Guest shop order data prepared:', shopOrderData);
-
-        const shopOrder = await OrderService.create(shopOrderData);
-        console.log('CheckoutRoutes: Guest shop product order created successfully:', shopOrder._id);
-
-        createdOrders.push(shopOrder);
-        orderIds.push(shopOrder._id.toString());
+        orderSpecs.push({ orderData: shopOrderData, rawTotalCost: totalCost });
       } catch (shopOrderError) {
-        console.error('CheckoutRoutes: Error creating guest shop product order:', shopOrderError);
+        console.error('CheckoutRoutes: Error preparing guest shop product order:', shopOrderError);
+      }
+    }
+
+    if (orderSpecs.length === 0) {
+      console.log('CheckoutRoutes: No guest orders were prepared');
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create orders from cart. Please try again.'
+      });
+    }
+
+    // Resolve the promo code against the raw (pre-discount) subtotal, then allocate the
+    // resulting discount proportionally across the orders before persisting them.
+    const guestRawSubtotal = orderSpecs.reduce((sum, spec) => sum + Number(spec.rawTotalCost || 0), 0);
+    let guestPromoData = null;
+    const normalizedGuestPromoCode = String(cartData?.promoCode || '').trim().toUpperCase();
+    if (normalizedGuestPromoCode) {
+      try {
+        guestPromoData = await CartService.resolvePromoCodeForCheckout({
+          promoCode: normalizedGuestPromoCode,
+          subtotal: guestRawSubtotal,
+          customerId: null,
+        });
+      } catch (promoError) {
+        return res.status(400).json({
+          success: false,
+          error: promoError.message || 'Invalid promo code'
+        });
+      }
+    }
+
+    const guestDiscountShares = allocateProportionalAmount(
+      orderSpecs.map((spec) => spec.rawTotalCost),
+      Number(guestPromoData?.discountAmount || 0)
+    );
+
+    for (let i = 0; i < orderSpecs.length; i++) {
+      const { orderData, rawTotalCost } = orderSpecs[i];
+      const allocatedDiscount = guestDiscountShares[i] || 0;
+      orderData.totalCost = Number((rawTotalCost - allocatedDiscount).toFixed(2));
+      orderData.discount = allocatedDiscount;
+      orderData.appliedPromoCode = guestPromoData?.promo?.code || '';
+
+      try {
+        console.log('CheckoutRoutes: Guest order data prepared:', orderData);
+        const order = await OrderService.create(orderData);
+        console.log('CheckoutRoutes: Guest order created successfully:', order._id);
+
+        createdOrders.push(order);
+        orderIds.push(order._id.toString());
+      } catch (orderError) {
+        console.error('CheckoutRoutes: Error creating guest order:', orderError);
+        // Continue with other orders even if one fails
       }
     }
 
@@ -2196,34 +2280,27 @@ router.post('/guest-complete', async (req, res) => {
       });
     }
 
-    let guestPromoData = null;
-    const normalizedGuestPromoCode = String(cartData?.promoCode || '').trim().toUpperCase();
-    if (normalizedGuestPromoCode) {
-      try {
-        const guestSubtotal = createdOrders.reduce((sum, order) => sum + Number(order.totalCost || 0), 0);
-        guestPromoData = await CartService.resolvePromoCodeForCheckout({
-          promoCode: normalizedGuestPromoCode,
-          subtotal: guestSubtotal,
-          customerId: null,
-        });
-      } catch (promoError) {
-        return res.status(400).json({
-          success: false,
-          error: promoError.message || 'Invalid promo code'
-        });
-      }
-    }
-
     // Create booking to consolidate all guest orders
     console.log('CheckoutRoutes: Creating booking for guest orders:', createdOrders.length);
     let booking = null;
     try {
       const mongoose = require('mongoose');
+      const guestDiscountAmount = Number(guestPromoData?.discountAmount || 0);
       booking = await BookingService.create({
         customerId: null,
         guestInfo: guestUserData,
         orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
-        discount: Number(guestPromoData?.discountAmount || 0),
+        discount: guestDiscountAmount,
+        // Orders were already created with the discount baked into their totalCost, so
+        // pass an explicit checkoutPricing snapshot here too. This makes resolveBookingPricing
+        // use this authoritative total instead of re-subtracting the discount from the
+        // (already discounted) sum of order.totalCost, which would double-count it.
+        checkoutPricing: {
+          subtotal: guestRawSubtotal,
+          totalDiscount: guestDiscountAmount,
+          tax: 0,
+          total: Number((guestRawSubtotal - guestDiscountAmount).toFixed(2)),
+        },
         appliedPromoCode: guestPromoData?.promo?.code || '',
         status: 'pending',
         billingStatus: resolvedBillingStatus,
@@ -2359,3 +2436,4 @@ router.post('/guest-complete', async (req, res) => {
 
 module.exports = router;
 module.exports.buildPaypalAmount = buildPaypalAmount;
+module.exports.allocateProportionalAmount = allocateProportionalAmount;
