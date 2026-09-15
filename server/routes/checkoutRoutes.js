@@ -2286,6 +2286,14 @@ router.post('/guest-complete', async (req, res) => {
     try {
       const mongoose = require('mongoose');
       const guestDiscountAmount = Number(guestPromoData?.discountAmount || 0);
+      const guestFinalTotal = Number((guestRawSubtotal - guestDiscountAmount).toFixed(2));
+      // Order prices (and therefore guestFinalTotal) are gross/VAT-inclusive, so the tax
+      // portion must be extracted from the final (post-discount) total, not added on top.
+      const guestFinancialProfile = await FinancialService.resolveFinancialProfile({ customerId: null });
+      const guestTaxRatePercent = Math.max(0, Number(guestFinancialProfile?.taxRate || 0));
+      const guestTax = guestTaxRatePercent > 0
+        ? Number((guestFinalTotal * (guestTaxRatePercent / (100 + guestTaxRatePercent))).toFixed(2))
+        : 0;
       booking = await BookingService.create({
         customerId: null,
         guestInfo: guestUserData,
@@ -2298,8 +2306,8 @@ router.post('/guest-complete', async (req, res) => {
         checkoutPricing: {
           subtotal: guestRawSubtotal,
           totalDiscount: guestDiscountAmount,
-          tax: 0,
-          total: Number((guestRawSubtotal - guestDiscountAmount).toFixed(2)),
+          tax: guestTax,
+          total: guestFinalTotal,
         },
         appliedPromoCode: guestPromoData?.promo?.code || '',
         status: 'pending',

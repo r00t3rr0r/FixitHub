@@ -3030,9 +3030,14 @@ function BookingDetailDialog({
                 </h3>
               </div>
               <div className="space-y-2">
+                {/*
+                  Alle gespeicherten Preise (Auftrag, Buchung) sind Bruttobeträge (MwSt. inklusive).
+                  "MwSt." ist daher im Gesamtbetrag bereits ENTHALTEN und darf nicht addiert werden.
+                  Reihenfolge: Zwischensumme (Brutto, vor Rabatt) -> Rabatt -> Nettobetrag -> davon MwSt. -> Gesamtbetrag (Brutto).
+                */}
                 {booking.subtotal !== undefined && booking.subtotal !== booking.totalCost && (
                   <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--gray-500, #636e85)' }}>Zwischensumme</span>
+                    <span style={{ color: 'var(--gray-500, #636e85)' }}>Zwischensumme (Brutto, vor Rabatt)</span>
                     <span style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '500' }}>{formatCurrency(booking.subtotal || 0)}</span>
                   </div>
                 )}
@@ -3043,13 +3048,19 @@ function BookingDetailDialog({
                   </div>
                 )}
                 {booking.tax !== undefined && booking.tax > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--gray-500, #636e85)' }}>MwSt.</span>
-                    <span style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '500' }}>{formatCurrency(booking.tax)}</span>
-                  </div>
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span style={{ color: 'var(--gray-500, #636e85)' }}>Nettobetrag</span>
+                      <span style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '500' }}>{formatCurrency(Math.max(0, (booking.totalCost || 0) - booking.tax))}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span style={{ color: 'var(--gray-500, #636e85)' }}>davon MwSt. (im Gesamtbetrag enthalten)</span>
+                      <span style={{ color: 'var(--gray-700, #2d3748)', fontWeight: '500' }}>{formatCurrency(booking.tax)}</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex items-center justify-between pt-2" style={{ borderTop: '2px solid var(--gray-200, #d8dce6)' }}>
-                  <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>Gesamtbetrag</span>
+                  <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>Gesamtbetrag (Brutto)</span>
                   <span className="font-bold text-lg" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>{formatCurrency(booking.totalCost)}</span>
                 </div>
                 {booking.finalCost !== undefined && booking.finalCost !== booking.totalCost && (
@@ -4680,23 +4691,23 @@ function InvoiceDialog({
                       <h3 className="font-semibold text-[#f5b800] text-sm">Rechnungszusammenfassung</h3>
                     </div>
                     <div className="p-4 bg-white dark:bg-muted/10 space-y-2">
+                      {(preview?.discount || 0) > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Rabatt (bereits in Netto/MwSt. unten berücksichtigt):</span>
+                          <span>-{formatCurrency(preview?.discount || 0)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
-                        <span className="text-foreground/70">Nettobetrag:</span>
+                        <span className="text-foreground/70">Nettobetrag (nach Rabatt):</span>
                         <span className="font-medium">{formatCurrency(preview?.subtotal || 0)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-foreground/70">Enthaltene MwSt.:</span>
                         <span className="font-medium">{formatCurrency(preview?.tax || 0)}</span>
                       </div>
-                      {(preview?.discount || 0) > 0 && (
-                        <div className="flex justify-between text-sm text-green-600">
-                          <span>Rabatt:</span>
-                          <span>-{formatCurrency(preview?.discount || 0)}</span>
-                        </div>
-                      )}
                       <Separator />
                       <div className="flex justify-between text-base font-bold text-[#1a2a5e]">
-                        <span>Gesamtbetrag (Brutto):</span>
+                        <span>Gesamtbetrag (Brutto) = Netto + MwSt.:</span>
                         <span>{formatCurrency(preview?.total || 0)}</span>
                       </div>
                     </div>
