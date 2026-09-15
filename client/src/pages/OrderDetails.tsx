@@ -55,7 +55,7 @@ import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
-import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel } from "@/api/bookings"
+import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel, createReturnLabel } from "@/api/bookings"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -134,6 +134,7 @@ import {
   Pause,
   AlertTriangle,
   Timer,
+  Truck,
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -210,6 +211,8 @@ export function OrderDetails() {
   const [creatingOrderInvoice, setCreatingOrderInvoice] = useState(false)
   const [creatingOrderShippingLabel, setCreatingOrderShippingLabel] = useState(false)
   const [downloadingOrderShippingLabel, setDownloadingOrderShippingLabel] = useState(false)
+  const [creatingOrderReturnLabel, setCreatingOrderReturnLabel] = useState(false)
+  const [downloadingOrderReturnLabel, setDownloadingOrderReturnLabel] = useState(false)
   const [orderInvoices, setOrderInvoices] = useState<FinancialInvoice[]>([])
   const [loadingOrderInvoices, setLoadingOrderInvoices] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
@@ -1130,6 +1133,53 @@ export function OrderDetails() {
       })
     } finally {
       setDownloadingOrderShippingLabel(false)
+    }
+  }
+
+  const handleCreateOrderReturnLabel = async () => {
+    if (!linkedBooking?._id || creatingOrderReturnLabel || linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created') return
+
+    try {
+      setCreatingOrderReturnLabel(true)
+      const response = await createReturnLabel(linkedBooking._id)
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Rücksendelabel konnte nicht erstellt werden.')
+      }
+
+      setLinkedBooking((prev: any) => (prev ? { ...prev, ...(response.booking || {}) } : prev))
+
+      toast({
+        title: 'Rücksendelabel erstellt',
+        description: response?.returnTrackingNumber || response?.booking?.returnTrackingNumber
+          ? `Trackingnummer: ${response.returnTrackingNumber || response.booking.returnTrackingNumber}`
+          : 'Das Rücksendelabel wurde erfolgreich erstellt.',
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Rücksendelabel konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatingOrderReturnLabel(false)
+    }
+  }
+
+  const handleDownloadOrderReturnLabel = async () => {
+    if (!linkedBooking?._id || downloadingOrderReturnLabel) return
+
+    try {
+      setDownloadingOrderReturnLabel(true)
+      await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
+    } catch (error: any) {
+      toast({
+        title: 'Rücksendelabel konnte nicht heruntergeladen werden',
+        description: error?.message || 'Bitte versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDownloadingOrderReturnLabel(false)
     }
   }
 
@@ -5493,19 +5543,41 @@ export function OrderDetails() {
                           {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
                         </Button>
 
-                        <Button
-                          size="sm"
-                          onClick={handleCreateOrderShippingLabel}
-                          disabled={creatingOrderShippingLabel || Boolean(order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created')}
-                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
-                        >
-                          <Send className="h-4 w-4 mr-1.5" />
-                          {creatingOrderShippingLabel
-                            ? 'Einsendelabel wird erstellt…'
-                            : order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
-                              ? 'Einsendelabel bereits erstellt'
-                              : 'Einsendelabel erstellen'}
-                        </Button>
+                        {order.status === 'completed' ? (
+                          <Button
+                            size="sm"
+                            onClick={handleCreateOrderReturnLabel}
+                            disabled={
+                              !linkedBooking?._id
+                              || creatingOrderReturnLabel
+                              || Boolean(linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
+                            }
+                            className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45] font-semibold border-0"
+                          >
+                            <Truck className="h-4 w-4 mr-1.5" />
+                            {creatingOrderReturnLabel
+                              ? 'Rücksendelabel wird erstellt…'
+                              : linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created'
+                                ? 'Rücksendelabel bereits erstellt'
+                                : !linkedBooking?._id
+                                  ? 'Keine Buchung verknüpft'
+                                  : 'Rücksendung starten'}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={handleCreateOrderShippingLabel}
+                            disabled={creatingOrderShippingLabel || Boolean(order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created')}
+                            className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                          >
+                            <Send className="h-4 w-4 mr-1.5" />
+                            {creatingOrderShippingLabel
+                              ? 'Einsendelabel wird erstellt…'
+                              : order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
+                                ? 'Einsendelabel bereits erstellt'
+                                : 'Einsendelabel erstellen'}
+                          </Button>
+                        )}
 
                         <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
                           <div>
@@ -5548,7 +5620,7 @@ export function OrderDetails() {
                             )}
                           </div>
 
-                          <div className="border-t pt-2">
+                          <div className="border-t pt-2 space-y-2">
                             {order.shippingLabelUrl ? (
                               <div className="flex flex-wrap gap-2">
                                 <Button
@@ -5564,6 +5636,22 @@ export function OrderDetails() {
                             ) : (
                               <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
                             )}
+
+                            {linkedBooking?.returnLabelUrl ? (
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleDownloadOrderReturnLabel}
+                                  disabled={downloadingOrderReturnLabel}
+                                >
+                                  <Download className="h-4 w-4 mr-1.5" />
+                                  {downloadingOrderReturnLabel ? 'Rücksendelabel wird heruntergeladen…' : 'Rücksendelabel herunterladen'}
+                                </Button>
+                              </div>
+                            ) : order.status === 'completed' ? (
+                              <p className="text-xs text-muted-foreground">Noch kein Rücksendelabel verfügbar.</p>
+                            ) : null}
                           </div>
                         </div>
                       </div>
