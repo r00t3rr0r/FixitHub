@@ -26,9 +26,17 @@ interface InspectionResultsDisplayProps {
   orderId: string;
   onStartInspection?: () => void;
   userRole?: string;
+  currentDevice?: { brand?: string; model?: string };
+  orderTimeline?: Array<{ status?: string; description?: string; completedAt?: string }>;
 }
 
-export function InspectionResultsDisplay({ orderId, onStartInspection, userRole = 'customer' }: InspectionResultsDisplayProps) {
+export function InspectionResultsDisplay({
+  orderId,
+  onStartInspection,
+  userRole = 'customer',
+  currentDevice,
+  orderTimeline = [],
+}: InspectionResultsDisplayProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -269,6 +277,70 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
 
   // ── Completed inspection ─────────────────────────────────────────────────
   const sc = statusConfig(inspection.status);
+  const currentDeviceName = [currentDevice?.brand, currentDevice?.model].filter(Boolean).join(' ');
+  const latestModelChange = [...orderTimeline]
+    .reverse()
+    .find((entry) => entry.status === 'Device Changed' && entry.description);
+  const inspectionDetails = [
+    inspection.modelVerification?.verifiedAt && {
+      label: 'Modell geprüft',
+      value: new Date(inspection.modelVerification.verifiedAt).toLocaleString('de-DE'),
+    },
+    inspection.identification?.identifiedAt && {
+      label: 'Gerät identifiziert',
+      value: inspection.identification.identified ? 'Ja' : 'Nein',
+    },
+    inspection.identification?.imeiRequired && {
+      label: 'IMEI erforderlich',
+      value: 'Ja',
+    },
+    inspection.deviceTest?.buttons?.status && {
+      label: 'Tasten',
+      value: conditionLabel(inspection.deviceTest.buttons.status),
+    },
+    inspection.deviceTest?.buttons?.notes && {
+      label: 'Notiz Tasten',
+      value: inspection.deviceTest.buttons.notes,
+    },
+    inspection.deviceTest?.notes && {
+      label: 'Notiz Gerätetest',
+      value: inspection.deviceTest.notes,
+    },
+    inspection.completionAction && {
+      label: 'Abschluss',
+      value: {
+        repairable: 'Reparierbar',
+        'not-repairable': 'Nicht reparierbar',
+        'inform-customer': 'Kunde informieren',
+      }[inspection.completionAction] || inspection.completionAction,
+    },
+    inspection.approvalStatus && {
+      label: 'Freigabe',
+      value: inspection.approvalStatus.replace(/-/g, ' '),
+    },
+    inspection.customerInformation?.shouldInform && {
+      label: 'Kundeninformation',
+      value: [inspection.customerInformation.reason, inspection.customerInformation.note]
+        .filter(Boolean)
+        .join(' - ') || 'Erforderlich',
+    },
+    inspection.customerInformation?.suggestedStatus && {
+      label: 'Vorgeschlagener Status',
+      value: inspection.customerInformation.suggestedStatus,
+    },
+    inspection.customerInformation?.mailTemplate && {
+      label: 'E-Mail-Vorlage',
+      value: inspection.customerInformation.mailTemplate,
+    },
+    inspection.customerNotificationCreated && {
+      label: 'Kunde benachrichtigt',
+      value: 'Ja',
+    },
+    inspection.reportGeneratedAt && {
+      label: 'Bericht erstellt',
+      value: new Date(inspection.reportGeneratedAt).toLocaleString('de-DE'),
+    },
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
     <div className="space-y-0 rounded-xl overflow-hidden border border-[#1a2a5e]/15">
@@ -309,10 +381,10 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                   <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Modell</span>
                 </div>
                 <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
-                  {inspection.modelVerification.actualModel}
+                  {currentDeviceName || inspection.modelVerification.actualModel}
                 </p>
                 {inspection.modelVerification.reportedModel &&
-                  inspection.modelVerification.reportedModel !== inspection.modelVerification.actualModel && (
+                  inspection.modelVerification.reportedModel !== (currentDeviceName || inspection.modelVerification.actualModel) && (
                     <p className="text-[10px] text-muted-foreground break-words">
                       Gemeldet: {inspection.modelVerification.reportedModel}
                     </p>
@@ -328,7 +400,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                   </span>
                 </div>
                 {inspection.modelVerification.costDifference != null &&
-                  inspection.modelVerification.costDifference !== 0 && (
+                  (
                     <p className="text-[10px] text-amber-600">
                       Preisdifferenz: {inspection.modelVerification.costDifference > 0 ? '+' : ''}{inspection.modelVerification.costDifference} €
                     </p>
@@ -383,10 +455,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                           {ok ? 'OK' : notTested ? 'Nicht durchgef.' : 'Fehler'}
                         </span>
                       </div>
-                      {!ok && !notTested && test.notes && (
-                        <p className="text-[10px] text-muted-foreground italic pl-1">{test.notes}</p>
-                      )}
-                      {notTested && test.notes && (
+                      {test.notes && (
                         <p className="text-[10px] text-muted-foreground italic pl-1">{test.notes}</p>
                       )}
                     </div>
@@ -419,7 +488,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                     )}
                   </>
                 )}
-                {inspection.repairOffer?.cost != null && inspection.repairOffer.cost > 0 && (
+                {inspection.repairOffer?.cost != null && (
                   <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.cost} €</p>
                 )}
                 {inspection.repairOffer?.timeframe && (
@@ -430,6 +499,23 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {latestModelChange && (
+          <div className="px-4 py-3 bg-amber-50/60">
+            <div className="flex items-start gap-1.5">
+              <Smartphone className="h-3.5 w-3.5 text-amber-700 flex-shrink-0 mt-px" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-amber-800 font-medium">Modelländerung</p>
+                <p className="text-[11px] text-amber-900 break-words leading-snug">{latestModelChange.description}</p>
+                {latestModelChange.completedAt && (
+                  <p className="text-[10px] text-amber-700 mt-0.5">
+                    {new Date(latestModelChange.completedAt).toLocaleString('de-DE')}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -494,6 +580,31 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
             {inspection.accessories.additionalAccessoriesText && (
               <p className="text-[10px] text-muted-foreground italic mt-1">{inspection.accessories.additionalAccessoriesText}</p>
             )}
+            {inspection.accessories.description && (
+              <p className="text-[10px] text-muted-foreground italic mt-1">{inspection.accessories.description}</p>
+            )}
+            {[
+              { key: 'originalPackaging', label: t('deviceInspection.packaging') },
+              { key: 'caseCover', label: t('deviceInspection.case') },
+              { key: 'powerAdapter', label: t('deviceInspection.adapter') },
+              { key: 'simTray', label: 'SIM-Schublade' },
+              { key: 'cables', label: 'Kabel' },
+            ].map(({ key, label }) => {
+              const item = inspection.accessories[key];
+              return item?.description ? (
+                <p key={key} className="text-[10px] text-muted-foreground break-words">
+                  <span className="font-medium">{label}:</span> {item.description}
+                </p>
+              ) : null;
+            })}
+            {Array.isArray(inspection.accessories.otherAccessories) &&
+              inspection.accessories.otherAccessories.map((accessory: { name?: string; description?: string }, index: number) =>
+                accessory?.name && accessory?.description ? (
+                  <p key={`description-${index}`} className="text-[10px] text-muted-foreground break-words">
+                    <span className="font-medium">{accessory.name}:</span> {accessory.description}
+                  </p>
+                ) : null
+              )}
           </div>
         )}
 
@@ -540,12 +651,24 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 );
               })}
             </div>
-            {inspection.externalInspection.visibleDamages?.hasDamage && (
-              <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-2">
-                <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-px" />
-                <p className="text-[11px] text-red-700 break-words leading-snug">
+            {inspection.externalInspection.visibleDamages && (
+              <div className={`mt-1.5 flex items-start gap-1.5 rounded-lg border px-2.5 py-2 ${
+                inspection.externalInspection.visibleDamages.hasDamage
+                  ? 'bg-red-50 border-red-200'
+                  : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                {inspection.externalInspection.visibleDamages.hasDamage ? (
+                  <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-px" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-px" />
+                )}
+                <p className={`text-[11px] break-words leading-snug ${
+                  inspection.externalInspection.visibleDamages.hasDamage ? 'text-red-700' : 'text-emerald-700'
+                }`}>
                   <span className="font-semibold">{t('deviceInspection.visibleDamage')}</span>{' '}
-                  {inspection.externalInspection.visibleDamages.description}
+                  {inspection.externalInspection.visibleDamages.description || (
+                    inspection.externalInspection.visibleDamages.hasDamage ? 'Vorhanden' : 'Keine festgestellt'
+                  )}
                 </p>
               </div>
             )}
@@ -601,8 +724,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
               {inspection.appleSpecific.modemFirmware?.notes && (
                 <p className="text-[10px] text-muted-foreground italic pl-1">{inspection.appleSpecific.modemFirmware.notes}</p>
               )}
-              {inspection.appleSpecific.touchIdFaceId?.status &&
-                inspection.appleSpecific.touchIdFaceId.status !== 'not-applicable' && (
+              {inspection.appleSpecific.touchIdFaceId?.status && (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] text-muted-foreground">Touch ID / Face ID</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
@@ -614,8 +736,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                   </span>
                 </div>
               )}
-              {inspection.appleSpecific.touchIdFaceId?.notes &&
-                inspection.appleSpecific.touchIdFaceId.status !== 'not-applicable' && (
+              {inspection.appleSpecific.touchIdFaceId?.notes && (
                 <p className="text-[10px] text-muted-foreground italic pl-1">{inspection.appleSpecific.touchIdFaceId.notes}</p>
               )}
               {inspection.appleSpecific.customerInfoAction?.requested &&
@@ -626,6 +747,45 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {(inspectionDetails.length > 0 || Array.isArray(inspection.actionLogs) && inspection.actionLogs.length > 0) && (
+          <div className="px-4 py-3 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+              <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Weitere Angaben</span>
+            </div>
+            {inspectionDetails.length > 0 && (
+              <div className="grid grid-cols-1 gap-1.5">
+                {inspectionDetails.map((detail) => (
+                  <div key={detail.label} className="flex items-start justify-between gap-3 text-[10px]">
+                    <span className="text-muted-foreground">{detail.label}</span>
+                    <span className="text-right font-medium text-[#1a2a5e] break-words">{detail.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {Array.isArray(inspection.actionLogs) && inspection.actionLogs.length > 0 && (
+              <div className="space-y-1 border-t border-[#1a2a5e]/10 pt-2">
+                {inspection.actionLogs.map((entry: {
+                  _id?: string;
+                  action?: string;
+                  technicianName?: string;
+                  timestamp?: string;
+                  resultStatus?: string;
+                  details?: unknown;
+                }, index: number) => (
+                  <p key={entry._id || index} className="text-[10px] text-muted-foreground break-words">
+                    <span className="font-medium text-[#1a2a5e]">{entry.action}</span>
+                    {entry.technicianName ? ` - ${entry.technicianName}` : ''}
+                    {entry.resultStatus ? ` [${entry.resultStatus}]` : ''}
+                    {entry.timestamp ? ` (${new Date(entry.timestamp).toLocaleString('de-DE')})` : ''}
+                    {entry.details ? `: ${JSON.stringify(entry.details)}` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

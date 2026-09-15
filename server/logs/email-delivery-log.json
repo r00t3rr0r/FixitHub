@@ -22232,5 +22232,35 @@
         "deviceModelImageUrl"
       ]
     }
+  },
+  {
+    "id": "1789471568357-7w9mv4ill",
+    "timestamp": "2026-09-15T11:26:08.357Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-092 – Nokia 1 Plus",
+    "messageId": "<dbc2c1eb-fe79-e713-002a-e520d420771f@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1328,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

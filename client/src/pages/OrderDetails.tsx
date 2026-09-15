@@ -4469,6 +4469,8 @@ export function OrderDetails() {
           key={`customer-inspection-${id}-${inspectionRefreshKey}`}
           orderId={id!}
           userRole={user?.role || 'customer'}
+          currentDevice={{ brand: order?.deviceBrand, model: order?.deviceModel }}
+          orderTimeline={Array.isArray(order?.timeline) ? order.timeline : []}
         />
       )
     }
@@ -6689,6 +6691,7 @@ export function OrderDetails() {
                   deviceBrand={(order as any)?.deviceBrand || ''}
                   deviceModel={(order as any)?.deviceModel || ''}
                   initialImei={(order as any)?.imei || ''}
+                  initialSerialNumber={(order as any)?.serialNumber || ''}
                   reportedDeviceImage={getDeviceModelPreviewImage(order) || undefined}
                   bookedRepairs={(repairServices || []).map((service: any) => ({
                     name: service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Reparaturservice',

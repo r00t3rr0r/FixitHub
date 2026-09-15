@@ -95,7 +95,36 @@ async function runTests() {
         const summary = changeResponse.data.pricingChangesSummary;
         log('Total Cost Before: $' + summary.totalCostBefore.toFixed(2), 'info');
         log('Total Cost After: $' + summary.totalCostAfter.toFixed(2), 'info');
-        testResults.passed++;
+
+        const updatedOrder = changeResponse.data.order;
+        const paymentAdjustment = summary.paymentAdjustment;
+        const expectedHistoryText =
+          'Modellwechsel: ' +
+          originalDevice.brand +
+          ' ' +
+          originalDevice.model +
+          ' -> ' +
+          newDevice.deviceBrand +
+          ' ' +
+          newDevice.deviceModel;
+        const historyEntry = (updatedOrder.timeline || []).find(
+          (entry) => entry.status === 'Device Changed' && entry.description.includes(expectedHistoryText)
+        );
+
+        if (
+          Number(updatedOrder.totalCost) === Number(summary.totalCostAfter) &&
+          historyEntry &&
+          historyEntry.description.includes(summary.totalCostAfter.toFixed(2) + ' EUR') &&
+          paymentAdjustment &&
+          typeof paymentAdjustment.refundAmount === 'number' &&
+          typeof paymentAdjustment.additionalPaymentAmount === 'number'
+        ) {
+          log('Order total, payment adjustment, and model-change history were updated', 'info');
+          testResults.passed++;
+        } else {
+          log('Order total, payment adjustment, or model-change history was not updated correctly', 'error');
+          testResults.failed++;
+        }
       } else {
         log('Device change failed: No success flag', 'error');
         testResults.failed++;

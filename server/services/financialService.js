@@ -2454,7 +2454,14 @@ class FinancialService {
       if (!invoices || invoices.length === 0) return;
 
       const mainInvoice = invoices.find(inv => !inv.isCreditNote) || invoices[0];
-      const newOrderValue = booking ? booking.totalCost : Number(mainInvoice.total);
+      let newOrderValue = booking ? Number(booking.totalCost || 0) : null;
+      if (newOrderValue === null && orderId) {
+        const order = await Order.findById(orderId).select('totalCost').lean();
+        newOrderValue = Number(order?.totalCost || 0);
+      }
+      if (newOrderValue === null) {
+        newOrderValue = Number(mainInvoice.total || 0);
+      }
 
       const mutableStatuses = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
       if (mutableStatuses.includes(mainInvoice.status)) {

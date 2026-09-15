@@ -183,17 +183,31 @@ class DeviceInspectionService {
         throw new Error('Inspection not found');
       }
 
+      const canonicalDeviceTypes = {
+        smartphone: 'Smartphone',
+        laptop: 'Laptop',
+        tablet: 'Tablet',
+        watch: 'Watch',
+        smartwatch: 'Watch',
+        wearable: 'Watch',
+        headphones: 'Headphones',
+      };
+      const normalizedDeviceType = canonicalDeviceTypes[String(deviceType || '').trim().toLowerCase()];
+      if (!normalizedDeviceType) {
+        throw new Error('Unsupported device type');
+      }
+
       // IMEI is optional for smartphones in this workflow.
       const identified =
-        (deviceType === 'Smartphone' && Boolean(imei || serialNumber)) ||
-        (['Laptop', 'Tablet'].includes(deviceType) && Boolean(serialNumber)) ||
-        (!['Smartphone', 'Laptop', 'Tablet'].includes(deviceType));
+        (normalizedDeviceType === 'Smartphone' && Boolean(imei || serialNumber)) ||
+        (['Laptop', 'Tablet'].includes(normalizedDeviceType) && Boolean(serialNumber)) ||
+        (!['Smartphone', 'Laptop', 'Tablet'].includes(normalizedDeviceType));
 
       inspection.identification = {
-        deviceType,
-        imei: deviceType === 'Smartphone' ? imei : null,
-        serialNumber: ['Laptop', 'Tablet'].includes(deviceType) ? serialNumber : null,
-        imeiRequired: deviceType === 'Smartphone' && !imei,
+        deviceType: normalizedDeviceType,
+        imei: imei || null,
+        serialNumber: serialNumber || null,
+        imeiRequired: normalizedDeviceType === 'Smartphone' && !imei,
         identified,
         identifiedAt: new Date(),
       };

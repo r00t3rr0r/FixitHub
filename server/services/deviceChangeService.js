@@ -1,10 +1,51 @@
 const Order = require('../models/Order');
+const Payment = require('../models/Payment');
 const Service = require('../models/Service');
 const User = require('../models/User');
 const FinancialService = require('./financialService');
 const { sendNotification } = require('./notificationService');
 
 class DeviceChangeService {
+  static async getPaymentAdjustment(order) {
+    if (order.bookingId) {
+      const BookingPaymentService = require('./bookingPaymentService');
+      const overview = await BookingPaymentService.getOverview(order.bookingId);
+      const orderValue = Number(overview.summary.orderValue || 0);
+      const paidAmount = Number(overview.summary.receivedTotal || 0);
+
+      return {
+        scope: 'booking',
+        orderValue,
+        paidAmount,
+        refundAmount: Number(Math.max(0, paidAmount - orderValue).toFixed(2)),
+        additionalPaymentAmount: Number(Math.max(0, orderValue - paidAmount).toFixed(2)),
+      };
+    }
+
+    const payments = await Payment.find({
+      orderId: order._id,
+      status: { $in: ['completed', 'refunded'] },
+    }).lean();
+    const paidAmount = Number(
+      Math.max(
+        0,
+        payments.reduce(
+          (sum, payment) => sum + (Number(payment.amount) || 0) - (Number(payment.refundAmount) || 0),
+          0
+        )
+      ).toFixed(2)
+    );
+    const orderValue = Number(order.totalCost || 0);
+
+    return {
+      scope: 'order',
+      orderValue,
+      paidAmount,
+      refundAmount: Number(Math.max(0, paidAmount - orderValue).toFixed(2)),
+      additionalPaymentAmount: Number(Math.max(0, orderValue - paidAmount).toFixed(2)),
+    };
+  }
+
   static normalizeDeviceTypeCandidates(deviceType) {
     const candidates = [String(deviceType || '').trim()].filter(Boolean);
     const normalized = candidates[0]?.toLowerCase();
@@ -110,9 +151,7 @@ class DeviceChangeService {
         [changedByUser?.firstName, changedByUser?.lastName].filter(Boolean).join(' ') ||
         'System';
 
-      const originalTotalCost =
-        (order.services || []).reduce((sum, service) => sum + (Number(service.price) || 0), 0) +
-        (order.addOns || []).reduce((sum, addon) => sum + (Number(addon.price) || 0), 0);
+      const originalTotalCost = Number(order.totalCost) || 0;
 
       // Update device information
       order.deviceBrand = newDeviceInfo.deviceBrand;
@@ -302,9 +341,24 @@ class DeviceChangeService {
         }
       }
 
-      // Recalculate total cost
-      const newTotalCost = order.services.reduce((sum, s) => sum + (s.price || 0), 0) +
-        (order.addOns ? order.addOns.reduce((sum, addon) => sum + (addon.price || 0), 0) : 0);
+      // Recalculate the entire order value while preserving products and checkout discounts.
+      const servicesTotal = (order.services || []).reduce(
+        (sum, service) => sum + (Number(service.price) || 0),
+        0
+      );
+      const addOnsTotal = (order.addOns || []).reduce(
+        (sum, addon) => sum + (Number(addon.price) || 0),
+        0
+      );
+      const shopProductsTotal = (order.shopProducts || []).reduce(
+        (sum, product) =>
+          sum + (Number(product.priceAtOrder) || 0) * (Number(product.quantity) || 0),
+        0
+      );
+      const discount = Number(order.discount) || 0;
+      const newTotalCost = Number(
+        Math.max(0, servicesTotal + addOnsTotal + shopProductsTotal - discount).toFixed(2)
+      );
       order.totalCost = newTotalCost;
 
       const totalCostDifference = newTotalCost - originalTotalCost;
@@ -333,15 +387,6 @@ class DeviceChangeService {
         changedBy: userId,
       };
 
-      // Add history entry so the order timeline reflects this device update immediately.
-      order.timeline.push({
-        status: 'Device Changed',
-        description: `Device changed from ${originalDevice.brand} ${originalDevice.model} to ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}`,
-        completedAt: new Date(),
-        staffId: String(userId || 'system'),
-        staffName: changedByName,
-      });
-
       // Save the order with updated device and services
       await order.save();
       try {
@@ -349,6 +394,30 @@ class DeviceChangeService {
       } catch (syncErr) {
         console.warn(`[DeviceChange] Warning syncing financial value: ${syncErr.message}`);
       }
+
+      let paymentAdjustment = null;
+      try {
+        paymentAdjustment = await DeviceChangeService.getPaymentAdjustment(order);
+      } catch (paymentError) {
+        console.warn(`[DeviceChange] Warning calculating payment adjustment: ${paymentError.message}`);
+      }
+
+      pricingChangesSummary.paymentAdjustment = paymentAdjustment;
+      const paymentHistory = paymentAdjustment
+        ? paymentAdjustment.refundAmount > 0
+          ? ` Erstattung faellig: ${paymentAdjustment.refundAmount.toFixed(2)} EUR.`
+          : paymentAdjustment.additionalPaymentAmount > 0
+            ? ` Noch offen: ${paymentAdjustment.additionalPaymentAmount.toFixed(2)} EUR.`
+            : ' Zahlung ist ausgeglichen.'
+        : '';
+      order.timeline.push({
+        status: 'Device Changed',
+        description: `Modellwechsel: ${originalDevice.brand} ${originalDevice.model} -> ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}. Auftragskosten: ${originalTotalCost.toFixed(2)} EUR -> ${newTotalCost.toFixed(2)} EUR.${paymentHistory}`,
+        completedAt: new Date(),
+        staffId: String(userId || 'system'),
+        staffName: changedByName,
+      });
+      await order.save();
 
       console.log(
         `[DeviceChange] Device successfully changed for order ${orderId}. Requires confirmation: ${pricingChangesSummary.requiresConfirmation}`

@@ -1,31 +1,5 @@
 [
   {
-    "id": "1788440896267-kdvs23lue",
-    "timestamp": "2026-09-03T13:08:16.267Z",
-    "source": "systemConfiguration",
-    "host": "smtp.gmail.com",
-    "port": 587,
-    "secure": false,
-    "requiresTLS": true,
-    "hasAuth": true,
-    "status": "attempted",
-    "message": "SMTP transporter created",
-    "error": null
-  },
-  {
-    "id": "1788440896648-6mticcrhv",
-    "timestamp": "2026-09-03T13:08:16.648Z",
-    "source": "systemConfiguration",
-    "host": "smtp.gmail.com",
-    "port": 587,
-    "secure": false,
-    "requiresTLS": true,
-    "hasAuth": true,
-    "status": "verified",
-    "message": "SMTP verification successful",
-    "error": null
-  },
-  {
     "id": "1788440953025-1nfbhfn3e",
     "timestamp": "2026-09-03T13:09:13.025Z",
     "source": "systemConfiguration",
@@ -6489,6 +6463,32 @@
   {
     "id": "1789470215201-qmlw2ihon",
     "timestamp": "2026-09-15T11:03:35.201Z",
+    "source": "systemConfiguration",
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false,
+    "requiresTLS": true,
+    "hasAuth": true,
+    "status": "verified",
+    "message": "SMTP verification successful",
+    "error": null
+  },
+  {
+    "id": "1789471567090-e7akjfj4q",
+    "timestamp": "2026-09-15T11:26:07.090Z",
+    "source": "systemConfiguration",
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false,
+    "requiresTLS": true,
+    "hasAuth": true,
+    "status": "attempted",
+    "message": "SMTP transporter created",
+    "error": null
+  },
+  {
+    "id": "1789471567513-9ehm3raa1",
+    "timestamp": "2026-09-15T11:26:07.513Z",
     "source": "systemConfiguration",
     "host": "smtp.gmail.com",
     "port": 587,

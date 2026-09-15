@@ -64,6 +64,7 @@ interface DeviceInspectionFormProps {
   deviceBrand?: string;
   deviceModel?: string;
   initialImei?: string;
+  initialSerialNumber?: string;
   reportedDeviceImage?: string;
   bookedRepairs?: Array<{ name: string; price?: number; quantity?: number }>;
   orderTotalCost?: number;
@@ -79,6 +80,7 @@ export function DeviceInspectionForm({
   deviceBrand,
   deviceModel,
   initialImei = '',
+  initialSerialNumber = '',
   reportedDeviceImage,
   bookedRepairs = [],
   orderTotalCost,
@@ -494,9 +496,8 @@ export function DeviceInspectionForm({
   const hydrateFromInspection = (insp: any) => {
     if (!insp) return;
 
-    // The persisted reportedModel is the customer's original report; it must not be
-    // overwritten by the order's device fields once a later correction changes them.
-    setReportedModel(insp.modelVerification?.reportedModel || orderReportedModel || '');
+    // The current order device is authoritative after a correction via "Geraet aendern".
+    setReportedModel(orderReportedModel || insp.modelVerification?.reportedModel || '');
 
     if (insp.modelVerification) {
       const persistedActual = insp.modelVerification.actualModel || '';
@@ -504,12 +505,15 @@ export function DeviceInspectionForm({
       // "Geraet aendern". If it diverges from the persisted actualModel, the device was
       // changed after the inspection was last saved, so the persisted value is stale and
       // must not be shown in Step 7 - the order's current device wins.
-      const effectiveActual = orderReportedModel && orderReportedModel !== persistedActual
-        ? orderReportedModel
-        : persistedActual;
+      const orderDeviceChanged = Boolean(orderReportedModel && orderReportedModel !== persistedActual);
+      const effectiveActual = orderDeviceChanged ? orderReportedModel : persistedActual;
       setActualModel(effectiveActual);
       setActualModelSearchQuery(effectiveActual);
-      setVerificationStatus((insp.modelVerification.verificationStatus || 'correct') as VerificationStatus);
+      setVerificationStatus(
+        orderDeviceChanged
+          ? 'correct'
+          : (insp.modelVerification.verificationStatus || 'correct') as VerificationStatus
+      );
       setCostDifference(Number(insp.modelVerification.costDifference || 0));
       setModelNotes(insp.modelVerification.notes || '');
     } else {
@@ -521,10 +525,11 @@ export function DeviceInspectionForm({
 
     if (insp.identification) {
       setImei(insp.identification.imei || initialImei || '');
-      setSerialNumber(insp.identification.serialNumber || '');
+      setSerialNumber(insp.identification.serialNumber || initialSerialNumber || '');
       setImeiRequiredAtCompletion(Boolean(insp.identification.imeiRequired));
-    } else if (initialImei) {
+    } else {
       setImei(initialImei);
+      setSerialNumber(initialSerialNumber);
     }
 
     if (insp.accessories) {
@@ -728,7 +733,7 @@ export function DeviceInspectionForm({
     };
 
     init();
-  }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne, initialImei]);
+  }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne, initialImei, initialSerialNumber]);
 
   useEffect(() => {
     // Only use the order's device fields as a fallback before the reportedModel has been
@@ -1477,28 +1482,25 @@ export function DeviceInspectionForm({
         </CardHeader>
         {expandedSteps.includes(2) && (
           <CardContent className="space-y-4">
-            {deviceType === 'Smartphone' ? (
-              <div className="space-y-2">
-                <Label htmlFor="imei">{t('inspection.fields.imei', 'IMEI-Nummer')}</Label>
-                <Input
-                  id="imei"
-                  value={imei}
-                  onChange={(e) => setImei(e.target.value)}
-                  placeholder={t('inspection.placeholders.imei', 'IMEI eingeben (optional)')}
-                />
-                <p className="text-xs text-slate-500">Dieses Feld ist optional. Falls leer, wird IMEI im Abschluss erneut abgefragt.</p>
-              </div>
-            ) : (
-              <div>
-                <Label htmlFor="serial">{t('inspection.fields.serialNumber', 'Seriennummer')}</Label>
-                <Input
-                  id="serial"
-                  value={serialNumber}
-                  onChange={(e) => setSerialNumber(e.target.value)}
-                  placeholder={t('inspection.placeholders.serialNumber', 'Seriennummer eingeben')}
-                />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="imei">{t('inspection.fields.imei', 'IMEI-Nummer')}</Label>
+              <Input
+                id="imei"
+                value={imei}
+                onChange={(e) => setImei(e.target.value)}
+                placeholder={t('inspection.placeholders.imei', 'IMEI eingeben (optional)')}
+              />
+              <p className="text-xs text-slate-500">Dieses Feld ist optional. Falls leer, wird IMEI im Abschluss erneut abgefragt.</p>
+            </div>
+            <div>
+              <Label htmlFor="serial">{t('inspection.fields.serialNumber', 'Seriennummer')}</Label>
+              <Input
+                id="serial"
+                value={serialNumber}
+                onChange={(e) => setSerialNumber(e.target.value)}
+                placeholder={t('inspection.placeholders.serialNumber', 'Seriennummer eingeben')}
+              />
+            </div>
 
             <Button onClick={handleIdentification} disabled={submitting} aria-busy={submittingStep === 2} className="inspection-primary-button">
               {submittingStep === 2 ? 'Speichert...' : t('inspection.actions.saveContinue', 'Speichern & Weiter')}

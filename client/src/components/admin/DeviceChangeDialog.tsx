@@ -56,6 +56,13 @@ interface PricingChangesSummary {
   totalCostAfter: number
   totalCostDifference: number
   totalCostStatus: 'increase' | 'decrease' | 'no-change'
+  paymentAdjustment?: {
+    scope: 'booking' | 'order'
+    orderValue: number
+    paidAmount: number
+    refundAmount: number
+    additionalPaymentAmount: number
+  } | null
   selectedServiceSwap?: {
     previousServiceName: string
     previousServicePrice: number
@@ -871,6 +878,32 @@ export function DeviceChangeDialog({
                       )}
                     </div>
                   </div>
+                  {pricingChanges.paymentAdjustment && (
+                    <div className="space-y-1 border-t border-[#eceef3] pt-2 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[#636e85]">Bereits bezahlt:</span>
+                        <span className="font-medium text-[#1a202c]">
+                          ${pricingChanges.paymentAdjustment.paidAmount.toFixed(2)}
+                        </span>
+                      </div>
+                      {pricingChanges.paymentAdjustment.refundAmount > 0 && (
+                        <div className="flex items-center justify-between gap-3 text-emerald-700">
+                          <span className="font-semibold">Erstattung an Kunde:</span>
+                          <span className="font-bold">
+                            ${pricingChanges.paymentAdjustment.refundAmount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {pricingChanges.paymentAdjustment.additionalPaymentAmount > 0 && (
+                        <div className="flex items-center justify-between gap-3 text-amber-700">
+                          <span className="font-semibold">Noch zu zahlen:</span>
+                          <span className="font-bold">
+                            ${pricingChanges.paymentAdjustment.additionalPaymentAmount.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
