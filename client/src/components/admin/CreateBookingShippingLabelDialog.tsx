@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/useToast"
 import { createBookingShippingLabel, getBooking } from "@/api/bookings"
-import { Loader2, Package, User } from "lucide-react"
+import type { ShippingLabelError } from "@/api/shipping"
+import { AlertCircle, Loader2, Package, RotateCcw, User } from "lucide-react"
 
 interface CreateBookingShippingLabelDialogProps {
   open: boolean
@@ -42,6 +44,12 @@ interface BookingShipmentData {
   isCustomsDeclarable: boolean
 }
 
+interface LabelCreationError {
+  message: string
+  details: string[]
+  retryable: boolean
+}
+
 export function CreateBookingShippingLabelDialog({
   open,
   onOpenChange,
@@ -51,6 +59,7 @@ export function CreateBookingShippingLabelDialog({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingBooking, setLoadingBooking] = useState(false)
+  const [creationError, setCreationError] = useState<LabelCreationError | null>(null)
 
   const [formData, setFormData] = useState<BookingShipmentData>({
     weight: 1.0,
@@ -80,6 +89,7 @@ export function CreateBookingShippingLabelDialog({
 
   useEffect(() => {
     if (open && bookingId) {
+      setCreationError(null)
       loadBookingDetails()
     }
   }, [open, bookingId])
@@ -104,7 +114,8 @@ export function CreateBookingShippingLabelDialog({
         receiverPostalCode: address?.zipCode || address?.postalCode || "",
         receiverCountry: address?.country || "NL",
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
+      console.error('Error loading booking details:', error)
       toast({
         title: "Warning",
         description: "Could not pre-fill receiver information. Please enter manually.",
@@ -117,6 +128,7 @@ export function CreateBookingShippingLabelDialog({
 
   const handleCreate = async () => {
     if (!formData.weight || !formData.length || !formData.width || !formData.height) {
+      setCreationError({ message: "Bitte alle Paketmaße und das Gewicht ausfüllen.", details: [], retryable: false })
       toast({
         title: "Error",
         description: "Please fill in all package dimensions",
@@ -126,6 +138,7 @@ export function CreateBookingShippingLabelDialog({
     }
 
     if (!formData.receiverAddress?.trim() || !formData.receiverCity?.trim() || !formData.receiverPostalCode?.trim() || !formData.receiverCountry?.trim()) {
+      setCreationError({ message: "Empfängeradresse unvollständig: Straße, Ort, PLZ und Land sind erforderlich.", details: [], retryable: false })
       toast({
         title: "Error",
         description: "Receiver address, city, postal code and country are required",
@@ -134,6 +147,7 @@ export function CreateBookingShippingLabelDialog({
       return
     }
 
+    setCreationError(null)
     setLoading(true)
     try {
       const result = await createBookingShippingLabel(bookingId, formData)
@@ -143,10 +157,17 @@ export function CreateBookingShippingLabelDialog({
       })
       onSuccess()
       onOpenChange(false)
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const shippingError = error as ShippingLabelError
+      const message = shippingError.message || "Versandlabel konnte nicht erstellt werden."
+      setCreationError({
+        message,
+        details: shippingError.details || [],
+        retryable: shippingError.retryable === true,
+      })
       toast({
-        title: "Error",
-        description: error?.message || "Failed to create shipping label",
+        title: "Label konnte nicht erstellt werden",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -306,6 +327,26 @@ export function CreateBookingShippingLabelDialog({
           </div>
         )}
 
+        {creationError && (
+          <Alert variant="destructive" aria-live="assertive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Label konnte nicht erstellt werden</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>{creationError.message}</p>
+              {creationError.details.length > 0 && (
+                <ul className="list-disc space-y-1 pl-5">
+                  {creationError.details.map((detail) => <li key={detail}>{detail}</li>)}
+                </ul>
+              )}
+              <p>
+                {creationError.retryable
+                  ? "Der Fehler ist möglicherweise vorübergehend. Versuchen Sie es erneut."
+                  : "Prüfen Sie die Angaben und versuchen Sie es erneut."}
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
@@ -317,7 +358,10 @@ export function CreateBookingShippingLabelDialog({
                 Creating...
               </>
             ) : (
-              "Create Shipping Label"
+              <>
+                {creationError && <RotateCcw className="h-4 w-4 mr-2" />}
+                {creationError ? "Erneut versuchen" : "Create Shipping Label"}
+              </>
             )}
           </Button>
         </DialogFooter>

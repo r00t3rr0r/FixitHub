@@ -811,7 +811,16 @@ class BookingService {
           throw new Error(`Order not found for booking label generation: ${orderId}`);
         }
 
-        const shipmentData = this.buildBookingShipmentData(sourceOrder, booking, dhlConfig);
+        const defaultShipmentData = this.buildBookingShipmentData(sourceOrder, booking, dhlConfig);
+        const requestedShipmentData = options.shipmentData && typeof options.shipmentData === 'object'
+          ? options.shipmentData
+          : {};
+        const shipmentData = {
+          ...defaultShipmentData,
+          ...requestedShipmentData,
+          shipperStreet: requestedShipmentData.shipperStreet || requestedShipmentData.shipperAddress || defaultShipmentData.shipperStreet,
+          product: requestedShipmentData.product || defaultShipmentData.product,
+        };
 
         const missingReceiverFields = [
           ['receiverAddress', shipmentData.receiverAddress],

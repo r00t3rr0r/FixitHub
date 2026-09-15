@@ -338,9 +338,14 @@ router.post('/:id/shipping/create-label', requireUser, requireRole(['admin', 'st
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error creating shipping label:', error);
-    return res.status(500).json({
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return res.status(status).json({
       success: false,
-      error: error.message || 'Failed to create shipping label'
+      error: error.message || 'Versandlabel konnte nicht erstellt werden.',
+      message: error.message || 'Versandlabel konnte nicht erstellt werden.',
+      code: error.code || 'LABEL_CREATION_FAILED',
+      retryable: error.retryable === true,
+      details: Array.isArray(error.details) ? error.details : []
     });
   }
 });

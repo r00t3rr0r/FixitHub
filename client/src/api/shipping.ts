@@ -22,6 +22,10 @@ export interface ShipmentData {
   receiverEmail?: string;
   receiverPhone?: string;
   receiverNumber?: string;
+  deliveryType?: 'address' | 'packstation';
+  packstationNumber?: string;
+  postNumber?: string;
+  lockerID?: string;
   shippingCost?: number;
   isCustomsDeclarable?: boolean;
 }
@@ -55,8 +59,55 @@ export interface ShipmentResult {
   labelUrl: string;
   estimatedDelivery: string;
   shipmentId: string;
+  alreadyExists?: boolean;
   error?: string;
 }
+
+export type ShippingLabelError = Error & {
+  code?: string;
+  retryable?: boolean;
+  details?: string[];
+  status?: number;
+};
+
+type ApiFailure = {
+  message?: string;
+  response?: ApiResponseFailure;
+  data?: ApiErrorPayload;
+  status?: number;
+};
+
+type ApiResponseFailure = {
+  data?: ApiErrorPayload;
+  status?: number;
+};
+
+type ApiErrorPayload = {
+  error?: string;
+  message?: string;
+  code?: string;
+  retryable?: boolean;
+  details?: string[];
+};
+
+const getApiFailure = (error: unknown) => {
+  const failure = error as ApiFailure;
+  const response = failure.response || failure;
+  return { failure, response, payload: response.data || {} };
+};
+
+export const toShippingLabelError = (error: unknown): ShippingLabelError => {
+  const { failure, response, payload } = getApiFailure(error);
+  const apiError = new Error(
+    payload.message || payload.error || failure.message || 'Shipping label could not be created.'
+  ) as ShippingLabelError;
+
+  apiError.code = payload.code;
+  apiError.retryable = payload.retryable === true;
+  apiError.details = Array.isArray(payload.details) ? payload.details : [];
+  apiError.status = response.status;
+  return apiError;
+};
 
 // Description: Create shipping label for an order
 // Endpoint: POST /api/orders/:id/shipping/create-label
@@ -66,9 +117,9 @@ export const createShippingLabel = async (orderId: string, shipmentData: Shipmen
   try {
     const response = await api.post(`/api/orders/${orderId}/shipping/create-label`, { shipmentData });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create shipping label error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toShippingLabelError(error);
   }
 };
 
@@ -80,9 +131,10 @@ export const getOrderTracking = async (orderId: string): Promise<TrackingInfo> =
   try {
     const response = await api.get(`/api/orders/${orderId}/tracking`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get tracking info error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    const { failure, payload } = getApiFailure(error);
+    throw new Error(payload.error || payload.message || failure.message || 'Could not load tracking information.');
   }
 };
 
@@ -94,9 +146,10 @@ export const updateOrderTracking = async (orderId: string) => {
   try {
     const response = await api.put(`/api/orders/${orderId}/tracking/update`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update tracking error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    const { failure, payload } = getApiFailure(error);
+    throw new Error(payload.error || payload.message || failure.message || 'Could not update tracking information.');
   }
 };
 

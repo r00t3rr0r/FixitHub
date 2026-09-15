@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/useToast"
-import { createShippingLabel, ShipmentData } from "@/api/shipping"
+import { createShippingLabel, ShipmentData, type ShippingLabelError } from "@/api/shipping"
 import { getOrderById } from "@/api/orders"
-import { Package, Loader2, User, Building2 } from "lucide-react"
+import { AlertCircle, Package, Loader2, RotateCcw, User, Building2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
 interface CreateShippingLabelDialogProps {
@@ -15,6 +16,12 @@ interface CreateShippingLabelDialogProps {
   onOpenChange: (open: boolean) => void
   orderId: string
   onSuccess: () => void
+}
+
+interface LabelCreationError {
+  message: string
+  details: string[]
+  retryable: boolean
 }
 
 export function CreateShippingLabelDialog({
@@ -26,6 +33,7 @@ export function CreateShippingLabelDialog({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
+  const [creationError, setCreationError] = useState<LabelCreationError | null>(null)
 
   const [formData, setFormData] = useState<ShipmentData>({
     weight: 1.0,
@@ -58,9 +66,15 @@ export function CreateShippingLabelDialog({
   // Load order details and pre-fill receiver information when dialog opens
   useEffect(() => {
     if (open && orderId) {
+      setCreationError(null)
       loadOrderDetails()
     }
   }, [open, orderId])
+
+  const showValidationError = (message: string) => {
+    setCreationError({ message, details: [], retryable: false })
+    toast({ title: "Label konnte nicht erstellt werden", description: message, variant: "destructive" })
+  }
 
   const loadOrderDetails = async () => {
     setLoadingOrder(true)
@@ -87,7 +101,10 @@ export function CreateShippingLabelDialog({
         receiverCity: address?.city || '',
         receiverPostalCode: address?.zipCode || '',
         receiverCountry: address?.country || 'NL',
-        receiverNumber: '1' // Default house number
+        receiverNumber: address?.number || '1',
+        deliveryType: address?.deliveryType || 'address',
+        packstationNumber: address?.packstationNumber || '',
+        postNumber: address?.postNumber || ''
       }))
 
       console.log('Pre-filled receiver information:', {
@@ -99,7 +116,7 @@ export function CreateShippingLabelDialog({
         zipCode: address?.zipCode,
         country: address?.country
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading order details:', error)
       toast({
         title: "Warning",
@@ -114,51 +131,32 @@ export function CreateShippingLabelDialog({
   const handleCreate = async () => {
     // Validate package dimensions
     if (!formData.weight || !formData.length || !formData.width || !formData.height) {
-      toast({
-        title: "Error",
-        description: "Please fill in all package dimensions",
-        variant: "destructive"
-      })
+      showValidationError("Bitte alle Paketmaße und das Gewicht ausfüllen.")
       return
     }
 
     // Validate receiver address fields
-    if (!formData.receiverAddress || !formData.receiverAddress.trim()) {
-      toast({
-        title: "Error",
-        description: "Receiver street address is required",
-        variant: "destructive"
-      })
+    if (formData.deliveryType !== 'packstation' && (!formData.receiverAddress || !formData.receiverAddress.trim())) {
+      showValidationError("Empfängeradresse unvollständig: Straße fehlt.")
       return
     }
 
     if (!formData.receiverCity || !formData.receiverCity.trim()) {
-      toast({
-        title: "Error",
-        description: "Receiver city is required",
-        variant: "destructive"
-      })
+      showValidationError("Empfängeradresse unvollständig: Ort fehlt.")
       return
     }
 
     if (!formData.receiverPostalCode || !formData.receiverPostalCode.trim()) {
-      toast({
-        title: "Error",
-        description: "Receiver postal code is required",
-        variant: "destructive"
-      })
+      showValidationError("Empfängeradresse unvollständig: PLZ fehlt.")
       return
     }
 
     if (!formData.receiverCountry || !formData.receiverCountry.trim()) {
-      toast({
-        title: "Error",
-        description: "Receiver country is required",
-        variant: "destructive"
-      })
+      showValidationError("Empfängeradresse unvollständig: Land fehlt.")
       return
     }
 
+    setCreationError(null)
     setLoading(true)
     try {
       const result = await createShippingLabel(orderId, formData)
@@ -170,11 +168,18 @@ export function CreateShippingLabelDialog({
 
       onSuccess()
       onOpenChange(false)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating shipping label:', error)
+      const shippingError = error as ShippingLabelError
+      const message = shippingError.message || "Versandlabel konnte nicht erstellt werden."
+      setCreationError({
+        message,
+        details: shippingError.details || [],
+        retryable: shippingError.retryable === true
+      })
       toast({
-        title: "Error",
-        description: error.message || "Failed to create shipping label",
+        title: "Label konnte nicht erstellt werden",
+        description: message,
         variant: "destructive"
       })
     } finally {
@@ -462,6 +467,26 @@ export function CreateShippingLabelDialog({
           </div>
         )}
 
+        {creationError && (
+          <Alert variant="destructive" aria-live="assertive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Label konnte nicht erstellt werden</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>{creationError.message}</p>
+              {creationError.details.length > 0 && (
+                <ul className="list-disc space-y-1 pl-5">
+                  {creationError.details.map((detail) => <li key={detail}>{detail}</li>)}
+                </ul>
+              )}
+              <p>
+                {creationError.retryable
+                  ? "Der Fehler ist möglicherweise vorübergehend. Versuchen Sie es erneut."
+                  : "Prüfen Sie die Angaben und versuchen Sie es erneut."}
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading || loadingOrder}>
             Cancel
@@ -474,8 +499,12 @@ export function CreateShippingLabelDialog({
               </>
             ) : (
               <>
-                <Package className="h-4 w-4 mr-2" />
-                Create Shipping Label
+                {creationError ? (
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                ) : (
+                  <Package className="h-4 w-4 mr-2" />
+                )}
+                {creationError ? "Erneut versuchen" : "Create Shipping Label"}
               </>
             )}
           </Button>

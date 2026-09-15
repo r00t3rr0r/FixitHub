@@ -3,6 +3,17 @@ const crypto = require('crypto');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const Order = require('../models/Order');
 
+class ShippingLabelError extends Error {
+  constructor(message, { code = 'LABEL_CREATION_FAILED', status = 500, retryable = false, details = [] } = {}) {
+    super(message);
+    this.name = 'ShippingLabelError';
+    this.code = code;
+    this.status = status;
+    this.retryable = retryable;
+    this.details = details;
+  }
+}
+
 /**
  * DHL Parcel API Service
  * Handles shipment creation, tracking, and label generation via DHL Parcel API
@@ -81,6 +92,17 @@ class DHLService {
 
     console.warn(`DHLService.countryCodeToIso3: Unknown country "${countryCode}" – passing through unchanged. DHL likely rejects this value.`);
     return normalized;
+  }
+
+  static resolveShippingProduct(shipmentData, configuredProduct) {
+    const requestedProduct = String(shipmentData.product || shipmentData.serviceType || '').trim();
+    const legacyServiceTypes = {
+      P: 'V01PAK',
+      N: 'V53WPAK',
+      Y: 'V54EPAK'
+    };
+
+    return legacyServiceTypes[requestedProduct] || requestedProduct || configuredProduct;
   }
 
   static getParcelDEConfig(dhlIntegration) {
@@ -208,12 +230,40 @@ class DHLService {
   }
 
   static getDhlErrorDetails(error) {
+    if (error instanceof ShippingLabelError) {
+      return {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        retryable: error.retryable,
+        details: error.details
+      };
+    }
+
     const status = error?.response?.status;
     const data = error?.response?.data;
     const title = data?.title || data?.error || data?.message || '';
     const detail = data?.detail || data?.description || '';
     const oauthError = data?.error || '';
     const oauthErrorDescription = data?.error_description || data?.errorDescription || '';
+
+    if (!status && ['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ERR_NETWORK'].includes(error?.code)) {
+      return {
+        message: 'DHL API nicht erreichbar. Bitte Verbindung prüfen und erneut versuchen.',
+        code: 'DHL_API_UNAVAILABLE',
+        status: 503,
+        retryable: true
+      };
+    }
+
+    if (status >= 500) {
+      return {
+        message: 'DHL API ist vorübergehend nicht verfügbar. Bitte erneut versuchen.',
+        code: 'DHL_API_UNAVAILABLE',
+        status: 503,
+        retryable: true
+      };
+    }
 
     if (status === 401) {
       if (oauthError === 'invalid_client') {
@@ -270,9 +320,50 @@ class DHLService {
         ? ` Validation details: ${validationMessages.join(' | ')}`
         : '';
 
+      const combinedMessage = `${detail} ${title} ${validationMessages.join(' ')}`.toLowerCase();
+      if (/packstation|locker/.test(combinedMessage)) {
+        return {
+          message: 'Packstationsnummer oder Postnummer ist ungültig.',
+          code: 'PACKSTATION_INVALID',
+          status: 422,
+          retryable: false,
+          details: validationMessages
+        };
+      }
+      if (/postal|postcode|zip/.test(combinedMessage)) {
+        return {
+          message: 'Die PLZ fehlt oder ist ungültig.',
+          code: 'POSTAL_CODE_INVALID',
+          status: 422,
+          retryable: false,
+          details: validationMessages
+        };
+      }
+      if (/product|service/.test(combinedMessage)) {
+        return {
+          message: 'Der gewählte DHL Service Type ist nicht verfügbar.',
+          code: 'SERVICE_TYPE_UNAVAILABLE',
+          status: 422,
+          retryable: false,
+          details: validationMessages
+        };
+      }
+      if (/address|street|city|consignee/.test(combinedMessage)) {
+        return {
+          message: 'Die Empfängeradresse ist unvollständig oder ungültig.',
+          code: 'RECIPIENT_ADDRESS_INVALID',
+          status: 422,
+          retryable: false,
+          details: validationMessages
+        };
+      }
+
       return {
-        message: `${detail || title || 'DHL request validation failed (400).'}${validationText}`.trim(),
-        code: 'DHL_400_BAD_REQUEST'
+        message: `${detail || title || 'DHL hat die Versanddaten abgelehnt.'}${validationText}`.trim(),
+        code: 'DHL_400_BAD_REQUEST',
+        status: 422,
+        retryable: false,
+        details: validationMessages
       };
     }
 
@@ -286,7 +377,9 @@ class DHLService {
 
     return {
       message: detail || title || error.message || 'DHL request failed',
-      code: `DHL_${status || 'REQUEST_ERROR'}`
+      code: `DHL_${status || 'REQUEST_ERROR'}`,
+      status: status || 500,
+      retryable: status === 408 || status === 429
     };
   }
 
@@ -354,7 +447,12 @@ class DHLService {
       return token;
     } catch (error) {
       const dhlError = this.getDhlErrorDetails(error);
-      throw new Error(dhlError.message);
+      throw new ShippingLabelError(dhlError.message, {
+        code: dhlError.code,
+        status: dhlError.status,
+        retryable: dhlError.retryable,
+        details: dhlError.details
+      });
     }
   }
 
@@ -417,13 +515,16 @@ class DHLService {
 
       if (!order) {
         console.error('DHLService: Order not found:', orderId);
-        throw new Error('Order not found');
+        throw new ShippingLabelError('Auftrag wurde nicht gefunden.', {
+          code: 'ORDER_NOT_FOUND',
+          status: 404
+        });
       }
 
       console.log('DHLService: Order found:', order.orderNumber);
 
       // Repeated requests must reuse the existing shipment instead of creating another label.
-      if (order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created') {
+      if (order.shippingLabelUrl) {
         return {
           success: true,
           trackingNumber: order.trackingNumber,
@@ -432,6 +533,17 @@ class DHLService {
           shipmentId: order.trackingNumber,
           alreadyExists: true,
         };
+      }
+
+      if (order.trackingNumber || order.shippingStatus === 'label-created') {
+        throw new ShippingLabelError(
+          `Die DHL-Sendung wurde bereits angelegt${order.trackingNumber ? ` (Tracking: ${order.trackingNumber})` : ''}, aber das PDF-Label fehlt. Bitte DHL bzw. die Versandkonfiguration prüfen, bevor ein neues Label erzeugt wird.`,
+          {
+            code: 'EXISTING_SHIPMENT_LABEL_MISSING',
+            status: 409,
+            retryable: false
+          }
+        );
       }
 
       // Atomically reserve label creation so concurrent requests cannot both reach DHL.
@@ -448,7 +560,11 @@ class DHLService {
       );
 
       if (!claimedOrder) {
-        throw new Error('Rueckweg-Label wird bereits erstellt oder ist bereits vorhanden.');
+        throw new ShippingLabelError('Das Versandlabel wird bereits erstellt. Bitte kurz warten und erneut versuchen.', {
+          code: 'LABEL_CREATION_IN_PROGRESS',
+          status: 409,
+          retryable: true
+        });
       }
       labelCreationClaimed = true;
 
@@ -466,21 +582,51 @@ class DHLService {
       const receiverCity = shipmentData.receiverCity || order.shippingAddress?.city || paymentAddress.city || invoiceAddress.city;
       const receiverPostalCode = shipmentData.receiverPostalCode || order.shippingAddress?.zipCode || paymentAddress.zipCode || invoiceAddress.zipCode;
       const receiverCountry = shipmentData.receiverCountry || order.shippingAddress?.country || paymentAddress.country || invoiceAddress.country || 'NL';
+      const isPackstation =
+        order.shippingAddress?.deliveryType === 'packstation' ||
+        shipmentData.deliveryType === 'packstation';
+      const packstationNo = String(
+        order.shippingAddress?.packstationNumber || shipmentData.packstationNumber || shipmentData.lockerID || ''
+      ).trim();
+      const postNo = String(order.shippingAddress?.postNumber || shipmentData.postNumber || '').trim();
 
       // Check if required address fields are missing or empty
-      if (!receiverStreet || receiverStreet.trim() === '') {
+      if (!isPackstation && (!receiverStreet || receiverStreet.trim() === '')) {
         console.error('DHLService: Missing receiver street address');
-        throw new Error('Shipping address is incomplete. Street address is required to create a shipping label.');
+        throw new ShippingLabelError('Empfängeradresse unvollständig: Straße fehlt.', {
+          code: 'RECIPIENT_STREET_REQUIRED',
+          status: 422
+        });
       }
 
       if (!receiverCity || receiverCity.trim() === '') {
         console.error('DHLService: Missing receiver city');
-        throw new Error('Shipping address is incomplete. City is required to create a shipping label.');
+        throw new ShippingLabelError('Empfängeradresse unvollständig: Ort fehlt.', {
+          code: 'RECIPIENT_CITY_REQUIRED',
+          status: 422
+        });
       }
 
       if (!receiverPostalCode || receiverPostalCode.trim() === '') {
         console.error('DHLService: Missing receiver postal code');
-        throw new Error('Shipping address is incomplete. Postal code is required to create a shipping label.');
+        throw new ShippingLabelError('Empfängeradresse unvollständig: PLZ fehlt.', {
+          code: 'RECIPIENT_POSTAL_CODE_REQUIRED',
+          status: 422
+        });
+      }
+
+      if (isPackstation && !/^\d{3}$/.test(packstationNo)) {
+        throw new ShippingLabelError('Packstationsnummer ungültig. Erwartet werden genau 3 Ziffern.', {
+          code: 'PACKSTATION_NUMBER_INVALID',
+          status: 422
+        });
+      }
+
+      if (isPackstation && !/^\d{6,10}$/.test(postNo)) {
+        throw new ShippingLabelError('Postnummer ungültig. Erwartet werden 6 bis 10 Ziffern.', {
+          code: 'POST_NUMBER_INVALID',
+          status: 422
+        });
       }
 
       console.log('DHLService: Shipping address validated successfully');
@@ -510,7 +656,7 @@ class DHLService {
       // Use receiver name from shipmentData if provided, otherwise use customer name
       const receiverName = shipmentData.receiverName || customer?.name || 'Customer';
       const singleShipment = shipmentData?.parcelDeOrderPayload || {
-        product: shipmentData.product || parcelDeConfig.product,
+        product: this.resolveShippingProduct(shipmentData, parcelDeConfig.product),
         billingNumber: accountId,
         shipDate: shipmentData.shipmentDate || new Date().toISOString().slice(0, 10),
         shipper: {
@@ -524,20 +670,7 @@ class DHLService {
           phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
         },
         consignee: (() => {
-          const isPackstation =
-            order.shippingAddress?.deliveryType === 'packstation' ||
-            shipmentData.deliveryType === 'packstation';
-          const packstationNo =
-            order.shippingAddress?.packstationNumber ||
-            shipmentData.packstationNumber ||
-            shipmentData.lockerID ||
-            '';
-          const postNo =
-            order.shippingAddress?.postNumber ||
-            shipmentData.postNumber ||
-            '';
-
-          if (isPackstation && packstationNo) {
+          if (isPackstation) {
             // DHL Parcel DE Shipping v2 – Packstation delivery
             return {
               name1: receiverName,
@@ -635,6 +768,22 @@ class DHLService {
         labelUrl = `data:application/pdf;base64,${base64Label}`;
       }
 
+      if (!trackingNumber && !pieceTrackerCode && !returnedShipmentId) {
+        throw new ShippingLabelError('DHL hat keine Sendungsnummer zurückgegeben. Es wurde kein Label gespeichert.', {
+          code: 'DHL_TRACKING_NUMBER_MISSING',
+          status: 502,
+          retryable: true
+        });
+      }
+
+      if (!labelUrl) {
+        throw new ShippingLabelError('DHL hat kein PDF-Label zurückgegeben. Es wurde kein Label gespeichert.', {
+          code: 'DHL_LABEL_MISSING',
+          status: 502,
+          retryable: true
+        });
+      }
+
       // Update order with shipping information
       order.trackingNumber = trackingNumber || pieceTrackerCode || returnedShipmentId;
       order.carrier = 'DHL';
@@ -690,15 +839,12 @@ class DHLService {
 
       const dhlError = this.getDhlErrorDetails(error);
 
-      const errorMessage =
-        dhlError.message ||
-        error.response?.data?.message ||
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
-        error.message ||
-        'Failed to create shipment';
-
-      throw new Error(errorMessage);
+      throw new ShippingLabelError(dhlError.message || 'Versandlabel konnte nicht erstellt werden.', {
+        code: dhlError.code,
+        status: dhlError.status,
+        retryable: dhlError.retryable,
+        details: dhlError.details
+      });
     }
   }
 

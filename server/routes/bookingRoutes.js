@@ -999,16 +999,40 @@ router.post('/:id/shipping/create-label', requireStaff, async (req, res) => {
   console.log('BookingRoutes: Shipment data:', req.body);
 
   try {
-    const DHLService = require('../services/dhlService');
-    const result = await DHLService.createBookingShipment(req.params.id, req.body.shipmentData || req.body);
+    const booking = await BookingService.getById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: 'Buchung wurde nicht gefunden.',
+        message: 'Buchung wurde nicht gefunden.',
+        code: 'BOOKING_NOT_FOUND',
+        retryable: false,
+        details: []
+      });
+    }
+
+    const updatedBooking = await BookingService.createShippingLabelForBooking(booking, {
+      shipmentData: req.body.shipmentData || req.body
+    });
 
     console.log('BookingRoutes: Shipping label created successfully for booking');
-    return res.status(200).json(result);
+    return res.status(200).json({
+      success: true,
+      trackingNumber: updatedBooking.trackingNumber,
+      labelUrl: updatedBooking.shippingLabelUrl,
+      estimatedDelivery: updatedBooking.estimatedDelivery,
+      shipmentId: updatedBooking.trackingNumber
+    });
   } catch (error) {
     console.error('BookingRoutes: Error creating shipping label for booking:', error);
-    return res.status(500).json({
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return res.status(status).json({
       success: false,
-      error: error.message || 'Failed to create shipping label'
+      error: error.message || 'Versandlabel konnte nicht erstellt werden.',
+      message: error.message || 'Versandlabel konnte nicht erstellt werden.',
+      code: error.code || 'LABEL_CREATION_FAILED',
+      retryable: error.retryable === true,
+      details: Array.isArray(error.details) ? error.details : []
     });
   }
 });

@@ -1,4 +1,5 @@
 import api from './api';
+import { toShippingLabelError, type ShipmentResult } from './shipping';
 
 export const createManualRepairBooking = async (data: {
   repairOrders: Array<Record<string, any>>;
@@ -402,14 +403,14 @@ export const updateBookingShippingStatus = async (bookingId: string) => {
 // Endpoint: POST /api/bookings/:id/shipping/create-label
 // Request: { shipmentData: { weight, length, width, height, serviceType, receiverName, receiverAddress, etc. } }
 // Response: { success: boolean, trackingNumber: string, labelUrl: string, estimatedDelivery: Date }
-export const createBookingShippingLabel = async (bookingId: string, shipmentData: any) => {
+export const createBookingShippingLabel = async (bookingId: string, shipmentData: object): Promise<ShipmentResult> => {
   try {
     const response = await api.post(`/api/bookings/${bookingId}/shipping/create-label`, {
       shipmentData
     });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+  } catch (error: unknown) {
+    throw toShippingLabelError(error);
   }
 };
 
