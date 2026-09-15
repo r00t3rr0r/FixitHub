@@ -22,21 +22,26 @@ class DeviceInspectionService {
     try {
       let resolvedCustomerId = customerId || null;
 
-      if (!resolvedCustomerId) {
-        const order = await Order.findById(orderId).select('customerId');
-        if (!order) {
-          throw new Error('Order not found');
-        }
+      const order = await Order.findById(orderId).select('customerId deviceBrand deviceModel');
+      if (!order) {
+        throw new Error('Order not found');
+      }
 
-        if (order.customerId) {
-          resolvedCustomerId = order.customerId;
-        }
+      if (!resolvedCustomerId && order.customerId) {
+        resolvedCustomerId = order.customerId;
       }
 
       // Check if inspection already exists
       let inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
+        // Snapshot the customer-reported device now, before any later correction can
+        // overwrite the order's deviceBrand/deviceModel fields.
+        const reportedModelSnapshot = [order.deviceBrand, order.deviceModel]
+          .filter((part) => part && part !== 'N/A')
+          .join(' ')
+          .trim();
+
         inspection = new DeviceInspection({
           orderId,
           customerId: resolvedCustomerId,
@@ -44,6 +49,17 @@ class DeviceInspectionService {
           status: 'in-progress',
           startedAt: new Date(),
         });
+
+        if (reportedModelSnapshot) {
+          inspection.modelVerification = {
+            reportedModel: reportedModelSnapshot,
+            actualModel: reportedModelSnapshot,
+            verified: true,
+            verificationStatus: 'correct',
+            costDifference: 0,
+            verifiedAt: new Date(),
+          };
+        }
 
         try {
           await inspection.save();
@@ -125,8 +141,12 @@ class DeviceInspectionService {
 
       const verified = verificationStatus === 'correct';
 
+      // The originally reported model must stay fixed once recorded, even if a later
+      // device correction changes the order's own deviceBrand/deviceModel fields.
+      const lockedReportedModel = inspection.modelVerification?.reportedModel || reportedModel;
+
       inspection.modelVerification = {
-        reportedModel,
+        reportedModel: lockedReportedModel,
         actualModel,
         verified,
         verificationStatus,

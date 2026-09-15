@@ -493,7 +493,9 @@ export function DeviceInspectionForm({
   const hydrateFromInspection = (insp: any) => {
     if (!insp) return;
 
-    setReportedModel(orderReportedModel || insp.modelVerification?.reportedModel || '');
+    // The persisted reportedModel is the customer's original report; it must not be
+    // overwritten by the order's device fields once a later correction changes them.
+    setReportedModel(insp.modelVerification?.reportedModel || orderReportedModel || '');
 
     if (insp.modelVerification) {
       setActualModel(insp.modelVerification.actualModel || '');
@@ -718,10 +720,13 @@ export function DeviceInspectionForm({
   }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne, initialImei]);
 
   useEffect(() => {
-    if (orderReportedModel) {
+    // Only use the order's device fields as a fallback before the reportedModel has been
+    // established; never resync afterwards, since the order fields can later be changed
+    // to the corrected/actual model during the inspection workflow.
+    if (!reportedModel && orderReportedModel) {
       setReportedModel(orderReportedModel);
     }
-  }, [orderReportedModel]);
+  }, [orderReportedModel, reportedModel]);
 
   useEffect(() => {
     let active = true;
@@ -801,7 +806,7 @@ export function DeviceInspectionForm({
   useEffect(() => {
     if (initializing) return;
     const draftPayload = {
-      reportedModel: orderReportedModel,
+      reportedModel,
       actualModel,
       verificationStatus,
       costDifference,
@@ -1044,7 +1049,7 @@ export function DeviceInspectionForm({
       const result = await updateModelVerification(
         orderId,
         reportedModel,
-        reportedModel,
+        actualModel,
         verificationStatus,
         costDifference,
         modelNotes
