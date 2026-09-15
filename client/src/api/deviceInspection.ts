@@ -1,5 +1,13 @@
 import api from './api';
 
+const unwrapInspectionResponse = (response: any) => {
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(response.data?.error || response.data?.message || 'Inspection request failed');
+  }
+
+  return response.data;
+};
+
 // Description: Initialize device inspection for an order
 // Endpoint: POST /api/device-inspections/init
 // Request: { orderId: string, customerId?: string }
@@ -13,7 +21,7 @@ export const initializeInspection = async (orderId: string, customerId?: string 
     }
 
     const response = await api.post('/api/device-inspections/init', payload);
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -26,7 +34,7 @@ export const initializeInspection = async (orderId: string, customerId?: string 
 export const getInspection = async (orderId: string) => {
   try {
     const response = await api.get(`/api/device-inspections/${orderId}`);
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     // If 404, inspection doesn't exist yet (return null instead of error)
     if (error?.response?.status === 404) {
@@ -58,7 +66,7 @@ export const updateModelVerification = async (
       notes,
       supervisorId,
     });
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -80,7 +88,7 @@ export const updateIdentification = async (
       imei,
       serialNumber,
     });
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -93,7 +101,7 @@ export const updateIdentification = async (
 export const updateAccessories = async (orderId: string, accessoriesData: any) => {
   try {
     const response = await api.put(`/api/device-inspections/${orderId}/accessories`, accessoriesData);
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -113,7 +121,7 @@ export const updateExternalInspection = async (
       ...inspectionData,
       photos,
     });
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -126,7 +134,7 @@ export const updateExternalInspection = async (
 export const updateDeviceTests = async (orderId: string, testData: any) => {
   try {
     const response = await api.put(`/api/device-inspections/${orderId}/device-tests`, testData);
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -139,7 +147,7 @@ export const updateDeviceTests = async (orderId: string, testData: any) => {
 export const updateAppleSpecific = async (orderId: string, appleData: any) => {
   try {
     const response = await api.put(`/api/device-inspections/${orderId}/apple-specific`, appleData);
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -169,7 +177,7 @@ export const completeInspection = async (
       completionAction,
       customerInformation,
     });
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -182,7 +190,7 @@ export const completeInspection = async (
 export const generateInspectionReport = async (orderId: string) => {
   try {
     const response = await api.get(`/api/device-inspections/${orderId}/report`);
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
@@ -195,7 +203,7 @@ export const generateInspectionReport = async (orderId: string) => {
 export const getTechnicianInspections = async (filters?: any) => {
   try {
     const response = await api.get('/api/device-inspections', { params: filters });
-    return response.data;
+    return unwrapInspectionResponse(response);
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);
   }
