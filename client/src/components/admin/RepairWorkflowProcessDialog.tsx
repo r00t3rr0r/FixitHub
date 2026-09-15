@@ -693,7 +693,7 @@ export function RepairWorkflowProcessDialog({
                               )}
 
                               {/* Repair assessment */}
-                              {(inspection.isRepairable !== undefined || inspection.repairOffer) && (
+                              {(typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
                                 <div className={`rounded-md border px-3 py-2 ${
                                   inspection.isRepairable === true
                                     ? "border-emerald-200 bg-emerald-50"
@@ -702,12 +702,18 @@ export function RepairWorkflowProcessDialog({
                                       : "border-slate-200 bg-slate-50"
                                 }`}>
                                   <div className="flex items-center gap-2">
-                                    <span className={`text-xs font-semibold ${
-                                      inspection.isRepairable === true ? "text-emerald-700" : inspection.isRepairable === false ? "text-red-700" : "text-slate-600"
-                                    }`}>
-                                      {inspection.isRepairable === true ? "✓ Reparierbar" : inspection.isRepairable === false ? "✗ Nicht reparierbar" : "Bewertung ausstehend"}
-                                    </span>
-                                    {inspection.repairOffer?.cost != null && (
+                                    {typeof inspection.isRepairable === 'boolean' ? (
+                                      <span className={`text-xs font-semibold ${
+                                        inspection.isRepairable === true ? "text-emerald-700" : "text-red-700"
+                                      }`}>
+                                        {inspection.isRepairable === true ? "✓ Reparierbar" : "✗ Nicht reparierbar"}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs font-semibold text-slate-700">
+                                        Reparaturangaben
+                                      </span>
+                                    )}
+                                    {inspection.repairOffer?.cost != null && inspection.repairOffer.cost > 0 && (
                                       <span className="ml-auto text-xs font-bold text-slate-800">
                                         {Number(inspection.repairOffer.cost).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
                                       </span>

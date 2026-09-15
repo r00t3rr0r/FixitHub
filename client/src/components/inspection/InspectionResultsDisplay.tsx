@@ -300,7 +300,7 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
       <div className="bg-white divide-y divide-[#1a2a5e]/08">
 
         {/* Summary grid */}
-        {(inspection.modelVerification || inspection.identification || inspection.deviceTest || inspection.isRepairable !== undefined) && (
+        {(inspection.modelVerification || inspection.identification || inspection.deviceTest || typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
           <div className="grid grid-cols-2 gap-px bg-[#1a2a5e]/08 p-px">
             {inspection.modelVerification && (
               <div className="bg-white p-3 space-y-1">
@@ -398,24 +398,28 @@ export function InspectionResultsDisplay({ orderId, onStartInspection, userRole 
               </div>
             )}
 
-            {inspection.isRepairable !== undefined && (
+            {(typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
               <div className="bg-white p-3 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
-                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Reparierbar</span>
-                </div>
-                {inspection.isRepairable ? (
-                  <div className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-emerald-600">Ja</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-red-600">Nein</span>
-                  </div>
+                {typeof inspection.isRepairable === 'boolean' && (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                      <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Reparierbar</span>
+                    </div>
+                    {inspection.isRepairable ? (
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-emerald-600">Ja</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-red-600">Nein</span>
+                      </div>
+                    )}
+                  </>
                 )}
-                {inspection.repairOffer?.cost != null && (
+                {inspection.repairOffer?.cost != null && inspection.repairOffer.cost > 0 && (
                   <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.cost} €</p>
                 )}
                 {inspection.repairOffer?.timeframe && (

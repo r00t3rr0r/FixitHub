@@ -1072,16 +1072,23 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
    */
   static async sendDiagnosisCompletedEmail(toEmail, orderData, companyName = 'McRepair.de') {
     const orderUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
+    const diagnosisResult = typeof orderData.isRepairable === 'boolean'
+      ? (orderData.isRepairable ? 'Reparierbar' : 'Nicht reparierbar')
+      : 'Diagnose abgeschlossen';
+    const fallbackAction = typeof orderData.isRepairable === 'boolean'
+      ? (orderData.isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen')
+      : 'Diagnosebericht eingesehen';
+
     return this.sendTriggerEmail('diagnosis_completed', toEmail, {
       companyName,
       customerName: orderData.customerName || 'Geehrter Kunde',
       orderNumber: orderData.orderNumber,
       deviceBrand: orderData.deviceBrand,
       deviceModel: orderData.deviceModel,
-      diagnosisResult: orderData.isRepairable ? 'Reparierbar' : 'Nicht reparierbar',
+      diagnosisResult,
       diagnosisCompletedAt: new Date(orderData.diagnosisCompletedAt || Date.now()).toLocaleString('de-DE'),
       deviceCondition: orderData.deviceCondition || 'Wird im Bericht beschrieben',
-      recommendedAction: orderData.recommendedAction || (orderData.isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen'),
+      recommendedAction: orderData.recommendedAction || fallbackAction,
       orderUrl,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'

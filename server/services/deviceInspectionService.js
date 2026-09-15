@@ -395,7 +395,7 @@ class DeviceInspectionService {
   }
 
   // Complete inspection and generate report
-  static async completeInspection(orderId, isRepairable, repairOffer = null, completionAction = null, customerInformation = null) {
+  static async completeInspection(orderId, isRepairable = null, repairOffer = null, completionAction = null, customerInformation = null) {
     console.log(`[DeviceInspection] Completing inspection for order: ${orderId}`);
 
     try {
@@ -409,8 +409,17 @@ class DeviceInspectionService {
 
       inspection.status = 'completed';
       inspection.completedAt = new Date();
-      inspection.isRepairable = isRepairable;
-      inspection.completionAction = completionAction || (isRepairable ? 'repairable' : 'not-repairable');
+      if (typeof isRepairable === 'boolean') {
+        inspection.isRepairable = isRepairable;
+      } else {
+        inspection.isRepairable = undefined;
+      }
+
+      if (completionAction) {
+        inspection.completionAction = completionAction;
+      } else {
+        inspection.completionAction = undefined;
+      }
 
       if (customerInformation && typeof customerInformation === 'object') {
         inspection.customerInformation = {
@@ -436,9 +445,9 @@ class DeviceInspectionService {
         technicianName: inspection.technicianId.name || 'Unknown',
         resultStatus: 'success',
         details: {
-          isRepairable,
+          ...(typeof isRepairable === 'boolean' ? { isRepairable } : {}),
           hasFailedTests: inspection.hasFailedTests,
-          completionAction: inspection.completionAction,
+          ...(inspection.completionAction ? { completionAction: inspection.completionAction } : {}),
         },
       });
 
@@ -469,13 +478,13 @@ class DeviceInspectionService {
               orderNumber: order.orderNumber,
               deviceBrand: order.deviceBrand,
               deviceModel: order.deviceModel,
-              isRepairable,
+              isRepairable: typeof inspection.isRepairable === 'boolean' ? inspection.isRepairable : undefined,
               orderId: String(orderId),
               diagnosisCompletedAt: inspection.completedAt,
               deviceCondition: inspection.externalInspection?.overallCondition || null,
               recommendedAction: repairOffer
                 ? `Kostenvoranschlag: EUR ${Number(repairOffer.cost || 0).toFixed(2)}`
-                : (isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Bitte kontaktieren Sie uns fuer weitere Optionen')
+                : (inspection.isRepairable ? 'Kostenvoranschlag wird erstellt' : 'Diagnose abgeschlossen')
             });
           }
         } catch (emailError) {
@@ -681,18 +690,23 @@ class DeviceInspectionService {
         doc.moveDown();
       }
 
-      // Repair Assessment
-      doc.fontSize(14).font('Helvetica-Bold').text('Reparatureinschaetzung');
+      // Repair Assessment / Summary
+      doc.fontSize(14).font('Helvetica-Bold').text('7. Abschluss & Zusammenfassung');
       doc.fontSize(12).font('Helvetica');
-      doc.text(`Reparierbar: ${inspection.isRepairable === true ? 'Ja' : inspection.isRepairable === false ? 'Nein' : 'Ausstehend'}`);
-      doc.text(`Abschlussaktion: ${inspection.completionAction || 'N/A'}`);
-      doc.text(`Status: ${inspection.status}`);
+      doc.text(`Status: ${inspection.status === 'completed' ? 'Abgeschlossen' : (inspection.status || 'N/A')}`);
 
-      if (inspection.repairOffer && inspection.repairOffer.cost != null) {
+      // Only display isRepairable if explicitly evaluated/set as boolean by technician
+      if (typeof inspection.isRepairable === 'boolean') {
+        doc.text(`Reparierbar: ${inspection.isRepairable ? 'Ja' : 'Nein'}`);
+      }
+
+      if (inspection.repairOffer && (inspection.repairOffer.timeframe || inspection.repairOffer.description || (inspection.repairOffer.cost != null && inspection.repairOffer.cost > 0))) {
         doc.moveDown(0.5);
-        doc.font('Helvetica-Bold').text('Kostenvoranschlag:');
+        doc.font('Helvetica-Bold').text('Reparaturangaben:');
         doc.font('Helvetica');
-        doc.text(`Kosten: ${inspection.repairOffer.cost} EUR`);
+        if (inspection.repairOffer.cost != null && inspection.repairOffer.cost > 0) {
+          doc.text(`Kosten: ${inspection.repairOffer.cost} EUR`);
+        }
         if (inspection.repairOffer.timeframe) {
           doc.text(`Zeitrahmen: ${inspection.repairOffer.timeframe}`);
         }

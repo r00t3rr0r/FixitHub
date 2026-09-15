@@ -583,7 +583,9 @@ export function DeviceInspectionForm({
 
     if (typeof insp.isRepairable === 'boolean') {
       setIsRepairable(insp.isRepairable);
-      setCompletionAction(insp.completionAction || (insp.isRepairable ? 'repairable' : 'not-repairable'));
+    }
+    if (insp.completionAction) {
+      setCompletionAction(insp.completionAction);
     }
 
     if (insp.repairOffer) {
@@ -1228,7 +1230,7 @@ export function DeviceInspectionForm({
   const handleCompleteInspection = async () => {
     if (submitting) return;
 
-    const resolvedRepairable = completionAction === 'repairable';
+    const resolvedRepairable = typeof isRepairable === 'boolean' ? isRepairable : undefined;
 
     const shouldSendCustomerInfo = informCustomer || completionAction === 'inform-customer' || defectActionRequested;
     const generatedTemplate = customerInfoMailTemplate.trim() || [
@@ -1254,9 +1256,9 @@ export function DeviceInspectionForm({
         setImeiRequiredAtCompletion(false);
       }
 
-      const repairOfferPayload = completionAction === 'repairable'
+      const repairOfferPayload = (repairTimeframe || repairDescription || (repairCost && Number(repairCost) > 0))
         ? {
-            cost: 0,
+            cost: Number(repairCost) || 0,
             timeframe: repairTimeframe,
             description: repairDescription,
           }
@@ -1266,7 +1268,7 @@ export function DeviceInspectionForm({
         orderId,
         resolvedRepairable,
         repairOfferPayload,
-        completionAction,
+        completionAction || undefined,
         {
           shouldInform: shouldSendCustomerInfo,
           reason: customerInfoReason,
@@ -1910,29 +1912,25 @@ export function DeviceInspectionForm({
               </div>
             )}
 
-            {completionAction === 'repairable' && (
-              <>
-                <div>
-                  <Label htmlFor="repair-timeframe">{t('inspection.fields.repairTimeframe', 'Reparaturzeitraum')}</Label>
-                  <Input
-                    id="repair-timeframe"
-                    value={repairTimeframe}
-                    onChange={(e) => setRepairTimeframe(e.target.value)}
-                    placeholder={t('inspection.placeholders.repairTimeframe', 'z. B. 3-5 Tage')}
-                  />
-                </div>
+            <div>
+              <Label htmlFor="repair-timeframe">{t('inspection.fields.repairTimeframe', 'Reparaturzeitraum')}</Label>
+              <Input
+                id="repair-timeframe"
+                value={repairTimeframe}
+                onChange={(e) => setRepairTimeframe(e.target.value)}
+                placeholder={t('inspection.placeholders.repairTimeframe', 'z. B. 3-5 Tage')}
+              />
+            </div>
 
-                <div>
-                  <Label htmlFor="repair-description">{t('inspection.fields.repairDescription', 'Reparaturbeschreibung')}</Label>
-                  <Textarea
-                    id="repair-description"
-                    value={repairDescription}
-                    onChange={(e) => setRepairDescription(e.target.value)}
-                    placeholder={t('inspection.placeholders.repairDescription', 'Erforderliche Reparatur beschreiben...')}
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <Label htmlFor="repair-description">{t('inspection.fields.repairDescription', 'Reparaturbeschreibung')}</Label>
+              <Textarea
+                id="repair-description"
+                value={repairDescription}
+                onChange={(e) => setRepairDescription(e.target.value)}
+                placeholder={t('inspection.placeholders.repairDescription', 'Erforderliche Reparatur beschreiben...')}
+              />
+            </div>
 
             <div className="space-y-2 rounded-md border border-slate-200 p-3">
               <div className="flex items-center gap-2">

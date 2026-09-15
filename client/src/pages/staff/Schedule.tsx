@@ -1115,7 +1115,7 @@ export function Schedule() {
                                     {/* Completion summary */}
                                     {isCompleted && inspection && (
                                       <div className="text-[9px] text-muted-foreground space-y-0.5">
-                                        {inspection.isRepairable !== undefined && (
+                                        {typeof inspection.isRepairable === 'boolean' && (
                                           <div className="truncate">
                                             {inspection.isRepairable ? "♻ Reparierbar" : "✗ Nicht reparierbar"}
                                           </div>

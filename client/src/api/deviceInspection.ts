@@ -147,11 +147,11 @@ export const updateAppleSpecific = async (orderId: string, appleData: any) => {
 
 // Description: Complete inspection
 // Endpoint: PUT /api/device-inspections/:orderId/complete
-// Request: { isRepairable, repairOffer? }
+// Request: { isRepairable?, repairOffer?, completionAction?, customerInformation? }
 // Response: { inspection: DeviceInspection }
 export const completeInspection = async (
   orderId: string,
-  isRepairable: boolean,
+  isRepairable?: boolean | null,
   repairOffer?: any,
   completionAction?: 'repairable' | 'not-repairable' | 'inform-customer',
   customerInformation?: {

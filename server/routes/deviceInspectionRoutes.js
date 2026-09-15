@@ -272,17 +272,13 @@ router.put('/:orderId/apple-specific', requireUser, requireAdminOrStaff, async (
 
 // Description: Complete inspection
 // Endpoint: PUT /api/device-inspections/:orderId/complete
-// Request: { isRepairable, repairOffer? }
+// Request: { isRepairable?, repairOffer?, completionAction?, customerInformation? }
 // Response: { inspection: DeviceInspection }
 router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection');
 
   try {
     const { isRepairable, repairOffer, completionAction, customerInformation } = req.body;
-
-    if (isRepairable === undefined) {
-      return res.status(400).json({ error: 'isRepairable is required' });
-    }
 
     const inspection = await DeviceInspectionService.completeInspection(
       req.params.orderId,

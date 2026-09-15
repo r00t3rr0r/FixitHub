@@ -348,7 +348,6 @@ const deviceInspectionSchema = new mongoose.Schema({
   completionAction: {
     type: String,
     enum: ['repairable', 'not-repairable', 'inform-customer'],
-    default: 'repairable',
   },
   customerInformation: {
     shouldInform: {
