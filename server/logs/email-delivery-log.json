@@ -21935,5 +21935,200 @@
         "orderDeviceVisual"
       ]
     }
+  },
+  {
+    "id": "1789467468606-hp85ikngc",
+    "timestamp": "2026-09-15T10:17:48.606Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Buchung angelegt",
+    "subject": "Ihre Buchung BKG-2026-0015 wurde erfolgreich angelegt – McRepair.de",
+    "messageId": "<ffafef53-dd77-0aa2-a2cd-3ab651961485@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1944,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "bookingNumber",
+        "bookingDate",
+        "itemSummary",
+        "totalAmount",
+        "bookingStatus",
+        "deviceBrand",
+        "deviceModel",
+        "bookingUrl",
+        "trackingUrl",
+        "shippingLabelUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789467847171-7kxspn37n",
+    "timestamp": "2026-09-15T10:24:07.171Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Diagnose abgeschlossen",
+    "subject": "Diagnose abgeschlossen: Auftrag ORD-2026-093 – Apple iPhone 11 Pro Max",
+    "messageId": "<096406fa-789f-f965-23e4-e9560ffd193c@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1155,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "diagnosisResult",
+        "diagnosisCompletedAt",
+        "deviceCondition",
+        "recommendedAction",
+        "orderUrl",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
+  },
+  {
+    "id": "1789467960694-8udadl4k3",
+    "timestamp": "2026-09-15T10:26:00.694Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<987a745b-7997-2deb-39db-cefcbe3dac29@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1335,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789467962680-hipwje6ns",
+    "timestamp": "2026-09-15T10:26:02.680Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<79168be8-ebe4-410e-1fc4-7c170ac12de8@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 995,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789467975233-c85bcpkw0",
+    "timestamp": "2026-09-15T10:26:15.233Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Benachrichtigungs-Updates fuer Kunden",
+    "subject": "Neue Benachrichtigung bei McRepair.de: Auftraege",
+    "messageId": "<5debb0e5-2797-f8fa-31dd-c4f6c7997958@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1409,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "notificationCategoryLabel",
+        "notificationCreatedAt",
+        "notificationTitle",
+        "notificationMessage",
+        "notificationReference",
+        "notificationActionLabel",
+        "notificationsUrl",
+        "notificationActionUrl",
+        "notificationTypeSummary",
+        "orderNumber",
+        "deviceBrand",
+        "deviceModel",
+        "orderDeviceVisual",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceModelImageUrl"
+      ]
+    }
+  },
+  {
+    "id": "1789468168074-mza8ehrgq",
+    "timestamp": "2026-09-15T10:29:28.074Z",
+    "to": "sophie@mcrepair.de",
+    "templateName": "Neue Rechnung verfuegbar",
+    "subject": "Ihre Rechnung VIP--2026-0015 von McRepair.de steht bereit",
+    "messageId": "<8e69a49b-dad7-ac42-ee7a-02dc6fcf573e@mcrepair.de>",
+    "status": "sent",
+    "attempts": 1,
+    "duration": 1605,
+    "metadata": {
+      "variables": [
+        "companyName",
+        "customerName",
+        "invoiceNumber",
+        "orderNumber",
+        "invoiceAmount",
+        "dueDate",
+        "paymentMethod",
+        "invoiceUrl",
+        "customMessage",
+        "supportEmail",
+        "supportPhone",
+        "baseUrl",
+        "deviceBrand",
+        "deviceModel",
+        "deviceModelImageUrl",
+        "orderDeviceVisual"
+      ]
+    }
   }
 ]

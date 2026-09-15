@@ -42,6 +42,41 @@ const allocateProportionalAmount = (rawAmounts, totalAmount) => {
   return shares;
 };
 
+const linkCheckoutPayment = async ({ paymentMethod, paymentData = {}, booking, orders = [], customerId = null, guestInfo = null }) => {
+  if (!booking || String(paymentMethod || '').toLowerCase() !== 'paypal') return null;
+
+  const paypalOrderId = String(paymentData.paypalOrderId || '').trim();
+  const paypalCaptureId = String(paymentData.paypalCaptureId || '').trim();
+  const paymentLookup = [
+    paypalOrderId ? { transactionId: paypalOrderId } : null,
+    paypalOrderId ? { 'metadata.paypalOrderId': paypalOrderId } : null,
+    paypalCaptureId ? { transactionId: paypalCaptureId } : null,
+    paypalCaptureId ? { 'metadata.providerReference': paypalCaptureId } : null,
+    paypalCaptureId ? { 'metadata.providerDetails.captureId': paypalCaptureId } : null,
+  ].filter(Boolean);
+
+  let payment = paymentLookup.length > 0
+    ? await Payment.findOne({
+      $or: paymentLookup,
+      ...(customerId ? { customerId } : { isGuest: true, guestEmail: normalizeEmailAddress(guestInfo?.email) }),
+    })
+    : null;
+
+  if (!payment) return null;
+
+  payment.bookingId = booking._id;
+  payment.orderId = orders[0]?._id;
+  payment.orderNumber = orders[0]?.orderNumber || '';
+  payment.metadata = {
+    ...(payment.metadata || {}),
+    checkoutBookingId: String(booking._id),
+    checkoutOrderIds: orders.map((order) => String(order._id)),
+    linkedAt: new Date().toISOString(),
+  };
+  await payment.save();
+  return payment;
+};
+
 const normalizeCheckoutAddress = (address) => {
   const normalized = {
     street: String(address?.street || '').trim(),
@@ -1891,6 +1926,20 @@ router.post('/complete', requireUser, async (req, res) => {
       // This is a graceful degradation scenario
     }
 
+    if (booking && isCapturedPaypalPayment) {
+      try {
+        await linkCheckoutPayment({
+          paymentMethod,
+          paymentData,
+          booking,
+          orders: createdOrders,
+          customerId: req.user._id,
+        });
+      } catch (paymentLinkError) {
+        console.error('CheckoutRoutes: Error linking checkout payment to booking:', paymentLinkError);
+      }
+    }
+
     if (appliedPromoData && Number(cart.discount || 0) > 0 && createdOrders.length > 0) {
       try {
         const totalOrderAmount = createdOrders.reduce((sum, order) => sum + Number(order.totalCost || 0), 0);
@@ -2318,6 +2367,20 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: Guest booking created successfully:', booking._id);
     } catch (bookingError) {
       console.error('CheckoutRoutes: Error creating guest booking:', bookingError);
+    }
+
+    if (booking && isCapturedPaypalPayment) {
+      try {
+        await linkCheckoutPayment({
+          paymentMethod,
+          paymentData,
+          booking,
+          orders: createdOrders,
+          guestInfo,
+        });
+      } catch (paymentLinkError) {
+        console.error('CheckoutRoutes: Error linking guest checkout payment to booking:', paymentLinkError);
+      }
     }
 
     if (guestPromoData && createdOrders.length > 0) {
