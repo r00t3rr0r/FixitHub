@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -11,15 +10,146 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Download, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Download, Euro, ShieldCheck, Smartphone, Wrench } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
 import { jsPDF } from "jspdf"
 
 interface WorkflowReportModalProps {
   isOpen: boolean
   onClose: () => void
-  workflow: any
+  workflow: WorkflowReport
   orderId: string
+}
+
+type RGB = [number, number, number]
+
+type ReportRow = {
+  label: string
+  value: string
+  tone?: "success" | "warning" | "danger" | "neutral"
+}
+
+type ReportSection = {
+  title: string
+  rows: ReportRow[]
+}
+
+type UnknownRecord = Record<string, unknown>
+
+type WorkflowStep = {
+  stepName?: string
+  status?: string
+  assignedStaffId?: unknown
+  staffName?: string
+  startedAt?: string | Date
+  completedAt?: string | Date
+  formData?: UnknownRecord
+  checklistData?: Record<string, unknown>
+  notes?: string
+  photos?: string[]
+}
+
+type WorkflowReport = {
+  workflowName?: string
+  status?: string
+  startedAt?: string | Date
+  completedAt?: string | Date
+  steps?: WorkflowStep[]
+  [key: string]: unknown
+}
+
+type InspectionPart = {
+  status?: string
+  notes?: string
+  current?: string
+  present?: boolean
+  description?: string
+}
+
+type DeviceInspection = {
+  modelVerification?: {
+    reportedModel?: string
+    actualModel?: string
+    verificationStatus?: string
+    costDifference?: number | string
+    notes?: string
+  }
+  identification?: {
+    deviceType?: string
+    imei?: string
+    serialNumber?: string
+    identified?: boolean
+  }
+  accessories?: {
+    originalPackaging?: InspectionPart
+    caseCover?: InspectionPart
+    powerAdapter?: InspectionPart
+    simTray?: InspectionPart
+    cables?: InspectionPart
+    otherAccessories?: InspectionPart[]
+    additionalAccessoriesText?: string
+    description?: string
+  }
+  externalInspection?: {
+    display?: InspectionPart
+    frame?: InspectionPart
+    backCover?: InspectionPart
+    buttons?: InspectionPart
+    visibleDamages?: { hasDamage?: boolean; description?: string }
+    uniqueNotes?: string
+    photos?: string[]
+  }
+  deviceTest?: {
+    charging?: InspectionPart
+    power?: InspectionPart
+    wifi?: InspectionPart
+    frontCamera?: InspectionPart
+    mainCamera?: InspectionPart
+    buttons?: InspectionPart
+    notes?: string
+  }
+  appleSpecific?: {
+    modemFirmware?: InspectionPart
+    touchIdFaceId?: InspectionPart
+    customerInfoAction?: { requested?: boolean; note?: string }
+  }
+  status?: string
+  hasFailedTests?: boolean
+  failedTestDetails?: Array<{ testName?: string; reason?: string }>
+  isRepairable?: boolean
+  repairOffer?: { cost?: number | string; timeframe?: string; description?: string }
+  completionAction?: string
+  customerInformation?: { reason?: string; note?: string }
+  [key: string]: unknown
+}
+
+type PricingSummary = {
+  originalDevice?: { brand?: string; model?: string; type?: string }
+  newDevice?: { brand?: string; model?: string; type?: string }
+  serviceChanges?: Array<{
+    serviceName?: string
+    originalPrice?: number | string
+    newPrice?: number | string
+    difference?: number | string
+    status?: string
+  }>
+  totalCostBefore?: number | string
+  totalCostAfter?: number | string
+  totalCostDifference?: number | string
+  totalCostStatus?: string
+}
+
+const brand = {
+  navy: [26, 42, 94] as RGB,
+  navyDark: [15, 29, 69] as RGB,
+  gold: [245, 184, 0] as RGB,
+  ink: [39, 50, 70] as RGB,
+  muted: [100, 116, 139] as RGB,
+  line: [226, 232, 240] as RGB,
+  soft: [248, 250, 252] as RGB,
+  success: [5, 150, 105] as RGB,
+  warning: [217, 119, 6] as RGB,
+  danger: [220, 38, 38] as RGB,
 }
 
 export function WorkflowReportModal({
@@ -28,7 +158,6 @@ export function WorkflowReportModal({
   workflow,
   orderId,
 }: WorkflowReportModalProps) {
-  const { t } = useTranslation()
   const { showToast } = useToast()
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
 
@@ -53,12 +182,12 @@ export function WorkflowReportModal({
     return dateObj.toLocaleString()
   }
 
-  const formatValue = (value: any): string => {
+  const formatValue = (value: unknown): string => {
     if (Array.isArray(value)) {
-      return value.join(", ")
+      return value.map((item) => formatValue(item)).join(", ")
     }
     if (typeof value === "boolean") {
-      return value ? "Yes" : "No"
+      return value ? "Ja" : "Nein"
     }
     if (typeof value === "object" && value !== null) {
       return JSON.stringify(value, null, 2)
@@ -66,140 +195,430 @@ export function WorkflowReportModal({
     return String(value || "-")
   }
 
+  const formatMoney = (value: unknown) => {
+    const numberValue = Number(value)
+    if (!Number.isFinite(numberValue)) return "-"
+    return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(numberValue)
+  }
+
+  const formatStatus = (value: unknown) => {
+    const normalized = String(value || "-")
+    const labels: Record<string, string> = {
+      completed: "Abgeschlossen",
+      "in-progress": "In Bearbeitung",
+      pending: "Ausstehend",
+      skipped: "Uebersprungen",
+      correct: "Modell korrekt",
+      "incorrect-more-expensive": "Modell abweichend, teurer",
+      "incorrect-same-cheaper": "Modell abweichend, gleicher/guenstiger Preis",
+      unverifiable: "Nicht verifizierbar",
+      OK: "OK",
+      "Not OK": "Fehler",
+      "Not tested": "Nicht getestet",
+      working: "Funktioniert",
+      "not-working": "Funktioniert nicht",
+      defective: "Defekt",
+      "not-testable": "Nicht testbar",
+      "not-applicable": "Nicht zutreffend",
+      "light-wear": "Leichte Gebrauchsspuren",
+      "scratches-wear": "Kratzer/Gebrauchsspuren",
+      "heavy-scratches-wear": "Starke Gebrauchsspuren",
+      damaged: "Beschaedigt",
+    }
+    return labels[normalized] || normalized.replace(/-/g, " ")
+  }
+
+  const getToneForValue = (value: unknown): ReportRow["tone"] => {
+    const normalized = String(value || "").toLowerCase()
+    if (["ok", "working", "completed", "correct"].includes(normalized)) return "success"
+    if (["not ok", "not-working", "defective", "damaged"].includes(normalized)) return "danger"
+    if (["not tested", "not-testable", "unverifiable", "incorrect-more-expensive", "incorrect-same-cheaper"].includes(normalized)) return "warning"
+    return "neutral"
+  }
+
+  const isRecord = (value: unknown): value is UnknownRecord => Boolean(value && typeof value === "object" && !Array.isArray(value))
+
+  const isInspectionLike = (value: unknown): value is DeviceInspection => {
+    if (!isRecord(value)) return false
+    return [
+      "modelVerification",
+      "identification",
+      "accessories",
+      "externalInspection",
+      "deviceTest",
+      "appleSpecific",
+      "repairOffer",
+      "failedTestDetails",
+    ].some((key) => value[key] !== undefined)
+  }
+
+  const findNestedObject = <T extends UnknownRecord>(value: unknown, predicate: (candidate: UnknownRecord) => candidate is T, depth = 0, seen = new Set<object>()): T | null => {
+    if (!value || typeof value !== "object" || depth > 5 || seen.has(value)) return null
+    seen.add(value)
+
+    if (predicate(value)) return value
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const match = findNestedObject(item, predicate, depth + 1, seen)
+        if (match) return match
+      }
+      return null
+    }
+
+    for (const item of Object.values(value)) {
+      const match = findNestedObject(item, predicate, depth + 1, seen)
+      if (match) return match
+    }
+
+    return null
+  }
+
+  const inspection = findNestedObject(workflow, isInspectionLike)
+  const pricingSummary = findNestedObject(workflow, (candidate): candidate is PricingSummary => (
+    isRecord(candidate.originalDevice) &&
+    isRecord(candidate.newDevice) &&
+    Array.isArray(candidate.serviceChanges) &&
+    candidate.totalCostBefore !== undefined &&
+    candidate.totalCostAfter !== undefined
+  ))
+
+  const addRow = (rows: ReportRow[], label: string, value: unknown, tone?: ReportRow["tone"]) => {
+    if (value === undefined || value === null || value === "") return
+    rows.push({ label, value: String(value), tone })
+  }
+
+  const buildDiagnosticSections = (): ReportSection[] => {
+    if (!inspection) return []
+
+    const sections: ReportSection[] = []
+
+    if (inspection.modelVerification) {
+      const model = inspection.modelVerification
+      const rows: ReportRow[] = []
+      addRow(rows, "Gemeldetes Modell", model.reportedModel)
+      addRow(rows, "Festgestelltes Modell", model.actualModel, model.reportedModel && model.actualModel && model.reportedModel !== model.actualModel ? "warning" : "success")
+      addRow(rows, "Bewertung", formatStatus(model.verificationStatus), getToneForValue(model.verificationStatus))
+      if (model.costDifference !== undefined && Number(model.costDifference) !== 0) {
+        const prefix = Number(model.costDifference) > 0 ? "+" : ""
+        addRow(rows, "Preisänderung durch Modell", `${prefix}${formatMoney(model.costDifference)}`, Number(model.costDifference) > 0 ? "warning" : "success")
+      }
+      addRow(rows, "Notiz", model.notes)
+      sections.push({ title: "Modellverifizierung", rows })
+    }
+
+    if (pricingSummary) {
+      const rows: ReportRow[] = []
+      addRow(rows, "Vorheriges Modell", `${pricingSummary.originalDevice?.brand || ""} ${pricingSummary.originalDevice?.model || ""}`.trim())
+      addRow(rows, "Neues Modell", `${pricingSummary.newDevice?.brand || ""} ${pricingSummary.newDevice?.model || ""}`.trim(), "warning")
+      addRow(rows, "Auftragswert vorher", formatMoney(pricingSummary.totalCostBefore))
+      addRow(rows, "Auftragswert neu", formatMoney(pricingSummary.totalCostAfter), getToneForValue(pricingSummary.totalCostStatus))
+      const difference = Number(pricingSummary.totalCostDifference || 0)
+      addRow(rows, "Gesamtdifferenz", `${difference > 0 ? "+" : ""}${formatMoney(difference)}`, difference > 0 ? "warning" : difference < 0 ? "success" : "neutral")
+      pricingSummary.serviceChanges?.forEach((change) => {
+        const serviceDifference = Number(change.difference || 0)
+        addRow(rows, change.serviceName || "Service", `${formatMoney(change.originalPrice)} -> ${formatMoney(change.newPrice)} (${serviceDifference > 0 ? "+" : ""}${formatMoney(change.difference)})`, getToneForValue(change.status))
+      })
+      sections.push({ title: "Modell- und Preisänderungen", rows })
+    }
+
+    if (inspection.identification) {
+      const rows: ReportRow[] = []
+      addRow(rows, "Gerätetyp", inspection.identification.deviceType)
+      addRow(rows, "IMEI", inspection.identification.imei)
+      addRow(rows, "Seriennummer", inspection.identification.serialNumber)
+      addRow(rows, "Identifiziert", inspection.identification.identified)
+      sections.push({ title: "Identifikation", rows })
+    }
+
+    if (inspection.accessories) {
+      const rows: ReportRow[] = []
+      const accessories = [
+        ["Originalverpackung", inspection.accessories.originalPackaging],
+        ["Schutzhülle", inspection.accessories.caseCover],
+        ["Netzteil", inspection.accessories.powerAdapter],
+        ["SIM-Schublade", inspection.accessories.simTray],
+        ["Kabel", inspection.accessories.cables],
+      ] as const
+      accessories.forEach(([label, item]) => {
+        if (!item || item.present === undefined) return
+        addRow(rows, label, item.present ? "Vorhanden" : "Nicht vorhanden", item.present ? "success" : "warning")
+        addRow(rows, `${label} Notiz`, item.description)
+      })
+      inspection.accessories.otherAccessories?.forEach((item) => {
+        addRow(rows, item.name || "Weiteres Zubehör", item.present ? "Vorhanden" : "Nicht vorhanden", item.present ? "success" : "warning")
+        addRow(rows, `${item.name || "Zubehör"} Notiz`, item.description)
+      })
+      addRow(rows, "Zusätzliches Zubehör", inspection.accessories.additionalAccessoriesText)
+      addRow(rows, "Zubehör-Notiz", inspection.accessories.description)
+      sections.push({ title: "Zubehör und Verpackung", rows })
+    }
+
+    if (inspection.externalInspection) {
+      const rows: ReportRow[] = []
+      const parts = [
+        ["Display", inspection.externalInspection.display],
+        ["Rahmen", inspection.externalInspection.frame],
+        ["Rückseite", inspection.externalInspection.backCover],
+        ["Tasten", inspection.externalInspection.buttons],
+      ] as const
+      parts.forEach(([label, part]) => {
+        if (!part?.status) return
+        addRow(rows, label, formatStatus(part.status), getToneForValue(part.status))
+        addRow(rows, `${label} Notiz`, part.notes)
+      })
+      if (inspection.externalInspection.visibleDamages?.hasDamage !== undefined) {
+        addRow(rows, "Sichtbare Schäden", inspection.externalInspection.visibleDamages.hasDamage ? "Ja" : "Nein", inspection.externalInspection.visibleDamages.hasDamage ? "danger" : "success")
+        addRow(rows, "Schadensbeschreibung", inspection.externalInspection.visibleDamages.description)
+      }
+      addRow(rows, "Besondere Hinweise", inspection.externalInspection.uniqueNotes)
+      addRow(rows, "Fotos", Array.isArray(inspection.externalInspection.photos) ? `${inspection.externalInspection.photos.length} Foto(s)` : undefined)
+      sections.push({ title: "Äußerer Zustand", rows })
+    }
+
+    if (inspection.deviceTest) {
+      const rows: ReportRow[] = []
+      const tests = [
+        ["Laden", inspection.deviceTest.charging],
+        ["Einschalten", inspection.deviceTest.power],
+        ["WLAN", inspection.deviceTest.wifi],
+        ["Frontkamera", inspection.deviceTest.frontCamera],
+        ["Hauptkamera", inspection.deviceTest.mainCamera],
+        ["Tasten", inspection.deviceTest.buttons],
+      ] as const
+      tests.forEach(([label, test]) => {
+        if (!test?.status) return
+        addRow(rows, label, formatStatus(test.status), getToneForValue(test.status))
+        addRow(rows, `${label} Notiz`, test.notes)
+      })
+      addRow(rows, "Ladestrom", inspection.deviceTest.charging?.current)
+      addRow(rows, "Testnotiz", inspection.deviceTest.notes)
+      sections.push({ title: "Funktionstests", rows })
+    }
+
+    if (inspection.appleSpecific) {
+      const rows: ReportRow[] = []
+      addRow(rows, "Modem-Firmware", formatStatus(inspection.appleSpecific.modemFirmware?.status), getToneForValue(inspection.appleSpecific.modemFirmware?.status))
+      addRow(rows, "Modem-Firmware Notiz", inspection.appleSpecific.modemFirmware?.notes)
+      addRow(rows, "Touch ID / Face ID", formatStatus(inspection.appleSpecific.touchIdFaceId?.status), getToneForValue(inspection.appleSpecific.touchIdFaceId?.status))
+      addRow(rows, "Touch ID / Face ID Notiz", inspection.appleSpecific.touchIdFaceId?.notes)
+      if (inspection.appleSpecific.customerInfoAction?.requested !== undefined) {
+        addRow(rows, "Kundeninformation erforderlich", inspection.appleSpecific.customerInfoAction.requested ? "Ja" : "Nein", inspection.appleSpecific.customerInfoAction.requested ? "warning" : "success")
+        addRow(rows, "Kundeninformation Notiz", inspection.appleSpecific.customerInfoAction.note)
+      }
+      sections.push({ title: "Apple-spezifische Prüfung", rows })
+    }
+
+    if (typeof inspection.isRepairable === "boolean" || inspection.repairOffer || inspection.customerInformation || inspection.failedTestDetails?.length) {
+      const rows: ReportRow[] = []
+      if (typeof inspection.isRepairable === "boolean") {
+        addRow(rows, "Reparierbar", inspection.isRepairable ? "Ja" : "Nein", inspection.isRepairable ? "success" : "danger")
+      }
+      addRow(rows, "Empfohlene Maßnahme", formatStatus(inspection.completionAction))
+      addRow(rows, "Reparaturangebot", inspection.repairOffer?.cost != null ? formatMoney(inspection.repairOffer.cost) : undefined, "warning")
+      addRow(rows, "Zeitrahmen", inspection.repairOffer?.timeframe)
+      addRow(rows, "Angebotsbeschreibung", inspection.repairOffer?.description)
+      addRow(rows, "Kundeninfo Grund", inspection.customerInformation?.reason)
+      addRow(rows, "Kundeninfo Notiz", inspection.customerInformation?.note)
+      inspection.failedTestDetails?.forEach((failedTest) => {
+        addRow(rows, failedTest.testName || "Fehlgeschlagener Test", failedTest.reason, "danger")
+      })
+      sections.push({ title: "Reparaturentscheidung", rows })
+    }
+
+    return sections.filter((section) => section.rows.length > 0)
+  }
+
+  const diagnosticSections = buildDiagnosticSections()
+
   const generatePDF = async () => {
     try {
       setIsGeneratingPDF(true)
 
-      const pdf = new jsPDF()
+      const pdf = new jsPDF({ unit: "mm", format: "a4" })
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
       const margin = 15
       const contentWidth = pageWidth - 2 * margin
-      let yPosition = margin
+      let yPosition = 0
 
-      // Helper function to add text with word wrap
-      const addText = (text: string, size: number, weight: "bold" | "normal" = "normal", color = [0, 0, 0]) => {
+      const setColor = (color: RGB) => pdf.setTextColor(color[0], color[1], color[2])
+
+      const checkPageSpace = (space: number) => {
+        if (yPosition + space > pageHeight - margin) {
+          pdf.addPage()
+          addPageHeader(false)
+        }
+      }
+
+      const addPageHeader = (firstPage = false) => {
+        pdf.setFillColor(...brand.navy)
+        pdf.rect(0, 0, pageWidth, firstPage ? 36 : 20, "F")
+        pdf.setFillColor(...brand.gold)
+        pdf.rect(0, firstPage ? 34 : 18, pageWidth, 2, "F")
+        setColor([255, 255, 255])
+        pdf.setFont(undefined, "bold")
+        pdf.setFontSize(firstPage ? 20 : 12)
+        pdf.text("McRepair", margin, firstPage ? 15 : 12)
+        pdf.setFont(undefined, "normal")
+        pdf.setFontSize(firstPage ? 10 : 8)
+        pdf.text("Professioneller Device Diagnostic Report", margin, firstPage ? 24 : 16)
+        yPosition = firstPage ? 47 : 30
+      }
+
+      const addText = (text: string, size: number, weight: "bold" | "normal" = "normal", color: RGB = brand.ink, width = contentWidth) => {
+        checkPageSpace(8)
         pdf.setFontSize(size)
-        pdf.setTextColor(...color)
+        setColor(color)
         if (weight === "bold") {
           pdf.setFont(undefined, "bold")
         } else {
           pdf.setFont(undefined, "normal")
         }
-        const lines = pdf.splitTextToSize(text, contentWidth)
+        const lines = pdf.splitTextToSize(text, width)
         pdf.text(lines, margin, yPosition)
-        yPosition += lines.length * 7 + 2
+        yPosition += lines.length * (size * 0.42) + 3
       }
 
-      const addLine = () => {
-        yPosition += 2
-        pdf.setDrawColor(200, 200, 200)
-        pdf.line(margin, yPosition, pageWidth - margin, yPosition)
-        yPosition += 2
+      const addKeyValue = (label: string, value: string, x: number, y: number, width: number, tone: ReportRow["tone"] = "neutral") => {
+        const toneColor = tone === "success" ? brand.success : tone === "warning" ? brand.warning : tone === "danger" ? brand.danger : brand.ink
+        pdf.setFont(undefined, "bold")
+        pdf.setFontSize(7.5)
+        setColor(brand.muted)
+        pdf.text(label.toUpperCase(), x, y)
+        pdf.setFont(undefined, "normal")
+        pdf.setFontSize(9)
+        setColor(toneColor)
+        const lines = pdf.splitTextToSize(value || "-", width)
+        pdf.text(lines, x, y + 5)
+        return 8 + lines.length * 4
       }
 
-      // Check page space
-      const checkPageSpace = (space: number) => {
-        if (yPosition + space > pageHeight - margin) {
-          pdf.addPage()
-          yPosition = margin
+      const addSection = (section: ReportSection) => {
+        checkPageSpace(24)
+        pdf.setFillColor(...brand.soft)
+        pdf.setDrawColor(...brand.line)
+        const startY = yPosition
+        pdf.roundedRect(margin, startY, contentWidth, 13, 2, 2, "FD")
+        pdf.setFont(undefined, "bold")
+        pdf.setFontSize(11)
+        setColor(brand.navy)
+        pdf.text(section.title, margin + 4, startY + 8.5)
+        yPosition += 17
+
+        const columnGap = 7
+        const columnWidth = (contentWidth - columnGap) / 2
+        for (let index = 0; index < section.rows.length; index += 2) {
+          const left = section.rows[index]
+          const right = section.rows[index + 1]
+          const rowY = yPosition
+          const leftHeight = addKeyValue(left.label, left.value, margin + 2, rowY, columnWidth - 4, left.tone)
+          const rightHeight = right ? addKeyValue(right.label, right.value, margin + columnWidth + columnGap + 2, rowY, columnWidth - 4, right.tone) : 0
+          yPosition += Math.max(leftHeight, rightHeight, 12)
+          checkPageSpace(16)
         }
+        yPosition += 3
       }
 
-      // Title
-      addText(`Workflow Execution Report`, 16, "bold", [0, 51, 102])
-      addLine()
+      addPageHeader(true)
 
-      // Summary Section
-      addText("Summary", 12, "bold", [0, 51, 102])
-      addText(`Workflow: ${workflow.workflowName}`, 10)
-      addText(`Order ID: ${orderId}`, 10)
-      addText(`Status: ${workflow.status || "N/A"}`, 10)
-      addText(`Started: ${formatDate(workflow.startedAt)}`, 10)
-      addText(`Completed: ${formatDate(workflow.completedAt)}`, 10)
+      pdf.setFont(undefined, "bold")
+      pdf.setFontSize(15)
+      setColor(brand.navyDark)
+      pdf.text(workflow.workflowName || "Workflow Report", margin, yPosition)
+      yPosition += 9
 
-      if (workflow.steps && workflow.steps.length > 0) {
-        const completedSteps = workflow.steps.filter((s: any) => s.status === "completed").length
-        addText(`Progress: ${completedSteps}/${workflow.steps.length} steps completed`, 10)
+      const completedSteps = workflow.steps?.filter((step) => step.status === "completed").length || 0
+      const totalSteps = workflow.steps?.length || 0
+      const summaryRows: ReportRow[] = [
+        { label: "Auftrag", value: orderId },
+        { label: "Status", value: formatStatus(workflow.status || "N/A"), tone: getToneForValue(workflow.status) },
+        { label: "Gestartet", value: formatDate(workflow.startedAt) },
+        { label: "Abgeschlossen", value: formatDate(workflow.completedAt) },
+      ]
+
+      if (totalSteps > 0) {
+        summaryRows.push({ label: "Fortschritt", value: `${completedSteps}/${totalSteps} Schritte abgeschlossen`, tone: completedSteps === totalSteps ? "success" : "warning" })
       }
 
-      addLine()
+      addSection({ title: "Übersicht", rows: summaryRows })
 
-      // Steps Section
+      if (diagnosticSections.length > 0) {
+        diagnosticSections.forEach(addSection)
+      } else {
+        addText("Keine strukturierten Device-Diagnostic-Daten im Workflow gefunden. Die verfügbaren Workflow-Schritte werden unten ausgegeben.", 9, "normal", brand.muted)
+      }
+
       if (workflow.steps && workflow.steps.length > 0) {
-        addText("Workflow Steps", 12, "bold", [0, 51, 102])
+        addText("Workflow-Schritte", 12, "bold", brand.navy)
 
-        workflow.steps.forEach((step: any, index: number) => {
+        workflow.steps.forEach((step, index) => {
           checkPageSpace(30)
-
-          // Step header
-          addText(`Step ${index + 1}: ${step.stepName}`, 11, "bold", [51, 51, 51])
-          addText(`Status: ${step.status || "pending"}`, 10)
+          addText(`${index + 1}. ${step.stepName}`, 10, "bold", brand.ink)
+          addText(`Status: ${formatStatus(step.status || "pending")}`, 8, "normal", brand.muted)
 
           if (step.assignedStaffId) {
-            addText(`Assigned Staff: ${step.staffName || "N/A"}`, 10)
+            addText(`Zugewiesen an: ${step.staffName || "N/A"}`, 8, "normal", brand.muted)
           }
 
           if (step.startedAt) {
-            addText(`Started: ${formatDate(step.startedAt)}`, 10)
+            addText(`Gestartet: ${formatDate(step.startedAt)}`, 8, "normal", brand.muted)
           }
 
           if (step.completedAt) {
-            addText(`Completed: ${formatDate(step.completedAt)}`, 10)
+            addText(`Abgeschlossen: ${formatDate(step.completedAt)}`, 8, "normal", brand.muted)
           }
 
-          // Form Data
           if (step.formData && Object.keys(step.formData).length > 0) {
             checkPageSpace(15)
-            addText("Form Data:", 10, "bold")
+            addText("Formulardaten", 9, "bold", brand.navy)
             Object.entries(step.formData).forEach(([key, value]) => {
               checkPageSpace(5)
               const formattedValue = formatValue(value)
-              addText(`  ${key}: ${formattedValue}`, 9)
+              addText(`${key}: ${formattedValue}`, 8, "normal", brand.ink)
             })
           }
 
-          // Checklist Data
           if (step.checklistData && Object.keys(step.checklistData).length > 0) {
             checkPageSpace(15)
-            addText("Checklist Items:", 10, "bold")
+            addText("Checkliste", 9, "bold", brand.navy)
             Object.entries(step.checklistData).forEach(([key, value]) => {
               checkPageSpace(5)
-              const status = value ? "✓ Completed" : "✗ Not completed"
+              const status = value ? "Erledigt" : "Nicht erledigt"
               addText(`  ${key}: ${status}`, 9)
             })
           }
 
-          // Notes
           if (step.notes) {
             checkPageSpace(10)
-            addText("Notes:", 10, "bold")
+            addText("Notizen", 9, "bold", brand.navy)
             const noteLines = pdf.splitTextToSize(step.notes, contentWidth - 10)
             pdf.setFontSize(9)
-            pdf.text(noteLines, margin + 5, yPosition)
+            setColor(brand.ink)
+            pdf.text(noteLines, margin, yPosition)
             yPosition += noteLines.length * 5 + 3
           }
 
-          addLine()
+          pdf.setDrawColor(...brand.line)
+          pdf.line(margin, yPosition, pageWidth - margin, yPosition)
+          yPosition += 5
         })
       }
 
-      // Footer
       yPosition = pageHeight - margin - 10
       pdf.setFontSize(8)
-      pdf.setTextColor(150, 150, 150)
+      setColor(brand.muted)
       pdf.text(
-        `Report generated on ${new Date().toLocaleString()}`,
+        `Erstellt am ${new Date().toLocaleString("de-DE")}`,
         margin,
         yPosition
       )
 
-      // Save PDF
-      pdf.save(`workflow-report-${workflow.workflowName}-${new Date().getTime()}.pdf`)
-      showToast("PDF downloaded successfully", "success")
+      pdf.save(`mcrepair-diagnostic-report-${orderId}-${new Date().getTime()}.pdf`)
+      showToast("PDF wurde heruntergeladen", "success")
     } catch (error) {
       console.error("Error generating PDF:", error)
-      showToast("Failed to generate PDF", "error")
+      showToast("PDF konnte nicht erstellt werden", "error")
     } finally {
       setIsGeneratingPDF(false)
     }
@@ -209,17 +628,74 @@ export function WorkflowReportModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Workflow Execution Report</DialogTitle>
+          <DialogTitle>McRepair Device Diagnostic Report</DialogTitle>
           <DialogDescription>
-            Detailed report of all workflow step execution data and collected information
+            Professionelle Übersicht der Geräteprüfung inklusive Modell- und Preisänderungen.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
+          <div className="overflow-hidden rounded-xl border border-[#1a2a5e]/15 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-[#1a2a5e] to-[#0f1d45] px-5 py-4 text-white">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5b800] text-[#1a2a5e]">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold leading-tight">McRepair Prüfbericht</p>
+                    <p className="text-xs text-white/70">Auftrag {orderId}</p>
+                  </div>
+                </div>
+                {inspection?.hasFailedTests ? (
+                  <Badge className="border border-red-300/40 bg-red-500/20 text-red-100">Prüfung mit Auffälligkeiten</Badge>
+                ) : (
+                  <Badge className="border border-emerald-300/40 bg-emerald-500/20 text-emerald-50">Prüfdaten erfasst</Badge>
+                )}
+              </div>
+            </div>
+            {diagnosticSections.length > 0 && (
+              <div className="grid gap-px bg-[#1a2a5e]/10 p-px md:grid-cols-2">
+                {diagnosticSections.slice(0, 4).map((section) => (
+                  <div key={section.title} className="bg-white p-4">
+                    <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#1a2a5e]/70">
+                      {section.title === "Modellverifizierung" && <Smartphone className="h-3.5 w-3.5" />}
+                      {section.title === "Modell- und Preisänderungen" && <Euro className="h-3.5 w-3.5" />}
+                      {section.title === "Funktionstests" && <ClipboardCheck className="h-3.5 w-3.5" />}
+                      {section.title === "Reparaturentscheidung" && <Wrench className="h-3.5 w-3.5" />}
+                      {![
+                        "Modellverifizierung",
+                        "Modell- und Preisänderungen",
+                        "Funktionstests",
+                        "Reparaturentscheidung",
+                      ].includes(section.title) && <CheckCircle2 className="h-3.5 w-3.5" />}
+                      {section.title}
+                    </p>
+                    <div className="space-y-2">
+                      {section.rows.slice(0, 4).map((row) => (
+                        <div key={`${section.title}-${row.label}`} className="flex items-start justify-between gap-3 text-sm">
+                          <span className="text-xs text-slate-500">{row.label}</span>
+                          <span className={`max-w-[55%] text-right text-xs font-semibold ${
+                            row.tone === "success" ? "text-emerald-700" :
+                            row.tone === "warning" ? "text-amber-700" :
+                            row.tone === "danger" ? "text-red-700" : "text-slate-800"
+                          }`}>
+                            {row.tone === "danger" && <AlertTriangle className="mr-1 inline h-3 w-3" />}
+                            {row.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Summary Card */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Summary</CardTitle>
+              <CardTitle className="text-lg">Workflow-Übersicht</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-4">
@@ -230,15 +706,15 @@ export function WorkflowReportModal({
                 <div>
                   <p className="text-sm font-medium text-gray-500">Status</p>
                   <Badge className={getStatusColor(workflow.status)}>
-                    {workflow.status || "N/A"}
+                    {formatStatus(workflow.status || "N/A")}
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Started</p>
+                  <p className="text-sm font-medium text-gray-500">Gestartet</p>
                   <p className="text-sm">{formatDate(workflow.startedAt)}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Completed</p>
+                  <p className="text-sm font-medium text-gray-500">Abgeschlossen</p>
                   <p className="text-sm">{formatDate(workflow.completedAt)}</p>
                 </div>
               </div>
@@ -251,7 +727,7 @@ export function WorkflowReportModal({
                         className="bg-green-500 h-2 rounded-full transition-all"
                         style={{
                           width: `${
-                            (workflow.steps.filter((s: any) => s.status === "completed")
+                            (workflow.steps.filter((step) => step.status === "completed")
                               .length / workflow.steps.length) *
                             100
                           }%`,
@@ -259,7 +735,7 @@ export function WorkflowReportModal({
                       ></div>
                     </div>
                     <span className="text-sm font-semibold">
-                      {workflow.steps.filter((s: any) => s.status === "completed").length}/
+                      {workflow.steps.filter((step) => step.status === "completed").length}/
                       {workflow.steps.length}
                     </span>
                   </div>
@@ -271,21 +747,21 @@ export function WorkflowReportModal({
           {/* Steps Section */}
           {workflow.steps && workflow.steps.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Workflow Steps</h3>
-              {workflow.steps.map((step: any, index: number) => (
+              <h3 className="text-lg font-semibold">Workflow-Schritte</h3>
+              {workflow.steps.map((step, index) => (
                 <Card key={index}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle className="text-base">
-                          Step {index + 1}: {step.stepName}
+                          Schritt {index + 1}: {step.stepName}
                         </CardTitle>
                         <CardDescription>
-                          {step.assignedStaffId && `Assigned to: ${step.staffName || "Unknown"}`}
+                          {step.assignedStaffId && `Zugewiesen an: ${step.staffName || "Unbekannt"}`}
                         </CardDescription>
                       </div>
                       <Badge className={getStatusColor(step.status)}>
-                        {step.status || "pending"}
+                        {formatStatus(step.status || "pending")}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -293,11 +769,11 @@ export function WorkflowReportModal({
                     {/* Timeline */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-xs font-medium text-gray-500">Started</p>
+                        <p className="text-xs font-medium text-gray-500">Gestartet</p>
                         <p className="text-sm">{formatDate(step.startedAt)}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-gray-500">Completed</p>
+                        <p className="text-xs font-medium text-gray-500">Abgeschlossen</p>
                         <p className="text-sm">{formatDate(step.completedAt)}</p>
                       </div>
                     </div>
@@ -305,7 +781,7 @@ export function WorkflowReportModal({
                     {/* Form Data */}
                     {step.formData && Object.keys(step.formData).length > 0 && (
                       <div>
-                        <p className="text-sm font-semibold mb-2">Form Data</p>
+                        <p className="text-sm font-semibold mb-2">Formulardaten</p>
                         <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                           {Object.entries(step.formData).map(([key, value], idx) => (
                             <div key={idx} className="text-sm">
@@ -320,7 +796,7 @@ export function WorkflowReportModal({
                     {/* Checklist Data */}
                     {step.checklistData && Object.keys(step.checklistData).length > 0 && (
                       <div>
-                        <p className="text-sm font-semibold mb-2">Checklist Items</p>
+                        <p className="text-sm font-semibold mb-2">Checkliste</p>
                         <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                           {Object.entries(step.checklistData).map(([key, value], idx) => (
                             <div key={idx} className="flex items-center gap-2 text-sm">
@@ -339,7 +815,7 @@ export function WorkflowReportModal({
                     {/* Notes */}
                     {step.notes && (
                       <div>
-                        <p className="text-sm font-semibold mb-2">Notes</p>
+                        <p className="text-sm font-semibold mb-2">Notizen</p>
                         <div className="bg-white rounded-lg p-3 text-sm text-gray-700 border border-gray-200 shadow-sm">
                           {step.notes}
                         </div>
@@ -349,7 +825,7 @@ export function WorkflowReportModal({
                     {/* Photos */}
                     {step.photos && step.photos.length > 0 && (
                       <div>
-                        <p className="text-sm font-semibold mb-2">Photos</p>
+                        <p className="text-sm font-semibold mb-2">Fotos</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                           {step.photos.map((photo: string, idx: number) => (
                             <div key={idx} className="relative bg-gray-100 rounded-lg overflow-hidden">
@@ -373,7 +849,7 @@ export function WorkflowReportModal({
           {(!workflow.steps || workflow.steps.length === 0) && (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-center text-gray-500">No workflow steps data available</p>
+                <p className="text-center text-gray-500">Keine Workflow-Schritte verfügbar</p>
               </CardContent>
             </Card>
           )}
@@ -384,7 +860,7 @@ export function WorkflowReportModal({
             variant="outline"
             onClick={onClose}
           >
-            Close
+            Schließen
           </Button>
           <Button
             onClick={generatePDF}
@@ -392,7 +868,7 @@ export function WorkflowReportModal({
             className="gap-2"
           >
             <Download className="w-4 h-4" />
-            {isGeneratingPDF ? "Generating..." : "Download PDF"}
+            {isGeneratingPDF ? "PDF wird erstellt..." : "Download PDF"}
           </Button>
         </DialogFooter>
       </DialogContent>
