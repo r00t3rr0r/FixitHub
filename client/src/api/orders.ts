@@ -142,6 +142,14 @@ export interface Order {
   actualDelivery?: string;
   shippingLabelUrl?: string;
   shippingCost?: number;
+  returnLabelUrl?: string;
+  returnQRCodeUrl?: string;
+  returnTrackingNumber?: string;
+  returnShipmentId?: string;
+  returnShipmentStatus?: 'pending' | 'label-created' | 'in-transit' | 'delivered' | 'failed' | '';
+  returnShipmentStatusDescription?: string;
+  returnCreatedAt?: string;
+  returnReceivedAt?: string;
   trackingEvents?: Array<{
     timestamp: string;
     location: string;
@@ -255,6 +263,38 @@ export const downloadOrderShippingLabel = async (orderId: string, filename?: str
   const link = document.createElement('a');
   link.href = url;
   link.download = filename || `versandlabel-${orderId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+// Description: Create a return label for an order that has no linked booking
+// Endpoint: POST /api/orders/:id/return-label
+// Response: { success: boolean, returnId, returnTrackingNumber, labelUrl, qrCodeUrl, order }
+export const createOrderReturnLabel = async (orderId: string) => {
+  try {
+    const response = await api.post(`/api/orders/${orderId}/return-label`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error?.response?.data?.error || error.message);
+  }
+};
+
+// Description: Download return label PDF for an order
+// Endpoint: GET /api/orders/:id/return-label
+// Response: PDF file blob
+export const downloadOrderReturnLabel = async (orderId: string, filename?: string) => {
+  const response = await api.get(`/api/orders/${orderId}/return-label`, {
+    responseType: 'blob',
+    transformResponse: undefined,
+    validateStatus: (status: number) => status === 200,
+  });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || `ruecksendelabel-${orderId}.pdf`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

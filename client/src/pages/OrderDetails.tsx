@@ -29,7 +29,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatPrice } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
-import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, createOrderReturnLabel, downloadOrderReturnLabel } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
@@ -1163,22 +1163,56 @@ export function OrderDetails() {
   }
 
   const handleCreateOrderReturnLabel = async () => {
-    if (!linkedBooking?._id || creatingOrderReturnLabel || linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created') return
+    if (creatingOrderReturnLabel) return
+
+    // Prefer the linked booking's return flow; otherwise create the label directly on the order.
+    if (linkedBooking?._id) {
+      if (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created') return
+
+      try {
+        setCreatingOrderReturnLabel(true)
+        const response = await createReturnLabel(linkedBooking._id)
+
+        if (!response?.success) {
+          throw new Error(response?.message || 'Rücksendelabel konnte nicht erstellt werden.')
+        }
+
+        setLinkedBooking((prev: any) => (prev ? { ...prev, ...(response.booking || {}) } : prev))
+
+        toast({
+          title: 'Rücksendelabel erstellt',
+          description: response?.returnTrackingNumber || response?.booking?.returnTrackingNumber
+            ? `Trackingnummer: ${response.returnTrackingNumber || response.booking.returnTrackingNumber}`
+            : 'Das Rücksendelabel wurde erfolgreich erstellt.',
+        })
+      } catch (error: any) {
+        toast({
+          title: 'Rücksendelabel konnte nicht erstellt werden',
+          description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
+          variant: 'destructive',
+        })
+      } finally {
+        setCreatingOrderReturnLabel(false)
+      }
+      return
+    }
+
+    if (order.returnLabelUrl || order.returnShipmentStatus === 'label-created') return
 
     try {
       setCreatingOrderReturnLabel(true)
-      const response = await createReturnLabel(linkedBooking._id)
+      const response = await createOrderReturnLabel(order._id)
 
       if (!response?.success) {
         throw new Error(response?.message || 'Rücksendelabel konnte nicht erstellt werden.')
       }
 
-      setLinkedBooking((prev: any) => (prev ? { ...prev, ...(response.booking || {}) } : prev))
+      setOrder((prev: any) => (prev ? { ...prev, ...(response.order || {}) } : prev))
 
       toast({
         title: 'Rücksendelabel erstellt',
-        description: response?.returnTrackingNumber || response?.booking?.returnTrackingNumber
-          ? `Trackingnummer: ${response.returnTrackingNumber || response.booking.returnTrackingNumber}`
+        description: response?.returnTrackingNumber
+          ? `Trackingnummer: ${response.returnTrackingNumber}`
           : 'Das Rücksendelabel wurde erfolgreich erstellt.',
       })
     } catch (error: any) {
@@ -1193,11 +1227,15 @@ export function OrderDetails() {
   }
 
   const handleDownloadOrderReturnLabel = async () => {
-    if (!linkedBooking?._id || downloadingOrderReturnLabel) return
+    if (downloadingOrderReturnLabel) return
 
     try {
       setDownloadingOrderReturnLabel(true)
-      await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
+      if (linkedBooking?._id) {
+        await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
+      } else {
+        await downloadOrderReturnLabel(order._id, `ruecksendeetikett-${order.orderNumber || order._id}.pdf`)
+      }
     } catch (error: any) {
       toast({
         title: 'Rücksendelabel konnte nicht heruntergeladen werden',
@@ -5576,20 +5614,23 @@ export function OrderDetails() {
                             size="sm"
                             onClick={handleCreateOrderReturnLabel}
                             disabled={
-                              !linkedBooking?._id
-                              || creatingOrderReturnLabel
-                              || Boolean(linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
+                              creatingOrderReturnLabel
+                              || Boolean(
+                                linkedBooking?._id
+                                  ? (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
+                                  : (order.returnLabelUrl || order.returnShipmentStatus === 'label-created')
+                              )
                             }
                             className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45] font-semibold border-0"
                           >
                             <Truck className="h-4 w-4 mr-1.5" />
                             {creatingOrderReturnLabel
                               ? 'Rücksendelabel wird erstellt…'
-                              : linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created'
+                              : (linkedBooking?._id
+                                ? (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
+                                : (order.returnLabelUrl || order.returnShipmentStatus === 'label-created'))
                                 ? 'Rücksendelabel bereits erstellt'
-                                : !linkedBooking?._id
-                                  ? 'Keine Buchung verknüpft'
-                                  : 'Rücksendung starten'}
+                                : 'Rücksendung starten'}
                           </Button>
                         ) : (
                           <Button
@@ -5666,7 +5707,7 @@ export function OrderDetails() {
                               <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
                             )}
 
-                            {linkedBooking?.returnLabelUrl ? (
+                            {(linkedBooking?.returnLabelUrl || (!linkedBooking?._id && order.returnLabelUrl)) ? (
                               <div className="flex flex-wrap gap-2">
                                 <Button
                                   size="sm"
@@ -5678,9 +5719,22 @@ export function OrderDetails() {
                                   {downloadingOrderReturnLabel ? 'Rücksendelabel wird heruntergeladen…' : 'Rücksendelabel herunterladen'}
                                 </Button>
                               </div>
-                            ) : order.status === 'completed' ? (
-                              <p className="text-xs text-muted-foreground">Noch kein Rücksendelabel verfügbar.</p>
-                            ) : null}
+                            ) : (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Noch kein Rücksendelabel verfügbar.</p>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleCreateOrderReturnLabel}
+                                    disabled={creatingOrderReturnLabel}
+                                  >
+                                    <Truck className="h-4 w-4 mr-1.5" />
+                                    {creatingOrderReturnLabel ? 'Rücksendelabel wird erstellt…' : 'Rücksendelabel erstellen'}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

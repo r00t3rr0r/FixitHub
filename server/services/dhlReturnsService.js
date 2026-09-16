@@ -1,6 +1,7 @@
 const axios = require('axios');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const Booking = require('../models/Booking');
+const Order = require('../models/Order');
 const User = require('../models/User');
 
 /**
@@ -12,6 +13,7 @@ class DHLReturnsService {
 
   /**
    * Get DHL Returns configuration from system settings
+   * Reuses the same active DHL shipping integration used for outbound (Einsendelabel) labels
    */
   static async getDHLReturnsConfig() {
     console.log('DHLReturnsService: Fetching DHL Returns configuration');
@@ -24,40 +26,47 @@ class DHLReturnsService {
         throw new Error('System configuration not found');
       }
 
-      const dhlReturns = config.integrations.find(
-        integration => integration.name === 'DHL Returns' && integration.type === 'shipping'
+      // Prefer a dedicated "DHL Returns" profile if one is configured, otherwise fall back
+      // to the same active DHL shipping integration used for outbound labels.
+      const dhlIntegration = config.integrations.find(
+        integration => integration.provider === 'DHL' && integration.type === 'shipping' && integration.isActive
+          && String(integration.name || '').toLowerCase().includes('returns')
+      ) || config.integrations.find(
+        integration => integration.provider === 'DHL' && integration.type === 'shipping' && integration.isActive
       );
 
-      if (!dhlReturns || !dhlReturns.isActive) {
-        console.error('DHLReturnsService: DHL Returns integration not found or not active');
+      if (!dhlIntegration) {
+        console.error('DHLReturnsService: No active DHL integration found');
         throw new Error('DHL Returns integration not configured or inactive');
       }
 
-      const { apiKey, apiSecret, apiEndpoint, accountId } = dhlReturns.credentials;
+      const credentials = dhlIntegration.credentials || {};
+      const metadata = dhlIntegration.metadata || {};
 
-      // apiKey = username, apiSecret = password for OAuth2
-      // accountId = receiverID (14-character billing number)
-      // Additional credentials (client_id, client_secret) should be in metadata
-      const clientId = dhlReturns.metadata?.clientId || '';
-      const clientSecret = dhlReturns.metadata?.clientSecret || '';
-      const environment = dhlReturns.metadata?.environment || 'sandbox';
+      // apiKey/username and apiSecret/password are used for OAuth2, accountId is the receiverID (14-character billing number)
+      const username = credentials.username || credentials.apiKey || dhlIntegration.apiKey || '';
+      const password = credentials.password || credentials.apiSecret || dhlIntegration.apiSecret || '';
+      const receiverId = credentials.accountId || dhlIntegration.settings?.accountNumber || dhlIntegration.settings?.accountId || '';
+      const clientId = metadata.clientId || credentials.clientId || '';
+      const clientSecret = metadata.clientSecret || credentials.clientSecret || '';
+      const environment = metadata.environment || dhlIntegration.settings?.environment || 'sandbox';
 
-      if (!apiKey || !apiSecret || !accountId) {
-        console.error('DHLReturnsService: Missing required DHL Returns credentials');
-        throw new Error('DHL Returns credentials incomplete - username, password, and receiverID required');
+      if (!username || !password || !receiverId) {
+        console.error('DHLReturnsService: Missing required DHL credentials');
+        throw new Error('DHL credentials incomplete - username, password, and receiverID required');
       }
 
       console.log('DHLReturnsService: Configuration loaded successfully');
       console.log('DHLReturnsService: Environment:', environment);
-      console.log('DHLReturnsService: ReceiverID:', accountId);
+      console.log('DHLReturnsService: ReceiverID:', receiverId);
 
       return {
-        username: apiKey,
-        password: apiSecret,
-        receiverId: accountId,
+        username,
+        password,
+        receiverId,
         clientId,
         clientSecret,
-        apiEndpoint: apiEndpoint || (environment === 'production'
+        apiEndpoint: credentials.apiEndpoint || dhlIntegration.endpoint || (environment === 'production'
           ? 'https://api.dhl.com'
           : 'https://api-sandbox.dhl.com'),
         environment,
@@ -286,6 +295,160 @@ class DHLReturnsService {
       };
     } catch (error) {
       console.error('DHLReturnsService: Error creating return label:', error.response?.data || error.message);
+
+      if (error.response?.status === 400) {
+        const errorDetails = error.response.data?.detail || error.response.data?.message || 'Invalid request parameters';
+        throw new Error(`DHL Returns API error: ${errorDetails}`);
+      }
+
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed - DHL Returns API credentials may be invalid');
+      }
+
+      if (error.response?.status === 404) {
+        throw new Error('DHL Returns API endpoint not found - check configuration');
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Create return label for an order that has no linked booking
+   * @param {string} orderId - Order ID
+   * @param {object} options - Optional parameters
+   * @returns {object} - Return label information
+   */
+  static async createReturnLabelForOrder(orderId, options = {}) {
+    console.log('DHLReturnsService: Creating return label for order:', orderId);
+
+    try {
+      const order = await Order.findById(orderId);
+
+      if (!order) {
+        console.error('DHLReturnsService: Order not found:', orderId);
+        throw new Error('Order not found');
+      }
+
+      if (order.returnLabelUrl || order.returnShipmentStatus === 'label-created') {
+        return {
+          success: true,
+          returnId: order.returnShipmentId,
+          returnTrackingNumber: order.returnTrackingNumber,
+          labelUrl: order.returnLabelUrl,
+          qrCodeUrl: order.returnQRCodeUrl,
+          message: 'Return label already exists',
+          order,
+        };
+      }
+
+      console.log('DHLReturnsService: Order found:', order.orderNumber);
+      console.log('DHLReturnsService: Customer ID:', order.customerId);
+
+      const customer = await User.findById(order.customerId).select('firstName lastName name email phone invoiceAddress');
+
+      if (!customer) {
+        console.error('DHLReturnsService: Customer not found for order');
+        throw new Error('Customer information not found');
+      }
+
+      // Prefer the order's own shipping address, fall back to the customer's invoice address
+      const shippingAddress = order.shippingAddress || {};
+      const invoiceAddress = customer.invoiceAddress || {};
+      const street = shippingAddress.street || invoiceAddress.street;
+      const city = shippingAddress.city || invoiceAddress.city;
+      const zipCode = shippingAddress.zipCode || invoiceAddress.zipCode;
+      const country = shippingAddress.country || invoiceAddress.country;
+
+      if (!street || !city || !zipCode) {
+        console.error('DHLReturnsService: Incomplete address for order return label');
+        throw new Error('Die Versand- bzw. Rechnungsadresse ist unvollständig. Straße, Stadt und Postleitzahl werden benötigt.');
+      }
+
+      const config = await this.getDHLReturnsConfig();
+      const accessToken = await this.getAccessToken();
+      const labelType = options.labelType || 'BOTH';
+
+      const returnRequest = {
+        receiverId: config.receiverId,
+        shipper: {
+          name1: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer',
+          addressStreet: street,
+          addressHouse: invoiceAddress.number || '1',
+          postalCode: zipCode,
+          city,
+        },
+      };
+
+      if (customer.email) {
+        returnRequest.shipper.email = customer.email;
+      }
+
+      if (customer.phone) {
+        returnRequest.shipper.phone = customer.phone;
+      }
+
+      if (country && country !== 'DE' && country !== 'Deutschland') {
+        returnRequest.shipper.country = country;
+      }
+
+      console.log('DHLReturnsService: Return request payload:', JSON.stringify(returnRequest, null, 2));
+
+      const returnLabelEndpoint = `${config.apiEndpoint}/parcel/de/shipping/returns/v1/orders`;
+      const queryParams = labelType !== 'PDF' ? `?labelType=${labelType}` : '';
+
+      const response = await axios.post(
+        returnLabelEndpoint + queryParams,
+        returnRequest,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      console.log('DHLReturnsService: Return label created successfully for order');
+
+      const returnData = response.data;
+      const returnId = returnData.returnId || returnData.shipmentNo;
+
+      let labelUrl = '';
+      if (returnData.label && returnData.label.b64) {
+        labelUrl = `data:application/pdf;base64,${returnData.label.b64}`;
+      }
+
+      let qrCodeUrl = '';
+      if (returnData.qrLabel && returnData.qrLabel.b64) {
+        qrCodeUrl = `data:image/png;base64,${returnData.qrLabel.b64}`;
+      }
+
+      const qrLink = returnData.qrLink || '';
+
+      order.returnLabelUrl = labelUrl;
+      order.returnQRCodeUrl = qrCodeUrl;
+      order.returnTrackingNumber = returnId;
+      order.returnShipmentId = returnId;
+      order.returnShipmentStatus = 'label-created';
+      order.returnShipmentStatusDescription = 'DHL-Rücksendeetikett wurde erstellt';
+      order.returnCreatedAt = new Date();
+
+      await order.save();
+
+      console.log('DHLReturnsService: Order updated with return information');
+
+      return {
+        success: true,
+        returnId,
+        returnTrackingNumber: returnId,
+        labelUrl,
+        qrCodeUrl,
+        qrLink,
+        message: 'Return label created successfully',
+        order,
+      };
+    } catch (error) {
+      console.error('DHLReturnsService: Error creating return label for order:', error.response?.data || error.message);
 
       if (error.response?.status === 400) {
         const errorDetails = error.response.data?.detail || error.response.data?.message || 'Invalid request parameters';

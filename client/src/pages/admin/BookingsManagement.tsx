@@ -3713,22 +3713,25 @@ function BookingDetailDialog({
                 >
                   <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
                   <p style={{ color: 'var(--gray-600, #4a5568)' }}>Noch kein Rücksendelabel für diese Buchung vorhanden</p>
-                  <Button
-                    onClick={() => setShowReturnLabelDialog(true)}
-                    className="mt-4"
-                    style={{
-                      background: 'var(--primary-blue, #1a2a5e)',
-                      color: 'var(--white, #ffffff)',
-                      borderRadius: 'var(--radius-sm, 6px)',
-                      fontWeight: '600',
-                      padding: '10px 20px'
-                    }}
-                  >
-                    <Truck className="h-4 w-4 mr-2" />
-                    Rücksendelabel erstellen
-                  </Button>
                 </div>
               )}
+
+              {/* Always visible, regardless of existing return shipping info, so a new label can be generated at any time */}
+              <div className="flex justify-center">
+                <Button
+                  onClick={() => setShowReturnLabelDialog(true)}
+                  style={{
+                    background: 'var(--primary-blue, #1a2a5e)',
+                    color: 'var(--white, #ffffff)',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    fontWeight: '600',
+                    padding: '10px 20px'
+                  }}
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  {hasReturnShippingInfo ? 'Neues Rücksendelabel erstellen' : 'Rücksendelabel erstellen'}
+                </Button>
+              </div>
 
               {hasReturnShippingInfo && (
                 <div

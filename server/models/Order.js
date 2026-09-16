@@ -796,6 +796,38 @@ const orderSchema = new mongoose.Schema({
       default: '',
     },
   }],
+  // Return shipping information (used when no linked booking exists)
+  returnLabelUrl: {
+    type: String,
+    default: '',
+  },
+  returnQRCodeUrl: {
+    type: String,
+    default: '',
+  },
+  returnTrackingNumber: {
+    type: String,
+    default: '',
+  },
+  returnShipmentId: {
+    type: String,
+    default: '',
+  },
+  returnShipmentStatus: {
+    type: String,
+    enum: ['', 'pending', 'label-created', 'in-transit', 'delivered', 'failed'],
+    default: '',
+  },
+  returnShipmentStatusDescription: {
+    type: String,
+    default: '',
+  },
+  returnCreatedAt: {
+    type: Date,
+  },
+  returnReceivedAt: {
+    type: Date,
+  },
   // Guest order tracking
   guestTrackingToken: {
     type: String,

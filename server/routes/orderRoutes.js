@@ -5,6 +5,7 @@ const ComplaintService = require('../services/complaintService');
 const Complaint = require('../models/Complaint');
 const EmailService = require('../services/emailService');
 const DHLService = require('../services/dhlService');
+const DHLReturnsService = require('../services/dhlReturnsService');
 const NotificationService = require('../services/notificationService');
 const OrderRevisionService = require('../services/orderRevisionService');
 const User = require('../models/User');
@@ -387,6 +388,61 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
   } catch (error) {
     console.error('Error downloading shipping label:', error);
     return res.status(500).json({ success: false, error: 'Failed to download shipping label' });
+  }
+});
+
+// Description: Create a return label for an order that has no linked booking
+// Endpoint: POST /api/orders/:id/return-label
+// Response: { success: boolean, returnId, returnTrackingNumber, labelUrl, qrCodeUrl }
+router.post('/:id/return-label', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
+  console.log('Create order return label request received for order:', req.params.id);
+
+  try {
+    const result = await DHLReturnsService.createReturnLabelForOrder(req.params.id, req.body || {});
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error creating order return label:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Rücksendelabel konnte nicht erstellt werden.',
+      message: error.message || 'Rücksendelabel konnte nicht erstellt werden.'
+    });
+  }
+});
+
+// Description: Download return label PDF for an order
+// Endpoint: GET /api/orders/:id/return-label
+// Response: PDF file download
+router.get('/:id/return-label', requireUser, async (req, res) => {
+  try {
+    const order = await OrderService.getById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
+    if (orderCustomerId !== req.user._id.toString() && !['admin', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (!order.returnLabelUrl) {
+      return res.status(404).json({ success: false, error: 'No return label available for this order' });
+    }
+
+    const base64Match = order.returnLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
+    if (!base64Match) {
+      return res.redirect(order.returnLabelUrl);
+    }
+
+    const pdfBuffer = Buffer.from(base64Match[1], 'base64');
+    const filename = `ruecksendelabel-${order.orderNumber || order._id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error downloading order return label:', error);
+    return res.status(500).json({ success: false, error: 'Failed to download return label' });
   }
 });
 

@@ -278,6 +278,7 @@ export function InspectionResultsDisplay({
   // ── Completed inspection ─────────────────────────────────────────────────
   const sc = statusConfig(inspection.status);
   const currentDeviceName = [currentDevice?.brand, currentDevice?.model].filter(Boolean).join(' ');
+  const verifiedModelName = inspection.modelVerification?.actualModel || currentDeviceName;
   const latestModelChange = [...orderTimeline]
     .reverse()
     .find((entry) => entry.status === 'Device Changed' && entry.description);
@@ -381,13 +382,18 @@ export function InspectionResultsDisplay({
                   <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Modell</span>
                 </div>
                 <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
-                  {currentDeviceName || inspection.modelVerification.actualModel}
+                  {verifiedModelName}
                 </p>
                 {inspection.modelVerification.reportedModel &&
-                  inspection.modelVerification.reportedModel !== (currentDeviceName || inspection.modelVerification.actualModel) && (
+                  inspection.modelVerification.reportedModel !== verifiedModelName && (
                     <p className="text-[10px] text-muted-foreground break-words">
                       Gemeldet: {inspection.modelVerification.reportedModel}
                     </p>
+                )}
+                {latestModelChange && (
+                  <p className="text-[10px] text-amber-700 break-words">
+                    Modellwechsel: {latestModelChange.description}
+                  </p>
                 )}
                 <div className="flex items-center gap-1">
                   {inspection.modelVerification.verified ? (
