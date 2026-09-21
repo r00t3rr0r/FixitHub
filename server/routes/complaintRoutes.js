@@ -162,6 +162,11 @@ async function createComplaintReturnLabel(complaintOrder, customer) {
   const firstAddressValue = (...fields) => fields.find((value) => String(value || '').trim()) || '';
   const customerAddress = {
     street: firstAddressValue(...addresses.map((address) => address.street)),
+    // Strasse und Hausnummer stammen aus DERSELBEN Anschrift. Die gespeicherten
+    // Adressen fuehren kein eigenes `number`-Feld - die Hausnummer steckt in der
+    // kombinierten Strasse und wird serverseitig von DHLService abgetrennt. Ein
+    // Platzhalter '1' wuerde die echte Nummer verdraengen und ein zustellbar
+    // aussehendes, falsches Label erzeugen.
     number: firstAddressValue(...addresses.map((address) => address.number || address.house)),
     city: firstAddressValue(...addresses.map((address) => address.city)),
     zipCode: firstAddressValue(...addresses.map((address) => address.zipCode || address.postalCode)),
@@ -173,13 +178,13 @@ async function createComplaintReturnLabel(complaintOrder, customer) {
   const receiverPostalCode = dhlConfig.settings?.shipperPostalCode || companyAddress.postalCode;
 
   if (!receiverStreet || !receiverCity || !receiverPostalCode) {
-    throw new Error('McRepair-Empfaengeradresse ist fuer das Reklamationslabel nicht vollstaendig konfiguriert.');
+    throw new Error('Die McRepair-Empfängeradresse ist für das Reklamationslabel nicht vollständig konfiguriert.');
   }
 
   const shipmentResult = await DHLService.createShipment(complaintOrder._id, {
     receiverName: dhlConfig.settings?.shipperCompany || companyAddress.company || 'McRepair.de GmbH',
     receiverAddress: receiverStreet,
-    receiverNumber: dhlConfig.settings?.shipperNumber || companyAddress.number || '1',
+    receiverNumber: dhlConfig.settings?.shipperNumber || companyAddress.number || '',
     receiverCity,
     receiverPostalCode,
     receiverCountry: dhlConfig.settings?.shipperCountry || companyAddress.country || 'DE',
@@ -187,7 +192,7 @@ async function createComplaintReturnLabel(complaintOrder, customer) {
     receiverPhone: dhlConfig.settings?.shipperPhone || companyAddress.phone || '+49301234567',
     shipperName: customerName,
     shipperStreet: customerAddress.street,
-    shipperNumber: customerAddress.number || customerAddress.house || '1',
+    shipperNumber: customerAddress.number || '',
     shipperCity: customerAddress.city,
     shipperPostalCode: customerAddress.zipCode || customerAddress.postalCode,
     shipperCountry: customerAddress.country || 'DE',
@@ -201,7 +206,7 @@ async function createComplaintReturnLabel(complaintOrder, customer) {
   });
 
   if (!/^data:application\/pdf;base64,/.test(shipmentResult?.labelUrl || '')) {
-    throw new Error('DHL hat kein PDF fuer das Reklamationslabel zurueckgegeben.');
+    throw new Error('DHL hat kein PDF für das Reklamationslabel zurückgegeben.');
   }
 
   return shipmentResult;
@@ -441,19 +446,19 @@ router.post('/:id/reject-offer', requireUser, async (req, res) => {
 
     let invoice = null;
     try {
-      invoice = await FinancialService.createInvoiceFromOrder(complaintOrder._id);
-      const taxRate = invoice.subtotal > 0 ? Number(invoice.tax || 0) / invoice.subtotal : 0;
-      invoice.items.push({
-        description: 'Servicepauschale fuer abgelehnte Reklamation',
-        quantity: 1,
-        unitPrice: serviceFee,
-        total: serviceFee,
-        type: 'fee'
+      // Die Servicepauschale steckt bereits im order.totalCost und wird als eigene
+      // BRUTTO-Position mitgegeben - nicht nachtraeglich ein zweites Mal aufaddiert.
+      // Netto und MwSt rechnet das Invoice-Modell aus dem Brutto heraus.
+      invoice = await FinancialService.createInvoiceFromOrder(complaintOrder._id, {
+        additionalItems: [{
+          serviceName: 'Servicepauschale',
+          description: 'Servicepauschale für abgelehnte Reklamation',
+          quantity: 1,
+          unitPrice: serviceFee,
+          total: serviceFee,
+          type: 'fee'
+        }]
       });
-      invoice.subtotal = invoice.items.reduce((sum, item) => sum + item.total, 0);
-      invoice.tax = invoice.subtotal * taxRate;
-      invoice.total = invoice.subtotal + invoice.tax - Number(invoice.discount || 0);
-      await invoice.save();
     } catch (invoiceError) {
       console.error('ComplaintRoutes: Error creating invoice for rejected offer:', invoiceError.message);
     }

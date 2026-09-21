@@ -2,7 +2,11 @@ const User = require('../models/User');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
 const { HomepageSection } = require('../models/Homepage');
-const { WorkflowTemplate } = require('../models/Workflow');
+const {
+  WorkflowTemplate,
+  WorkflowSeedSuppression,
+  SEED_WORKFLOW_TEMPLATE_NAMES
+} = require('../models/Workflow');
 const Language = require('../models/Language');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const SEOSettings = require('../models/SEOSettings');
@@ -276,13 +280,30 @@ class SeedService {
   // -----------------------------------------------------------------------
   // Workflows
   // -----------------------------------------------------------------------
-  static async seedWorkflows() {
+  // force = true re-creates seed templates even if an admin deleted them.
+  //
+  // The default is TRUE on purpose: the only callers are the deliberate,
+  // admin-gated refresh paths - POST /api/seed/workflows (adminOnly) and the
+  // manual CLI `node server/scripts/seed-data.js --type workflows` - both of
+  // which call this with no arguments and whose documented purpose is a
+  // targeted refresh. The automatic boot path goes through seedAll(), which
+  // passes { force: false } explicitly, so a server restart can never
+  // resurrect a template the admin deleted.
+  // ANY NEW AUTOMATIC/UNATTENDED CALLER MUST PASS { force: false }.
+  static async seedWorkflows({ force = true } = {}) {
     try {
-      console.log('SeedService.seedWorkflows: Starting workflow seeding...');
+      console.log('SeedService.seedWorkflows: Starting workflow seeding...', { force });
 
       const existingNames = new Set(
         (await WorkflowTemplate.find({}, 'name').lean()).map((w) => w.name)
       );
+
+      // Templates an admin deliberately deleted must not be resurrected on boot.
+      const suppressedNames = force
+        ? new Set()
+        : new Set(
+            (await WorkflowSeedSuppression.find({}, 'name').lean()).map((s) => s.name)
+          );
 
       const workflows = [
         {
@@ -413,15 +434,52 @@ class SeedService {
         }
       ];
 
-      const toInsert = workflows.filter((w) => !existingNames.has(w.name));
+      const seedNames = workflows.map((w) => w.name);
+
+      // Guard against the seed list and the suppression whitelist drifting apart.
+      const unlistedSeedNames = seedNames.filter((name) => !SEED_WORKFLOW_TEMPLATE_NAMES.includes(name));
+      if (unlistedSeedNames.length > 0) {
+        console.warn(
+          'SeedService.seedWorkflows: seed template names missing from SEED_WORKFLOW_TEMPLATE_NAMES ' +
+          '(server/models/Workflow.js) - deleting them will NOT be remembered:',
+          unlistedSeedNames
+        );
+      }
+
+      // A deliberate forced refresh un-suppresses ALL seed names, not just the
+      // ones about to be inserted - otherwise a stale suppression row survives
+      // for a template that already exists under that name and the next delete
+      // would behave as if it had never been un-suppressed.
+      if (force) {
+        await WorkflowSeedSuppression.deleteMany({ name: { $in: seedNames } });
+      }
+
+      const skippedByAdmin = workflows
+        .filter((w) => !existingNames.has(w.name) && suppressedNames.has(w.name))
+        .map((w) => w.name);
+      if (skippedByAdmin.length > 0) {
+        console.log('SeedService.seedWorkflows: Skipping admin-deleted workflow templates:', skippedByAdmin);
+      }
+
+      const toInsert = workflows.filter(
+        (w) => !existingNames.has(w.name) && !suppressedNames.has(w.name)
+      );
       if (toInsert.length === 0) {
-        console.log('SeedService.seedWorkflows: All workflow templates already present, skipping');
-        return { message: 'Workflow templates already present', count: 0 };
+        console.log('SeedService.seedWorkflows: No workflow templates to create, skipping');
+        return {
+          message: 'Workflow templates already present',
+          count: 0,
+          skipped: skippedByAdmin
+        };
       }
 
       const created = await WorkflowTemplate.insertMany(toInsert);
       console.log(`SeedService.seedWorkflows: Created ${created.length} workflow templates`);
-      return { message: `Workflow templates created (${created.length})`, count: created.length };
+      return {
+        message: `Workflow templates created (${created.length})`,
+        count: created.length,
+        skipped: skippedByAdmin
+      };
     } catch (error) {
       console.error('SeedService.seedWorkflows: Error seeding workflows:', error);
       throw error;
@@ -692,7 +750,7 @@ class SeedService {
       results.adminUser = await this.seedAdminUser();
       results.languages = await this.seedLanguages();
       results.homepageTemplate = await this.seedHomepageTemplate();
-      results.workflows = await this.seedWorkflows();
+      results.workflows = await this.seedWorkflows({ force: false });
       results.blog = await this.seedBlogData();
       results.faqs = await this.seedFAQs();
       results.seo = await this.seedSEOSettings();

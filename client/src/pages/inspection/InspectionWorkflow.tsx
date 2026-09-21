@@ -174,6 +174,8 @@ export function InspectionWorkflow() {
               orderId={orderId!}
               customerId={order.customerId?._id || order.customerId}
               deviceType={order.deviceType}
+              deviceBrand={order.deviceBrand}
+              deviceModel={order.deviceModel}
               bookedRepairs={Array.isArray(order.services)
                 ? order.services.map((service: any) => ({
                     name: service?.name || service?.serviceName || String(service),

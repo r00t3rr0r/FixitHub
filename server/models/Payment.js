@@ -80,6 +80,13 @@ const paymentSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  // Idempotenzschluessel gegen Doppelbuchung. Wird entweder vom Aufrufer geliefert
+  // oder serverseitig aus Vorgang + Betrag + Zahlart + Zeitfenster abgeleitet, damit
+  // ein Doppelklick oder ein wiederholter Request keine zweite Zahlung erzeugt.
+  idempotencyKey: {
+    type: String,
+    default: undefined
+  },
   source: {
     type: String,
     enum: ['manual', 'gateway', 'checkout', 'paypal_import'],
@@ -168,6 +175,10 @@ paymentSchema.index({ guestEmail: 1, createdAt: -1 });
 paymentSchema.index({ status: 1 });
 // transactionId already has unique: true index, no need for duplicate
 paymentSchema.index({ orderNumber: 1 });
+// Sparse + unique: nur Dokumente MIT Schluessel werden auf Eindeutigkeit geprueft,
+// Altbestand ohne das Feld bleibt unberuehrt. Dieser Index ist der eigentliche
+// Doppelbuchungsschutz - er wirkt auch bei zwei gleichzeitigen Requests.
+paymentSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

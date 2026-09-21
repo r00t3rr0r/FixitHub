@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, useLocation, matchPath } from "react-router-dom"
-import { lazy, Suspense, useEffect } from "react"
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, matchPath } from "react-router-dom"
+import { lazy, Suspense, useEffect, useRef } from "react"
 import { Helmet } from "react-helmet-async"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
@@ -133,6 +133,48 @@ function ScrollToTop() {
       window.clearTimeout(lateTimeoutId)
     }
   }, [pathname, search, hash])
+
+  return null
+}
+
+/**
+ * Reload-sichere Tiefenverlinkung auf einen einzelnen Auftrag.
+ *
+ * Die Auftragsliste oeffnet ihren Detaildialog ueber den History-State
+ * `reopenBookingDialog` (BookingsManagement.tsx). History-State haengt an einem
+ * History-Eintrag und ist deshalb nach F5 oder beim Einfuegen eines Links in einen
+ * neuen Tab WEG - der Aufruf aus der Rechnungsliste heraus landete dann nur auf der
+ * allgemeinen Auftragsuebersicht. Die Bruecke liest den Auftrag stattdessen aus der
+ * URL (`?openBookingId=`) und setzt den State nach.
+ *
+ * `openBookingId` bleibt dabei bewusst IN der URL: nur so oeffnet auch ein harter
+ * Reload derselben Adresse wieder denselben Auftrag. Gegen ein erneutes Ausloesen
+ * schuetzt stattdessen `handledRef` - der Dialog laesst sich also schliessen, ohne
+ * sofort wieder aufzuspringen. `highlightBookingId` hat eine andere Bedeutung
+ * (Zeile hervorheben) und wird nur ergaenzt, wenn er fehlt.
+ */
+function BookingDeepLinkBridge() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const handledRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const openBookingId = params.get("openBookingId")
+    if (!openBookingId || handledRef.current === openBookingId) {
+      return
+    }
+    handledRef.current = openBookingId
+
+    if (!params.get("highlightBookingId")) {
+      params.set("highlightBookingId", openBookingId)
+    }
+
+    navigate(`${location.pathname}?${params.toString()}`, {
+      replace: true,
+      state: { ...((location.state as Record<string, unknown> | null) || {}), reopenBookingDialog: openBookingId },
+    })
+  }, [location.pathname, location.search, location.state, navigate])
 
   return null
 }
@@ -499,13 +541,13 @@ function App() {
               <Route index element={<OrderManagement />} />
             </Route>
             <Route path="/admin/bookings" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
-              <Route index element={<BookingsManagement />} />
+              <Route index element={<><BookingDeepLinkBridge /><BookingsManagement /></>} />
             </Route>
             <Route path="/admin/legacy-orders" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<LegacyOrdersArchive />} />
             </Route>
             <Route path="/staff/bookings" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
-              <Route index element={<BookingsManagement />} />
+              <Route index element={<><BookingDeepLinkBridge /><BookingsManagement /></>} />
             </Route>
             <Route path="/staff/repair-requests" element={<ProtectedRoute requiredRole={["staff", "admin"]}><Layout /></ProtectedRoute>}>
               <Route index element={<RepairRequestsManagement />} />
@@ -589,8 +631,18 @@ function App() {
             <Route path="/admin/staff" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<StaffManagement />} />
             </Route>
+            {/* Die beiden Belegarten rendern denselben Komponentenbaum. React-Router
+                vergibt fuer Routen-Elemente KEINEN key, deshalb wuerde React die
+                Komponente beim Wechsel /admin/financial <-> /admin/credit-notes nur
+                aktualisieren statt neu zu mounten - die Liste zeigte dann weiter die
+                Belege der vorherigen Ansicht. Der explizite key erzwingt den Remount. */}
             <Route path="/admin/financial" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
-              <Route index element={<FinancialManagement />} />
+              <Route index element={<FinancialManagement key="financial-invoices" />} />
+            </Route>
+            {/* Gutschriften sind eine eigene Belegart mit eigener Nummernkreis-Serie und
+                deshalb eine eigene Navigationskategorie. Zugriffsrechte identisch zu /admin/financial. */}
+            <Route path="/admin/credit-notes" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
+              <Route index element={<FinancialManagement key="financial-credit-notes" mode="creditNotes" />} />
             </Route>
             <Route path="/admin/complaints" element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
               <Route index element={<ComplaintsManagement />} />

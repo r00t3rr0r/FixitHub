@@ -60,8 +60,6 @@ type GroupFormState = {
   allowApi: boolean;
   paymentDueDays: string;
   discountPercent: string;
-  cashDiscountPercent: string;
-  cashDiscountDays: string;
   creditLimit: string;
   currency: string;
   taxMode: CustomerGroup['financeProfile']['taxMode'];
@@ -114,8 +112,6 @@ const emptyGroupForm: GroupFormState = {
   allowApi: true,
   paymentDueDays: '14',
   discountPercent: '0',
-  cashDiscountPercent: '0',
-  cashDiscountDays: '0',
   creditLimit: '0',
   currency: 'EUR',
   taxMode: 'default',
@@ -304,8 +300,6 @@ export function CustomerGroupsManagement() {
     financeProfile: {
       paymentDueDays: Number(groupForm.paymentDueDays || 14),
       discountPercent: Number(groupForm.discountPercent || 0),
-      cashDiscountPercent: Number(groupForm.cashDiscountPercent || 0),
-      cashDiscountDays: Number(groupForm.cashDiscountDays || 0),
       creditLimit: Number(groupForm.creditLimit || 0),
       currency: groupForm.currency,
       taxMode: groupForm.taxMode,
@@ -366,8 +360,6 @@ export function CustomerGroupsManagement() {
       allowApi: group.assignmentMode?.allowApi ?? true,
       paymentDueDays: String(group.financeProfile?.paymentDueDays ?? 14),
       discountPercent: String(group.financeProfile?.discountPercent ?? 0),
-      cashDiscountPercent: String(group.financeProfile?.cashDiscountPercent ?? 0),
-      cashDiscountDays: String(group.financeProfile?.cashDiscountDays ?? 0),
       creditLimit: String(group.financeProfile?.creditLimit ?? 0),
       currency: group.financeProfile?.currency ?? 'EUR',
       taxMode: group.financeProfile?.taxMode ?? 'default',
@@ -592,7 +584,7 @@ export function CustomerGroupsManagement() {
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm font-semibold">Finanzlogik</p>
-                <p className="text-xs text-muted-foreground">Rabatt, Zahlungsziel, Skonto, Kreditlimit und Zahlungsarten je Gruppe.</p>
+                <p className="text-xs text-muted-foreground">Rabatt, Zahlungsziel, Kreditlimit und Zahlungsarten je Gruppe.</p>
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm font-semibold">Affiliate-Logik</p>
@@ -928,8 +920,6 @@ export function CustomerGroupsManagement() {
                       <TableHead>Gruppe</TableHead>
                       <TableHead>Rabatt %</TableHead>
                       <TableHead>Ziel (Tage)</TableHead>
-                      <TableHead>Skonto %</TableHead>
-                      <TableHead>Skonto Tage</TableHead>
                       <TableHead>Kreditlimit</TableHead>
                       <TableHead>Währung</TableHead>
                       <TableHead>Steuer</TableHead>
@@ -940,7 +930,7 @@ export function CustomerGroupsManagement() {
                   <TableBody>
                     {groups.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Keine Gruppen verfügbar.</TableCell>
+                        <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Keine Gruppen verfügbar.</TableCell>
                       </TableRow>
                     ) : (
                       groups.map((group) => (
@@ -973,34 +963,6 @@ export function CustomerGroupsManagement() {
                                 financeProfile: {
                                   ...entry.financeProfile,
                                   paymentDueDays: Number(event.target.value || 0),
-                                },
-                              } : entry))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              className="w-24"
-                              value={group.financeProfile.cashDiscountPercent}
-                              onChange={(event) => setGroups((current) => current.map((entry) => entry._id === group._id ? {
-                                ...entry,
-                                financeProfile: {
-                                  ...entry.financeProfile,
-                                  cashDiscountPercent: Number(event.target.value || 0),
-                                },
-                              } : entry))}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              className="w-24"
-                              value={group.financeProfile.cashDiscountDays}
-                              onChange={(event) => setGroups((current) => current.map((entry) => entry._id === group._id ? {
-                                ...entry,
-                                financeProfile: {
-                                  ...entry.financeProfile,
-                                  cashDiscountDays: Number(event.target.value || 0),
                                 },
                               } : entry))}
                             />

@@ -23,15 +23,13 @@ const GROUPS = [
     financeProfile: {
       discountPercent: 0,
       paymentDueDays: 14,
-      cashDiscountPercent: 0,
-      cashDiscountDays: 0,
       creditLimit: 0,
       currency: 'EUR',
       taxMode: 'default',
       paymentTermsLabel: 'Net 14',
-      invoicePrefix: 'STD-',
+      invoicePrefix: '', // Nummernkreis ist global (DocumentSequence), nicht gruppenabhaengig
       invoiceProfile: {
-        invoiceSeries: 'STD-2026',
+        invoiceSeries: '',
         consolidateInvoices: false,
         splitByOrderType: false,
         requireManualApprovalAbove: 0,
@@ -74,15 +72,13 @@ const GROUPS = [
     financeProfile: {
       discountPercent: 12,
       paymentDueDays: 30,
-      cashDiscountPercent: 2,
-      cashDiscountDays: 10,
       creditLimit: 2500,
       currency: 'EUR',
       taxMode: 'default',
       paymentTermsLabel: 'Net 30',
-      invoicePrefix: 'VIP-',
+      invoicePrefix: '', // Nummernkreis ist global (DocumentSequence), nicht gruppenabhaengig
       invoiceProfile: {
-        invoiceSeries: 'VIP-2026',
+        invoiceSeries: '',
         consolidateInvoices: true,
         splitByOrderType: false,
         requireManualApprovalAbove: 1500,
@@ -125,15 +121,13 @@ const GROUPS = [
     financeProfile: {
       discountPercent: 5,
       paymentDueDays: 30,
-      cashDiscountPercent: 1,
-      cashDiscountDays: 7,
       creditLimit: 7500,
       currency: 'EUR',
       taxMode: 'reverse_charge',
       paymentTermsLabel: 'Net 30 (B2B)',
-      invoicePrefix: 'B2B-',
+      invoicePrefix: '', // Nummernkreis ist global (DocumentSequence), nicht gruppenabhaengig
       invoiceProfile: {
-        invoiceSeries: 'B2B-2026',
+        invoiceSeries: '',
         consolidateInvoices: true,
         splitByOrderType: true,
         requireManualApprovalAbove: 2500,
@@ -176,15 +170,13 @@ const GROUPS = [
     financeProfile: {
       discountPercent: 3,
       paymentDueDays: 14,
-      cashDiscountPercent: 0,
-      cashDiscountDays: 0,
       creditLimit: 1000,
       currency: 'EUR',
       taxMode: 'default',
       paymentTermsLabel: 'Net 14',
-      invoicePrefix: 'AFF-',
+      invoicePrefix: '', // Nummernkreis ist global (DocumentSequence), nicht gruppenabhaengig
       invoiceProfile: {
-        invoiceSeries: 'AFF-2026',
+        invoiceSeries: '',
         consolidateInvoices: false,
         splitByOrderType: false,
         requireManualApprovalAbove: 1000,

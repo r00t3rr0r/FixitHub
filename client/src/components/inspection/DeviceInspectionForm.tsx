@@ -42,6 +42,65 @@ type ConditionStatus = '--' | 'light-wear' | 'scratches-wear' | 'heavy-scratches
 type ButtonsStatus = 'working' | 'not-working';
 type ChecklistStatus = 'OK' | 'Not OK' | 'Not tested';
 type CompletionAction = 'repairable' | 'not-repairable' | 'inform-customer';
+type CanonicalDeviceType = 'Smartphone' | 'Laptop' | 'Tablet' | 'Watch' | 'Headphones' | 'Other';
+
+const CANONICAL_DEVICE_TYPES: Record<string, CanonicalDeviceType> = {
+  smartphone: 'Smartphone',
+  handy: 'Smartphone',
+  mobiltelefon: 'Smartphone',
+  mobilephone: 'Smartphone',
+  phone: 'Smartphone',
+  telefon: 'Smartphone',
+  iphone: 'Smartphone',
+  laptop: 'Laptop',
+  notebook: 'Laptop',
+  macbook: 'Laptop',
+  tablet: 'Tablet',
+  ipad: 'Tablet',
+  watch: 'Watch',
+  smartwatch: 'Watch',
+  applewatch: 'Watch',
+  wearable: 'Watch',
+  uhr: 'Watch',
+  headphone: 'Headphones',
+  headset: 'Headphones',
+  kopfhoerer: 'Headphones',
+  ohrhoerer: 'Headphones',
+  earphone: 'Headphones',
+  earbud: 'Headphones',
+  airpod: 'Headphones',
+};
+
+/**
+ * Order.deviceType is free-form (admin-editable catalog names, German or English, singular
+ * or plural). The rules of this wizard (serial number required, IMEI required) must follow
+ * the canonical type, not the raw label.
+ * Keep in sync with normalizeInspectionDeviceType() in server/services/deviceInspectionService.js.
+ */
+const normalizeInspectionDeviceType = (value?: string): CanonicalDeviceType => {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\u00e4/g, 'ae')
+    .replace(/\u00f6/g, 'oe')
+    .replace(/\u00fc/g, 'ue')
+    .replace(/\u00df/g, 'ss')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (!slug) return 'Other';
+
+  // Catalogue names are frequently plural ("Smartphones", "Smartwatches").
+  const candidates = [slug, slug.replace(/es$/, ''), slug.replace(/s$/, '')];
+  for (const candidate of candidates) {
+    if (CANONICAL_DEVICE_TYPES[candidate]) {
+      return CANONICAL_DEVICE_TYPES[candidate];
+    }
+  }
+
+  return 'Other';
+};
+
+const INSPECTION_DRAFT_PREFIX = 'inspection-draft-';
 
 type ModelsApiResponse = {
   models?: Array<{
@@ -102,6 +161,10 @@ export function DeviceInspectionForm({
   const [reportedModelImage, setReportedModelImage] = useState('');
   const [actualModelImage, setActualModelImage] = useState('');
   const [actualModelSearchQuery, setActualModelSearchQuery] = useState('');
+  // Explicit dirty flag: true as soon as the technician actively types or picks the actual
+  // model. It is sent to the API so a deliberately entered value is never replaced by the
+  // server's stale-draft protection (which would otherwise silently discard the input).
+  const [actualModelUserConfirmed, setActualModelUserConfirmed] = useState(false);
   const [actualModelResults, setActualModelResults] = useState<SearchResult[]>([]);
   const [availableDeviceTypes, setAvailableDeviceTypes] = useState<CatalogDeviceType[]>([]);
   const [availableManufacturers, setAvailableManufacturers] = useState<CatalogManufacturer[]>([]);
@@ -156,7 +219,10 @@ export function DeviceInspectionForm({
   const [defectActionNote, setDefectActionNote] = useState('');
 
   // Step 7: Summary & Completion
-  const [completionAction, setCompletionAction] = useState<CompletionAction>('repairable');
+  // DEPRECATED: the "Abschlussentscheidung" control was removed from step 7, so these two
+  // must not be invented any more. They are still hydrated from an existing inspection so a
+  // historical decision is preserved when such an inspection is completed again.
+  const [completionAction, setCompletionAction] = useState<CompletionAction | null>(null);
   const [isRepairable, setIsRepairable] = useState<boolean | null>(null);
   const [repairCost, setRepairCost] = useState('');
   const [repairTimeframe, setRepairTimeframe] = useState('');
@@ -169,11 +235,17 @@ export function DeviceInspectionForm({
   const [submitting, setSubmitting] = useState(false);
   const [submittingStep, setSubmittingStep] = useState<number | null>(null);
 
-  const draftKey = `inspection-draft-${orderId}`;
-  const orderReportedModel = [
+  const canonicalDeviceType = normalizeInspectionDeviceType(deviceType);
+  // The order's CURRENT device - i.e. the corrected/actual model after "Geraet aendern".
+  const orderCurrentModel = [
     deviceBrand && deviceBrand !== 'N/A' ? deviceBrand : '',
     deviceModel || '',
   ].filter(Boolean).join(' ').trim();
+  // The draft is scoped to the device it was written for, so a device correction cannot
+  // resurrect pre-change values (see clearOutdatedDrafts below).
+  const draftKey = `${INSPECTION_DRAFT_PREFIX}${orderId}${
+    orderCurrentModel ? `-${orderCurrentModel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : ''
+  }`;
 
   const normalizeCondition = (value?: string): ConditionStatus => {
     if (!value) return '--';
@@ -366,6 +438,7 @@ export function DeviceInspectionForm({
   const handleActualModelSearch = (query: string) => {
     setActualModelSearchQuery(query);
     setActualModelHighlightedIndex(-1);
+    setActualModelUserConfirmed(true);
   };
 
   const handleActualDeviceTypeChange = (value: string) => {
@@ -385,9 +458,14 @@ export function DeviceInspectionForm({
     setAutoModelPrefilled(false);
   };
 
-  const handleSelectActualModel = (device: SearchResult) => {
+  // userInitiated=false for the automatic catalog prefill below - only a real technician
+  // interaction may set the "user confirmed this value" flag.
+  const handleSelectActualModel = (device: SearchResult, userInitiated = true) => {
     const modelName = device.displayName || device.name || '';
     setActualModel(modelName);
+    if (userInitiated) {
+      setActualModelUserConfirmed(true);
+    }
     setActualModelSearchQuery(modelName);
     setActualModelImage(resolveDeviceImageUrl(device.image));
     setActualModelResults([]);
@@ -496,8 +574,10 @@ export function DeviceInspectionForm({
   const hydrateFromInspection = (insp: any) => {
     if (!insp) return;
 
-    // The current order device is authoritative after a correction via "Geraet aendern".
-    setReportedModel(orderReportedModel || insp.modelVerification?.reportedModel || '');
+    // "Gemeldetes Modell" is what the CUSTOMER originally booked. The server snapshot
+    // (Order.reportedDevice) is authoritative and survives a correction via "Geraet aendern";
+    // the order's current device is only a fallback for records that have no snapshot.
+    setReportedModel(insp.modelVerification?.reportedModel || orderCurrentModel || '');
 
     if (insp.modelVerification) {
       const persistedActual = insp.modelVerification.actualModel || '';
@@ -505,10 +585,11 @@ export function DeviceInspectionForm({
       // "Geraet aendern". If it diverges from the persisted actualModel, the device was
       // changed after the inspection was last saved, so the persisted value is stale and
       // must not be shown in Step 7 - the order's current device wins.
-      const orderDeviceChanged = Boolean(orderReportedModel && orderReportedModel !== persistedActual);
-      const effectiveActual = orderDeviceChanged ? orderReportedModel : persistedActual;
+      const orderDeviceChanged = Boolean(orderCurrentModel && orderCurrentModel !== persistedActual);
+      const effectiveActual = orderDeviceChanged ? orderCurrentModel : persistedActual;
       setActualModel(effectiveActual);
       setActualModelSearchQuery(effectiveActual);
+      setActualModelUserConfirmed(false);
       setVerificationStatus(
         orderDeviceChanged
           ? 'correct'
@@ -517,9 +598,10 @@ export function DeviceInspectionForm({
       setCostDifference(Number(insp.modelVerification.costDifference || 0));
       setModelNotes(insp.modelVerification.notes || '');
     } else {
-      if (orderReportedModel) {
-        setActualModel(orderReportedModel);
-        setActualModelSearchQuery(orderReportedModel);
+      if (orderCurrentModel) {
+        setActualModel(orderCurrentModel);
+        setActualModelSearchQuery(orderCurrentModel);
+        setActualModelUserConfirmed(false);
       }
     }
 
@@ -587,6 +669,11 @@ export function DeviceInspectionForm({
       setDefectActionNote(insp.appleSpecific.customerInfoAction?.note || '');
     }
 
+    // DELIBERATE: the "Abschlussentscheidung" control is gone, so these two are never
+    // chosen here any more - but completeInspection() on the server UNSETS whatever it is
+    // not given. Hydrating therefore writes the STORED value back unchanged (a no-op for
+    // the data) instead of erasing a genuine historical "Nicht reparierbar" assessment on
+    // re-completion. Nothing new is ever created: without a stored value both stay null.
     if (typeof insp.isRepairable === 'boolean') {
       setIsRepairable(insp.isRepairable);
     }
@@ -611,16 +698,24 @@ export function DeviceInspectionForm({
       ? insp.completedSteps.map((s: any) => Number(s.step)).filter((value: number) => Number.isFinite(value))
       : [];
 
-    const nextStep = forceStartAtStepOne
-      ? 1
-      : Math.min(7, Math.max(1, completedStepIds.length + 1));
+    // Resume at the first step that has NOT been completed. Steps can be saved out of
+    // order, so neither completedStepIds.length + 1 (repeats a done step) nor
+    // max(completedStepIds) + 1 (skips a never-completed gap) is correct.
+    let firstOpenStep = 1;
+    while (firstOpenStep < 7 && completedStepIds.includes(firstOpenStep)) {
+      firstOpenStep += 1;
+    }
+
+    const nextStep = forceStartAtStepOne ? 1 : Math.min(7, Math.max(1, firstOpenStep));
     setCurrentStep(nextStep);
     setExpandedSteps([nextStep]);
   };
 
   const hydrateFromDraft = (draft: any) => {
     if (!draft || typeof draft !== 'object') return;
-    setActualModel(draft.actualModel ?? actualModel);
+    // reportedModel / actualModel are deliberately NOT restored from the draft: they are
+    // owned by the server snapshot and by the order's current device. Restoring them used
+    // to post a pre-change model back to the API and overwrite the corrected device.
     setVerificationStatus(draft.verificationStatus ?? verificationStatus);
     setCostDifference(Number(draft.costDifference ?? costDifference));
     setModelNotes(draft.modelNotes ?? modelNotes);
@@ -671,8 +766,8 @@ export function DeviceInspectionForm({
         : defectActionRequested
     );
     setDefectActionNote(draft.defectActionNote ?? defectActionNote);
-    setCompletionAction(draft.completionAction ?? completionAction);
-    setIsRepairable(typeof draft.isRepairable === 'boolean' ? draft.isRepairable : isRepairable);
+    // completionAction / isRepairable are no longer part of the UI - a stale draft must not
+    // re-inject a "Reparatureinschaetzung" nobody chose.
     setRepairCost(draft.repairCost ?? repairCost);
     setRepairTimeframe(draft.repairTimeframe ?? repairTimeframe);
     setRepairDescription(draft.repairDescription ?? repairDescription);
@@ -681,6 +776,33 @@ export function DeviceInspectionForm({
     setCustomerInfoNote(draft.customerInfoNote ?? customerInfoNote);
     setCustomerInfoMailTemplate(draft.customerInfoMailTemplate ?? customerInfoMailTemplate);
   };
+
+  // Drafts of this order that were written for a DIFFERENT device (i.e. before a
+  // correction via "Geraet aendern") are obsolete and must not linger.
+  const clearOutdatedDrafts = () => {
+    const prefix = `${INSPECTION_DRAFT_PREFIX}${orderId}`;
+    [localStorage, sessionStorage].forEach((store) => {
+      try {
+        const obsolete: string[] = [];
+        for (let index = 0; index < store.length; index += 1) {
+          const key = store.key(index);
+          if (key && key.startsWith(prefix) && key !== draftKey) {
+            obsolete.push(key);
+          }
+        }
+        obsolete.forEach((key) => store.removeItem(key));
+      } catch (storageError) {
+        console.warn('Unable to clean up inspection drafts', storageError);
+      }
+    });
+  };
+
+  // Drafts written for a different device of this order are obsolete. Keyed on draftKey so
+  // a device correction that changes the key without remounting still cleans up the old one.
+  useEffect(() => {
+    clearOutdatedDrafts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, draftKey]);
 
   // Initialize inspection
   useEffect(() => {
@@ -739,10 +861,10 @@ export function DeviceInspectionForm({
     // Only use the order's device fields as a fallback before the reportedModel has been
     // established; never resync afterwards, since the order fields can later be changed
     // to the corrected/actual model during the inspection workflow.
-    if (!reportedModel && orderReportedModel) {
-      setReportedModel(orderReportedModel);
+    if (!reportedModel && orderCurrentModel) {
+      setReportedModel(orderCurrentModel);
     }
-  }, [orderReportedModel, reportedModel]);
+  }, [orderCurrentModel, reportedModel]);
 
   useEffect(() => {
     let active = true;
@@ -822,8 +944,6 @@ export function DeviceInspectionForm({
   useEffect(() => {
     if (initializing) return;
     const draftPayload = {
-      reportedModel,
-      actualModel,
       verificationStatus,
       costDifference,
       modelNotes,
@@ -854,8 +974,6 @@ export function DeviceInspectionForm({
       touchIdFaceIdStatus,
       defectActionRequested,
       defectActionNote,
-      completionAction,
-      isRepairable,
       repairCost,
       repairTimeframe,
       repairDescription,
@@ -871,8 +989,6 @@ export function DeviceInspectionForm({
     sessionStorage.setItem(draftKey, serializedDraft);
   }, [
     initializing,
-    reportedModel,
-    actualModel,
     verificationStatus,
     costDifference,
     modelNotes,
@@ -903,8 +1019,6 @@ export function DeviceInspectionForm({
     touchIdFaceIdStatus,
     defectActionRequested,
     defectActionNote,
-    completionAction,
-    isRepairable,
     repairCost,
     repairTimeframe,
     repairDescription,
@@ -913,7 +1027,6 @@ export function DeviceInspectionForm({
     customerInfoNote,
     customerInfoMailTemplate,
     draftKey,
-    orderReportedModel,
   ]);
 
   useEffect(() => {
@@ -1011,7 +1124,7 @@ export function DeviceInspectionForm({
         return display === reportedLc || name === reportedLc || display.includes(reportedLc) || name.includes(reportedLc);
       }) || candidates[0];
 
-      handleSelectActualModel(bestMatch);
+      handleSelectActualModel(bestMatch, false);
       setAutoModelPrefilled(true);
     }, 50);
 
@@ -1036,6 +1149,30 @@ export function DeviceInspectionForm({
     }
   }, [modemFirmwareStatus, touchIdFaceIdStatus, customerInfoReason]);
 
+  // Every failed save must show the real (German) server message, not an empty toast.
+  const showErrorToast = (error: any) => {
+    toast({
+      variant: 'destructive',
+      title: t('inspection.toast.errorTitle', 'Fehler'),
+      description:
+        (typeof error?.message === 'string' && error.message.trim())
+          ? error.message
+          : t('inspection.toast.saveFailed', 'Speichern fehlgeschlagen. Bitte erneut versuchen.'),
+    });
+  };
+
+  // All seven steps advance under the same rule: only a response that actually contains the
+  // saved inspection counts as success. Previously only steps 2 and 4 checked this, which is
+  // why only those two appeared to "do nothing" on an error.
+  const assertSaved = (result: any) => {
+    if (!result?.inspection) {
+      throw new Error(
+        t('inspection.toast.notSaved', 'Der Schritt konnte nicht gespeichert werden. Bitte erneut versuchen.')
+      );
+    }
+    return result.inspection;
+  };
+
   const toggleStep = (step: number) => {
     if (expandedSteps.includes(step)) {
       setExpandedSteps(expandedSteps.filter(s => s !== step));
@@ -1049,12 +1186,17 @@ export function DeviceInspectionForm({
 
     try {
       if (!reportedModel.trim()) {
-        toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Gemeldetes Modell fehlt im Auftrag.' });
+        toast({
+          variant: 'destructive',
+          title: t('inspection.toast.errorTitle', 'Fehler'),
+          description: 'Gemeldetes Modell fehlt im Auftrag.',
+        });
         return;
       }
 
       if (verificationStatus !== 'correct') {
         toast({
+          variant: 'destructive',
           title: t('inspection.toast.errorTitle', 'Fehler'),
           description: 'Bitte zuerst ueber "Geraet aendern" das Modell im Auftrag aktualisieren.',
         });
@@ -1062,15 +1204,37 @@ export function DeviceInspectionForm({
       }
 
       setSubmitting(true);
+      setSubmittingStep(1);
       const result = await updateModelVerification(
         orderId,
         reportedModel,
         actualModel,
         verificationStatus,
         costDifference,
-        modelNotes
+        modelNotes,
+        undefined,
+        actualModelUserConfirmed
       );
-      setInspection(result.inspection);
+      const savedInspection = assertSaved(result);
+      setInspection(savedInspection);
+      // The server replaces an unconfirmed actual model that merely echoes a pre-change
+      // draft. It reports that back instead of doing it silently - show it to the technician.
+      const serverWarnings: string[] = Array.isArray((result as any)?.warnings)
+        ? (result as any).warnings
+        : [];
+      if (serverWarnings.length > 0) {
+        const correctedActual = savedInspection?.modelVerification?.actualModel || '';
+        if (correctedActual) {
+          setActualModel(correctedActual);
+          setActualModelSearchQuery(correctedActual);
+          setActualModelUserConfirmed(false);
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Hinweis zur Modellprüfung',
+          description: serverWarnings.join(' '),
+        });
+      }
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.modelSaved', 'Modellprüfung gespeichert'),
@@ -1078,9 +1242,10 @@ export function DeviceInspectionForm({
       setCurrentStep(2);
       setExpandedSteps([2]);
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1088,19 +1253,21 @@ export function DeviceInspectionForm({
     if (submitting) return;
 
     try {
-      if (['Laptop', 'Tablet'].includes(deviceType) && !serialNumber.trim()) {
-        toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Bitte Seriennummer eintragen.' });
+      if (['Laptop', 'Tablet'].includes(canonicalDeviceType) && !serialNumber.trim()) {
+        toast({
+          variant: 'destructive',
+          title: t('inspection.toast.errorTitle', 'Fehler'),
+          description: 'Bitte Seriennummer eintragen.',
+        });
         return;
       }
 
       setSubmitting(true);
       setSubmittingStep(2);
       const result = await updateIdentification(orderId, deviceType, imei.trim() || undefined, serialNumber.trim() || undefined);
-      if (!result?.inspection) {
-        throw new Error('Identifikation konnte nicht gespeichert werden. Bitte erneut versuchen.');
-      }
-      setInspection(result.inspection);
-      setImeiRequiredAtCompletion(Boolean(result.inspection?.identification?.imeiRequired));
+      const savedInspection = assertSaved(result);
+      setInspection(savedInspection);
+      setImeiRequiredAtCompletion(Boolean(savedInspection?.identification?.imeiRequired));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.identificationSaved', 'Identifikation gespeichert'),
@@ -1108,7 +1275,7 @@ export function DeviceInspectionForm({
       setCurrentStep(3);
       setExpandedSteps([3]);
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
       setSubmittingStep(null);
@@ -1120,6 +1287,7 @@ export function DeviceInspectionForm({
 
     try {
       setSubmitting(true);
+      setSubmittingStep(3);
       const result = await updateAccessories(orderId, {
         originalPackaging: { present: hasOriginalPackaging },
         caseCover: { present: hasCaseCover },
@@ -1129,7 +1297,7 @@ export function DeviceInspectionForm({
         otherAccessories: [],
         description: accessoriesNotes,
       });
-      setInspection(result.inspection);
+      setInspection(assertSaved(result));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.accessoriesSaved', 'Zubehör gespeichert'),
@@ -1137,9 +1305,10 @@ export function DeviceInspectionForm({
       setCurrentStep(4);
       setExpandedSteps([4]);
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1157,10 +1326,7 @@ export function DeviceInspectionForm({
         visibleDamages: { hasDamage, description: damageDescription },
         uniqueNotes: externalNotes,
       });
-      if (!result?.inspection) {
-        throw new Error('Äußere Inspektion konnte nicht gespeichert werden. Bitte erneut versuchen.');
-      }
-      setInspection(result.inspection);
+      setInspection(assertSaved(result));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.externalSaved', 'Äußere Inspektion gespeichert'),
@@ -1168,7 +1334,7 @@ export function DeviceInspectionForm({
       setCurrentStep(5);
       setExpandedSteps([5]);
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
       setSubmittingStep(null);
@@ -1180,11 +1346,16 @@ export function DeviceInspectionForm({
 
     try {
       if (chargingCurrent.trim() && !/^\d+(\.\d+)?A$/i.test(chargingCurrent.trim())) {
-        toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: 'Stromstaerke bitte im Format 1.7A eingeben.' });
+        toast({
+          variant: 'destructive',
+          title: t('inspection.toast.errorTitle', 'Fehler'),
+          description: 'Stromstaerke bitte im Format 1.7A eingeben.',
+        });
         return;
       }
 
       setSubmitting(true);
+      setSubmittingStep(5);
       const result = await updateDeviceTests(orderId, {
         charging: { status: chargingStatus, current: chargingCurrent.trim() || undefined },
         power: { status: powerStatus },
@@ -1194,7 +1365,7 @@ export function DeviceInspectionForm({
         buttons: { status: buttonsStatus, notes: buttonsDescription },
         notes: deviceTestNotes.trim(),
       });
-      setInspection(result.inspection);
+      setInspection(assertSaved(result));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.testsSaved', 'Gerätetests gespeichert'),
@@ -1202,9 +1373,10 @@ export function DeviceInspectionForm({
       setCurrentStep(6);
       setExpandedSteps([6]);
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1213,6 +1385,7 @@ export function DeviceInspectionForm({
 
     try {
       setSubmitting(true);
+      setSubmittingStep(6);
       const result = await updateAppleSpecific(orderId, {
         modemFirmware: {
           status: modemFirmwareStatus,
@@ -1228,7 +1401,7 @@ export function DeviceInspectionForm({
           note: defectActionNote,
         },
       });
-      setInspection(result.inspection);
+      setInspection(assertSaved(result));
 
       setCurrentStep(7);
       setExpandedSteps([7]);
@@ -1237,9 +1410,10 @@ export function DeviceInspectionForm({
         description: 'Apple-spezifische Pruefungen gespeichert',
       });
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1266,8 +1440,9 @@ export function DeviceInspectionForm({
 
     try {
       setSubmitting(true);
+      setSubmittingStep(7);
 
-      if (deviceType === 'Smartphone' && imei.trim() && imeiRequiredAtCompletion) {
+      if (canonicalDeviceType === 'Smartphone' && imei.trim() && imeiRequiredAtCompletion) {
         await updateIdentification(orderId, deviceType, imei.trim(), serialNumber.trim() || undefined);
         setImeiRequiredAtCompletion(false);
       }
@@ -1280,7 +1455,7 @@ export function DeviceInspectionForm({
           }
         : undefined;
 
-      await completeInspection(
+      const completionResult = await completeInspection(
         orderId,
         resolvedRepairable,
         repairOfferPayload,
@@ -1293,6 +1468,10 @@ export function DeviceInspectionForm({
           mailTemplate: generatedTemplate,
         }
       );
+      // Step 7 is held to the same rule as steps 1-6: a 2xx without an inspection in the
+      // body is NOT a successful completion and must not fire the success toast/onComplete.
+      const completedInspection = assertSaved(completionResult);
+      setInspection(completedInspection);
 
       if (shouldSendCustomerInfo && inspection?._id) {
         try {
@@ -1305,7 +1484,7 @@ export function DeviceInspectionForm({
               completionAction,
               reason: customerInfoReason,
               defectActionRequested,
-              imeiMissing: deviceType === 'Smartphone' && !imei,
+              imeiMissing: canonicalDeviceType === 'Smartphone' && !imei,
             }
           );
         } catch (quickActionError) {
@@ -1321,9 +1500,10 @@ export function DeviceInspectionForm({
       });
       onComplete?.();
     } catch (error: any) {
-      toast({ title: t('inspection.toast.errorTitle', 'Fehler'), description: error.message });
+      showErrorToast(error);
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
 
@@ -1396,7 +1576,7 @@ export function DeviceInspectionForm({
                     )}
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{reportedModel || '-'}</p>
-                      <p className="text-xs text-slate-500">Vom Auftrag uebernommen</p>
+                      <p className="text-xs text-slate-500">Ursprünglich vom Kunden gemeldet</p>
                     </div>
                   </div>
                 </div>
@@ -1457,8 +1637,8 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleModelVerification} disabled={submitting} className="inspection-primary-button">
-              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
+            <Button onClick={handleModelVerification} disabled={submitting} aria-busy={submittingStep === 1} className="inspection-primary-button">
+              {submittingStep === 1 ? 'Speichert...' : t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -1590,8 +1770,8 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleAccessories} disabled={submitting} className="inspection-primary-button">
-              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
+            <Button onClick={handleAccessories} disabled={submitting} aria-busy={submittingStep === 3} className="inspection-primary-button">
+              {submittingStep === 3 ? 'Speichert...' : t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -1791,8 +1971,8 @@ export function DeviceInspectionForm({
               />
             </div>
 
-            <Button onClick={handleDeviceTests} disabled={submitting} className="inspection-primary-button">
-              {t('inspection.actions.saveContinue', 'Speichern & Weiter')}
+            <Button onClick={handleDeviceTests} disabled={submitting} aria-busy={submittingStep === 5} className="inspection-primary-button">
+              {submittingStep === 5 ? 'Speichert...' : t('inspection.actions.saveContinue', 'Speichern & Weiter')}
             </Button>
           </CardContent>
         )}
@@ -1870,9 +2050,10 @@ export function DeviceInspectionForm({
             <Button
               onClick={handleAppleSpecific}
               disabled={submitting}
+              aria-busy={submittingStep === 6}
               className="w-full inspection-primary-button"
             >
-              Speichern & Weiter zu Schritt 7
+              {submittingStep === 6 ? 'Speichert...' : 'Speichern & Weiter zu Schritt 7'}
             </Button>
           </CardContent>
         )}
@@ -1898,9 +2079,10 @@ export function DeviceInspectionForm({
           <CardContent className="space-y-4">
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="font-semibold text-slate-800 mb-1">Zusammenfassung</p>
-              <p><strong>Modell:</strong> {actualModel || '-'}</p>
+              <p><strong>Gemeldetes Modell (Kunde):</strong> {reportedModel || '-'}</p>
+              <p><strong>Tatsächliches Modell:</strong> {actualModel || '-'}</p>
               {reportedModel && actualModel && reportedModel.trim().toLowerCase() !== actualModel.trim().toLowerCase() && (
-                <p className="text-xs text-amber-700">Korrigiert von: {reportedModel}</p>
+                <p className="text-xs text-amber-700">Korrigiert von "{reportedModel}" auf "{actualModel}".</p>
               )}
               <p><strong>Identifikation:</strong> {imei || serialNumber || 'Noch nicht erfasst'}</p>
               <p><strong>Aeusserer Zustand:</strong> Display {getConditionLabel(displayStatus)}, Rahmen {getConditionLabel(frameStatus)}, Rueckseite {getConditionLabel(backCoverStatus)}</p>
@@ -1908,7 +2090,7 @@ export function DeviceInspectionForm({
               <p><strong>Defekt-Hinweise:</strong> Modem {modemFirmwareStatus}, Touch/Face {touchIdFaceIdStatus}</p>
             </div>
 
-            {deviceType === 'Smartphone' && (!imei || imeiRequiredAtCompletion) && (
+            {canonicalDeviceType === 'Smartphone' && (!imei || imeiRequiredAtCompletion) && (
               <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
                 <p className="text-sm font-semibold text-amber-900">IMEI nachtragen (erneute Abfrage)</p>
                 <Input
@@ -1991,9 +2173,12 @@ export function DeviceInspectionForm({
             <Button
               onClick={handleCompleteInspection}
               disabled={submitting}
+              aria-busy={submittingStep === 7}
               className="w-full inspection-primary-button"
             >
-              {t('inspection.actions.completeInspection', 'Inspektion abschließen')}
+              {submittingStep === 7
+                ? 'Speichert...'
+                : t('inspection.actions.completeInspection', 'Inspektion abschließen')}
             </Button>
           </CardContent>
         )}

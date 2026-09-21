@@ -4,21 +4,38 @@ const { requireUser, requireRole } = require('./middleware/auth');
 const OrderServiceManagementService = require('../services/orderServiceManagementService');
 
 // Description: Get all services for an order (populated with full service details)
+//              plus the order's money breakdown. services[].price is the GROSS
+//              LIST price of the position; `pricing` reconciles those list prices
+//              with the discounted order total (Zwischensumme / Rabatt / Netto /
+//              MwSt. / Brutto), so the order detail screen can add up.
 // Endpoint: GET /api/order-services/:orderId
 // Request: {}
-// Response: { services: Array<{ _id, serviceId, price, estimatedTime, notes }> }
+// Response: { services: Array<{ _id, serviceId, price, estimatedTime, notes }>,
+//             pricing: { positionsGross, discount, grossTotal, netTotal, taxAmount, taxRate, positionsReconcile } }
 router.get('/:orderId', requireUser, async (req, res) => {
   try {
     const { orderId } = req.params;
 
     console.log(`[OrderServiceRoutes] GET /:orderId - Fetching services for order: ${orderId}`);
 
-    const services =
-      await OrderServiceManagementService.getOrderServices(orderId);
+    const { services, pricing, order } =
+      await OrderServiceManagementService.getOrderServicesWithPricing(orderId);
 
-    res.status(200).json({ services });
+    // Same ownership rule as GET /api/orders/:id - a customer may only read the
+    // positions of their own order.
+    const orderCustomerId = order.customerId?._id
+      ? order.customerId._id.toString()
+      : (order.customerId ? order.customerId.toString() : '');
+    if (orderCustomerId !== req.user._id.toString() && !['admin', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Zugriff verweigert.' });
+    }
+
+    res.status(200).json({ services, pricing });
   } catch (error) {
     console.error(`[OrderServiceRoutes] Error fetching order services: ${error.message}`);
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ error: 'Auftrag wurde nicht gefunden.' });
+    }
     res.status(500).json({ error: error.message });
   }
 });

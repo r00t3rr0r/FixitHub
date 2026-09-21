@@ -15,6 +15,27 @@ const unwrapInspectionResponse = (response: AxiosResponse<InspectionApiPayload>)
   return response.data;
 };
 
+// api.ts rejects HTTP errors with an ApiError that carries `response`, `status` and `data`.
+// Older shapes (raw AxiosResponse, plain Error, network error) are still handled here so the
+// real server message always reaches the caller instead of an empty string.
+const toInspectionError = (error: any): Error => {
+  if (error instanceof Error && error.message) {
+    return error;
+  }
+
+  const payload = error?.response?.data ?? error?.data;
+  const status = error?.response?.status ?? error?.status;
+
+  return new Error(
+    payload?.error ||
+      payload?.message ||
+      error?.message ||
+      (status
+        ? `Anfrage fehlgeschlagen (HTTP ${status})`
+        : 'Server nicht erreichbar. Bitte erneut versuchen.')
+  );
+};
+
 // Description: Initialize device inspection for an order
 // Endpoint: POST /api/device-inspections/init
 // Request: { orderId: string, customerId?: string }
@@ -30,7 +51,7 @@ export const initializeInspection = async (orderId: string, customerId?: string 
     const response = await api.post('/api/device-inspections/init', payload);
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -44,17 +65,20 @@ export const getInspection = async (orderId: string) => {
     return unwrapInspectionResponse(response);
   } catch (error: any) {
     // If 404, inspection doesn't exist yet (return null instead of error)
-    if (error?.response?.status === 404) {
+    if ((error?.status ?? error?.response?.status) === 404) {
       return { inspection: null };
     }
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
 // Description: Update model verification step
 // Endpoint: PUT /api/device-inspections/:orderId/model-verification
-// Request: { reportedModel, actualModel, verificationStatus, costDifference?, notes?, supervisorId? }
-// Response: { inspection: DeviceInspection }
+// Request: { reportedModel, actualModel, verificationStatus, costDifference?, notes?, supervisorId?, actualModelConfirmed? }
+// Response: { inspection: DeviceInspection, warnings?: string[] }
+// actualModelConfirmed marks actualModel as actively chosen/typed by the technician. Only an
+// UNCONFIRMED value that merely echoes reportedModel may be replaced by the server with the
+// order's corrected device; any replacement is reported back in `warnings`.
 export const updateModelVerification = async (
   orderId: string,
   reportedModel: string,
@@ -62,7 +86,8 @@ export const updateModelVerification = async (
   verificationStatus: 'correct' | 'incorrect-more-expensive' | 'incorrect-same-cheaper' | 'unverifiable',
   costDifference?: number,
   notes?: string,
-  supervisorId?: string
+  supervisorId?: string,
+  actualModelConfirmed?: boolean
 ) => {
   try {
     const response = await api.put(`/api/device-inspections/${orderId}/model-verification`, {
@@ -72,10 +97,11 @@ export const updateModelVerification = async (
       costDifference,
       notes,
       supervisorId,
+      actualModelConfirmed: actualModelConfirmed === true,
     });
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -97,7 +123,7 @@ export const updateIdentification = async (
     });
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -110,7 +136,7 @@ export const updateAccessories = async (orderId: string, accessoriesData: any) =
     const response = await api.put(`/api/device-inspections/${orderId}/accessories`, accessoriesData);
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -130,7 +156,7 @@ export const updateExternalInspection = async (
     });
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -143,7 +169,7 @@ export const updateDeviceTests = async (orderId: string, testData: any) => {
     const response = await api.put(`/api/device-inspections/${orderId}/device-tests`, testData);
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -156,7 +182,7 @@ export const updateAppleSpecific = async (orderId: string, appleData: any) => {
     const response = await api.put(`/api/device-inspections/${orderId}/apple-specific`, appleData);
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -186,7 +212,7 @@ export const completeInspection = async (
     });
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -199,7 +225,7 @@ export const generateInspectionReport = async (orderId: string) => {
     const response = await api.get(`/api/device-inspections/${orderId}/report`);
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };
 
@@ -212,6 +238,6 @@ export const getTechnicianInspections = async (filters?: any) => {
     const response = await api.get('/api/device-inspections', { params: filters });
     return unwrapInspectionResponse(response);
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toInspectionError(error);
   }
 };

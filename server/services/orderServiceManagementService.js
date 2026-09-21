@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Service = require('../models/Service');
 const FinancialService = require('./financialService');
+const OrderService = require('./orderService');
 const { sendNotification } = require('./notificationService');
 
 const toIdString = (value) => {
@@ -25,6 +26,23 @@ class OrderServiceManagementService {
    * @returns {Promise<Array>} Array of services with full details
    */
   static async getOrderServices(orderId) {
+    const { services } = await OrderServiceManagementService.getOrderServicesWithPricing(orderId);
+    return services;
+  }
+
+  /**
+   * Get all services for an order together with the order's money breakdown.
+   *
+   * The stored `services[].price` is the GROSS LIST price of the position; the
+   * checkout discount is only taken off the aggregate `order.totalCost`. Returning
+   * the positions on their own therefore makes the order detail screen show a list
+   * price next to a lower total with nothing reconciling them. The `pricing` block
+   * carries that reconciliation (Zwischensumme / Rabatt / Netto / MwSt. / Brutto).
+   *
+   * @param {string} orderId - Order ID
+   * @returns {Promise<{ services: Array, pricing: Object, order: Object }>}
+   */
+  static async getOrderServicesWithPricing(orderId) {
     try {
       const order = await Order.findById(orderId).populate({
         path: 'services.serviceId',
@@ -45,8 +63,18 @@ class OrderServiceManagementService {
         return true;
       });
 
+      const pricing = OrderService.buildOrderPricingSummary({
+        services: (order.services || []).map((s) => (s && typeof s === 'object' ? { price: s.price } : s)),
+        addOns: order.addOns,
+        shopProducts: order.shopProducts,
+        totalCost: order.totalCost,
+        discount: order.discount,
+        appliedPromoCode: order.appliedPromoCode,
+        taxRate: order.taxRate
+      });
+
       console.log(`[OrderServiceManagement] Retrieved ${services.length} services for order ${orderId}`);
-      return services;
+      return { services, pricing, order };
     } catch (error) {
       console.error(`[OrderServiceManagement] Error getting order services: ${error.message}`);
       throw error;

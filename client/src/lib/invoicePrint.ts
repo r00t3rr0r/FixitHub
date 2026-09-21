@@ -1,4 +1,5 @@
 import api from '@/api/api'
+import { extractPdfErrorMessage, invoicePdfRequestConfig, toValidPdfBlob } from '@/api/invoices'
 
 export interface PrintableInvoiceItem {
   serviceName?: string
@@ -33,17 +34,28 @@ export interface PrintableInvoice {
 }
 
 /**
- * Loads the canonical invoice PDF and opens the browser print dialog.
+ * Laedt das kanonische Rechnungs-PDF und oeffnet den Druckdialog des Browsers.
+ *
+ * Wirft bei Misserfolg einen Fehler mit DEUTSCHER Meldung - der Aufrufer muss ihn
+ * anzeigen ('void printInvoice(...)' wuerde den Fehler verschlucken und es saehe so
+ * aus, als passiere gar nichts).
+ *
+ * Request-Konfiguration und PDF-Pruefung kommen aus @/api/invoices, damit Druck und
+ * Download denselben (korrekten) Abruf benutzen - siehe die Erklaerung zu
+ * transformResponse/validateStatus dort.
  */
 export const printInvoice = async (invoice: PrintableInvoice | null | undefined): Promise<void> => {
   if (!invoice?._id) return
 
-  const response = await api.get(`/api/invoices/${invoice._id}/pdf`, {
-    responseType: 'blob',
-    transformResponse: undefined,
-    validateStatus: (status) => status === 200,
-  })
-  const pdfUrl = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  let response
+  try {
+    response = await api.get(`/api/invoices/${invoice._id}/pdf`, invoicePdfRequestConfig())
+  } catch (error: unknown) {
+    throw new Error(extractPdfErrorMessage(error, 'print'))
+  }
+
+  const pdfBlob = await toValidPdfBlob(response.data)
+  const pdfUrl = URL.createObjectURL(pdfBlob)
 
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')

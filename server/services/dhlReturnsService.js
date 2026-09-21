@@ -3,6 +3,7 @@ const SystemConfiguration = require('../models/SystemConfiguration');
 const Booking = require('../models/Booking');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const DHLService = require('./dhlService');
 
 /**
  * DHL Parcel DE Returns Service
@@ -23,7 +24,7 @@ class DHLReturnsService {
 
       if (!config || !config.integrations) {
         console.error('DHLReturnsService: No system configuration found');
-        throw new Error('System configuration not found');
+        throw new Error('Die Systemkonfiguration wurde nicht gefunden.');
       }
 
       // Prefer a dedicated "DHL Returns" profile if one is configured, otherwise fall back
@@ -37,7 +38,7 @@ class DHLReturnsService {
 
       if (!dhlIntegration) {
         console.error('DHLReturnsService: No active DHL integration found');
-        throw new Error('DHL Returns integration not configured or inactive');
+        throw new Error('Es ist keine aktive DHL-Rücksende-Integration konfiguriert. Bitte unter Systemkonfiguration → Integrationen → DHL prüfen.');
       }
 
       const credentials = dhlIntegration.credentials || {};
@@ -53,7 +54,7 @@ class DHLReturnsService {
 
       if (!username || !password || !receiverId) {
         console.error('DHLReturnsService: Missing required DHL credentials');
-        throw new Error('DHL credentials incomplete - username, password, and receiverID required');
+        throw new Error('Die DHL-Zugangsdaten für Rücksendungen sind unvollständig (Benutzername, Passwort, ReceiverID).');
       }
 
       console.log('DHLReturnsService: Configuration loaded successfully');
@@ -120,10 +121,10 @@ class DHLReturnsService {
       console.error('DHLReturnsService: Error obtaining OAuth2 token:', error.response?.data || error.message);
 
       if (error.response?.status === 401) {
-        throw new Error('Invalid DHL Returns credentials - check username and password');
+        throw new Error('DHL hat die Anmeldung für Rücksendungen abgelehnt. Bitte Benutzername und Passwort der DHL-Integration prüfen.');
       }
 
-      throw new Error(`Failed to obtain DHL Returns access token: ${error.message}`);
+      throw new Error('Die Anmeldung an der DHL-Rücksende-API ist fehlgeschlagen. Bitte die Zugangsdaten und die Verbindung prüfen.');
     }
   }
 
@@ -142,18 +143,33 @@ class DHLReturnsService {
 
       if (!booking) {
         console.error('DHLReturnsService: Booking not found:', bookingId);
-        throw new Error('Booking not found');
+        throw new Error('Buchung nicht gefunden.');
       }
 
       console.log('DHLReturnsService: Booking found:', booking.bookingNumber);
       console.log('DHLReturnsService: Customer ID:', booking.customerId);
+
+      // Never create a second label at DHL for the same booking (mirrors the order path).
+      if (booking.returnLabelUrl || booking.returnShipmentStatus === 'label-created') {
+        console.log('DHLReturnsService: Return label already exists for booking:', booking.bookingNumber);
+        return {
+          success: true,
+          returnId: booking.returnShipmentId,
+          returnTrackingNumber: booking.returnTrackingNumber,
+          labelUrl: booking.returnLabelUrl,
+          qrCodeUrl: booking.returnQRCodeUrl,
+          qrLink: '',
+          alreadyExists: true,
+          message: 'Für diese Buchung ist bereits ein Rücksendeetikett vorhanden.',
+        };
+      }
 
       // Get full customer object directly from User model to ensure all fields are loaded
       const customer = await User.findById(booking.customerId).select('firstName lastName name email phone invoiceAddress');
 
       if (!customer) {
         console.error('DHLReturnsService: Customer not found for booking');
-        throw new Error('Customer information not found');
+        throw new Error('Kundendaten nicht gefunden.');
       }
 
       console.log('DHLReturnsService: Customer:', customer.email);
@@ -167,7 +183,23 @@ class DHLReturnsService {
       // Validate address
       if (!invoiceAddress.street || !invoiceAddress.city || !invoiceAddress.zipCode) {
         console.error('DHLReturnsService: Incomplete customer invoice address');
-        throw new Error('Customer invoice address is incomplete. Street, city, and postal code are required.');
+        throw new Error('Die Rechnungsadresse des Kunden ist unvollständig. Straße, Ort und Postleitzahl werden benötigt.');
+      }
+
+      // DHL expects street and house number separately; the checkout stores them combined.
+      // The number inside the street text wins - a separately stored number is only used
+      // when the street carries none of its own (same rule as DHLService.resolveStreetAndHouse).
+      const invoiceStreetParts = DHLService.splitStreetAndHouse(invoiceAddress.street);
+      const invoiceHouseNumber = invoiceStreetParts.house || String(invoiceAddress.number || '').trim();
+
+      // Never invent a house number: a made-up "1" produces an undeliverable label that
+      // nobody notices until the parcel comes back.
+      if (!invoiceHouseNumber) {
+        console.error('DHLReturnsService: No house number in customer invoice address');
+        throw new Error(
+          'Die Hausnummer der Rechnungsadresse fehlt. Bitte die Hausnummer im Kundenprofil ergänzen ' +
+          `(Rechnungsadresse, Straße: "${String(invoiceAddress.street).trim()}").`
+        );
       }
 
       // Get DHL configuration
@@ -185,8 +217,8 @@ class DHLReturnsService {
         receiverId: config.receiverId,
         shipper: {
           name1: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer',
-          addressStreet: invoiceAddress.street,
-          addressHouse: invoiceAddress.number || '1',
+          addressStreet: invoiceStreetParts.street || invoiceAddress.street,
+          addressHouse: invoiceHouseNumber,
           postalCode: invoiceAddress.zipCode,
           city: invoiceAddress.city,
         },
@@ -261,28 +293,57 @@ class DHLReturnsService {
         console.log('DHLReturnsService: QR link for mobile app:', qrLink);
       }
 
-      // Update booking with return information
-      booking.returnLabelUrl = labelUrl;
-      booking.returnQRCodeUrl = qrCodeUrl;
-      booking.returnTrackingNumber = returnId;
-      booking.returnShipmentId = returnId;
-      booking.returnShipmentStatus = 'label-created';
-      booking.returnShipmentStatusDescription = 'DHL-Rücksendeetikett wurde erstellt';
-      booking.returnCreatedAt = new Date();
-      booking.status = 'in-transit'; // Update booking status
+      // Persist the return information.
+      //
+      // The label EXISTS at DHL from here on, so this step must not be able to throw the
+      // whole call away. Two reasons it used to:
+      //  - `booking.status = 'in-transit'` is not in Booking.status's enum
+      //    ['pending','payment-pending','processing','completed','cancelled'], so
+      //    booking.save() failed validation AFTER every successful DHL call and the
+      //    caller saw a 500 while the label was already created. The return state lives
+      //    in `returnShipmentStatus` ('label-created'), which IS a valid enum value -
+      //    the fulfilment status of the booking is none of this function's business.
+      //  - a full-document save() re-validates unrelated legacy fields of an old booking.
+      // A targeted update writes only the return fields and never revalidates the rest.
+      const returnUpdate = {
+        returnLabelUrl: labelUrl,
+        returnQRCodeUrl: qrCodeUrl,
+        returnTrackingNumber: returnId,
+        returnShipmentId: returnId,
+        returnShipmentStatus: 'label-created',
+        returnShipmentStatusDescription: 'DHL-Rücksendeetikett wurde erstellt',
+        returnCreatedAt: new Date(),
+      };
 
-      // Add timeline entry
-      booking.timeline.push({
-        status: 'Return Label Created',
-        description: `DHL return label generated (Tracking: ${returnId})`,
-        completedAt: new Date(),
-        staffId: 'system',
-        staffName: 'System',
-      });
-
-      await booking.save();
-
-      console.log('DHLReturnsService: Booking updated with return information');
+      try {
+        await Booking.updateOne(
+          { _id: booking._id },
+          {
+            $set: returnUpdate,
+            $push: {
+              timeline: {
+                status: 'Return Label Created',
+                description: `DHL return label generated (Tracking: ${returnId})`,
+                completedAt: new Date(),
+                staffId: 'system',
+                staffName: 'System',
+              },
+            },
+          }
+        );
+        Object.assign(booking, returnUpdate);
+        console.log('DHLReturnsService: Booking updated with return information');
+      } catch (persistError) {
+        // Do NOT lose the label: it exists at DHL and its data is in this response.
+        console.error(
+          'DHLReturnsService: Return label was created at DHL but could not be stored on the booking:',
+          persistError.message
+        );
+        throw new Error(
+          `Das Rücksendeetikett wurde bei DHL erstellt (Sendungsnummer ${returnId}), konnte aber nicht `
+          + 'an der Buchung gespeichert werden. Bitte die Sendungsnummer notieren und den Vorgang nicht wiederholen.'
+        );
+      }
 
       return {
         success: true,
@@ -296,17 +357,19 @@ class DHLReturnsService {
     } catch (error) {
       console.error('DHLReturnsService: Error creating return label:', error.response?.data || error.message);
 
+      // Die rohe DHL-Diagnose gehoert ins Log, nicht in die Oberflaeche.
       if (error.response?.status === 400) {
         const errorDetails = error.response.data?.detail || error.response.data?.message || 'Invalid request parameters';
-        throw new Error(`DHL Returns API error: ${errorDetails}`);
+        console.error('DHLReturnsService: DHL rejected the return order:', errorDetails);
+        throw new Error('DHL hat die Rücksendung abgelehnt. Bitte die Absenderadresse (Straße, Hausnummer, PLZ, Ort) prüfen.');
       }
 
       if (error.response?.status === 401) {
-        throw new Error('Authentication failed - DHL Returns API credentials may be invalid');
+        throw new Error('DHL hat die Anmeldung für Rücksendungen abgelehnt. Bitte die Zugangsdaten der DHL-Integration prüfen.');
       }
 
       if (error.response?.status === 404) {
-        throw new Error('DHL Returns API endpoint not found - check configuration');
+        throw new Error('Die DHL-Rücksende-Schnittstelle wurde nicht gefunden. Bitte die Endpunkt-Konfiguration der DHL-Integration prüfen.');
       }
 
       throw error;
@@ -327,7 +390,7 @@ class DHLReturnsService {
 
       if (!order) {
         console.error('DHLReturnsService: Order not found:', orderId);
-        throw new Error('Order not found');
+        throw new Error('Auftrag nicht gefunden.');
       }
 
       if (order.returnLabelUrl || order.returnShipmentStatus === 'label-created') {
@@ -349,12 +412,16 @@ class DHLReturnsService {
 
       if (!customer) {
         console.error('DHLReturnsService: Customer not found for order');
-        throw new Error('Customer information not found');
+        throw new Error('Kundendaten nicht gefunden.');
       }
 
-      // Prefer the order's own shipping address, fall back to the customer's invoice address
-      const shippingAddress = order.shippingAddress || {};
+      // Prefer the order's own shipping address, fall back to the customer's invoice address.
+      // A Packstation is never a valid RETURN sender address (the customer hands the parcel
+      // in themselves), and mixing its PLZ/Ort with the invoice street produced a corrupt
+      // address – so a Packstation delivery address is skipped entirely here.
+      const orderShipping = order.shippingAddress || {};
       const invoiceAddress = customer.invoiceAddress || {};
+      const shippingAddress = orderShipping.deliveryType === 'packstation' ? {} : orderShipping;
       const street = shippingAddress.street || invoiceAddress.street;
       const city = shippingAddress.city || invoiceAddress.city;
       const zipCode = shippingAddress.zipCode || invoiceAddress.zipCode;
@@ -365,6 +432,26 @@ class DHLReturnsService {
         throw new Error('Die Versand- bzw. Rechnungsadresse ist unvollständig. Straße, Stadt und Postleitzahl werden benötigt.');
       }
 
+      // DHL expects street and house number separately; the checkout stores them combined.
+      // A stored house number belonging to the SAME address wins over one parsed out of a
+      // street that merely ends in digits; the splitter is the fallback.
+      const orderStreetParts = DHLService.splitStreetAndHouse(street);
+      const storedHouseNumber = shippingAddress.street
+        ? String(shippingAddress.number || '').trim()
+        : String(invoiceAddress.number || '').trim();
+      const orderHouseNumber = orderStreetParts.house || storedHouseNumber;
+
+      // Never invent a house number: a made-up "1" produces an undeliverable label that
+      // nobody notices until the parcel comes back.
+      if (!orderHouseNumber) {
+        console.error('DHLReturnsService: No house number for order return label');
+        throw new Error(
+          'Die Hausnummer der Absenderadresse fehlt. Bitte die Hausnummer in der ' +
+          `${shippingAddress.street ? 'Lieferadresse des Auftrags' : 'Rechnungsadresse des Kunden'} ` +
+          `ergänzen (Straße: "${String(street).trim()}").`
+        );
+      }
+
       const config = await this.getDHLReturnsConfig();
       const accessToken = await this.getAccessToken();
       const labelType = options.labelType || 'BOTH';
@@ -373,8 +460,8 @@ class DHLReturnsService {
         receiverId: config.receiverId,
         shipper: {
           name1: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer',
-          addressStreet: street,
-          addressHouse: invoiceAddress.number || '1',
+          addressStreet: orderStreetParts.street || street,
+          addressHouse: orderHouseNumber,
           postalCode: zipCode,
           city,
         },
@@ -425,17 +512,32 @@ class DHLReturnsService {
 
       const qrLink = returnData.qrLink || '';
 
-      order.returnLabelUrl = labelUrl;
-      order.returnQRCodeUrl = qrCodeUrl;
-      order.returnTrackingNumber = returnId;
-      order.returnShipmentId = returnId;
-      order.returnShipmentStatus = 'label-created';
-      order.returnShipmentStatusDescription = 'DHL-Rücksendeetikett wurde erstellt';
-      order.returnCreatedAt = new Date();
+      // Same rule as the booking path: the label exists at DHL from here on, so persist
+      // ONLY the return fields and never let a full-document revalidation discard it.
+      const returnUpdate = {
+        returnLabelUrl: labelUrl,
+        returnQRCodeUrl: qrCodeUrl,
+        returnTrackingNumber: returnId,
+        returnShipmentId: returnId,
+        returnShipmentStatus: 'label-created',
+        returnShipmentStatusDescription: 'DHL-Rücksendeetikett wurde erstellt',
+        returnCreatedAt: new Date(),
+      };
 
-      await order.save();
-
-      console.log('DHLReturnsService: Order updated with return information');
+      try {
+        await Order.updateOne({ _id: order._id }, { $set: returnUpdate });
+        Object.assign(order, returnUpdate);
+        console.log('DHLReturnsService: Order updated with return information');
+      } catch (persistError) {
+        console.error(
+          'DHLReturnsService: Return label was created at DHL but could not be stored on the order:',
+          persistError.message
+        );
+        throw new Error(
+          `Das Rücksendeetikett wurde bei DHL erstellt (Sendungsnummer ${returnId}), konnte aber nicht `
+          + 'am Auftrag gespeichert werden. Bitte die Sendungsnummer notieren und den Vorgang nicht wiederholen.'
+        );
+      }
 
       return {
         success: true,
@@ -450,17 +552,19 @@ class DHLReturnsService {
     } catch (error) {
       console.error('DHLReturnsService: Error creating return label for order:', error.response?.data || error.message);
 
+      // Die rohe DHL-Diagnose gehoert ins Log, nicht in die Oberflaeche.
       if (error.response?.status === 400) {
         const errorDetails = error.response.data?.detail || error.response.data?.message || 'Invalid request parameters';
-        throw new Error(`DHL Returns API error: ${errorDetails}`);
+        console.error('DHLReturnsService: DHL rejected the return order:', errorDetails);
+        throw new Error('DHL hat die Rücksendung abgelehnt. Bitte die Absenderadresse (Straße, Hausnummer, PLZ, Ort) prüfen.');
       }
 
       if (error.response?.status === 401) {
-        throw new Error('Authentication failed - DHL Returns API credentials may be invalid');
+        throw new Error('DHL hat die Anmeldung für Rücksendungen abgelehnt. Bitte die Zugangsdaten der DHL-Integration prüfen.');
       }
 
       if (error.response?.status === 404) {
-        throw new Error('DHL Returns API endpoint not found - check configuration');
+        throw new Error('Die DHL-Rücksende-Schnittstelle wurde nicht gefunden. Bitte die Endpunkt-Konfiguration der DHL-Integration prüfen.');
       }
 
       throw error;
@@ -559,11 +663,11 @@ class DHLReturnsService {
       const booking = await Booking.findById(bookingId);
 
       if (!booking) {
-        throw new Error('Booking not found');
+        throw new Error('Buchung nicht gefunden.');
       }
 
       if (!booking.returnTrackingNumber) {
-        throw new Error('No return tracking number found for this booking');
+        throw new Error('Für diese Buchung ist keine Rücksende-Sendungsnummer hinterlegt.');
       }
 
       // Get tracking information

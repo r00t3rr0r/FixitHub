@@ -60,12 +60,12 @@ router.post('/', requireUser, async (req, res) => {
       success: true,
       orderId: order._id,
       orderNumber: order.orderNumber,
-      message: 'Order created successfully'
+      message: 'Der Auftrag wurde erfolgreich angelegt.'
     });
   } catch (error) {
     console.error('Error creating order:', error);
     return res.status(400).json({
-      error: error.message || 'Failed to create order'
+      error: error.message || 'Der Auftrag konnte nicht angelegt werden.'
     });
   }
 });
@@ -87,7 +87,7 @@ router.get('/', requireUser, async (req, res) => {
   } catch (error) {
     console.error('Error getting orders:', error);
     return res.status(500).json({
-      error: error.message || 'Failed to get orders'
+      error: error.message || 'Die Aufträge konnten nicht geladen werden.'
     });
   }
 });
@@ -111,7 +111,7 @@ router.get('/:id', requireUser, async (req, res) => {
     if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
       console.log('Access denied - User does not own order and is not admin/staff');
       return res.status(403).json({
-        error: 'Access denied'
+        error: 'Zugriff verweigert.'
       });
     }
 
@@ -123,7 +123,7 @@ router.get('/:id', requireUser, async (req, res) => {
       return res.status(404).json({ error: error.message });
     }
     return res.status(500).json({
-      error: error.message || 'Failed to get order'
+      error: error.message || 'Der Auftrag konnte nicht geladen werden.'
     });
   }
 });
@@ -145,7 +145,7 @@ router.get('/:id/progress-timeline', requireUser, async (req, res) => {
     if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
       console.log('Access denied - User does not own order and is not admin/staff');
       return res.status(403).json({
-        error: 'Access denied'
+        error: 'Zugriff verweigert.'
       });
     }
 
@@ -159,7 +159,7 @@ router.get('/:id/progress-timeline', requireUser, async (req, res) => {
       return res.status(404).json({ error: error.message });
     }
     return res.status(500).json({
-      error: error.message || 'Failed to get order progress timeline'
+      error: error.message || 'Der Fortschrittsverlauf konnte nicht geladen werden.'
     });
   }
 });
@@ -175,20 +175,20 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
     if (!reason || !description) {
       return res.status(400).json({
         success: false,
-        error: 'reason and description are required'
+        error: 'Bitte Grund und Beschreibung der Reklamation angeben.'
       });
     }
 
     const order = await OrderService.getById(req.params.orderId);
     const orderCustomerId = order.customerId?._id ? order.customerId._id.toString() : order.customerId.toString();
     if (orderCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
     if (order.status !== 'completed') {
       return res.status(400).json({
         success: false,
-        error: 'Complaint can only be created for completed orders'
+        error: 'Eine Reklamation ist erst nach Abschluss des Auftrags möglich.'
       });
     }
 
@@ -200,7 +200,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
     if (existingOpenComplaint) {
       return res.status(409).json({
         success: false,
-        error: 'An active complaint already exists for this order',
+        error: 'Für diesen Auftrag läuft bereits eine Reklamation.',
         complaintId: existingOpenComplaint._id
       });
     }
@@ -253,7 +253,7 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
         await NotificationService.createNotification({
           userId: admin._id,
           title: 'Neue Reklamation',
-          message: `${customerName} hat eine Reklamation fuer Auftrag ${order.orderNumber} gemeldet.`,
+          message: `${customerName} hat eine Reklamation für Auftrag ${order.orderNumber} gemeldet.`,
           type: 'system',
           orderId: order._id,
           actionUrl: `/admin/complaints?complaintId=${complaint._id}`,
@@ -309,13 +309,13 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
     return res.status(201).json({
       success: true,
       complaint,
-      message: 'Complaint submitted successfully'
+      message: 'Die Reklamation wurde übermittelt.'
     });
   } catch (error) {
     console.error('Error creating complaint for order:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create complaint'
+      error: error.message || 'Die Reklamation konnte nicht angelegt werden.'
     });
   }
 });
@@ -362,16 +362,16 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
   try {
     const order = await OrderService.getById(req.params.id);
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
+      return res.status(404).json({ success: false, error: 'Auftrag wurde nicht gefunden.' });
     }
 
     const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
     if (orderCustomerId !== req.user._id.toString() && !['admin', 'staff'].includes(req.user.role)) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
     if (!order.shippingLabelUrl) {
-      return res.status(404).json({ success: false, error: 'No shipping label available for this order' });
+      return res.status(404).json({ success: false, error: 'Für diesen Auftrag ist kein Versandlabel hinterlegt.' });
     }
 
     const base64Match = order.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
@@ -387,7 +387,7 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     return res.send(pdfBuffer);
   } catch (error) {
     console.error('Error downloading shipping label:', error);
-    return res.status(500).json({ success: false, error: 'Failed to download shipping label' });
+    return res.status(500).json({ success: false, error: 'Das Versandlabel konnte nicht heruntergeladen werden.' });
   }
 });
 
@@ -415,18 +415,20 @@ router.post('/:id/return-label', requireUser, requireRole(['admin', 'staff']), a
 // Response: PDF file download
 router.get('/:id/return-label', requireUser, async (req, res) => {
   try {
-    const order = await OrderService.getById(req.params.id);
+    // includeLabelData: the stored base64 PDF is only projected for this download
+    // route, not for the normal order detail / polling payloads.
+    const order = await OrderService.getById(req.params.id, { includeLabelData: true });
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
+      return res.status(404).json({ success: false, error: 'Auftrag wurde nicht gefunden.' });
     }
 
     const orderCustomerId = order.customerId._id ? order.customerId._id.toString() : order.customerId.toString();
     if (orderCustomerId !== req.user._id.toString() && !['admin', 'staff'].includes(req.user.role)) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
     if (!order.returnLabelUrl) {
-      return res.status(404).json({ success: false, error: 'No return label available for this order' });
+      return res.status(404).json({ success: false, error: 'Für diesen Auftrag ist kein Rücksendelabel hinterlegt.' });
     }
 
     const base64Match = order.returnLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
@@ -442,7 +444,7 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
     return res.send(pdfBuffer);
   } catch (error) {
     console.error('Error downloading order return label:', error);
-    return res.status(500).json({ success: false, error: 'Failed to download return label' });
+    return res.status(500).json({ success: false, error: 'Das Rücksendelabel konnte nicht heruntergeladen werden.' });
   }
 });
 
@@ -461,14 +463,14 @@ router.get('/:id/tracking', requireUser, async (req, res) => {
     if (orderCustomerId !== currentUserId && !['admin', 'staff'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: 'Access denied'
+        error: 'Zugriff verweigert.'
       });
     }
 
     if (!order.trackingNumber) {
       return res.status(404).json({
         success: false,
-        error: 'No tracking number found for this order'
+        error: 'Für diesen Auftrag ist keine Sendungsnummer hinterlegt.'
       });
     }
 
@@ -490,7 +492,7 @@ router.get('/:id/tracking', requireUser, async (req, res) => {
     console.error('Error getting tracking info:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to get tracking information'
+      error: error.message || 'Die Sendungsverfolgung konnte nicht geladen werden.'
     });
   }
 });
@@ -511,7 +513,7 @@ router.put('/:id/tracking/update', requireUser, requireRole(['admin', 'staff']),
     console.error('Error updating order tracking:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to update tracking information'
+      error: error.message || 'Die Sendungsverfolgung konnte nicht aktualisiert werden.'
     });
   }
 });
@@ -529,7 +531,7 @@ router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (r
     if (!status) {
       return res.status(400).json({
         success: false,
-        error: 'Status is required'
+        error: 'Bitte einen Status angeben.'
       });
     }
 
@@ -541,13 +543,13 @@ router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (r
     return res.status(200).json({
       success: true,
       order,
-      message: 'Order status updated successfully'
+      message: 'Der Auftragsstatus wurde aktualisiert.'
     });
   } catch (error) {
     console.error('Error updating order status:', error);
     return res.status(400).json({
       success: false,
-      error: error.message || 'Failed to update order status'
+      error: error.message || 'Der Auftragsstatus konnte nicht aktualisiert werden.'
     });
   }
 });
@@ -565,7 +567,7 @@ router.get('/:id/revisions', requireUser, async (req, res) => {
     console.error('Error fetching order revisions:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch order revisions'
+      error: error.message || 'Die Auftragshistorie konnte nicht geladen werden.'
     });
   }
 });

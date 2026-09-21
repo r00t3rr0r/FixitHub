@@ -86,7 +86,7 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
     const { repairOrders, guestInfo, createShippingLabel } = req.body || {};
 
     if (!Array.isArray(repairOrders) || repairOrders.length === 0) {
-      return res.status(400).json({ success: false, error: 'At least one repair order is required' });
+      return res.status(400).json({ success: false, error: 'Es wird mindestens ein Reparaturauftrag benötigt.' });
     }
 
     const customer = guestInfo || {};
@@ -105,7 +105,7 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
     };
 
     if (!customer.firstName || !customer.lastName || !customer.email || !customer.phone) {
-      return res.status(400).json({ success: false, error: 'Complete customer contact data is required' });
+      return res.status(400).json({ success: false, error: 'Die Kontaktdaten des Kunden müssen vollständig sein.' });
     }
 
     const normalizedGuestInfo = {
@@ -121,7 +121,7 @@ router.post('/manual-repair', requireAdmin, async (req, res) => {
     const orders = [];
     for (const repairOrder of repairOrders) {
       if (!repairOrder?.deviceBrand || !repairOrder?.deviceModel || !Array.isArray(repairOrder.services) || repairOrder.services.length === 0) {
-        return res.status(400).json({ success: false, error: 'Each repair order needs a device and at least one service' });
+        return res.status(400).json({ success: false, error: 'Jeder Reparaturauftrag benötigt ein Gerät und mindestens eine Leistung.' });
       }
 
       const order = await require('../services/orderService').create({
@@ -188,7 +188,7 @@ router.get('/:id', requireUser, async (req, res) => {
       console.log('BookingRoutes: Booking not found');
       return res.status(404).json({
         success: false,
-        error: 'Booking not found',
+        error: 'Buchung wurde nicht gefunden.',
       });
     }
 
@@ -200,7 +200,7 @@ router.get('/:id', requireUser, async (req, res) => {
       console.log('BookingRoutes: Unauthorized access to booking');
       return res.status(403).json({
         success: false,
-        error: 'You do not have permission to view this booking',
+        error: 'Sie haben keine Berechtigung, diese Buchung einzusehen.',
       });
     }
 
@@ -219,9 +219,16 @@ router.get('/:id', requireUser, async (req, res) => {
 
     console.log('BookingRoutes: Booking retrieved successfully');
 
+    // Richtung des gespeicherten Versandlabels mitliefern. `booking.trackingNumber`
+    // kann ein Einsendelabel (Kunde -> McRepair) ODER ein Ruecksendelabel
+    // (McRepair -> Kunde) tragen; die Oberflaeche darf die Ueberschrift deshalb nicht
+    // fest verdrahten, sondern liest sie hier ab (G5).
+    const bookingPayload = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
+    bookingPayload.shippingLabelDirection = BookingService.resolveStoredShippingDirection(booking);
+
     res.json({
       success: true,
-      booking: booking,
+      booking: bookingPayload,
       liveShippingTracking,
     });
   } catch (error) {
@@ -247,7 +254,7 @@ router.post('/group', requireAdmin, async (req, res) => {
       console.log('BookingRoutes: Invalid orderIds');
       return res.status(400).json({
         success: false,
-        error: 'orderIds must be a non-empty array',
+        error: 'Bitte mindestens einen Auftrag zum Zusammenfassen auswählen.',
       });
     }
 
@@ -255,7 +262,7 @@ router.post('/group', requireAdmin, async (req, res) => {
       console.log('BookingRoutes: Missing customerId');
       return res.status(400).json({
         success: false,
-        error: 'customerId is required',
+        error: 'Bitte einen Kunden für die Buchung angeben.',
       });
     }
 
@@ -291,7 +298,7 @@ router.put('/:id/status', requireStaff, async (req, res) => {
       console.log('BookingRoutes: Missing status');
       return res.status(400).json({
         success: false,
-        error: 'status is required',
+        error: 'Bitte einen Status angeben.',
       });
     }
 
@@ -300,7 +307,9 @@ router.put('/:id/status', requireStaff, async (req, res) => {
       console.log('BookingRoutes: Invalid status:', status);
       return res.status(400).json({
         success: false,
-        error: `status must be one of: ${validStatuses.join(', ')}`,
+        // Kein roher englischer Enum-Wert im deutschen Satz - die Oberflaeche zeigt
+        // diese Meldung direkt an.
+        error: `Unbekannter Status. Erlaubt sind: ${validStatuses.map((value) => BOOKING_STATUS_LABELS[value] || value).join(', ')}.`,
       });
     }
 
@@ -335,7 +344,7 @@ router.put('/:id/billing-status', requireStaff, async (req, res) => {
       console.log('BookingRoutes: Missing billingStatus');
       return res.status(400).json({
         success: false,
-        error: 'billingStatus is required',
+        error: 'Bitte einen Zahlungsstatus angeben.',
       });
     }
 
@@ -344,7 +353,7 @@ router.put('/:id/billing-status', requireStaff, async (req, res) => {
       console.log('BookingRoutes: Invalid billingStatus:', billingStatus);
       return res.status(400).json({
         success: false,
-        error: `billingStatus must be one of: ${validBillingStatuses.join(', ')}`,
+        error: `Unbekannter Zahlungsstatus. Erlaubt sind: ${validBillingStatuses.map((value) => BOOKING_BILLING_STATUS_LABELS[value] || value).join(', ')}.`,
       });
     }
 
@@ -379,7 +388,7 @@ router.get('/:id/summary', requireUser, async (req, res) => {
       console.log('BookingRoutes: Booking not found');
       return res.status(404).json({
         success: false,
-        error: 'Booking not found',
+        error: 'Buchung wurde nicht gefunden.',
       });
     }
 
@@ -412,7 +421,7 @@ router.get('/:id/orders', requireUser, async (req, res) => {
       console.log('BookingRoutes: No orders found for booking');
       return res.status(404).json({
         success: false,
-        error: 'No orders found for this booking',
+        error: 'Zu dieser Buchung wurden keine Aufträge gefunden.',
       });
     }
 
@@ -446,7 +455,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {  // Keep this admin-on
       console.log('BookingRoutes: Booking not found');
       return res.status(404).json({
         success: false,
-        error: 'Booking not found',
+        error: 'Buchung wurde nicht gefunden.',
       });
     }
 
@@ -482,7 +491,7 @@ router.get('/:id/invoice/preview', requireUser, async (req, res) => {
       console.log('BookingRoutes: Could not generate invoice preview');
       return res.status(404).json({
         success: false,
-        error: 'Could not generate invoice preview',
+        error: 'Die Rechnungsvorschau konnte nicht erstellt werden.',
       });
     }
 
@@ -550,11 +559,37 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
 // Endpoint: GET /api/bookings/:id/invoices
 // Request: {}
 // Response: { success: boolean, invoices: Invoice[] }
+// SICHERHEIT: Dieser Endpunkt war nur mit requireUser geschuetzt und fuehrte ein
+// blankes Invoice.find({ bookingId }) aus - jeder angemeldete Account konnte damit
+// die Rechnungen JEDER Buchung lesen (Name, E-Mail, Rechnungsadresse, Positionen,
+// Betraege), inklusive Entwuerfen. Es wird jetzt wie bei GET /api/bookings/:id auf
+// Eigentuemerschaft geprueft; Entwuerfe sieht nur Admin/Staff.
 router.get('/:id/invoices', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting invoices for booking:', req.params.id);
 
-    const invoices = await BookingService.getBookingInvoices(req.params.id);
+    const booking = await BookingService.getById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: 'Auftrag wurde nicht gefunden.',
+      });
+    }
+
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.();
+
+    if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
+      console.log('BookingRoutes: Unauthorized access to booking invoices');
+      return res.status(403).json({
+        success: false,
+        error: 'Sie haben keine Berechtigung, die Rechnungen dieses Auftrags einzusehen.',
+      });
+    }
+
+    const invoices = await BookingService.getBookingInvoices(req.params.id, {
+      includeDrafts: isPrivilegedUser,
+    });
 
     console.log('BookingRoutes: Retrieved', invoices.length, 'invoices');
 
@@ -566,7 +601,7 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
     console.error('BookingRoutes: Error getting invoices:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: 'Die Rechnungen konnten nicht geladen werden.',
     });
   }
 });
@@ -610,10 +645,22 @@ router.post('/:id/payments/paypal/import', requireStaff, async (req, res) => {
 router.post('/:id/payments', requireStaff, async (req, res) => {
   try {
     const overview = await BookingPaymentService.addManualPayment(req.params.id, req.body, req.user?._id);
-    res.status(201).json({ success: true, ...overview });
+    // Eine bereits erfasste Zahlung ist kein Fehler: 200 mit Hinweis statt 201.
+    res.status(overview.duplicate ? 200 : 201).json({ success: true, ...overview });
   } catch (error) {
+    // Nur fachliche Fehler tragen ihre Meldung nach aussen. Ein unerwarteter
+    // Laufzeitfehler wird geloggt und dem Bearbeiter auf Deutsch gemeldet, statt
+    // einen technischen englischen Text in den Toast zu schreiben.
+    if (error.statusCode) {
+      console.warn('BookingRoutes: Error recording booking payment:', error.message);
+      return res.status(error.statusCode).json({ success: false, error: error.message, code: error.code });
+    }
     console.error('BookingRoutes: Error recording booking payment:', error);
-    res.status(error.statusCode || 500).json({ success: false, error: error.message, code: error.code });
+    return res.status(500).json({
+      success: false,
+      error: 'Die Zahlung konnte nicht gespeichert werden. Bitte prüfen Sie die Zahlungsliste, bevor Sie es erneut versuchen.',
+      code: 'INTERNAL_ERROR',
+    });
   }
 });
 
@@ -675,17 +722,17 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
   try {
     const booking = await BookingService.getById(req.params.id)
     if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' })
+      return res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.' })
     }
 
     const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
     const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
     if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' })
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' })
     }
 
     if (!booking.shippingLabelUrl) {
-      return res.status(404).json({ success: false, error: 'No shipping label available for this booking' })
+      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Versandlabel hinterlegt.' })
     }
 
     const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/)
@@ -701,7 +748,7 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     return res.send(pdfBuffer)
   } catch (error) {
     console.error('BookingRoutes: Error downloading shipping label:', error)
-    return res.status(500).json({ success: false, error: 'Failed to download shipping label' })
+    return res.status(500).json({ success: false, error: 'Das Versandlabel konnte nicht heruntergeladen werden.' })
   }
 })
 
@@ -716,17 +763,17 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
   try {
     const booking = await BookingService.getById(req.params.id)
     if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' })
+      return res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.' })
     }
 
     const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
     const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
     if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' })
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' })
     }
 
     if (!booking.returnLabelUrl) {
-      return res.status(404).json({ success: false, error: 'No return label available for this booking' })
+      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Rücksendelabel hinterlegt.' })
     }
 
     const base64Match = booking.returnLabelUrl.match(/^data:application\/pdf;base64,(.+)$/)
@@ -742,7 +789,7 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
     return res.send(pdfBuffer)
   } catch (error) {
     console.error('BookingRoutes: Error downloading return label:', error)
-    return res.status(500).json({ success: false, error: 'Failed to download return label' })
+    return res.status(500).json({ success: false, error: 'Das Rücksendelabel konnte nicht heruntergeladen werden.' })
   }
 })
 
@@ -755,18 +802,18 @@ router.get('/:id/shipping-tracking', requireUser, async (req, res) => {
     const booking = await BookingService.getById(req.params.id)
 
     if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' })
+      return res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.' })
     }
 
     const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
     const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
 
     if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'You do not have permission to view this booking' })
+      return res.status(403).json({ success: false, error: 'Sie haben keine Berechtigung, diese Buchung einzusehen.' })
     }
 
     if (!booking.trackingNumber) {
-      return res.status(404).json({ success: false, error: 'No tracking number found for this booking' })
+      return res.status(404).json({ success: false, error: 'Für diese Buchung ist keine Sendungsnummer hinterlegt.' })
     }
 
     const trackingInfo = BookingService.isDummyBookingTrackingNumber(booking.trackingNumber)
@@ -820,14 +867,14 @@ router.put('/:id/shipping-status/update', requireUser, async (req, res) => {
     const booking = await BookingService.getById(req.params.id)
 
     if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' })
+      return res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.' })
     }
 
     const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff'
     const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.()
 
     if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'You do not have permission to update this booking' })
+      return res.status(403).json({ success: false, error: 'Sie haben keine Berechtigung, diese Buchung zu ändern.' })
     }
 
     const result = await BookingService.updateShippingStatus(req.params.id)
@@ -880,7 +927,7 @@ router.get('/:id/return-tracking', requireUser, async (req, res) => {
       console.log('BookingRoutes: Booking not found');
       return res.status(404).json({
         success: false,
-        error: 'Booking not found',
+        error: 'Buchung wurde nicht gefunden.',
       });
     }
 
@@ -892,7 +939,7 @@ router.get('/:id/return-tracking', requireUser, async (req, res) => {
       console.log('BookingRoutes: Unauthorized access to booking');
       return res.status(403).json({
         success: false,
-        error: 'You do not have permission to view this booking',
+        error: 'Sie haben keine Berechtigung, diese Buchung einzusehen.',
       });
     }
 
@@ -900,7 +947,7 @@ router.get('/:id/return-tracking', requireUser, async (req, res) => {
       console.log('BookingRoutes: No return tracking number found');
       return res.status(404).json({
         success: false,
-        error: 'No return tracking number found for this booking',
+        error: 'Für diese Buchung ist keine Rücksende-Sendungsnummer hinterlegt.',
       });
     }
 
@@ -939,7 +986,7 @@ router.put('/:id/return-status/update', requireUser, async (req, res) => {
     if (!booking) {
       return res.status(404).json({
         success: false,
-        error: 'Booking not found',
+        error: 'Buchung wurde nicht gefunden.',
       });
     }
 
@@ -949,7 +996,7 @@ router.put('/:id/return-status/update', requireUser, async (req, res) => {
     if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
-        error: 'You do not have permission to update this booking',
+        error: 'Sie haben keine Berechtigung, diese Buchung zu ändern.',
       });
     }
 
@@ -984,7 +1031,7 @@ router.get('/test-dhl-returns', requireAdmin, async (req, res) => {
     console.error('BookingRoutes: Error testing DHL Returns API connection:', error);
     res.status(500).json({
       success: false,
-      message: 'Error testing DHL Returns API connection',
+      message: 'Die Verbindung zur DHL-Retouren-API konnte nicht geprüft werden.',
       error: error.message,
     });
   }
@@ -1068,7 +1115,7 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     
     const booking = await BookingService.getById(req.params.id);
     if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' });
+      return res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.' });
     }
 
     // Check access permissions
@@ -1076,11 +1123,11 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     const bookingCustomerId = booking.customerId?._id?.toString?.() || booking.customerId?.toString?.();
 
     if (!isPrivilegedUser && bookingCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
     if (!booking.shippingLabelUrl) {
-      return res.status(404).json({ success: false, error: 'No shipping label available for this booking' });
+      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Versandlabel hinterlegt.' });
     }
 
     const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
@@ -1096,7 +1143,7 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     return res.send(pdfBuffer);
   } catch (error) {
     console.error('BookingRoutes: Error downloading shipping label:', error);
-    return res.status(500).json({ success: false, error: 'Failed to download shipping label' });
+    return res.status(500).json({ success: false, error: 'Das Versandlabel konnte nicht heruntergeladen werden.' });
   }
 });
 

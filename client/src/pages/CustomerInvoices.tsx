@@ -114,34 +114,65 @@ export function CustomerInvoices() {
     payerEmail,
   };
 
-  // Handle incoming navigation state for invoice highlight + dialog open
+  // Sprungziel aus der URL - so oeffnet auch ein kopierter Link oder ein harter
+  // Reload die richtige Rechnung. location.state bleibt als Fallback fuer die
+  // bestehende In-App-Navigation erhalten (bei einem Reload ist es leer).
+  // Beide Quellen werden nach der Uebernahme entfernt, damit derselbe Sprung nicht
+  // bei jedem Renderdurchlauf erneut ausgeloest wird.
   useEffect(() => {
     const state = location.state as { highlightInvoiceId?: string; openInvoiceId?: string } | null;
-    if (state?.highlightInvoiceId) {
-      setPendingHighlightId(state.highlightInvoiceId);
-      setPendingOpenId(state.openInvoiceId || state.highlightInvoiceId);
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location.state, location.pathname, navigate]);
+    const params = new URLSearchParams(location.search);
+    const highlightId = state?.highlightInvoiceId || params.get('highlightInvoiceId') || '';
+    if (!highlightId) return;
+
+    const openId = state?.openInvoiceId || params.get('openInvoiceId') || highlightId;
+    setPendingHighlightId(highlightId);
+    setPendingOpenId(openId);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.search, location.pathname, navigate]);
 
   useEffect(() => {
-    if (!pendingHighlightId || loading || invoices.length === 0) return;
+    // Der Sprung aus einer Buchung darf nicht still ins Leere laufen, wenn die
+    // Rechnung nicht in der geladenen Liste steht (Serverdefault limit=50).
+    if (!pendingHighlightId || loading) return;
     const invoiceId = pendingHighlightId;
     const openId = pendingOpenId;
     setPendingHighlightId(null);
     setPendingOpenId(null);
 
     const timer = setTimeout(() => {
-      const row = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
-      if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightedInvoiceId(invoiceId);
-        setTimeout(() => setHighlightedInvoiceId(null), 1600);
-      }
-      if (openId) {
-        const inv = invoices.find((i) => i._id === openId);
-        if (inv) setTimeout(() => void handleViewInvoice(inv), 900);
-      }
+      void (async () => {
+        const row = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setHighlightedInvoiceId(invoiceId);
+          setTimeout(() => setHighlightedInvoiceId(null), 1600);
+        }
+        if (!openId) return;
+
+        const known = invoices.find((i) => i._id === openId);
+        if (known) {
+          setTimeout(() => void handleViewInvoice(known), 900);
+          return;
+        }
+
+        try {
+          const response = await getInvoice(openId);
+          if (response?.invoice) {
+            await handleViewInvoice(response.invoice as Invoice);
+            return;
+          }
+          throw new Error('Rechnung nicht gefunden');
+        } catch (error: unknown) {
+          toast({
+            title: t('common.error'),
+            description: error instanceof Error
+              ? error.message
+              : 'Diese Rechnung konnte nicht geöffnet werden.',
+            variant: 'destructive',
+          });
+        }
+      })();
     }, 150);
 
     return () => clearTimeout(timer);
@@ -999,12 +1030,19 @@ export function CustomerInvoices() {
       const paymentMethod = cleanText(sourceInvoice.paymentMethod || "-");
 
       const amountPaid = normalizeAmount(sourceInvoice.amountPaid ?? sourceInvoice.paidAmount ?? 0);
-      const subtotal = normalizeAmount(sourceInvoice.subtotal);
-      const total = normalizeAmount(sourceInvoice.total);
-      const taxAmount = isReverseCharge ? 0 : normalizeAmount(sourceInvoice.tax);
+      // Betraege werden IMMER aus dem gespeicherten Beleg gelesen (brutto-first):
+      // invoiceNetTotal/invoiceTaxTotal/invoiceGrossTotal sind die Spiegelfelder,
+      // subtotal/tax/total der aeltere Name derselben Werte. Nichts wird hier neu gerechnet.
+      const subtotal = normalizeAmount(sourceInvoice.invoiceNetTotal ?? sourceInvoice.subtotal);
+      const total = normalizeAmount(sourceInvoice.invoiceGrossTotal ?? sourceInvoice.total);
+      const taxAmount = isReverseCharge ? 0 : normalizeAmount(sourceInvoice.invoiceTaxTotal ?? sourceInvoice.tax);
       const discountAmount = normalizeAmount(sourceInvoice.discount);
       const openAmount = total - amountPaid;
-      const defaultTaxRate = isReverseCharge ? 0 : (sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0));
+      const defaultTaxRate = isReverseCharge
+        ? 0
+        : (typeof sourceInvoice.taxRate === "number"
+          ? sourceInvoice.taxRate
+          : (sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0)));
 
       const latestPayment = sourceInvoice.paymentHistory && sourceInvoice.paymentHistory.length > 0 ? sourceInvoice.paymentHistory[0] : undefined;
       const paymentDate = formatDate(latestPayment?.date || sourceInvoice.createdAt);
@@ -1242,8 +1280,10 @@ export function CustomerInvoices() {
         },
       ];
       if (discountAmount > 0) {
-        totalsRows.push({ label: "Betrag vor Rabatt", value: formatMoney(subtotal + taxAmount), emphasize: false });
-        totalsRows.push({ label: "Rabatt", value: `- ${formatMoney(discountAmount)}`, emphasize: false });
+        // Der Rabatt mindert das BRUTTO genau einmal; der Betrag vor Rabatt ist
+        // deshalb Brutto + Rabatt und nicht Netto + MwSt.
+        totalsRows.push({ label: "Betrag vor Rabatt (brutto)", value: formatMoney(total + discountAmount), emphasize: false });
+        totalsRows.push({ label: "Rabatt (brutto)", value: `- ${formatMoney(discountAmount)}`, emphasize: false });
       }
       totalsRows.push({ label: "Gesamtbetrag", value: formatMoney(total), emphasize: true });
       if (amountPaid > 0) {
@@ -1889,48 +1929,47 @@ export function CustomerInvoices() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Totals */}
                     <div className="border border-slate-200 rounded-lg p-3 space-y-1">
+                      <h3 className="font-bold text-[10px] text-[#1a2a5e] uppercase tracking-wider mb-2">Finanzübersicht</h3>
                       {(() => {
-                        const subtotalValue = Number(selectedInvoice.subtotal || 0);
-                        const taxValue = Number(selectedInvoice.tax || 0);
+                        // Alle Betraege stammen aus dem gespeicherten Beleg (brutto-first).
+                        const netValue = Number(selectedInvoice.invoiceNetTotal ?? selectedInvoice.subtotal ?? 0);
+                        const taxValue = Number(selectedInvoice.invoiceTaxTotal ?? selectedInvoice.tax ?? 0);
+                        const grossValue = Number(selectedInvoice.invoiceGrossTotal ?? selectedInvoice.total ?? 0);
                         const discountValue = Number(selectedInvoice.discount || 0);
-                        const normalAmount = subtotalValue + taxValue;
-                        const discountedAmount = Math.max(0, Number(selectedInvoice.total || 0));
+                        const taxRateValue = selectedInvoice.isReverseCharge
+                          ? 0
+                          : (Number.isFinite(Number(selectedInvoice.taxRate)) ? Number(selectedInvoice.taxRate) : 19);
                         return (
                           <>
-                            <div className="flex justify-between text-xs rounded bg-slate-50 px-2 py-1.5 border border-slate-200">
-                              <span className="text-slate-500">Normaler Betrag</span>
-                              <span className="font-semibold text-slate-700">{formatEUR(normalAmount)}</span>
-                            </div>
                             {discountValue > 0 && (
-                              <div className="flex justify-between text-xs rounded bg-emerald-50 px-2 py-1.5 border border-emerald-200">
-                                <span className="text-emerald-700">Rabattierter Zahlbetrag</span>
-                                <span className="font-bold text-emerald-700">{formatEUR(discountedAmount)}</span>
-                              </div>
+                              <>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-slate-500">Betrag vor Rabatt (brutto)</span>
+                                  <span className="font-semibold text-slate-700">{formatEUR(grossValue + discountValue)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-emerald-600">
+                                  <span>Rabatt (brutto)</span>
+                                  <span className="font-semibold">- {formatEUR(discountValue)}</span>
+                                </div>
+                              </>
                             )}
+                            <div className="flex justify-between text-xs">
+                              <span className="text-slate-500">Nettobetrag</span>
+                              <span className="font-semibold text-slate-700">{formatEUR(netValue)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-slate-500">
+                                {selectedInvoice.isReverseCharge ? 'MwSt. (0 % – Reverse Charge)' : `enthaltene MwSt. (${taxRateValue} %)`}
+                              </span>
+                              <span className="font-semibold text-slate-700">{formatEUR(taxValue)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs font-bold border-t border-slate-200 pt-1.5">
+                              <span className="text-[#1a2a5e]">Bruttobetrag</span>
+                              <span className="text-[#1a2a5e]">{formatEUR(grossValue)}</span>
+                            </div>
                           </>
                         );
                       })()}
-                      <h3 className="font-bold text-[10px] text-[#1a2a5e] uppercase tracking-wider mb-2">Finanzübersicht</h3>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Nettobetrag</span>
-                        <span className="font-semibold text-slate-700">{formatEUR(selectedInvoice.subtotal)}</span>
-                      </div>
-                      {selectedInvoice.tax > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-500">MwSt.</span>
-                          <span className="font-semibold text-slate-700">+ {formatEUR(selectedInvoice.tax)}</span>
-                        </div>
-                      )}
-                      {selectedInvoice.discount > 0 && (
-                        <div className="flex justify-between text-xs text-emerald-600">
-                          <span>Rabatt</span>
-                          <span className="font-semibold">- {formatEUR(selectedInvoice.discount)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-xs font-bold border-t border-slate-200 pt-1.5">
-                        <span className="text-[#1a2a5e]">Bruttobetrag</span>
-                        <span className="text-[#1a2a5e]">{formatEUR(selectedInvoice.total)}</span>
-                      </div>
                       {selectedInvoice.amountPaid != null && selectedInvoice.amountPaid > 0 && (
                         <div className="flex justify-between text-xs text-emerald-600">
                           <span>Bereits bezahlt</span>

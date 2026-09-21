@@ -293,10 +293,40 @@ addOnWorkflowSchema.pre(/^find/, function(next) {
   next();
 });
 
+// Records workflow templates that an admin deliberately deleted, so the seeder
+// does not recreate them on the next server boot. Keyed by the template name,
+// which is what SeedService.seedWorkflows() uses to decide what to insert.
+const workflowSeedSuppressionSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  deletedAt: {
+    type: Date,
+    default: Date.now,
+  },
+}, {
+  versionKey: false,
+});
+
+// The template names owned by SeedService.seedWorkflows(). Only these names may
+// ever be written to / consulted in the suppression collection - a hand-made
+// template must not be able to squat a name and it must not grow this collection.
+// KEEP IN SYNC with the `workflows` array in server/services/seedService.js
+// (seedWorkflows() logs a warning at runtime if the two drift apart).
+const SEED_WORKFLOW_TEMPLATE_NAMES = Object.freeze([
+  'Standard Repair Process',
+  'Quick Diagnostic'
+]);
+
 const WorkflowTemplate = mongoose.model('WorkflowTemplate', workflowTemplateSchema);
 const AddOnWorkflow = mongoose.model('AddOnWorkflow', addOnWorkflowSchema);
+const WorkflowSeedSuppression = mongoose.model('WorkflowSeedSuppression', workflowSeedSuppressionSchema);
 
 module.exports = {
   WorkflowTemplate,
-  AddOnWorkflow
+  AddOnWorkflow,
+  WorkflowSeedSuppression,
+  SEED_WORKFLOW_TEMPLATE_NAMES
 };

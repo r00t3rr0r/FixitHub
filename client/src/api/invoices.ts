@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import api from './api';
 
 export interface Invoice {
@@ -14,10 +15,20 @@ export interface Invoice {
   customerName: string;
   customerEmail: string;
   items: InvoiceItem[];
+  /** NETTO-Gesamtbetrag (der Server rechnet brutto-first). */
   subtotal: number;
+  /** Aus dem Brutto herausgerechnete MwSt. */
   tax: number;
+  /** BRUTTO-Rabattbetrag, immer positiv gespeichert. */
   discount: number;
+  /** BRUTTO-Gesamtbetrag. */
   total: number;
+  /** Spiegelfelder des Invoice-Modells - bevorzugt fuer die Anzeige. */
+  invoiceNetTotal?: number;
+  invoiceTaxTotal?: number;
+  invoiceGrossTotal?: number;
+  isCreditNote?: boolean;
+  creditNoteOfNumber?: string;
   status: 'draft' | 'pending_approval' | 'sent' | 'viewed' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled' | 'credited';
   dueDate: string;
   sentAt?: string;
@@ -164,6 +175,89 @@ export const getInvoice = async (invoiceId: string) => {
     return response.data;
   } catch (error: unknown) {
     throw new Error(extractErrorMessage(error, 'Failed to fetch invoice'));
+  }
+};
+
+// Der PDF-Endpunkt antwortet ausschliesslich englisch ('Invoice not found', '... permission ...').
+// Fuer die Oberflaeche wird deshalb NICHT der Servertext durchgereicht, sondern anhand des
+// HTTP-Status eine deutsche Meldung gewaehlt.
+export type InvoicePdfAction = 'download' | 'print';
+
+const PDF_ACTION_VERBS: Record<InvoicePdfAction, string> = {
+  download: 'herunterzuladen',
+  print: 'zu drucken',
+};
+
+export const extractPdfErrorMessage = (error: unknown, action: InvoicePdfAction = 'download'): string => {
+  const err = error as { status?: number; response?: { status?: number } };
+  const status = err?.status ?? err?.response?.status;
+  const verb = PDF_ACTION_VERBS[action];
+  if (status === 401) return `Bitte melden Sie sich erneut an, um die Rechnung ${verb}.`;
+  if (status === 403) return `Sie haben keine Berechtigung, diese Rechnung ${verb}.`;
+  if (status === 404) return 'Die Rechnung wurde nicht gefunden.';
+  if (status) return `Rechnungs-PDF konnte nicht geladen werden (HTTP ${status}).`;
+  return 'Rechnungs-PDF konnte nicht geladen werden.';
+};
+
+// Gemeinsame Konfiguration fuer JEDEN Abruf von /api/invoices/:id/pdf (Download UND Druck).
+// Die beiden Aufrufer teilen sie bewusst, damit der folgende Fallstrick nicht erneut
+// einzeln nachgebaut wird:
+//   * 'transformResponse: undefined' schaltet den Instanz-Transform NICHT ab. axios (1.18.1)
+//     merged transformResponse mit defaultToConfig2 und faellt bei undefined auf die
+//     Instanzkonfiguration zurueck - der JSON-Transform aus api.ts ruft dann data.trim() auf
+//     einem Blob auf und wirft 'data.trim is not a function'. Nur ein expliziter
+//     Identitaets-Transform laesst die Binaerdaten unveraendert durch.
+//   * KEIN validateStatus-Override. Die Instanz akzeptiert jeden Status (validateStatus:
+//     () => true) und der Response-Interceptor wirft fuer >= 400 einen ApiError mit .status.
+//     Ein eigenes 'status === 200' wuerde stattdessen den axios-Fehlerpfad und damit den
+//     401/403-Refresh-und-Logout-Zweig scharf schalten - ein 403 auf ein PDF wuerde den
+//     Bearbeiter abmelden.
+export const invoicePdfRequestConfig = (): AxiosRequestConfig => ({
+  responseType: 'blob',
+  transformResponse: [(data: unknown) => data],
+});
+
+// Ein JSON-Fehlerobjekt oder eine HTML-Fehlerseite waere ebenfalls ein Blob - Download und
+// Druck wuerden daraus eine unbrauchbare Datei bzw. eine leere Druckvorschau erzeugen.
+// Deshalb wird die PDF-Signatur geprueft, bevor die Daten verwendet werden.
+export const toValidPdfBlob = async (payload: unknown): Promise<Blob> => {
+  const raw = payload instanceof Blob ? payload : new Blob([payload as BlobPart]);
+  const header = await raw.slice(0, 5).text().catch(() => '');
+  if (!header.startsWith('%PDF')) {
+    throw new Error('Der Server hat kein gültiges PDF geliefert.');
+  }
+  return new Blob([raw], { type: 'application/pdf' });
+};
+
+// Description: Download the canonical invoice PDF as a file
+// Endpoint: GET /api/invoices/:id/pdf
+// Auth: requireUser + assertInvoiceOwner (Admin/Staff sehen alle, Kunden nur eigene)
+// Der Server liefert das PDF mit 'Content-Disposition: inline'. Der Download wird
+// deshalb clientseitig ueber einen Blob + <a download> erzwungen - so bleibt die
+// bestehende Vorschau-/Druckfunktion (invoicePrint.ts) unveraendert nutzbar.
+export const downloadInvoicePdf = async (invoiceId: string, invoiceNumber?: string): Promise<void> => {
+  if (!invoiceId) throw new Error('Rechnungs-ID fehlt.');
+
+  let response;
+  try {
+    response = await api.get(`/api/invoices/${invoiceId}/pdf`, invoicePdfRequestConfig());
+  } catch (error: unknown) {
+    throw new Error(extractPdfErrorMessage(error, 'download'));
+  }
+
+  const pdfBlob = await toValidPdfBlob(response.data);
+
+  const safeName = String(invoiceNumber || invoiceId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const blobUrl = URL.createObjectURL(pdfBlob);
+  try {
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `Rechnung_${safeName}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
   }
 };
 

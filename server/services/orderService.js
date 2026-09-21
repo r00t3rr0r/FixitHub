@@ -6,10 +6,39 @@ const Product = require('../models/Product');
 const Complaint = require('../models/Complaint');
 const Service = require('../models/Service');
 const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
+const WorkflowService = require('./workflowService');
 const NotificationService = require('./notificationService');
 const OrderRevisionService = require('./orderRevisionService');
 const FinancialService = require('./financialService');
 const mongoose = require('mongoose');
+
+// Projection used by OrderService.getById. This is an explicit ALLOW list on a
+// customer-reachable route (GET /api/orders/:id), so it must never become an
+// exclusion list - fields such as guestTrackingToken, workflows, eParts and the
+// internal notes have to stay out of the customer payload.
+// When a new field has to be visible on the order detail screen, add it here;
+// otherwise it silently arrives as `undefined` in the UI (that is how the
+// customer discount stopped being rendered in the Auftrag).
+const ORDER_DETAIL_SELECT_FIELDS = [
+  'customerId orderNumber status priority createdAt updatedAt progress',
+  'deviceBrand deviceModel deviceType imei serialNumber',
+  'errorDescription waterDamage previousRepairAttempts previousRepairDetails itemCondition',
+  'unlockPattern unlockCode noLock unlockConfirmation pickupConfirmation',
+  'services shopProducts addOns assignedStaff guestInfo',
+  // Money (gross-first): totalCost is the GROSS total AFTER discount, discount is
+  // the gross discount already contained in it, netAmount/taxAmount/taxRate are the
+  // extracted net and VAT (taxRate is a PERCENT, e.g. 19).
+  'totalCost discount appliedPromoCode originalGrossAmount dealerDiscountPercent dealerDiscountAmount',
+  'netAmount taxAmount taxRate paymentStatus estimatedCompletion estimatedDelivery actualDelivery',
+  'billingAddress shippingAddress',
+  // Inbound shipment (customer -> McRepair)
+  'trackingNumber carrier shippingStatus shippingStatusDescription shippingLabelUrl shippingCost trackingEvents',
+  // Return shipment. returnLabelUrl/returnQRCodeUrl are deliberately NOT here:
+  // they hold full base64 PDFs. Use getById(id, { includeLabelData: true }).
+  'bookingId returnTrackingNumber returnShipmentId returnShipmentStatus returnShipmentStatusDescription returnCreatedAt returnReceivedAt',
+  'timeline customerEmail customerName',
+  'hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId'
+].join(' ');
 
 const toIdString = (value) => {
   if (!value) return '';
@@ -409,13 +438,84 @@ class OrderService {
     }
   }
 
+  // Build the money breakdown the order detail screen renders.
+  //
+  // Contract (gross-first, identical to the invoice):
+  //   positionsGross       = sum of the stored LIST prices of all positions (Brutto)
+  //   discount             = cart/promo gross discount already subtracted from totalCost
+  //   dealerDiscountAmount = Haendlerrabatt (Brutto) that is NOT yet contained in
+  //                          totalCost - the Order pre('save') hook stores it
+  //                          separately and derives netAmount/taxAmount from
+  //                          totalCost MINUS it (models/Order.js:892-901 ->
+  //                          CalculationHelper.calculateOrderValue).
+  //   grossTotal           = totalCost - dealerDiscountAmount (the authoritative
+  //                          Auftragswert, both discounts applied exactly once)
+  //   netTotal             = grossTotal / (1 + taxRate/100)
+  //   taxAmount            = grossTotal - netTotal
+  // Every discount is subtracted from the GROSS exactly once and never again from
+  // the net. taxRate is a PERCENT (19), never a fraction.
+  static buildOrderPricingSummary(order) {
+    const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+    const sum = (list, pick) => (Array.isArray(list) ? list : []).reduce(
+      (acc, entry) => acc + (Number(pick(entry)) || 0),
+      0
+    );
+
+    const servicesGross = sum(
+      order?.services,
+      (service) => (service && typeof service === 'object' ? service.price : 0)
+    );
+    const addOnsGross = sum(order?.addOns, (addOn) => addOn?.price);
+    const shopProductsGross = sum(
+      order?.shopProducts,
+      (product) => (Number(product?.priceAtOrder) || 0) * (Number(product?.quantity) || 0)
+    );
+
+    const positionsGross = round2(servicesGross + addOnsGross + shopProductsGross);
+    const discount = round2(order?.discount);
+    const dealerDiscountPercent = Math.max(0, Number(order?.dealerDiscountPercent) || 0);
+    const dealerDiscountAmount = round2(order?.dealerDiscountAmount);
+    // totalCost still carries the Haendlerrabatt; the stored netAmount/taxAmount do
+    // not. Subtract it here or the screen overstates a Haendler order.
+    const grossTotal = round2(round2(order?.totalCost) - dealerDiscountAmount);
+    const taxRate = Number.isFinite(Number(order?.taxRate)) ? Number(order.taxRate) : 19;
+    const netTotal = round2(grossTotal / (1 + taxRate / 100));
+    const taxAmount = round2(grossTotal - netTotal);
+
+    return {
+      positionsGross,
+      servicesGross: round2(servicesGross),
+      addOnsGross: round2(addOnsGross),
+      shopProductsGross: round2(shopProductsGross),
+      discount,
+      appliedPromoCode: order?.appliedPromoCode || '',
+      dealerDiscountPercent,
+      dealerDiscountAmount,
+      grossTotal,
+      netTotal,
+      taxAmount,
+      taxRate,
+      // false when the stored positions no longer add up to the order total
+      // (legacy orders, or positions edited without recalculating the order).
+      positionsReconcile: Math.abs(positionsGross - discount - dealerDiscountAmount - grossTotal) <= 0.02
+    };
+  }
+
   // Get order by ID
-  static async getById(orderId) {
+  //
+  // options.includeLabelData: also project the stored base64 label PDFs
+  // (returnLabelUrl / returnQRCodeUrl). Keep this OFF for the normal detail and
+  // polling endpoints - a DHL return label is a `data:application/pdf;base64,...`
+  // string of several hundred KB. The download routes ask for it explicitly.
+  static async getById(orderId, options = {}) {
     console.log('OrderService: Getting order by ID:', orderId);
 
     try {
+      const includeLabelData = options.includeLabelData === true;
+      const selectFields = `${ORDER_DETAIL_SELECT_FIELDS}${includeLabelData ? ' returnLabelUrl returnQRCodeUrl' : ''}`;
+
       const order = await Order.findById(orderId)
-        .select('customerId orderNumber status priority totalCost createdAt updatedAt progress deviceBrand deviceModel deviceType imei serialNumber errorDescription waterDamage previousRepairAttempts previousRepairDetails itemCondition unlockPattern unlockCode noLock unlockConfirmation services shopProducts assignedStaff guestInfo billingAddress shippingAddress trackingNumber carrier shippingStatus shippingStatusDescription estimatedDelivery actualDelivery shippingLabelUrl shippingCost trackingEvents timeline customerEmail customerName hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId')
+        .select(selectFields)
         .lean();
 
       if (!order) {
@@ -433,7 +533,7 @@ class OrderService {
         getUniqueQueryObjectIds(Array.isArray(order.shopProducts) ? order.shopProducts.map((product) => product?.productId) : [])
       )];
 
-      const [serviceDocs, productDocs, linkedComplaint] = await Promise.all([
+      const [serviceDocs, productDocs, linkedComplaint, storedReturnLabel] = await Promise.all([
         serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('_id name').lean() : [],
         productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : [],
         Complaint.findOne({ orderId: order._id })
@@ -441,7 +541,13 @@ class OrderService {
           .select('_id complaintNumber status createdAt newOrderId')
           .populate('newOrderId', '_id orderNumber')
           .sort({ createdAt: -1 })
-          .lean()
+          .lean(),
+        // hasReturnLabel must be EXACT, not inferred from returnShipmentId. The PDF
+        // itself stays out of the default projection, so probe the field directly
+        // (indexed _id lookup, returns only the _id).
+        includeLabelData
+          ? null
+          : Order.exists({ _id: order._id, returnLabelUrl: { $exists: true, $nin: [null, ''] } })
       ]);
 
       const serviceNameMap = new Map(serviceDocs.map((service) => [String(service._id), service.name]));
@@ -463,6 +569,22 @@ class OrderService {
       if (plain.progress !== undefined && typeof plain.progress === 'object') {
         plain.progress = Number(plain.progress);
       }
+
+      // The label PDFs themselves are not shipped with the detail payload (see the
+      // projection comment), so expose a boolean the UI can gate the download on.
+      // This is EXACT: it reads returnLabelUrl itself - from the projected value when
+      // the caller asked for the label data, otherwise from the existence probe above.
+      // It deliberately does NOT infer from returnShipmentId: DHLReturnsService happens
+      // to write all four fields in one save today (dhlReturnsService.js:468-473), but a
+      // legacy or partially written row with only returnLabelUrl would then hide a label
+      // that GET /api/orders/:id/return-label serves without complaint.
+      plain.hasReturnLabel = includeLabelData
+        ? Boolean(order.returnLabelUrl)
+        : Boolean(storedReturnLabel);
+
+      // Authoritative, self-consistent money breakdown for the order detail screen.
+      // Gross-first: totalCost is the GROSS after discount, net is derived from it.
+      plain.pricing = OrderService.buildOrderPricingSummary(order);
 
       plain.services = Array.isArray(order.services)
         ? order.services.map((service) => {
@@ -2178,57 +2300,39 @@ class OrderService {
         });
       }
 
-      console.log('OrderService: Extracted service categories:', serviceCategories);
-      console.log('OrderService: Looking for workflows with deviceTypes:', order.deviceType, 'and serviceTypes:', serviceCategories);
-      console.log('OrderService: Also including general workflows available for all devices/services');
-
-      // Find workflows matching device type and service categories, OR workflows available for all (empty arrays)
-      // This includes:
-      // 1. Specific device/service type matches (e.g., "Screen Replacement" for "Display" service on "Smartphone")
-      // 2. General workflows with empty deviceTypes (available for all devices)
-      // 3. General workflows with empty serviceTypes (available for all services)
-      const workflows = await WorkflowTemplate.find({
-        isActive: true,
-        $or: [
-          // Specific device type and service type match
-          {
-            deviceTypes: { $in: [order.deviceType] },
-            serviceTypes: { $in: serviceCategories }
-          },
-          // General workflows available for all devices
-          {
-            deviceTypes: { $size: 0 }
-          },
-          // General workflows available for all services
-          {
-            serviceTypes: { $size: 0 }
+      // serviceTypes on a WorkflowTemplate is a [String] that may hold EITHER a
+      // service CATEGORY (what the old matching assumed) or a Service ObjectId
+      // (what the admin UI actually writes). Pass both so scope matching works
+      // for templates saved either way - see F1-D.
+      const serviceIds = [];
+      if (order.services && order.services.length > 0) {
+        order.services.forEach((orderService) => {
+          const serviceId = toIdString(orderService.serviceId);
+          if (serviceId && !serviceIds.includes(serviceId)) {
+            serviceIds.push(serviceId);
           }
-        ]
-      }).sort({ createdAt: -1 });
+        });
+      }
+
+      console.log('OrderService: Extracted service categories:', serviceCategories);
+      console.log('OrderService: Extracted service ids:', serviceIds);
 
       const assignedTemplateIds = (order.workflows || [])
         .map((assignedWorkflow) => toIdString(assignedWorkflow.workflowTemplateId))
         .filter(Boolean);
 
-      const alwaysVisibleWorkflowNameMarkers = [
-        'standard repair process neu',
-        'reparatur-workflow',
-      ];
-
-      const suggestedWorkflows = workflows.filter(
-        (workflow) => {
-          const workflowName = String(workflow?.name || '').trim().toLowerCase();
-          const shouldAlwaysBeVisible = alwaysVisibleWorkflowNameMarkers.some((marker) =>
-            workflowName.includes(marker)
-          );
-
-          if (shouldAlwaysBeVisible) {
-            return true;
-          }
-
-          return !assignedTemplateIds.includes(toIdString(workflow._id));
-        }
-      );
+      // Single source of truth for the suggestion rule (WorkflowService):
+      //  - a template scoped to this device type / these services wins;
+      //  - a general catch-all template (no deviceTypes AND no serviceTypes) is
+      //    only offered when NO specific template matches the order;
+      //  - a template already assigned to the order is never suggested again
+      //    (the former alwaysVisibleWorkflowNameMarkers whitelist is gone).
+      const suggestedWorkflows = await WorkflowService.getSuggestedWorkflows({
+        deviceType: order.deviceType,
+        serviceCategories,
+        serviceIds,
+        assignedTemplateIds
+      });
 
       console.log('OrderService: Found', suggestedWorkflows.length, 'suggested workflows');
       console.log('OrderService: Suggested workflows:', suggestedWorkflows.map(w => ({

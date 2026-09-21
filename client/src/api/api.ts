@@ -34,6 +34,50 @@ const isJwtLike = (value: string | null) => {
 };
 
 
+/**
+ * Error thrown for any HTTP response with status >= 400.
+ *
+ * `validateStatus: () => true` makes axios resolve every response, so error statuses are
+ * turned into rejections by the response interceptor below. Rejecting with the raw
+ * AxiosResponse used to destroy the server message: callers read
+ * `error.response.data.error || error.message`, and a plain response has neither - which
+ * rendered as an empty "Fehler" toast. This carries `response`, `status` and `data` so both
+ * the `error.response.data.*` and the `error.data.*` idiom used across client/src/api keep
+ * working, and `message` always holds a usable text.
+ *
+ * Note: a rejection raised inside the interceptor's FULFILLED handler does not reach that
+ * same interceptor's rejection handler, so the 401/403 refresh-and-retry logic below stays
+ * exactly as (un)reachable for HTTP errors as it was before - verified against axios 1.18.1.
+ */
+export class ApiError extends Error {
+  status?: number;
+  data?: any;
+  response?: any;
+  config?: any;
+
+  constructor(message: string, response: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = response?.status;
+    this.data = response?.data;
+    this.response = response;
+    this.config = response?.config;
+  }
+}
+
+const buildApiError = (response: any): ApiError => {
+  const data = response?.data;
+  // transformResponse below always yields an object for this instance, so a raw string
+  // body can never reach here - the message comes from the server's German error/message
+  // field, otherwise from the German HTTP fallback.
+  const message =
+    data?.error ||
+    data?.message ||
+    `Anfrage fehlgeschlagen (HTTP ${response?.status ?? '?'})`;
+
+  return new ApiError(message, response);
+};
+
 const localApi = axios.create({
   withCredentials: true,
   headers: {
@@ -54,7 +98,11 @@ const localApi = axios.create({
     // Check if data is HTML (error page) instead of JSON
     if (typeof data === 'string' && data.trim().startsWith('<')) {
       warnDebug('API returned HTML instead of JSON. This usually indicates a server error or the server is starting up.');
-      return { error: 'Server returned HTML response instead of JSON' };
+      // User-facing: this string ends up verbatim in the German "Fehler" toast.
+      return {
+        error: 'Server nicht erreichbar oder Serverfehler. Bitte später erneut versuchen.',
+        errorCode: 'HTML_RESPONSE',
+      };
     }
 
     try {
@@ -141,7 +189,7 @@ const setupInterceptors = (apiInstance: typeof axios) => {
       // Handle error status codes
       if (response.status >= 400) {
         warnDebug(`[API] Error response: ${response.status} from ${response.config.url}`, response.data);
-        return Promise.reject(response);
+        return Promise.reject(buildApiError(response));
       }
       return response;
     },

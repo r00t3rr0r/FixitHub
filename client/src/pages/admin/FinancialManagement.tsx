@@ -22,8 +22,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/useToast';
-import { printInvoice } from '@/lib/invoicePrint';
+import { printInvoice, type PrintableInvoice } from '@/lib/invoicePrint';
 import { getInvoiceItemServiceName } from '@/lib/invoiceItems';
+import { buildOrderDetailsState, getOrderDetailsPath } from '@/lib/orderDetailsNavigation';
+import { downloadInvoicePdf } from '@/api/invoices';
 import { getAdminBookings } from '@/api/bookings';
 import { getAdminOrders } from '@/api/adminOrders';
 import { getBookingPayments, type BookingPaymentOverview } from '@/api/bookingPayments';
@@ -45,6 +47,7 @@ import {
   getInvoices,
   getOverdueInvoices,
   getPaymentGateways,
+  getPaymentRequests,
   getPayments,
   processRefund,
   reconcileOverpayment,
@@ -63,7 +66,8 @@ import {
   type InvoiceItem,
   type InvoiceStatus,
   type Payment,
-  type PaymentGateway
+  type PaymentGateway,
+  type PaymentRequestRecord
 } from '@/api/financial';
 import {
   getSystemConfig,
@@ -78,6 +82,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Printer,
   Eye,
   FileSpreadsheet,
   ListChecks,
@@ -286,8 +291,6 @@ type SendInvoiceForm = {
   allowPartialPayment: boolean;
   applyLateFee: boolean;
   lateFeePercent: string;
-  applyEarlyDiscount: boolean;
-  earlyDiscountPercent: string;
   attachPdf: boolean;
   sendCopyInternal: boolean;
   internalCopyEmail: string;
@@ -319,7 +322,6 @@ const DEFAULT_FINANCIAL_SETTINGS: FinancialSettingsState = {
   discountPolicy: {
     allowManualDiscounts: true,
     maxDiscountPercent: 20,
-    earlyPaymentDiscountPercent: 2,
     lateFeePercent: 5,
   },
   invoiceMetadata: {
@@ -345,6 +347,55 @@ const DEFAULT_FINANCIAL_SETTINGS: FinancialSettingsState = {
 
 const getDueDateByDays = (days: number) =>
   new Date(Date.now() + Math.max(0, Number(days || 0)) * 86400000).toISOString().slice(0, 10);
+
+const roundCurrency = (value: number) => Math.round((Number(value) || 0) * 100) / 100;
+
+/**
+ * Einzige Betragsformel des Clients - identisch zu CalculationHelper.calculateInvoiceTotals
+ * auf dem Server (server/services/calculationHelper.js).
+ *
+ * Positionspreise sind BRUTTO. Der Rabatt wird GENAU EINMAL vom Brutto abgezogen,
+ * danach werden Netto und MwSt. aus dem rabattierten Brutto herausgerechnet - niemals
+ * oben draufgerechnet. `allowNegative` (Gutschrift) behaelt das Vorzeichen der Positionen.
+ *
+ * taxRatePercent ist ein PROZENTWERT (19), niemals ein Bruch (0.19).
+ */
+const computeGrossFirstTotals = (
+  items: Array<{ quantity?: number | string; unitPrice?: number | string; total?: number | string }>,
+  options: { taxRatePercent: number; discountAmount?: number; isReverseCharge?: boolean; allowNegative?: boolean }
+) => {
+  const isReverseCharge = Boolean(options.isReverseCharge);
+  const taxRate = isReverseCharge ? 0 : (Number.isFinite(Number(options.taxRatePercent)) ? Number(options.taxRatePercent) : 19);
+  const taxDivisor = 1 + taxRate / 100;
+  const discount = roundCurrency(Math.abs(Number(options.discountAmount) || 0));
+
+  const itemsGrossTotal = roundCurrency(
+    (items || []).reduce((sum, item) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const lineGross = item.total != null && item.total !== ''
+        ? Number(item.total) || 0
+        : (Number(item.unitPrice) || 0) * quantity;
+      return sum + roundCurrency(lineGross);
+    }, 0)
+  );
+
+  const grossTotal = options.allowNegative
+    ? roundCurrency(Math.sign(itemsGrossTotal || 0) * Math.max(0, Math.abs(itemsGrossTotal) - discount))
+    : roundCurrency(Math.max(0, itemsGrossTotal - discount));
+  const netTotal = roundCurrency(grossTotal / taxDivisor);
+  const taxTotal = isReverseCharge ? 0 : roundCurrency(grossTotal - netTotal);
+
+  return {
+    taxRate,
+    isReverseCharge,
+    itemsGrossTotal,
+    discount,
+    // subtotal = NETTO, total = BRUTTO - identisch zur Feldsemantik des Invoice-Modells.
+    subtotal: netTotal,
+    tax: taxTotal,
+    total: grossTotal,
+  };
+};
 
 const mergeFinancialSettings = (settings?: Partial<FinancialSettingsState> | null): FinancialSettingsState => ({
   defaults: {
@@ -391,7 +442,6 @@ const createFromRepairFormState = (settings: FinancialSettingsState) => ({
   dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
   paymentTerms: settings.defaults.paymentTerms,
   notes: '',
-  numberPrefix: settings.defaults.invoicePrefix,
   isReverseCharge: false,
   customerVatId: '',
   sellerVatId: settings.invoiceMetadata?.sellerVatId || 'DE318981969',
@@ -414,14 +464,51 @@ const createPaymentFormState = (
   notifyCustomer: false,
 });
 
-const createCreditFormState = (settings: FinancialSettingsState) => ({
+/**
+ * Seitengroesse der Belegliste. Bewusst gross: solange eine Serverversion den
+ * Belegtyp-Filter nicht anwendet, wird clientseitig nachgefiltert - mit dem
+ * Serverdefault von 10 Zeilen wuerden Gutschriften die Plaetze der Rechnungsliste
+ * verbrauchen (und umgekehrt).
+ */
+const INVOICE_PAGE_LIMIT = 100;
+
+/**
+ * Antwortform von GET /api/admin/financial/invoices - nur die Felder, die die Liste
+ * liest. `scope` ist die Bestaetigung des Servers, WELCHEN Belegausschnitt er
+ * geliefert hat; nur dann beschreibt `total` den angezeigten Ausschnitt.
+ */
+interface InvoiceListResponse {
+  invoices?: Invoice[];
+  scope?: string;
+  total?: number;
+  totalCount?: number;
+  /** Seitenanzahl im gefilterten Ausschnitt (Server: Math.ceil(total / limit)). */
+  totalPages?: number;
+}
+
+/** BRUTTO-Rabatt der Ursprungsrechnung, immer als positiver Betrag. */
+const getInvoiceDiscountAmount = (invoice?: Invoice | null): number =>
+  Math.abs(Number(invoice?.discount) || 0);
+
+const createCreditFormState = (settings: FinancialSettingsState, invoice?: Invoice | null) => ({
   reason: '',
-  taxRate: String(settings.defaults.taxRate),
+  // Eine Gutschrift spiegelt ihre Ursprungsrechnung: Steuersatz wird geerbt.
+  taxRate: String(
+    invoice?.isReverseCharge
+      ? 0
+      : (Number.isFinite(Number(invoice?.taxRate)) ? Number(invoice?.taxRate) : settings.defaults.taxRate)
+  ),
   scope: 'full' as 'full' | 'partial',
-  discount: String(settings.defaults.defaultDiscount),
+  // Eine VOLLGUTSCHRIFT spiegelt die Ursprungsrechnung exakt - also auch deren
+  // Rabatt. Ohne den geerbten Rabatt wuerde die Vorschau die Summe der
+  // Positionen zeigen (z. B. -119,00 EUR) statt des tatsaechlichen
+  // Rechnungsbetrags (109,00 EUR bei 10,00 EUR Rabatt) und der Server lehnte die
+  // Gutschrift mit CREDIT_NOTE_EXCEEDS_INVOICE ab.
+  // Bei einer TEILGUTSCHRIFT waehlt der Bearbeiter die Positionen selbst; der
+  // Rabatt der Ursprungsrechnung gehoert dann nicht dazu und wird beim Umschalten
+  // auf 0 zurueckgesetzt.
+  discount: String(getInvoiceDiscountAmount(invoice)),
   dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
-  numberPrefix: settings.defaults.creditNotePrefix,
-  notifyCustomer: false,
 });
 
 interface BookingSearchResultItem {
@@ -456,7 +543,45 @@ interface BookingSearchResultItem {
     services?: Array<{ name?: string; price?: number }>;
   }>;
   deviceType?: string;
+  /** Rechnungs-/Gutschriftnummern, ueber die diese Buchung gefunden wurde. */
+  matchedInvoiceNumbers?: string[];
 }
+
+/**
+ * Belegnummern normalisieren, damit alle historischen Schreibweisen matchen:
+ * 'INV--2026-0001' (Doppelbindestrich der Altdaten), 'INV-2026-0001',
+ * '#INV 2026 0001' und 'INV_2026/0001' ergeben denselben Schluessel.
+ */
+const normalizeDocumentNumber = (value: unknown): string =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^#/, '')
+    .replace(/[\s_/]+/g, '-')
+    .replace(/-+/g, '-');
+
+/**
+ * Trifft einen Begriff, der wirklich wie eine BELEGnummer aussieht:
+ * mit Praefix (INV-2026-0001, CN-2026-0003, STD-2026-0007, auch die Altformate
+ * 'INV--2026-0001' und 'CN--CN-2026-0003') oder praefixlos ('2026-0001').
+ * Buchungsnummern wie 'BKG-2026-0001' matchen bewusst NICHT - dafuer ist die
+ * Buchungssuche zustaendig, und jeder Treffer hier kostet eine zusaetzliche
+ * Belegabfrage pro Tastendruck.
+ */
+const DOCUMENT_NUMBER_PATTERN = /^(?:inv|cn|std)[-\d]|^\d{4}-\d{3,}/;
+
+/** Nur suchen, wenn der Begriff ueberhaupt wie eine Belegnummer aussieht. */
+const looksLikeDocumentNumber = (term: string): boolean => {
+  const normalized = normalizeDocumentNumber(term);
+  return normalized.length >= 3 && DOCUMENT_NUMBER_PATTERN.test(normalized);
+};
+
+/**
+ * Seitengroesse der Belegsuche im Autocomplete. Der Server filtert ueber
+ * `invoiceNumber`/`search`; 25 Treffer reichen fuer eine Vorschlagsliste mit
+ * maximal 12 Eintraegen deutlich aus.
+ */
+const INVOICE_SUGGESTION_LIMIT = 25;
 
 const getSearchResultCustomerName = (item: BookingSearchResultItem): string => {
   if (item.customerId && typeof item.customerId === 'object') {
@@ -506,21 +631,86 @@ function BookingSearchAutocomplete({
   const containerRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [unlinkedInvoiceHits, setUnlinkedInvoiceHits] = useState<string[]>([]);
+  // Jede Eingabe startet eine neue Abfrage. Ohne Sequenznummer koennte eine
+  // langsamere fruehere Antwort eine neuere ueberschreiben und die Vorschlagsliste
+  // wuerde zum bereits verworfenen Suchbegriff passen.
+  const requestSeqRef = useRef(0);
+
   const fetchSuggestions = useCallback(async (searchTerm: string) => {
+    const seq = requestSeqRef.current + 1;
+    requestSeqRef.current = seq;
+    const isStale = () => seq !== requestSeqRef.current;
+
     setLoading(true);
+    const term = searchTerm.trim();
     try {
       if (type === 'order') {
-        const res = await getAdminOrders({ search: searchTerm.trim(), limit: 8 });
+        const res = await getAdminOrders({ search: term, limit: 8 });
+        if (isStale()) return;
         const orders = res?.orders || (Array.isArray(res) ? res : []);
         setResults(orders);
-      } else {
-        const res = await getAdminBookings({ search: searchTerm.trim(), limit: 8 });
-        setResults(res?.bookings || []);
+        setUnlinkedInvoiceHits([]);
+        return;
       }
+
+      // Buchungen und Belege werden parallel gesucht: Sophie tippt mal eine
+      // Buchungsnummer, mal eine Rechnungs-/Gutschriftnummer in dasselbe Feld.
+      // Die Belegnummer geht als `invoiceNumber` UND `search` an den Server, damit
+      // die Filterung dort stattfindet statt auf einer Seite von 100 Belegen.
+      const [bookingRes, invoiceRes] = await Promise.all([
+        getAdminBookings({ search: term, limit: 8 }).catch(() => null),
+        looksLikeDocumentNumber(term)
+          ? getInvoices({ invoiceNumber: term, search: term, limit: INVOICE_SUGGESTION_LIMIT }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      if (isStale()) return;
+
+      const bookings: BookingSearchResultItem[] = bookingRes?.bookings || [];
+      const byId = new Map<string, BookingSearchResultItem>();
+      bookings.forEach((b) => { if (b?._id) byId.set(String(b._id), { ...b }); });
+
+      // Der Server filtert die Belegnummer inzwischen selbst (invoiceNumber/search).
+      // Das Ergebnis wird hier trotzdem IMMER nachgefiltert - so kann auch eine
+      // aeltere Serverversion, die die Parameter ignoriert, keinen falschen Treffer
+      // in die Vorschlagsliste spuelen.
+      const needle = normalizeDocumentNumber(term);
+      const matchingInvoices: Invoice[] = ((invoiceRes?.invoices || []) as Invoice[]).filter((inv) =>
+        normalizeDocumentNumber(inv?.invoiceNumber).includes(needle)
+      );
+
+      const unlinked: string[] = [];
+      matchingInvoices.forEach((inv) => {
+        const bookingId = String(inv.bookingId || inv.resolvedBookingId || '');
+        if (!bookingId) {
+          if (inv.invoiceNumber) unlinked.push(inv.invoiceNumber);
+          return;
+        }
+        const existing = byId.get(bookingId);
+        if (existing) {
+          existing.matchedInvoiceNumbers = [
+            ...(existing.matchedInvoiceNumbers || []),
+            inv.invoiceNumber,
+          ].filter(Boolean) as string[];
+          return;
+        }
+        byId.set(bookingId, {
+          _id: bookingId,
+          totalCost: Number(inv.total || 0),
+          createdAt: inv.createdAt,
+          customerId: { name: inv.customerName, email: inv.customerEmail },
+          matchedInvoiceNumbers: inv.invoiceNumber ? [inv.invoiceNumber] : [],
+        });
+      });
+
+      setResults(Array.from(byId.values()).slice(0, 12));
+      setUnlinkedInvoiceHits(Array.from(new Set(unlinked)).slice(0, 5));
     } catch {
+      if (isStale()) return;
       setResults([]);
+      setUnlinkedInvoiceHits([]);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [type]);
 
@@ -539,6 +729,9 @@ function BookingSearchAutocomplete({
   };
 
   const handleSelect = (item: BookingSearchResultItem) => {
+    // Bei einem Treffer ueber die Rechnungsnummer gibt es keine Buchungsnummer im
+    // Ergebnis - dann wird die unveraenderliche Id uebernommen, damit die Aktion
+    // garantiert auf der richtigen Buchung landet.
     const identifier = type === 'order' ? (item.orderNumber || item._id) : (item.bookingNumber || item._id);
     onChange(identifier);
     if (onSelectItem) {
@@ -615,6 +808,15 @@ function BookingSearchAutocomplete({
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-[#1a2a5e]/30 text-[#1a2a5e] dark:text-[#f5c800] dark:border-[#f5c800]/30 font-normal">
                           {status}
                         </Badge>
+                        {(item.matchedInvoiceNumbers || []).map((num) => (
+                          <Badge
+                            key={num}
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-4 border-purple-300 bg-purple-50 text-purple-800 font-normal"
+                          >
+                            Beleg: {num}
+                          </Badge>
+                        ))}
                       </div>
                       <div className="flex items-center gap-1 text-foreground font-medium truncate">
                         <User className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -653,20 +855,33 @@ function BookingSearchAutocomplete({
               Keine {type === 'order' ? 'Bestellungen' : 'Buchungen'} gefunden.
             </div>
           )}
+          {!loading && unlinkedInvoiceHits.length > 0 && (
+            <div className="border-t border-border/40 p-2 text-[11px] text-amber-700">
+              {unlinkedInvoiceHits.length === 1 ? 'Beleg ' : 'Belege '}
+              <span className="font-mono font-semibold">{unlinkedInvoiceHits.join(', ')}</span>
+              {unlinkedInvoiceHits.length === 1 ? ' ist keiner Buchung zugeordnet.' : ' sind keiner Buchung zugeordnet.'}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export function FinancialManagement() {
+export type FinancialManagementMode = 'invoices' | 'creditNotes';
+
+export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialManagementMode }) {
   const { t } = useTranslation()
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Gutschriften sind eine eigene Belegart mit eigener Nummernkreis-Serie und
+  // eigener Navigationskategorie. In der Rechnungsliste haben sie nichts verloren.
+  const isCreditNoteView = mode === 'creditNotes';
+
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(mode === 'creditNotes' ? 'invoices' : 'overview');
   const [activeHighlightedInvoiceId, setActiveHighlightedInvoiceId] = useState<string | null>(null);
   const [handledHighlightInvoiceKey, setHandledHighlightInvoiceKey] = useState<string | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
@@ -679,7 +894,7 @@ export function FinancialManagement() {
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [overdueInvoices, setOverdueInvoices] = useState<Invoice[]>([]);
 
-  const [invoiceFilters, setInvoiceFilters] = useState({ status: 'all', taxType: 'all', dateFrom: '', dateTo: '' });
+  const [invoiceFilters, setInvoiceFilters] = useState({ status: 'all', taxType: 'all', dateFrom: '', dateTo: '', correctionType: 'all', originalInvoiceNumber: '' });
   const [paymentFilters, setPaymentFilters] = useState({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
 
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -779,8 +994,6 @@ export function FinancialManagement() {
     allowPartialPayment: false,
     applyLateFee: false,
     lateFeePercent: '5',
-    applyEarlyDiscount: false,
-    earlyDiscountPercent: '2',
     attachPdf: true,
     sendCopyInternal: false,
     internalCopyEmail: '',
@@ -868,7 +1081,7 @@ export function FinancialManagement() {
     const activeItems =
       creditForm.scope === 'full'
         ? srcItems.map((item) => ({
-          serviceName: item.serviceName,
+            serviceName: item.serviceName,
             description: item.description,
             quantity: item.quantity,
             unitPrice: -Math.abs(item.unitPrice),
@@ -879,23 +1092,43 @@ export function FinancialManagement() {
             .map((item, i) => ({ item, ov: creditItemOverrides[i] }))
             .filter(({ ov }) => ov?.included !== false)
             .map(({ item, ov }) => {
-              const qty = Number(ov?.quantity) > 0 ? Number(ov.quantity) : item.quantity;
-              const price = Number(ov?.unitPrice) >= 0 ? Number(ov.unitPrice) : Math.abs(item.unitPrice);
+              // Number('') === 0, deshalb reicht ein '>= 0'-Test nicht: ein leeres Feld
+              // muss auf den Rechnungspreis zurueckfallen, nicht auf 0.
+              const rawQty = String(ov?.quantity ?? '').trim();
+              const rawPrice = String(ov?.unitPrice ?? '').trim();
+              const qty = rawQty !== '' && Number(rawQty) > 0 ? Number(rawQty) : item.quantity;
+              const price = rawPrice !== '' && Number.isFinite(Number(rawPrice)) && Number(rawPrice) >= 0
+                ? Number(rawPrice)
+                : Math.abs(item.unitPrice);
               return {
                 serviceName: item.serviceName,
                 description: item.description,
                 quantity: qty,
+                // Positionspreise sind BRUTTO (wie auf der Ursprungsrechnung).
                 unitPrice: -price,
-                total: -(qty * price),
+                total: -roundCurrency(qty * price),
                 type: item.type,
               };
             });
-    const subtotal = activeItems.reduce((s, i) => s + i.total, 0);
-    const taxRate = Number(creditForm.taxRate) / 100;
-    const tax = subtotal * taxRate;
-    const discount = -(Math.abs(Number(creditForm.discount) || 0));
-    const total = subtotal + tax + discount;
-    return { items: activeItems, subtotal, tax, discount, total };
+
+    // Exakt dieselbe Brutto-Arithmetik wie der Server: der Rabatt mindert das Brutto
+    // einmal, Netto/MwSt. werden anschliessend herausgerechnet.
+    const totals = computeGrossFirstTotals(activeItems, {
+      taxRatePercent: Number(creditForm.taxRate),
+      discountAmount: Number(creditForm.discount),
+      isReverseCharge: Boolean(selectedInvoice.isReverseCharge),
+      allowNegative: true,
+    });
+
+    return {
+      items: activeItems,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      discount: -totals.discount,
+      total: totals.total,
+      taxRate: totals.taxRate,
+      isReverseCharge: totals.isReverseCharge,
+    };
   }, [selectedInvoice, creditForm, creditItemOverrides]);
 
   const paymentOverview = useMemo(() => {
@@ -1024,10 +1257,6 @@ export function FinancialManagement() {
 
     if (sendComposerForm.applyLateFee) {
       lines.push(`Bei Zahlungsverzug kann eine Verzugspauschale von ${sendComposerForm.lateFeePercent}% anfallen.`);
-    }
-
-    if (sendComposerForm.applyEarlyDiscount) {
-      lines.push(`Bei fruehzeitiger Zahlung kann ein Skonto von ${sendComposerForm.earlyDiscountPercent}% beruecksichtigt werden.`);
     }
 
     lines.push('');
@@ -1214,22 +1443,150 @@ export function FinancialManagement() {
   }, [payments, invoices, dunningEligibleInvoices]);
 
   const invoiceDraftTotals = useMemo(() => {
-    const subtotal = invoiceForm.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
     const isReverseCharge = Boolean(invoiceForm.isReverseCharge);
-    const taxRate = isReverseCharge ? 0 : Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
-    const discount = Number(invoiceForm.discount || 0);
-    const discountAmount = subtotal * (discount / 100);
-    const taxableAmount = subtotal - discountAmount;
-    const tax = isReverseCharge ? 0 : taxableAmount * (taxRate / 100);
-    return { subtotal, discount: discountAmount, tax, total: subtotal - discountAmount + tax, isReverseCharge };
+    // Rabatt wird als PROZENT erfasst und auf das Positions-BRUTTO angewendet.
+    const itemsGross = invoiceForm.items.reduce(
+      (sum, item) => sum + roundCurrency(Number(item.quantity || 0) * Number(item.unitPrice || 0)),
+      0
+    );
+    const discountAmount = roundCurrency(itemsGross * (Number(invoiceForm.discount || 0) / 100));
+    const totals = computeGrossFirstTotals(invoiceForm.items, {
+      taxRatePercent: Number(invoiceForm.taxRate || financialSettings.defaults.taxRate),
+      discountAmount,
+      isReverseCharge,
+    });
+    return { ...totals, discount: discountAmount };
   }, [invoiceForm.isReverseCharge, invoiceForm.taxRate, invoiceForm.discount, invoiceForm.items, financialSettings.defaults.taxRate]);
+
+  // Der Belegtyp wird als Filter an den Server geschickt (GET .../invoices?isCreditNote=).
+  // Der clientseitige Nachfilter bleibt als Netz bestehen, damit eine Serverversion
+  // ohne diesen Filter niemals Gutschriften in der Rechnungsliste anzeigt - und
+  // umgekehrt.
+  const invoiceScopeParams = useMemo(
+    () => ({ isCreditNote: isCreditNoteView ? 'true' : 'false', limit: String(INVOICE_PAGE_LIMIT) }),
+    [isCreditNoteView]
+  );
+  const applyInvoiceScope = useCallback(
+    (list: Invoice[]) => (list || []).filter((inv) => Boolean(inv.isCreditNote) === isCreditNoteView),
+    [isCreditNoteView]
+  );
+
+  // Wurde der Belegtyp wirklich vom Server gefiltert? Die Antwort bestaetigt den
+  // angewendeten Ausschnitt in `scope`. Fehlt die Bestaetigung (aeltere
+  // Serverversion), ist die Liste nur so vollstaendig wie die abgerufene Seite und
+  // total/totalAmount beschreiben den UNGEFILTERTEN Bestand - dann darf weder die
+  // Gesamtzahl angezeigt noch die Vollstaendigkeit behauptet werden.
+  const [invoiceScopeIncomplete, setInvoiceScopeIncomplete] = useState(false);
+  // Gesamtzahl der Belege IM GEFILTERTEN AUSSCHNITT laut Server. Die Liste holt nur
+  // eine Seite; ohne diese Zahl bliebe unsichtbar, dass es aeltere Belege gibt.
+  const [invoiceTotalCount, setInvoiceTotalCount] = useState(0);
+  // Aktuell angezeigte Seite und die Seitenanzahl laut Server. Ohne diese beiden
+  // Werte waere die Liste auf die erste Seite gekappt und aeltere Belege nur noch
+  // ueber die Filter erreichbar.
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceTotalPages, setInvoiceTotalPages] = useState(1);
+  const [invoicePageLoading, setInvoicePageLoading] = useState(false);
+  const receiveInvoiceList = useCallback(
+    (res: InvoiceListResponse | undefined | null, page = 1) => {
+      const raw = res?.invoices || [];
+      const scoped = applyInvoiceScope(raw);
+      setInvoices(scoped);
+
+      const expectedScope = isCreditNoteView ? 'creditNotes' : 'invoices';
+      const serverScoped = String(res?.scope || '') === expectedScope;
+      // Ohne serverseitigen Filter koennen aeltere Belege fehlen, sobald die Seite
+      // voll ausgeschoepft ist.
+      setInvoiceScopeIncomplete(!serverScoped && raw.length >= INVOICE_PAGE_LIMIT);
+
+      const reportedTotal = Number(res?.total ?? res?.totalCount);
+      const knownTotal = serverScoped && Number.isFinite(reportedTotal) && reportedTotal >= 0;
+      setInvoiceTotalCount(knownTotal ? reportedTotal : scoped.length);
+
+      // Blaettern wird nur angeboten, wenn der Server den Belegtyp wirklich
+      // gefiltert hat - sonst beschreiben total/totalPages den UNGEFILTERTEN
+      // Bestand und die Seitenzahlen waeren gelogen.
+      const reportedPages = Number(res?.totalPages);
+      setInvoiceTotalPages(
+        knownTotal && Number.isFinite(reportedPages) && reportedPages >= 1 ? reportedPages : 1
+      );
+      setInvoicePage(Math.max(1, page));
+    },
+    [applyInvoiceScope, isCreditNoteView]
+  );
+
+  // Eine Quelle fuer die Listenabfrage: Belegtyp + aktive Filter + Seite. Die
+  // Seitennavigation MUSS dieselben Filter mitschicken, sonst blaettert sie durch
+  // einen anderen Bestand als der, den der Bearbeiter gerade sieht.
+  const buildInvoiceQueryParams = useCallback(
+    (page: number): Record<string, string> => {
+      const params: Record<string, string> = { ...invoiceScopeParams, page: String(Math.max(1, page)) };
+      if (invoiceFilters.status !== 'all') params.status = invoiceFilters.status;
+      if (invoiceFilters.dateFrom) params.dateFrom = invoiceFilters.dateFrom;
+      if (invoiceFilters.dateTo) params.dateTo = invoiceFilters.dateTo;
+      if (invoiceFilters.taxType === 'reverse_charge') params.isReverseCharge = 'true';
+      if (invoiceFilters.taxType === 'regular') params.isReverseCharge = 'false';
+      return params;
+    },
+    [invoiceScopeParams, invoiceFilters.status, invoiceFilters.dateFrom, invoiceFilters.dateTo, invoiceFilters.taxType]
+  );
+
+  const loadInvoicePage = useCallback(
+    async (page: number) => {
+      setInvoicePageLoading(true);
+      try {
+        const res = await getInvoices(buildInvoiceQueryParams(page));
+        receiveInvoiceList(res, page);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Die Belege konnten nicht geladen werden.';
+        toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+      } finally {
+        setInvoicePageLoading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [buildInvoiceQueryParams, receiveInvoiceList]
+  );
+
+  // Die Listen-API liefert creditNoteOf als reine ObjectId; creditNoteOfNumber ist die
+  // eingefrorene Nummer der Ursprungsrechnung und deshalb die Quelle fuer die Anzeige.
+  const getOriginalInvoiceNumber = useCallback((invoice: Invoice): string => {
+    if (invoice.creditNoteOfNumber) return invoice.creditNoteOfNumber;
+    const ref = invoice.creditNoteOf;
+    if (ref && typeof ref === 'object' && ref.invoiceNumber) return ref.invoiceNumber;
+    return '';
+  }, []);
+
+  const getOriginalInvoiceId = useCallback((invoice: Invoice): string => {
+    const ref = invoice.creditNoteOf;
+    if (!ref) return '';
+    return typeof ref === 'object' ? String(ref._id || '') : String(ref);
+  }, []);
+
+  const correctionTypeLabels: Record<string, string> = {
+    full_cancellation: 'Vollstorno',
+    partial_refund: 'Rückzahlung',
+    price_adjustment: 'Wertminderung',
+  };
+
+  const visibleInvoices = useMemo(() => {
+    // Zweites Netz: selbst eine (z. B. durch einen Ansichtswechsel) veraltete Liste
+    // kann so nie unter der falschen Ueberschrift landen.
+    const scoped = applyInvoiceScope(invoices);
+    if (!isCreditNoteView) return scoped;
+    const needle = invoiceFilters.originalInvoiceNumber.trim().toLowerCase();
+    return scoped.filter((inv) => {
+      if (invoiceFilters.correctionType !== 'all' && inv.correctionType !== invoiceFilters.correctionType) return false;
+      if (needle && !getOriginalInvoiceNumber(inv).toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [invoices, isCreditNoteView, applyInvoiceScope, invoiceFilters.correctionType, invoiceFilters.originalInvoiceNumber, getOriginalInvoiceNumber]);
 
   const fetchFinancialData = async () => {
     setLoading(true);
     try {
       const [paymentsRes, invoicesRes, reportRes, gatewaysRes, overdueRes, dunningRunsRes, systemConfigRes] = await Promise.all([
         getPayments(),
-        getInvoices(),
+        getInvoices(invoiceScopeParams),
         getFinancialReports(),
         getPaymentGateways(),
         getOverdueInvoices(),
@@ -1238,7 +1595,7 @@ export function FinancialManagement() {
       ]);
 
       setPayments(paymentsRes?.payments || []);
-      setInvoices(invoicesRes?.invoices || []);
+      receiveInvoiceList(invoicesRes);
       setReport(reportRes?.report || reportRes || null);
       setGateways(gatewaysRes?.gateways || []);
       setOverdueInvoices(overdueRes?.invoices || []);
@@ -1256,9 +1613,13 @@ export function FinancialManagement() {
     }
   };
 
+  // App.tsx erzwingt beim Wechsel Rechnungen <-> Gutschriften ohnehin einen Remount.
+  // Die Abhaengigkeit auf isCreditNoteView ist die zweite Absicherung: sollte der key
+  // dort je entfernt werden, wird wenigstens neu geladen statt die alte Liste zu zeigen.
   useEffect(() => {
     void fetchFinancialData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreditNoteView]);
 
   useEffect(() => {
     if (!tabFromQuery) return;
@@ -1269,6 +1630,15 @@ export function FinancialManagement() {
       setActiveTab(resolvedTab);
     }
   }, [tabFromQuery]);
+
+  // In der Gutschriften-Ansicht rendert die TabsList ausschliesslich den Reiter
+  // 'invoices'. Jeder andere Wert (aus ?tab=, aus einem Deep Link oder aus einem
+  // Ansichtswechsel) wuerde Inhalte unter einer Leiste ohne markierten Reiter zeigen.
+  useEffect(() => {
+    if (isCreditNoteView && activeTab !== 'invoices') {
+      setActiveTab('invoices');
+    }
+  }, [isCreditNoteView, activeTab]);
 
   useEffect(() => {
     if (handledHighlightInvoiceKey !== highlightInvoiceIdFromQuery) {
@@ -1290,7 +1660,10 @@ export function FinancialManagement() {
       return;
     }
 
-    setActiveTab('overview');
+    // Der Anker [data-finance-invoice-row-id] existiert NUR in der Belegliste.
+    // 'overview' hatte keinen Anker und in der Gutschriften-Ansicht ausserdem
+    // keinen Reiter - der Deep Link lief dort ins Leere.
+    setActiveTab('invoices');
     setActiveHighlightedInvoiceId(targetInvoice._id);
     setHandledHighlightInvoiceKey(highlightInvoiceIdFromQuery);
 
@@ -1386,20 +1759,9 @@ export function FinancialManagement() {
     }
   };
 
+  // Ein neuer Filter beginnt immer wieder auf Seite 1.
   const onApplyInvoiceFilters = async () => {
-    try {
-      const params: Record<string, string> = {};
-      if (invoiceFilters.status !== 'all') params.status = invoiceFilters.status;
-      if (invoiceFilters.dateFrom) params.dateFrom = invoiceFilters.dateFrom;
-      if (invoiceFilters.dateTo) params.dateTo = invoiceFilters.dateTo;
-      if (invoiceFilters.taxType === 'reverse_charge') params.isReverseCharge = 'true';
-      if (invoiceFilters.taxType === 'regular') params.isReverseCharge = 'false';
-      const res = await getInvoices(params);
-      setInvoices(res?.invoices || []);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('financialManagement.failedToLoadPayments');
-      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
-    }
+    await loadInvoicePage(1);
   };
 
   const onApplyPaymentFilters = async () => {
@@ -1444,6 +1806,25 @@ export function FinancialManagement() {
     });
   };
 
+  // Der Druck laedt das PDF ueber /api/invoices/:id/pdf. Schlaegt das fehl, wirft
+  // printInvoice einen Fehler mit deutscher Meldung - ohne diesen Wrapper
+  // ('void printInvoice(...)') verschwaende der Fehler und fuer den Bearbeiter
+  // passierte sichtbar gar nichts.
+  const [pdfPrintingId, setPdfPrintingId] = useState<string | null>(null);
+
+  const printInvoiceWithFeedback = async (invoice: Invoice | PrintableInvoice | null | undefined) => {
+    if (!invoice?._id) return;
+    setPdfPrintingId(invoice._id);
+    try {
+      await printInvoice(invoice);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Rechnungs-PDF konnte nicht geladen werden.';
+      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setPdfPrintingId(null);
+    }
+  };
+
   const onCreateInvoice = async () => {
     const items = invoiceForm.items
       .filter((item) => item.description.trim().length > 0)
@@ -1462,11 +1843,12 @@ export function FinancialManagement() {
     }
 
     const isReverseCharge = Boolean(invoiceForm.isReverseCharge);
-    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subtotal * (Number(invoiceForm.discount || 0) / 100);
-    const taxableAmount = subtotal - discountAmount;
+    // Die Betraege gehoeren dem Server (Invoice-Modell, brutto-first). Wir senden
+    // ausschliesslich Positionen, Rabattbetrag und Steuersatz (PROZENT) - niemals
+    // subtotal/tax/total, sonst gibt es zwei konkurrierende Wahrheiten.
+    const itemsGross = items.reduce((sum, item) => sum + roundCurrency(item.total), 0);
+    const discountAmount = roundCurrency(itemsGross * (Number(invoiceForm.discount || 0) / 100));
     const taxRate = isReverseCharge ? 0 : Number(invoiceForm.taxRate || financialSettings.defaults.taxRate);
-    const tax = isReverseCharge ? 0 : taxableAmount * (taxRate / 100);
 
     try {
       const response = await createInvoice({
@@ -1481,10 +1863,7 @@ export function FinancialManagement() {
         zmRelevant: isReverseCharge,
         taxRate,
         items,
-        subtotal,
-        tax,
         discount: discountAmount,
-        total: subtotal - discountAmount + tax,
         dueDate: invoiceForm.dueDate,
         notes: invoiceForm.notes,
         paymentTerms: invoiceForm.paymentTerms,
@@ -1492,11 +1871,13 @@ export function FinancialManagement() {
       });
 
       await sendInvoice(response.invoice._id, response.invoice.customerEmail);
-      await printInvoice(response.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setInvoiceDialogOpen(false);
       setInvoiceForm(createInvoiceFormState(financialSettings));
       void fetchFinancialData();
+      // Nachlauf: die Rechnung IST erstellt. Ein Fehler beim Druck-PDF darf deshalb
+      // nicht im catch unten als "Rechnung konnte nicht erstellt werden" landen.
+      await printInvoiceWithFeedback(response.invoice);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : t('financialManagement.failedToCreateInvoice');
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
@@ -1518,19 +1899,20 @@ export function FinancialManagement() {
         customerVatId: fromRepairForm.customerVatId,
         sellerVatId: fromRepairForm.sellerVatId,
         reverseChargeNotice: fromRepairForm.reverseChargeNotice,
-        taxRate: isReverseCharge ? 0 : Number(fromRepairForm.taxRate) / 100,
+        // taxRate ist ein PROZENTWERT (19), kein Bruch.
+        taxRate: isReverseCharge ? 0 : Number(fromRepairForm.taxRate),
         discount: Number(fromRepairForm.discount),
         dueDate: fromRepairForm.dueDate,
         paymentTerms: fromRepairForm.paymentTerms,
-        notes: fromRepairForm.notes,
-        numberPrefix: fromRepairForm.numberPrefix
+        notes: fromRepairForm.notes
       });
 
       await sendInvoice(response.invoice._id, response.invoice.customerEmail);
-      await printInvoice(response.invoice);
       toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
       setFromRepairDialogOpen(false);
       void fetchFinancialData();
+      // Nachlauf, siehe onCreateInvoice: der Druck darf den Erfolg nicht umdeuten.
+      await printInvoiceWithFeedback(response.invoice);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : t('financialManagement.failedToCreateInvoice');
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
@@ -1553,6 +1935,92 @@ export function FinancialManagement() {
     } finally {
       setInvoiceDetailLoading(false);
     }
+  };
+
+  // Die Detailansicht muss auch aus einer Verknuepfung heraus erreichbar sein
+  // (Gutschrift -> Ursprungsrechnung und zurueck), auch wenn der Beleg nicht in der
+  // aktuell geladenen Liste steht.
+  const openInvoiceDetailsById = async (invoiceId: string) => {
+    if (!invoiceId) return;
+    const known = invoices.find((inv) => inv._id === invoiceId);
+    if (known) {
+      await openInvoiceDetails(known);
+      return;
+    }
+    try {
+      const result = await getInvoiceDetails(invoiceId);
+      if (!result?.invoice) throw new Error('Beleg nicht gefunden');
+      setSelectedInvoice(result.invoice as Invoice);
+      setInvoiceDetailPayments(result.payments || []);
+      setInvoiceDetailCreditNotes(result.creditNotes || []);
+      setInvoiceDetailsDialogOpen(true);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Beleg konnte nicht geladen werden.';
+      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    }
+  };
+
+  type InvoiceNavigationTarget =
+    | { kind: 'booking'; id: string; label: string; title: string }
+    | { kind: 'order'; id: string; label: string; title: string }
+    | { kind: 'repairOrder'; id: string; label: string; title: string };
+
+  const toIdString = (value: unknown): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && '_id' in (value as Record<string, unknown>)) {
+      return String((value as { _id?: unknown })._id || '');
+    }
+    return String(value);
+  };
+
+  /**
+   * Bestimmt das Sprungziel einer Rechnungszeile.
+   * Die Buchung hat Vorrang: order-basierte Rechnungen speichern BEIDE Bezuege, und
+   * Sophies Anforderung ist der Sprung zur Buchung, nicht in die Auftragsliste.
+   */
+  const resolveInvoiceNavigationTarget = (invoice: Invoice): InvoiceNavigationTarget | null => {
+    const bookingId = toIdString(invoice.bookingId) || toIdString(invoice.resolvedBookingId);
+    if (bookingId) {
+      return { kind: 'booking', id: bookingId, label: t('financialManagement.booking'), title: 'Zur verknüpften Buchung' };
+    }
+
+    const orderId = toIdString(invoice.orderId);
+    if (orderId) {
+      return { kind: 'order', id: orderId, label: t('financialManagement.order'), title: 'Zum verknüpften Auftrag' };
+    }
+
+    const repairOrderId = toIdString((invoice.repairOrderIds || [])[0]);
+    if (repairOrderId) {
+      const count = (invoice.repairOrderIds || []).length;
+      return {
+        kind: 'repairOrder',
+        id: repairOrderId,
+        label: `${count} ${count > 1 ? t('financialManagement.ordersPlural') : t('financialManagement.orders')}`,
+        title: (invoice.repairOrderIds || [])
+          .map((r) => (typeof r === 'object' ? ((r as { orderNumber?: string }).orderNumber || toIdString(r)) : String(r)))
+          .join(', '),
+      };
+    }
+
+    return null;
+  };
+
+  const openInvoiceNavigationTarget = (target: InvoiceNavigationTarget) => {
+    if (target.kind === 'booking') {
+      // Das Ziel steht AUSSCHLIESSLICH in der URL, damit ein harter Reload und ein
+      // kopierter Link dieselbe Buchung oeffnen. Den History-State
+      // (`reopenBookingDialog`), den die Auftragsliste auswertet, setzt die
+      // BookingDeepLinkBridge in App.tsx aus `?openBookingId=` nach - sowohl bei
+      // der In-App-Navigation als auch beim direkten Aufruf der URL. Wuerde er hier
+      // zusaetzlich mitgegeben, liefe die Buchung bei jeder In-App-Navigation
+      // doppelt durch getBooking().
+      navigate(`/admin/bookings?openBookingId=${encodeURIComponent(target.id)}&highlightBookingId=${encodeURIComponent(target.id)}`);
+      return;
+    }
+    navigate(getOrderDetailsPath(target.id), {
+      state: buildOrderDetailsState(location, { label: t('common.back') }),
+    });
   };
 
   const openSendComposer = (invoice: Invoice, mode: SendComposerMode = 'invoice') => {
@@ -1583,8 +2051,6 @@ export function FinancialManagement() {
       allowPartialPayment: mode === 'reminder' && financialSettings.paymentPreferences.partialPaymentsAllowed,
       applyLateFee: mode === 'reminder',
       lateFeePercent: String(financialSettings.discountPolicy.lateFeePercent),
-      applyEarlyDiscount: false,
-      earlyDiscountPercent: String(financialSettings.discountPolicy.earlyPaymentDiscountPercent),
       attachPdf: financialSettings.paymentPreferences.autoAttachPdf,
       sendCopyInternal: financialSettings.paymentPreferences.sendInternalCopy,
       internalCopyEmail: financialSettings.paymentPreferences.internalCopyEmail,
@@ -1754,7 +2220,7 @@ export function FinancialManagement() {
 
   const openCreditDialog = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
-    setCreditForm(createCreditFormState(financialSettings));
+    setCreditForm(createCreditFormState(financialSettings, invoice));
     setCreditItemOverrides(
       (invoice.items || []).map(() => ({ included: true, quantity: '', unitPrice: '' }))
     );
@@ -1791,6 +2257,32 @@ export function FinancialManagement() {
     setRefundDialogOpen(true);
   };
 
+  const [pdfDownloadingId, setPdfDownloadingId] = useState<string | null>(null);
+
+  const onDownloadInvoicePdf = async (invoice: Invoice) => {
+    if (!invoice?._id) return;
+    setPdfDownloadingId(invoice._id);
+    try {
+      await downloadInvoicePdf(invoice._id, invoice.invoiceNumber);
+      toast({ title: t('common.success'), description: 'PDF wurde heruntergeladen.' });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Rechnungs-PDF konnte nicht geladen werden.';
+      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setPdfDownloadingId(null);
+    }
+  };
+
+  // Betraege werden IMMER aus dem gespeicherten Beleg gelesen, nie neu gerechnet.
+  // invoiceNetTotal/invoiceTaxTotal/invoiceGrossTotal sind die Spiegelfelder des
+  // Invoice-Modells; subtotal/tax/total sind der aeltere Name derselben Werte.
+  const getStoredNet = (invoice: Pick<Invoice, 'invoiceNetTotal' | 'subtotal'>) =>
+    Number(invoice.invoiceNetTotal ?? invoice.subtotal ?? 0);
+  const getStoredTax = (invoice: Pick<Invoice, 'invoiceTaxTotal' | 'tax'>) =>
+    Number(invoice.invoiceTaxTotal ?? invoice.tax ?? 0);
+  const getStoredGross = (invoice: Pick<Invoice, 'invoiceGrossTotal' | 'total'>) =>
+    Number(invoice.invoiceGrossTotal ?? invoice.total ?? 0);
+
   const renderInvoiceActionsMenu = ({
     invoice,
     includeDetails = true,
@@ -1819,6 +2311,20 @@ export function FinancialManagement() {
               <Eye className="mr-2 h-4 w-4" />{t('common.details', 'Details')}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem
+            disabled={pdfDownloadingId === invoice._id}
+            onClick={() => { void onDownloadInvoicePdf(invoice); }}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {pdfDownloadingId === invoice._id ? 'PDF wird geladen…' : 'PDF herunterladen'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={pdfPrintingId === invoice._id}
+            onClick={() => { void printInvoiceWithFeedback(invoice); }}
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            {pdfPrintingId === invoice._id ? 'PDF wird geladen…' : 'PDF drucken'}
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
               if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
@@ -1887,10 +2393,14 @@ export function FinancialManagement() {
     try {
       await createCreditNote(selectedInvoice._id, {
         reason: creditForm.reason,
-        taxRate: Number(creditForm.taxRate) / 100,
-        discount: Number(creditForm.discount) || 0,
+        // PROZENT (19), niemals ein Bruch - der Server erwartet denselben Wert,
+        // den die Vorschau oben anzeigt.
+        taxRate: selectedInvoice.isReverseCharge ? 0 : Number(creditForm.taxRate),
+        discount: Math.abs(Number(creditForm.discount) || 0),
         dueDate: creditForm.dueDate,
-        numberPrefix: creditForm.numberPrefix || financialSettings.defaults.creditNotePrefix,
+        // Bewusst KEIN notifyCustomer: POST /invoices/:id/credit-note verschickt
+        // nichts. Ein Schalter, der nur so tut, waere schlimmer als keiner - der
+        // Dialog weist stattdessen auf den manuellen Versand hin.
         items: creditForm.scope === 'partial'
           ? preview.items.map((i) => ({
               description: i.description,
@@ -2511,10 +3021,46 @@ export function FinancialManagement() {
   const [loadingPaymentRequestOverview, setLoadingPaymentRequestOverview] = useState(false);
   const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
 
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequestRecord[]>([]);
+  const [paymentRequestsAvailable, setPaymentRequestsAvailable] = useState(true);
+  const [loadingPaymentRequests, setLoadingPaymentRequests] = useState(false);
+
   const [syncBookingId, setSyncBookingId] = useState('');
   const [syncType, setSyncType] = useState<'booking' | 'order'>('booking');
   const [selectedSyncItem, setSelectedSyncItem] = useState<BookingSearchResultItem | null>(null);
   const [isSyncingFinancials, setIsSyncingFinancials] = useState(false);
+
+  /**
+   * True, solange der eingegebene Text noch die ausgewaehlte Buchung meint.
+   * Wird der Text danach veraendert, muss die Auswahl (und alles, was daraus
+   * vorbefuellt wurde) verworfen werden.
+   */
+  const matchesSelectedBooking = (value: string, selected: BookingSearchResultItem | null): boolean => {
+    if (!selected) return false;
+    const needle = normalizeDocumentNumber(value);
+    if (!needle) return false;
+    const candidates = [selected.bookingNumber, selected._id, ...(selected.matchedInvoiceNumbers || [])];
+    return candidates.some((candidate) => candidate && normalizeDocumentNumber(candidate) === needle);
+  };
+
+  const loadPaymentRequestHistory = async (bookingId: string) => {
+    if (!bookingId) {
+      setPaymentRequests([]);
+      setPaymentRequestsAvailable(true);
+      return;
+    }
+    setLoadingPaymentRequests(true);
+    try {
+      const res = await getPaymentRequests(bookingId);
+      setPaymentRequests(res.requests);
+      setPaymentRequestsAvailable(res.available);
+    } catch {
+      setPaymentRequests([]);
+      setPaymentRequestsAvailable(false);
+    } finally {
+      setLoadingPaymentRequests(false);
+    }
+  };
 
   const loadOverpaymentOverview = async (bookingId: string) => {
     if (!bookingId) {
@@ -2567,7 +3113,9 @@ export function FinancialManagement() {
 
   const onSelectPaymentRequestBooking = (item: BookingSearchResultItem) => {
     setSelectedPaymentRequestBooking(item);
-    void loadPaymentRequestOverview(item._id || item.bookingNumber || '');
+    const identifier = item._id || item.bookingNumber || '';
+    void loadPaymentRequestOverview(identifier);
+    void loadPaymentRequestHistory(identifier);
   };
 
   const onSelectSyncItem = (item: BookingSearchResultItem) => {
@@ -2624,14 +3172,38 @@ export function FinancialManagement() {
         amount: parsedAmount,
         note: paymentRequestNote.trim()
       });
-      if (res?.success === false) {
-        toast({ title: 'Hinweis', description: res.message || 'Keine offene Restforderung vorhanden.', variant: 'default' });
+
+      // Ein Versand gilt nur dann als erfolgreich, wenn der Server das auch sagt.
+      // 'accepted_by_provider' heisst: der Mailserver hat die Nachricht angenommen -
+      // das ist KEINE Zustellbestaetigung und wird deshalb auch so formuliert.
+      if (res?.status === 'skipped_no_recipient' || res?.code === 'NO_RECIPIENT') {
+        toast({
+          title: t('common.error'),
+          description: 'Für diese Buchung ist keine E-Mail-Adresse hinterlegt – es wurde nichts gesendet.',
+          variant: 'destructive',
+        });
+      } else if (res?.status === 'failed' || res?.success === false) {
+        const detail = res?.error || res?.message;
+        toast({
+          title: res?.success === false && !res?.error ? 'Hinweis' : t('common.error'),
+          description: detail || 'Die Zahlungsaufforderung konnte nicht gesendet werden.',
+          variant: res?.error || res?.status === 'failed' ? 'destructive' : 'default',
+        });
+      } else if (!res?.recipientEmail) {
+        toast({
+          title: t('common.error'),
+          description: 'Der Server hat keine Empfängeradresse gemeldet – bitte den Versand im E-Mail-Protokoll prüfen.',
+          variant: 'destructive',
+        });
       } else {
         toast({
           title: t('common.success'),
-          description: `Zahlungsaufforderung erfolgreich an ${res?.recipientEmail || 'den Kunden'} gesendet.`
+          description: `Zahlungsaufforderung an ${res.recipientEmail} übergeben (Zustellung nicht garantiert).`,
         });
       }
+
+      const historyId = selectedPaymentRequestBooking?._id || paymentRequestBookingId.trim();
+      void loadPaymentRequestHistory(historyId);
       void fetchFinancialData();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Fehler beim Senden der Zahlungsaufforderung';
@@ -2713,8 +3285,14 @@ export function FinancialManagement() {
       <section className="rounded-xl border border-[#0f1d45] bg-gradient-to-r from-[#1a2a5e] via-[#1a2a5e] to-[#2a3f7e] px-5 py-5 text-white shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">{t('financialManagement.title')}</h1>
-            <p className="text-sm text-[#d8dce6]">{t('financialManagement.description')}</p>
+            <h1 className="text-2xl font-semibold">
+              {isCreditNoteView ? 'Gutschriften' : t('financialManagement.title')}
+            </h1>
+            <p className="text-sm text-[#d8dce6]">
+              {isCreditNoteView
+                ? 'Alle Gutschriften mit eigener Nummernkreis-Serie (INV-CN-JJJJ-NNNN) und Bezug zur Ursprungsrechnung.'
+                : t('financialManagement.description')}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="border-[#1a2a5e] bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={fetchFinancialData}>
@@ -2728,6 +3306,13 @@ export function FinancialManagement() {
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        {isCreditNoteView ? (
+          <TabsList className="grid w-full grid-cols-1 gap-1 border border-[#d8dce6] bg-[#f8f9fc] p-1">
+            <TabsTrigger value="invoices" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
+              <FileSpreadsheet className="mr-1.5 h-4 w-4" />Gutschriften
+            </TabsTrigger>
+          </TabsList>
+        ) : (
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 border border-[#d8dce6] bg-[#f8f9fc] p-1">
           <TabsTrigger value="overview" className="data-[state=active]:bg-[#1a2a5e] data-[state=active]:text-white">
             <TrendingUp className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.overview')}
@@ -2751,6 +3336,7 @@ export function FinancialManagement() {
             <Settings className="mr-1.5 h-4 w-4" />{t('financialManagement.tabs.settings')}
           </TabsTrigger>
         </TabsList>
+        )}
 
         <TabsContent value="overview" className="space-y-4">
           {/* KPI Dashboard Cards */}
@@ -2885,7 +3471,7 @@ export function FinancialManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.slice(0, 5).map((invoice) => (
+                    {visibleInvoices.slice(0, 5).map((invoice) => (
                       <TableRow key={`overview-inv-${invoice._id}`}>
                         <TableCell className="font-medium text-[#1a2a5e]">{invoice.invoiceNumber}</TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
@@ -2900,7 +3486,7 @@ export function FinancialManagement() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {invoices.length === 0 && (
+                    {visibleInvoices.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">{t('financialManagement.noInvoices')}</TableCell>
                       </TableRow>
@@ -2916,7 +3502,10 @@ export function FinancialManagement() {
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')}</CardTitle>
+                <CardTitle style={{ color: "#f5c800" }}>
+                  {isCreditNoteView ? 'Gutschriften' : t('financialManagement.invoices')}
+                </CardTitle>
+                {!isCreditNoteView && (
                 <div className="flex gap-2">
                   <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={() => setInvoiceDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />{t('financialManagement.createInvoice')}
@@ -2925,10 +3514,32 @@ export function FinancialManagement() {
                     <FileSpreadsheet className="mr-2 h-4 w-4" />{t('financialManagement.generateFromRepairs')}
                   </Button>
                 </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-3 grid gap-2 md:grid-cols-5">
+              {invoiceScopeIncomplete && (
+                <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <span>
+                    Diese Serverversion filtert den Belegtyp noch nicht selbst. Angezeigt werden nur die{' '}
+                    {isCreditNoteView ? 'Gutschriften' : 'Rechnungen'} aus den {INVOICE_PAGE_LIMIT} zuletzt angelegten Belegen
+                    – ältere {isCreditNoteView ? 'Gutschriften' : 'Rechnungen'} können fehlen. Bitte grenzen Sie die Liste
+                    über die Filter (Zeitraum, Status) ein.
+                  </span>
+                </div>
+              )}
+              {!invoiceScopeIncomplete && invoiceTotalCount > invoices.length && (
+                <div className="mb-3 flex items-start gap-2 rounded-md border border-[#d8dce6] bg-[#f6f8fc] px-3 py-2 text-sm text-[#1a2a5e]">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#1a2a5e]" />
+                  <span>
+                    Es gibt insgesamt {invoiceTotalCount} {isCreditNoteView ? 'Gutschriften' : 'Rechnungen'}.
+                    Angezeigt werden bis zu {INVOICE_PAGE_LIMIT} Belege pro Seite – ältere erreichen Sie
+                    über die Seitennavigation unter der Liste oder über die Filter (Zeitraum, Status).
+                  </span>
+                </div>
+              )}
+              <div className={`mb-3 grid gap-2 ${isCreditNoteView ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                 <Select value={invoiceFilters.status} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, status: value }))}>
                   <SelectTrigger><SelectValue placeholder={t('financialManagement.status')} /></SelectTrigger>
                   <SelectContent>
@@ -2943,14 +3554,33 @@ export function FinancialManagement() {
                     <SelectItem value="credited">{t('financialManagement.invoiceStatuses.credited')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={invoiceFilters.taxType} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, taxType: value }))}>
-                  <SelectTrigger><SelectValue placeholder={t('financialManagement.taxType')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('financialManagement.allTaxTypes')}</SelectItem>
-                    <SelectItem value="regular">{t('financialManagement.regularTax')}</SelectItem>
-                    <SelectItem value="reverse_charge">{t('financialManagement.reverseChargeTax')}</SelectItem>
-                  </SelectContent>
-                </Select>
+                {isCreditNoteView ? (
+                  <Select value={invoiceFilters.correctionType} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, correctionType: value }))}>
+                    <SelectTrigger><SelectValue placeholder="Korrekturart" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle Korrekturarten</SelectItem>
+                      <SelectItem value="full_cancellation">Vollstorno</SelectItem>
+                      <SelectItem value="price_adjustment">Wertminderung</SelectItem>
+                      <SelectItem value="partial_refund">Rückzahlung</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={invoiceFilters.taxType} onValueChange={(value) => setInvoiceFilters((p) => ({ ...p, taxType: value }))}>
+                    <SelectTrigger><SelectValue placeholder={t('financialManagement.taxType')} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('financialManagement.allTaxTypes')}</SelectItem>
+                      <SelectItem value="regular">{t('financialManagement.regularTax')}</SelectItem>
+                      <SelectItem value="reverse_charge">{t('financialManagement.reverseChargeTax')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {isCreditNoteView && (
+                  <Input
+                    placeholder="Ursprungsrechnung (z. B. INV-2026-0001)"
+                    value={invoiceFilters.originalInvoiceNumber}
+                    onChange={(e) => setInvoiceFilters((p) => ({ ...p, originalInvoiceNumber: e.target.value }))}
+                  />
+                )}
                 <Input type="date" value={invoiceFilters.dateFrom} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
                 <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
                 <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
@@ -2959,7 +3589,7 @@ export function FinancialManagement() {
                 <Table>
                   <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.booking')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {invoices.map((invoice) => {
+                    {visibleInvoices.map((invoice) => {
                       const invoicePayments = paymentsByInvoiceId.get(invoice._id) || [];
                       const isExpanded = expandedInvoiceIds.has(invoice._id);
                       return (
@@ -2985,60 +3615,64 @@ export function FinancialManagement() {
                           </Button>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>{invoice.invoiceNumber}</span>
-                            {invoice.isReverseCharge && (
-                              <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 border-0">Reverse Charge</Badge>
-                            )}
-                            {invoicePayments.length > 0 && (
-                              <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span>{invoice.invoiceNumber}</span>
+                              {invoice.isCreditNote && (
+                                <Badge className="bg-purple-700 text-white text-[10px] px-1.5 py-0.5 border-0">
+                                  {t('financialManagement.creditNote', 'Gutschrift')}
+                                </Badge>
+                              )}
+                              {invoice.isCreditNote && invoice.correctionType && (
+                                <Badge variant="outline" className="border-purple-300 bg-purple-50 text-[10px] text-purple-800">
+                                  {correctionTypeLabels[invoice.correctionType] || invoice.correctionType}
+                                </Badge>
+                              )}
+                              {invoice.isReverseCharge && (
+                                <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 border-0">Reverse Charge</Badge>
+                              )}
+                              {invoicePayments.length > 0 && (
+                                <Badge variant="outline" className="border-[#d8dce6] bg-[#f8f9fc] text-[11px] text-[#1a2a5e]">{invoicePayments.length} Zahlung{invoicePayments.length === 1 ? '' : 'en'}</Badge>
+                              )}
+                            </div>
+                            {invoice.isCreditNote && getOriginalInvoiceNumber(invoice) && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void openInvoiceDetailsById(getOriginalInvoiceId(invoice));
+                                }}
+                                disabled={!getOriginalInvoiceId(invoice)}
+                                className="w-fit text-left text-[11px] text-[#1a2a5e] underline-offset-2 hover:underline disabled:no-underline disabled:text-muted-foreground"
+                                title="Zur Ursprungsrechnung"
+                              >
+                                Ursprungsrechnung: {getOriginalInvoiceNumber(invoice)}
+                              </button>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
                         <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge></TableCell>
                         <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
-                        <TableCell>{formatCurrencyValue(invoice.total)}</TableCell>
+                        <TableCell>{formatCurrencyValue(getStoredGross(invoice))}</TableCell>
                         <TableCell>{formatCurrencyValue(invoice.paidAmount || 0)}</TableCell>
                         <TableCell onClick={(event) => event.stopPropagation()}>
-                          {invoice.orderId ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const oid = typeof invoice.orderId === 'object' ? (invoice.orderId as {_id: string})._id : invoice.orderId;
-                                navigate('/admin/bookings', { state: { openBookingByOrderId: oid } });
-                              }}
-                              className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
-                              title="Zur verknüpften Buchung"
-                            >
-                              <Package className="h-3 w-3" />
-                              {t('financialManagement.order')}
-                            </button>
-                          ) : invoice.bookingId ? (
-                            <button
-                              type="button"
-                              onClick={() => navigate('/admin/bookings', { state: { reopenBookingDialog: invoice.bookingId } })}
-                              className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
-                              title="Zur verknüpften Buchung"
-                            >
-                              <Calendar className="h-3 w-3" />
-                              {t('financialManagement.booking')}
-                            </button>
-                          ) : invoice.repairOrderIds && invoice.repairOrderIds.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/admin/orders`)}
-                              className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
-                              title={invoice.repairOrderIds.map((r) =>
-                                typeof r === 'object' ? ((r as { orderNumber?: string }).orderNumber || (r as { _id: string })._id) : String(r)
-                              ).join(', ')}
-                            >
-                              <Wrench className="h-3 w-3" />
-                              {invoice.repairOrderIds.length} {invoice.repairOrderIds.length > 1 ? t('financialManagement.ordersPlural') : t('financialManagement.orders')}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                          {(() => {
+                            const target = resolveInvoiceNavigationTarget(invoice);
+                            if (!target) return <span className="text-xs text-muted-foreground">—</span>;
+                            const Icon = target.kind === 'booking' ? Calendar : target.kind === 'order' ? Package : Wrench;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => openInvoiceNavigationTarget(target)}
+                                className="inline-flex items-center gap-1 rounded border border-[#d8dce6] bg-[#f8f9fc] px-2 py-0.5 text-xs font-medium text-[#1a2a5e] transition hover:border-[#1a2a5e] hover:bg-[#e8ecf8]"
+                                title={target.title}
+                              >
+                                <Icon className="h-3 w-3" />
+                                {target.label}
+                              </button>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end">{renderInvoiceActionsMenu({ invoice })}</div>
@@ -3135,6 +3769,34 @@ export function FinancialManagement() {
                   </TableBody>
                 </Table>
               </div>
+              {/* Seitennavigation: ohne sie waeren aeltere Belege nach der ersten
+                  Seite unerreichbar (stille Kappung). */}
+              {!invoiceScopeIncomplete && invoiceTotalPages > 1 && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#d8dce6] pt-3 text-sm">
+                  <span className="text-muted-foreground">
+                    Seite {invoicePage} von {invoiceTotalPages} · {invoiceTotalCount}{' '}
+                    {isCreditNoteView ? 'Gutschriften' : 'Rechnungen'} insgesamt
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={invoicePageLoading || invoicePage <= 1}
+                      onClick={() => { void loadInvoicePage(invoicePage - 1); }}
+                    >
+                      Zurück
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={invoicePageLoading || invoicePage >= invoiceTotalPages}
+                      onClick={() => { void loadInvoicePage(invoicePage + 1); }}
+                    >
+                      Weiter
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -3250,7 +3912,7 @@ export function FinancialManagement() {
                 <CardContent className="pt-4 space-y-3 text-xs">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <Label className="text-xs font-medium">Buchungs-ID / Kunde</Label>
+                      <Label className="text-xs font-medium">Buchungs-/Rechnungsnummer oder Kunde</Label>
                       {loadingOverpaymentOverview && (
                         <span className="flex items-center text-[10px] text-muted-foreground">
                           <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
@@ -3262,13 +3924,18 @@ export function FinancialManagement() {
                       value={overpaymentBookingId}
                       onChange={(val) => {
                         setOverpaymentBookingId(val);
-                        if (!val) {
+                        // Sobald der Text nicht mehr zur ausgewaehlten Buchung passt, wird die
+                        // Auswahl verworfen: sonst zeigt die Infobox eine andere Buchung an,
+                        // als der Button spaeter bucht.
+                        if (!matchesSelectedBooking(val, selectedOverpaymentBooking)) {
                           setSelectedOverpaymentBooking(null);
                           setOverpaymentOverview(null);
+                          setOverpaymentAmount('');
+                          setOverpaymentReason('Guthaben-Ausgleich');
                         }
                       }}
                       onSelectItem={onSelectOverpaymentBooking}
-                      placeholder="Buchung suchen (z.B. BKG-... oder Kunde)..."
+                      placeholder="Buchung, Rechnungsnr. (z.B. INV-2026-0001) oder Kunde suchen..."
                       type="booking"
                     />
                   </div>
@@ -3384,7 +4051,7 @@ export function FinancialManagement() {
                 <CardContent className="pt-4 space-y-3 text-xs">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <Label className="text-xs font-medium">Buchungs-ID / Kunde</Label>
+                      <Label className="text-xs font-medium">Buchungs-/Rechnungsnummer oder Kunde</Label>
                       {loadingPaymentRequestOverview && (
                         <span className="flex items-center text-[10px] text-muted-foreground">
                           <Loader2 className="h-3 w-3 animate-spin mr-1 text-primary" />
@@ -3396,13 +4063,16 @@ export function FinancialManagement() {
                       value={paymentRequestBookingId}
                       onChange={(val) => {
                         setPaymentRequestBookingId(val);
-                        if (!val) {
+                        if (!matchesSelectedBooking(val, selectedPaymentRequestBooking)) {
                           setSelectedPaymentRequestBooking(null);
                           setPaymentRequestOverview(null);
+                          setPaymentRequestAmount('');
+                          setPaymentRequests([]);
+                          setPaymentRequestsAvailable(true);
                         }
                       }}
                       onSelectItem={onSelectPaymentRequestBooking}
-                      placeholder="Buchung suchen (z.B. BKG-... oder Kunde)..."
+                      placeholder="Buchung, Rechnungsnr. (z.B. INV-2026-0001) oder Kunde suchen..."
                       type="booking"
                     />
                   </div>
@@ -3462,6 +4132,70 @@ export function FinancialManagement() {
                       placeholder="Nachricht an den Kunden..."
                       className="text-xs min-h-[60px] mt-1"
                     />
+                  </div>
+
+                  {/* ── Verlauf: wofuer wurde bereits eine Zahlungsaufforderung gesendet? ── */}
+                  <div className="rounded-md border p-2 bg-background space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">Gesendete Zahlungsaufforderungen</span>
+                      {loadingPaymentRequests && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                    </div>
+
+                    {!selectedPaymentRequestBooking && !paymentRequests.length ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Buchung auswählen, um den Verlauf zu sehen.
+                      </p>
+                    ) : !paymentRequestsAvailable ? (
+                      <p className="text-[11px] text-amber-700">
+                        Der Verlauf wird von dieser Serverversion noch nicht bereitgestellt.
+                        Bereits gesendete Aufforderungen können daher nicht angezeigt werden.
+                      </p>
+                    ) : paymentRequests.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Für diese Buchung wurde noch keine Zahlungsaufforderung versendet.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {paymentRequests.map((req) => (
+                          <div key={req._id} className="rounded border border-border/60 p-1.5 text-[11px]">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-foreground">
+                                {formatCurrencyValue(Number(req.amount || 0))}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  req.status === 'accepted_by_provider'
+                                    ? 'h-4 px-1.5 text-[10px] border-emerald-200 bg-emerald-50 text-emerald-800'
+                                    : req.status === 'failed'
+                                      ? 'h-4 px-1.5 text-[10px] border-red-200 bg-red-50 text-red-800'
+                                      : req.status === 'skipped_no_recipient'
+                                        ? 'h-4 px-1.5 text-[10px] border-amber-200 bg-amber-50 text-amber-800'
+                                        : 'h-4 px-1.5 text-[10px] text-muted-foreground'
+                                }
+                              >
+                                {req.status === 'accepted_by_provider'
+                                  ? 'Übergeben'
+                                  : req.status === 'failed'
+                                    ? 'Fehlgeschlagen'
+                                    : req.status === 'skipped_no_recipient'
+                                      ? 'Keine E-Mail-Adresse'
+                                      : 'Offen'}
+                              </Badge>
+                            </div>
+                            <div className="text-muted-foreground">
+                              {formatDateTime(req.requestedAt)}
+                              {req.invoiceNumber && <span> · Beleg {req.invoiceNumber}</span>}
+                            </div>
+                            {req.recipientEmail && (
+                              <div className="truncate text-muted-foreground">An: {req.recipientEmail}</div>
+                            )}
+                            {req.note && <div className="truncate text-muted-foreground">„{req.note}“</div>}
+                            {req.error && <div className="text-red-700">{req.error}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </div>
@@ -4063,10 +4797,6 @@ export function FinancialManagement() {
                     <Input type="number" value={financialSettings.discountPolicy.maxDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'maxDiscountPercent', Number(e.target.value || 0))} />
                   </div>
                   <div>
-                    <Label>{t('financialManagement.earlyDiscount')}</Label>
-                    <Input type="number" value={financialSettings.discountPolicy.earlyPaymentDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'earlyPaymentDiscountPercent', Number(e.target.value || 0))} />
-                  </div>
-                  <div>
                     <Label>{t('financialManagement.lateFee')}</Label>
                     <Input type="number" value={financialSettings.discountPolicy.lateFeePercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'lateFeePercent', Number(e.target.value || 0))} />
                   </div>
@@ -4376,10 +5106,9 @@ export function FinancialManagement() {
               <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
               <div><Label>Rabatt %</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div><Label>Faelligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Fälligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
               <div><Label>Zahlungsziel</Label><Input value={fromRepairForm.paymentTerms} onChange={(e) => setFromRepairForm((p) => ({ ...p, paymentTerms: e.target.value }))} placeholder="Net 14" /></div>
-              <div><Label>Prefix</Label><Input value={fromRepairForm.numberPrefix} onChange={(e) => setFromRepairForm((p) => ({ ...p, numberPrefix: e.target.value }))} /></div>
             </div>
           </div>
           <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
@@ -4535,13 +5264,6 @@ export function FinancialManagement() {
                       <div>
                         <Label>Verzugspauschale %</Label>
                         <Input type="number" value={sendComposerForm.lateFeePercent} onChange={(e) => setSendComposerForm((p) => ({ ...p, lateFeePercent: e.target.value }))} />
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between"><span>Skontooption ausweisen</span><Switch checked={sendComposerForm.applyEarlyDiscount} onCheckedChange={(v) => setSendComposerForm((p) => ({ ...p, applyEarlyDiscount: v }))} /></div>
-                    {sendComposerForm.applyEarlyDiscount && (
-                      <div>
-                        <Label>Skonto %</Label>
-                        <Input type="number" value={sendComposerForm.earlyDiscountPercent} onChange={(e) => setSendComposerForm((p) => ({ ...p, earlyDiscountPercent: e.target.value }))} />
                       </div>
                     )}
                     <div className="flex items-center justify-between"><span>PDF Anhang beilegen</span><Switch checked={sendComposerForm.attachPdf} onCheckedChange={(v) => setSendComposerForm((p) => ({ ...p, attachPdf: v }))} /></div>
@@ -4971,7 +5693,7 @@ export function FinancialManagement() {
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.totalAmount')}</div>
-                  <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(selectedInvoice.total)}</div>
+                  <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(getStoredGross(selectedInvoice))}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.openAmount')}</div>
@@ -4994,6 +5716,15 @@ export function FinancialManagement() {
                       }}
                     >
                       <Send className="mr-1 h-3.5 w-3.5" />{t('financialManagement.send')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e] disabled:opacity-50"
+                      disabled={pdfDownloadingId === selectedInvoice._id}
+                      onClick={() => { void onDownloadInvoicePdf(selectedInvoice); }}
+                    >
+                      <Download className="mr-1 h-3.5 w-3.5" />
+                      {pdfDownloadingId === selectedInvoice._id ? 'PDF wird geladen…' : 'PDF herunterladen'}
                     </Button>
                     <Button
                       size="sm"
@@ -5297,17 +6028,27 @@ export function FinancialManagement() {
                           </div>
                           <div className="text-right">
                             <div className="font-semibold text-violet-800">{formatCurrency(cn.total || 0)}</div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="mt-1 h-7 text-xs text-violet-700"
-                              onClick={() => {
-                                setInvoiceDetailsDialogOpen(false);
-                                openInvoiceDetails(cn as Invoice);
-                              }}
-                            >
-                              <Eye className="mr-1 h-3 w-3" />{t('common.details', 'Details')}
-                            </Button>
+                            <div className="mt-1 flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-violet-700"
+                                onClick={() => { void openInvoiceDetailsById(String(cn._id)); }}
+                              >
+                                <Eye className="mr-1 h-3 w-3" />{t('common.details', 'Details')}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-violet-700"
+                                onClick={() => {
+                                  setInvoiceDetailsDialogOpen(false);
+                                  navigate(`/admin/credit-notes?highlightInvoiceId=${encodeURIComponent(String(cn._id))}`);
+                                }}
+                              >
+                                Gutschriften
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -5353,10 +6094,10 @@ export function FinancialManagement() {
                   </div>
 
                   <div className="mt-3 grid gap-2 md:grid-cols-4 text-sm">
-                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.net')}:</span> {formatCurrency(selectedInvoice.subtotal || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.tax')}:</span> {formatCurrency(selectedInvoice.tax || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.discount')}:</span> {formatCurrency(selectedInvoice.discount || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2 font-semibold text-[#1a2a5e]"><span className="text-muted-foreground">{t('financialManagement.total')}:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.net')}:</span> {formatCurrency(getStoredNet(selectedInvoice))}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.tax')} ({Number.isFinite(Number(selectedInvoice.taxRate)) ? Number(selectedInvoice.taxRate) : 19} %):</span> {formatCurrency(getStoredTax(selectedInvoice))}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2"><span className="text-muted-foreground">{t('financialManagement.discount')} (brutto):</span> {formatCurrency(selectedInvoice.discount || 0)}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2 font-semibold text-[#1a2a5e]"><span className="text-muted-foreground">{t('financialManagement.total')} (brutto):</span> {formatCurrency(getStoredGross(selectedInvoice))}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -6002,14 +6743,14 @@ export function FinancialManagement() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setCreditForm((p) => ({ ...p, scope: 'full' }))}
+                onClick={() => setCreditForm((p) => ({ ...p, scope: 'full', discount: String(getInvoiceDiscountAmount(selectedInvoice)) }))}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${creditForm.scope === 'full' ? 'border-[#1a2a5e] bg-[#1a2a5e] text-white' : 'border-input hover:bg-accent'}`}
               >
                 Vollständige Gutschrift
               </button>
               <button
                 type="button"
-                onClick={() => setCreditForm((p) => ({ ...p, scope: 'partial' }))}
+                onClick={() => setCreditForm((p) => ({ ...p, scope: 'partial', discount: '0' }))}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${creditForm.scope === 'partial' ? 'border-[#1a2a5e] bg-[#1a2a5e] text-white' : 'border-input hover:bg-accent'}`}
               >
                 Teilgutschrift (Positionen anpassen)
@@ -6028,7 +6769,7 @@ export function FinancialManagement() {
                       <th className="w-8 px-2 py-1.5 text-left font-medium text-muted-foreground"></th>
                       <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Service Name</th>
                       <th className="w-20 px-2 py-1.5 text-right font-medium text-muted-foreground">Menge</th>
-                      <th className="w-24 px-2 py-1.5 text-right font-medium text-muted-foreground">Preis (€)</th>
+                      <th className="w-28 px-2 py-1.5 text-right font-medium text-muted-foreground">Betrag brutto (€)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-input">
@@ -6108,12 +6849,18 @@ export function FinancialManagement() {
                 min="0"
                 max="100"
                 step="0.5"
-                value={creditForm.taxRate}
+                disabled={Boolean(selectedInvoice?.isReverseCharge)}
+                value={selectedInvoice?.isReverseCharge ? '0' : creditForm.taxRate}
                 onChange={(e) => setCreditForm((p) => ({ ...p, taxRate: e.target.value }))}
               />
+              <p className="text-xs text-muted-foreground">
+                {selectedInvoice?.isReverseCharge
+                  ? 'Reverse Charge: die Gutschrift wird mit 0% ausgewiesen.'
+                  : 'Wird von der Ursprungsrechnung übernommen und kann überschrieben werden.'}
+              </p>
             </div>
             <div className="space-y-1">
-              <Label>Rabatt (€, optional)</Label>
+              <Label>Rabatt (€ brutto, optional)</Label>
               <Input
                 type="number"
                 min="0"
@@ -6121,26 +6868,26 @@ export function FinancialManagement() {
                 value={creditForm.discount}
                 onChange={(e) => setCreditForm((p) => ({ ...p, discount: e.target.value }))}
               />
+              <p className="text-xs text-muted-foreground">
+                {creditForm.scope === 'full'
+                  ? 'Wird von der Ursprungsrechnung übernommen und mindert den Bruttobetrag genau einmal.'
+                  : 'Mindert den Bruttobetrag der Gutschrift genau einmal.'}
+              </p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 md:col-span-2">
               <Label>Fälligkeit</Label>
               <Input
                 type="date"
                 value={creditForm.dueDate}
                 onChange={(e) => setCreditForm((p) => ({ ...p, dueDate: e.target.value }))}
               />
-            </div>
-            <div className="space-y-1">
-              <Label>Nummernpräfix</Label>
-              <Input
-                value={creditForm.numberPrefix}
-                maxLength={8}
-                onChange={(e) => setCreditForm((p) => ({ ...p, numberPrefix: e.target.value }))}
-              />
+              <p className="text-xs text-muted-foreground">
+                Die Gutschriftnummer wird automatisch vergeben (INV-CN-JJJJ-NNNN).
+              </p>
             </div>
           </div>
 
-          {/* ── Reason & notify ──────────────────────────────────────── */}
+          {/* ── Reason ───────────────────────────────────────────────── */}
           <div className="space-y-1">
             <Label>Bemerkung / Grund</Label>
             <Textarea
@@ -6151,32 +6898,36 @@ export function FinancialManagement() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Switch
-              id="credit-notify"
-              checked={creditForm.notifyCustomer}
-              onCheckedChange={(v) => setCreditForm((p) => ({ ...p, notifyCustomer: v }))}
-            />
-            <Label htmlFor="credit-notify" className="cursor-pointer">Kunden per E-Mail benachrichtigen</Label>
-          </div>
+          {/* Frueher stand hier ein Schalter "Kunden per E-Mail benachrichtigen".
+              POST /invoices/:id/credit-note verschickt jedoch nichts - der Schalter
+              hat nur so getan. Statt einer Scheinfunktion steht hier jetzt der
+              tatsaechliche Ablauf. */}
+          <p className="text-xs text-muted-foreground">
+            Hinweis: Die Gutschrift wird beim Anlegen <strong>nicht</strong> automatisch an den Kunden
+            versendet. Das Gutschrift-PDF kann anschließend über das Aktionsmenü heruntergeladen werden.
+          </p>
 
           {/* ── Live preview card ─────────────────────────────────────── */}
           {creditPreview && (creditPreview.items.length > 0 || creditForm.scope === 'full') && (
             <div className="rounded-md border border-[#d8dce6] bg-slate-50 p-3 text-sm space-y-1">
               <div className="font-semibold text-[#1a2a5e]">Vorschau Gutschrift</div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-0.5">
-                <span className="text-muted-foreground">Nettobetrag</span>
-                <span className="text-right font-mono">{formatCurrency(creditPreview.subtotal)}</span>
-                <span className="text-muted-foreground">Steuer ({creditForm.taxRate}%)</span>
-                <span className="text-right font-mono">{formatCurrency(creditPreview.tax)}</span>
-                {Number(creditForm.discount) > 0 && (
+                <span className="text-muted-foreground">Positionen brutto</span>
+                <span className="text-right font-mono">{formatCurrency(-Math.abs(creditPreview.items.reduce((sum, i) => sum + Math.abs(i.total), 0)))}</span>
+                {Math.abs(creditPreview.discount) > 0 && (
                   <>
-                    <span className="text-muted-foreground">Rabatt</span>
-                    <span className="text-right font-mono">{formatCurrency(creditPreview.discount)}</span>
+                    <span className="text-muted-foreground">Rabatt (brutto)</span>
+                    <span className="text-right font-mono">{formatCurrency(Math.abs(creditPreview.discount))}</span>
                   </>
                 )}
+                <span className="text-muted-foreground">Nettobetrag</span>
+                <span className="text-right font-mono">{formatCurrency(creditPreview.subtotal)}</span>
+                <span className="text-muted-foreground">
+                  MwSt. ({creditPreview.isReverseCharge ? '0 % – Reverse Charge' : `${creditPreview.taxRate} %`})
+                </span>
+                <span className="text-right font-mono">{formatCurrency(creditPreview.tax)}</span>
                 <Separator className="col-span-2 my-0.5" />
-                <span className="font-semibold text-[#1a2a5e]">Gesamtbetrag</span>
+                <span className="font-semibold text-[#1a2a5e]">Gesamtbetrag brutto</span>
                 <span className="text-right font-mono font-semibold text-purple-700">{formatCurrency(creditPreview.total)}</span>
               </div>
               {creditForm.scope === 'partial' && (

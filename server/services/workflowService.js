@@ -1,7 +1,52 @@
-const { WorkflowTemplate, AddOnWorkflow } = require('../models/Workflow');
+const {
+  WorkflowTemplate,
+  AddOnWorkflow,
+  WorkflowSeedSuppression,
+  SEED_WORKFLOW_TEMPLATE_NAMES
+} = require('../models/Workflow');
 const AddOnService = require('../models/AddOnService');
 
 class WorkflowService {
+  // ---------------------------------------------------------------------
+  // Seed suppression helpers
+  // ---------------------------------------------------------------------
+  // Only the names SeedService owns are ever suppressed. A hand-made template
+  // must not be able to block a seed name, and deleting one must not grow the
+  // suppression collection (there is no admin UI to inspect or clear it).
+  static isSeedOwnedTemplateName(name) {
+    return SEED_WORKFLOW_TEMPLATE_NAMES.includes(String(name || '').trim());
+  }
+
+  // Records that the admin no longer wants a seed template under this name.
+  // Never throws - a bookkeeping failure must not fail the caller's operation.
+  static async recordSeedSuppression(name) {
+    if (!WorkflowService.isSeedOwnedTemplateName(name)) {
+      return;
+    }
+    try {
+      await WorkflowSeedSuppression.updateOne(
+        { name },
+        { $set: { name, deletedAt: new Date() } },
+        { upsert: true }
+      );
+    } catch (suppressionError) {
+      console.error('WorkflowService: Could not record seed suppression for', name, suppressionError.message);
+    }
+  }
+
+  // Lifts the suppression - the admin has a template under this name again.
+  // Never throws, for the same reason.
+  static async clearSeedSuppression(name) {
+    if (!WorkflowService.isSeedOwnedTemplateName(name)) {
+      return;
+    }
+    try {
+      await WorkflowSeedSuppression.deleteOne({ name });
+    } catch (suppressionError) {
+      console.error('WorkflowService: Could not clear seed suppression for', name, suppressionError.message);
+    }
+  }
+
   // Get all workflow templates with optional filters
   static async getWorkflowTemplates(filters = {}) {
     console.log('WorkflowService: Getting workflow templates with filters:', filters);
@@ -103,6 +148,9 @@ class WorkflowService {
       const workflow = new WorkflowTemplate(workflowData);
       const savedWorkflow = await workflow.save();
 
+      // Re-creating a template by name lifts the "deleted by admin" seed suppression
+      await WorkflowService.clearSeedSuppression(savedWorkflow.name);
+
       console.log('WorkflowService: Workflow template created successfully:', {
         id: savedWorkflow._id,
         name: savedWorkflow.name,
@@ -191,6 +239,17 @@ class WorkflowService {
         throw new Error('Workflow template not found');
       }
 
+      // A rename moves the template out from under its old name. If that old name
+      // is a seed name, the seeder would otherwise re-create it on the next boot
+      // (the rename is a resurrection vector). If the NEW name is a suppressed
+      // seed name, the admin has a template under that name again, so lift it.
+      const previousName = String(existingWorkflow.name || '').trim();
+      const currentName = String(updatedWorkflow.name || '').trim();
+      if (previousName !== currentName) {
+        await WorkflowService.recordSeedSuppression(previousName);
+        await WorkflowService.clearSeedSuppression(currentName);
+      }
+
       console.log('WorkflowService: Workflow template updated successfully:', {
         id: updatedWorkflow._id,
         name: updatedWorkflow.name,
@@ -221,10 +280,134 @@ class WorkflowService {
         throw new Error('Workflow template not found');
       }
 
+      // Remember the deletion so SeedService.seedWorkflows() does not recreate
+      // this template on the next server boot. Never let this fail the deletion.
+      await WorkflowService.recordSeedSuppression(deletedWorkflow.name);
+
       console.log('WorkflowService: Workflow template deleted successfully');
       return { success: true, message: 'Workflow template deleted successfully' };
     } catch (error) {
       console.error('WorkflowService: Error deleting workflow template:', error);
+      throw error;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Workflow suggestion matching
+  // ---------------------------------------------------------------------
+  // A template is a catch-all ("general") template when it is scoped to neither
+  // a device type nor a service type. Such a template used to be suggested on
+  // EVERY order; it is now only offered as a fallback (see getSuggestedWorkflows).
+  static isCatchAllTemplate(workflow) {
+    const deviceTypes = workflow?.deviceTypes || [];
+    const serviceTypes = workflow?.serviceTypes || [];
+    return deviceTypes.length === 0 && serviceTypes.length === 0;
+  }
+
+  // A template is GENERAL when it leaves at least one scope dimension open - no
+  // deviceTypes ("any device") or no serviceTypes ("any service"). The pre-refactor
+  // query offered exactly these on every order (`deviceTypes $size 0` OR
+  // `serviceTypes $size 0`), so they stay offerable, but only through the fallback
+  // tier in getSuggestedWorkflows. isCatchAllTemplate (BOTH empty) is its strictest
+  // case and is therefore always general as well.
+  static isGeneralTemplate(workflow) {
+    const deviceTypes = workflow?.deviceTypes || [];
+    const serviceTypes = workflow?.serviceTypes || [];
+    return deviceTypes.length === 0 || serviceTypes.length === 0;
+  }
+
+  // A template matches an order when every scope it declares matches.
+  // An empty deviceTypes array means "any device", an empty serviceTypes array
+  // means "any service" - but only within the scope the template does declare.
+  //
+  // serviceTypes is stored as [String], but the admin UI (WorkflowManagement.tsx)
+  // writes Service ObjectId strings into it while the order side only knows the
+  // service CATEGORY. We therefore accept a match on either representation, so a
+  // template scoped in the admin UI actually matches instead of matching nothing
+  // (and no data migration is required). See F1-D.
+  static matchesOrderScope(workflow, deviceType, serviceCategories = [], serviceIds = []) {
+    const deviceTypes = workflow?.deviceTypes || [];
+    const serviceTypes = workflow?.serviceTypes || [];
+
+    const deviceMatches = deviceTypes.length === 0 || deviceTypes.includes(deviceType);
+
+    const orderServiceTokens = [
+      ...(serviceCategories || []),
+      ...(serviceIds || [])
+    ]
+      .map((token) => (token ? String(token) : ''))
+      .filter(Boolean);
+
+    const serviceMatches = serviceTypes.length === 0 ||
+      orderServiceTokens.some((token) => serviceTypes.includes(token));
+
+    return deviceMatches && serviceMatches;
+  }
+
+  // Get the workflow templates that should be offered for an order.
+  // Rule: specific templates (scoped to the order's device type and/or service
+  // categories, every declared dimension matching) win. General templates - those
+  // that leave at least one dimension open, catch-alls included - are offered only
+  // when no specific template matches the order at all. Templates already assigned
+  // to the order are never suggested again.
+  static async getSuggestedWorkflows({
+    deviceType,
+    serviceCategories = [],
+    serviceIds = [],
+    assignedTemplateIds = []
+  } = {}) {
+    console.log('WorkflowService: Getting suggested workflows for', {
+      deviceType,
+      serviceCategories,
+      serviceIdCount: (serviceIds || []).length,
+      assignedCount: (assignedTemplateIds || []).length
+    });
+
+    try {
+      const templates = await WorkflowTemplate.find({ isActive: true }).sort({ createdAt: -1 });
+
+      const assigned = new Set(
+        (assignedTemplateIds || [])
+          .map((id) => (id ? String(id) : ''))
+          .filter(Boolean)
+      );
+
+      // Drop the already-assigned templates FIRST. The catch-all fallback has to be
+      // decided on what is still offerable: if the only matching specific template
+      // is already assigned to this order, the order is back to having no specific
+      // option and the general template must be offered again (otherwise the
+      // suggestion list comes back empty).
+      const offerable = templates.filter((template) => !assigned.has(String(template._id)));
+
+      const specificMatches = offerable.filter(
+        (template) => !WorkflowService.isCatchAllTemplate(template) &&
+          WorkflowService.matchesOrderScope(template, deviceType, serviceCategories, serviceIds)
+      );
+
+      // Fallback tier. The pre-refactor query offered a template whenever
+      // `deviceTypes $size 0` OR `serviceTypes $size 0` held, so a half-scoped
+      // template (e.g. serviceTypes ['Akku'] with no deviceTypes) was offered even on
+      // an order it contradicts. Limiting the fallback to templates with BOTH arrays
+      // empty dropped those templates from the suggestions altogether. They are
+      // offered again here - but as a FALLBACK only, so the unconditional catch-all
+      // of the old query does not come back: as soon as one specific template matches,
+      // no general template is suggested.
+      const generalMatches = offerable.filter(
+        (template) => WorkflowService.isGeneralTemplate(template)
+      );
+
+      const suggested = specificMatches.length > 0 ? specificMatches : generalMatches;
+
+      console.log('WorkflowService: Suggested', suggested.length, 'workflows', {
+        offerableCount: offerable.length,
+        specificMatchCount: specificMatches.length,
+        generalCount: generalMatches.length,
+        usedGeneralFallback: specificMatches.length === 0
+      });
+
+      return suggested;
+    } catch (error) {
+      console.error('WorkflowService: Error getting suggested workflows:', error);
       throw error;
     }
   }
@@ -459,6 +642,9 @@ class WorkflowService {
 
       const duplicateWorkflow = new WorkflowTemplate(duplicateData);
       const savedWorkflow = await duplicateWorkflow.save();
+
+      // A duplicate carrying a suppressed seed name re-occupies that name.
+      await WorkflowService.clearSeedSuppression(savedWorkflow.name);
 
       console.log('WorkflowService: Workflow template duplicated successfully');
       return savedWorkflow;

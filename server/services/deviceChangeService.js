@@ -153,6 +153,17 @@ class DeviceChangeService {
 
       const originalTotalCost = Number(order.totalCost) || 0;
 
+      // Preserve the originally booked device before it is overwritten. Write-once:
+      // a second correction must not move the snapshot forward.
+      if (!order.reportedDevice?.model) {
+        order.reportedDevice = {
+          brand: originalDevice.brand,
+          model: originalDevice.model,
+          deviceType: originalDevice.type,
+          capturedAt: new Date(),
+        };
+      }
+
       // Update device information
       order.deviceBrand = newDeviceInfo.deviceBrand;
       order.deviceModel = newDeviceInfo.deviceModel;
@@ -370,6 +381,13 @@ class DeviceChangeService {
       // Create summary object
       const pricingChangesSummary = {
         originalDevice,
+        // The device the customer ORIGINALLY booked - differs from originalDevice as soon
+        // as this is the second correction of the same order.
+        bookedDevice: {
+          brand: order.reportedDevice?.brand || originalDevice.brand,
+          model: order.reportedDevice?.model || originalDevice.model,
+          type: order.reportedDevice?.deviceType || originalDevice.type,
+        },
         newDevice: {
           brand: newDeviceInfo.deviceBrand,
           model: newDeviceInfo.deviceModel,

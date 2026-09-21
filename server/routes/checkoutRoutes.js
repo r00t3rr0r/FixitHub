@@ -65,6 +65,11 @@ const linkCheckoutPayment = async ({ paymentMethod, paymentData = {}, booking, o
   if (!payment) return null;
 
   payment.bookingId = booking._id;
+  // orderId bleibt der erste Auftrag des Warenkorbs (Rueckwaertskompatibilitaet fuer
+  // auftragsbezogene Leser). Die VOLLSTAENDIGE Zuordnung steht in
+  // metadata.checkoutOrderIds; auftragsbezogene Auswertungen muessen zusaetzlich
+  // ueber bookingId lesen, sonst faellt bei einem Warenkorb mit mehreren Auftraegen
+  // der gesamte Umsatz auf orders[0].
   payment.orderId = orders[0]?._id;
   payment.orderNumber = orders[0]?.orderNumber || '';
   payment.metadata = {
@@ -74,7 +79,43 @@ const linkCheckoutPayment = async ({ paymentMethod, paymentData = {}, booking, o
     linkedAt: new Date().toISOString(),
   };
   await payment.save();
+
+  // Existiert zu dieser Buchung bereits eine offene Rechnung, wird die Vorauszahlung
+  // SOFORT zugeordnet - nicht erst beim naechsten Rechnungslauf. Bewusst nicht fatal:
+  // die Zahlung ist erfasst, eine fehlgeschlagene Zuordnung darf den Checkout nicht
+  // abbrechen. Der Aufruf ist idempotent.
+  await autoAllocateBookingPayments(booking._id, 'linkCheckoutPayment');
+
   return payment;
+};
+
+/**
+ * Ordnet eingegangene Zahlungen einer Buchung den offenen Rechnungen zu.
+ * Mehrfachaufrufe sind unschaedlich (siehe FinancialService.autoAllocateUnallocatedPayments):
+ * bereits zugeordnete Betraege werden abgezogen, die Buchung laeuft ueber ein
+ * bedingtes Update auf der Zahlung.
+ */
+const autoAllocateBookingPayments = async (bookingId, context) => {
+  if (!bookingId) return;
+  try {
+    await FinancialService.autoAllocateUnallocatedPayments(String(bookingId));
+  } catch (error) {
+    console.error(`CheckoutRoutes: auto allocation failed (${context}):`, error.message);
+  }
+};
+
+/**
+ * Wird eine Zahlung ERST NACH der Rechnungsstellung abgeschlossen (verspaeteter
+ * Webhook, nachtraegliche Capture-Bestaetigung), muss die Zuordnung ebenfalls laufen.
+ * Ohne diesen Aufruf bliebe das Geld unzugeordnet und die Rechnung mahnbar.
+ */
+const allocateAfterPaymentCompleted = async (payment, context) => {
+  if (!payment) return;
+  const bookingId = payment.bookingId
+    || payment.metadata?.checkoutBookingId
+    || null;
+  if (!bookingId) return;
+  await autoAllocateBookingPayments(bookingId, context);
 };
 
 const normalizeCheckoutAddress = (address) => {
@@ -388,6 +429,21 @@ const applyPaypalWebhookUpdate = async ({ payment, eventType, resource, orderId,
   };
 
   await payment.save();
+
+  // Verspaetete Statusaenderung (Webhook trifft nach der Rechnungsstellung ein):
+  // Zuordnung nachziehen bzw. nach einer Erstattung den Rechnungsstand neu ableiten.
+  if (payment.status === 'completed') {
+    await allocateAfterPaymentCompleted(payment, 'paypalWebhook');
+  } else if (payment.status === 'refunded' || Number(payment.refundAmount || 0) > 0) {
+    try {
+      const PaymentAllocation = require('../models/PaymentAllocation');
+      const affected = await PaymentAllocation.find({ paymentId: payment._id }).select('invoiceId').lean();
+      await FinancialService.recalculateInvoicePaidAmounts(affected.map((entry) => entry.invoiceId));
+    } catch (error) {
+      console.error('CheckoutRoutes: invoice recalculation after refund webhook failed:', error.message);
+    }
+  }
+
   return payment;
 };
 
@@ -1087,6 +1143,7 @@ router.post('/paypal/capture-order', requireUser, async (req, res) => {
       capturedAt: new Date().toISOString()
     };
     await payment.save();
+    await allocateAfterPaymentCompleted(payment, 'paypalCapture');
 
     return res.json({
       success: true,
@@ -1197,6 +1254,7 @@ router.post('/paypal/guest/capture-order', async (req, res) => {
       capturedAt: new Date().toISOString()
     };
     await payment.save();
+    await allocateAfterPaymentCompleted(payment, 'paypalGuestCapture');
 
     return res.json({
       success: true,
@@ -1256,6 +1314,7 @@ router.post('/paypal/guest/capture-order', async (req, res) => {
               capturedAt: new Date().toISOString()
             };
             await existingPayment.save();
+            await allocateAfterPaymentCompleted(existingPayment, 'paypalGuestReconcile');
           }
 
           return res.json({

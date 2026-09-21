@@ -199,6 +199,11 @@ interface Booking {
   // DHL Returns information
   trackingNumber?: string
   carrier?: string
+  // Richtung des gespeicherten Versandlabels. 'inbound' = Einsendung des Kunden an
+  // McRepair (Hinweg), 'outbound' = Ruecksendung an den Kunden (Rueckweg). Wird vom
+  // Server aus dem Buchungsverlauf abgeleitet (GET /api/bookings/:id); fehlt das Feld
+  // (Listenantwort, Altbestand), gilt 'inbound'.
+  shippingLabelDirection?: 'inbound' | 'outbound'
   shippingStatus?: 'pending' | 'label-created' | 'shipped' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed' | ''
   shippingStatusDescription?: string
   shippingLabelUrl?: string
@@ -956,7 +961,7 @@ export function BookingsManagement() {
         console.error("Error loading orders:", error)
         toast({
           title: t('common.error'),
-          description: "Zugeordnete Auftraege konnten nicht geladen werden",
+          description: "Zugeordnete Aufträge konnten nicht geladen werden",
           variant: "destructive"
         })
         const newLoading = new Set(loadingOrders)
@@ -1118,7 +1123,7 @@ export function BookingsManagement() {
       case 'partially_paid':
         return 'Teilweise Bezahlt'
       case 'overdue':
-        return 'Ueberfaellig'
+        return 'Überfällig'
       case 'unpaid':
         return 'Offen'
       case 'partially-paid':
@@ -1164,7 +1169,7 @@ export function BookingsManagement() {
       case 'in-progress':
         return 'In Arbeit'
       case 'quality-check':
-        return 'Qualitaetspruefung'
+        return 'Qualitätsprüfung'
       case 'ready-for-pickup':
         return 'Abholbereit'
       case 'completed':
@@ -1255,7 +1260,7 @@ export function BookingsManagement() {
           <div className="bookings-page-heading-row">
             <div>
               <h1 className="bookings-page-title" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--white)', marginBottom: '4px' }}>Buchungsverwaltung</h1>
-              <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.82rem' }}>Verwalte und ueberwache alle buchungsbezogenen Aufgaben</p>
+              <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.82rem' }}>Verwalte und überwache alle buchungsbezogenen Aufgaben</p>
             </div>
             <Button type="button" className="manual-repair-trigger" onClick={() => setShowManualRepairDialog(true)}>
               <Wrench className="h-4 w-4" /> Reparaturauftrag anlegen
@@ -1674,7 +1679,7 @@ export function BookingsManagement() {
                             {getShippingStatusLabel(booking.returnShipmentStatus)}
                           </Badge>
                         ) : (
-                          <span className="text-xs text-foreground/50">Keine Ruecksendung</span>
+                          <span className="text-xs text-foreground/50">Keine Rücksendung</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -1799,7 +1804,7 @@ export function BookingsManagement() {
                                 window.location.href = `/admin/orders?bookingId=${booking._id}`
                               }}>
                                 <ExternalLink className="h-4 w-4 mr-2" />
-                                Auftraege anzeigen
+                                Aufträge anzeigen
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -1885,18 +1890,18 @@ export function BookingsManagement() {
 
                             {loadingOrders.has(booking._id) ? (
                               <div className="text-center py-4">
-                                <p className="text-sm text-foreground/60">Auftraege werden geladen...</p>
+                                <p className="text-sm text-foreground/60">Aufträge werden geladen...</p>
                               </div>
                             ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
                               <div className="space-y-4">
-                                <h4 className="font-semibold text-sm mb-3">Zugeordnete Auftraege und Reparaturen</h4>
+                                <h4 className="font-semibold text-sm mb-3">Zugeordnete Aufträge und Reparaturen</h4>
                                 <div className="border rounded-lg overflow-hidden">
                                   <Table className="text-sm">
                                     <TableHeader>
                                       <TableRow className="bg-muted/50">
                                         <TableHead>Auftragsnummer</TableHead>
                                         <TableHead>Typ</TableHead>
-                                        <TableHead>Geraet/Produkt</TableHead>
+                                        <TableHead>Gerät/Produkt</TableHead>
                                         <TableHead>Leistungen/Details</TableHead>
                                         <TableHead className="text-center">Fortschritt</TableHead>
                                         <TableHead>Status</TableHead>
@@ -1931,7 +1936,7 @@ export function BookingsManagement() {
                                           <TableCell>
                                             <div className="text-sm">
                                               {item.type === 'repair' ? (
-                                                <span>{item.device || 'Geraetereparatur'}</span>
+                                                <span>{item.device || 'Gerätereparatur'}</span>
                                               ) : (
                                                 <span>{item.products?.map((p: any) => p.name).join(', ') || 'Produktposition'}</span>
                                               )}
@@ -2025,7 +2030,7 @@ export function BookingsManagement() {
                               </div>
                             ) : (
                               <div className="text-center py-4">
-                                <p className="text-sm text-foreground/60">Keine zugeordneten Auftraege gefunden</p>
+                                <p className="text-sm text-foreground/60">Keine zugeordneten Aufträge gefunden</p>
                               </div>
                             )}
                           </div>
@@ -2079,7 +2084,7 @@ export function BookingsManagement() {
                     disabled={currentPage === 1 || loading}
                   >
                     <ChevronLeft className="h-4 w-4 mr-1" />
-                    Zurueck
+                    Zurück
                   </Button>
 
                   <div className="flex items-center gap-1">
@@ -2149,7 +2154,7 @@ export function BookingsManagement() {
               <DialogHeader className="px-6 pt-6 pb-0">
                 <DialogTitle className="sr-only">Kundenkommunikation</DialogTitle>
                 <DialogDescription className="sr-only">
-                  Kundenkommunikation fuer den ausgewaehlten Auftrag einsehen und verwalten.
+                  Kundenkommunikation für den ausgewählten Auftrag einsehen und verwalten.
                 </DialogDescription>
               </DialogHeader>
 
@@ -2168,7 +2173,7 @@ export function BookingsManagement() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Kundenfeedback, Anfragen und Rueckfragen zentral verwalten.
+                      Kundenfeedback, Anfragen und Rückfragen zentral verwalten.
                     </p>
                     <div className="rounded-lg border p-2 bg-background">
                       <CommunicationPanel
@@ -2380,14 +2385,14 @@ function BookingDetailDialog({
       setUpdating(true)
       await updateBookingStatus(booking._id, newStatus as any, description)
       toast({
-        title: "Success",
+        title: "Erfolg",
         description: "Buchungsstatus aktualisiert"
       })
       setDescription("")
       onStatusUpdate()
     } catch (error) {
       toast({
-        title: "Error",
+        title: "Fehler",
         description: "Status konnte nicht aktualisiert werden",
         variant: "destructive"
       })
@@ -2401,13 +2406,13 @@ function BookingDetailDialog({
       setUpdating(true)
       await updateBookingBillingStatus(booking._id, newBillingStatus as any)
       toast({
-        title: "Success",
+        title: "Erfolg",
         description: "Zahlungsstatus aktualisiert"
       })
       onStatusUpdate()
     } catch (error) {
       toast({
-        title: "Error",
+        title: "Fehler",
         description: "Zahlungsstatus konnte nicht aktualisiert werden",
         variant: "destructive"
       })
@@ -2501,7 +2506,7 @@ function BookingDetailDialog({
       case 'partially_paid':
         return 'Teilweise Bezahlt'
       case 'overdue':
-        return 'Ueberfaellig'
+        return 'Überfällig'
       case 'unpaid':
         return 'Offen'
       case 'partially-paid':
@@ -2511,6 +2516,27 @@ function BookingDetailDialog({
       default:
         return status
     }
+  }
+
+  // Der Verlaufseintrag speichert einen technischen Marker ('Shipping Label Created')
+  // oder einen rohen Enum-Wert ('paid', 'cancelled'). Beides wird hier uebersetzt;
+  // unbekannte Werte bleiben unveraendert, damit nichts verschluckt wird.
+  const getTimelineStatusLabel = (status: string) => {
+    const timelineLabels: Record<string, string> = {
+      'Booking Created': 'Buchung angelegt',
+      'Shipping Label Prepared': 'Versandlabel vorbereitet',
+      'Shipping Label Created': 'Versandlabel erstellt',
+      'Shipping Status Updated': 'Versandstatus aktualisiert',
+      'Return Status Updated': 'Rücksendestatus aktualisiert',
+      'Order Status Updated': 'Auftragsstatus aktualisiert',
+      'Status Updated': 'Status aktualisiert',
+    }
+    if (timelineLabels[status]) return timelineLabels[status]
+
+    const bookingLabel = getBookingStatusLabel(status)
+    if (bookingLabel !== status) return bookingLabel
+
+    return getBillingStatusLabel(status)
   }
 
   const effectivePaymentStatus = (() => {
@@ -2613,9 +2639,21 @@ function BookingDetailDialog({
   )
 
   const hasAnyShippingInfo = hasOutboundShippingInfo || hasReturnShippingInfo
-  const primaryShippingDirectionLabel = hasOutboundShippingInfo && !hasReturnShippingInfo
-    ? 'Rueckweg'
-    : 'Hinweg'
+
+  // G5: booking.trackingNumber kann ein Einsendelabel (Kunde -> McRepair) ODER ein
+  // Ruecksendelabel (McRepair -> Kunde) sein - der Admin-Dialog laesst die Richtung
+  // waehlen. Die Ueberschriften duerfen deshalb nicht fest 'Hinweg' behaupten, sondern
+  // folgen der vom Server gelieferten Richtung (Vorgabe: Hinweg).
+  const isOutboundShippingLabel = booking.shippingLabelDirection === 'outbound'
+  const outboundShippingTitle = isOutboundShippingLabel
+    ? 'Rücksendung an den Kunden (Rückweg)'
+    : 'Versand an McRepair (Hinweg)'
+  const outboundShippingHistoryTitle = isOutboundShippingLabel
+    ? 'Versandverlauf (Rückweg)'
+    : 'Versandverlauf (Hinweg)'
+  const outboundShippingHint = isOutboundShippingLabel
+    ? 'Sendung von McRepair an den Kunden'
+    : 'Sendung des Kunden an McRepair'
   const repairJobs = (detailOrders.length > 0 ? detailOrders : booking.items || []).filter((item: any) => item.type === 'repair')
 
   const bookingItemsForFinance = Array.isArray(booking.items) ? booking.items : []
@@ -2672,7 +2710,7 @@ function BookingDetailDialog({
           border: '#86efac',
           background: '#ecfdf5',
           text: '#065f46',
-          creditHint: 'Als Rueckzahlung oder Kundenguthaben verbuchen.',
+          creditHint: 'Als Rückzahlung oder Kundenguthaben verbuchen.',
           outstandingHint: 'Als Nachbelastung nach bereits erfolgter Zahlung ausweisen.'
         }
       case 'partially-paid':
@@ -2691,7 +2729,7 @@ function BookingDetailDialog({
           background: '#fffbeb',
           text: '#92400e',
           creditHint: 'Reduziert den noch offenen Rechnungsbetrag.',
-          outstandingHint: 'Erhoeht den bei Abrechnung faelligen Betrag.'
+          outstandingHint: 'Erhöht den bei Abrechnung fälligen Betrag.'
         }
       default:
         return {
@@ -2699,8 +2737,8 @@ function BookingDetailDialog({
           border: '#d1d5db',
           background: '#f9fafb',
           text: '#374151',
-          creditHint: 'Als Gutschrift in der Buchhaltung pruefen.',
-          outstandingHint: 'Als offenen Teilbetrag in der Buchhaltung pruefen.'
+          creditHint: 'Als Gutschrift in der Buchhaltung prüfen.',
+          outstandingHint: 'Als offenen Teilbetrag in der Buchhaltung prüfen.'
         }
     }
   })()
@@ -2756,7 +2794,7 @@ function BookingDetailDialog({
               transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
             }}
           >
-            Uebersicht
+            Übersicht
           </TabsTrigger>
           <TabsTrigger 
             value="repairs"
@@ -3077,7 +3115,7 @@ function BookingDetailDialog({
                   >
                     <div className="flex items-center justify-between text-xs">
                       <span style={{ color: 'var(--gray-500, #636e85)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Aenderungen seit Buchung
+                        Änderungen seit Buchung
                       </span>
                       <span style={{ color: 'var(--gray-500, #636e85)' }}>
                         {financialAdjustments.length} Position(en)
@@ -3093,7 +3131,7 @@ function BookingDetailDialog({
                             </p>
                             <p style={{ color: 'var(--gray-500, #636e85)' }}>
                               {formatCurrency(entry.baselineCost)} {'->'} {formatCurrency(entry.currentCost)}
-                              {entry.hasDeviceChangeHistory ? ' • Geraete-/Servicewechsel' : ''}
+                              {entry.hasDeviceChangeHistory ? ' • Geräte-/Servicewechsel' : ''}
                             </p>
                           </div>
                           <span
@@ -3108,7 +3146,7 @@ function BookingDetailDialog({
 
                     <div className="rounded-md px-2.5 py-2 text-xs" style={{ background: 'var(--off-white, #f8f9fc)', border: '1px solid var(--gray-200, #d8dce6)' }}>
                       <div className="flex items-center justify-between">
-                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Urspruenglicher Buchungswert</span>
+                        <span style={{ color: 'var(--gray-500, #636e85)' }}>Ursprünglicher Buchungswert</span>
                         <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatCurrency(financeBaselineTotal)}</span>
                       </div>
                       <div className="flex items-center justify-between mt-1">
@@ -3116,7 +3154,7 @@ function BookingDetailDialog({
                         <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>{formatCurrency(financeCurrentTotal)}</span>
                       </div>
                       <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: '1px solid var(--gray-200, #d8dce6)' }}>
-                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>Saldo Aenderung</span>
+                        <span className="font-semibold" style={{ color: 'var(--gray-700, #2d3748)' }}>Saldo Änderung</span>
                         <span className="font-bold" style={{ color: financeDeltaTotal > 0 ? '#b45309' : financeDeltaTotal < 0 ? '#047857' : 'var(--gray-700, #2d3748)' }}>
                           {financeDeltaTotal > 0 ? '+' : financeDeltaTotal < 0 ? '-' : ''}{formatCurrency(Math.abs(financeDeltaTotal))}
                         </span>
@@ -3144,7 +3182,7 @@ function BookingDetailDialog({
                         )}
                         {deviceChangeRelatedCount > 0 && (
                           <p className="mt-1" style={{ color: '#6b7280' }}>
-                            Davon betreffen {deviceChangeRelatedCount} Position(en) dokumentierte Geraetewechsel.
+                            Davon betreffen {deviceChangeRelatedCount} Position(en) dokumentierte Gerätewechsel.
                           </p>
                         )}
                       </div>
@@ -3196,7 +3234,7 @@ function BookingDetailDialog({
               {newStatus !== booking.status && (
                 <>
                   <Textarea
-                    placeholder="Beschreibung hinzufuegen (optional)"
+                    placeholder="Beschreibung hinzufügen (optional)"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className="mt-2"
@@ -3569,7 +3607,7 @@ function BookingDetailDialog({
                       style={{ color: '#f5c800', fontWeight: '700' }}
                     >
                       <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
-                      Versandinformationen ({primaryShippingDirectionLabel})
+                      {outboundShippingTitle}
                     </h3>
                     {booking.shippingStatus && (
                       <Badge className={getShippingStatusBadgeClass(booking.shippingStatus)}>
@@ -3590,6 +3628,9 @@ function BookingDetailDialog({
                             </p>
                             <p className="text-xs mt-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
                               Versanddienstleister: {booking.carrier || 'DHL'}
+                            </p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
+                              {outboundShippingHint}
                             </p>
                           </div>
                         </div>
@@ -3666,7 +3707,7 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <Clock className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Versandverlauf ({primaryShippingDirectionLabel})</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>{outboundShippingHistoryTitle}</p>
                             <div className="space-y-2 text-sm">
                               {booking.shippingCreatedAt && (
                                 <div className="flex items-center gap-2">
@@ -3750,7 +3791,7 @@ function BookingDetailDialog({
                       style={{ color: '#f5c800', fontWeight: '700' }}
                     >
                       <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
-                      Ruecksendungsinformationen
+                      Rücksendungsinformationen
                     </h3>
                     {booking.returnShipmentStatus && (
                       <Badge className={getShippingStatusBadgeClass(booking.returnShipmentStatus)}>
@@ -3770,7 +3811,7 @@ function BookingDetailDialog({
                               {booking.returnTrackingNumber}
                             </p>
                             <p className="text-xs mt-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
-                              Nutze diese Nummer, um die Ruecksendung bei DHL zu verfolgen
+                              Nutze diese Nummer, um die Rücksendung bei DHL zu verfolgen
                             </p>
                           </div>
                         </div>
@@ -3789,17 +3830,17 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <FileText className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Ruecksende-Label (PDF)</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Rücksende-Label (PDF)</p>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => downloadBookingReturnLabel(booking._id, `return-label-${booking.bookingNumber || booking._id}.pdf`)}
                             >
                               <Download className="h-4 w-4 mr-2" />
-                              Ruecksende-Label herunterladen
+                              Rücksende-Label herunterladen
                             </Button>
                             <p className="text-xs text-foreground/50 mt-2">
-                              Dieses Label ausdrucken und am Ruecksendepaket anbringen
+                              Dieses Label ausdrucken und am Rücksendepaket anbringen
                             </p>
                           </div>
                         </div>
@@ -3811,7 +3852,7 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <QrCode className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm text-foreground/60 mb-2">QR-Code fuer label-freie Ruecksendung</p>
+                            <p className="text-sm text-foreground/60 mb-2">QR-Code für label-freie Rücksendung</p>
                             <Button
                               size="sm"
                               variant="outline"
@@ -3826,7 +3867,7 @@ function BookingDetailDialog({
                               QR-Code herunterladen
                             </Button>
                             <p className="text-xs mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>
-                              Diesen QR-Code in einer DHL-Filiale fuer die label-freie Ruecksendung vorzeigen
+                              Diesen QR-Code in einer DHL-Filiale für die label-freie Rücksendung vorzeigen
                             </p>
                           </div>
                         </div>
@@ -3838,7 +3879,7 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <Clock className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Ruecksendeverlauf</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Rücksendeverlauf</p>
                             <div className="space-y-2 text-sm">
                               {booking.returnCreatedAt && (
                                 <div className="flex items-center gap-2">
@@ -3873,13 +3914,13 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Ruecksendehinweise</h4>
+                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Rücksendehinweise</h4>
                   <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--gray-600, #4a5568)', fontSize: '0.9rem' }}>
-                    <li>Ruecksende-Label ausdrucken oder den QR-Code am Handy speichern</li>
+                    <li>Rücksende-Label ausdrucken oder den QR-Code am Handy speichern</li>
                     <li>Artikel sicher in einem geeigneten Karton verpacken</li>
                     <li>Label aufkleben oder den QR-Code in einer DHL-Filiale vorzeigen</li>
                     <li>Paket bei DHL abgeben oder eine Abholung vereinbaren</li>
-                    <li>Ruecksendung mit der oben stehenden Nummer verfolgen</li>
+                    <li>Rücksendung mit der oben stehenden Nummer verfolgen</li>
                   </ol>
                 </div>
               )}
@@ -3895,8 +3936,8 @@ function BookingDetailDialog({
               }}
             >
               <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
-              <p style={{ color: 'var(--gray-600, #4a5568)' }}>Keine Ruecksendungsinformationen fuer diese Buchung verfuegbar</p>
-              <p className="text-sm mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>Ruecksendedetails erscheinen hier, sobald sie erstellt wurden</p>
+              <p style={{ color: 'var(--gray-600, #4a5568)' }}>Keine Rücksendungsinformationen für diese Buchung verfügbar</p>
+              <p className="text-sm mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>Rücksendedetails erscheinen hier, sobald sie erstellt wurden</p>
               <Button
                 onClick={() => setShowReturnLabelDialog(true)}
                 className="mt-4"
@@ -3909,7 +3950,7 @@ function BookingDetailDialog({
                 }}
               >
                 <Truck className="h-4 w-4 mr-2" />
-                Ruecksende-Label erstellen
+                Rücksende-Label erstellen
               </Button>
             </div>
           )}
@@ -3948,7 +3989,7 @@ function BookingDetailDialog({
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold" style={{ color: 'var(--primary-blue, #1a2a5e)', fontSize: '1.05rem', fontWeight: '700' }}>
-                      {event.status}
+                      {getTimelineStatusLabel(event.status)}
                     </h4>
                     <p className="text-sm mt-1" style={{ color: 'var(--gray-600, #4a5568)' }}>
                       {event.description}
@@ -3979,7 +4020,7 @@ function BookingDetailDialog({
                 className="h-12 w-12 mx-auto mb-4"
                 style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }}
               />
-              <p style={{ color: 'var(--gray-400, #8892a8)' }}>Keine Verlaufseintraege</p>
+              <p style={{ color: 'var(--gray-400, #8892a8)' }}>Keine Verlaufseinträge</p>
             </div>
           )}
         </TabsContent>
@@ -4147,7 +4188,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
         {paymentsHeader}
         <div className="text-center py-8">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-40" />
-          <p className="text-foreground/60">Fuer diese Buchung wurden noch keine Rechnungen erstellt</p>
+          <p className="text-foreground/60">Für diese Buchung wurden noch keine Rechnungen erstellt</p>
         </div>
         {paymentsDialog}
       </div>
@@ -4179,7 +4220,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
                 </p>
                 {invoice.dueDate && (
                   <p className="text-sm text-foreground/60">
-                    Faellig: {formatDate(invoice.dueDate)}
+                    Fällig: {formatDate(invoice.dueDate)}
                   </p>
                 )}
               </div>
@@ -4247,7 +4288,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
             <DialogHeader>
               <DialogTitle>Zahlungserinnerung senden</DialogTitle>
               <DialogDescription>
-                Erinnerung an {customerDisplayName} fuer Rechnung #{selectedInvoice.invoiceNumber} senden
+                Erinnerung an {customerDisplayName} für Rechnung #{selectedInvoice.invoiceNumber} senden
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -4256,7 +4297,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
                 <p className="text-sm text-foreground/60">Betrag: {formatCurrency(selectedInvoice.total)}</p>
                 <p className="text-sm text-foreground/60">Status: {selectedInvoice.status}</p>
                 {selectedInvoice.dueDate && (
-                  <p className="text-sm text-foreground/60">Faelligkeitsdatum: {formatDate(selectedInvoice.dueDate)}</p>
+                  <p className="text-sm text-foreground/60">Fälligkeitsdatum: {formatDate(selectedInvoice.dueDate)}</p>
                 )}
               </div>
               <p className="text-sm text-foreground/60">
@@ -4272,7 +4313,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
                   if (!customer._id) {
                     toast({
                       title: "Fehler",
-                      description: "Kein verknuepfter Kunde fuer diese Buchung gefunden",
+                      description: "Kein verknüpfter Kunde für diese Buchung gefunden",
                       variant: "destructive"
                     })
                     return
@@ -4283,7 +4324,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
                     customerId: customer._id,
                     type: 'payment',
                     title: `Zahlungserinnerung - Rechnung #${selectedInvoice.invoiceNumber}`,
-                    message: `Dies ist eine Erinnerung, dass Rechnung #${selectedInvoice.invoiceNumber} ueber ${formatCurrency(selectedInvoice.total)} ${selectedInvoice.status === 'overdue' ? 'ueberfaellig' : 'zur Zahlung ausstehend'} ist. Bitte begleichen Sie den Betrag zeitnah.`,
+                    message: `Dies ist eine Erinnerung, dass Rechnung #${selectedInvoice.invoiceNumber} über ${formatCurrency(selectedInvoice.total)} ${selectedInvoice.status === 'overdue' ? 'überfällig' : 'zur Zahlung ausstehend'} ist. Bitte begleichen Sie den Betrag zeitnah.`,
                     scheduledDate: new Date().toISOString(),
                     priority: selectedInvoice.status === 'overdue' ? 'high' : 'medium',
                     notificationMethod: ['email', 'in-app']
@@ -4478,8 +4519,8 @@ function InvoiceDialog({
   const handleCreate = async () => {
     if (!canCreateAnyInvoice) {
       toast({
-        title: 'Rechnung nicht moeglich',
-        description: 'Es ist noch kein abgeschlossener Auftrag fuer die Rechnungserstellung verfuegbar.',
+        title: 'Rechnung nicht möglich',
+        description: 'Es ist noch kein abgeschlossener Auftrag für die Rechnungserstellung verfügbar.',
         variant: 'destructive'
       })
       return
@@ -4487,8 +4528,8 @@ function InvoiceDialog({
 
     if (invoiceMode === 'booking' && !allOrdersCompleted) {
       toast({
-        title: 'Gesamtrechnung nicht moeglich',
-        description: 'Eine Gesamtrechnung ist erst moeglich, wenn alle Auftraege abgeschlossen sind.',
+        title: 'Gesamtrechnung nicht möglich',
+        description: 'Eine Gesamtrechnung ist erst möglich, wenn alle Aufträge abgeschlossen sind.',
         variant: 'destructive'
       })
       return
@@ -4496,8 +4537,8 @@ function InvoiceDialog({
 
     if (invoiceMode === 'order' && !selectedOrderId) {
       toast({
-        title: 'Teil-Rechnung nicht moeglich',
-        description: 'Bitte waehlen Sie einen abgeschlossenen Auftrag aus.',
+        title: 'Teil-Rechnung nicht möglich',
+        description: 'Bitte wählen Sie einen abgeschlossenen Auftrag aus.',
         variant: 'destructive'
       })
       return
@@ -4568,10 +4609,10 @@ function InvoiceDialog({
         {/* Header */}
         <DialogHeader className="bg-[#1a2a5e] px-6 py-4 flex-shrink-0">
           <DialogTitle className="text-[#f5b800] text-lg font-bold">
-            Rechnung fuer Buchung erstellen
+            Rechnung für Buchung erstellen
           </DialogTitle>
           <DialogDescription className="text-white/70 text-sm">
-            Rechnungsdetails pruefen und bestaetigen
+            Rechnungsdetails prüfen und bestätigen
           </DialogDescription>
         </DialogHeader>
 
@@ -4583,9 +4624,9 @@ function InvoiceDialog({
             </div>
           ) : !canCreateAnyInvoice ? (
             <div className="text-center py-8">
-              <p className="text-sm font-medium text-[#1a2a5e]">Rechnungserstellung noch nicht verfuegbar</p>
+              <p className="text-sm font-medium text-[#1a2a5e]">Rechnungserstellung noch nicht verfügbar</p>
               <p className="text-sm text-foreground/60 mt-1">
-                Fuer diese Buchung ist noch kein Auftrag mit Status "completed" vorhanden.
+                Für diese Buchung ist noch kein Auftrag mit Status "completed" vorhanden.
               </p>
             </div>
           ) : canCreateAnyInvoice ? (
@@ -4603,7 +4644,7 @@ function InvoiceDialog({
                       disabled={!allOrdersCompleted}
                     >
                       <p className="text-sm font-semibold text-[#1a2a5e]">Gesamtrechnung</p>
-                      <p className="text-xs text-foreground/60 mt-1">Nur verfuegbar, wenn alle zugehoerigen Auftraege abgeschlossen sind.</p>
+                      <p className="text-xs text-foreground/60 mt-1">Nur verfügbar, wenn alle zugehörigen Aufträge abgeschlossen sind.</p>
                     </button>
                     <button
                       type="button"
@@ -4612,27 +4653,27 @@ function InvoiceDialog({
                       disabled={!canCreatePartialInvoice}
                     >
                       <p className="text-sm font-semibold text-[#1a2a5e]">Teil-Rechnung</p>
-                      <p className="text-xs text-foreground/60 mt-1">Erstellt eine Rechnung nur fuer einen bereits abgeschlossenen Auftrag.</p>
+                      <p className="text-xs text-foreground/60 mt-1">Erstellt eine Rechnung nur für einen bereits abgeschlossenen Auftrag.</p>
                     </button>
                   </div>
 
                   {!allOrdersCompleted && canCreatePartialInvoice && (
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                      Nicht alle Auftraege sind abgeschlossen. Eine Gesamtrechnung bleibt gesperrt, Teil-Rechnungen fuer abgeschlossene Auftraege sind moeglich.
+                      Nicht alle Aufträge sind abgeschlossen. Eine Gesamtrechnung bleibt gesperrt, Teil-Rechnungen für abgeschlossene Aufträge sind möglich.
                     </p>
                   )}
 
                   {invoiceMode === 'order' && (
                     <div>
-                      <label className="text-sm font-medium text-[#1a2a5e]">Abgeschlossenen Auftrag waehlen</label>
+                      <label className="text-sm font-medium text-[#1a2a5e]">Abgeschlossenen Auftrag wählen</label>
                       <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
                         <SelectTrigger className="mt-2 border-[#1a2a5e]/20 focus:ring-[#f5b800]">
-                          <SelectValue placeholder="Auftrag auswaehlen" />
+                          <SelectValue placeholder="Auftrag auswählen" />
                         </SelectTrigger>
                         <SelectContent>
                           {completedOrders.map((order) => (
                             <SelectItem key={order._id} value={order._id}>
-                              {(order.orderNumber || order._id)} - {[order.deviceBrand, order.deviceModel].filter(Boolean).join(' ') || 'Geraet'}
+                              {(order.orderNumber || order._id)} - {[order.deviceBrand, order.deviceModel].filter(Boolean).join(' ') || 'Gerät'}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -4644,7 +4685,7 @@ function InvoiceDialog({
 
               {!preview ? (
                 <div className="text-center py-8 text-foreground/60 border rounded-lg bg-white dark:bg-muted/10">
-                  Vorschau wird geladen oder ist fuer die aktuelle Auswahl nicht verfuegbar.
+                  Vorschau wird geladen oder ist für die aktuelle Auswahl nicht verfügbar.
                 </div>
               ) : (
                 <>
@@ -4727,7 +4768,7 @@ function InvoiceDialog({
                         <Textarea
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
-                          placeholder="Weitere Notizen hinzufuegen..."
+                          placeholder="Weitere Notizen hinzufügen..."
                           rows={3}
                           className="mt-2 border-[#1a2a5e]/20 focus-visible:ring-[#f5b800]"
                         />
@@ -4752,7 +4793,7 @@ function InvoiceDialog({
             </div>
           ) : (
             <div className="text-center py-8 text-foreground/60">
-              Keine Vorschau verfuegbar
+              Keine Vorschau verfügbar
             </div>
           )}
         </div>
@@ -4805,7 +4846,7 @@ function ReminderDialog({
     if (!title || !message || !scheduledDate) {
       toast({
         title: "Fehler",
-        description: "Bitte alle Pflichtfelder ausfuellen",
+        description: "Bitte alle Pflichtfelder ausfüllen",
         variant: "destructive"
       })
       return
@@ -4814,7 +4855,7 @@ function ReminderDialog({
     if (!customer._id) {
       toast({
         title: "Fehler",
-        description: "Kein verknuepfter Kunde fuer diese Buchung gefunden",
+        description: "Kein verknüpfter Kunde für diese Buchung gefunden",
         variant: "destructive"
       })
       return
@@ -4849,7 +4890,7 @@ function ReminderDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Erinnerung erstellen</DialogTitle>
-          <DialogDescription>Erinnerung fuer diese Buchung planen</DialogDescription>
+          <DialogDescription>Erinnerung für diese Buchung planen</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -4902,7 +4943,7 @@ function ReminderDialog({
           </div>
 
           <div>
-            <label className="text-sm font-medium">Prioritaet</label>
+            <label className="text-sm font-medium">Priorität</label>
             <Select value={priority} onValueChange={setPriority}>
               <SelectTrigger className="mt-2">
                 <SelectValue />
@@ -4953,7 +4994,7 @@ function ComplaintDialog({
     if (!subject || !description) {
       toast({
         title: "Fehler",
-        description: "Bitte alle Pflichtfelder ausfuellen",
+        description: "Bitte alle Pflichtfelder ausfüllen",
         variant: "destructive"
       })
       return
@@ -4996,7 +5037,7 @@ function ComplaintDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="quality">Qualitaet</SelectItem>
+                <SelectItem value="quality">Qualität</SelectItem>
                 <SelectItem value="service">Service</SelectItem>
                 <SelectItem value="delivery">Lieferung</SelectItem>
                 <SelectItem value="billing">Abrechnung</SelectItem>
@@ -5028,7 +5069,7 @@ function ComplaintDialog({
           </div>
 
           <div>
-            <label className="text-sm font-medium">Prioritaet</label>
+            <label className="text-sm font-medium">Priorität</label>
             <Select value={priority} onValueChange={setPriority}>
               <SelectTrigger className="mt-2">
                 <SelectValue />
@@ -5107,18 +5148,18 @@ function ReturnLabelDialog({
 
         toast({
           title: "Erfolg",
-          description: "Ruecksende-Label erfolgreich erstellt"
+          description: "Rücksende-Label erfolgreich erstellt"
         })
 
         onSuccess()
       } else {
-        throw new Error(response.message || 'Ruecksende-Label konnte nicht erstellt werden')
+        throw new Error(response.message || 'Rücksende-Label konnte nicht erstellt werden')
       }
     } catch (error) {
       console.error('Error creating return label:', error)
       toast({
         title: "Fehler",
-        description: error instanceof Error ? error.message : "Ruecksende-Label konnte nicht erstellt werden",
+        description: error instanceof Error ? error.message : "Rücksende-Label konnte nicht erstellt werden",
         variant: "destructive"
       })
     } finally {
@@ -5130,9 +5171,9 @@ function ReturnLabelDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Ruecksende-Label erstellen</DialogTitle>
+          <DialogTitle>Rücksende-Label erstellen</DialogTitle>
           <DialogDescription>
-            DHL-Ruecksende-Label fuer Buchung #{booking._id.slice(-8).toUpperCase()} erstellen
+            DHL-Rücksende-Label für Buchung #{booking._id.slice(-8).toUpperCase()} erstellen
           </DialogDescription>
         </DialogHeader>
 
@@ -5165,7 +5206,7 @@ function ReturnLabelDialog({
               </div>
               <div className="flex justify-between">
                 <span style={{ color: 'var(--gray-500, #636e85)' }}>Telefon:</span>
-                <span style={{ color: 'var(--gray-700, #2d3748)' }}>{customer.phone || 'Nicht verfuegbar'}</span>
+                <span style={{ color: 'var(--gray-700, #2d3748)' }}>{customer.phone || 'Nicht verfügbar'}</span>
               </div>
             </div>
           </div>
@@ -5185,10 +5226,10 @@ function ReturnLabelDialog({
               Wichtig
             </h3>
             <ul className="text-sm space-y-1 list-disc list-inside" style={{ color: 'var(--gray-600, #4a5568)' }}>
-              <li>Es wird ein DHL-Ruecksende-Label fuer diese Buchung erstellt</li>
+              <li>Es wird ein DHL-Rücksende-Label für diese Buchung erstellt</li>
               <li>Eine Sendungsnummer wird erzeugt und dem Kunden angezeigt</li>
-              <li>Der Kunde erhaelt eine E-Mail-Benachrichtigung mit dem Ruecksende-Label</li>
-              <li>Das Ruecksende-Label kann gedruckt oder als QR-Code in DHL-Filialen gezeigt werden</li>
+              <li>Der Kunde erhält eine E-Mail-Benachrichtigung mit dem Rücksende-Label</li>
+              <li>Das Rücksende-Label kann gedruckt oder als QR-Code in DHL-Filialen gezeigt werden</li>
             </ul>
           </div>
 
@@ -5203,10 +5244,10 @@ function ReturnLabelDialog({
           >
             <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>Wie geht es weiter?</h3>
             <ol className="list-decimal list-inside space-y-1 text-sm" style={{ color: 'var(--gray-600, #4a5568)' }}>
-              <li>Ein Ruecksende-Label wird ueber die DHL-Integration erstellt</li>
+              <li>Ein Rücksende-Label wird über die DHL-Integration erstellt</li>
               <li>Sendungsnummer und Label werden in der Buchung gespeichert</li>
-              <li>Der Tab Versand wird mit den Ruecksendedaten aktualisiert</li>
-              <li>Der Kunde erhaelt eine E-Mail mit den Download-Links</li>
+              <li>Der Tab Versand wird mit den Rücksendedaten aktualisiert</li>
+              <li>Der Kunde erhält eine E-Mail mit den Download-Links</li>
             </ol>
           </div>
         </div>
@@ -5239,7 +5280,7 @@ function ReturnLabelDialog({
             {creatingLabel && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
             )}
-            {creatingLabel ? "Wird erstellt..." : "Ruecksende-Label erstellen"}
+            {creatingLabel ? "Wird erstellt..." : "Rücksende-Label erstellen"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -76,18 +76,6 @@ const customerGroupSchema = new mongoose.Schema({
       min: 0,
       max: 365,
     },
-    cashDiscountPercent: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 100,
-    },
-    cashDiscountDays: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 365,
-    },
     creditLimit: {
       type: Number,
       default: 0,

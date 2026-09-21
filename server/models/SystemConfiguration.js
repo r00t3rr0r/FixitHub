@@ -347,10 +347,6 @@ const systemConfigurationSchema = new mongoose.Schema({
         type: Number,
         default: 20
       },
-      earlyPaymentDiscountPercent: {
-        type: Number,
-        default: 2
-      },
       lateFeePercent: {
         type: Number,
         default: 5

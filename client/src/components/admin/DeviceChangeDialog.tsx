@@ -46,6 +46,13 @@ interface PricingChangesSummary {
     model: string
     type: string
   }
+  // The device the customer originally booked (differs from originalDevice once the
+  // order has been corrected more than once).
+  bookedDevice?: {
+    brand: string
+    model: string
+    type: string
+  }
   newDevice: {
     brand: string
     model: string
@@ -940,6 +947,16 @@ export function DeviceChangeDialog({
                         {pricingChanges.originalDevice.brand} {pricingChanges.originalDevice.model}
                       </span>
                     </div>
+                    {pricingChanges.bookedDevice
+                      && `${pricingChanges.bookedDevice.brand} ${pricingChanges.bookedDevice.model}`
+                         !== `${pricingChanges.originalDevice.brand} ${pricingChanges.originalDevice.model}` && (
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-[#636e85]">Ursprünglich gebucht:</span>
+                        <span className="text-right font-semibold text-[#1a202c]">
+                          {pricingChanges.bookedDevice.brand} {pricingChanges.bookedDevice.model}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-[#636e85]">Neues Geraet:</span>
                       <span className="text-right font-semibold text-[#1a202c]">

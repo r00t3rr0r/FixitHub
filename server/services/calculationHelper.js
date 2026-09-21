@@ -68,8 +68,9 @@ class CalculationHelper {
    * @param {Array<{total: number, unitPrice?: number, quantity?: number, type?: string, description?: string}>} items
    * @param {object} options
    * @param {number} options.taxRatePercent - Steuersatz (Standard 19)
-   * @param {number} options.additionalDiscount - Zusätzlicher Rabattbetrag (Brutto)
+   * @param {number} options.additionalDiscount - Zusätzlicher Rabattbetrag (Brutto, immer positiver Betrag)
    * @param {boolean} options.isReverseCharge - Innergemeinschaftliche Lieferung (Reverse Charge / 0% MwSt)
+   * @param {boolean} options.allowNegative - Gutschriften: negative Summen zulassen statt auf 0 zu kappen
    */
   static calculateInvoiceTotals(items = [], options = {}) {
     const isReverseCharge = Boolean(options.isReverseCharge);
@@ -105,7 +106,15 @@ class CalculationHelper {
       calculatedItems.reduce((sum, it) => sum + (it.lineGrossTotal || 0), 0)
     );
 
-    const invoiceGrossTotal = CalculationHelper.round(Math.max(0, itemsGrossTotal - additionalDiscount));
+    // Der Rabatt wird GENAU EINMAL vom Bruttobetrag abgezogen; Netto/MwSt werden danach
+    // aus dem rabattierten Brutto herausgerechnet (niemals oben draufgerechnet).
+    // Gutschriften (allowNegative) rechnen auf dem Betrag und setzen das Vorzeichen einmal am Ende.
+    const allowNegative = Boolean(options.allowNegative);
+    const invoiceGrossTotal = allowNegative
+      ? CalculationHelper.round(
+        Math.sign(itemsGrossTotal || 0) * Math.max(0, Math.abs(itemsGrossTotal) - Math.abs(additionalDiscount))
+      )
+      : CalculationHelper.round(Math.max(0, itemsGrossTotal - additionalDiscount));
     const invoiceNetTotal = CalculationHelper.round(invoiceGrossTotal / taxDivisor);
     const invoiceTaxTotal = CalculationHelper.round(invoiceGrossTotal - invoiceNetTotal);
 
