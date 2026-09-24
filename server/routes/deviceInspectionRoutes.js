@@ -5,10 +5,32 @@ const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
 
+// Technical errors (Mongoose validation/cast, driver errors, programming errors) carry
+// ENGLISH developer text and must never be shown in the German technician UI. They are
+// still logged in full by each handler; the client only ever sees a German sentence.
+const TECHNICAL_ERROR_NAMES = new Set([
+  'ValidationError', 'ValidatorError', 'CastError', 'StrictModeError', 'VersionError',
+  'ParallelSaveError', 'DocumentNotFoundError', 'OverwriteModelError', 'DivergentArrayError',
+  'MongooseError', 'MongoError', 'MongoServerError', 'MongoNetworkError', 'MongoBulkWriteError',
+  'TypeError', 'ReferenceError', 'SyntaxError', 'RangeError',
+]);
+
+// Returns the German message to show the technician. Messages thrown by
+// DeviceInspectionService are already German and pass through unchanged.
+const userFacingError = (error, fallbackDe) => {
+  if (!error || typeof error.message !== 'string' || !error.message.trim()) {
+    return fallbackDe;
+  }
+  if (TECHNICAL_ERROR_NAMES.has(error.name)) {
+    return fallbackDe;
+  }
+  return error.message;
+};
+
 // Middleware to check if user is admin or staff
 const requireAdminOrStaff = (req, res, next) => {
   if (!req.user || !['admin', 'staff'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied. Admin or staff role required.' });
+    return res.status(403).json({ error: 'Zugriff verweigert. Diese Aktion ist Administratoren und Mitarbeitern vorbehalten.' });
   }
   next();
 };
@@ -24,7 +46,7 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
     const { orderId, customerId } = req.body;
 
     if (!orderId) {
-      return res.status(400).json({ error: 'orderId is required' });
+      return res.status(400).json({ error: 'Auftrags-ID fehlt.' });
     }
 
     let resolvedCustomerId = customerId || null;
@@ -33,7 +55,7 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
     if (!resolvedCustomerId) {
       const order = await Order.findById(orderId).select('customerId');
       if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
+        return res.status(404).json({ error: 'Auftrag nicht gefunden.' });
       }
 
       if (order.customerId) {
@@ -50,7 +72,7 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error initializing inspection:', error);
-    return res.status(500).json({ error: error.message || 'Failed to initialize inspection' });
+    return res.status(500).json({ error: userFacingError(error, 'Inspektion konnte nicht gestartet werden.') });
   }
 });
 
@@ -78,7 +100,7 @@ router.get('/:orderId', requireUser, async (req, res) => {
       if (!order.customerId) {
         if (!isAdminOrStaff) {
           console.log('[DeviceInspectionRoutes] Access denied - Guest order requires staff access');
-          return res.status(403).json({ error: 'Access denied' });
+          return res.status(403).json({ error: 'Zugriff verweigert.' });
         }
 
         return res.status(200).json({ inspection });
@@ -88,7 +110,7 @@ router.get('/:orderId', requireUser, async (req, res) => {
 
       if (orderCustomerId !== currentUserId && !isAdminOrStaff) {
         console.log('[DeviceInspectionRoutes] Access denied - User does not own order');
-        return res.status(403).json({ error: 'Access denied' });
+        return res.status(403).json({ error: 'Zugriff verweigert.' });
       }
     }
 
@@ -96,7 +118,7 @@ router.get('/:orderId', requireUser, async (req, res) => {
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error fetching inspection:', error);
-    return res.status(500).json({ error: error.message || 'Failed to fetch inspection' });
+    return res.status(500).json({ error: userFacingError(error, 'Inspektion konnte nicht geladen werden.') });
   }
 });
 
@@ -108,10 +130,10 @@ router.put('/:orderId/model-verification', requireUser, requireAdminOrStaff, asy
   console.log('[DeviceInspectionRoutes] PUT /:orderId/model-verification - Updating model verification');
 
   try {
-    const { reportedModel, actualModel, verificationStatus, costDifference, notes, supervisorId } = req.body;
+    const { reportedModel, actualModel, verificationStatus, costDifference, notes, supervisorId, actualModelConfirmed } = req.body;
 
     if (!reportedModel || !actualModel || !verificationStatus) {
-      return res.status(400).json({ error: 'reportedModel, actualModel, and verificationStatus are required' });
+      return res.status(400).json({ error: 'Gemeldetes Modell, tatsächliches Modell und Prüfstatus sind erforderlich.' });
     }
 
     const inspection = await DeviceInspectionService.updateModelVerification(
@@ -121,13 +143,18 @@ router.put('/:orderId/model-verification', requireUser, requireAdminOrStaff, asy
       verificationStatus,
       costDifference || 0,
       notes || '',
-      supervisorId
+      supervisorId,
+      // Explicit "the technician picked/typed this value" flag. Without it the server may
+      // replace an echoed pre-change model from a stale draft (and says so in `warnings`).
+      { actualModelConfirmed: actualModelConfirmed === true }
     );
 
-    return res.status(200).json({ inspection });
+    const warnings = (inspection && inspection.$locals && inspection.$locals.warnings) || [];
+
+    return res.status(200).json(warnings.length ? { inspection, warnings } : { inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error updating model verification:', error);
-    return res.status(500).json({ error: error.message || 'Failed to update model verification' });
+    return res.status(500).json({ error: userFacingError(error, 'Modellprüfung konnte nicht gespeichert werden.') });
   }
 });
 
@@ -141,10 +168,9 @@ router.put('/:orderId/identification', requireUser, requireAdminOrStaff, async (
   try {
     const { deviceType, imei, serialNumber } = req.body;
 
-    if (!deviceType) {
-      return res.status(400).json({ error: 'deviceType is required' });
-    }
-
+    // deviceType is deliberately NOT required: Order.deviceType is free-form and may be
+    // empty or an unmapped catalog name. The service normalises it to 'Other' instead of
+    // blocking the technician on step 2.
     const inspection = await DeviceInspectionService.updateIdentification(
       req.params.orderId,
       deviceType,
@@ -155,7 +181,7 @@ router.put('/:orderId/identification', requireUser, requireAdminOrStaff, async (
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error updating identification:', error);
-    return res.status(400).json({ error: error.message || 'Failed to update identification' });
+    return res.status(400).json({ error: userFacingError(error, 'Identifikation konnte nicht gespeichert werden.') });
   }
 });
 
@@ -177,7 +203,7 @@ router.put('/:orderId/accessories', requireUser, requireAdminOrStaff, async (req
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error updating accessories:', error);
-    return res.status(500).json({ error: error.message || 'Failed to update accessories' });
+    return res.status(500).json({ error: userFacingError(error, 'Zubehör konnte nicht gespeichert werden.') });
   }
 });
 
@@ -192,7 +218,7 @@ router.put('/:orderId/external-inspection', requireUser, requireAdminOrStaff, as
     const { display, frame, backCover, buttons, visibleDamages, uniqueNotes, photos } = req.body;
 
     if (!display || !frame || !backCover || !buttons) {
-      return res.status(400).json({ error: 'display, frame, backCover, and buttons are required' });
+      return res.status(400).json({ error: 'Anzeige, Rahmen, Rückseite und Tasten sind erforderlich.' });
     }
 
     const inspectionData = {
@@ -213,7 +239,7 @@ router.put('/:orderId/external-inspection', requireUser, requireAdminOrStaff, as
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error updating external inspection:', error);
-    return res.status(500).json({ error: error.message || 'Failed to update external inspection' });
+    return res.status(500).json({ error: userFacingError(error, 'Äußere Inspektion konnte nicht gespeichert werden.') });
   }
 });
 
@@ -228,7 +254,7 @@ router.put('/:orderId/device-tests', requireUser, requireAdminOrStaff, async (re
     const testData = req.body;
 
     if (!testData.charging || !testData.power || !testData.wifi || !testData.frontCamera || !testData.mainCamera) {
-      return res.status(400).json({ error: 'All test fields are required: charging, power, wifi, frontCamera, mainCamera' });
+      return res.status(400).json({ error: 'Alle Testfelder sind erforderlich: Laden, Einschalten, WLAN, Frontkamera und Hauptkamera.' });
     }
 
     const inspection = await DeviceInspectionService.updateDeviceTest(
@@ -244,7 +270,7 @@ router.put('/:orderId/device-tests', requireUser, requireAdminOrStaff, async (re
     });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error updating device tests:', error);
-    return res.status(500).json({ error: error.message || 'Failed to update device tests' });
+    return res.status(500).json({ error: userFacingError(error, 'Gerätetests konnten nicht gespeichert werden.') });
   }
 });
 
@@ -266,7 +292,7 @@ router.put('/:orderId/apple-specific', requireUser, requireAdminOrStaff, async (
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error updating Apple-specific checks:', error);
-    return res.status(500).json({ error: error.message || 'Failed to update Apple-specific checks' });
+    return res.status(500).json({ error: userFacingError(error, 'Apple-spezifische Prüfungen konnten nicht gespeichert werden.') });
   }
 });
 
@@ -291,7 +317,7 @@ router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, r
     return res.status(200).json({ inspection });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error completing inspection:', error);
-    return res.status(500).json({ error: error.message || 'Failed to complete inspection' });
+    return res.status(500).json({ error: userFacingError(error, 'Inspektion konnte nicht abgeschlossen werden.') });
   }
 });
 
@@ -311,7 +337,7 @@ router.get('/:orderId/report', requireUser, requireAdminOrStaff, async (req, res
     });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error generating report:', error);
-    return res.status(500).json({ error: error.message || 'Failed to generate report' });
+    return res.status(500).json({ error: userFacingError(error, 'Prüfbericht konnte nicht erstellt werden.') });
   }
 });
 
@@ -338,7 +364,7 @@ router.get('/', requireUser, requireAdminOrStaff, async (req, res) => {
     });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error fetching inspections:', error);
-    return res.status(500).json({ error: error.message || 'Failed to fetch inspections' });
+    return res.status(500).json({ error: userFacingError(error, 'Inspektionen konnten nicht geladen werden.') });
   }
 });
 

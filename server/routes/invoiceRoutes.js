@@ -51,8 +51,17 @@ const getGatewayFromRequest = async (gatewayId, gatewayProvider) => {
   return gateway;
 };
 
-const loadInvoicePaymentHistory = async (invoiceId) => {
-  const payments = await Payment.find({ invoiceId })
+// Zahlungshistorie einer Rechnung.
+// Gelesen wird nach DERSELBEN Regel wie in der Admin-Detailansicht: ueber die
+// Rechnung ODER den Auftrag. Altbestandszahlungen (und Gateway-Vorauszahlungen)
+// tragen haeufig nur eine orderId - ohne den breiteren Treffer sieht der Kunde
+// eine leere Historie, waehrend der Beleg als bezahlt gefuehrt wird.
+const loadInvoicePaymentHistory = async (invoiceId, orderId = null) => {
+  const matchConditions = [{ invoiceId }];
+  const normalizedOrderId = orderId && typeof orderId === 'object' ? (orderId._id || orderId) : orderId;
+  if (normalizedOrderId) matchConditions.push({ orderId: normalizedOrderId });
+
+  const payments = await Payment.find({ $or: matchConditions })
     .sort({ processedAt: -1, createdAt: -1 })
     .lean();
 
@@ -498,7 +507,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     });
 
     if (existingPayment) {
-      const paymentHistory = await loadInvoicePaymentHistory(invoice._id);
+      const paymentHistory = await loadInvoicePaymentHistory(invoice._id, invoice.orderId);
       return res.json({
         success: true,
         alreadyRecorded: true,
@@ -627,7 +636,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       }
     });
 
-    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id);
+    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id, result.invoice.orderId);
     const invoiceWithHistory = {
       ...result.invoice,
       paymentHistory,
@@ -779,7 +788,7 @@ router.post('/:id/pay', requireUser, async (req, res) => {
       metadata: safePaymentMetadata
     });
 
-    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id);
+    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id, result.invoice.orderId);
     const invoiceWithHistory = {
       ...result.invoice,
       paymentHistory,
@@ -887,7 +896,7 @@ router.get('/:id', requireUser, async (req, res) => {
     console.log('InvoiceRoutes: Invoice retrieved successfully');
 
     const enrichedInvoice = withProfileBillingAddress(invoice);
-    const paymentHistory = await loadInvoicePaymentHistory(invoice._id);
+    const paymentHistory = await loadInvoicePaymentHistory(invoice._id, invoice.orderId);
     const invoiceWithHistory = {
       ...enrichedInvoice,
       paymentHistory,
@@ -939,7 +948,10 @@ router.put('/:id/view', requireUser, async (req, res) => {
     if (invoice.status === 'sent') {
       invoice.status = 'viewed';
       await invoice.save();
-      await FinancialService.syncBookingPaymentStatus(invoice);
+      // syncPaymentDerivedState zieht Auftrag UND Buchung nach und scheitert bewusst
+      // nicht fatal - ein Altbestands-Booking darf die bereits gespeicherte
+      // Statusaenderung nicht nachtraeglich als Fehler erscheinen lassen.
+      await FinancialService.syncPaymentDerivedState(invoice, 'invoiceRoutes:viewed');
       console.log('InvoiceRoutes: Invoice status updated to viewed');
     }
 

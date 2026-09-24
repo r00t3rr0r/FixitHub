@@ -33,20 +33,34 @@ export interface Payment {
 export interface Invoice {
   _id: string;
   invoiceNumber: string;
+  /** LEGACY - wird vom Server vergeben und ist nicht mehr vom Client setzbar. */
   numberPrefix?: string;
   orderId?: string | { _id: string; orderNumber?: string; status?: string; deviceType?: string; deviceBrand?: string; deviceModel?: string };
   repairOrderIds?: (string | { _id: string; orderNumber?: string; status?: string; deviceType?: string; deviceBrand?: string; deviceModel?: string })[];
   bookingId?: string;
-  creditNoteOf?: string;
+  /** Vom Server aufgeloeste Buchung (ueber orderId/repairOrderIds), falls bookingId leer ist. */
+  resolvedBookingId?: string;
+  creditNoteOf?: string | { _id: string; invoiceNumber?: string; total?: number; status?: InvoiceStatus; createdAt?: string };
+  /** Eingefrorene Nummer der Ursprungsrechnung - bevorzugt fuer die Anzeige. */
+  creditNoteOfNumber?: string;
+  correctionType?: 'full_cancellation' | 'partial_refund' | 'price_adjustment';
   isCreditNote?: boolean;
   customerId: string;
   customerName: string;
   customerEmail: string;
   items: InvoiceItem[];
+  /** NETTO-Gesamtbetrag (der Server rechnet brutto-first). */
   subtotal: number;
+  /** Herausgerechnete MwSt. */
   tax: number;
+  /** BRUTTO-Rabattbetrag, immer positiv gespeichert. */
   discount: number;
+  /** BRUTTO-Gesamtbetrag. */
   total: number;
+  /** Gespiegelte Summen aus dem Invoice-Modell - bevorzugt fuer die Anzeige. */
+  invoiceNetTotal?: number;
+  invoiceTaxTotal?: number;
+  invoiceGrossTotal?: number;
   paidAmount: number;
   status: InvoiceStatus;
   dunningLevel?: number;
@@ -378,12 +392,16 @@ export const createInvoice = async (invoiceData: Partial<Invoice>) => {
 export const generateInvoiceFromRepairs = async (
   repairOrderIds: string[],
   options?: Partial<{
+    /** PROZENTWERT (19), niemals ein Bruch (0.19). */
     taxRate: number;
     discount: number;
     dueDate: string;
     paymentTerms: string;
     notes: string;
-    numberPrefix: string;
+    isReverseCharge: boolean;
+    customerVatId: string;
+    sellerVatId: string;
+    reverseChargeNotice: string;
   }>
 ) => {
   try {
@@ -436,10 +454,12 @@ export const addInvoicePayment = async (
 
 export const createCreditNote = async (invoiceId: string, options: {
   reason?: string;
+  /** PROZENTWERT (19), niemals ein Bruch (0.19). */
   taxRate?: number;
+  /** Positiver BRUTTO-Rabattbetrag. */
   discount?: number;
   dueDate?: string;
-  numberPrefix?: string;
+  notifyCustomer?: boolean;
   items?: Array<{
     description: string;
     quantity: number;
@@ -627,12 +647,81 @@ export const reconcileOverpayment = async (bookingId: string, options?: { amount
   }
 };
 
-export const requestAdditionalPayment = async (bookingId: string, options?: { amount?: number; note?: string }) => {
+export type PaymentRequestStatus =
+  | 'pending'
+  | 'accepted_by_provider'
+  | 'failed'
+  | 'skipped_no_recipient';
+
+export interface PaymentRequestRecord {
+  _id: string;
+  bookingId?: string;
+  bookingNumber?: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  amount?: number;
+  openBalanceAtRequest?: number;
+  channel?: string;
+  recipientEmail?: string;
+  recipientName?: string;
+  note?: string;
+  status: PaymentRequestStatus;
+  providerMessageId?: string;
+  attempts?: number;
+  error?: string;
+  requestedAt: string;
+  requestedBy?: { _id?: string; firstName?: string; lastName?: string; email?: string } | string;
+}
+
+export interface RequestAdditionalPaymentResult {
+  success: boolean;
+  /**
+   * 'accepted_by_provider' bedeutet: der Mailserver hat die Nachricht angenommen.
+   * Das ist KEINE Zustellbestaetigung.
+   */
+  status?: PaymentRequestStatus;
+  code?: string;
+  message?: string;
+  recipientEmail?: string;
+  amount?: number;
+  openBalance?: number;
+  requestId?: string;
+  error?: string;
+  isOverpaid?: boolean;
+}
+
+export const requestAdditionalPayment = async (
+  bookingId: string,
+  options?: { amount?: number; note?: string }
+): Promise<RequestAdditionalPaymentResult> => {
   try {
     const response = await api.post(`/api/admin/financial/bookings/${bookingId}/payment-request`, options || {});
-    return response.data;
+    return response.data as RequestAdditionalPaymentResult;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'Error requesting payment'));
+    throw new Error(extractErrorMessage(error, 'Zahlungsaufforderung konnte nicht gesendet werden.'));
+  }
+};
+
+/**
+ * Verlauf der bereits versendeten Zahlungsaufforderungen einer Buchung.
+ * Endpunkt wird vom Payments-Track geliefert; solange er fehlt, meldet der Aufruf
+ * `available: false`, damit die UI einen ehrlichen Hinweis statt einer leeren
+ * "Es wurde noch nichts gesendet"-Liste zeigt.
+ */
+export const getPaymentRequests = async (
+  bookingId: string
+): Promise<{ available: boolean; requests: PaymentRequestRecord[] }> => {
+  try {
+    const response = await api.get(`/api/admin/financial/bookings/${bookingId}/payment-requests`);
+    const data = response.data as { requests?: PaymentRequestRecord[]; paymentRequests?: PaymentRequestRecord[] };
+    return { available: true, requests: data?.requests || data?.paymentRequests || [] };
+  } catch (error: unknown) {
+    const status = (error as { status?: number; response?: { status?: number } })?.response?.status
+      ?? (error as { status?: number })?.status;
+    if (status === 404 || status === 501) {
+      return { available: false, requests: [] };
+    }
+    throw new Error(extractErrorMessage(error, 'Verlauf der Zahlungsaufforderungen konnte nicht geladen werden.'));
   }
 };
 

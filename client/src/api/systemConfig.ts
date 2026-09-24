@@ -74,7 +74,6 @@ export interface FinancialSettings {
   discountPolicy: {
     allowManualDiscounts: boolean;
     maxDiscountPercent: number;
-    earlyPaymentDiscountPercent: number;
     lateFeePercent: number;
   };
   invoiceMetadata: {

@@ -19,8 +19,6 @@ export interface CustomerGroup {
   financeProfile: {
     discountPercent: number;
     paymentDueDays: number;
-    cashDiscountPercent: number;
-    cashDiscountDays: number;
     creditLimit: number;
     currency: string;
     taxMode: 'default' | 'tax_free' | 'reverse_charge' | 'custom';
@@ -149,8 +147,6 @@ export interface CustomerGroupFinancialSummary {
   activeAssignments: number;
   paymentDueDays: number;
   discountPercent: number;
-  cashDiscountPercent: number;
-  cashDiscountDays: number;
   creditLimit: number;
   currency: string;
   taxMode: CustomerGroup['financeProfile']['taxMode'];

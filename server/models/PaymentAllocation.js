@@ -30,10 +30,24 @@ const paymentAllocationSchema = new mongoose.Schema({
   note: {
     type: String,
     default: ''
+  },
+  idempotencyKey: {
+    type: String,
+    default: undefined
   }
 }, {
   timestamps: true,
   versionKey: false
 });
+
+// Zusammengesetzter Index fuer die Saldo-Berechnung (alle Zuordnungen einer Rechnung
+// in Zuordnungsreihenfolge).
+paymentAllocationSchema.index({ invoiceId: 1, allocatedAt: 1 });
+
+// Idempotenzschluessel fuer maschinell erzeugte Zuordnungen (automatische
+// Vorauszahlungs-Zuordnung, Webhook-Wiederholung). Bewusst SPARSE und nicht
+// {paymentId, invoiceId}: mehrere Teilzuordnungen derselben Zahlung auf dieselbe
+// Rechnung sind fachlich erlaubt, eine WIEDERHOLUNG desselben Vorgangs nicht.
+paymentAllocationSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('PaymentAllocation', paymentAllocationSchema);

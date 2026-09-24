@@ -157,8 +157,6 @@ class CustomerGroupService {
       financeProfile: {
         discountPercent: toNumber(payload.financeProfile?.discountPercent, 0),
         paymentDueDays: toNumber(payload.financeProfile?.paymentDueDays, 14),
-        cashDiscountPercent: toNumber(payload.financeProfile?.cashDiscountPercent, 0),
-        cashDiscountDays: toNumber(payload.financeProfile?.cashDiscountDays, 0),
         creditLimit: toNumber(payload.financeProfile?.creditLimit, 0),
         currency: payload.financeProfile?.currency || 'EUR',
         taxMode: payload.financeProfile?.taxMode || 'default',
@@ -244,8 +242,6 @@ class CustomerGroupService {
     if (payload.financeProfile) {
       group.financeProfile.discountPercent = toNumber(payload.financeProfile.discountPercent, group.financeProfile.discountPercent);
       group.financeProfile.paymentDueDays = toNumber(payload.financeProfile.paymentDueDays, group.financeProfile.paymentDueDays);
-      group.financeProfile.cashDiscountPercent = toNumber(payload.financeProfile.cashDiscountPercent, group.financeProfile.cashDiscountPercent);
-      group.financeProfile.cashDiscountDays = toNumber(payload.financeProfile.cashDiscountDays, group.financeProfile.cashDiscountDays);
       group.financeProfile.creditLimit = toNumber(payload.financeProfile.creditLimit, group.financeProfile.creditLimit);
       if (payload.financeProfile.currency !== undefined) group.financeProfile.currency = payload.financeProfile.currency || 'EUR';
       if (payload.financeProfile.taxMode !== undefined) group.financeProfile.taxMode = payload.financeProfile.taxMode;
@@ -829,8 +825,6 @@ class CustomerGroupService {
       activeAssignments,
       paymentDueDays: group.financeProfile?.paymentDueDays || 14,
       discountPercent: group.financeProfile?.discountPercent || 0,
-      cashDiscountPercent: group.financeProfile?.cashDiscountPercent || 0,
-      cashDiscountDays: group.financeProfile?.cashDiscountDays || 0,
       creditLimit: group.financeProfile?.creditLimit || 0,
       currency: group.financeProfile?.currency || 'EUR',
       taxMode: group.financeProfile?.taxMode || 'default',

@@ -4,6 +4,34 @@ const { requireUser, requireRole } = require('./middleware/auth');
 
 const router = express.Router();
 
+/**
+ * Einheitliche Fehlerantwort.
+ *
+ * Fachliche Fehler tragen statusCode + deutsche Meldung und werden unveraendert
+ * durchgereicht. Ein UNERWARTETER Laufzeitfehler wird NICHT mehr als 400 mit seinem
+ * technischen englischen Text ausgeliefert (frueher landete z.B.
+ * "Maximum call stack size exceeded" direkt im Toast des Bearbeiters), sondern als
+ * 500 mit einer deutschen Meldung; der Stack geht ins Log.
+ */
+const respondWithError = (res, error, context, fallbackMessage) => {
+  const statusCode = Number(error?.statusCode);
+  if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode < 600) {
+    console.warn(`${context}:`, error.message);
+    return res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      code: error.code || undefined,
+    });
+  }
+
+  console.error(`${context}:`, error);
+  return res.status(500).json({
+    success: false,
+    error: fallbackMessage,
+    code: 'INTERNAL_ERROR',
+  });
+};
+
 // Payment Management Routes
 
 // Get all payments (admin only)
@@ -122,6 +150,15 @@ router.get('/invoices', requireUser, requireRole(['admin']), async (req, res) =>
       zmRelevant: req.query.zmRelevant,
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
+      // Belegtyp-Ausschnitt: 'invoices' | 'creditNotes' | 'all'. isCreditNote ist die
+      // gleichwertige Schreibweise ('true'/'false'), die der Client bereits schickt.
+      // Ohne diese beiden Felder bekaemen die Rechnungs- und die Gutschriftenseite
+      // denselben Ausschnitt und muessten clientseitig nachfiltern.
+      scope: req.query.scope,
+      isCreditNote: req.query.isCreditNote,
+      // Belegnummer (verankert, indexgestuetzt) und Freitext (Nummer/Kunde/E-Mail).
+      invoiceNumber: req.query.invoiceNumber,
+      search: req.query.search,
       page: req.query.page,
       limit: req.query.limit
     };
@@ -285,17 +322,16 @@ router.patch('/invoices/:id/status', requireUser, requireRole(['admin']), async 
 
   try {
     const { status, notes, paymentMethod, paidAt } = req.body;
-    if (!status) return res.status(400).json({ success: false, error: 'New status is required' });
+    if (!status) return res.status(400).json({ success: false, error: 'Es wurde kein neuer Status angegeben.' });
 
     const invoice = await FinancialService.changeInvoiceStatus(req.params.id, status, {
       notes,
       paymentMethod,
       paidAt,
     });
-    return res.status(200).json({ success: true, message: 'Status updated successfully', invoice });
+    return res.status(200).json({ success: true, message: 'Der Belegstatus wurde geändert.', invoice });
   } catch (error) {
-    console.error('Error changing invoice status:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to change status' });
+    return respondWithError(res, error, 'Error changing invoice status', 'Der Belegstatus konnte nicht geändert werden.');
   }
 });
 
@@ -304,11 +340,30 @@ router.post('/invoices/:id/payments', requireUser, requireRole(['admin']), async
   console.log('POST /api/admin/financial/invoices/:id/payments - Recording invoice payment:', req.params.id);
 
   try {
-    const result = await FinancialService.addInvoicePayment(req.params.id, req.body);
-    return res.status(201).json({ success: true, message: 'Payment recorded successfully', ...result });
+    const result = await FinancialService.addInvoicePayment(req.params.id, {
+      ...req.body,
+      recordedBy: req.user?._id,
+    });
+
+    // Der persistierte Zustand, der HTTP-Status und die Meldung muessen sich decken:
+    // eine bereits erfasste Zahlung ist kein Fehler und wird als 200 mit Hinweis
+    // beantwortet, eine neue Buchung als 201.
+    const warningTexts = [];
+    if (result.warnings && result.warnings.length > 0) {
+      warningTexts.push('Die Zahlung wurde gebucht. Der Auftrags-/Buchungsstatus konnte nicht automatisch nachgezogen werden.');
+    }
+    if (result.warning) warningTexts.push(result.warning);
+
+    return res.status(result.duplicate ? 200 : 201).json({
+      success: true,
+      duplicate: Boolean(result.duplicate),
+      message: result.message || 'Zahlung wurde erfasst.',
+      payment: result.payment,
+      invoice: result.invoice,
+      ...(warningTexts.length > 0 ? { warning: warningTexts.join(' ') } : {}),
+    });
   } catch (error) {
-    console.error('Error recording invoice payment:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to record payment' });
+    return respondWithError(res, error, 'Error recording invoice payment', 'Die Zahlung konnte nicht erfasst werden.');
   }
 });
 
@@ -317,11 +372,20 @@ router.post('/invoices/:id/credit-note', requireUser, requireRole(['admin']), as
   console.log('POST /api/admin/financial/invoices/:id/credit-note - Creating credit note:', req.params.id);
 
   try {
-    const creditNote = await FinancialService.createCreditNote(req.params.id, req.body);
-    return res.status(201).json({ success: true, message: 'Credit note created successfully', creditNote });
+    // req.body NICHT unbesehen durchreichen: correctionType steuert die Obergrenze
+    // der Gutschrift und darf nur aus der bekannten Liste kommen.
+    const { items, discount, taxRate, reason, dueDate, correctionType } = req.body || {};
+    const creditNote = await FinancialService.createCreditNote(req.params.id, {
+      ...(items !== undefined ? { items } : {}),
+      ...(discount !== undefined ? { discount } : {}),
+      ...(taxRate !== undefined ? { taxRate } : {}),
+      ...(reason !== undefined ? { reason } : {}),
+      ...(dueDate !== undefined ? { dueDate } : {}),
+      ...(correctionType !== undefined ? { correctionType } : {}),
+    });
+    return res.status(201).json({ success: true, message: 'Gutschrift wurde erstellt.', creditNote });
   } catch (error) {
-    console.error('Error creating credit note:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to create credit note' });
+    return respondWithError(res, error, 'Error creating credit note', 'Die Gutschrift konnte nicht erstellt werden.');
   }
 });
 
@@ -451,13 +515,42 @@ router.post('/bookings/:bookingId/overpayment/reconcile', requireUser, requireRo
 });
 
 // Send payment request / Zahlungsaufforderung for a booking (admin only)
+// KANAL: E-Mail. Es gibt keine PayPal-Zahlungsanforderung in diesem System.
+// Antwort bleibt bewusst HTTP 200 mit `success`/`status` im Body, damit der Client
+// zwischen "nichts offen", "kein Empfaenger" und "Versand fehlgeschlagen"
+// unterscheiden kann, statt einen generischen Fehler-Toast zu zeigen.
 router.post('/bookings/:bookingId/payment-request', requireUser, requireRole(['admin']), async (req, res) => {
   try {
-    const result = await FinancialService.requestAdditionalPayment(req.params.bookingId, req.body || {});
+    const result = await FinancialService.requestAdditionalPayment(
+      req.params.bookingId,
+      req.body || {},
+      req.user
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return respondWithError(res, error, 'Error sending payment request', 'Die Zahlungsaufforderung konnte nicht gesendet werden.');
+  }
+});
+
+// List the payment requests already sent for a booking (admin only).
+// Enthaelt Kunden-E-Mail-Adressen und bleibt deshalb admin-only.
+router.get('/bookings/:bookingId/payment-requests', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.getPaymentRequests(req.params.bookingId, req.query || {});
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    console.error('Error sending payment request:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to send payment request' });
+    return respondWithError(res, error, 'Error listing payment requests', 'Die Zahlungsaufforderungen konnten nicht geladen werden.');
+  }
+});
+
+// Controlled re-send of a payment request (admin only).
+// Legt immer einen NEUEN Datensatz an; innerhalb der Sperrfrist nur mit force=true.
+router.post('/payment-requests/:id/resend', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.resendPaymentRequest(req.params.id, req.body || {}, req.user);
+    return res.status(200).json(result);
+  } catch (error) {
+    return respondWithError(res, error, 'Error resending payment request', 'Die Zahlungsaufforderung konnte nicht erneut gesendet werden.');
   }
 });
 

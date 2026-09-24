@@ -26,10 +26,10 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
-import { safeToNumber, formatPrice } from "@/lib/utils"
+import { safeToNumber, formatEUR } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
-import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, createOrderReturnLabel, downloadOrderReturnLabel } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, createOrderReturnLabel, downloadOrderReturnLabel, getCustomerInvoicesForOrder, downloadCustomerInvoicePdf, CustomerOrderInvoice } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
@@ -135,6 +135,7 @@ import {
   AlertTriangle,
   Timer,
   Truck,
+  Receipt,
 } from "lucide-react"
 
 export function OrderDetails() {
@@ -215,6 +216,10 @@ export function OrderDetails() {
   const [downloadingOrderReturnLabel, setDownloadingOrderReturnLabel] = useState(false)
   const [orderInvoices, setOrderInvoices] = useState<FinancialInvoice[]>([])
   const [loadingOrderInvoices, setLoadingOrderInvoices] = useState(false)
+  // Customer-facing invoice list (owner-scoped endpoint, drafts excluded server-side).
+  const [customerInvoices, setCustomerInvoices] = useState<CustomerOrderInvoice[]>([])
+  const [loadingCustomerInvoices, setLoadingCustomerInvoices] = useState(false)
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState('')
   const [invoiceDetailsDialogOpen, setInvoiceDetailsDialogOpen] = useState(false)
   const [selectedInvoiceDetails, setSelectedInvoiceDetails] = useState<FinancialInvoice | null>(null)
   const [invoiceDetailLoading, setInvoiceDetailLoading] = useState(false)
@@ -459,8 +464,8 @@ export function OrderDetails() {
       } catch (error) {
         console.error("Error fetching order details:", error)
         toast({
-          title: "Error",
-          description: "Failed to load order details",
+          title: "Fehler",
+          description: "Die Auftragsdetails konnten nicht geladen werden.",
           variant: "destructive"
         })
       } finally {
@@ -554,6 +559,35 @@ export function OrderDetails() {
 
     loadOrderInvoices(id, String(linkedBooking._id))
   }, [id, user?.role, linkedBooking?._id])
+
+  // Invoices for the CUSTOMER. The admin list above uses the admin-only finance API;
+  // customers get their own documents through the owner-scoped /api/invoices endpoint,
+  // so no other customer's documents can ever be reached from here.
+  useEffect(() => {
+    const loadCustomerInvoices = async () => {
+      if (!id || user?.role !== 'customer') {
+        setCustomerInvoices([])
+        return
+      }
+
+      const bookingId = typeof order?.bookingId === 'string'
+        ? order.bookingId
+        : (order as any)?.bookingId?._id
+
+      try {
+        setLoadingCustomerInvoices(true)
+        const invoices = await getCustomerInvoicesForOrder(id, bookingId ? String(bookingId) : null)
+        setCustomerInvoices(invoices)
+      } catch (error) {
+        console.error('OrderDetails: Failed to load customer invoices:', error)
+        setCustomerInvoices([])
+      } finally {
+        setLoadingCustomerInvoices(false)
+      }
+    }
+
+    loadCustomerInvoices()
+  }, [id, user?.role, order?.bookingId])
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {
@@ -714,7 +748,7 @@ export function OrderDetails() {
 
       toast({
         title: "Workflow nicht gefunden",
-        description: "Der ausgewaehlte Workflow konnte in diesem Auftrag nicht geladen werden.",
+        description: "Der ausgewählte Workflow konnte in diesem Auftrag nicht geladen werden.",
         variant: "destructive",
       })
       navigate(location.pathname, { replace: true })
@@ -769,7 +803,7 @@ export function OrderDetails() {
     if (!complaintReason.trim() || !complaintDescription.trim()) {
       toast({
         title: "Fehlende Angaben",
-        description: "Bitte Reklamationsgrund und Beschreibung ausfuellen.",
+        description: "Bitte Reklamationsgrund und Beschreibung ausfüllen.",
         variant: "destructive"
       })
       return
@@ -810,7 +844,7 @@ export function OrderDetails() {
     if (!technicianAckReason.trim()) {
       toast({
         title: "Fehlende Angaben",
-        description: "Bitte einen Grund fuer die anerkannte Reklamation angeben.",
+        description: "Bitte einen Grund für die anerkannte Reklamation angeben.",
         variant: "destructive"
       })
       return
@@ -849,7 +883,7 @@ export function OrderDetails() {
     if (!technicianDenyReason.trim()) {
       toast({
         title: "Fehlende Angaben",
-        description: "Bitte einen Grund fuer die abgelehnte Reklamation angeben.",
+        description: "Bitte einen Grund für die abgelehnte Reklamation angeben.",
         variant: "destructive"
       })
       return
@@ -864,12 +898,12 @@ export function OrderDetails() {
       if ((response as any)?.escalated) {
         toast({
           title: "Reklamation eskaliert",
-          description: "Die Reklamation wurde an den Admin zur Pruefung weitergeleitet."
+          description: "Die Reklamation wurde an den Admin zur Prüfung weitergeleitet."
         })
       } else {
         toast({
           title: "Reklamation abgelehnt",
-          description: "Die Reklamation wurde bestaetigt und das Reparaturangebot wurde dem Kunden uebermittelt."
+          description: "Die Reklamation wurde bestätigt und das Reparaturangebot wurde dem Kunden übermittelt."
         })
       }
 
@@ -916,13 +950,13 @@ export function OrderDetails() {
       setSelectedStaff([])
 
       toast({
-        title: "Success!",
-        description: "Staff assigned successfully"
+        title: "Erfolg",
+        description: "Der Mitarbeiter wurde zugewiesen."
       })
     } catch (error: any) {
       console.error("Staff assignment error:", error.message)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to assign staff",
         variant: "destructive"
       })
@@ -973,8 +1007,8 @@ export function OrderDetails() {
       await updateOrderStatus(id, newStatus)
 
       toast({
-        title: "Success",
-        description: `Order status updated to ${newStatus.replace('-', ' ')}`
+        title: "Erfolg",
+        description: `Der Auftragsstatus wurde auf „${translateOrderStatus(newStatus)}“ geändert.`
       })
 
       // Refresh order data without turning a successful status update into a hard error.
@@ -990,7 +1024,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error updating order status:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to update order status",
         variant: "destructive"
       })
@@ -1073,7 +1107,7 @@ export function OrderDetails() {
 
         toast({
           title: 'Rechnung bereits vorhanden',
-          description: `Fuer diese Buchung existiert bereits ${existingInvoiceLabel}. Sie werden direkt weitergeleitet.`,
+          description: `Für diese Buchung existiert bereits ${existingInvoiceLabel}. Sie werden direkt weitergeleitet.`,
         })
         navigate(redirectTarget)
         return
@@ -1167,7 +1201,14 @@ export function OrderDetails() {
 
     // Prefer the linked booking's return flow; otherwise create the label directly on the order.
     if (linkedBooking?._id) {
-      if (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created') return
+      if (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created') {
+        toast({
+          title: 'Rücksendelabel bereits erstellt',
+          description: 'Für die zugehörige Buchung existiert bereits ein Rücksendelabel.',
+          variant: 'destructive',
+        })
+        return
+      }
 
       try {
         setCreatingOrderReturnLabel(true)
@@ -1197,7 +1238,14 @@ export function OrderDetails() {
       return
     }
 
-    if (order.returnLabelUrl || order.returnShipmentStatus === 'label-created') return
+    if (order?.hasReturnLabel || order?.returnLabelUrl || order?.returnShipmentStatus === 'label-created') {
+      toast({
+        title: 'Rücksendelabel bereits erstellt',
+        description: 'Für diesen Auftrag existiert bereits ein Rücksendelabel.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     try {
       setCreatingOrderReturnLabel(true)
@@ -1207,7 +1255,10 @@ export function OrderDetails() {
         throw new Error(response?.message || 'Rücksendelabel konnte nicht erstellt werden.')
       }
 
-      setOrder((prev: any) => (prev ? { ...prev, ...(response.order || {}) } : prev))
+      // Re-read through the normal detail endpoint: the raw mongoose document in
+      // `response.order` has a different services/shopProducts shape than the read
+      // layer returns and would corrupt the positions card if merged in.
+      await refreshOrder()
 
       toast({
         title: 'Rücksendelabel erstellt',
@@ -1231,10 +1282,17 @@ export function OrderDetails() {
 
     try {
       setDownloadingOrderReturnLabel(true)
-      if (linkedBooking?._id) {
+      // Download from whichever side actually holds the label. Preferring the booking
+      // unconditionally would 404 for an order-level label created before the order
+      // was linked to a booking.
+      if (linkedBooking?._id && linkedBooking?.returnLabelUrl) {
+        await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
+      } else if (order?.hasReturnLabel || order?.returnLabelUrl) {
+        await downloadOrderReturnLabel(order._id, `ruecksendeetikett-${order.orderNumber || order._id}.pdf`)
+      } else if (linkedBooking?._id) {
         await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
       } else {
-        await downloadOrderReturnLabel(order._id, `ruecksendeetikett-${order.orderNumber || order._id}.pdf`)
+        throw new Error('Für diesen Auftrag ist kein Rücksendelabel hinterlegt.')
       }
     } catch (error: any) {
       toast({
@@ -1247,6 +1305,27 @@ export function OrderDetails() {
     }
   }
 
+  const handleDownloadCustomerInvoicePdf = async (invoice: CustomerOrderInvoice) => {
+    if (!invoice?._id || downloadingInvoiceId) return
+
+    try {
+      setDownloadingInvoiceId(String(invoice._id))
+      const documentLabel = invoice.isCreditNote ? 'gutschrift' : 'rechnung'
+      await downloadCustomerInvoicePdf(
+        String(invoice._id),
+        `${documentLabel}-${invoice.invoiceNumber || invoice._id}.pdf`
+      )
+    } catch (error: any) {
+      toast({
+        title: 'Rechnung konnte nicht heruntergeladen werden',
+        description: error?.message || 'Bitte versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDownloadingInvoiceId('')
+    }
+  }
+
   const handleRemoveEPart = async (ePartId: string) => {
     if (!id) return
 
@@ -1254,8 +1333,8 @@ export function OrderDetails() {
       await removeEPartFromOrder(id, ePartId)
 
       toast({
-        title: "Success",
-        description: "EPart removed successfully"
+        title: "Erfolg",
+        description: "Das Ersatzteil wurde entfernt."
       })
 
       // Refresh order data
@@ -1263,7 +1342,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error removing EPart:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to remove EPart",
         variant: "destructive"
       })
@@ -1374,8 +1453,8 @@ export function OrderDetails() {
       await updateOrderAddon(id, editingAddon._id, updateData)
 
       toast({
-        title: "Success",
-        description: "Add-on service updated successfully"
+        title: "Erfolg",
+        description: "Die Zusatzleistung wurde aktualisiert."
       })
 
       // Reset form
@@ -1391,7 +1470,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error updating add-on:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to update add-on service",
         variant: "destructive"
       })
@@ -1405,8 +1484,8 @@ export function OrderDetails() {
       await removeAddonFromOrder(id, addonId)
 
       toast({
-        title: "Success",
-        description: "Add-on service removed successfully"
+        title: "Erfolg",
+        description: "Die Zusatzleistung wurde entfernt."
       })
 
       // Refresh order data
@@ -1414,7 +1493,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error removing add-on:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to remove add-on service",
         variant: "destructive"
       })
@@ -1428,8 +1507,8 @@ export function OrderDetails() {
       await assignStaffToAddon(id, selectedAddonForStaff._id, addonStaffId)
 
       toast({
-        title: "Success",
-        description: "Staff assigned to add-on service successfully"
+        title: "Erfolg",
+        description: "Der Mitarbeiter wurde der Zusatzleistung zugewiesen."
       })
 
       // Reset form
@@ -1442,7 +1521,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error assigning staff to add-on:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to assign staff to add-on service",
         variant: "destructive"
       })
@@ -1466,8 +1545,8 @@ export function OrderDetails() {
       await addShopProductToOrder(id, productId, quantity)
 
       toast({
-        title: "Success",
-        description: "Product added to order successfully"
+        title: "Erfolg",
+        description: "Das Produkt wurde dem Auftrag hinzugefügt."
       })
 
       // Refresh order data
@@ -1485,8 +1564,8 @@ export function OrderDetails() {
       await removeShopProductFromOrder(id, productItemId)
 
       toast({
-        title: "Success",
-        description: "Product removed from order successfully"
+        title: "Erfolg",
+        description: "Das Produkt wurde aus dem Auftrag entfernt."
       })
 
       // Refresh order data
@@ -1494,7 +1573,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error removing shop product:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to remove product",
         variant: "destructive"
       })
@@ -1508,8 +1587,8 @@ export function OrderDetails() {
       await updateShopProductQuantity(id, productItemId, newQuantity)
 
       toast({
-        title: "Success",
-        description: "Product quantity updated successfully"
+        title: "Erfolg",
+        description: "Die Menge wurde aktualisiert."
       })
 
       // Refresh order data
@@ -1517,7 +1596,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error updating product quantity:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to update product quantity",
         variant: "destructive"
       })
@@ -1537,8 +1616,8 @@ export function OrderDetails() {
       })
 
       toast({
-        title: "Success",
-        description: "Repair service added successfully"
+        title: "Erfolg",
+        description: "Die Reparaturleistung wurde hinzugefügt."
       })
 
       // Refresh repair services
@@ -1550,7 +1629,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error adding repair service:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to add repair service",
         variant: "destructive"
       })
@@ -1569,8 +1648,8 @@ export function OrderDetails() {
       })
 
       toast({
-        title: "Success",
-        description: "Repair service updated successfully"
+        title: "Erfolg",
+        description: "Die Reparaturleistung wurde aktualisiert."
       })
 
       setEditingService(null)
@@ -1585,7 +1664,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error updating repair service:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to update repair service",
         variant: "destructive"
       })
@@ -1600,8 +1679,8 @@ export function OrderDetails() {
       await removeServiceFromOrder(id, serviceId)
 
       toast({
-        title: "Success",
-        description: "Repair service removed successfully"
+        title: "Erfolg",
+        description: "Die Reparaturleistung wurde entfernt."
       })
 
       // Refresh repair services
@@ -1613,7 +1692,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("Error removing repair service:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to remove repair service",
         variant: "destructive"
       })
@@ -1705,8 +1784,8 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error searching devices:", error)
       toast({
-        title: "Error",
-        description: "Failed to search devices",
+        title: "Fehler",
+        description: "Die Gerätesuche ist fehlgeschlagen.",
         variant: "destructive"
       })
     }
@@ -1726,8 +1805,8 @@ export function OrderDetails() {
   const handleDeviceChange = async () => {
     if (!id || !newDeviceBrand.trim() || !newDeviceModel.trim()) {
       toast({
-        title: "Error",
-        description: "Device brand and model are required",
+        title: "Fehler",
+        description: "Bitte Marke und Modell des Geräts angeben.",
         variant: "destructive"
       })
       return
@@ -1740,8 +1819,8 @@ export function OrderDetails() {
       await updateOrderDevice(id, newDeviceBrand, newDeviceModel, newDeviceType || undefined)
 
       toast({
-        title: "Success",
-        description: "Device information updated successfully"
+        title: "Erfolg",
+        description: "Die Gerätedaten wurden aktualisiert."
       })
 
       // Clear form and close dialog
@@ -1759,7 +1838,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error updating device:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to update device information",
         variant: "destructive"
       })
@@ -1808,8 +1887,8 @@ export function OrderDetails() {
       await assignWorkflowToOrder(id, workflowTemplateId, selectedWorkflowAssignee)
 
       toast({
-        title: "Success",
-        description: "Workflow assigned to order successfully"
+        title: "Erfolg",
+        description: "Der Workflow wurde dem Auftrag zugewiesen."
       })
 
       setWorkflowDialogOpen(false)
@@ -1824,7 +1903,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error assigning workflow:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to assign workflow",
         variant: "destructive"
       })
@@ -1858,8 +1937,8 @@ export function OrderDetails() {
       await deleteWorkflowFromOrder(id, workflowId)
 
       toast({
-        title: "Success",
-        description: "Workflow removed from order successfully"
+        title: "Erfolg",
+        description: "Der Workflow wurde vom Auftrag entfernt."
       })
 
       // Refresh workflows
@@ -1871,7 +1950,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error deleting workflow:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to delete workflow",
         variant: "destructive"
       })
@@ -1904,8 +1983,8 @@ export function OrderDetails() {
       await startWorkflow(id, selectedWorkflowForExecution._id)
 
       toast({
-        title: "Success",
-        description: "Workflow started successfully. Now executing steps..."
+        title: "Erfolg",
+        description: "Der Workflow wurde gestartet. Die Schritte werden jetzt ausgeführt."
       })
 
       // Refresh workflows
@@ -1926,7 +2005,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error starting workflow:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to start workflow",
         variant: "destructive"
       })
@@ -1945,8 +2024,8 @@ export function OrderDetails() {
       await updateWorkflowStatus(id, workflowId, 'on-hold')
 
       toast({
-        title: "Success",
-        description: "Workflow paused successfully"
+        title: "Erfolg",
+        description: "Der Workflow wurde pausiert."
       })
 
       // Refresh workflows
@@ -1958,7 +2037,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error pausing workflow:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to pause workflow",
         variant: "destructive"
       })
@@ -2004,13 +2083,13 @@ export function OrderDetails() {
       await refreshOrder()
 
       toast({
-        title: "Success",
-        description: "Workflow step completed successfully"
+        title: "Erfolg",
+        description: "Der Workflow-Schritt wurde abgeschlossen."
       })
     } catch (error: any) {
       console.error("OrderDetails: Error refreshing workflows:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to refresh workflow data",
         variant: "destructive"
       })
@@ -2036,7 +2115,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error refreshing repair workflow state:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to refresh repair workflow data",
         variant: "destructive"
       })
@@ -2053,8 +2132,8 @@ export function OrderDetails() {
       await updateWorkflowStatus(id, selectedWorkflowForExecution._id, 'in-progress')
 
       toast({
-        title: "Success",
-        description: "Workflow resumed successfully. Now executing steps..."
+        title: "Erfolg",
+        description: "Der Workflow wurde fortgesetzt. Die Schritte werden jetzt ausgeführt."
       })
 
       // Refresh workflows
@@ -2075,7 +2154,7 @@ export function OrderDetails() {
     } catch (error: any) {
       console.error("OrderDetails: Error resuming workflow:", error)
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message || "Failed to resume workflow",
         variant: "destructive"
       })
@@ -2189,7 +2268,7 @@ export function OrderDetails() {
       viewed: 'Gesehen',
       partially_paid: 'Teilbezahlt',
       paid: 'Bezahlt',
-      overdue: 'Ueberfaellig',
+      overdue: 'Überfällig',
       cancelled: 'Storniert',
       credited: 'Gutgeschrieben',
     }
@@ -2486,8 +2565,8 @@ export function OrderDetails() {
         <div className="order-section-card">
           <div className="order-empty-state">
             <Package className="h-20 w-20 mx-auto mb-4 opacity-30" />
-            <h3>Order not found</h3>
-            <p>The order you're looking for doesn't exist</p>
+            <h3>Auftrag nicht gefunden</h3>
+            <p>Der gesuchte Auftrag existiert nicht.</p>
             <button
               type="button"
               className="order-btn order-btn-primary mt-4"
@@ -2681,10 +2760,18 @@ export function OrderDetails() {
       'diagnosed': 'Diagnostiziert',
       'awaiting-parts': 'Wartet auf Teile',
       'ready-for-pickup': 'Abholbereit',
+      // Versandstatus-Enums: standen bisher roh in deutschen Verlaufszeilen.
+      'label-created': 'Label erstellt',
+      'shipped': 'Versendet',
+      'in-transit': 'In Zustellung',
+      'out-for-delivery': 'Heute in Zustellung',
+      'delivered': 'Zugestellt',
+      'failed': 'Fehlgeschlagen',
     }
     if (statusMap[status]) return statusMap[status]
-    // Handle dynamic shipping status prefix
-    if (status.startsWith('Shipping Status:')) return `Versandstatus:${status.slice('Shipping Status:'.length)}`
+    // Altbestand: 'Shipping Status: in-transit'. Praefix UND Enum uebersetzen -
+    // neue Eintraege schreibt der Server bereits als 'Versandstatus: In Zustellung'.
+    if (status.startsWith('Shipping Status:')) return `Versandstatus: ${translateOrderStatus(status.slice('Shipping Status:'.length).trim())}`
     // Handle dynamic return_exchange status
     if (status.startsWith('return_exchange_')) return `Rückgabe/Umtausch – ${status.replace('return_exchange_', '').replace('_', ' ')}`
     return status
@@ -2700,6 +2787,105 @@ export function OrderDetails() {
   const bookingReturnStatusDescription = String(linkedBooking?.returnShipmentStatusDescription || '').trim()
   const orderShippingStatus = String(order.shippingStatus || '').toLowerCase()
   const orderShippingStatusDescription = String(order.shippingStatusDescription || '').trim()
+
+  // --- Rücksendung (McRepair -> Kunde) -------------------------------------
+  // A return may live on the linked booking (one parcel back per booking) or, for
+  // an order without a booking, on the order itself. `hasReturnLabel` comes from the
+  // read layer: the stored base64 PDF is not part of the detail payload.
+  const returnLabelExists = Boolean(
+    linkedBooking?._id
+      ? (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
+      : (order.hasReturnLabel || order.returnLabelUrl || order.returnShipmentStatus === 'label-created')
+  )
+  // A return label may be downloaded whenever either side has one - never make the
+  // two mutually exclusive, or an order-level label created before the order was
+  // linked to a booking disappears from the screen.
+  const returnLabelDownloadable = Boolean(
+    linkedBooking?.returnLabelUrl || order.hasReturnLabel || order.returnLabelUrl
+  )
+  // The repair has to be far enough along. Note that 'completed' means "pickup
+  // confirmed" (adminOrderRoutes confirm-pickup), i.e. AFTER the device left us -
+  // gating the action on it made the return unreachable in exactly the moment it is
+  // needed. 'completed' stays in the list so a later re-shipment is still possible.
+  const returnReadyStatuses = ['quality-check', 'ready-for-pickup', 'completed']
+  const canStartReturn = returnReadyStatuses.includes(String(order.status)) && !returnLabelExists
+  const returnActionHint = returnLabelExists
+    ? 'Für diesen Auftrag wurde bereits ein Rücksendelabel erstellt.'
+    : canStartReturn
+      ? 'Erstellt ein DHL-Rücksendeetikett für den Versand an den Kunden.'
+      : 'Die Rücksendung ist erst nach Abschluss der Reparatur möglich (ab Qualitätsprüfung).'
+
+  const inboundLabelExists = Boolean(
+    order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
+  )
+
+  // --- Preisaufstellung (Brutto-first) --------------------------------------
+  // SINGLE AUTHORITY: the server computes this once in
+  // OrderService.buildOrderPricingSummary and ships it as order.pricing. This screen
+  // RENDERS that - it does not own a second copy of the money formula. The inline
+  // block below is only a fallback for payloads that predate order.pricing; it
+  // follows the identical gross-first rule (every discount off the GROSS exactly
+  // once, taxRate a PERCENT) so the two can never disagree while both exist.
+  const orderPriceBreakdown = (() => {
+    const round2 = (value: number) => Math.round((Number(value) || 0) * 100) / 100
+    const serverPricing = order.pricing
+
+    if (serverPricing && Number.isFinite(Number(serverPricing.grossTotal))) {
+      const positionsGross = round2(safeToNumber(serverPricing.positionsGross))
+      return {
+        positionsGross,
+        discount: round2(safeToNumber(serverPricing.discount)),
+        dealerDiscountAmount: round2(safeToNumber(serverPricing.dealerDiscountAmount)),
+        grossTotal: round2(safeToNumber(serverPricing.grossTotal)),
+        netTotal: round2(safeToNumber(serverPricing.netTotal)),
+        taxAmount: round2(safeToNumber(serverPricing.taxAmount)),
+        taxRate: Number.isFinite(Number(serverPricing.taxRate)) ? Number(serverPricing.taxRate) : 19,
+        hasPositions: positionsGross > 0,
+        positionsReconcile: serverPricing.positionsReconcile !== false,
+      }
+    }
+
+    // Fallback (older payload without order.pricing). The stored position prices are
+    // GROSS LIST prices; the checkout discount is only taken off the aggregate
+    // order.totalCost, and the Haendlerrabatt is not contained in totalCost at all.
+    const servicesGross = (repairServices || []).reduce(
+      (sum: number, service: any) => sum + safeToNumber(service?.price),
+      0
+    )
+    const addOnsGross = (order.addOns || []).reduce(
+      (sum: number, addOn: any) => sum + safeToNumber(addOn?.price),
+      0
+    )
+    const shopProductsGross = ((order as any).shopProducts || []).reduce(
+      (sum: number, product: any) => sum + safeToNumber(product?.priceAtOrder) * safeToNumber(product?.quantity),
+      0
+    )
+
+    const positionsGross = round2(servicesGross + addOnsGross + shopProductsGross)
+    const discount = round2(safeToNumber(order.discount))
+    const dealerDiscountAmount = round2(safeToNumber(order.dealerDiscountAmount))
+    const grossTotal = round2(round2(safeToNumber(order.totalCost)) - dealerDiscountAmount)
+    const taxRate = Number.isFinite(Number(order.taxRate)) ? Number(order.taxRate) : 19
+    const netTotal = round2(grossTotal / (1 + taxRate / 100))
+    const taxAmount = round2(grossTotal - netTotal)
+
+    return {
+      positionsGross,
+      discount,
+      dealerDiscountAmount,
+      grossTotal,
+      netTotal,
+      taxAmount,
+      taxRate,
+      hasPositions: positionsGross > 0,
+      positionsReconcile: Math.abs(positionsGross - discount - dealerDiscountAmount - grossTotal) <= 0.02,
+    }
+  })()
+
+  // Der Steuersatz ist ein PROZENTWERT und kann gebrochen sein (7,5 %). Nicht auf
+  // eine ganze Zahl runden - sonst steht '8 %' neben einem mit 7,5 % gerechneten Betrag.
+  const formatTaxRate = (rate: number) =>
+    new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(safeToNumber(rate))
   const buildDhlTrackingUrl = (trackingNumber: string) => `https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(trackingNumber)}`
   const getShipmentStatusMeta = (status: string) => {
     switch (String(status || '').toLowerCase()) {
@@ -3544,7 +3730,7 @@ export function OrderDetails() {
                   return (
                     <span key={service._id} className="service-tag">
                       {serviceName}
-                      {servicePrice && <span className="ml-0.5 font-semibold">${servicePrice.toFixed(2)}</span>}
+                      {servicePrice && <span className="ml-0.5 font-semibold">{formatEUR(servicePrice)}</span>}
                     </span>
                   );
                 })
@@ -3883,7 +4069,7 @@ export function OrderDetails() {
             {t('orderDetails.repairServices')}
           </h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Selected repair work and technician notes for this order.
+            Gebuchte Reparaturleistungen und Technikernotizen zu diesem Auftrag.
           </p>
         </div>
         {(user?.role === 'admin' || user?.role === 'staff') && (
@@ -3942,7 +4128,7 @@ export function OrderDetails() {
                     {safeToNumber(service.estimatedTime)} min
                   </span>
                 )}
-                <span className="service-price">${safeToNumber(service.price).toFixed(2)}</span>
+                <span className="service-price">{formatEUR(service.price)}</span>
               </div>
               {(user?.role === 'admin' || user?.role === 'staff') && (
                 <div className="service-actions">
@@ -3991,7 +4177,7 @@ export function OrderDetails() {
             {t('orderDetails.addOnServices')}
           </h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Additional optional services associated with this repair order.
+            Optionale Zusatzleistungen zu diesem Reparaturauftrag.
           </p>
         </div>
         {(user?.role === 'admin' || user?.role === 'staff') && (
@@ -4036,7 +4222,7 @@ export function OrderDetails() {
                   <Badge className={`${getStatusColor(addOn.status)} text-xs px-2 py-0.5`}>
                     {addOn.status}
                   </Badge>
-                  <p className="text-xs text-muted-foreground mt-1">+${safeToNumber(addOn.price).toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">+{formatEUR(addOn.price)}</p>
                 </div>
                 {(user?.role === 'admin' || user?.role === 'staff') && (
                   <div className="flex gap-1">
@@ -4079,6 +4265,76 @@ export function OrderDetails() {
           )}
         </div>
       )}
+    </div>
+  )
+
+  // Reconciles the GROSS LIST prices of the positions above with the discounted
+  // order total: Zwischensumme (Brutto) - Rabatt = Gesamt (Brutto) = Netto + MwSt.
+  // The discount is subtracted from the gross exactly once and never from the net.
+  const renderOrderPriceBreakdown = () => (
+    <div className="repair-info-subsection repair-info-subsection-pricing">
+      <div className="repair-info-subsection-header">
+        <div>
+          <h4 className="font-medium text-sm flex items-center gap-1.5">
+            <Receipt className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            Preisübersicht
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Alle Positionen sind Bruttopreise. Ein gewährter Rabatt ist im Gesamtbetrag bereits enthalten.
+          </p>
+        </div>
+      </div>
+
+      <div className="repair-info-subsection-body mt-2 rounded-lg border bg-muted/20 p-3 text-sm">
+        {orderPriceBreakdown.hasPositions && (
+          <div className="flex items-center justify-between py-1">
+            <span className="text-muted-foreground">Zwischensumme (Brutto)</span>
+            <span className="font-medium">{formatEUR(orderPriceBreakdown.positionsGross)}</span>
+          </div>
+        )}
+
+        {orderPriceBreakdown.discount > 0 && (
+          <div className="flex items-center justify-between py-1">
+            <span className="text-muted-foreground">
+              Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
+            </span>
+            <span className="font-medium text-green-600">−{formatEUR(orderPriceBreakdown.discount)}</span>
+          </div>
+        )}
+
+        {orderPriceBreakdown.dealerDiscountAmount > 0 && (
+          <div className="flex items-center justify-between py-1">
+            <span className="text-muted-foreground">
+              Händlerrabatt{order.dealerDiscountPercent ? ` (${formatTaxRate(order.dealerDiscountPercent)} %)` : ''}
+            </span>
+            <span className="font-medium text-green-600">−{formatEUR(orderPriceBreakdown.dealerDiscountAmount)}</span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between border-t pt-2 mt-1 py-1">
+          <span className="font-semibold">Gesamtbetrag (Brutto)</span>
+          <span className="font-semibold">{formatEUR(orderPriceBreakdown.grossTotal)}</span>
+        </div>
+
+        <div className="flex items-center justify-between py-1">
+          <span className="text-muted-foreground">davon Netto</span>
+          <span>{formatEUR(orderPriceBreakdown.netTotal)}</span>
+        </div>
+
+        <div className="flex items-center justify-between py-1">
+          <span className="text-muted-foreground">
+            davon MwSt. ({formatTaxRate(orderPriceBreakdown.taxRate)} %)
+          </span>
+          <span>{formatEUR(orderPriceBreakdown.taxAmount)}</span>
+        </div>
+
+        {isStaffOrAdmin && orderPriceBreakdown.hasPositions && !orderPriceBreakdown.positionsReconcile && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            Hinweis: Die Summe der Positionen abzüglich der Rabatte weicht vom hinterlegten Auftragswert ab.
+            Bitte den Auftragswert prüfen.
+          </p>
+        )}
+      </div>
     </div>
   )
 
@@ -4137,7 +4393,7 @@ export function OrderDetails() {
                       </div>
                       <div className="flex items-center gap-1">
                         <span>Preis:</span>
-                        <span className="font-medium text-foreground">${shopProduct.priceAtOrder?.toFixed(2)}</span>
+                        <span className="font-medium text-foreground">{formatEUR(shopProduct.priceAtOrder)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span>Menge:</span>
@@ -4157,7 +4413,7 @@ export function OrderDetails() {
                       </div>
                       <div className="flex items-center gap-1">
                         <span>Gesamt:</span>
-                        <span className="font-bold text-foreground">${totalPrice.toFixed(2)}</span>
+                        <span className="font-bold text-foreground">{formatEUR(totalPrice)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -4259,15 +4515,15 @@ export function OrderDetails() {
                           SKU: <span className="font-medium text-foreground">{ePart.partId?.sku || 'N/A'}</span>
                         </span>
                         <span className="text-muted-foreground">
-                          Qty: <span className="font-medium text-foreground">{ePart.quantity}</span>
+                          Menge: <span className="font-medium text-foreground">{ePart.quantity}</span>
                         </span>
                         {version && (
                           <span className="text-muted-foreground">
-                            Price: <span className="font-medium text-foreground">${version.sellingPrice?.toFixed(2) || '0.00'}</span>
+                            Preis: <span className="font-medium text-foreground">{formatEUR(version.sellingPrice)}</span>
                           </span>
                         )}
                         <span className="text-muted-foreground">
-                          Assigned: <span className="font-medium text-foreground">
+                          Zugewiesen: <span className="font-medium text-foreground">
                             {new Date(ePart.assignedAt).toLocaleDateString()}
                           </span>
                         </span>
@@ -4326,7 +4582,7 @@ export function OrderDetails() {
                       </span>
                       <span className="text-muted-foreground inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        Hinzugefuegt: <span className="font-medium text-foreground">{new Date(entry.requestedAt).toLocaleString()}</span>
+                        Hinzugefügt: <span className="font-medium text-foreground">{new Date(entry.requestedAt).toLocaleString()}</span>
                       </span>
                       <span className="text-muted-foreground">
                         Durch: <span className="font-medium text-foreground">{requestedByName}</span>
@@ -4768,6 +5024,7 @@ export function OrderDetails() {
       {renderRepairServicesSection()}
       {renderAddOnServicesSection()}
       {renderShopProductsSection()}
+      {renderOrderPriceBreakdown()}
     </div>
   )
 
@@ -4812,19 +5069,89 @@ export function OrderDetails() {
             <span>Zahlung</span>
             <strong>{translatePaymentStatus(order.paymentStatus)}</strong>
           </div>
-          {safeToNumber(order.discount) > 0 && (
+          {orderPriceBreakdown.hasPositions
+            && (orderPriceBreakdown.discount > 0 || orderPriceBreakdown.dealerDiscountAmount > 0) && (
+            <div className="customer-summary-row">
+              <span>Zwischensumme (Brutto)</span>
+              <strong>{formatEUR(orderPriceBreakdown.positionsGross)}</strong>
+            </div>
+          )}
+          {orderPriceBreakdown.discount > 0 && (
             <div className="customer-summary-row">
               <span>Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}</span>
-              <strong className="text-green-600">−{formatPrice(safeToNumber(order.discount))}</strong>
+              <strong className="text-green-600">−{formatEUR(orderPriceBreakdown.discount)}</strong>
+            </div>
+          )}
+          {orderPriceBreakdown.dealerDiscountAmount > 0 && (
+            <div className="customer-summary-row">
+              <span>Händlerrabatt{order.dealerDiscountPercent ? ` (${formatTaxRate(order.dealerDiscountPercent)} %)` : ''}</span>
+              <strong className="text-green-600">−{formatEUR(orderPriceBreakdown.dealerDiscountAmount)}</strong>
             </div>
           )}
           <div className="customer-summary-row">
-            <span>Gesamtbetrag</span>
-            <strong>{formatPrice(safeToNumber(order.totalCost))}</strong>
+            <span>Gesamtbetrag (Brutto)</span>
+            <strong>{formatEUR(orderPriceBreakdown.grossTotal)}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>davon Netto</span>
+            <strong>{formatEUR(orderPriceBreakdown.netTotal)}</strong>
+          </div>
+          <div className="customer-summary-row">
+            <span>davon MwSt. ({formatTaxRate(orderPriceBreakdown.taxRate)} %)</span>
+            <strong>{formatEUR(orderPriceBreakdown.taxAmount)}</strong>
           </div>
         </div>
 
-        {(order.shippingAddress || order.trackingNumber || order.shippingLabelUrl || order.shippingStatus || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
+        {/* Rechnungen zum Auftrag - Kundensicht.
+            Quelle ist der eigentümergebundene Endpunkt /api/invoices; Entwürfe werden
+            serverseitig ausgeschlossen, fremde Dokumente sind nicht erreichbar. */}
+        <div className="customer-summary-subcard">
+          <div className="customer-summary-subcard-title">
+            <FileText className="h-4 w-4" />
+            Rechnungen
+          </div>
+          {loadingCustomerInvoices ? (
+            <p className="text-xs text-muted-foreground">Rechnungen werden geladen…</p>
+          ) : customerInvoices.length > 0 ? (
+            <div className="space-y-2">
+              {customerInvoices.map((invoice) => (
+                <div
+                  key={invoice._id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {invoice.isCreditNote ? 'Gutschrift' : 'Rechnung'} {invoice.invoiceNumber || invoice._id}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('de-DE') : 'Ohne Datum'}
+                      {typeof invoice.total === 'number' ? ` · ${formatEUR(invoice.total)}` : ''}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleDownloadCustomerInvoicePdf(invoice)}
+                    disabled={downloadingInvoiceId === String(invoice._id)}
+                    className="text-xs h-8"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    {downloadingInvoiceId === String(invoice._id) ? 'PDF wird geladen…' : 'PDF herunterladen'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Für diesen Auftrag wurde noch keine Rechnung erstellt.
+            </p>
+          )}
+        </div>
+
+        {/* Die Rueckversand-Felder des Auftrags gehoeren mit in diese Bedingung: sonst
+            bleibt die Karte - und damit der Block "Ruecksendung" weiter unten - bei
+            einem Auftrag ohne Buchung und ohne Hinweg-Daten komplett unsichtbar. */}
+        {(order.shippingAddress || order.trackingNumber || order.shippingLabelUrl || order.shippingStatus || order.hasReturnLabel || order.returnTrackingNumber || order.returnShipmentStatus || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
           <div className="customer-summary-subcard">
             <div className="customer-summary-subcard-title">
               <MapPin className="h-4 w-4" />
@@ -4955,6 +5282,46 @@ export function OrderDetails() {
                     {orderShippingStatus === 'failed'
                       ? 'Das Versandlabel konnte noch nicht bereitgestellt werden. Bitte nutzen Sie den Nachrichtenbereich für Rückfragen.'
                       : 'Das Versandlabel wird vorbereitet und erscheint hier, sobald es verfügbar ist.'}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Rücksendung direkt am Auftrag (Aufträge ohne zugehörige Buchung). */}
+            {!linkedBooking?._id && (order.hasReturnLabel || order.returnTrackingNumber || order.returnShipmentStatus) && (
+              <div className="customer-summary-logistics-block">
+                <div className="customer-summary-logistics-title">Rücksendung</div>
+                {order.returnShipmentStatus && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(order.returnShipmentStatus)).className}`}>
+                    {getShipmentStatusMeta(String(order.returnShipmentStatus)).label}
+                  </Badge>
+                )}
+                {order.returnTrackingNumber && (
+                  <div className="customer-summary-tracking">
+                    <span>Rücksende-Sendungsnummer</span>
+                    <strong>{order.returnTrackingNumber}</strong>
+                    <a
+                      href={buildDhlTrackingUrl(String(order.returnTrackingNumber))}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="customer-summary-tracking-link"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Sendung verfolgen
+                    </a>
+                  </div>
+                )}
+                {order.hasReturnLabel && (
+                  <div className="customer-summary-shipping-label">
+                    <span>Rücksendelabel</span>
+                    <button
+                      onClick={handleDownloadOrderReturnLabel}
+                      disabled={downloadingOrderReturnLabel}
+                      className="customer-summary-label-download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {downloadingOrderReturnLabel ? 'Rücksendelabel wird geladen…' : 'Rücksendelabel herunterladen'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -5198,7 +5565,7 @@ export function OrderDetails() {
                       </div>
                       <div className="meta">
                         <Badge variant="outline" className="text-xs">
-                          {formatPrice(safeToNumber(service.price))}
+                          {formatEUR(safeToNumber(service.price))}
                         </Badge>
                         {service.estimatedTime && (
                           <Badge variant="secondary" className="text-xs">
@@ -5228,7 +5595,7 @@ export function OrderDetails() {
                       </div>
                       <div className="meta">
                         <Badge variant="outline" className="text-xs">
-                          {formatPrice(safeToNumber(addOn.price))}
+                          {formatEUR(safeToNumber(addOn.price))}
                         </Badge>
                         {addOn.estimatedTime && (
                           <Badge variant="secondary" className="text-xs">
@@ -5325,7 +5692,7 @@ export function OrderDetails() {
                     {originalComplaintOrderNumber || originalComplaintOrderId}
                   </Link>
                 ) : (
-                  <span className="font-medium">Nicht verknuepft</span>
+                  <span className="font-medium">Nicht verknüpft</span>
                 )}
               </div>
             )}
@@ -5501,12 +5868,17 @@ export function OrderDetails() {
               )
             )}
             {isStaffOrAdmin && (
+              // EIN BILDSCHIRM, EINE SUMME: dieser Kopfbereich zeigt exakt den Wert,
+              // den die Preisübersicht weiter unten als 'Gesamtbetrag (Brutto)' ausweist.
+              // Beide lesen orderPriceBreakdown, also OrderService.buildOrderPricingSummary.
+              // order.totalCost darf hier NICHT stehen - es enthält den Händlerrabatt noch.
               <div className="order-total-cost">
-                <div className="amount">{safeToNumber(order.totalCost).toFixed(2)} €</div>
-                <div className="label">Gesamt</div>
-                {safeToNumber(order.discount) > 0 && (
+                <div className="amount">{formatEUR(orderPriceBreakdown.grossTotal)}</div>
+                <div className="label">Gesamt (Brutto)</div>
+                {(orderPriceBreakdown.discount + orderPriceBreakdown.dealerDiscountAmount) > 0 && (
                   <div className="label text-green-600">
-                    inkl. −{safeToNumber(order.discount).toFixed(2)} € Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
+                    inkl. −{formatEUR(orderPriceBreakdown.discount + orderPriceBreakdown.dealerDiscountAmount)} Rabatt
+                    {orderPriceBreakdown.dealerDiscountAmount === 0 && order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
                   </div>
                 )}
               </div>
@@ -5583,6 +5955,8 @@ export function OrderDetails() {
                 {renderAddOnServicesSection()}
 
                 {renderShopProductsSection()}
+
+                {renderOrderPriceBreakdown()}
                   </div>
                 </CardContent>
               </Card>
@@ -5609,44 +5983,42 @@ export function OrderDetails() {
                           {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
                         </Button>
 
-                        {order.status === 'completed' ? (
-                          <Button
-                            size="sm"
-                            onClick={handleCreateOrderReturnLabel}
-                            disabled={
-                              creatingOrderReturnLabel
-                              || Boolean(
-                                linkedBooking?._id
-                                  ? (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
-                                  : (order.returnLabelUrl || order.returnShipmentStatus === 'label-created')
-                              )
-                            }
-                            className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45] font-semibold border-0"
-                          >
-                            <Truck className="h-4 w-4 mr-1.5" />
-                            {creatingOrderReturnLabel
-                              ? 'Rücksendelabel wird erstellt…'
-                              : (linkedBooking?._id
-                                ? (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
-                                : (order.returnLabelUrl || order.returnShipmentStatus === 'label-created'))
-                                ? 'Rücksendelabel bereits erstellt'
-                                : 'Rücksendung starten'}
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={handleCreateOrderShippingLabel}
-                            disabled={creatingOrderShippingLabel || Boolean(order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created')}
-                            className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
-                          >
-                            <Send className="h-4 w-4 mr-1.5" />
-                            {creatingOrderShippingLabel
-                              ? 'Einsendelabel wird erstellt…'
-                              : order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
-                                ? 'Einsendelabel bereits erstellt'
-                                : 'Einsendelabel erstellen'}
-                          </Button>
-                        )}
+                        {/* Einsendung (Kunde -> McRepair) und Rücksendung (McRepair -> Kunde)
+                            sind zwei getrennte Vorgänge und dürfen sich nicht gegenseitig
+                            verdrängen: sonst ist nach abgeschlossener Reparatur nur noch der
+                            deaktivierte Einsendelabel-Button sichtbar. */}
+                        <Button
+                          size="sm"
+                          onClick={handleCreateOrderShippingLabel}
+                          disabled={creatingOrderShippingLabel || inboundLabelExists}
+                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
+                        >
+                          <Send className="h-4 w-4 mr-1.5" />
+                          {creatingOrderShippingLabel
+                            ? 'Einsendelabel wird erstellt…'
+                            : inboundLabelExists
+                              ? 'Einsendelabel bereits erstellt'
+                              : 'Einsendelabel erstellen'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={handleCreateOrderReturnLabel}
+                          disabled={creatingOrderReturnLabel || !canStartReturn}
+                          title={returnActionHint}
+                          className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45] font-semibold border-0"
+                        >
+                          <Truck className="h-4 w-4 mr-1.5" />
+                          {creatingOrderReturnLabel
+                            ? 'Rücksendelabel wird erstellt…'
+                            : returnLabelExists
+                              ? 'Rücksendelabel bereits erstellt'
+                              : 'Rücksendung starten'}
+                        </Button>
+
+                        <p className="sm:col-span-2 text-xs text-muted-foreground -mt-1">
+                          {returnActionHint}
+                        </p>
 
                         <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
                           <div>
@@ -5683,7 +6055,7 @@ export function OrderDetails() {
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung fuer diesen Auftrag bzw. die zugehoerige Buchung erstellt.</p>
+                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung für diesen Auftrag bzw. die zugehörige Buchung erstellt.</p>
                               )
                             ) : (
                               <p className="text-xs text-muted-foreground mt-1">Rechnungslinks sind nur für Administratoren sichtbar.</p>
@@ -5707,33 +6079,38 @@ export function OrderDetails() {
                               <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
                             )}
 
-                            {(linkedBooking?.returnLabelUrl || (!linkedBooking?._id && order.returnLabelUrl)) ? (
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleDownloadOrderReturnLabel}
-                                  disabled={downloadingOrderReturnLabel}
-                                >
-                                  <Download className="h-4 w-4 mr-1.5" />
-                                  {downloadingOrderReturnLabel ? 'Rücksendelabel wird heruntergeladen…' : 'Rücksendelabel herunterladen'}
-                                </Button>
-                              </div>
-                            ) : (
+                            {/* Beide Quellen prüfen: ein auftragsbezogenes Label darf nicht
+                                verschwinden, nur weil der Auftrag inzwischen zu einer Buchung
+                                gehört. Die Erstellung liegt oben in den Schnellaktionen. */}
+                            {returnLabelDownloadable ? (
                               <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">Noch kein Rücksendelabel verfügbar.</p>
                                 <div className="flex flex-wrap gap-2">
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={handleCreateOrderReturnLabel}
-                                    disabled={creatingOrderReturnLabel}
+                                    onClick={handleDownloadOrderReturnLabel}
+                                    disabled={downloadingOrderReturnLabel}
                                   >
-                                    <Truck className="h-4 w-4 mr-1.5" />
-                                    {creatingOrderReturnLabel ? 'Rücksendelabel wird erstellt…' : 'Rücksendelabel erstellen'}
+                                    <Download className="h-4 w-4 mr-1.5" />
+                                    {downloadingOrderReturnLabel ? 'Rücksendelabel wird heruntergeladen…' : 'Rücksendelabel herunterladen'}
                                   </Button>
                                 </div>
+                                {(linkedBooking?.returnTrackingNumber || order.returnTrackingNumber) && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Rücksende-Sendungsnummer:{' '}
+                                    <a
+                                      href={buildDhlTrackingUrl(String(linkedBooking?.returnTrackingNumber || order.returnTrackingNumber))}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="underline"
+                                    >
+                                      {linkedBooking?.returnTrackingNumber || order.returnTrackingNumber}
+                                    </a>
+                                  </p>
+                                )}
                               </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Noch kein Rücksendelabel verfügbar.</p>
                             )}
                           </div>
                         </div>
@@ -6277,12 +6654,12 @@ export function OrderDetails() {
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamt</div>
-                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatPrice(selectedInvoiceDetails.total)}</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatEUR(selectedInvoiceDetails.total)}</div>
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
                     <div className="mt-1 font-semibold text-red-700">
-                      {formatPrice(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
+                      {formatEUR(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
                     </div>
                   </div>
                 </div>
@@ -6315,7 +6692,7 @@ export function OrderDetails() {
                             <div className="font-medium text-slate-800">{item.description}</div>
                             <div className="text-xs text-muted-foreground">{item.type} • {item.quantity}x</div>
                           </div>
-                          <div className="font-medium text-slate-800">{formatPrice(item.total || 0)}</div>
+                          <div className="font-medium text-slate-800">{formatEUR(item.total || 0)}</div>
                         </div>
                       ))}
                     </div>
@@ -6334,7 +6711,7 @@ export function OrderDetails() {
                             <div className="font-medium text-slate-800">{payment.paymentMethod || 'Zahlung'}</div>
                             <div className="text-xs text-muted-foreground">{payment.status}</div>
                           </div>
-                          <div className="font-semibold text-slate-800">{formatPrice(Number(payment.amount || 0))}</div>
+                          <div className="font-semibold text-slate-800">{formatEUR(Number(payment.amount || 0))}</div>
                         </div>
                       ))}
                     </div>
@@ -6353,7 +6730,7 @@ export function OrderDetails() {
                             <div className="font-medium text-violet-800">{note.invoiceNumber || 'Gutschrift'}</div>
                             <div className="text-xs text-violet-700">{note.status}</div>
                           </div>
-                          <div className="font-semibold text-violet-800">{formatPrice(Number(note.total || 0))}</div>
+                          <div className="font-semibold text-violet-800">{formatEUR(Number(note.total || 0))}</div>
                         </div>
                       ))}
                     </div>
@@ -6416,12 +6793,12 @@ export function OrderDetails() {
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamt</div>
-                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatPrice(selectedInvoiceDetails.total)}</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatEUR(selectedInvoiceDetails.total)}</div>
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
                     <div className="mt-1 font-semibold text-red-700">
-                      {formatPrice(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
+                      {formatEUR(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
                     </div>
                   </div>
                 </div>
@@ -6454,7 +6831,7 @@ export function OrderDetails() {
                             <div className="font-medium text-slate-800">{item.description}</div>
                             <div className="text-xs text-muted-foreground">{item.type} • {item.quantity}x</div>
                           </div>
-                          <div className="font-medium text-slate-800">{formatPrice(item.total || 0)}</div>
+                          <div className="font-medium text-slate-800">{formatEUR(item.total || 0)}</div>
                         </div>
                       ))}
                     </div>
@@ -6473,7 +6850,7 @@ export function OrderDetails() {
                             <div className="font-medium text-slate-800">{payment.paymentMethod || 'Zahlung'}</div>
                             <div className="text-xs text-muted-foreground">{payment.status}</div>
                           </div>
-                          <div className="font-semibold text-slate-800">{formatPrice(Number(payment.amount || 0))}</div>
+                          <div className="font-semibold text-slate-800">{formatEUR(Number(payment.amount || 0))}</div>
                         </div>
                       ))}
                     </div>
@@ -6492,7 +6869,7 @@ export function OrderDetails() {
                             <div className="font-medium text-violet-800">{note.invoiceNumber || 'Gutschrift'}</div>
                             <div className="text-xs text-violet-700">{note.status}</div>
                           </div>
-                          <div className="font-semibold text-violet-800">{formatPrice(Number(note.total || 0))}</div>
+                          <div className="font-semibold text-violet-800">{formatEUR(Number(note.total || 0))}</div>
                         </div>
                       ))}
                     </div>
@@ -6550,7 +6927,7 @@ export function OrderDetails() {
         <DialogContent className="w-[calc(100vw-12px)] sm:max-w-lg max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Techniker: Anerkennen</DialogTitle>
-            <DialogDescription>Bitte Grund auswaehlen oder individuell angeben.</DialogDescription>
+            <DialogDescription>Bitte Grund auswählen oder individuell angeben.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Select
@@ -6565,7 +6942,7 @@ export function OrderDetails() {
                 <SelectValue placeholder="Schnellauswahl Grund" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Bitte auswaehlen</SelectItem>
+                <SelectItem value="none">Bitte auswählen</SelectItem>
                 {ACK_REASON_OPTIONS.map((reason) => (
                   <SelectItem key={reason} value={reason}>{reason}</SelectItem>
                 ))}
@@ -6591,13 +6968,13 @@ export function OrderDetails() {
         <DialogContent className="w-[calc(100vw-12px)] sm:max-w-xl max-h-[92dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-base">
-              <span>{user?.role === 'admin' ? 'Reklamation ablehnen bestaetigen' : 'Reklamation ablehnen'}</span>
+              <span>{user?.role === 'admin' ? 'Reklamation ablehnen bestätigen' : 'Reklamation ablehnen'}</span>
               <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-normal flex-shrink-0" variant="outline">Reparaturangebot erforderlich</Badge>
             </DialogTitle>
             <DialogDescription>
               {user?.role === 'admin'
-                ? 'Bitte Ablehnungsgrund und Reparaturangebot pruefen. Nach Bestaetigung wird das Angebot an den Kunden gesendet.'
-                : 'Bitte den Ablehnungsgrund angeben. Danach wird die Reklamation zur Admin-Pruefung eskaliert.'}
+                ? 'Bitte Ablehnungsgrund und Reparaturangebot prüfen. Nach Bestätigung wird das Angebot an den Kunden gesendet.'
+                : 'Bitte den Ablehnungsgrund angeben. Danach wird die Reklamation zur Admin-Prüfung eskaliert.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -6636,7 +7013,7 @@ export function OrderDetails() {
                   <SelectValue placeholder="Schnellauswahl Ablehnungsgrund" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Bitte auswaehlen...</SelectItem>
+                  <SelectItem value="none">Bitte auswählen...</SelectItem>
                   {DENY_REASON_OPTIONS.map((reason) => (
                     <SelectItem key={reason} value={reason}>{reason}</SelectItem>
                   ))}
@@ -6729,10 +7106,10 @@ export function OrderDetails() {
                     ? repairServices
                       .map((service: any) => service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Service')
                       .join(', ')
-                    : 'Nicht verfuegbar'}
+                    : 'Nicht verfügbar'}
                 </span>
                 <span className="inspection-dialog-context-chip">
-                  <strong>Summe:</strong> {safeToNumber((order as any)?.totalCost).toFixed(2)} EUR
+                  <strong>Summe:</strong> {formatEUR(orderPriceBreakdown.grossTotal)}
                 </span>
               </div>
 
@@ -6752,7 +7129,7 @@ export function OrderDetails() {
                     price: safeToNumber(service?.finalPrice ?? service?.totalPrice ?? service?.price),
                     quantity: Number(service?.quantity || 1),
                   }))}
-                  orderTotalCost={safeToNumber((order as any)?.totalCost)}
+                  orderTotalCost={orderPriceBreakdown.grossTotal}
                   forceStartAtStepOne={forceInspectionStepOne}
                   onRequestDeviceChange={() => {
                     setReturnToInspectionAfterDeviceDialog(true)
@@ -7040,9 +7417,9 @@ export function OrderDetails() {
       <Dialog open={editAddonDialogOpen} onOpenChange={setEditAddonDialogOpen}>
         <DialogContent className="order-dialog-content sm:max-w-[500px]">
           <DialogHeader className="order-dialog-header">
-            <DialogTitle>Edit Add-On Service</DialogTitle>
+            <DialogTitle>Zusatzleistung bearbeiten</DialogTitle>
             <DialogDescription>
-              Update the add-on service details
+              Die Angaben der Zusatzleistung aktualisieren
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -7052,23 +7429,23 @@ export function OrderDetails() {
                 id="edit-name"
                 value={customAddonName}
                 onChange={(e) => setCustomAddonName(e.target.value)}
-                placeholder="Enter add-on name"
+                placeholder="Name der Zusatzleistung"
               />
             </div>
 
             <div>
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description">Beschreibung</Label>
               <Textarea
                 id="edit-description"
                 value={customAddonDescription}
                 onChange={(e) => setCustomAddonDescription(e.target.value)}
-                placeholder="Enter description"
+                placeholder="Beschreibung"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-price">Price ($)</Label>
+                <Label htmlFor="edit-price">Preis (€)</Label>
                 <Input
                   id="edit-price"
                   type="number"
@@ -7080,12 +7457,12 @@ export function OrderDetails() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-time">Estimated Time</Label>
+                <Label htmlFor="edit-time">Geschätzte Dauer</Label>
                 <Input
                   id="edit-time"
                   value={customAddonTime}
                   onChange={(e) => setCustomAddonTime(e.target.value)}
-                  placeholder="e.g., 30 minutes"
+                  placeholder="z. B. 30 Minuten"
                 />
               </div>
             </div>
@@ -7099,10 +7476,10 @@ export function OrderDetails() {
               setCustomAddonDescription("")
               setCustomAddonTime("")
             }}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleEditAddon}>
-              Update Add-On
+              Zusatzleistung aktualisieren
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -7112,9 +7489,9 @@ export function OrderDetails() {
       <Dialog open={assignAddonStaffDialogOpen} onOpenChange={setAssignAddonStaffDialogOpen}>
         <DialogContent className="order-dialog-content sm:max-w-[400px]">
           <DialogHeader className="order-dialog-header">
-            <DialogTitle>Assign Staff to Add-On</DialogTitle>
+            <DialogTitle>Mitarbeiter der Zusatzleistung zuweisen</DialogTitle>
             <DialogDescription>
-              Select a staff member to handle this add-on service
+              Mitarbeiter auswählen, der diese Zusatzleistung übernimmt
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -7126,10 +7503,10 @@ export function OrderDetails() {
             )}
 
             <div>
-              <Label htmlFor="staff-select">Staff Member</Label>
+              <Label htmlFor="staff-select">Mitarbeiter</Label>
               <Select value={addonStaffId} onValueChange={setAddonStaffId}>
                 <SelectTrigger id="staff-select">
-                  <SelectValue placeholder="Select a staff member..." />
+                  <SelectValue placeholder="Mitarbeiter auswählen …" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableStaff.map((staff) => (
@@ -7154,10 +7531,10 @@ export function OrderDetails() {
               setSelectedAddonForStaff(null)
               setAddonStaffId("")
             }}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleAssignStaffToAddon} disabled={!addonStaffId}>
-              Assign Staff
+              Mitarbeiter zuweisen
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -7186,11 +7563,11 @@ export function OrderDetails() {
           <div className="space-y-3 max-h-[420px] overflow-y-auto py-1">
             <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
               <Label htmlFor="workflow-assignee" className="text-xs font-medium text-slate-700">
-                Personal fuer diesen Workflow
+                Personal für diesen Workflow
               </Label>
               <Select value={workflowAssignedStaffId} onValueChange={setWorkflowAssignedStaffId}>
                 <SelectTrigger id="workflow-assignee" className="mt-2">
-                  <SelectValue placeholder="Personal waehlen (optional)" />
+                  <SelectValue placeholder="Personal wählen (optional)" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Kein Personal zuweisen</SelectItem>
@@ -7519,8 +7896,8 @@ export function OrderDetails() {
             console.log('[OrderDetails] Device changed, updating order:', updatedOrder)
             setOrder(updatedOrder)
             toast({
-              title: "Success",
-              description: "Device has been changed successfully",
+              title: "Erfolg",
+              description: "Das Gerät wurde gewechselt.",
             })
           }}
         />

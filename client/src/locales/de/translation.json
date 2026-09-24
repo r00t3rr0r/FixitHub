@@ -1288,7 +1288,6 @@
     "discountsAndPaymentLogicDesc": "Steuere Nachlässe, Teilzahlungen und Versandverhalten zentral.",
     "defaultDiscount": "Standardrabatt",
     "maxDiscount": "Max. Rabatt %",
-    "earlyDiscount": "Skonto %",
     "lateFee": "Verzugspauschale %",
     "allowManualDiscounts": "Manuelle Rabatte erlauben",
     "allowPartialPayments": "Teilzahlungen erlauben",

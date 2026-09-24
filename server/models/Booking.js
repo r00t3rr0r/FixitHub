@@ -171,11 +171,22 @@ const bookingSchema = new mongoose.Schema({
     enum: ['pending', 'payment-pending', 'processing', 'completed', 'cancelled'],
     default: 'pending',
   },
+  // ZAHLUNGS-ACHSE. `billingStatus` ist die fuehrende Groesse fuer den Zahlungsstand
+  // einer Buchung und wird aus den gueltigen Zahlungszuordnungen abgeleitet
+  // (PaymentService.computeBookingBalance). Der Erfuellungsstand liegt getrennt davon
+  // in `status` und `shippingStatus` - eine Buchung kann gleichzeitig 'versendet' und
+  // 'teilbezahlt' sein.
   billingStatus: {
     type: String,
-    enum: ['unpaid', 'partially-paid', 'paid'],
+    enum: ['unpaid', 'partially-paid', 'paid', 'overpaid'],
     default: 'unpaid',
   },
+  // Zweite, gleichbedeutende Darstellung derselben Zahlungs-Achse fuer Altbestand und
+  // aeltere Clients. Es werden NUR NOCH Zahlungswerte geschrieben
+  // ('pending' | 'partial' | 'paid' | 'refunded'); Belegstatus wie 'sent' oder 'draft'
+  // gehoeren hier nicht hinein und wurden frueher faelschlich aus Invoice.status
+  // uebernommen (dadurch verdeckte 'versendet' ein 'teilbezahlt').
+  // Die Alt-Werte bleiben im Enum, damit Bestandsdokumente weiterhin speicherbar sind.
   paymentStatus: {
     type: String,
     enum: ['pending', 'paid', 'refunded', 'partial', 'draft', 'sent', 'viewed', 'partially_paid', 'overdue'],

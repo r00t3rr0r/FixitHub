@@ -42,9 +42,12 @@ const modelVerificationSchema = new mongoose.Schema({
 const identificationSchema = new mongoose.Schema({
   deviceType: {
     type: String,
-    enum: ['Smartphone', 'Laptop', 'Tablet', 'Watch', 'Headphones'],
+    // 'Other' covers free-form order device types that have no canonical equivalent
+    // (the catalog of device types is admin-editable), so step 2 can never hard-fail.
+    enum: ['Smartphone', 'Laptop', 'Tablet', 'Watch', 'Headphones', 'Other'],
     required: true,
   },
+  deviceTypeLabel: String, // Original, unnormalised device type as recorded on the order
   imei: String, // For phones
   serialNumber: String, // For laptops/tablets
   imeiRequired: {
@@ -315,7 +318,7 @@ const deviceInspectionSchema = new mongoose.Schema({
     type: Number,
     default: 1,
     min: 1,
-    max: 6,
+    max: 7, // the wizard has 7 steps
   },
   completedSteps: [{
     step: Number,
@@ -337,6 +340,9 @@ const deviceInspectionSchema = new mongoose.Schema({
   },
 
   // Repair assessment
+  // DEPRECATED: the "Reparatureinschaetzung" control was removed from the inspection UI,
+  // so nothing writes these two fields any more. They are kept so historical inspections
+  // (and their actionLogs) stay readable - do not repurpose them.
   isRepairable: {
     type: Boolean,
   },
@@ -345,6 +351,7 @@ const deviceInspectionSchema = new mongoose.Schema({
     timeframe: String,
     description: String,
   },
+  // DEPRECATED - see isRepairable above.
   completionAction: {
     type: String,
     enum: ['repairable', 'not-repairable', 'inform-customer'],

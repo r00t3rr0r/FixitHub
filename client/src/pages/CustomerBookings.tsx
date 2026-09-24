@@ -73,6 +73,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel, getBookingInvoices } from "@/api/bookings";
+import { downloadInvoicePdf } from "@/api/invoices";
 import { createOrderComplaint } from "@/api/orders";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
@@ -154,6 +155,10 @@ interface Booking {
   returnReceivedAt?: string;
   trackingNumber?: string;
   carrier?: string;
+  // Richtung des gespeicherten Versandlabels. 'inbound' = Einsendung an McRepair
+  // (Hinweg), 'outbound' = Ruecksendung an den Kunden (Rueckweg). Kommt vom Server
+  // (GET /api/bookings/:id); fehlt das Feld, gilt 'inbound'.
+  shippingLabelDirection?: 'inbound' | 'outbound';
   shippingStatus?: string;
   shippingStatusDescription?: string;
   shippingLabelUrl?: string;
@@ -185,6 +190,45 @@ interface Booking {
   };
 }
 
+// Rechnungsstatus-Darstellung wird sowohl in der Buchungsliste als auch im
+// Detaildialog gebraucht und liegt deshalb im Modulscope.
+/**
+ * Sprungziel fuer "Rechnung oeffnen".
+ * Das Ziel steht in der URL, damit ein kopierter Link und ein harter Reload
+ * dieselbe Rechnung oeffnen - der zusaetzlich mitgegebene location.state bleibt
+ * als Fallback fuer die reine In-App-Navigation erhalten.
+ */
+const buildInvoiceDeepLink = (invoiceId: string): string =>
+  `/invoices?highlightInvoiceId=${encodeURIComponent(invoiceId)}&openInvoiceId=${encodeURIComponent(invoiceId)}`;
+
+const getInvoiceStatusLabel = (status: string): string => {
+  switch (status) {
+    case 'draft': return 'Vorlage';
+    case 'pending_approval': return 'Ausstehend';
+    case 'sent': return 'Gesendet';
+    case 'viewed': return 'Angesehen';
+    case 'partially_paid': return 'Teilbezahlt';
+    case 'paid': return 'Bezahlt';
+    case 'overdue': return 'Überfällig';
+    case 'cancelled': return 'Storniert';
+    case 'credited': return 'Gutgeschrieben';
+    default: return status;
+  }
+};
+
+const getInvoiceStatusBadgeClass = (status: string): string => {
+  switch (status) {
+    case 'paid': return 'bg-green-100 text-green-700 border border-green-200';
+    case 'partially_paid': return 'bg-blue-100 text-blue-700 border border-blue-200';
+    case 'overdue': return 'bg-red-100 text-red-700 border border-red-200';
+    case 'sent': return 'bg-purple-100 text-purple-700 border border-purple-200';
+    case 'viewed': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+    case 'cancelled': return 'bg-gray-100 text-gray-500 border border-gray-200';
+    case 'draft': return 'bg-gray-100 text-gray-600 border border-gray-200';
+    default: return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+  }
+};
+
 export function CustomerBookings() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -198,6 +242,10 @@ export function CustomerBookings() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
   const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({});
+  // Rechnungen je aufgeklappter Buchung: EINE Anfrage pro Buchung, danach aus dem Cache.
+  const [bookingInvoicesByBooking, setBookingInvoicesByBooking] = useState<Record<string, any[]>>({});
+  const [loadingBookingInvoiceIds, setLoadingBookingInvoiceIds] = useState<Set<string>>(new Set());
+  const [downloadingInvoicePdfId, setDownloadingInvoicePdfId] = useState<string | null>(null);
   const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set());
   const [calculatedProgress, setCalculatedProgress] = useState<Record<string, number>>({});
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -329,6 +377,40 @@ export function CustomerBookings() {
     setFilteredBookings(filtered);
   }, [bookings, searchTerm]);
 
+  const loadInvoicesForBooking = async (bookingId: string) => {
+    if (!bookingId) return;
+    if (bookingInvoicesByBooking[bookingId]) return;
+    setLoadingBookingInvoiceIds((prev) => new Set(prev).add(bookingId));
+    try {
+      const data = await getBookingInvoices(bookingId);
+      setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: data?.invoices || [] }));
+    } catch (error) {
+      console.error('CustomerBookings: Rechnungen konnten nicht geladen werden:', error);
+      setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: [] }));
+    } finally {
+      setLoadingBookingInvoiceIds((prev) => {
+        const next = new Set(prev);
+        next.delete(bookingId);
+        return next;
+      });
+    }
+  };
+
+  const handleDownloadInvoicePdf = async (invoiceId: string, invoiceNumber?: string) => {
+    setDownloadingInvoicePdfId(invoiceId);
+    try {
+      await downloadInvoicePdf(invoiceId, invoiceNumber);
+    } catch (error) {
+      toast({
+        title: 'Fehler',
+        description: error instanceof Error ? error.message : 'Rechnungs-PDF konnte nicht geladen werden.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingInvoicePdfId(null);
+    }
+  };
+
   const toggleExpandBooking = async (bookingId: string) => {
     const newExpanded = new Set(expandedBookings);
 
@@ -344,6 +426,7 @@ export function CustomerBookings() {
         setLoadingOrders(newLoading);
 
         console.log(`Fetching orders for booking: ${bookingId}`);
+        void loadInvoicesForBooking(bookingId);
         const response = await getBookingOrders(bookingId);
         const ordersData = response.orders || [];
 
@@ -378,7 +461,7 @@ export function CustomerBookings() {
         console.error("Error loading orders:", error);
         toast({
           title: t('common.error'),
-          description: "Failed to load associated orders",
+          description: "Die zugehörigen Aufträge konnten nicht geladen werden.",
           variant: "destructive"
         });
         const newLoading = new Set(loadingOrders);
@@ -562,7 +645,7 @@ export function CustomerBookings() {
       case 'partially_paid':
         return 'Teilweise Bezahlt';
       case 'overdue':
-        return 'Ueberfaellig';
+        return 'Überfällig';
       case 'unpaid':
         return 'Offen';
       case 'partially-paid':
@@ -702,7 +785,7 @@ export function CustomerBookings() {
                   <Package className="h-10 w-10 text-slate-400" />
                 </div>
                 <h3 className="text-xl font-bold text-[#1a2a5e] mb-2">{t('bookings.noBookings')}</h3>
-                <p className="text-slate-500 text-base mb-6">You haven't made any bookings yet. Start by creating a new order.</p>
+                <p className="text-slate-500 text-base mb-6">Sie haben noch keine Buchungen. Legen Sie zunächst einen neuen Auftrag an.</p>
                 <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/#repair-order-configurator')}>
                   {t('navigation.newOrder')}
                 </Button>
@@ -762,7 +845,7 @@ export function CustomerBookings() {
                             )}
                           </Button>
                         </TableCell>
-                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Booking ID">
+                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Buchung">
                           <div className="flex items-center gap-2">
                             <Package className="h-4 w-4" />
                             <span>{booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}</span>
@@ -773,12 +856,12 @@ export function CustomerBookings() {
                             {t(`status.${booking.status}`)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-5" data-label="Billing">
+                        <TableCell className="py-5" data-label="Abrechnung">
                           <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
                             {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-5" data-label="Progress">
+                        <TableCell className="py-5" data-label="Fortschritt">
                           <div className="progress-container">
                             <div className="progress-bar">
                               <div
@@ -791,13 +874,13 @@ export function CustomerBookings() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Total Cost">
+                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Gesamt">
                           {formatCurrency(booking.totalCost)}
                         </TableCell>
-                        <TableCell className="text-center font-medium py-5" data-label="Items">
+                        <TableCell className="text-center font-medium py-5" data-label="Artikel">
                           {booking.items.length}
                         </TableCell>
-                        <TableCell className="text-center py-5" data-label="Messages">
+                        <TableCell className="text-center py-5" data-label="Nachrichten">
                           {(() => {
                             const unreadInfo = getBookingUnreadCount(booking);
                             if (unreadInfo.total > 0) {
@@ -828,17 +911,32 @@ export function CustomerBookings() {
                             return <span className="text-sm opacity-50">—</span>;
                           })()}
                         </TableCell>
-                        <TableCell className="text-base text-slate-600 py-5" data-label="Created">
+                        <TableCell className="text-base text-slate-600 py-5" data-label="Erstellt">
                           {formatDate(booking.createdAt)}
                         </TableCell>
-                        <TableCell className="text-right py-5" data-label="Actions">
+                        <TableCell className="text-right py-5" data-label="Aktionen">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                 <MoreVertical className="h-5 w-5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  try {
+                                    const response = await getBooking(booking._id);
+                                    setSelectedBooking(response?.booking || booking);
+                                  } catch (error) {
+                                    console.error("CustomerBookings: Failed to load full booking for detail dialog:", error);
+                                    setSelectedBooking(booking);
+                                  }
+                                  setShowDetailDialog(true);
+                                }}
+                              >
+                                <Receipt className="h-4 w-4 mr-2" />
+                                Buchungsdetails & Rechnungen
+                              </DropdownMenuItem>
                               {booking.items.some((item) => item.orderId && item.status === 'completed' && !item.hasComplaint) && (
                                 <DropdownMenuItem onClick={() => openComplaintDialog(booking)}>
                                   <AlertCircle className="h-4 w-4 mr-2" />
@@ -978,6 +1076,62 @@ export function CustomerBookings() {
                                   </div>
                                 </div>
                               )}
+
+                              {/* Rechnungen zu dieser Buchung - eine Buchung kann mehrere haben. */}
+                              <div className="expanded-section">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="expanded-section-title">Rechnungen</span>
+                                </div>
+                                {loadingBookingInvoiceIds.has(booking._id) ? (
+                                  <p className="text-xs text-foreground/60">Rechnungen werden geladen...</p>
+                                ) : (bookingInvoicesByBooking[booking._id] || []).length === 0 ? (
+                                  <p className="text-xs italic text-foreground/60">
+                                    Für diesen Auftrag wurde noch keine Rechnung erstellt.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    {(bookingInvoicesByBooking[booking._id] || []).map((inv: any) => (
+                                      <div
+                                        key={inv._id}
+                                        className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5 text-xs"
+                                      >
+                                        <Receipt className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0" />
+                                        <span className="font-semibold">{inv.invoiceNumber}</span>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${getInvoiceStatusBadgeClass(inv.status)}`}>
+                                          {getInvoiceStatusLabel(inv.status)}
+                                        </span>
+                                        <span className="text-foreground/70">{formatCurrency(inv.total)}</span>
+                                        <div className="ml-auto flex items-center gap-1">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-[11px]"
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              navigate(buildInvoiceDeepLink(inv._id), { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
+                                            }}
+                                          >
+                                            Rechnung öffnen
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-[11px]"
+                                            disabled={downloadingInvoicePdfId === inv._id}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              void handleDownloadInvoicePdf(inv._id, inv.invoiceNumber);
+                                            }}
+                                          >
+                                            <Download className="mr-1 h-3 w-3" />
+                                            {downloadingInvoicePdfId === inv._id ? 'Lädt…' : 'PDF'}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
 
                               {loadingOrders.has(booking._id) ? (
                                 <div className="text-center py-2">
@@ -1267,7 +1421,7 @@ export function CustomerBookings() {
                                 </div>
                               ) : (
                                 <div className="text-center py-2">
-                                  <p className="text-xs text-foreground/60">No associated orders found</p>
+                                  <p className="text-xs text-foreground/60">Keine zugehörigen Aufträge gefunden</p>
                                 </div>
                               )}
                             </div>
@@ -1488,6 +1642,8 @@ function BookingDetailDialog({
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(false);;
 
   const [bookingInvoices, setBookingInvoices] = useState<any[]>([]);
+  const [pdfInvoiceId, setPdfInvoiceId] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [loadingBookingInvoices, setLoadingBookingInvoices] = useState(false);
 
   useEffect(() => {
@@ -1507,34 +1663,6 @@ function BookingDetailDialog({
     void load();
     return () => { cancelled = true; };
   }, [open, booking._id]);
-
-  const getInvoiceStatusLabel = (status: string) => {
-    switch (status) {
-      case 'draft': return 'Vorlage';
-      case 'pending_approval': return 'Ausstehend';
-      case 'sent': return 'Gesendet';
-      case 'viewed': return 'Angesehen';
-      case 'partially_paid': return 'Teilbezahlt';
-      case 'paid': return 'Bezahlt';
-      case 'overdue': return 'Überfällig';
-      case 'cancelled': return 'Storniert';
-      case 'credited': return 'Gutgeschrieben';
-      default: return status;
-    }
-  };
-
-  const getInvoiceStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-700 border border-green-200';
-      case 'partially_paid': return 'bg-blue-100 text-blue-700 border border-blue-200';
-      case 'overdue': return 'bg-red-100 text-red-700 border border-red-200';
-      case 'sent': return 'bg-purple-100 text-purple-700 border border-purple-200';
-      case 'viewed': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
-      case 'cancelled': return 'bg-gray-100 text-gray-500 border border-gray-200';
-      case 'draft': return 'bg-gray-100 text-gray-600 border border-gray-200';
-      default: return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
-    }
-  };
 
   const getPaymentMethodLabel = (method?: string) => {
     switch (method) {
@@ -1566,7 +1694,7 @@ function BookingDetailDialog({
       case 'partially_paid':
         return 'Teilweise Bezahlt';
       case 'overdue':
-        return 'Ueberfaellig';
+        return 'Überfällig';
       case 'unpaid':
         return 'Offen';
       case 'partially-paid':
@@ -1762,6 +1890,36 @@ function BookingDetailDialog({
     booking.returnCreatedAt ||
     booking.returnReceivedAt
   );
+
+  // G5: booking.trackingNumber traegt je nach erstelltem Label den Hin- oder den
+  // Rueckweg. Die Ueberschrift folgt der Richtung aus den Daten, nicht einer Annahme.
+  const isOutboundShippingLabel = booking.shippingLabelDirection === 'outbound';
+  const isInboundShippingLabel = booking.shippingLabelDirection === 'inbound';
+  const shippingBlockTitle = isOutboundShippingLabel
+    ? 'Rücksendung an Sie'
+    : isInboundShippingLabel
+      ? 'Versand an McRepair'
+      : 'Versand';
+  const shippingLabelCaption = isOutboundShippingLabel
+    ? 'Generiertes Versandlabel an Sie'
+    : isInboundShippingLabel
+      ? 'Generiertes Versandlabel an McRepair'
+      : 'Generiertes Versandlabel';
+
+  // Der Versandstatus ist ein englischer Enum-Wert aus der Datenbank und darf so
+  // nicht im deutschen Badge stehen.
+  const getShippingStatusLabel = (status?: string) => {
+    switch (status) {
+      case 'pending': return 'Ausstehend';
+      case 'label-created': return 'Label erstellt';
+      case 'shipped': return 'Versendet';
+      case 'in-transit': return 'Unterwegs';
+      case 'out-for-delivery': return 'In Zustellung';
+      case 'delivered': return 'Zugestellt';
+      case 'failed': return 'Fehlgeschlagen';
+      default: return status || 'Unbekannt';
+    }
+  };
 
   const handleViewOrder = (orderId: string) => {
     if (!orderId) {
@@ -2035,11 +2193,7 @@ function BookingDetailDialog({
                     return (
                       <div
                         key={inv._id}
-                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)] hover:bg-[var(--gray-100,#eef0f5)] cursor-pointer transition-colors border border-transparent hover:border-[var(--accent-yellow,#f5b800)]"
-                        onClick={() => {
-                          onClose();
-                          navigate('/invoices', { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
-                        }}
+                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)] transition-colors border border-transparent"
                       >
                         <Receipt className="h-4 w-4 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
@@ -2071,10 +2225,45 @@ function BookingDetailDialog({
                             )}
                           </div>
                         </div>
-                        <ExternalLink className="h-3.5 w-3.5 text-[var(--gray-400,#8892a8)] flex-shrink-0" />
+                        <div className="flex flex-shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded border border-[var(--gray-200,#d8dce6)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--primary-blue,#1a2a5e)] hover:border-[var(--accent-yellow,#f5b800)]"
+                            onClick={() => {
+                              onClose();
+                              navigate(buildInvoiceDeepLink(inv._id), { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
+                            }}
+                          >
+                            Rechnung öffnen
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pdfInvoiceId === inv._id}
+                            className="inline-flex items-center gap-1 rounded border border-[var(--gray-200,#d8dce6)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--primary-blue,#1a2a5e)] hover:border-[var(--accent-yellow,#f5b800)] disabled:opacity-60"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              setPdfInvoiceId(inv._id);
+                              try {
+                                await downloadInvoicePdf(inv._id, inv.invoiceNumber);
+                              } catch (error) {
+                                console.error('CustomerBookings: PDF-Download fehlgeschlagen:', error);
+                                setPdfError(error instanceof Error ? error.message : 'Rechnungs-PDF konnte nicht geladen werden.');
+                              } finally {
+                                setPdfInvoiceId(null);
+                              }
+                            }}
+                          >
+                            <Download className="h-3 w-3" />
+                            {pdfInvoiceId === inv._id ? 'Lädt…' : 'PDF'}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
+                  {pdfError && (
+                    <p className="text-xs text-red-600">{pdfError}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -2312,11 +2501,11 @@ function BookingDetailDialog({
                   <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
                     <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)]">
                       <Package className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
-                      Versand an McRepair
+                      {shippingBlockTitle}
                     </h3>
                     {booking.shippingStatus && (
                       <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0">
-                        {booking.shippingStatus}
+                        {getShippingStatusLabel(booking.shippingStatus)}
                       </Badge>
                     )}
                   </div>
@@ -2334,7 +2523,7 @@ function BookingDetailDialog({
 
                     {booking.shippingLabelUrl && (
                       <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-4 border border-[var(--gray-200,#d8dce6)]">
-                        <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Generiertes Versandlabel an McRepair</p>
+                        <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">{shippingLabelCaption}</p>
                         <button
                           onClick={() => downloadBookingShippingLabel(booking._id, `versandlabel-buchung-${booking.bookingNumber || booking._id}.pdf`)}
                           className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg cursor-pointer"

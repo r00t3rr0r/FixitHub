@@ -86,8 +86,6 @@ async function run() {
         financeProfile: {
           paymentDueDays: 14,
           discountPercent: 0,
-          cashDiscountPercent: 0,
-          cashDiscountDays: 0,
           creditLimit: 0,
           currency: 'EUR',
           taxMode: 'default',

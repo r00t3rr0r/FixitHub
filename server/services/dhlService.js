@@ -105,14 +105,335 @@ class DHLService {
     return legacyServiceTypes[requestedProduct] || requestedProduct || configuredProduct;
   }
 
+  /**
+   * Split a combined "Straße und Hausnummer" input into the two separate fields the
+   * DHL Parcel DE Shipping v2 API requires. The checkout only collects one combined
+   * input, so without this the house number never reaches DHL.
+   * Handles "Musterstraße 12", "Hauptstr.7", "Bahnhofstr. 12 b", "Musterstr. 12-14",
+   * "Straße des 17. Juni 135" and leading-number notations such as "12 Main Street".
+   */
+  static splitStreetAndHouse(rawStreet = '') {
+    const value = String(rawStreet || '').replace(/\s+/g, ' ').trim();
+    if (!value) return { street: '', house: '' };
+
+    // Trailing house number (DE/AT/CH notation)
+    const trailing = value.match(/^(.*?[^\s,])[\s,]*(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)$/);
+    if (trailing && /[a-zA-ZäöüÄÖÜß]/.test(trailing[1])) {
+      return {
+        street: trailing[1].replace(/[\s,]+$/, '').trim(),
+        house: trailing[2].replace(/\s+/g, '')
+      };
+    }
+
+    // Leading house number (NL/US/FR notation)
+    const leading = value.match(/^(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s+(.+)$/);
+    if (leading && /[a-zA-ZäöüÄÖÜß]/.test(leading[2])) {
+      return {
+        street: leading[2].trim(),
+        house: leading[1].replace(/\s+/g, '')
+      };
+    }
+
+    return { street: value, house: '' };
+  }
+
+  /**
+   * Resolve street AND house number as ONE pair from ONE address source.
+   *
+   * Falling back field by field pairs a street from one address with a house number
+   * from another (the shop's street with the customer's house number, an invoice street
+   * with the shipping address' number …) and produces a label that looks deliverable but
+   * goes to the wrong door. Candidates are tried in order; the FIRST one that carries a
+   * street wins and only that candidate's own house number is used. When it has none,
+   * the house number stays empty so validateParcelDeParty fails with a precise German
+   * message instead of the label silently going out.
+   *
+   * @param {Array<{street?: string, house?: string, source?: string}>} candidates
+   * @returns {{street: string, house: string, source: string}}
+   */
+  static resolveStreetAndHouse(candidates = []) {
+    for (const candidate of candidates) {
+      const streetRaw = String(candidate?.street || '').trim();
+      if (!streetRaw) continue;
+
+      const split = this.splitStreetAndHouse(streetRaw);
+      // The number that is part of the STREET TEXT wins: callers that store street and
+      // house number combined ("Musterstraße 12") often pass a placeholder or stale
+      // `house` alongside it, and letting that placeholder win silently replaces the real
+      // number ("Musterstraße" + "1"). A separately supplied number is used only when the
+      // street carries none of its own ("Straße des 17. Juni" + "135").
+      const explicitHouse = String(candidate?.house || '').trim();
+
+      return {
+        street: split.street || streetRaw,
+        house: split.house || explicitHouse,
+        source: String(candidate?.source || '')
+      };
+    }
+
+    return { street: '', house: '', source: '' };
+  }
+
+  /**
+   * DHL validates ContactInformation.email against an e-mail pattern, so an empty or
+   * malformed value must be omitted rather than sent as "".
+   */
+  static sanitizeEmail(value = '') {
+    const email = String(value || '').trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? email : '';
+  }
+
+  static sanitizePhone(value = '') {
+    const phone = String(value || '').trim().slice(0, 20);
+    return /\d/.test(phone) ? phone : '';
+  }
+
+  /** 2-digit DHL "Verfahren" encoded in positions 11-12 of a 14-digit billing number. */
+  static PRODUCT_PROCEDURES = {
+    V01PAK: '01',
+    V07PAK: '07',
+    V53WPAK: '53',
+    V54EPAK: '54',
+    V62WP: '62',
+    V66WPI: '66'
+  };
+
+  /**
+   * Validate one party (shipper/consignee) of a Parcel DE shipment and return
+   * German problem descriptions naming the offending field.
+   */
+  static validateParcelDeParty(party, label, options = {}) {
+    const problems = [];
+    if (!party || typeof party !== 'object') {
+      problems.push(`${label}: Adressdaten fehlen vollständig.`);
+      return problems;
+    }
+
+    const text = (value) => String(value ?? '').trim();
+    const name = text(party.name1);
+    const street = text(party.addressStreet);
+    const house = text(party.addressHouse);
+    const postalCode = text(party.postalCode);
+    const city = text(party.city);
+    const country = text(party.country);
+
+    if (!name) problems.push(`${label}: Name fehlt.`);
+    else if (name.length > 50) problems.push(`${label}: Name ist zu lang (maximal 50 Zeichen).`);
+
+    // The delivery mode is a decision of the CALLER (deliveryType), not something to be
+    // re-derived from the payload: a Packstation shipment whose numbers are still empty
+    // carries lockerID:'' / postNumber:'' and would otherwise be validated as a street
+    // address, complaining about a missing Straße/Hausnummer instead of the missing
+    // Packstations-/Postnummer. Fall back to the payload shape only for callers that
+    // do not state the mode (e.g. direct validateParcelDeShipment users).
+    const isLocker = typeof options.isLocker === 'boolean'
+      ? options.isLocker
+      : Boolean(text(party.lockerID) || text(party.postNumber));
+    if (isLocker) {
+      if (!/^\d{3}$/.test(text(party.lockerID))) {
+        problems.push(`${label}: Packstationsnummer fehlt oder ist ungültig (genau 3 Ziffern erwartet).`);
+      }
+      if (!/^\d{6,10}$/.test(text(party.postNumber))) {
+        problems.push(`${label}: Postnummer fehlt oder ist ungültig (6 bis 10 Ziffern erwartet).`);
+      }
+    } else {
+      if (!street) problems.push(`${label}: Straße fehlt.`);
+      else if (street.length > 50) problems.push(`${label}: Straße ist zu lang (maximal 50 Zeichen).`);
+
+      if (!house) {
+        problems.push(`${label}: Hausnummer fehlt. Bitte die Hausnummer getrennt von der Straße angeben.`);
+      } else if (house.length > 10) {
+        problems.push(`${label}: Hausnummer ist zu lang (maximal 10 Zeichen).`);
+      }
+    }
+
+    if (!postalCode) problems.push(`${label}: PLZ fehlt.`);
+    if (!city) problems.push(`${label}: Ort fehlt.`);
+    else if (city.length > 40) problems.push(`${label}: Ort ist zu lang (maximal 40 Zeichen).`);
+
+    if (!country) {
+      problems.push(`${label}: Land fehlt.`);
+    } else if (!/^[A-Z]{3}$/.test(country)) {
+      problems.push(`${label}: Land "${country}" ist ungültig. DHL erwartet einen dreistelligen ISO-Code (z. B. DEU).`);
+    } else if (country === 'DEU' && postalCode && !/^\d{5}$/.test(postalCode)) {
+      problems.push(`${label}: PLZ "${postalCode}" ist ungültig. In Deutschland werden genau 5 Ziffern erwartet.`);
+    }
+
+    return problems;
+  }
+
+  /**
+   * Validate the assembled Parcel DE Shipping v2 shipment BEFORE calling DHL so staff
+   * get a precise German message naming the missing/invalid field instead of an opaque
+   * DHL 400 – or, worse, a silently wrong label.
+   * @returns {string[]} German problem descriptions (empty when the payload is valid)
+   */
+  static validateParcelDeShipment(shipment = {}, options = {}) {
+    const problems = [];
+    const text = (value) => String(value ?? '').trim();
+    const product = text(shipment.product).toUpperCase();
+    const billingNumber = text(shipment.billingNumber);
+
+    if (!product) {
+      problems.push('DHL-Produkt fehlt. Bitte in den Integrationseinstellungen ein Produkt hinterlegen (z. B. V01PAK).');
+    }
+
+    if (!billingNumber) {
+      problems.push('DHL Abrechnungsnummer (EKP) fehlt in den Integrationseinstellungen.');
+    } else if (!/^\d{10,14}$/.test(billingNumber)) {
+      problems.push(
+        `DHL Abrechnungsnummer (EKP) ist ungültig: "${billingNumber}". Erwartet werden 14 Ziffern (10-stellige EKP + 2-stelliges Verfahren + 2-stellige Teilnahme).`
+      );
+    } else if (/^\d{14}$/.test(billingNumber) && product) {
+      const procedure = billingNumber.slice(10, 12);
+      const expected = DHLService.PRODUCT_PROCEDURES[product];
+      if (expected && expected !== procedure) {
+        problems.push(
+          `Das DHL-Produkt "${product}" passt nicht zur Abrechnungsnummer (Verfahren ${procedure}, erwartet ${expected}). Bitte ein passendes Produkt wählen oder die Abrechnungsnummer korrigieren.`
+        );
+      }
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text(shipment.shipDate))) {
+      problems.push('Versanddatum ist ungültig. Erwartet wird das Format JJJJ-MM-TT.');
+    }
+
+    // The shop never ships FROM a Packstation, so the shipper is always a street address.
+    problems.push(...this.validateParcelDeParty(shipment.shipper, 'Absenderadresse', { isLocker: false }));
+    problems.push(
+      ...this.validateParcelDeParty(
+        shipment.consignee,
+        'Empfängeradresse',
+        typeof options.consigneeIsLocker === 'boolean' ? { isLocker: options.consigneeIsLocker } : {}
+      )
+    );
+
+    const weight = Number(shipment?.details?.weight?.value);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      problems.push('Gewicht fehlt oder ist ungültig. Bitte ein Gewicht größer als 0 kg angeben.');
+    } else if (weight > 31.5) {
+      problems.push(`Gewicht ${weight} kg überschreitet das DHL-Maximum von 31,5 kg.`);
+    }
+
+    // `details.dim` is optional and only present when a caller opted in explicitly
+    // (see buildParcelDeDimensions). When it IS present it must be complete and sane.
+    const dim = shipment?.details?.dim;
+    if (dim) {
+      const edges = [
+        ['Länge', dim.length],
+        ['Breite', dim.width],
+        ['Höhe', dim.height]
+      ];
+      edges.forEach(([edgeLabel, value]) => {
+        const edge = Number(value);
+        if (!Number.isFinite(edge) || edge <= 0) {
+          problems.push(`Paketmaß ${edgeLabel} fehlt oder ist ungültig. Bitte einen Wert größer als 0 cm angeben.`);
+        } else if (edge > DHLService.MAX_PARCEL_EDGE_CM) {
+          problems.push(
+            `Paketmaß ${edgeLabel} ${edge} cm überschreitet das DHL-Maximum von ${DHLService.MAX_PARCEL_EDGE_CM} cm.`
+          );
+        }
+      });
+      if (String(dim.uom || '').toLowerCase() !== 'cm') {
+        problems.push('Paketmaße müssen in Zentimetern (cm) angegeben werden.');
+      }
+    }
+
+    return problems;
+  }
+
+  /** Longest edge DHL accepts for a national parcel (V01PAK), in centimetres. */
+  static MAX_PARCEL_EDGE_CM = 120;
+
+  /**
+   * Build the OPTIONAL `details.dim` block.
+   *
+   * Dimensions were never part of the Parcel DE payload this service sends
+   * (server/DHL_API_INTEGRATION_DOCUMENTATION.md documents length/width/height only as
+   * dialog inputs and its example request contains no `dim`), and both label dialogs
+   * prefill 20/15/10 defaults that staff never consciously confirm. Sending those on
+   * every label would be an unvalidated behaviour change towards DHL – it can be
+   * rejected and it can change volumetric pricing. The block is therefore emitted ONLY
+   * when a caller explicitly opts in with `sendDimensions: true` AND supplies three
+   * usable edges. No UI sets that flag today, so the payload stays byte-for-byte the
+   * one DHL has been accepting.
+   *
+   * @returns {{dim: Object}|{}} spreadable fragment for `details`
+   */
+  static buildParcelDeDimensions(shipmentData = {}) {
+    if (shipmentData?.sendDimensions !== true) return {};
+
+    const [length, width, height] = [shipmentData.length, shipmentData.width, shipmentData.height]
+      .map((value) => Number(value));
+
+    const usable = [length, width, height].every(
+      (value) => Number.isFinite(value) && value > 0 && value <= DHLService.MAX_PARCEL_EDGE_CM
+    );
+
+    if (!usable) {
+      throw new ShippingLabelError(
+        'Paketmaße sind unvollständig oder ungültig. Bitte Länge, Breite und Höhe in Zentimetern angeben ' +
+        `(größer als 0 und höchstens ${DHLService.MAX_PARCEL_EDGE_CM} cm).`,
+        { code: 'PARCEL_DIMENSIONS_INVALID', status: 422, retryable: false }
+      );
+    }
+
+    return { dim: { uom: 'cm', length, width, height } };
+  }
+
+  /**
+   * DHL answers the Parcel DE Shipping v2 "orders" call with HTTP 207 when individual
+   * shipments fail. Axios treats 207 as success, so the per-item status must be
+   * inspected explicitly – otherwise DHL's real validation text is lost and the user
+   * only sees "DHL hat keine Sendungsnummer zurückgegeben."
+   * @returns {Object|null} an axios-style 400 body when a shipment failed, else null
+   */
+  static extractParcelDeFailure(data) {
+    if (!data || typeof data !== 'object') return null;
+
+    const items = Array.isArray(data.items) ? data.items : [];
+    const itemStatus = (item) => Number(item?.sstatus?.statusCode ?? item?.status?.statusCode ?? 200);
+    // Only hard failures – DHL uses 207 on an item for "weak validation", where the
+    // label IS created and must not be rejected here.
+    const failedItems = items.filter((item) => itemStatus(item) >= 400);
+    const envelopeStatus = Number(data?.status?.statusCode ?? 200);
+
+    if (failedItems.length === 0 && envelopeStatus < 400) return null;
+
+    return {
+      title: data?.status?.title || '',
+      detail: data?.status?.detail || data?.status?.statusText || '',
+      items: failedItems.length > 0 ? failedItems : items
+    };
+  }
+
   static getParcelDEConfig(dhlIntegration) {
     const metadata = dhlIntegration?.metadata || {};
     const settings = dhlIntegration?.settings || {};
     const credentials = dhlIntegration?.credentials || {};
 
-    const inferredEnvironment = String(
-      metadata.environment || settings.environment || (dhlIntegration?.endpoint || '').includes('sandbox') ? 'sandbox' : 'production'
-    ).toLowerCase();
+    // A CONFIGURED environment wins. The previous expression
+    //   `metadata.environment || settings.environment || endpoint.includes('sandbox') ? 'sandbox' : 'production'`
+    // made the whole `||` chain the ternary condition, so an integration explicitly set
+    // to 'production' resolved to 'sandbox' (and, without an endpoint, to the sandbox
+    // base URL) – every "live" label would silently have been a sandbox label.
+    const configuredEnvironment = String(metadata.environment || settings.environment || '')
+      .trim()
+      .toLowerCase();
+    // Only the endpoint decides when nothing is configured (unchanged default).
+    const endpointLooksLikeSandbox = `${credentials.apiEndpoint || ''} ${dhlIntegration?.endpoint || ''}`
+      .toLowerCase()
+      .includes('sandbox');
+
+    let inferredEnvironment;
+    if (['production', 'prod', 'live'].includes(configuredEnvironment)) {
+      inferredEnvironment = 'production';
+    } else if (configuredEnvironment) {
+      // Any other explicit value (sandbox, test, staging …) is treated as non-live.
+      inferredEnvironment = 'sandbox';
+    } else {
+      inferredEnvironment = endpointLooksLikeSandbox ? 'sandbox' : 'production';
+    }
 
     const baseUrl =
       credentials.apiEndpoint ||
@@ -229,7 +550,72 @@ class DHLService {
     }
   }
 
-  static getDhlErrorDetails(error) {
+  /** Error codes whose message is already German and user-facing. */
+  static GERMAN_LABEL_CODES = new Set([
+    'DHL_API_UNAVAILABLE',
+    'PACKSTATION_INVALID',
+    'POSTAL_CODE_INVALID',
+    'SERVICE_TYPE_UNAVAILABLE',
+    'RECIPIENT_ADDRESS_INVALID'
+  ]);
+
+  /**
+   * German user-facing texts for the operator-oriented English diagnostics. The English
+   * originals stay on the diagnostic/test-connection path (admins match them against
+   * DHL's own documentation) and are carried in `details` on the label path.
+   */
+  static GERMAN_LABEL_MESSAGES = {
+    DHL_401_INVALID_CLIENT:
+      'DHL hat die Zugangsdaten abgelehnt (invalid_client). Bitte Client-ID und Client-Secret der DHL-Integration prüfen.',
+    DHL_401_INVALID_GRANT:
+      'DHL hat die Zugangsdaten abgelehnt (invalid_grant). Bitte Benutzername und Passwort des DHL-Geschäftskundenportals prüfen.',
+    DHL_401_UNAUTHORIZED_CLIENT:
+      'Die DHL-App ist für diese API bzw. Umgebung nicht freigeschaltet (unauthorized_client).',
+    DHL_401_AUTH:
+      'DHL hat die Anmeldung abgelehnt (401). Bitte Zugangsdaten und Umgebung der DHL-Integration prüfen.',
+    DHL_403_FORBIDDEN:
+      'DHL verweigert den Zugriff (403). Die App oder der Benutzer ist nicht für Parcel DE Shipping freigeschaltet.',
+    DHL_UNDEFINED_RESOURCE:
+      'Der konfigurierte DHL-Endpunkt ist ungültig. Erwartet wird /parcel/de/shipping/v2/orders.',
+    // DHL answers a rejected payload with an ENGLISH title/detail plus English validation
+    // messages. Those are operator diagnostics and belong in `details`, never in the text
+    // shown to staff – hence a German message here instead of passing DHL's text through.
+    DHL_400_BAD_REQUEST:
+      'DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.'
+  };
+
+  /**
+   * @param {Error} error
+   * @param {Object} [options]
+   * @param {'diagnostic'|'label'} [options.context] 'label' guarantees a German,
+   *   user-facing message and moves the technical text into `details`. The default
+   *   'diagnostic' keeps the operator-facing English used by Test Connection.
+   */
+  static getDhlErrorDetails(error, { context = 'diagnostic' } = {}) {
+    const classified = this.classifyDhlError(error);
+    if (context !== 'label') return classified;
+    return this.toGermanLabelError(classified, error);
+  }
+
+  static toGermanLabelError(classified, error) {
+    if (error instanceof ShippingLabelError) return classified;
+    if (this.GERMAN_LABEL_CODES.has(classified.code)) return classified;
+
+    const german = this.GERMAN_LABEL_MESSAGES[classified.code];
+    const technical = String(classified.message || error?.message || '').trim();
+    const details = Array.isArray(classified.details) ? [...classified.details] : [];
+    if (technical) details.push(technical);
+
+    return {
+      ...classified,
+      message:
+        german ||
+        'Versandlabel konnte nicht erstellt werden. Bitte die DHL-Einstellungen und die Adressdaten prüfen.',
+      details
+    };
+  }
+
+  static classifyDhlError(error) {
     if (error instanceof ShippingLabelError) {
       return {
         message: error.message,
@@ -383,7 +769,7 @@ class DHLService {
     };
   }
 
-  static async getAccessToken(config) {
+  static async getAccessToken(config, { context = 'diagnostic' } = {}) {
     const requiredFields = {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
@@ -396,8 +782,9 @@ class DHLService {
       .map(([key]) => key);
 
     if (missingFields.length) {
-      throw new Error(
-        `DHL Parcel DE OAuth configuration incomplete. Missing: ${missingFields.join(', ')}`
+      throw new ShippingLabelError(
+        `DHL-Zugangsdaten sind unvollständig. Fehlende Felder: ${missingFields.join(', ')}. Bitte unter Systemkonfiguration → Integrationen ergänzen.`,
+        { code: 'DHL_CREDENTIALS_INCOMPLETE', status: 503, retryable: false, details: missingFields }
       );
     }
 
@@ -446,7 +833,7 @@ class DHLService {
 
       return token;
     } catch (error) {
-      const dhlError = this.getDhlErrorDetails(error);
+      const dhlError = this.getDhlErrorDetails(error, { context });
       throw new ShippingLabelError(dhlError.message, {
         code: dhlError.code,
         status: dhlError.status,
@@ -468,7 +855,10 @@ class DHLService {
 
       if (!config || !config.integrations) {
         console.error('DHLService: No system configuration found');
-        throw new Error('System configuration not found');
+        throw new ShippingLabelError(
+          'Die Systemkonfiguration wurde nicht gefunden. Bitte die DHL-Integration unter Systemkonfiguration → Integrationen einrichten.',
+          { code: 'DHL_NOT_CONFIGURED', status: 503, retryable: false }
+        );
       }
 
       // Prefer active DHL outbound shipping integrations and avoid returns profiles.
@@ -485,7 +875,10 @@ class DHLService {
 
       if (!dhlIntegration) {
         console.error('DHLService: No active DHL integration found');
-        throw new Error('DHL integration not configured or inactive');
+        throw new ShippingLabelError(
+          'Es ist keine aktive DHL-Versandintegration konfiguriert. Bitte unter Systemkonfiguration → Integrationen einrichten und aktivieren.',
+          { code: 'DHL_NOT_CONFIGURED', status: 503, retryable: false }
+        );
       }
 
       console.log('DHLService: DHL configuration retrieved successfully');
@@ -578,17 +971,41 @@ class DHLService {
       console.log('DHLService: Customer payment address:', JSON.stringify(paymentAddress, null, 2));
 
       // Validate shipping address is complete, fall back to payment then invoice address if needed
-      const receiverStreet = shipmentData.receiverAddress || order.shippingAddress?.street || paymentAddress.street || invoiceAddress.street;
       const receiverCity = shipmentData.receiverCity || order.shippingAddress?.city || paymentAddress.city || invoiceAddress.city;
       const receiverPostalCode = shipmentData.receiverPostalCode || order.shippingAddress?.zipCode || paymentAddress.zipCode || invoiceAddress.zipCode;
-      const receiverCountry = shipmentData.receiverCountry || order.shippingAddress?.country || paymentAddress.country || invoiceAddress.country || 'NL';
+      // The shop ships from Germany – never invent a foreign default country.
+      const receiverCountry = shipmentData.receiverCountry || order.shippingAddress?.country || paymentAddress.country || invoiceAddress.country || 'DE';
+
+      // Packstation delivery must be an explicit decision of the CALLER. Inbound labels
+      // (customer -> shop, built by bookingService/complaintRoutes) supply their own
+      // receiver address; deriving the locker flag from the order alone used to address
+      // those labels to the CUSTOMER's Packstation with the SHOP's PLZ/Ort.
+      const requestedDeliveryType = String(shipmentData.deliveryType || '').trim().toLowerCase();
+      const callerSuppliedReceiverAddress = String(shipmentData.receiverAddress || '').trim() !== '';
       const isPackstation =
-        order.shippingAddress?.deliveryType === 'packstation' ||
-        shipmentData.deliveryType === 'packstation';
+        requestedDeliveryType === 'packstation' ||
+        (!requestedDeliveryType &&
+          !callerSuppliedReceiverAddress &&
+          order.shippingAddress?.deliveryType === 'packstation');
+
+      // Explicitly supplied values win over the stored order so staff corrections take effect.
       const packstationNo = String(
-        order.shippingAddress?.packstationNumber || shipmentData.packstationNumber || shipmentData.lockerID || ''
+        shipmentData.packstationNumber || shipmentData.lockerID || order.shippingAddress?.packstationNumber || ''
       ).trim();
-      const postNo = String(order.shippingAddress?.postNumber || shipmentData.postNumber || '').trim();
+      const postNo = String(shipmentData.postNumber || order.shippingAddress?.postNumber || '').trim();
+
+      // DHL needs street and house number in separate fields. The checkout collects one
+      // combined "Straße und Hausnummer" input, so it has to be split – but street and
+      // house number are resolved as a PAIR from a single address: falling back field by
+      // field used to pair one address' street with another address' house number.
+      const receiverPair = this.resolveStreetAndHouse([
+        { street: shipmentData.receiverAddress, house: shipmentData.receiverNumber, source: 'request' },
+        { street: order.shippingAddress?.street, house: order.shippingAddress?.number, source: 'order.shippingAddress' },
+        { street: paymentAddress.street, house: paymentAddress.number, source: 'customer.paymentAddress' },
+        { street: invoiceAddress.street, house: invoiceAddress.number, source: 'customer.invoiceAddress' }
+      ]);
+      const receiverStreet = receiverPair.street;
+      const receiverHouse = receiverPair.house;
 
       // Check if required address fields are missing or empty
       if (!isPackstation && (!receiverStreet || receiverStreet.trim() === '')) {
@@ -638,7 +1055,10 @@ class DHLService {
       const parcelDeConfig = this.getParcelDEConfig(dhlConfig);
 
       if (!parcelDeConfig.enabledApis.parcelDeShipping) {
-        throw new Error('DHL Parcel DE Shipping API is disabled in integration settings');
+        throw new ShippingLabelError(
+          'Die DHL-Versand-API (Parcel DE Shipping) ist in den Integrationseinstellungen deaktiviert.',
+          { code: 'DHL_SHIPPING_DISABLED', status: 503, retryable: false }
+        );
       }
 
       // Get account ID from settings or use default
@@ -650,26 +1070,95 @@ class DHLService {
 
       if (!accountId) {
         console.error('DHLService: Account ID not configured');
-        throw new Error('DHL Account ID not configured in integration settings');
+        throw new ShippingLabelError(
+          'Die DHL Abrechnungsnummer (EKP) fehlt in den Integrationseinstellungen.',
+          { code: 'DHL_BILLING_NUMBER_MISSING', status: 503, retryable: false }
+        );
       }
 
       // Use receiver name from shipmentData if provided, otherwise use customer name
       const receiverName = shipmentData.receiverName || customer?.name || 'Customer';
+
+      // `shipperFromConfiguration: true` means "use the configured shop address, ignore
+      // every shipper field in this request". The admin-only integration settings are not
+      // readable by staff, so a staff-facing dialog cannot send the shop address itself –
+      // and the booking endpoint merges its OWN default shipper (the customer!) into every
+      // request, which would otherwise produce a customer-to-customer label.
+      const useConfiguredShipper = shipmentData.shipperFromConfiguration === true;
+      const shipperSettings = dhlConfig.settings || {};
+
+      // The dialog sends a single "Address" field (shipperAddress); older callers send the
+      // already split shipperStreet/shipperNumber. Accept both – but, exactly like the
+      // consignee, street and house number come from ONE source: a caller-supplied shop
+      // street must never be completed with the CONFIGURED house number (or, through the
+      // booking endpoint's field-by-field merge, with the CUSTOMER's house number).
+      const shipperCandidates = [
+        {
+          street: shipperSettings.shipperStreet,
+          house: shipperSettings.shipperNumber,
+          source: 'integration.settings'
+        }
+      ];
+      if (!useConfiguredShipper) {
+        shipperCandidates.unshift({
+          street: shipmentData.shipperStreet || shipmentData.shipperAddress,
+          house: shipmentData.shipperNumber,
+          source: 'request'
+        });
+      }
+      const shipperPair = this.resolveStreetAndHouse(shipperCandidates);
+      const shipperStreet = shipperPair.street;
+      const shipperHouse = shipperPair.house;
+
+      // Same rule for the remaining shipper fields: with the flag set, NOTHING from the
+      // request is used, so no half of the shop address can come from somewhere else.
+      const shipperFrom = (requestValue, settingsValue, fallback = '') =>
+        String((useConfiguredShipper ? '' : requestValue) || settingsValue || fallback).trim();
+
+      // Pick the first candidate that survives sanitising, so a blank override from the
+      // dialog does not shadow a usable stored value (and "" is never sent to DHL).
+      const firstEmail = (...values) => values.map((value) => this.sanitizeEmail(value)).find(Boolean) || '';
+      const firstPhone = (...values) => values.map((value) => this.sanitizePhone(value)).find(Boolean) || '';
+
+      const shipperContact = {
+        email: useConfiguredShipper
+          ? firstEmail(shipperSettings.shipperEmail)
+          : firstEmail(shipmentData.shipperEmail, shipperSettings.shipperEmail),
+        phone: useConfiguredShipper
+          ? firstPhone(shipperSettings.shipperPhone)
+          : firstPhone(shipmentData.shipperPhone, shipperSettings.shipperPhone)
+      };
+      const receiverContact = {
+        email: firstEmail(shipmentData.receiverEmail, customer?.email),
+        phone: firstPhone(shipmentData.receiverPhone, customer?.phone)
+      };
+
+      // Optional `details.dim`, only for callers that explicitly opt in – see
+      // buildParcelDeDimensions for why this is not derived from the dialog defaults.
+      const dimensionsFragment = this.buildParcelDeDimensions(shipmentData);
+
       const singleShipment = shipmentData?.parcelDeOrderPayload || {
         product: this.resolveShippingProduct(shipmentData, parcelDeConfig.product),
         billingNumber: accountId,
         shipDate: shipmentData.shipmentDate || new Date().toISOString().slice(0, 10),
         shipper: {
-          name1: shipmentData.shipperName || dhlConfig.settings?.shipperCompany || 'McRepair.de GmbH',
-          addressStreet: shipmentData.shipperStreet || dhlConfig.settings?.shipperStreet || 'Company Street',
-          addressHouse: shipmentData.shipperNumber || dhlConfig.settings?.shipperNumber || '1',
-          postalCode: shipmentData.shipperPostalCode || dhlConfig.settings?.shipperPostalCode || '10115',
-          city: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Berlin',
-          country: this.countryCodeToIso3(shipmentData.shipperCountry || dhlConfig.settings?.shipperCountry || 'DE'),
-          email: shipmentData.shipperEmail || dhlConfig.settings?.shipperEmail || 'info@mcrepair.de',
-          phone: (shipmentData.shipperPhone || dhlConfig.settings?.shipperPhone || '+49301234567').substring(0, 20)
+          // No hard-coded company name: an unconfigured shop must fail with
+          // "Absenderadresse: Name fehlt." instead of shipping under someone else's name.
+          name1: shipperFrom(shipmentData.shipperName, shipperSettings.shipperCompany),
+          addressStreet: shipperStreet,
+          addressHouse: shipperHouse,
+          postalCode: shipperFrom(shipmentData.shipperPostalCode, shipperSettings.shipperPostalCode),
+          city: shipperFrom(shipmentData.shipperCity, shipperSettings.shipperCity),
+          country: this.countryCodeToIso3(shipperFrom(shipmentData.shipperCountry, shipperSettings.shipperCountry, 'DE')),
+          ...(shipperContact.email ? { email: shipperContact.email } : {}),
+          ...(shipperContact.phone ? { phone: shipperContact.phone } : {})
         },
         consignee: (() => {
+          const contact = {
+            ...(receiverContact.email ? { email: receiverContact.email } : {}),
+            ...(receiverContact.phone ? { phone: receiverContact.phone } : {})
+          };
+
           if (isPackstation) {
             // DHL Parcel DE Shipping v2 – Packstation delivery
             return {
@@ -679,8 +1168,7 @@ class DHLService {
               postalCode: receiverPostalCode,
               city: receiverCity,
               country: this.countryCodeToIso3(receiverCountry),
-              email: shipmentData.receiverEmail || customer?.email || '',
-              phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20)
+              ...contact
             };
           }
 
@@ -688,21 +1176,40 @@ class DHLService {
           return {
             name1: receiverName,
             addressStreet: receiverStreet,
-            addressHouse: shipmentData.receiverNumber || order.shippingAddress?.number || '1',
+            addressHouse: receiverHouse,
             postalCode: receiverPostalCode,
             city: receiverCity,
             country: this.countryCodeToIso3(receiverCountry),
-            email: shipmentData.receiverEmail || customer?.email || '',
-            phone: (shipmentData.receiverPhone || customer?.phone || '+49301234567').substring(0, 20) // DHL requires 1-20 chars
+            ...contact
           };
         })(),
         details: {
           weight: {
             uom: 'kg',
             value: Number(shipmentData.weight || 1)
-          }
+          },
+          ...dimensionsFragment
         }
       };
+
+      // Fail with a precise German message BEFORE calling DHL – an invalid payload would
+      // otherwise come back as an opaque DHL validation error (or a silently wrong label).
+      // A caller supplying a raw `parcelDeOrderPayload` owns its shape and is not checked.
+      const payloadProblems = shipmentData?.parcelDeOrderPayload
+        ? []
+        : this.validateParcelDeShipment(singleShipment, { consigneeIsLocker: isPackstation });
+      if (payloadProblems.length > 0) {
+        console.error('DHLService: Shipment payload rejected by pre-flight validation:', payloadProblems);
+        throw new ShippingLabelError(
+          `Versanddaten unvollständig oder ungültig: ${payloadProblems[0]}`,
+          {
+            code: 'DHL_PAYLOAD_INVALID',
+            status: 422,
+            retryable: false,
+            details: payloadProblems
+          }
+        );
+      }
 
       // Wrap in shipments array as required by DHL Parcel DE Shipping v2 API
       const shipmentPayload = {
@@ -723,7 +1230,7 @@ class DHLService {
       console.log('DHLService: Endpoint:', `${parcelDeConfig.baseUrl}/parcel/de/shipping/v2/orders`);
       console.log('DHLService: Shipment payload:', JSON.stringify(shipmentPayload, null, 2));
 
-      const accessToken = await this.getAccessToken(parcelDeConfig);
+      const accessToken = await this.getAccessToken(parcelDeConfig, { context: 'label' });
 
       // Make API request to DHL Parcel API
       const response = await axios.post(
@@ -739,8 +1246,25 @@ class DHLService {
         }
       );
 
-      console.log('DHLService: Shipment created successfully');
       console.log('DHLService: Response data:', JSON.stringify(response.data, null, 2));
+
+      // DHL uses HTTP 207 for per-shipment failures; axios treats that as success, so the
+      // envelope has to be inspected or DHL's real validation text would be lost.
+      const itemFailure = this.extractParcelDeFailure(response.data);
+      if (itemFailure) {
+        const multiStatusError = this.getDhlErrorDetails(
+          { response: { status: 400, data: itemFailure } },
+          { context: 'label' }
+        );
+        throw new ShippingLabelError(multiStatusError.message, {
+          code: multiStatusError.code,
+          status: multiStatusError.status,
+          retryable: multiStatusError.retryable,
+          details: multiStatusError.details
+        });
+      }
+
+      console.log('DHLService: Shipment created successfully');
 
       // Parcel DE Shipping v2 returns shipment identifiers directly in the order response.
       const trackingNumber =
@@ -798,19 +1322,28 @@ class DHLService {
         timestamp: new Date(),
         location: shipmentData.shipperCity || dhlConfig.settings?.shipperCity || 'Origin',
         status: 'label-created',
-        description: 'Shipping label created successfully with DHL Parcel'
+        description: 'DHL-Versandlabel wurde erstellt'
       });
 
       // Add timeline entry
       order.timeline.push({
         status: 'Shipping Label Created',
-        description: `DHL Parcel shipping label created. Tracking number: ${order.trackingNumber}`,
+        description: `DHL-Versandlabel erstellt. Sendungsnummer: ${order.trackingNumber}`,
         completedAt: new Date(),
         staffId: 'system',
         staffName: 'DHL Parcel Integration'
       });
 
       await order.save();
+
+      // The document was loaded before the claim was written, so the flag has to be
+      // released atomically – otherwise a restart leaves the order locked forever.
+      await Order.updateOne(
+        { _id: orderId, shippingLabelCreationInProgress: true },
+        { $set: { shippingLabelCreationInProgress: false } }
+      ).catch((releaseError) => {
+        console.error('DHLService: Could not release label creation lock:', releaseError.message);
+      });
 
       console.log('DHLService: Order updated with tracking information');
 
@@ -837,7 +1370,7 @@ class DHLService {
       console.error('DHLService: Error response status:', error.response?.status);
       console.error('DHLService: Error stack trace:', error.stack);
 
-      const dhlError = this.getDhlErrorDetails(error);
+      const dhlError = this.getDhlErrorDetails(error, { context: 'label' });
 
       throw new ShippingLabelError(dhlError.message || 'Versandlabel konnte nicht erstellt werden.', {
         code: dhlError.code,
@@ -853,6 +1386,20 @@ class DHLService {
    * @param {string} trackingNumber - DHL tracking number
    * @returns {Promise<Object>} Tracking information
    */
+  /** Deutsche Bezeichnung eines Versandstatus - kein roher Enum-Wert im Verlauf. */
+  static shippingStatusLabel(status) {
+    const labels = {
+      'pending': 'In Vorbereitung',
+      'label-created': 'Label erstellt',
+      'shipped': 'Versendet',
+      'in-transit': 'In Zustellung',
+      'out-for-delivery': 'Heute in Zustellung',
+      'delivered': 'Zugestellt',
+      'failed': 'Fehlgeschlagen',
+    };
+    return labels[String(status || '')] || String(status || 'Unbekannt');
+  }
+
   static async getTrackingInfo(trackingNumber) {
     console.log('DHLService: Getting tracking info for:', trackingNumber);
 
@@ -861,7 +1408,9 @@ class DHLService {
       const parcelDeConfig = this.getParcelDEConfig(dhlConfig);
 
       if (!parcelDeConfig.enabledApis.parcelDeTracking) {
-        throw new Error('DHL Parcel DE Tracking API is disabled in integration settings');
+        // Diese Meldung wird von den Routen als error.message an die Oberflaeche
+        // durchgereicht - sie muss deutsch sein.
+        throw new Error('Die DHL-Sendungsverfolgung ist in den Integrationseinstellungen deaktiviert.');
       }
 
       const trackingCreds = parcelDeConfig.tracking || {};
@@ -921,7 +1470,7 @@ class DHLService {
       const shipmentData = response.data.shipments?.[0];
 
       if (!shipmentData) {
-        throw new Error('No tracking information found');
+        throw new Error('Zu dieser Sendungsnummer liegen bei DHL keine Sendungsdaten vor.');
       }
 
       const rawStatus =
@@ -950,7 +1499,7 @@ class DHLService {
         trackingNumber,
         status: normalizedStatus || 'unknown',
         statusCodeRaw: rawStatus || 'unknown',
-        description: shipmentData.status?.description || 'No status available',
+        description: shipmentData.status?.description || 'Kein Status verfügbar',
         estimatedDelivery: shipmentData.estimatedTimeOfDelivery,
         events: trackingEvents,
         origin: shipmentData.origin?.address,
@@ -967,7 +1516,7 @@ class DHLService {
 
     } catch (error) {
       console.error('DHLService: Error getting tracking info:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.detail || error.message || 'Failed to retrieve tracking information');
+      throw new Error(error.response?.data?.detail || error.message || 'Die Sendungsverfolgung konnte nicht abgerufen werden.');
     }
   }
 
@@ -983,11 +1532,11 @@ class DHLService {
       const order = await Order.findById(orderId);
 
       if (!order) {
-        throw new Error('Order not found');
+        throw new Error('Auftrag wurde nicht gefunden.');
       }
 
       if (!order.trackingNumber) {
-        throw new Error('No tracking number found for this order');
+        throw new Error('Für diesen Auftrag ist keine Sendungsnummer hinterlegt.');
       }
 
       // Get latest tracking info from DHL
@@ -1027,7 +1576,7 @@ class DHLService {
       // Add timeline entry if status changed
       if (statusChanged) {
         order.timeline.push({
-          status: `Shipping Status: ${newStatus}`,
+          status: `Versandstatus: ${DHLService.shippingStatusLabel(newStatus)}`,
           description: trackingInfo.description,
           completedAt: new Date(),
           staffId: 'system',
@@ -1113,7 +1662,7 @@ class DHLService {
       if (!shippingProbe.success) {
         return {
           success: false,
-          message: `DHL Shipping endpoint probe failed (${shippingProbe.status || 'n/a'})`,
+          message: `Die DHL-Versand-API ist nicht erreichbar (Status ${shippingProbe.status || 'n/a'}).`,
           errorCode: 'DHL_SHIPPING_PROBE_FAILED',
           debug: {
             ...debug,
@@ -1139,7 +1688,7 @@ class DHLService {
         if (!pickupProbe.success) {
           return {
             success: false,
-            message: `DHL Parcel DE Pickup API probe failed (${pickupProbe.status || 'n/a'}). Please verify the configured Pickup Probe Path.`,
+            message: `Die DHL-Abhol-API (Pickup) ist nicht erreichbar (Status ${pickupProbe.status || 'n/a'}). Bitte den konfigurierten Pickup-Probe-Pfad prüfen.`,
             errorCode: 'DHL_PICKUP_PROBE_FAILED',
             debug: {
               ...debug,

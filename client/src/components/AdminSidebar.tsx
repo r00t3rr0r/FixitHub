@@ -20,6 +20,7 @@ import {
   Package2,
   UserCheck,
   DollarSign,
+  FileSpreadsheet,
   AlertCircle,
   MessageSquare,
   Bell,
@@ -180,6 +181,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       </NavItem>
       <NavItem to="/admin/financial" icon={DollarSign}>
         Rechnungen
+      </NavItem>
+      <NavItem to="/admin/credit-notes" icon={FileSpreadsheet}>
+        Gutschriften
       </NavItem>
 
       <GroupDivider />

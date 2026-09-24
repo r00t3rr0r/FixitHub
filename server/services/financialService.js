@@ -12,6 +12,55 @@ const OrderRevisionService = require('./orderRevisionService');
 const EmailService = require('./emailService');
 const NotificationService = require('./notificationService');
 const { Types } = require('mongoose');
+const crypto = require('crypto');
+const PaymentService = require('./paymentService');
+
+// Fachlicher Fehler mit HTTP-Status und deutscher, UI-tauglicher Meldung.
+function buildFinancialError(message, statusCode = 400, code = 'FINANCIAL_ERROR') {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  return error;
+}
+
+// Zeitfenster fuer die abgeleitete Idempotenz (Doppelklick / Retry des Clients).
+const IDEMPOTENCY_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Baut den Idempotenzschluessel einer Zahlungserfassung.
+ * Ein vom Aufrufer geschickter Schluessel gewinnt immer. Ohne Schluessel wird ein
+ * Fingerabdruck aus Vorgang, Betrag, Zahlart, Datum und Verwendungszweck gebildet
+ * und in ein Zeitfenster gebucht: derselbe Request innerhalb des Fensters ist ein
+ * Duplikat, eine bewusst spaeter erneut erfasste identische Zahlung nicht.
+ */
+function buildPaymentIdempotencyKey(scope, fingerprintParts, explicitKey = null, bucketOffset = 0) {
+  const cleanExplicit = String(explicitKey || '').trim();
+  if (cleanExplicit) return `client:${scope}:${cleanExplicit.slice(0, 120)}`;
+
+  const bucket = Math.floor(Date.now() / IDEMPOTENCY_WINDOW_MS) - bucketOffset;
+  const fingerprint = crypto
+    .createHash('sha1')
+    .update(fingerprintParts.map((part) => String(part ?? '')).join('|'))
+    .digest('hex')
+    .slice(0, 24);
+  return `auto:${scope}:${fingerprint}:${bucket}`;
+}
+
+/**
+ * Sucht eine bereits erfasste Zahlung zum selben Idempotenzschluessel.
+ * Es werden das aktuelle UND das vorherige Zeitfenster geprueft, damit ein
+ * Doppelklick genau auf einer Fenstergrenze nicht durchrutscht.
+ */
+async function findDuplicatePayment(scope, fingerprintParts, explicitKey = null) {
+  const keys = String(explicitKey || '').trim()
+    ? [buildPaymentIdempotencyKey(scope, fingerprintParts, explicitKey)]
+    : [
+      buildPaymentIdempotencyKey(scope, fingerprintParts, null, 0),
+      buildPaymentIdempotencyKey(scope, fingerprintParts, null, 1),
+    ];
+  const existing = await Payment.findOne({ idempotencyKey: { $in: keys } });
+  return { keys, existing };
+}
 
 function parseDueDaysFromTerms(paymentTerms) {
   if (!paymentTerms) return null;
@@ -51,17 +100,115 @@ function calculateDiscountAmount(subtotal, discountPercent) {
   return Number(((numericSubtotal * numericDiscountPercent) / 100).toFixed(2));
 }
 
-function composePaymentTerms(financialProfile) {
-  const baseTerms = String(financialProfile?.paymentTerms || '').trim();
-  const cashDiscountPercent = Number(financialProfile?.cashDiscountPercent || 0);
-  const cashDiscountDays = Number(financialProfile?.cashDiscountDays || 0);
+/**
+ * Steuersatz-Kontrakt: die API erwartet einen PROZENTWERT (19, 7, 0), keinen Faktor.
+ * Uebergangsweise wird ein Wert echt zwischen 0 und 1 als alter Bruchwert (0.19)
+ * erkannt und umgerechnet, damit ein alter Client-Bundle nicht 1/100 der MwSt bucht.
+ */
+function normalizeTaxRatePercent(value, fallbackPercent = CalculationHelper.DEFAULT_TAX_RATE) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    const fallback = Number(fallbackPercent);
+    return Number.isFinite(fallback) ? fallback : CalculationHelper.DEFAULT_TAX_RATE;
+  }
+  if (numericValue > 0 && numericValue < 1) {
+    console.warn(`FinancialService: taxRate ${numericValue} looks like a legacy fraction, interpreting as ${numericValue * 100}%`);
+    return CalculationHelper.round(numericValue * 100);
+  }
+  return numericValue;
+}
 
-  if (cashDiscountPercent > 0 && cashDiscountDays > 0) {
-    const skontoText = `${cashDiscountPercent}% Skonto bei Zahlung innerhalb ${cashDiscountDays} Tagen`;
-    return baseTerms ? `${baseTerms} | ${skontoText}` : skontoText;
+// Korrekturarten, die KEINE Wertminderung der Rechnung sind, sondern die Rueckgabe
+// bereits erhaltenen Geldes (Ueberzahlung). Sie duerfen weder den gutschreibbaren
+// Rechnungswert verbrauchen noch als Auftragswertminderung gezaehlt werden.
+const REFUND_CORRECTION_TYPES = ['partial_refund'];
+// Vom Client setzbare Korrekturtypen (Invoice.correctionType-Enum ohne null).
+const VALID_CORRECTION_TYPES = ['full_cancellation', 'partial_refund', 'price_adjustment'];
+
+// Zahlungsziel (Net X). Skonto wird bewusst nicht mehr ausgewiesen - es wurde nie
+// tatsaechlich gewaehrt und ist aus allen aktiven Flows entfernt.
+function composePaymentTerms(financialProfile) {
+  return String(financialProfile?.paymentTerms || '').trim() || 'Net 14';
+}
+
+// Geraetekennzeichnung fuer Rechnungspositionen: Marke/Modell, IMEI bzw. Seriennummer.
+function buildDeviceLabel(order, fallbackDevice = '') {
+  const base = String(
+    fallbackDevice || `${order?.deviceBrand || ''} ${order?.deviceModel || ''}`.trim() || 'Gerät'
+  ).trim();
+
+  const identifiers = [];
+  const imei = String(order?.imei || '').trim();
+  const serialNumber = String(order?.serialNumber || '').trim();
+  if (imei) identifiers.push(`IMEI: ${imei}`);
+  if (serialNumber) identifiers.push(`SN: ${serialNumber}`);
+
+  return identifiers.length > 0 ? `${base} (${identifiers.join(', ')})` : base;
+}
+
+/**
+ * Baut die Rechnungspositionen eines Auftrags.
+ * Jede Position traegt den echten Service-/Produktnamen plus Geraetekennzeichnung -
+ * niemals interne IDs, ein ObjectId-Dump oder den Platzhalter "Service".
+ * Alle Preise sind BRUTTO (siehe CalculationHelper).
+ */
+function buildInvoiceItemsFromOrder(order, options = {}) {
+  if (!order) return [];
+
+  const deviceLabel = buildDeviceLabel(order, options.deviceLabel);
+  const items = [];
+
+  if (order.deviceType === 'Shop Products' || (order.shopProducts || []).length > 0) {
+    (order.shopProducts || []).forEach((product) => {
+      const quantity = Number(product.quantity) || 1;
+      const unitPrice = Number(product.priceAtOrder) || 0;
+      const serviceName = product.productId?.name || 'Produkt';
+      items.push({
+        serviceName,
+        description: serviceName,
+        quantity,
+        unitPrice,
+        total: CalculationHelper.round(unitPrice * quantity),
+        type: 'product'
+      });
+    });
   }
 
-  return baseTerms || 'Net 14';
+  (order.services || []).forEach((service) => {
+    const serviceName = (typeof service === 'string' ? service : service?.serviceId?.name) || 'Reparaturservice';
+    items.push({
+      serviceName,
+      description: `${deviceLabel} – ${serviceName}`,
+      quantity: 1,
+      unitPrice: Number(service?.price) || 0,
+      total: CalculationHelper.round(Number(service?.price) || 0),
+      type: 'service'
+    });
+  });
+
+  (order.addOns || []).forEach((addon) => {
+    const serviceName = addon?.name || 'Zusatzleistung';
+    const price = Number(addon?.price) || 0;
+    items.push({
+      serviceName,
+      description: `${deviceLabel} – ${serviceName}`,
+      quantity: 1,
+      unitPrice: price,
+      total: CalculationHelper.round(price),
+      type: 'addon'
+    });
+  });
+
+  return items;
+}
+
+// Laedt Auftraege so, dass buildInvoiceItemsFromOrder echte Service-/Produktnamen sieht.
+function findOrdersForInvoiceItems(filter) {
+  return Order.find(filter)
+    .setOptions({ skipAutoPopulate: true })
+    .select('orderNumber status totalCost discount deviceType deviceBrand deviceModel imei serialNumber services shopProducts addOns bookingId')
+    .populate('services.serviceId', 'name')
+    .populate('shopProducts.productId', 'name');
 }
 
 function normalizeBillingAddress(address) {
@@ -164,6 +311,22 @@ const INVOICE_STATUS_TRANSITIONS = {
   credited:         []
 };
 
+// Belegstatus, deren ZAHLUNGSSTAND den Belegstatus fortschreiben darf.
+// Grundlage sind die zuordnungsfaehigen Status aus dem PaymentService; 'draft' und
+// 'pending_approval' fehlen dort bewusst: ein Beleg ohne Freigabe darf nicht ueber
+// eingegangenes Geld nach 'paid'/'partially_paid' gedraengt werden - diesen Uebergang
+// kennt INVOICE_STATUS_TRANSITIONS nicht und der Beleg waere danach unbeweglich.
+// 'paid' kommt hinzu, damit eine entfernte oder erstattete Zahlung einen bereits
+// bezahlten Beleg wieder oeffnen kann. 'cancelled' und 'credited' bleiben unberuehrt.
+// Der BETRAG (paidAmount) wird in jedem Fall geschrieben: Geld wird immer verbucht,
+// nur der Beleg wird nicht bewegt.
+const PAYMENT_DERIVED_STATUS_WRITABLE = [...PaymentService.ALLOCATABLE_INVOICE_STATUSES, 'paid'];
+
+// Deutsches Belegstatus-Label (Quelle: PaymentService). Meldungen, die den
+// Bearbeiter erreichen, duerfen den rohen englischen Enum-Wert nicht zeigen -
+// der technische Wert bleibt im Fehlercode und im Log.
+const invoiceStatusLabelDe = PaymentService.invoiceStatusLabel;
+
 // Default financial settings (fallback if no config exists)
 const DEFAULT_FINANCIAL_SETTINGS = {
   defaults: {
@@ -180,7 +343,6 @@ const DEFAULT_FINANCIAL_SETTINGS = {
   discountPolicy: {
     allowManualDiscounts: true,
     maxDiscountPercent: 20,
-    earlyPaymentDiscountPercent: 2,
     lateFeePercent: 5
   },
   invoiceMetadata: {
@@ -215,14 +377,58 @@ function normalizeTrackedPaidAt(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function escapeRegExp(value) {
+  return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Belegtyp-Ausschnitt der Rechnungsliste.
+ * Akzeptiert beide Schreibweisen, die der Client schicken kann:
+ *   scope=invoices|creditNotes|all   oder   isCreditNote=true|false
+ * Ohne Angabe bleibt es beim bisherigen Verhalten (beides).
+ */
+function normalizeInvoiceScope(scope, isCreditNote) {
+  const raw = String(scope ?? '').trim().toLowerCase();
+  if (raw === 'invoices' || raw === 'invoice' || raw === 'regular') return 'invoices';
+  if (raw === 'creditnotes' || raw === 'creditnote' || raw === 'credit_notes') return 'creditNotes';
+  if (raw === 'all' || raw === 'both') return 'all';
+
+  if (isCreditNote === true || isCreditNote === 'true' || isCreditNote === 1 || isCreditNote === '1') return 'creditNotes';
+  if (isCreditNote === false || isCreditNote === 'false' || isCreditNote === 0 || isCreditNote === '0') return 'invoices';
+  return 'all';
+}
+
+/**
+ * Regex-Baustein fuer die Belegnummernsuche.
+ * Trennzeichen werden weich behandelt ('INV 2026/42', 'inv-2026-42', '#INV-2026-42'
+ * treffen dieselbe Nummer) und fuehrende Nullen der laufenden Nummer sind optional.
+ * Deckt damit auch Altformate wie 'INV-1712345678-ab12cd' ab.
+ */
+function buildInvoiceNumberPattern(value) {
+  const cleaned = String(value ?? '')
+    .trim()
+    .replace(/^#/, '')
+    .replace(/[\s_/]+/g, '-')
+    .replace(/-+/g, '-');
+  if (!cleaned) return '';
+
+  return cleaned
+    .split('-')
+    .filter(Boolean)
+    .map((part) => (/^\d+$/.test(part) ? `0*${part}` : escapeRegExp(part)))
+    .join('[-\\s_/]*');
+}
+
 // Safely extracts a Mongo id string from an ObjectId, populated doc, or plain id string.
 function toIdString(value) {
   if (value == null) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'object') {
+    // ObjectId zuerst: ein ObjectId liefert auf `_id` sich selbst zurueck, die
+    // _id-Verzweigung wuerde sich daher endlos selbst aufrufen.
+    if (typeof value.toHexString === 'function') return value.toHexString();
     if (value._id != null) return toIdString(value._id);
     if (value.id != null) return toIdString(value.id);
-    if (typeof value.toHexString === 'function') return value.toHexString();
   }
   return String(value);
 }
@@ -282,7 +488,8 @@ class FinancialService {
         customerDueDays ?? groupFinanceProfile.paymentDueDays ?? settings.defaults.paymentDueDays
       ),
       paymentTerms: customerPaymentTerms || groupFinanceProfile.paymentTermsLabel || settings.defaults.paymentTerms,
-      invoicePrefix: groupFinanceProfile.invoicePrefix || settings.defaults.invoicePrefix,
+      // Kein invoicePrefix mehr: die Belegnummer kommt global aus DocumentSequence
+      // ('INV-JJJJ-NNNN' / 'INV-CN-JJJJ-NNNN') und ist nicht mehr gruppenabhaengig.
       defaultDiscountPercent: typeof resolvedCustomer?.discount === 'number' && resolvedCustomer.discount > 0
         ? resolvedCustomer.discount
         : groupFinanceProfile.discountPercent ?? settings.defaults.defaultDiscount,
@@ -290,8 +497,6 @@ class FinancialService {
         || (Array.isArray(groupFinanceProfile.allowedPaymentMethods) && groupFinanceProfile.allowedPaymentMethods[0])
         || settings.defaults.defaultPaymentMethod,
       creditLimit: groupFinanceProfile.creditLimit ?? 0,
-      cashDiscountPercent: groupFinanceProfile.cashDiscountPercent ?? settings.discountPolicy.earlyPaymentDiscountPercent,
-      cashDiscountDays: groupFinanceProfile.cashDiscountDays ?? 0,
       sellerVatId: settings.invoiceMetadata?.sellerVatId || 'DE318981969',
       invoiceMetadata: settings.invoiceMetadata || {},
       customer: resolvedCustomer,
@@ -443,8 +648,14 @@ class FinancialService {
       }
 
       // Update payment status and refund info
-      payment.status = 'refunded';
-      payment.refundAmount = amount;
+      // Nur eine VOLLerstattung setzt den Status auf 'refunded'. Bei einer
+      // Teilerstattung bleibt die Zahlung 'completed' mit gesetztem refundAmount,
+      // sonst faellt der noch nicht erstattete Rest dauerhaft aus jeder
+      // Saldo- und Zuordnungsrechnung heraus (Filter status: 'completed').
+      const refundAmount = CalculationHelper.round(Number(amount));
+      const isFullRefund = refundAmount >= CalculationHelper.round(Number(payment.amount || 0)) - 0.01;
+      payment.status = isFullRefund ? 'refunded' : 'completed';
+      payment.refundAmount = refundAmount;
       payment.refundReason = reason;
       payment.refundedAt = new Date();
       payment.refundMode = requestedMode;
@@ -452,6 +663,13 @@ class FinancialService {
       payment.refundGatewayReference = options.gatewayReference || '';
 
       await payment.save();
+
+      // Zugeordnete Rechnungen nachziehen: erstattetes Geld darf nicht weiter als
+      // beglichen gelten. paidAmount wird aus den GUELTIGEN Zuordnungen neu abgeleitet.
+      await FinancialService.recalculateInvoicePaidAmounts(
+        (await PaymentAllocation.find({ paymentId: payment._id }).select('invoiceId').lean())
+          .map((entry) => entry.invoiceId)
+      );
 
       console.log('FinancialService: Refund processed successfully');
       return {
@@ -476,10 +694,26 @@ class FinancialService {
 
     try {
       const query = {};
+      // Mehrere unabhaengige $or-Bedingungen (Auftrag, Belegnummer, Freitext) muessen
+      // UND-verknuepft werden - ein zweites query.$or wuerde das erste ueberschreiben
+      // und stillschweigend zu viele Belege liefern.
+      const andClauses = [];
 
       // Apply filters
       if (filters.status) {
         query.status = filters.status;
+      }
+
+      // BELEGTYP (scope): Rechnungen, Gutschriften oder beides. Wird der Filter
+      // ignoriert, bekommen die Rechnungs- und die Gutschriftenseite denselben
+      // Ausschnitt und muessen clientseitig nachfiltern - mit dem Ergebnis, dass eine
+      // Seite je nach Datenlage leer bleibt, obwohl es Belege gibt.
+      const scope = normalizeInvoiceScope(filters.scope, filters.isCreditNote);
+      if (scope === 'invoices') {
+        // Altbestand kennt das Feld teils gar nicht: 'nicht true' statt '=== false'.
+        query.isCreditNote = { $ne: true };
+      } else if (scope === 'creditNotes') {
+        query.isCreditNote = true;
       }
 
       if (filters.customerId) {
@@ -502,8 +736,36 @@ class FinancialService {
             );
           }
 
-          query.$or = orderIdClauses;
+          andClauses.push({ $or: orderIdClauses });
         }
+      }
+
+      // BELEGNUMMER: verankerte Suche ab Wortanfang. Der eindeutige Index auf
+      // invoiceNumber traegt ein '^'-Regex, ein freies Enthalten-Regex nicht.
+      const invoiceNumberPattern = buildInvoiceNumberPattern(filters.invoiceNumber);
+      if (invoiceNumberPattern) {
+        andClauses.push({ invoiceNumber: { $regex: `^${invoiceNumberPattern}`, $options: 'i' } });
+      }
+
+      // FREITEXT: Belegnummer (auch Altformate wie 'INV-1712345678-ab12cd'), Kunde
+      // und Kunden-E-Mail.
+      const searchTerm = String(filters.search || '').trim();
+      if (searchTerm) {
+        const searchClauses = [];
+        const numberPattern = buildInvoiceNumberPattern(searchTerm);
+        if (numberPattern) {
+          searchClauses.push({ invoiceNumber: { $regex: `^${numberPattern}`, $options: 'i' } });
+          searchClauses.push({ invoiceNumber: { $regex: numberPattern, $options: 'i' } });
+          // Reine Ziffernfolge: auch als laufende Nummer am Ende suchen, damit '42'
+          // die INV-2026-0042 findet.
+          if (/^\d+$/.test(searchTerm)) {
+            searchClauses.push({ invoiceNumber: { $regex: `0*${searchTerm}$`, $options: 'i' } });
+          }
+        }
+        const freeText = escapeRegExp(searchTerm);
+        searchClauses.push({ customerName: { $regex: freeText, $options: 'i' } });
+        searchClauses.push({ customerEmail: { $regex: freeText, $options: 'i' } });
+        andClauses.push({ $or: searchClauses });
       }
 
       if (filters.bookingId) {
@@ -535,9 +797,13 @@ class FinancialService {
         }
       }
 
-      // Pagination
-      const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 10;
+      if (andClauses.length > 0) {
+        query.$and = andClauses;
+      }
+
+      // Pagination (innerhalb des gefilterten Ausschnitts, nicht darueber hinaus)
+      const page = Math.max(1, parseInt(filters.page) || 1);
+      const limit = Math.min(500, Math.max(1, parseInt(filters.limit) || 10));
       const skip = (page - 1) * limit;
 
       const [invoiceSummary] = await Invoice.aggregate([
@@ -557,7 +823,30 @@ class FinancialService {
         },
       ]);
 
-      const invoices = (invoiceSummary?.items || []).map((invoice) => ({ ...invoice }));
+      // Zahlungsstand je Beleg aus den GUELTIGEN Zuordnungen anreichern, damit die
+      // Liste denselben Satz (total / allocated / open / overpaid) zeigt wie Detail-
+      // und Auftragsansicht und der Client nichts nachrechnen muss.
+      const rawInvoices = (invoiceSummary?.items || []).map((invoice) => ({ ...invoice }));
+      const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(
+        rawInvoices.map((invoice) => invoice._id)
+      );
+      const invoices = rawInvoices.map((invoice) => {
+        const balance = PaymentService.buildInvoiceBalance(
+          invoice,
+          Number(allocatedByInvoice.get(String(invoice._id)) || 0)
+        );
+        return {
+          ...invoice,
+          // status = Beleglebenslauf, paymentState = Zahlungsstand. Nie vermischen.
+          paymentState: balance.paymentState,
+          balance: {
+            total: balance.total,
+            allocated: balance.allocated,
+            open: balance.open,
+            overpaid: balance.overpaid,
+          },
+        };
+      });
       const totalInvoices = invoiceSummary?.totalCount?.[0]?.count || 0;
       const totalPages = Math.ceil(totalInvoices / limit);
       const totalAmount = invoiceSummary?.totalAmount?.[0]?.totalAmount || 0;
@@ -565,6 +854,11 @@ class FinancialService {
       console.log('FinancialService: Found', invoices.length, 'invoices');
       return {
         invoices,
+        // total/limit/scope sind additiv - die bisherigen Felder bleiben unveraendert,
+        // damit bestehende Aufrufer nichts anpassen muessen.
+        total: totalInvoices,
+        limit,
+        scope,
         totalPages,
         currentPage: page,
         totalAmount
@@ -671,11 +965,10 @@ class FinancialService {
         }
       }
 
-      // Apply financial defaults if not explicitly provided
-      if (!cleanedInvoiceData.numberPrefix && !cleanedInvoiceData.invoiceNumber) {
-        cleanedInvoiceData.numberPrefix = financialProfile.invoicePrefix;
-      }
-      
+      // Belegnummern sind nicht vom Aufrufer setzbar - sie kommen aus DocumentSequence.
+      delete cleanedInvoiceData.invoiceNumber;
+      delete cleanedInvoiceData.numberPrefix;
+
       if (!cleanedInvoiceData.dueDate && cleanedInvoiceData.dueDate !== false) {
         const dueDays = normalizePaymentDueDays(financialProfile.paymentDueDays);
         cleanedInvoiceData.dueDate = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
@@ -716,18 +1009,29 @@ class FinancialService {
         cleanedInvoiceData.sellerVatId = String(cleanedInvoiceData.sellerVatId).trim();
       }
 
-      if ((cleanedInvoiceData.discount === undefined || cleanedInvoiceData.discount === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
-        cleanedInvoiceData.discount = calculateDiscountAmount(cleanedInvoiceData.subtotal, financialProfile.defaultDiscountPercent);
+      // Positionspreise sind BRUTTO. Netto und MwSt werden vom Invoice-Modell aus dem
+      // Brutto herausgerechnet; vom Client gelieferte Summen sind nicht vertrauenswuerdig.
+      const hasItems = Array.isArray(cleanedInvoiceData.items) && cleanedInvoiceData.items.length > 0;
+      const itemsGrossTotal = hasItems
+        ? CalculationHelper.round(cleanedInvoiceData.items.reduce((sum, item) => sum + Number(item.total || 0), 0))
+        : 0;
+
+      if (hasItems) {
+        delete cleanedInvoiceData.subtotal;
+        delete cleanedInvoiceData.tax;
+        delete cleanedInvoiceData.total;
+      }
+
+      if ((cleanedInvoiceData.discount === undefined || cleanedInvoiceData.discount === null) && itemsGrossTotal > 0) {
+        cleanedInvoiceData.discount = calculateDiscountAmount(itemsGrossTotal, financialProfile.defaultDiscountPercent);
       }
 
       if (isReverseCharge) {
         cleanedInvoiceData.tax = 0;
-      } else if ((cleanedInvoiceData.tax === undefined || cleanedInvoiceData.tax === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
-        cleanedInvoiceData.tax = Number(cleanedInvoiceData.subtotal) * (financialProfile.taxRate / 100);
       }
 
-      if ((cleanedInvoiceData.total === undefined || cleanedInvoiceData.total === null) && Number.isFinite(Number(cleanedInvoiceData.subtotal))) {
-        cleanedInvoiceData.total = Number(cleanedInvoiceData.subtotal) + Number(cleanedInvoiceData.tax || 0) - Number(cleanedInvoiceData.discount || 0);
+      if (!Number.isFinite(Number(cleanedInvoiceData.taxRate))) {
+        cleanedInvoiceData.taxRate = isReverseCharge ? 0 : financialProfile.taxRate;
       }
 
       cleanedInvoiceData.status = 'sent';
@@ -736,13 +1040,10 @@ class FinancialService {
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
       await invoice.save();
-      if (invoice.bookingId) {
-        await FinancialService.autoAllocateUnallocatedPayments(invoice.bookingId);
-      }
-      await FinancialService.syncBookingPaymentStatus(invoice);
+      const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
       console.log('FinancialService: Invoice created successfully with defaults applied');
-      return invoice;
+      return finalized;
     } catch (error) {
       console.error('FinancialService: Error creating invoice:', error);
       throw error;
@@ -810,8 +1111,7 @@ class FinancialService {
       invoice.status = 'sent';
       invoice.sentAt = new Date();
       await invoice.save();
-      await FinancialService.syncBookingPaymentStatus(invoice);
-      await FinancialService.syncBookingPaymentStatus(invoice);
+      await FinancialService.syncPaymentDerivedState(invoice, 'sendInvoice');
 
       await NotificationService.createNotification({
         userId: invoice.customerId,
@@ -828,7 +1128,21 @@ class FinancialService {
       }, { sendEmail: false });
 
       console.log('FinancialService: Invoice sent successfully');
-      return { success: true, message: 'Invoice sent successfully' };
+
+      // Ehrliche Rueckmeldung: die Vorlage 'Neue Rechnung verfuegbar' enthaelt derzeit
+      // KEINEN Platzhalter {{customMessage}}, die im Dialog verfasste persoenliche
+      // Nachricht wird daher nicht mitgesendet. Das wird gemeldet statt verschwiegen.
+      const composedMessage = String(message || '').trim();
+      return {
+        success: true,
+        message: 'Rechnung wurde versendet.',
+        recipientEmail,
+        providerMessageId: emailResult?.messageId || '',
+        customMessageDelivered: false,
+        ...(composedMessage
+          ? { warning: 'Die persönliche Nachricht wurde NICHT mitgesendet: die E-Mail-Vorlage "Neue Rechnung verfuegbar" enthält keinen Platzhalter dafür.' }
+          : {}),
+      };
     } catch (error) {
       console.error('FinancialService: Error sending invoice:', error);
       throw error;
@@ -1332,7 +1646,9 @@ class FinancialService {
   }
 
   // Create invoice from order
-  static async createInvoiceFromOrder(orderId) {
+  // options.additionalItems: zusaetzliche BRUTTO-Positionen (z.B. Servicepauschale),
+  // die bereits im order.totalCost enthalten sind und deshalb nicht doppelt zaehlen duerfen.
+  static async createInvoiceFromOrder(orderId, options = {}) {
     console.log('FinancialService: Creating invoice from order:', orderId);
 
     try {
@@ -1363,40 +1679,46 @@ class FinancialService {
       // Convert totalCost to number if it's a Decimal128
       const totalCost = typeof order.totalCost === 'object' ? Number(order.totalCost) : order.totalCost;
 
-      // Build invoice items from order
-      const items = [];
+      const additionalItems = Array.isArray(options.additionalItems) ? options.additionalItems : [];
+      const additionalGrossTotal = CalculationHelper.round(
+        additionalItems.reduce((sum, item) => sum + Number(item.total || 0), 0)
+      );
 
-      // Add main services
-      order.services.forEach(service => {
+      // Rechnungspositionen mit echten Service-/Produktnamen und Geraetekennzeichnung.
+      const items = buildInvoiceItemsFromOrder(order);
+
+      // Der Warenkorb-/Promo-Rabatt steckt bereits in order.totalCost, nicht in den
+      // Positionspreisen - er wird deshalb als Rechnungsrabatt (Brutto) weitergereicht.
+      let orderDiscount = 0;
+      if (items.length > 0) {
+        orderDiscount = CalculationHelper.round(Math.max(0, Number(order.discount || 0)));
+      } else {
+        // Fallback ohne Positionsdaten: eine Sammelposition aus dem Auftragswert.
         items.push({
-          description: service,
+          serviceName: `${buildDeviceLabel(order)} Reparatur`,
+          description: `${buildDeviceLabel(order)} Reparatur`,
           quantity: 1,
-          unitPrice: totalCost / (order.services.length + order.addOns.length),
-          total: totalCost / (order.services.length + order.addOns.length),
+          unitPrice: CalculationHelper.round(Math.max(0, Number(totalCost || 0) - additionalGrossTotal)),
+          total: CalculationHelper.round(Math.max(0, Number(totalCost || 0) - additionalGrossTotal)),
           type: 'service'
         });
-      });
+      }
 
-      // Add add-on services
-      order.addOns.forEach(addon => {
-        items.push({
-          description: addon.name,
-          quantity: 1,
-          unitPrice: addon.price,
-          total: addon.price,
-          type: 'addon'
-        });
-      });
+      additionalItems.forEach((item) => items.push({ ...item }));
 
       const isReverseCharge = Boolean(
         financialProfile.taxMode === 'reverse_charge' ||
         Boolean(order.customerId?.vatId && order.customerId?.country && order.customerId.country !== 'DE')
       );
-      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const discount = calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
-      const taxRate = isReverseCharge ? 0 : (financialProfile.taxRate / 100);
+      const itemsGrossTotal = CalculationHelper.round(items.reduce((sum, item) => sum + Number(item.total || 0), 0));
+      const discount = CalculationHelper.round(
+        orderDiscount
+        + calculateDiscountAmount(
+          CalculationHelper.round(itemsGrossTotal - orderDiscount),
+          financialProfile.defaultDiscountPercent
+        )
+      );
       const dueDays = financialProfile.paymentDueDays || 30;
-      const invoicePrefix = financialProfile.invoicePrefix;
       const paymentTerms = composePaymentTerms(financialProfile);
 
       const invoice = new Invoice({
@@ -1414,21 +1736,20 @@ class FinancialService {
         billingAddress: resolveBillingAddressFromOrder(order),
         shippingAddress: resolveShippingAddressFromOrder(order),
         items,
-        subtotal,
-        tax: isReverseCharge ? 0 : (subtotal * taxRate),
+        // subtotal (Netto), tax und total (Brutto) werden vom Invoice-Modell
+        // brutto-first aus den Positionen und dem Rabatt abgeleitet.
         discount,
-        total: subtotal + (isReverseCharge ? 0 : (subtotal * taxRate)) - discount,
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
-        numberPrefix: invoicePrefix,
         paymentTerms,
         status: 'sent',
         sentAt: new Date(),
       });
 
       await invoice.save();
+      const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
       console.log('FinancialService: Invoice created from order successfully with resolved tax rate:', financialProfile.taxRate + '%');
-      return invoice;
+      return finalized;
     } catch (error) {
       console.error('FinancialService: Error creating invoice from order:', error);
       throw error;
@@ -1458,34 +1779,19 @@ class FinancialService {
     const financialProfile = await FinancialService.resolveFinancialProfile({ customer });
     const items = [];
 
+    let ordersDiscount = 0;
     orders.forEach(order => {
       const totalCost = typeof order.totalCost === 'object' ? Number(order.totalCost) : (order.totalCost || 0);
-      const serviceCount = (order.services || []).length + (order.addOns || []).length || 1;
+      const orderItems = buildInvoiceItemsFromOrder(order);
 
-      (order.services || []).forEach(service => {
+      if (orderItems.length > 0) {
+        orderItems.forEach((item) => items.push(item));
+        ordersDiscount = CalculationHelper.round(ordersDiscount + Math.max(0, Number(order.discount || 0)));
+      } else {
+        const deviceLabel = buildDeviceLabel(order);
         items.push({
-          description: typeof service === 'string' ? service : (service.name || 'Service'),
-          quantity: 1,
-          unitPrice: totalCost / serviceCount,
-          total: totalCost / serviceCount,
-          type: 'service'
-        });
-      });
-
-      (order.addOns || []).forEach(addon => {
-        const price = typeof addon.price === 'object' ? Number(addon.price) : (addon.price || 0);
-        items.push({
-          description: addon.name || 'Add-on',
-          quantity: 1,
-          unitPrice: price,
-          total: price,
-          type: 'addon'
-        });
-      });
-
-      if (items.length === 0) {
-        items.push({
-          description: `Repair Order #${order.orderNumber || order._id}`,
+          serviceName: `${deviceLabel} Reparatur`,
+          description: `${deviceLabel} Reparatur (Auftrag ${order.orderNumber || order._id})`,
           quantity: 1,
           unitPrice: totalCost,
           total: totalCost,
@@ -1499,13 +1805,25 @@ class FinancialService {
         ? options.isReverseCharge
         : (financialProfile.taxMode === 'reverse_charge' || (customer?.vatId && customer?.country && customer.country !== 'DE'))
     );
-    const subtotal = items.reduce((s, i) => s + i.total, 0);
-    const taxRate  = isReverseCharge ? 0 : (options.taxRate != null ? options.taxRate : financialProfile.taxRate / 100);
-    const tax      = isReverseCharge ? 0 : (subtotal * taxRate);
-    const discount = options.discount != null
-      ? options.discount
-      : calculateDiscountAmount(subtotal, financialProfile.defaultDiscountPercent);
-    const total    = subtotal + tax - discount;
+    // Positionspreise sind BRUTTO; Netto/MwSt rechnet das Invoice-Modell heraus.
+    // options.taxRate ist ein PROZENTWERT (z.B. 19), kein Faktor.
+    const itemsGrossTotal = CalculationHelper.round(items.reduce((s, i) => s + Number(i.total || 0), 0));
+    const taxRate  = isReverseCharge ? 0 : normalizeTaxRatePercent(options.taxRate, financialProfile.taxRate);
+    // Zwei unabhaengige Rabattquellen, die sich ADDIEREN und einander nie ersetzen:
+    //  1. ordersDiscount: der Warenkorb-/Promo-Rabatt der Auftraege. Er steckt nicht in
+    //     den Positionspreisen (die sind Listen-Brutto) und muss immer durchgereicht
+    //     werden, sonst wird der Kunde um genau diesen Betrag zu hoch belastet.
+    //  2. Der manuelle Rabatt des Aufrufers (options.discount) bzw. - wenn keiner
+    //     uebergeben wurde - der Kundengruppenrabatt auf den bereits gemindertem Brutto.
+    const manualDiscount = options.discount != null
+      ? CalculationHelper.round(Math.max(0, Number(options.discount) || 0))
+      : calculateDiscountAmount(
+        CalculationHelper.round(itemsGrossTotal - ordersDiscount),
+        financialProfile.defaultDiscountPercent
+      );
+    const discount = CalculationHelper.round(
+      Math.min(itemsGrossTotal, ordersDiscount + manualDiscount)
+    );
 
     const bookingIds = [...new Set(orders.map((order) => toIdString(order.bookingId)).filter(Boolean))];
     const bookingId = bookingIds.length === 1 ? bookingIds[0] : undefined;
@@ -1536,11 +1854,9 @@ class FinancialService {
       billingAddress: resolveBillingAddressFromOrder(orders[0]),
       shippingAddress: resolveShippingAddressFromOrder(orders[0]),
       items,
-      subtotal,
-      tax,
+      // subtotal (Netto), tax und total (Brutto) leitet das Invoice-Modell ab.
+      taxRate,
       discount,
-      total,
-      numberPrefix:  options.numberPrefix || financialProfile.invoicePrefix || 'INV',
       dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
       paymentTerms:  options.paymentTerms || composePaymentTerms(financialProfile),
       notes:         options.notes || '',
@@ -1550,10 +1866,10 @@ class FinancialService {
 
     const invoice = new Invoice(invoiceData);
     await invoice.save();
-    await FinancialService.syncBookingPaymentStatus(invoice);
+    const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
     console.log('FinancialService: Invoice generated from repair orders:', invoice.invoiceNumber);
-    return invoice;
+    return finalized;
   }
 
   // Change invoice status with transition validation
@@ -1561,30 +1877,34 @@ class FinancialService {
     console.log('FinancialService: Changing invoice status:', invoiceId, '->', newStatus);
 
     const invoice = await Invoice.findById(invoiceId);
-    if (!invoice) throw new Error('Invoice not found');
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
 
     const allowed = INVOICE_STATUS_TRANSITIONS[invoice.status] || [];
     if (!allowed.includes(newStatus)) {
-      throw new Error(`Cannot transition from "${invoice.status}" to "${newStatus}"`);
+      throw buildFinancialError(
+        `Ein Beleg im Status "${invoiceStatusLabelDe(invoice.status)}" kann nicht auf "${invoiceStatusLabelDe(newStatus)}" gesetzt werden.`,
+        409,
+        'INVOICE_STATUS_TRANSITION_INVALID'
+      );
     }
 
     const normalizedPaymentMethod = normalizeTrackedPaymentMethod(data.paymentMethod);
     const normalizedPaidAt = normalizeTrackedPaidAt(data.paidAt);
 
     if (data.paymentMethod && !normalizedPaymentMethod) {
-      throw new Error('Invalid payment method. Allowed values: credit_card, sepa, paypal, cash');
+      throw buildFinancialError('Ungültige Zahlart. Erlaubt sind: Kreditkarte, SEPA, PayPal, Bar.', 400, 'INVALID_PAYMENT_METHOD');
     }
 
     if (data.paidAt && !normalizedPaidAt) {
-      throw new Error('Invalid paidAt timestamp');
+      throw buildFinancialError('Ungültiges Zahlungsdatum.', 400, 'INVALID_PAID_AT');
     }
 
     if (newStatus === 'paid') {
       if (!normalizedPaymentMethod) {
-        throw new Error('Payment method is required when marking an invoice as paid');
+        throw buildFinancialError('Zum Setzen auf "bezahlt" wird die Zahlart benötigt.', 400, 'PAYMENT_METHOD_REQUIRED');
       }
       if (!normalizedPaidAt) {
-        throw new Error('Paid timestamp is required when marking an invoice as paid');
+        throw buildFinancialError('Zum Setzen auf "bezahlt" wird das Zahlungsdatum benötigt.', 400, 'PAID_AT_REQUIRED');
       }
     }
 
@@ -1615,11 +1935,90 @@ class FinancialService {
 
     await invoice.save();
 
-    await FinancialService.syncOrderPaymentTracking(invoice);
-
-    await FinancialService.syncBookingPaymentStatus(invoice);
+    // Abgeleitete Zustaende nicht fatal nachziehen: der Statuswechsel ist bereits
+    // gespeichert und darf nicht nachtraeglich an einem Altbestands-Dokument scheitern.
+    await FinancialService.syncPaymentDerivedState(invoice, 'changeInvoiceStatus');
 
     return invoice;
+  }
+
+  /**
+   * Leitet invoice.paidAmount (und den daraus folgenden Zahlungsstatus) fuer die
+   * uebergebenen Rechnungen NEU aus den gueltigen Zuordnungen ab.
+   *
+   * Bewusst per updateOne statt save(): der Betragshook des Rechnungsmodells darf
+   * festgeschriebene Belege nicht neu berechnen - hier aendert sich nur der
+   * Zahlungsstand, nie der Rechnungsbetrag.
+   */
+  static async recalculateInvoicePaidAmounts(invoiceIds = []) {
+    const ids = [...new Set((invoiceIds || []).map((entry) => toIdString(entry)).filter(Boolean))];
+    if (ids.length === 0) return [];
+
+    const allocated = await PaymentService.getAllocatedTotalsByInvoice(ids);
+    const updated = [];
+
+    for (const invoiceId of ids) {
+      const invoice = await Invoice.findById(invoiceId);
+      if (!invoice) continue;
+
+      const paidAmount = CalculationHelper.round(Number(allocated.get(invoiceId) || 0));
+      const total = CalculationHelper.round(Number(invoice.total || 0));
+      const update = { paidAmount };
+
+      // Der BETRAG wird immer geschrieben, der BELEGSTATUS nur bei freigegebenen
+      // Belegen: ein Entwurf oder ein Beleg in Freigabe darf auch ueber diesen Weg
+      // nicht nach 'paid'/'partially_paid' gedraengt werden (denselben Schutz hat
+      // PaymentService.allocateAtomically). Storniert/gutgeschrieben bleibt ebenfalls
+      // unberuehrt.
+      if (PAYMENT_DERIVED_STATUS_WRITABLE.includes(String(invoice.status || ''))) {
+        if (total > 0 && paidAmount >= total - 0.01) {
+          update.status = 'paid';
+          update.paidAt = invoice.paidAt || new Date();
+        } else if (paidAmount > 0.009) {
+          update.status = 'partially_paid';
+          update.paidAt = null;
+        } else if (['paid', 'partially_paid'].includes(invoice.status)) {
+          update.status = invoice.dueDate && new Date(invoice.dueDate) < new Date() ? 'overdue' : 'sent';
+          update.paidAt = null;
+        }
+      }
+
+      await Invoice.updateOne({ _id: invoice._id }, { $set: update });
+      const refreshed = await Invoice.findById(invoice._id);
+      await FinancialService.syncPaymentDerivedState(refreshed, 'recalculatePaidAmount');
+      updated.push(refreshed);
+    }
+
+    return updated;
+  }
+
+  /**
+   * Gemeinsamer Abschluss JEDER Rechnungserstellung.
+   *
+   * Bereits eingegangene, noch nicht zugeordnete Zahlungen der Buchung werden dem
+   * neuen Beleg zugeordnet (Vorauszahlung -> spaetere Rechnung) und der abgeleitete
+   * Zahlungsstand wird fortgeschrieben. Die Rechnung wird danach NEU GELESEN, weil
+   * die Zuordnung ihre eigene Instanz speichert - sonst gibt der Aufrufer einen
+   * veralteten Beleg (paidAmount 0, Status 'sent') an den Client zurueck.
+   *
+   * Absichtlich an EINER Stelle gebuendelt, damit ein neuer Erstellungspfad die
+   * Zuordnung nicht erneut vergessen kann.
+   */
+  static async finalizeInvoiceCreation(invoice) {
+    if (!invoice) return invoice;
+
+    const bookingId = toIdString(invoice.bookingId);
+    if (bookingId) {
+      try {
+        await FinancialService.autoAllocateUnallocatedPayments(bookingId);
+      } catch (error) {
+        console.error('FinancialService: auto allocation after invoice creation failed:', error);
+      }
+    }
+
+    const refreshed = await Invoice.findById(invoice._id);
+    await FinancialService.syncPaymentDerivedState(refreshed || invoice, 'invoiceCreated');
+    return refreshed || invoice;
   }
 
   static async syncOrderPaymentTracking(invoiceInput) {
@@ -1637,32 +2036,118 @@ class FinancialService {
     const uniqueOrderIds = [...new Set(orderIds.map((entry) => toIdString(entry)).filter(Boolean))];
     if (uniqueOrderIds.length === 0) return;
 
-    const paymentStatusMap = {
-      paid: 'paid',
-      partially_paid: 'partial',
-      credited: 'refunded',
+    const orderObjectIds = uniqueOrderIds
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+    if (orderObjectIds.length === 0) return;
+
+    // TRENNUNG DER ACHSEN (Regel 1 in paymentService.js): Order.paymentStatus ist ein
+    // ZAHLUNGSstand und wird deshalb aus den gueltigen Zuordnungen ALLER Belege
+    // abgeleitet, die diesen Auftrag betreffen - nicht aus dem Belegstatus der
+    // zufaellig zuletzt synchronisierten Rechnung. Frueher hat bei mehreren Belegen
+    // einer Buchung der letzte Lauf den Stand der anderen ueberschrieben, und eine
+    // stornierte oder auf 'sent' zurueckgesetzte Rechnung hat den Auftrag auf
+    // 'pending' gedrueckt, obwohl das Geld weiterhin gegen ihn steht.
+    const relatedInvoices = await Invoice.find({
+      $or: [
+        { orderId: { $in: orderObjectIds } },
+        { repairOrderIds: { $in: orderObjectIds } },
+      ],
+    })
+      .select('_id orderId repairOrderIds total status isCreditNote')
+      .lean();
+
+    const receivables = relatedInvoices.filter((entry) => !entry.isCreditNote && entry.status !== 'cancelled');
+    const creditNotes = relatedInvoices.filter((entry) => entry.isCreditNote && entry.status !== 'cancelled');
+    const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(receivables.map((entry) => entry._id));
+
+    // Auch direkt auf den Auftrag gestempeltes Geld zaehlt: eine Vorauszahlung ohne
+    // Beleg darf den Auftrag nicht als 'pending' erscheinen lassen.
+    const orderPayments = await Payment.find({
+      orderId: { $in: orderObjectIds },
+      status: { $in: PaymentService.COUNTABLE_PAYMENT_STATUSES },
+    })
+      .select('_id orderId amount refundAmount status paymentDate processedAt paymentMethod')
+      .lean();
+
+    const invoiceOrderKeys = (entry) => {
+      const keys = [];
+      if (entry.orderId) keys.push(toIdString(entry.orderId));
+      if (Array.isArray(entry.repairOrderIds)) keys.push(...entry.repairOrderIds.map((id) => toIdString(id)));
+      return [...new Set(keys.filter((key) => uniqueOrderIds.includes(key)))];
     };
 
-    const resolvedPaymentStatus = paymentStatusMap[invoice.status] || 'pending';
+    const emptyState = () => ({ invoiced: 0, allocated: 0, credited: 0, received: 0, paidAt: null, paymentMethod: null });
+    const stateByOrder = new Map(uniqueOrderIds.map((id) => [id, emptyState()]));
 
-    await Order.updateMany(
-      { _id: { $in: uniqueOrderIds } },
-      {
-        $set: {
-          paymentStatus: resolvedPaymentStatus,
-          paymentMethod: normalizeTrackedPaymentMethod(invoice.paymentMethod),
-          paidAt: normalizeTrackedPaidAt(invoice.paidAt),
-        }
+    receivables.forEach((entry) => {
+      const allocated = Number(allocatedByInvoice.get(toIdString(entry._id)) || 0);
+      const total = CalculationHelper.round(Math.abs(Number(entry.total || 0)));
+      invoiceOrderKeys(entry).forEach((key) => {
+        const state = stateByOrder.get(key);
+        if (!state) return;
+        state.invoiced = CalculationHelper.round(state.invoiced + total);
+        state.allocated = CalculationHelper.round(state.allocated + allocated);
+      });
+    });
+
+    creditNotes.forEach((entry) => {
+      const total = CalculationHelper.round(Math.abs(Number(entry.total || 0)));
+      invoiceOrderKeys(entry).forEach((key) => {
+        const state = stateByOrder.get(key);
+        if (!state) return;
+        state.credited = CalculationHelper.round(state.credited + total);
+      });
+    });
+
+    orderPayments.forEach((payment) => {
+      const state = stateByOrder.get(toIdString(payment.orderId));
+      if (!state) return;
+      state.received = CalculationHelper.round(state.received + PaymentService.effectivePaymentAmount(payment));
+      const stamp = normalizeTrackedPaidAt(payment.processedAt || payment.paymentDate);
+      if (stamp && (!state.paidAt || stamp > state.paidAt)) {
+        state.paidAt = stamp;
+        state.paymentMethod = normalizeTrackedPaymentMethod(payment.paymentMethod) || state.paymentMethod;
       }
-    );
+    });
 
-    if (resolvedPaymentStatus === 'paid') {
+    const fallbackPaymentMethod = normalizeTrackedPaymentMethod(invoice.paymentMethod);
+    const fallbackPaidAt = normalizeTrackedPaidAt(invoice.paidAt);
+    const paidOrderIds = [];
+
+    for (const orderId of uniqueOrderIds) {
+      const state = stateByOrder.get(orderId);
+      if (!state) continue;
+
+      const open = CalculationHelper.round(Math.max(0, state.invoiced - state.allocated));
+      const moneyHeld = Math.max(state.allocated, state.received);
+
+      let paymentStatus = 'pending';
+      if (state.invoiced > 0.009 && state.credited >= state.invoiced - 0.009) paymentStatus = 'refunded';
+      else if (state.invoiced > 0.009 && open <= 0.009) paymentStatus = 'paid';
+      else if (moneyHeld > 0.009) paymentStatus = 'partial';
+
+      if (paymentStatus === 'paid') paidOrderIds.push(orderId);
+
+      await Order.updateOne(
+        { _id: orderId },
+        {
+          $set: {
+            paymentStatus,
+            paymentMethod: state.paymentMethod || fallbackPaymentMethod,
+            paidAt: paymentStatus === 'paid' ? (state.paidAt || fallbackPaidAt) : (state.paidAt || null),
+          }
+        }
+      );
+    }
+
+    if (paidOrderIds.length > 0) {
       await Order.updateMany(
-        { _id: { $in: uniqueOrderIds }, requiresPaymentBeforeCompletion: true },
+        { _id: { $in: paidOrderIds }, requiresPaymentBeforeCompletion: true },
         { $set: { requiresPaymentBeforeCompletion: false } }
       );
 
-      const paidOrders = await Order.find({ _id: { $in: uniqueOrderIds }, sourceComplaintId: { $ne: null } })
+      const paidOrders = await Order.find({ _id: { $in: paidOrderIds }, sourceComplaintId: { $ne: null } })
         .select('sourceComplaintId')
         .lean();
       const complaintIds = [...new Set(paidOrders.map((order) => toIdString(order.sourceComplaintId)).filter(Boolean))];
@@ -1702,98 +2187,250 @@ class FinancialService {
 
     if (!bookingId) return;
 
-    const booking = await Booking.findById(bookingId);
-    if (!booking) return;
+    await FinancialService.applyBookingPaymentState(bookingId);
+  }
 
-    const invoiceStatus = String(invoice.status || 'draft');
-    const invoiceLikeStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
-    booking.paymentStatus = invoiceLikeStatuses.includes(invoiceStatus) ? invoiceStatus : 'pending';
+  /**
+   * Schreibt den ZAHLUNGSSTAND einer Buchung aus den tatsaechlichen Zahlungen.
+   *
+   * Frueher wurde hier Invoice.status 1:1 nach booking.paymentStatus kopiert. Damit
+   * landete ein BELEGSTATUS ('sent'/'versendet') im Zahlungsfeld und verdeckte ein
+   * 'teilbezahlt'. Erfuellung (booking.status, booking.shippingStatus) und Zahlung
+   * (billingStatus/paymentStatus) sind jetzt getrennt: eine Buchung kann gleichzeitig
+   * versendet UND teilbezahlt sein.
+   */
+  static async applyBookingPaymentState(bookingInput) {
+    const booking = bookingInput && typeof bookingInput.save === 'function'
+      ? bookingInput
+      : await Booking.findById(toIdString(bookingInput));
+    if (!booking) return null;
 
-    if (invoiceStatus === 'paid') {
-      booking.billingStatus = 'paid';
-    } else if (invoiceStatus === 'partially_paid') {
-      booking.billingStatus = 'partially-paid';
-    } else {
-      booking.billingStatus = 'unpaid';
-    }
+    const orders = await Order.find({ bookingId: booking._id })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id')
+      .lean();
 
+    const balance = await PaymentService.computeBookingBalance({
+      bookingId: booking._id,
+      orderIds: orders.map((order) => order._id),
+      orderValue: Number(booking.totalCost || 0),
+    });
+    if (!balance) return null;
+
+    let billingStatus = 'unpaid';
+    if (balance.overpaid > 0.009) billingStatus = 'overpaid';
+    else if (balance.reference > 0.009 && balance.open <= 0.009) billingStatus = 'paid';
+    else if (balance.received > 0.009) billingStatus = 'partially-paid';
+
+    // paymentStatus fuehrt nur noch Zahlungswerte - niemals einen Belegstatus.
+    const paymentStatusMap = {
+      unpaid: 'pending',
+      'partially-paid': 'partial',
+      paid: 'paid',
+      overpaid: 'paid',
+    };
+
+    booking.billingStatus = billingStatus;
+    booking.paymentStatus = paymentStatusMap[billingStatus] || 'pending';
     await booking.save();
+
+    return { booking, balance, billingStatus };
+  }
+
+  /**
+   * Abgeleitete Folgezustaende (Auftrag, Buchung) nachziehen.
+   *
+   * Bewusst NICHT fatal: die Geldbuchung ist zu diesem Zeitpunkt bereits geschrieben.
+   * Ein Fehler beim Fortschreiben abgeleiteter Zustaende - etwa ein Altbestands-
+   * Booking, das die heutige Pflichtfeld-Validierung nicht mehr besteht - darf die
+   * Zahlung nicht nachtraeglich als Fehler erscheinen lassen. Der Aufruf ist
+   * idempotent und kann jederzeit wiederholt werden.
+   */
+  static async syncPaymentDerivedState(invoice, context = 'payment') {
+    const warnings = [];
+    try {
+      await FinancialService.syncOrderPaymentTracking(invoice);
+    } catch (error) {
+      warnings.push(`syncOrderPaymentTracking: ${error.message}`);
+      console.error(`FinancialService: derived order state not updated (${context}):`, error);
+    }
+    try {
+      await FinancialService.syncBookingPaymentStatus(invoice);
+    } catch (error) {
+      warnings.push(`syncBookingPaymentStatus: ${error.message}`);
+      console.error(`FinancialService: derived booking state not updated (${context}):`, error);
+    }
+    return warnings;
+  }
+
+  /**
+   * Doppelbuchungsschutz fuer manuell erfasste Auftragszahlungen.
+   * Liefert die zu verwendenden Idempotenzschluessel und - falls vorhanden - die
+   * bereits gebuchte identische Zahlung.
+   */
+  static async findManualPaymentDuplicate({ bookingId, invoiceId, amount, paymentMethod, paymentDate, paymentReference, note, idempotencyKey }) {
+    const fingerprint = [
+      'booking', toIdString(bookingId), toIdString(invoiceId),
+      CalculationHelper.round(Number(amount)).toFixed(2), String(paymentMethod || ''),
+      new Date(paymentDate || Date.now()).toISOString().slice(0, 10),
+      String(paymentReference || ''), String(note || ''),
+    ];
+    return findDuplicatePayment('booking-payment', fingerprint, idempotencyKey);
   }
 
   // Record a partial (or full) payment against an invoice
+  //
+  // Der gesamte Vorgang ist in sich stimmig: entweder Zahlung + Zuordnung +
+  // Rechnungsstand sind geschrieben und der Aufrufer bekommt 2xx, oder es wurde
+  // nichts gebucht und der Aufrufer bekommt einen Fehler. Das Fortschreiben der
+  // abgeleiteten Zustaende (Auftrag/Buchung) kann die bereits gebuchte Zahlung
+  // nicht mehr scheitern lassen - es wird als Warnung zurueckgegeben.
+  //
+  // paymentData.idempotencyKey (optional) verhindert eine Doppelbuchung bei Retry
+  // oder Doppelklick; ohne Schluessel greift ein serverseitig abgeleiteter
+  // Fingerabdruck ueber ein 5-Minuten-Fenster.
   static async addInvoicePayment(invoiceId, paymentData) {
     console.log('FinancialService: Adding payment to invoice:', invoiceId);
 
     const invoice = await Invoice.findById(invoiceId);
-    if (!invoice) throw new Error('Invoice not found');
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
 
     const allowedStatuses = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
     if (!allowedStatuses.includes(invoice.status)) {
-      throw new Error(`Cannot record payment for invoice in status "${invoice.status}"`);
+      throw buildFinancialError(
+        `Für eine Rechnung im Status "${invoiceStatusLabelDe(invoice.status)}" kann keine Zahlung erfasst werden.`,
+        409,
+        'INVOICE_STATUS_NOT_PAYABLE'
+      );
     }
 
-    const amount = parseFloat(paymentData.amount);
-    if (isNaN(amount) || amount <= 0) throw new Error('Invalid payment amount');
+    const amount = CalculationHelper.round(parseFloat(paymentData.amount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw buildFinancialError('Der Zahlungsbetrag muss größer als 0 sein.', 400, 'INVALID_AMOUNT');
+    }
 
-    const remaining = invoice.total - (invoice.paidAmount || 0);
+    const paymentDate = paymentData.paymentDate ? new Date(paymentData.paymentDate) : new Date();
+    const paymentMethod = paymentData.paymentMethod || 'bank_transfer';
+    const note = paymentData.note || paymentData.gatewayResponse || '';
+
+    // Doppelbuchungsschutz VOR der Betragspruefung: eine Wiederholung desselben
+    // Requests ist bereits gebucht und darf dem Bearbeiter nicht als
+    // "Betrag übersteigt den offenen Rechnungsbetrag" gemeldet werden - genau diese
+    // irrefuehrende Meldung entstuende sonst beim Retry nach dem ersten Erfolg.
+    const fingerprint = [
+      'invoice', toIdString(invoice._id), amount.toFixed(2), paymentMethod,
+      new Date(paymentDate).toISOString().slice(0, 10),
+      String(paymentData.paymentReference || ''), String(note),
+    ];
+    const { keys, existing } = await findDuplicatePayment('invoice-payment', fingerprint, paymentData.idempotencyKey);
+    if (existing) {
+      console.warn('FinancialService: duplicate invoice payment suppressed for invoice', String(invoice._id));
+      const currentInvoice = await Invoice.findById(invoice._id);
+      return {
+        payment: existing,
+        invoice: currentInvoice,
+        duplicate: true,
+        message: 'Diese Zahlung wurde bereits erfasst und nicht erneut gebucht.',
+        warnings: [],
+      };
+    }
+
+    const balanceBefore = await PaymentService.computeInvoiceBalance(invoice);
+    const remaining = CalculationHelper.round(balanceBefore ? balanceBefore.open : Number(invoice.total || 0) - Number(invoice.paidAmount || 0));
     if (amount > remaining + 0.01) {
-      throw new Error(`Payment amount (${amount}) exceeds remaining balance (${remaining.toFixed(2)})`);
+      throw buildFinancialError(
+        `Der Zahlungsbetrag (${amount.toFixed(2)} €) übersteigt den offenen Rechnungsbetrag (${remaining.toFixed(2)} €).`,
+        400,
+        'AMOUNT_EXCEEDS_OPEN'
+      );
     }
 
     // Create payment record
     const payment = new Payment({
       invoiceId: invoice._id,
-      orderId:        invoice.orderId || undefined,
+      orderId:        toIdString(invoice.orderId) || undefined,
+      bookingId:      toIdString(invoice.bookingId) || undefined,
       customerId:    invoice.customerId,
       customerName:  invoice.customerName,
       amount,
       currency:       paymentData.currency || 'EUR',
-      paymentMethod:  paymentData.paymentMethod || 'bank_transfer',
-      paymentDate:    paymentData.paymentDate || new Date(),
+      paymentMethod,
+      paymentDate,
       status:         'completed',
-      processedAt:    paymentData.paymentDate || new Date(),
+      processedAt:    paymentDate,
       transactionId:  paymentData.transactionId || undefined,
-      paymentReference: paymentData.paymentReference || (invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : ''),
-      note:           paymentData.note || paymentData.gatewayResponse || '',
-      allocatedAmount: amount,
+      paymentReference: paymentData.paymentReference || (invoice.invoiceNumber ? `Rechnung ${invoice.invoiceNumber}` : ''),
+      note,
+      allocatedAmount: 0,
+      source:         'manual',
+      recordedBy:     paymentData.recordedBy || undefined,
       gatewayResponse: paymentData.gatewayResponse || '',
-      metadata:       paymentData.metadata || {}
+      metadata:       paymentData.metadata || {},
+      idempotencyKey: keys[0],
     });
 
-    await payment.save();
-
-    // Create PaymentAllocation record
     try {
-      const allocation = new PaymentAllocation({
-        paymentId: payment._id,
-        invoiceId: invoice._id,
-        orderId: invoice.orderId || undefined,
-        allocatedAmount: amount,
-        allocatedAt: payment.processedAt || new Date(),
-        note: paymentData.note || `Payment of ${amount} for invoice ${invoice.invoiceNumber || invoice._id}`
+      await payment.save();
+    } catch (error) {
+      // E11000 auf idempotencyKey = zwei gleichzeitige Requests, einer hat gewonnen.
+      if (error?.code === 11000 && String(error?.message || '').includes('idempotencyKey')) {
+        const winner = await Payment.findOne({ idempotencyKey: { $in: keys } });
+        const currentInvoice = await Invoice.findById(invoice._id);
+        return {
+          payment: winner,
+          invoice: currentInvoice,
+          duplicate: true,
+          message: 'Diese Zahlung wurde bereits erfasst und nicht erneut gebucht.',
+          warnings: [],
+        };
+      }
+      throw error;
+    }
+
+    // Zuordnung + Rechnungsstand atomar fortschreiben. Schlaegt das fehl, wird die
+    // eben angelegte Zahlung wieder entfernt: keine halbe Buchung.
+    let allocationResult = null;
+    try {
+      allocationResult = await PaymentService.allocateAtomically({
+        payment,
+        invoice,
+        amount,
+        note: paymentData.note || `Zahlung zu Rechnung ${invoice.invoiceNumber || invoice._id}`,
+        orderId: toIdString(invoice.orderId) || undefined,
       });
-      await allocation.save();
     } catch (allocError) {
-      console.warn('FinancialService: Warning creating payment allocation:', allocError.message);
+      await Payment.deleteOne({ _id: payment._id }).catch(() => {});
+      console.error('FinancialService: allocation failed, payment rolled back:', allocError);
+      throw buildFinancialError(
+        'Die Zahlung konnte der Rechnung nicht zugeordnet werden und wurde nicht gebucht.',
+        500,
+        'ALLOCATION_FAILED'
+      );
     }
 
-    // Update invoice paidAmount and status
-    invoice.paidAmount = (invoice.paidAmount || 0) + amount;
-
-    if (invoice.paidAmount >= invoice.total - 0.01) {
-      invoice.status    = 'paid';
-      invoice.paidAt    = new Date();
-    } else {
-      invoice.status = 'partially_paid';
+    if (!allocationResult) {
+      await Payment.deleteOne({ _id: payment._id }).catch(() => {});
+      throw buildFinancialError(
+        'Die Zahlung konnte nicht gebucht werden, weil der Rechnungsstand parallel geändert wurde. Bitte erneut versuchen.',
+        409,
+        'ALLOCATION_CONFLICT'
+      );
     }
 
-    await invoice.save();
+    const updatedInvoice = await Invoice.findById(invoice._id);
+    const warnings = await FinancialService.syncPaymentDerivedState(updatedInvoice, 'addInvoicePayment');
 
-    await FinancialService.syncOrderPaymentTracking(invoice);
+    // Ein Beleg ohne Freigabe nimmt das Geld an, behaelt aber seinen Belegstatus:
+    // PaymentService.allocateAtomically schreibt fuer 'draft'/'pending_approval'
+    // ausschliesslich paidAmount fort. Der Bearbeiter erfaehrt das ausdruecklich,
+    // damit er den Beleg nicht faelschlich fuer erledigt haelt.
+    const approvalPending = !PaymentService.ALLOCATABLE_INVOICE_STATUSES
+      .includes(String(updatedInvoice?.status || invoice.status || ''));
+    const warning = approvalPending
+      ? `Der Beleg ist noch nicht freigegeben (Status "${invoiceStatusLabelDe(updatedInvoice?.status || invoice.status)}"). Der Zahlungseingang wurde erfasst, der Belegstatus bleibt bis zur Freigabe unverändert.`
+      : '';
 
-    await FinancialService.syncBookingPaymentStatus(invoice);
-
-    return { payment, invoice };
+    return { payment, invoice: updatedInvoice, duplicate: false, warnings, ...(warning ? { warning } : {}) };
   }
 
   // Create a credit note for a paid or cancelled invoice
@@ -1801,50 +2438,131 @@ class FinancialService {
     console.log('FinancialService: Creating credit note for invoice:', invoiceId);
 
     const original = await Invoice.findById(invoiceId);
-    if (!original) throw new Error('Invoice not found');
+    if (!original) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
 
     const allowedStatuses = ['paid', 'cancelled', 'credited', 'partially_paid', 'sent', 'viewed', 'overdue'];
     if (!allowedStatuses.includes(original.status)) {
-      throw new Error(`Credit notes can only be created for active or completed invoices (current: "${original.status}")`);
+      throw buildFinancialError(
+        `Für eine Rechnung im Status "${invoiceStatusLabelDe(original.status)}" kann keine Gutschrift erstellt werden.`,
+        409,
+        'INVOICE_STATUS_NOT_CREDITABLE'
+      );
     }
 
     // Load financial settings
     const settings = await FinancialService.getFinancialSettings();
 
-    // Build credit note items (negative amounts)
+    // Eine Gutschrift ist das exakte Spiegelbild ihrer Ursprungsrechnung: dieselbe
+    // Brutto-Logik, derselbe Steuersatz, dieselbe Reverse-Charge-Kennzeichnung.
+    const isReverseCharge = Boolean(original.isReverseCharge);
+    // options.taxRate ist ein PROZENTWERT (z.B. 19). Ohne Angabe erbt die Gutschrift
+    // den Satz der Ursprungsrechnung - nur so stimmt die Spiegelung.
+    const taxRate = isReverseCharge
+      ? 0
+      : normalizeTaxRatePercent(
+        options.taxRate,
+        Number.isFinite(Number(original.taxRate)) ? Number(original.taxRate) : settings.defaults.taxRate
+      );
+
+    // Build credit note items (negative BRUTTO amounts)
     const creditItems = (options.items || original.items).map(item => ({
+      serviceName: item.serviceName ? `Gutschrift: ${item.serviceName}` : undefined,
       description: `Gutschrift: ${item.description}`,
       quantity: item.quantity,
-      unitPrice: -Math.abs(item.unitPrice),
-      total: -Math.abs(item.total),
+      unitPrice: -Math.abs(Number(item.unitPrice) || 0),
+      total: -Math.abs(Number(item.total) || 0),
+      taxRate,
       type: item.type
     }));
 
-    const subtotal  = creditItems.reduce((s, i) => s + i.total, 0);
-    const taxRate = options.taxRate != null ? (options.taxRate / 100) : (settings.defaults.taxRate / 100);
-    const tax = subtotal * taxRate;
-    const discount = Math.abs(Number(options.discount) || 0);
-    const total = subtotal + tax - discount;
-    const creditNotePrefix = options.numberPrefix || settings.defaults.creditNotePrefix;
+    // Rabatt wird als positiver Betrag gespeichert (Schema min 0); das Vorzeichen
+    // setzt die Summenberechnung im Modell.
+    const discount = CalculationHelper.round(Math.abs(Number(options.discount) || 0));
+    const creditGrossMagnitude = CalculationHelper.round(Math.max(
+      0,
+      creditItems.reduce((sum, item) => sum + Math.abs(item.total), 0) - discount
+    ));
+
+    // Eine Teilgutschrift mit eigenen Positionen ist im Zweifel eine Wertminderung.
+    // 'partial_refund' bedeutet ausschliesslich die Rueckgabe einer Ueberzahlung und
+    // muss vom Aufrufer explizit angefordert werden (siehe handleOverpayment).
+    const correctionType = options.correctionType || (options.items ? 'price_adjustment' : 'full_cancellation');
+    // Der Korrekturtyp kommt aus dem Request-Body und MUSS serverseitig geprueft
+    // werden: 'partial_refund' ist von der Wertminderungs-Obergrenze ausgenommen und
+    // waere sonst ein unbegrenzter Gutschriftshebel.
+    if (!VALID_CORRECTION_TYPES.includes(correctionType)) {
+      throw buildFinancialError(
+        `Ungültiger Korrekturtyp "${correctionType}". Zulässig sind: ${VALID_CORRECTION_TYPES.join(', ')}.`,
+        400,
+        'INVALID_CORRECTION_TYPE'
+      );
+    }
+    const isRefundNote = REFUND_CORRECTION_TYPES.includes(correctionType);
+
+    // Bereits gutgeschriebene WERTMINDERUNGEN beruecksichtigen, damit dieselbe Minderung
+    // nicht bei jedem Sync erneut gutgeschrieben wird. Ueberzahlungsrueckgaben zaehlen
+    // hier bewusst nicht mit - sie mindern den Rechnungswert nicht.
+    const alreadyCredited = await FinancialService.getCreditedTotal(original._id, { valueAdjustmentsOnly: true });
+    const originalGross = Math.abs(CalculationHelper.round(Number(original.total || 0)));
+    const remainingCreditable = CalculationHelper.round(originalGross - alreadyCredited);
+    if (!isRefundNote && creditGrossMagnitude > remainingCreditable + 0.01) {
+      throw buildFinancialError(
+        `Die Gutschrift übersteigt den noch gutschreibbaren Betrag der Rechnung ${original.invoiceNumber} `
+        + `(offen: ${remainingCreditable.toFixed(2)} €, angefordert: ${creditGrossMagnitude.toFixed(2)} €).`,
+        400,
+        'CREDIT_NOTE_EXCEEDS_INVOICE'
+      );
+    }
+
+    // Auch eine ERSTATTUNGSgutschrift braucht eine reale Obergrenze: zurueckgeben
+    // laesst sich nur Geld, das tatsaechlich eingegangen ist. Bezug ist das im
+    // Vorgang eingegangene Geld (bzw. der auf dem Beleg verbuchte Betrag, wenn es
+    // keine Buchung gibt), abzueglich bereits erstatteter Gutschriften.
+    if (isRefundNote) {
+      const alreadyRefundCredited = CalculationHelper.round(
+        await FinancialService.getCreditedTotal(original._id) - alreadyCredited
+      );
+      let receivedReference = CalculationHelper.round(Number(original.paidAmount || 0));
+      const originalBookingId = toIdString(original.bookingId);
+      if (originalBookingId) {
+        const bookingBalance = await PaymentService.computeBookingBalance({ bookingId: originalBookingId });
+        if (bookingBalance) receivedReference = CalculationHelper.round(Math.max(receivedReference, bookingBalance.received));
+      }
+      const remainingRefundable = CalculationHelper.round(receivedReference - alreadyRefundCredited);
+      if (creditGrossMagnitude > remainingRefundable + 0.01) {
+        throw buildFinancialError(
+          `Die Erstattungsgutschrift übersteigt den tatsächlich eingegangenen Betrag `
+          + `(erstattbar: ${Math.max(0, remainingRefundable).toFixed(2)} €, angefordert: ${creditGrossMagnitude.toFixed(2)} €).`,
+          400,
+          'REFUND_EXCEEDS_RECEIVED'
+        );
+      }
+    }
 
     const creditNote = new Invoice({
-      creditNoteOf:   original._id,
+      creditNoteOf:       original._id,
+      creditNoteOfNumber: original.invoiceNumber || '',
       isCreditNote:   true,
-      correctionType: options.correctionType || (options.items ? 'partial_refund' : 'full_cancellation'),
-      numberPrefix:   creditNotePrefix,
+      correctionType,
       repairOrderIds: original.repairOrderIds,
       orderId:        original.orderId,
+      bookingId:      original.bookingId,
       customerId:     original.customerId,
       customerName:   original.customerName,
       customerEmail:  original.customerEmail,
+      // normalize*, weil ein nicht gesetztes nested-Objekt als "null-Dokument" gelesen
+      // wird und beim Neuanlegen sonst einen CastError erzeugt.
+      billingAddress: normalizeBillingAddress(original.billingAddress) || undefined,
+      shippingAddress: normalizeShippingAddress(original.shippingAddress) || undefined,
+      customerVatId:  original.customerVatId,
+      sellerVatId:    original.sellerVatId,
+      isReverseCharge,
+      reverseChargeNotice: original.reverseChargeNotice,
+      zmRelevant:     original.zmRelevant,
+      taxRate,
       items:          creditItems,
-      subtotal,
-      tax,
       discount,
-      total,
-      invoiceGrossTotal: total,
-      invoiceNetTotal:   subtotal,
-      invoiceTaxTotal:   tax,
+      // subtotal/tax/total werden brutto-first vom Invoice-Modell abgeleitet.
       dueDate:        options.dueDate ? new Date(options.dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       paymentTerms:   'Sofort',
       notes:          options.reason || `Gutschrift für Rechnung ${original.invoiceNumber}`,
@@ -1853,12 +2571,40 @@ class FinancialService {
 
     await creditNote.save();
 
-    // Mark original as credited
-    original.status = 'credited';
-    await original.save();
+    // Nur eine vollstaendige Gutschrift schliesst die Ursprungsrechnung ab. Bei einer
+    // Teilgutschrift bleibt der Status erhalten, sonst waere der Restbetrag weder
+    // zahlbar noch mahnbar (INVOICE_STATUS_TRANSITIONS.credited ist leer).
+    // Nur Wertminderungen koennen eine Rechnung vollstaendig gutschreiben. Eine
+    // Ueberzahlungsrueckgabe laesst die Forderung unveraendert bestehen.
+    const creditedAfter = isRefundNote
+      ? alreadyCredited
+      : CalculationHelper.round(alreadyCredited + creditGrossMagnitude);
+    if (!isRefundNote && creditedAfter >= originalGross - 0.01 && originalGross > 0) {
+      original.status = 'credited';
+      await original.save();
+    }
 
-    console.log('FinancialService: Credit note created successfully with configured tax rate:', settings.defaults.taxRate + '%');
+    console.log('FinancialService: Credit note created successfully with tax rate:', taxRate + '%');
     return creditNote;
+  }
+
+  // Summe aller bereits zu einer Rechnung erstellten Gutschriften (positiver Betrag).
+  // options.valueAdjustmentsOnly: nur WERTMINDERNDE Gutschriften (Preiskorrektur,
+  // Storno und Altbelege ohne correctionType). Ueberzahlungsrueckgaben
+  // ('partial_refund') sind Geldrueckfluesse und mindern den Rechnungswert nicht -
+  // die beiden Toepfe duerfen nie vermischt werden.
+  static async getCreditedTotal(invoiceId, options = {}) {
+    const query = { creditNoteOf: invoiceId };
+    if (options.valueAdjustmentsOnly) {
+      // $nin trifft auch Dokumente ohne correctionType (Altbestand = Wertminderung).
+      query.correctionType = { $nin: REFUND_CORRECTION_TYPES };
+    }
+    const creditNotes = await Invoice.find(query)
+      .select('total')
+      .lean();
+    return CalculationHelper.round(
+      creditNotes.reduce((sum, note) => sum + Math.abs(Number(note.total || 0)), 0)
+    );
   }
 
   // Get detailed invoice context: invoice + linked payments + linked credit notes
@@ -1906,16 +2652,53 @@ class FinancialService {
       }
     }
 
-    // Payments directly booked against this invoice
-    const payments = await Payment.find({ invoiceId: invoice._id })
-      .sort({ createdAt: -1 });
+    // Zahlungen im VORGANGSKONTEXT, nicht nur die auf diesen Beleg gestempelten.
+    // Eine Gateway-Vorauszahlung traegt beim Checkout nur bookingId/orderId - eine
+    // Abfrage allein auf invoiceId lieferte deshalb immer 0 Zeilen ("Noch keine
+    // Zahlungen verzeichnet"), obwohl der Kunde bereits bezahlt hatte.
+    const paymentConditions = [{ invoiceId: invoice._id }];
+    const invoiceBookingId = toIdString(invoice.bookingId);
+    const invoiceOrderId = toIdString(invoice.orderId);
+    if (invoiceBookingId) paymentConditions.push({ bookingId: invoiceBookingId });
+    if (invoiceOrderId) paymentConditions.push({ orderId: invoiceOrderId });
+
+    const rawPayments = await Payment.find({ $or: paymentConditions })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const allocations = rawPayments.length > 0
+      ? await PaymentAllocation.find({ paymentId: { $in: rawPayments.map((payment) => payment._id) } }).lean()
+      : [];
+    const allocatedToThisInvoiceByPayment = new Map();
+    allocations.forEach((allocation) => {
+      if (toIdString(allocation.invoiceId) !== toIdString(invoice._id)) return;
+      const key = toIdString(allocation.paymentId);
+      allocatedToThisInvoiceByPayment.set(
+        key,
+        CalculationHelper.round(Number(allocatedToThisInvoiceByPayment.get(key) || 0) + Number(allocation.allocatedAmount || 0))
+      );
+    });
+
+    // Jede Zeile traegt, ob sie DIESER Rechnung zugeordnet ist - der Client darf
+    // "vorhanden" nicht mit "verrechnet" verwechseln.
+    const payments = rawPayments.map((payment) => {
+      const allocatedToThisInvoice = CalculationHelper.round(Number(allocatedToThisInvoiceByPayment.get(toIdString(payment._id)) || 0));
+      return {
+        ...payment,
+        allocatedToThisInvoice,
+        isAllocatedToThisInvoice: allocatedToThisInvoice > 0.009,
+      };
+    });
 
     // Credit notes created for this invoice
     const creditNotes = await Invoice.find({ creditNoteOf: invoice._id })
-      .select('_id invoiceNumber status total createdAt isCreditNote notes')
+      .select('_id invoiceNumber status total createdAt isCreditNote notes correctionType')
       .sort({ createdAt: -1 });
 
-    return { invoice, payments, creditNotes };
+    // Verbindlicher Zahlungsstand des Belegs: total / allocated / open / overpaid.
+    const balance = await PaymentService.computeInvoiceBalance(invoice);
+
+    return { invoice, payments, creditNotes, balance };
   }
 
   // Get all overdue invoices, preserving the original customer payment deadline.
@@ -2306,68 +3089,134 @@ class FinancialService {
   /**
    * Automatisches Zuordnen unzugeordneter Zahlungen zu offenen Rechnungen eines Auftrags
    */
+  /**
+   * Ordnet bereits eingegangenes, noch nicht zugeordnetes Geld den offenen Rechnungen
+   * einer Buchung zu (typischer Fall: PayPal-Vorauszahlung, Rechnung entsteht spaeter).
+   *
+   * ZUORDNUNGSREGEL (verbindlich):
+   *  - Kandidaten sind alle Zahlungen der Buchung im Status 'completed', abzueglich
+   *    Erstattungen und bereits zugeordneter Betraege.
+   *  - Zielrechnungen sind offene Forderungen im Status sent/viewed/partially_paid/
+   *    overdue. Entwuerfe, Belege in Freigabe und Gutschriften bleiben ausgeschlossen -
+   *    eine Zuordnung darf keinen Beleg an der Freigabe vorbei auf 'paid' setzen.
+   *  - Reihenfolge ist FIFO: aelteste Faelligkeit zuerst, danach aeltestes Anlagedatum.
+   *    Bei MEHREREN offenen Rechnungen wird NICHT alles auf die erste gebucht: jede
+   *    Rechnung bekommt hoechstens ihren offenen Betrag, der Rest wandert weiter.
+   *  - Ein verbleibender Rest bleibt bewusst nicht zugeordnet (sichtbar als
+   *    `unallocatedTotal`) und wird nicht als Ueberzahlung auf eine Rechnung gebucht.
+   *
+   * Mehrfachaufrufe (wiederholter Webhook, erneute Rechnungserstellung, parallele
+   * Laeufe) koennen dasselbe Geld nicht doppelt zaehlen: der bereits zugeordnete
+   * Betrag wird jedes Mal neu aus den PaymentAllocation-Zeilen gelesen und die
+   * eigentliche Buchung laeuft ueber ein bedingtes Update auf der Zahlung
+   * (PaymentService.allocateAtomically).
+   */
   static async autoAllocateUnallocatedPayments(bookingId) {
-    if (!bookingId) return;
+    if (!bookingId) return null;
     try {
       const BookingPaymentService = require('./bookingPaymentService');
-      const { booking, invoices } = await BookingPaymentService.loadContext(bookingId);
-      if (!invoices || invoices.length === 0) return;
+      const { booking, orders, invoices } = await BookingPaymentService.loadContext(bookingId);
 
-      const openInvoiceSummary = invoices.find(inv => !inv.isCreditNote && inv.isOpen);
-      if (!openInvoiceSummary) return;
+      // Achtung: loadContext liefert ROHE lean-Dokumente. Das frueher hier gepruefte
+      // `inv.isOpen` gibt es dort nicht (es entsteht erst in getOverview), weshalb
+      // diese Funktion an jeder Aufrufstelle wirkungslos war. Die Offenheit wird
+      // deshalb aus dem Belegstatus selbst bestimmt.
+      const openInvoices = PaymentService.sortOpenInvoicesFifo(invoices || []);
+      if (openInvoices.length === 0) return { allocated: 0, allocations: [] };
 
-      const invoice = await Invoice.findById(openInvoiceSummary._id);
-      if (!invoice) return;
+      const orderIds = (orders || []).map((order) => order._id);
+      const matchConditions = [{ bookingId: booking._id }];
+      if (invoices.length > 0) matchConditions.push({ invoiceId: { $in: invoices.map((invoice) => invoice._id) } });
+      if (orderIds.length > 0) matchConditions.push({ orderId: { $in: orderIds } });
 
-      const payments = await Payment.find({
-        $or: [{ bookingId: booking._id }, { invoiceId: invoice._id }],
-        status: 'completed'
-      });
+      const payments = await Payment.find({ $or: matchConditions, status: 'completed' })
+        .sort({ paymentDate: 1, createdAt: 1 });
 
-      let updatedPaidAmount = Number(invoice.paidAmount || 0);
+      // Offener Betrag je Rechnung aus den GUELTIGEN Zuordnungen, nicht aus dem
+      // denormalisierten paidAmount - sonst wuerde ein Altbestands-Fehler fortgeschrieben.
+      const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(
+        openInvoices.map((invoice) => invoice._id)
+      );
+      const openAmountByInvoice = new Map(openInvoices.map((invoice) => [
+        String(invoice._id),
+        CalculationHelper.round(Math.max(0, Number(invoice.total || 0) - Number(allocatedByInvoice.get(String(invoice._id)) || 0))),
+      ]));
+
+      const touchedInvoiceIds = new Set();
+      const performed = [];
+      let allocatedSum = 0;
 
       for (const payment of payments) {
-        const existingAllocations = await PaymentAllocation.find({ paymentId: payment._id }).lean();
-        const alreadyAllocated = CalculationHelper.round(existingAllocations.reduce((sum, entry) => sum + Number(entry.allocatedAmount || 0), 0));
-        const effectiveAmount = CalculationHelper.round(Number(payment.amount || 0) - Number(payment.refundAmount || 0));
-        const unallocated = CalculationHelper.round(effectiveAmount - alreadyAllocated);
+        const existingAllocations = await PaymentAllocation.find({ paymentId: payment._id }).select('allocatedAmount').lean();
+        const alreadyAllocated = CalculationHelper.round(
+          existingAllocations.reduce((sum, entry) => sum + Number(entry.allocatedAmount || 0), 0)
+        );
+        // Erstattungen mindern den zuordenbaren Betrag.
+        const effectiveAmount = CalculationHelper.round(
+          Math.max(0, Number(payment.amount || 0) - Number(payment.refundAmount || 0))
+        );
+        let remaining = CalculationHelper.round(effectiveAmount - alreadyAllocated);
+        if (remaining <= 0.009) continue;
 
-        const invoiceOpenAmount = CalculationHelper.round(Number(invoice.total || 0) - updatedPaidAmount);
-        if (unallocated > 0.009 && invoiceOpenAmount > 0.009) {
-          const allocatable = Math.min(unallocated, invoiceOpenAmount);
-          await PaymentAllocation.create({
-            paymentId: payment._id,
-            invoiceId: invoice._id,
-            orderId: invoice.orderId || payment.orderId || undefined,
-            allocatedAmount: allocatable,
-            allocatedAt: new Date(),
-            note: `Automatische Zuordnung (${invoice.invoiceNumber || invoice._id})`
+        payment.allocatedAmount = alreadyAllocated;
+
+        for (const invoiceSummary of openInvoices) {
+          if (remaining <= 0.009) break;
+          const invoiceKey = String(invoiceSummary._id);
+          const invoiceOpen = Number(openAmountByInvoice.get(invoiceKey) || 0);
+          if (invoiceOpen <= 0.009) continue;
+
+          const invoice = await Invoice.findById(invoiceSummary._id);
+          if (!invoice) continue;
+          // Zwischenzeitlicher Statuswechsel (z.B. storniert) beendet die Zuordnung.
+          if (!PaymentService.ALLOCATABLE_INVOICE_STATUSES.includes(String(invoice.status || ''))) {
+            openAmountByInvoice.set(invoiceKey, 0);
+            continue;
+          }
+
+          const allocatable = CalculationHelper.round(Math.min(remaining, invoiceOpen));
+          const result = await PaymentService.allocateAtomically({
+            payment,
+            invoice,
+            amount: allocatable,
+            note: `Automatische Zuordnung (${invoice.invoiceNumber || invoice._id})`,
+            orderId: toIdString(invoice.orderId) || toIdString(payment.orderId) || undefined,
           });
 
-          payment.allocatedAmount = CalculationHelper.round(alreadyAllocated + allocatable);
-          if (!payment.invoiceId) payment.invoiceId = invoice._id;
-          await payment.save();
+          if (!result) {
+            // Rennen verloren: ein paralleler Lauf hat diese Zahlung bereits gebucht.
+            console.warn('FinancialService: concurrent allocation detected, skipping payment', String(payment._id));
+            break;
+          }
 
-          updatedPaidAmount = CalculationHelper.round(updatedPaidAmount + allocatable);
+          remaining = CalculationHelper.round(remaining - allocatable);
+          openAmountByInvoice.set(invoiceKey, CalculationHelper.round(invoiceOpen - allocatable));
+          allocatedSum = CalculationHelper.round(allocatedSum + allocatable);
+          touchedInvoiceIds.add(invoiceKey);
+          performed.push({
+            paymentId: String(payment._id),
+            invoiceId: invoiceKey,
+            invoiceNumber: invoice.invoiceNumber || '',
+            amount: allocatable,
+          });
         }
       }
 
-      invoice.paidAmount = updatedPaidAmount;
-      if (updatedPaidAmount >= Number(invoice.total || 0) - 0.01 && Number(invoice.total || 0) > 0) {
-        invoice.status = 'paid';
-        invoice.paidAt = invoice.paidAt || new Date();
-        invoice.dunningLevel = 0;
-        invoice.dunningStage = 'none';
-        invoice.nextDunningDueDate = undefined;
-      } else if (updatedPaidAmount > 0) {
-        invoice.status = 'partially_paid';
+      for (const invoiceId of touchedInvoiceIds) {
+        const invoice = await Invoice.findById(invoiceId);
+        if (invoice) await FinancialService.syncPaymentDerivedState(invoice, 'autoAllocate');
+      }
+      if (touchedInvoiceIds.size === 0) {
+        // Auch ohne neue Zuordnung muss der Buchungsstand stimmen.
+        await FinancialService.applyBookingPaymentState(booking._id).catch((error) => {
+          console.error('FinancialService: booking payment state not updated (autoAllocate):', error);
+        });
       }
 
-      await invoice.save();
-      await FinancialService.syncOrderPaymentTracking(invoice);
-      await FinancialService.syncBookingPaymentStatus(invoice);
+      return { allocated: allocatedSum, allocations: performed };
     } catch (error) {
       console.error('FinancialService: Error in autoAllocateUnallocatedPayments:', error.message);
+      return null;
     }
   }
 
@@ -2466,76 +3315,73 @@ class FinancialService {
       const mutableStatuses = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
       if (mutableStatuses.includes(mainInvoice.status)) {
         if (booking) {
-          const orders = await Order.find({ bookingId: booking._id }).lean();
+          // Positionen mit echten Service-/Produktnamen und Geraetekennzeichnung neu
+          // aufbauen. Die Positionssumme kann bei einem Buchungsrabatt bewusst vom
+          // autoritativen Brutto-Gesamtbetrag unten abweichen.
+          const orders = await findOrdersForInvoiceItems({ bookingId: booking._id });
+          const bookingItemByOrderId = new Map();
+          (booking.items || []).forEach((bookingItem) => {
+            if (bookingItem?.orderId) bookingItemByOrderId.set(String(bookingItem.orderId), bookingItem);
+          });
+
           const items = [];
-          orders.forEach(o => {
-            (o.services || []).forEach(s => {
-              items.push({
-                description: typeof s === 'string' ? s : (s.name || 'Service'),
-                quantity: 1,
-                unitPrice: s.price || (o.totalCost / (o.services.length || 1)),
-                total: s.price || (o.totalCost / (o.services.length || 1)),
-                type: 'service'
-              });
-            });
-            (o.addOns || []).forEach(a => {
-              items.push({
-                description: a.name || 'Add-on',
-                quantity: 1,
-                unitPrice: a.price || 0,
-                total: a.price || 0,
-                type: 'addon'
-              });
-            });
+          orders.forEach((o) => {
+            const bookingItem = bookingItemByOrderId.get(String(o._id));
+            buildInvoiceItemsFromOrder(o, { deviceLabel: bookingItem?.device })
+              .forEach((item) => items.push(item));
           });
           if (items.length > 0) {
             mainInvoice.items = items;
           }
         }
 
+        // Autoritatives BRUTTO; Netto und MwSt rechnet das Invoice-Modell heraus.
         mainInvoice.total = CalculationHelper.round(newOrderValue);
-        mainInvoice.invoiceGrossTotal = mainInvoice.total;
-        const taxRate = mainInvoice.isReverseCharge ? 0 : (mainInvoice.taxRate || 19);
-        const taxDivisor = 1 + (taxRate / 100);
-        mainInvoice.subtotal = CalculationHelper.round(mainInvoice.total / taxDivisor);
-        mainInvoice.invoiceNetTotal = mainInvoice.subtotal;
-        mainInvoice.tax = mainInvoice.isReverseCharge ? 0 : CalculationHelper.round(mainInvoice.total - mainInvoice.subtotal);
-        mainInvoice.invoiceTaxTotal = mainInvoice.tax;
 
         const allocations = await PaymentAllocation.find({ invoiceId: mainInvoice._id }).lean();
         const paidAmount = CalculationHelper.round(allocations.reduce((sum, a) => sum + Number(a.allocatedAmount || 0), 0));
         mainInvoice.paidAmount = paidAmount;
 
-        if (paidAmount >= mainInvoice.total - 0.01 && mainInvoice.total > 0) {
-          mainInvoice.status = 'paid';
-          mainInvoice.paidAt = mainInvoice.paidAt || new Date();
-          mainInvoice.dunningLevel = 0;
-          mainInvoice.dunningStage = 'none';
-          mainInvoice.nextDunningDueDate = undefined;
-        } else if (paidAmount > 0) {
-          mainInvoice.status = 'partially_paid';
-          mainInvoice.paidAt = null;
-        } else {
-          mainInvoice.status = mainInvoice.dueDate && new Date(mainInvoice.dueDate) < new Date() ? 'overdue' : 'sent';
-          mainInvoice.paidAt = null;
+        // Betrag und Positionen werden auch im Entwurf fortgeschrieben, der
+        // BELEGSTATUS aber nur, wenn der Beleg die Freigabe hinter sich hat -
+        // 'draft'/'pending_approval' bleiben, wo sie sind (gleicher Schutz wie in
+        // recalculateInvoicePaidAmounts und PaymentService.allocateAtomically).
+        if (PAYMENT_DERIVED_STATUS_WRITABLE.includes(String(mainInvoice.status || ''))) {
+          if (paidAmount >= mainInvoice.total - 0.01 && mainInvoice.total > 0) {
+            mainInvoice.status = 'paid';
+            mainInvoice.paidAt = mainInvoice.paidAt || new Date();
+            mainInvoice.dunningLevel = 0;
+            mainInvoice.dunningStage = 'none';
+            mainInvoice.nextDunningDueDate = undefined;
+          } else if (paidAmount > 0) {
+            mainInvoice.status = 'partially_paid';
+            mainInvoice.paidAt = null;
+          } else {
+            mainInvoice.status = mainInvoice.dueDate && new Date(mainInvoice.dueDate) < new Date() ? 'overdue' : 'sent';
+            mainInvoice.paidAt = null;
+          }
         }
 
         await mainInvoice.save();
-        await FinancialService.syncOrderPaymentTracking(mainInvoice);
-        await FinancialService.syncBookingPaymentStatus(mainInvoice);
+        await FinancialService.syncPaymentDerivedState(mainInvoice, 'syncOrderAndBookingValue');
       } else if (['paid', 'credited'].includes(mainInvoice.status)) {
         const currentInvoiceTotal = Number(mainInvoice.total || 0);
         const diff = CalculationHelper.round(newOrderValue - currentInvoiceTotal);
-        if (diff < -0.01) {
+        // Bereits gutgeschriebene Minderungen abziehen, sonst erzeugt jeder weitere
+        // Sync dieselbe Korrektur noch einmal.
+        const alreadyCredited = await FinancialService.getCreditedTotal(mainInvoice._id, { valueAdjustmentsOnly: true });
+        const outstandingReduction = CalculationHelper.round(Math.abs(Math.min(0, diff)) - alreadyCredited);
+        if (diff < -0.01 && outstandingReduction > 0.01) {
           await FinancialService.createCreditNote(mainInvoice._id, {
-            reason: `Automatische Korrekturrechnung wegen Auftragswertminderung (-EUR ${Math.abs(diff).toFixed(2)})`,
+            reason: `Automatische Korrekturrechnung wegen Auftragswertminderung (-EUR ${outstandingReduction.toFixed(2)})`,
             correctionType: 'price_adjustment',
             discount: 0,
             items: [{
+              serviceName: 'Auftragswertanpassung',
               description: 'Auftragswertanpassung (Minderung)',
               quantity: 1,
-              unitPrice: Math.abs(diff),
-              total: Math.abs(diff),
+              unitPrice: outstandingReduction,
+              total: outstandingReduction,
               type: 'fee'
             }]
           });
@@ -2552,7 +3398,9 @@ class FinancialService {
   static async handleOverpayment(bookingId, options = {}) {
     const BookingPaymentService = require('./bookingPaymentService');
     const overview = await BookingPaymentService.getOverview(bookingId);
-    const calculatedOverpaid = CalculationHelper.round(Math.max(0, (overview.summary.receivedTotal || 0) - (overview.summary.orderValue || 0)));
+    // overpaidTotal ist bereits gegen die richtige Bezugsgroesse (gestellte Rechnungen,
+    // ersatzweise Auftragswert) gerechnet und nie negativ.
+    const calculatedOverpaid = CalculationHelper.round(Math.max(0, Number(overview.summary.overpaidTotal || 0)));
     const specifiedAmount = options.amount != null ? Number(options.amount) : null;
     const overpaidAmount = (specifiedAmount && specifiedAmount > 0) ? CalculationHelper.round(specifiedAmount) : calculatedOverpaid;
 
@@ -2567,6 +3415,7 @@ class FinancialService {
         reason: options.reason || `Überzahlungsgutschrift (${overpaidAmount.toFixed(2)} €)`,
         correctionType: 'partial_refund',
         items: [{
+          serviceName: 'Überzahlung',
           description: 'Gutschrift für Überzahlung',
           quantity: 1,
           unitPrice: overpaidAmount,
@@ -2595,40 +3444,261 @@ class FinancialService {
   }
 
   /**
-   * Sendet eine Zahlungsaufforderung für offene Restforderungen
+   * Sendet eine Zahlungsaufforderung fuer offene Restforderungen.
+   *
+   * KANAL: ausschliesslich E-MAIL. Es gibt keine PayPal-Zahlungsanforderung in diesem
+   * System (paypalService kann nur lesen: getOrder / listTransactions). PayPal kommt
+   * erst ins Spiel, wenn der Kunde die Rechnung oeffnet und dort bezahlt.
+   *
+   * Es wird NIEMALS Erfolg gemeldet, ohne dass der Mailserver die Nachricht
+   * tatsaechlich angenommen hat - und Annahme ist keine Zustellbestaetigung.
+   * Jeder Versuch (auch der fehlgeschlagene und der ohne Empfaenger) wird als
+   * PaymentRequest protokolliert und ist ueber
+   * GET /api/admin/financial/bookings/:bookingId/payment-requests abrufbar.
    */
-  static async requestAdditionalPayment(bookingId, options = {}) {
+  static async requestAdditionalPayment(bookingId, options = {}, actor = null) {
+    const PaymentRequest = require('../models/PaymentRequest');
     const BookingPaymentService = require('./bookingPaymentService');
+
+    // loadContext ist hier NICHT redundant: getOverview liefert eine projizierte
+    // Buchung ohne customerId/guestInfo, der Empfaenger waere sonst nie aufloesbar.
+    const { booking, invoices } = await BookingPaymentService.loadContext(bookingId);
     const overview = await BookingPaymentService.getOverview(bookingId);
-    const openBalance = overview.summary.openOrderBalance;
-    if (openBalance <= 0) {
-      return { success: false, message: 'Keine offene Restforderung vorhanden.' };
+    const openBalance = CalculationHelper.round(Number(overview.summary.openOrderBalance || 0));
+
+    const mainInvoice = PaymentService.sortOpenInvoicesFifo(invoices || [])[0]
+      || (invoices || []).find((invoice) => !invoice.isCreditNote)
+      || null;
+
+    const customer = booking.customerId ? await User.findById(booking.customerId).lean() : null;
+    const recipientEmail = String(customer?.email || booking.guestInfo?.email || '').trim();
+    const recipientName = customer
+      ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.name || ''
+      : `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim();
+
+    const note = String(options.note || '').trim();
+
+    const baseRecord = {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber || '',
+      invoiceId: mainInvoice?._id,
+      invoiceNumber: mainInvoice?.invoiceNumber || '',
+      orderId: toIdString(mainInvoice?.orderId) || undefined,
+      openBalanceAtRequest: Math.max(0, openBalance),
+      channel: 'email',
+      recipientEmail,
+      recipientName,
+      note,
+      requestedBy: actor?._id || undefined,
+      requestedByName: actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.email || '' : '',
+      requestedAt: new Date(),
+      resendOfId: options.resendOfId || undefined,
+    };
+
+    if (openBalance <= 0.009) {
+      // Kein Fehler, aber auch kein Versand - und deshalb auch kein "erfolgreich".
+      return {
+        success: false,
+        status: 'no_open_balance',
+        openBalance: 0,
+        message: 'Keine offene Restforderung vorhanden.',
+      };
     }
 
-    const { booking, invoices } = await BookingPaymentService.loadContext(bookingId);
-    const mainInvoice = invoices.find(inv => !inv.isCreditNote);
-    const customer = booking.customerId ? await User.findById(booking.customerId).lean() : null;
-    const recipientEmail = customer?.email || booking.guestInfo?.email;
+    // Angeforderter Betrag: der Client schickt seit jeher options.amount, der Server
+    // hat ihn bisher ignoriert. Er wird jetzt honoriert und gegen den offenen Betrag
+    // geprueft.
+    let amount = openBalance;
+    if (options.amount != null && String(options.amount).trim() !== '') {
+      const requested = CalculationHelper.round(Number(options.amount));
+      if (!Number.isFinite(requested) || requested <= 0) {
+        throw buildFinancialError('Der angeforderte Betrag muss größer als 0 sein.', 400, 'INVALID_AMOUNT');
+      }
+      if (requested > openBalance + 0.01) {
+        throw buildFinancialError(
+          `Der angeforderte Betrag (${requested.toFixed(2)} €) übersteigt die offene Restforderung (${openBalance.toFixed(2)} €).`,
+          400,
+          'AMOUNT_EXCEEDS_OPEN'
+        );
+      }
+      amount = requested;
+    }
 
-    if (recipientEmail) {
-      await EmailService.sendTriggerEmail('payment_request', recipientEmail, {
-        companyName: process.env.COMPANY_NAME || 'McRepair.de',
-        customerName: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.name : booking.guestInfo?.firstName || 'Kunde',
-        invoiceNumber: mainInvoice?.invoiceNumber || booking.bookingNumber,
-        openAmount: `EUR ${openBalance.toFixed(2)}`,
-        dueDate: mainInvoice?.dueDate ? new Date(mainInvoice.dueDate).toLocaleDateString('de-DE') : 'sofort',
-        invoiceUrl: mainInvoice ? await EmailService.buildSystemUrl(`/invoices?invoiceId=${mainInvoice._id}`) : '#',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
-        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
-        customNote: options.note || 'Bitte begleichen Sie den offenen Restbetrag.'
+    if (!recipientEmail) {
+      // Laut scheitern statt still "erfolgreich" zu melden.
+      const record = await PaymentRequest.create({
+        ...baseRecord,
+        amount,
+        status: 'skipped_no_recipient',
+        error: 'Keine E-Mail-Adresse hinterlegt.',
       });
+      return {
+        success: false,
+        status: 'skipped_no_recipient',
+        requestId: String(record._id),
+        openBalance,
+        amount,
+        recipientEmail: '',
+        message: 'Für diese Buchung ist keine E-Mail-Adresse hinterlegt - es wurde nichts gesendet.',
+      };
+    }
+
+    const dueDateLabel = mainInvoice?.dueDate ? new Date(mainInvoice.dueDate).toLocaleDateString('de-DE') : 'sofort';
+    const amountLabel = `EUR ${amount.toFixed(2)}`;
+    const invoiceUrl = mainInvoice
+      ? await EmailService.buildSystemUrl(`/invoices?invoiceId=${mainInvoice._id}`)
+      : await EmailService.buildSystemUrl('/invoices');
+
+    const variables = {
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
+      customerName: recipientName || 'Kunde',
+      invoiceNumber: mainInvoice?.invoiceNumber || booking.bookingNumber || '-',
+      openAmount: amountLabel,
+      // Variablennamen der Mahnvorlage, damit der Ersatzweg unten validiert.
+      amountOpen: amountLabel,
+      originalDueDate: dueDateLabel,
+      dunningStage: 'Zahlungsaufforderung',
+      dueDate: dueDateLabel,
+      invoiceUrl,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
+      customNote: note || 'Bitte begleichen Sie den offenen Restbetrag.',
+    };
+
+    const record = await PaymentRequest.create({ ...baseRecord, amount, status: 'pending' });
+
+    let emailResult = null;
+    let templateName = '';
+    let attempts = 0;
+    try {
+      // Erst der fachlich richtige Trigger. Sobald die Vorlage
+      // 'Zahlungsaufforderung' im E-Mail-Service hinterlegt ist, greift dieser Weg.
+      attempts += 1;
+      emailResult = await EmailService.sendTriggerEmail('payment_request', recipientEmail, variables);
+      templateName = 'payment_request';
+
+      if (!emailResult?.success) {
+        // Ersatzweg ueber die vorhandene Mahnvorlage, damit der Kunde ueberhaupt eine
+        // Information bekommt. Der freie Hinweistext hat dort KEINEN Platzhalter und
+        // wird daher nicht mitgesendet - siehe noteDelivered.
+        attempts += 1;
+        const fallback = await EmailService.sendTemplateEmail('Zahlungserinnerung', recipientEmail, variables);
+        if (fallback?.success) {
+          emailResult = fallback;
+          templateName = 'Zahlungserinnerung';
+        } else {
+          emailResult = { success: false, error: fallback?.error || emailResult?.error || 'E-Mail konnte nicht gesendet werden.' };
+        }
+      }
+    } catch (error) {
+      emailResult = { success: false, error: error.message };
+    }
+
+    record.attempts = attempts;
+    record.templateName = templateName;
+    // Der Hinweistext erreicht den Kunden nur ueber eine Vorlage mit {{customNote}}.
+    record.noteDelivered = Boolean(note) && emailResult?.success === true && templateName === 'payment_request';
+
+    if (emailResult?.success) {
+      record.status = 'accepted_by_provider';
+      record.providerMessageId = emailResult.messageId || '';
+      record.error = '';
+    } else {
+      record.status = 'failed';
+      record.error = String(emailResult?.error || 'Unbekannter Fehler beim Versand.');
+    }
+    await record.save();
+
+    const noteWarning = note && !record.noteDelivered
+      ? 'Hinweis: Der persönliche Text konnte nicht mitgesendet werden, weil die verwendete E-Mail-Vorlage keinen Platzhalter dafür enthält.'
+      : '';
+
+    if (!emailResult?.success) {
+      return {
+        success: false,
+        status: 'failed',
+        requestId: String(record._id),
+        openBalance,
+        amount,
+        recipientEmail,
+        error: record.error,
+        message: `Die Zahlungsaufforderung konnte nicht gesendet werden: ${record.error}`,
+      };
     }
 
     return {
       success: true,
+      status: 'accepted_by_provider',
+      requestId: String(record._id),
       openBalance,
-      recipientEmail
+      amount,
+      recipientEmail,
+      channel: 'email',
+      templateName,
+      providerMessageId: record.providerMessageId,
+      noteDelivered: record.noteDelivered,
+      // Bewusste Wortwahl: uebergeben, nicht zugestellt.
+      message: `Zahlungsaufforderung an ${recipientEmail} übergeben (eine Zustellung wird dadurch nicht garantiert).`
+        + (noteWarning ? ` ${noteWarning}` : ''),
     };
+  }
+
+  /** Historie der Zahlungsaufforderungen einer Buchung, neueste zuerst. */
+  static async getPaymentRequests(bookingId, filters = {}) {
+    const PaymentRequest = require('../models/PaymentRequest');
+    const BookingPaymentService = require('./bookingPaymentService');
+    const { booking } = await BookingPaymentService.loadContext(bookingId);
+
+    const limit = Math.min(Math.max(parseInt(filters.limit, 10) || 50, 1), 200);
+    const requests = await PaymentRequest.find({ bookingId: booking._id })
+      .sort({ requestedAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return { bookingId: String(booking._id), bookingNumber: booking.bookingNumber || '', requests };
+  }
+
+  /**
+   * Kontrollierter Wiederversand.
+   *
+   * Der alte Datensatz wird NIE veraendert; es entsteht immer eine neue Zeile mit
+   * resendOfId. Innerhalb einer Sperrfrist (Standard 24 h) wird abgelehnt, solange
+   * nicht `force` gesetzt ist.
+   */
+  static async resendPaymentRequest(requestId, options = {}, actor = null) {
+    const PaymentRequest = require('../models/PaymentRequest');
+
+    const original = await PaymentRequest.findById(requestId);
+    if (!original) throw buildFinancialError('Zahlungsaufforderung wurde nicht gefunden.', 404, 'PAYMENT_REQUEST_NOT_FOUND');
+
+    const cooldownHours = Number.isFinite(Number(options.cooldownHours)) ? Number(options.cooldownHours) : 24;
+    if (!options.force && cooldownHours > 0) {
+      const since = new Date(Date.now() - cooldownHours * 60 * 60 * 1000);
+      const recent = await PaymentRequest.findOne({
+        bookingId: original.bookingId,
+        status: 'accepted_by_provider',
+        requestedAt: { $gte: since },
+      }).sort({ requestedAt: -1 });
+
+      if (recent) {
+        throw buildFinancialError(
+          `Für diesen Auftrag wurde bereits am ${new Date(recent.requestedAt).toLocaleString('de-DE')} eine Zahlungsaufforderung versendet. `
+          + `Ein erneuter Versand ist erst nach ${cooldownHours} Stunden möglich.`,
+          429,
+          'PAYMENT_REQUEST_COOLDOWN'
+        );
+      }
+    }
+
+    return FinancialService.requestAdditionalPayment(
+      String(original.bookingId),
+      {
+        note: options.note != null ? options.note : original.note,
+        amount: options.amount != null ? options.amount : undefined,
+        resendOfId: original._id,
+      },
+      actor
+    );
   }
 
   // ──────────────────────────────────────────────

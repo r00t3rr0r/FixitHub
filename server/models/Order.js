@@ -518,6 +518,18 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: 'Smartphone',
   },
+  // Immutable snapshot of the device the customer ORIGINALLY booked.
+  // Captured once (at order creation, or - for orders that predate this field - right
+  // before the first device correction) and never overwritten by a later device change,
+  // so "Gemeldetes Modell" always stays traceable after a correction.
+  // NOTE: the sub-field is called deviceType (not "type") on purpose - a nested key named
+  // "type" would be read by Mongoose as the path's own type declaration.
+  reportedDevice: {
+    brand: String,
+    model: String,
+    deviceType: String,
+    capturedAt: Date,
+  },
   services: [orderServiceSchema],
   addOns: [addOnServiceSchema],
   status: {
@@ -890,6 +902,55 @@ orderSchema.pre('save', async function(next) {
   this.taxRate = orderValueCalc.taxRate;
 
   this.updatedAt = new Date();
+  next();
+});
+
+// Remember the device as it was loaded from the database, so a later overwrite of
+// deviceBrand/deviceModel/deviceType can still snapshot the ORIGINAL booked device.
+orderSchema.post('init', function() {
+  this.$locals.loadedDevice = {
+    brand: this.deviceBrand,
+    model: this.deviceModel,
+    deviceType: this.deviceType,
+  };
+  // Whether reportedDevice was actually loaded. A projection that omits it makes the field
+  // look empty on the document, which must NEVER be mistaken for "no snapshot exists yet".
+  this.$locals.reportedDeviceLoaded =
+    typeof this.$__isSelected === 'function' ? this.$__isSelected('reportedDevice') : true;
+});
+
+// Capture the originally booked device exactly once, and never overwrite it afterwards.
+orderSchema.pre('save', function(next) {
+  const hasSnapshot = Boolean(this.reportedDevice && this.reportedDevice.model);
+
+  if (!hasSnapshot) {
+    if (this.isNew) {
+      // New order: the current device fields ARE the customer-booked device.
+      this.reportedDevice = {
+        brand: this.deviceBrand,
+        model: this.deviceModel,
+        deviceType: this.deviceType,
+        capturedAt: new Date(),
+      };
+    } else if (
+      (this.isModified('deviceModel') || this.isModified('deviceBrand')) &&
+      // Guard against a projected load: if reportedDevice was not selected we cannot tell
+      // whether a snapshot already exists, and writing one would break the write-once rule.
+      this.$locals.reportedDeviceLoaded !== false &&
+      this.$locals.loadedDevice &&
+      this.$locals.loadedDevice.model
+    ) {
+      // Legacy order without a snapshot whose device is being corrected right now:
+      // freeze the values the document was loaded with.
+      this.reportedDevice = {
+        brand: this.$locals.loadedDevice.brand,
+        model: this.$locals.loadedDevice.model,
+        deviceType: this.$locals.loadedDevice.deviceType,
+        capturedAt: new Date(),
+      };
+    }
+  }
+
   next();
 });
 

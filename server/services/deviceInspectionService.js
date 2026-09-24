@@ -7,7 +7,76 @@ const pdfkit = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 
+// Canonical inspection device types (must stay inside identificationSchema.deviceType's enum).
+const CANONICAL_DEVICE_TYPES = {
+  smartphone: 'Smartphone',
+  handy: 'Smartphone',
+  mobiltelefon: 'Smartphone',
+  mobilephone: 'Smartphone',
+  phone: 'Smartphone',
+  telefon: 'Smartphone',
+  iphone: 'Smartphone',
+  laptop: 'Laptop',
+  notebook: 'Laptop',
+  macbook: 'Laptop',
+  tablet: 'Tablet',
+  ipad: 'Tablet',
+  watch: 'Watch',
+  smartwatch: 'Watch',
+  applewatch: 'Watch',
+  wearable: 'Watch',
+  uhr: 'Watch',
+  headphone: 'Headphones',
+  headset: 'Headphones',
+  kopfhoerer: 'Headphones',
+  ohrhoerer: 'Headphones',
+  earphone: 'Headphones',
+  earbud: 'Headphones',
+  airpod: 'Headphones',
+};
+
+// Free-form order device types (admin-editable catalog names, German or English,
+// singular or plural) are normalised here. Unknown values are NOT an error - they
+// map to 'Other' so the technician is never blocked on step 2.
+// Keep in sync with normalizeInspectionDeviceType() in
+// client/src/components/inspection/DeviceInspectionForm.tsx.
+const normalizeInspectionDeviceType = (deviceType) => {
+  const slug = String(deviceType || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (!slug) {
+    return 'Other';
+  }
+
+  // Catalogue names are frequently plural ("Smartphones", "Smartwatches").
+  const candidates = [slug, slug.replace(/es$/, ''), slug.replace(/s$/, '')];
+  for (const candidate of candidates) {
+    if (CANONICAL_DEVICE_TYPES[candidate]) {
+      return CANONICAL_DEVICE_TYPES[candidate];
+    }
+  }
+
+  return 'Other';
+};
+
 class DeviceInspectionService {
+  static normalizeDeviceType(deviceType) {
+    return normalizeInspectionDeviceType(deviceType);
+  }
+
+  static _buildDeviceLabel(brand, model) {
+    return [brand, model]
+      .filter((part) => part && part !== 'N/A')
+      .join(' ')
+      .trim();
+  }
+
   static _markStepCompleted(inspection, stepNumber) {
     const alreadyCompleted = (inspection.completedSteps || []).some((entry) => entry.step === stepNumber);
     if (!alreadyCompleted) {
@@ -22,9 +91,10 @@ class DeviceInspectionService {
     try {
       let resolvedCustomerId = customerId || null;
 
-      const order = await Order.findById(orderId).select('customerId deviceBrand deviceModel');
+      const order = await Order.findById(orderId)
+        .select('customerId deviceBrand deviceModel deviceType reportedDevice');
       if (!order) {
-        throw new Error('Order not found');
+        throw new Error('Auftrag nicht gefunden.');
       }
 
       if (!resolvedCustomerId && order.customerId) {
@@ -35,12 +105,15 @@ class DeviceInspectionService {
       let inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        // Snapshot the customer-reported device now, before any later correction can
-        // overwrite the order's deviceBrand/deviceModel fields.
-        const reportedModelSnapshot = [order.deviceBrand, order.deviceModel]
-          .filter((part) => part && part !== 'N/A')
-          .join(' ')
-          .trim();
+        // "Gemeldetes Modell" is the device the customer originally booked. Order.reportedDevice
+        // is the authoritative snapshot; fall back to the order's current device only for
+        // orders created before that field existed.
+        const currentModel = this._buildDeviceLabel(order.deviceBrand, order.deviceModel);
+        const reportedModelSnapshot =
+          this._buildDeviceLabel(order.reportedDevice?.brand, order.reportedDevice?.model) || currentModel;
+        // "Tatsaechliches Modell" is the order's CURRENT (possibly already corrected) device,
+        // so a device change made before the inspection existed is not lost.
+        const actualModelSnapshot = currentModel || reportedModelSnapshot;
 
         inspection = new DeviceInspection({
           orderId,
@@ -50,10 +123,10 @@ class DeviceInspectionService {
           startedAt: new Date(),
         });
 
-        if (reportedModelSnapshot) {
+        if (reportedModelSnapshot && actualModelSnapshot) {
           inspection.modelVerification = {
             reportedModel: reportedModelSnapshot,
-            actualModel: reportedModelSnapshot,
+            actualModel: actualModelSnapshot,
             verified: true,
             verificationStatus: 'correct',
             costDifference: 0,
@@ -70,7 +143,7 @@ class DeviceInspectionService {
             console.log(`[DeviceInspection] Duplicate inspection found, retrieving existing one`);
             inspection = await DeviceInspection.findOne({ orderId });
             if (!inspection) {
-              throw new Error('Failed to retrieve existing inspection after duplicate key error');
+              throw new Error('Bestehende Inspektion konnte nicht geladen werden. Bitte erneut versuchen.');
             }
           } else {
             throw saveError;
@@ -128,7 +201,8 @@ class DeviceInspectionService {
     verificationStatus,
     costDifference = 0,
     notes = '',
-    supervisorId = null
+    supervisorId = null,
+    options = {}
   ) {
     console.log(`[DeviceInspection] Updating model verification for order: ${orderId}`);
 
@@ -136,18 +210,59 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       const verified = verificationStatus === 'correct';
 
-      // The originally reported model must stay fixed once recorded, even if a later
-      // device correction changes the order's own deviceBrand/deviceModel fields.
-      const lockedReportedModel = inspection.modelVerification?.reportedModel || reportedModel;
+      const order = await Order.findById(orderId)
+        .select('deviceBrand deviceModel reportedDevice');
+      const orderCurrentModel = this._buildDeviceLabel(order?.deviceBrand, order?.deviceModel);
+      const orderReportedModel = this._buildDeviceLabel(
+        order?.reportedDevice?.brand,
+        order?.reportedDevice?.model
+      );
+
+      // E1: "Gemeldetes Modell" is WRITE-ONCE. An already recorded lock ALWAYS wins - it is
+      // the historically correct value and must never be moved by a later device correction.
+      // Order.reportedDevice is only a fallback: for legacy orders it is captured lazily at
+      // the first correction and can therefore itself already hold a corrected device.
+      // It stays authoritative for NEW inspections via initializeInspection().
+      const lockedReportedModel =
+        inspection.modelVerification?.reportedModel || orderReportedModel || reportedModel;
+
+      const submittedReportedModel = String(reportedModel || '').trim();
+      const submittedActualModel = String(actualModel || '').trim() || orderCurrentModel;
+      // Explicit, deterministic signal from the client: the technician actively picked or
+      // typed this value, so it is NEVER overridden. Guessing from the value alone used to
+      // discard a legitimate "the device really IS the originally reported one" input.
+      const actualModelConfirmed = options.actualModelConfirmed === true;
+
+      // The only case still corrected is the stale-draft ECHO: a draft written before the
+      // device correction posts the pre-change device in BOTH fields, which would silently
+      // revert the order's corrected device. Never silent - it is reported back as a warning.
+      const isStaleDraftEcho =
+        !actualModelConfirmed &&
+        Boolean(orderCurrentModel) &&
+        Boolean(submittedReportedModel) &&
+        Boolean(submittedActualModel) &&
+        submittedReportedModel.toLowerCase() === submittedActualModel.toLowerCase() &&
+        orderCurrentModel.toLowerCase() !== submittedActualModel.toLowerCase();
+      const resolvedActualModel = isStaleDraftEcho ? orderCurrentModel : submittedActualModel;
+      const warnings = [];
+
+      if (isStaleDraftEcho) {
+        warnings.push(
+          `Das übermittelte tatsächliche Modell "${submittedActualModel}" stammt aus einem Entwurf von vor der Gerätekorrektur und wurde durch das aktuelle Gerät des Auftrags "${orderCurrentModel}" ersetzt. Bitte prüfen und bei Bedarf erneut speichern.`
+        );
+        console.warn(
+          `[DeviceInspection] Replaced stale draft actualModel "${submittedActualModel}" for order ${orderId} with corrected device "${orderCurrentModel}"`
+        );
+      }
 
       inspection.modelVerification = {
         reportedModel: lockedReportedModel,
-        actualModel,
+        actualModel: resolvedActualModel,
         verified,
         verificationStatus,
         costDifference,
@@ -159,10 +274,13 @@ class DeviceInspectionService {
 
       // Mark step as completed if it's not unverifiable
       if (verificationStatus !== 'unverifiable') {
-        inspection.completedSteps.push({ step: 1, completedAt: new Date() });
+        this._markStepCompleted(inspection, 1);
       }
 
       await inspection.save();
+      // Surfaced by the route as `warnings`, so a replaced value is reported to the
+      // technician instead of disappearing silently.
+      inspection.$locals.warnings = warnings;
       console.log(`[DeviceInspection] Model verification updated`);
 
       return inspection;
@@ -180,21 +298,18 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
-      const canonicalDeviceTypes = {
-        smartphone: 'Smartphone',
-        laptop: 'Laptop',
-        tablet: 'Tablet',
-        watch: 'Watch',
-        smartwatch: 'Watch',
-        wearable: 'Watch',
-        headphones: 'Headphones',
-      };
-      const normalizedDeviceType = canonicalDeviceTypes[String(deviceType || '').trim().toLowerCase()];
-      if (!normalizedDeviceType) {
-        throw new Error('Unsupported device type');
+      // Order.deviceType is free-form (admin-editable catalog names), so an unknown value
+      // must never block the inspection - it is recorded as 'Other' with the original label.
+      const normalizedDeviceType = normalizeInspectionDeviceType(deviceType);
+      const rawDeviceTypeLabel = String(deviceType || '').trim();
+
+      if (normalizedDeviceType === 'Other') {
+        console.warn(
+          `[DeviceInspection] Unmapped device type "${rawDeviceTypeLabel}" for order ${orderId}, recording as 'Other'`
+        );
       }
 
       // IMEI is optional for smartphones in this workflow.
@@ -205,6 +320,7 @@ class DeviceInspectionService {
 
       inspection.identification = {
         deviceType: normalizedDeviceType,
+        deviceTypeLabel: rawDeviceTypeLabel,
         imei: imei || null,
         serialNumber: serialNumber || null,
         imeiRequired: normalizedDeviceType === 'Smartphone' && !imei,
@@ -232,7 +348,7 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       const normalizedOtherAccessories = Array.isArray(accessoriesData.otherAccessories)
@@ -265,7 +381,7 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       const isDamagedCategory = ['damaged'].includes(inspectionData?.display?.status)
@@ -304,7 +420,7 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       inspection.deviceTest = {
@@ -354,7 +470,7 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       inspection.appleSpecific = {
@@ -416,7 +532,7 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       const wasAlreadyCompleted = inspection.status === 'completed';
@@ -524,7 +640,7 @@ class DeviceInspectionService {
         .populate('technicianId', 'name email');
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       // Create reports directory if it doesn't exist
@@ -589,7 +705,7 @@ class DeviceInspectionService {
       doc.fontSize(14).font('Helvetica-Bold').text('2. Geraeteidentifikation');
       doc.fontSize(12).font('Helvetica');
       if (inspection.identification) {
-        doc.text(`Geraetetyp: ${inspection.identification.deviceType || 'N/A'}`);
+        doc.text(`Geraetetyp: ${inspection.identification.deviceTypeLabel || inspection.identification.deviceType || 'N/A'}`);
         if (inspection.identification.imei) {
           doc.text(`IMEI: ${inspection.identification.imei}`);
         }
@@ -709,10 +825,9 @@ class DeviceInspectionService {
       doc.fontSize(12).font('Helvetica');
       doc.text(`Status: ${inspection.status === 'completed' ? 'Abgeschlossen' : (inspection.status || 'N/A')}`);
 
-      // Only display isRepairable if explicitly evaluated/set as boolean by technician
-      if (typeof inspection.isRepairable === 'boolean') {
-        doc.text(`Reparierbar: ${inspection.isRepairable ? 'Ja' : 'Nein'}`);
-      }
+      // The "Reparatureinschaetzung" (reparierbar ja/nein) is no longer part of the
+      // inspection workflow and is therefore not printed any more. The stored field is
+      // kept on the model for historical documents.
 
       if (inspection.repairOffer && (inspection.repairOffer.timeframe || inspection.repairOffer.description || (inspection.repairOffer.cost != null && inspection.repairOffer.cost > 0))) {
         doc.moveDown(0.5);
@@ -805,7 +920,7 @@ class DeviceInspectionService {
       const inspection = await DeviceInspection.findOne({ orderId });
 
       if (!inspection) {
-        throw new Error('Inspection not found');
+        throw new Error('Inspektion nicht gefunden.');
       }
 
       inspection.actionLogs.push({
