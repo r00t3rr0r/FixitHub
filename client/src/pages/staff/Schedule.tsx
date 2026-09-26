@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { getAdminOrders, getAssignedOrders, updateOrderStatus } from "@/api/adminOrders"
 import { getCommunicationThread as getInspectionCommunication, getPendingFeedbackCount, getUnreadMessageCounts } from "@/api/inspectionCommunication"
-import { getInspection } from "@/api/deviceInspection"
+import { getInspection, getKnownRepairCost } from "@/api/deviceInspection"
 import { getRepairWorkflow } from "@/api/repairWorkflow"
 import { getManufacturersByDeviceType, getModelsByTypeAndManufacturer } from "@/api/devices"
 import { getRepairRequests, updateRepairRequestStatus } from "@/api/repairRequests"
@@ -1113,21 +1113,27 @@ export function Schedule() {
                                     )}
                                     
                                     {/* Completion summary */}
-                                    {isCompleted && inspection && (
-                                      <div className="text-[9px] text-muted-foreground space-y-0.5">
-                                        {typeof inspection.isRepairable === 'boolean' && (
+                                    {/* Nur tatsächlich gespeicherte Ergebnisse: keine automatische
+                                        "Reparierbar"-Aussage (Altwerte waren Client-Vorgaben), ein fehlender
+                                        Preis ist "nicht angegeben", ein ausdrücklich kostenloser bleibt erkennbar. */}
+                                    {isCompleted && inspection && (() => {
+                                      const knownCost = getKnownRepairCost(inspection)
+                                      return (
+                                        <div className="text-[9px] text-muted-foreground space-y-0.5">
                                           <div className="truncate">
-                                            {inspection.isRepairable ? "♻ Reparierbar" : "✗ Nicht reparierbar"}
+                                            {knownCost === null
+                                              ? "Kosten: nicht angegeben"
+                                              : `Kosten: ${knownCost.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}${knownCost === 0 ? " (kostenlos)" : ""}`}
                                           </div>
-                                        )}
-                                        {inspection.hasFailedTests && (
-                                          <div className="truncate text-red-600 font-medium">Fehler gefunden</div>
-                                        )}
-                                        {!inspection.hasFailedTests && (
-                                          <div className="truncate text-emerald-600">Alle Tests bestanden</div>
-                                        )}
-                                      </div>
-                                    )}
+                                          {inspection.hasFailedTests && (
+                                            <div className="truncate text-red-600 font-medium">Fehler gefunden</div>
+                                          )}
+                                          {!inspection.hasFailedTests && inspection.deviceTest && (
+                                            <div className="truncate text-emerald-600">Alle Tests bestanden</div>
+                                          )}
+                                        </div>
+                                      )
+                                    })()}
                                   </>
                                 )
                               })()}

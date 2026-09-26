@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
 import { getAdminOrders, updateOrderStatus, AdminOrder } from "@/api/adminOrders"
+import api from "@/api/api"
 import {
   Package,
   Search,
@@ -18,11 +19,11 @@ import {
   CheckCircle,
   AlertTriangle,
   Calendar,
-  DollarSign,
   User,
   Phone,
   Mail,
-  Wrench
+  Wrench,
+  MessageSquareWarning
 } from "lucide-react"
 import {
   Select,
@@ -40,6 +41,44 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+// Antwort von GET /api/repair-workflows/admin/awaiting-customer-feedback
+interface AwaitingFeedbackEntry {
+  orderId: string
+  since?: string | null
+  overdue?: boolean
+  reasons: Array<{ type: string; label: string; detail?: string; since?: string | null }>
+}
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Ausstehend",
+  "diagnostic-assessment": "Diagnose",
+  "in-progress": "In Bearbeitung",
+  paused: "Pausiert",
+  "quality-check": "Qualitätsprüfung",
+  "ready-for-pickup": "Abholbereit",
+  completed: "Abgeschlossen",
+  cancelled: "Storniert",
+}
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: "Niedrig",
+  normal: "Normal",
+  high: "Hoch",
+  urgent: "Dringend",
+}
+
+// Order.paymentStatus wird serverseitig aus den Belegen/Zahlungen abgeleitet
+// (FinancialService.syncOrderPaymentTracking) - hier nur anzeigen, nie nachrechnen.
+const PAYMENT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  pending: { label: "Offen", className: "bg-slate-100 text-slate-700 border-slate-300" },
+  partial: { label: "Teilbezahlt", className: "bg-amber-100 text-amber-800 border-amber-300" },
+  paid: { label: "Bezahlt", className: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  refunded: { label: "Erstattet", className: "bg-violet-100 text-violet-800 border-violet-300" },
+}
+
+const formatEuro = (amount: number) =>
+  new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(Number(amount) || 0)
+
 export function OrderManagement() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -49,6 +88,8 @@ export function OrderManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "awaiting">("all")
+  const [awaitingByOrder, setAwaitingByOrder] = useState<Record<string, AwaitingFeedbackEntry>>({})
   const [updating, setUpdating] = useState<string | null>(null)
   const { toast } = useToast()
 
@@ -56,10 +97,27 @@ export function OrderManagement() {
     const fetchOrders = async () => {
       try {
         console.log("Fetching admin orders...")
-        const response = await getAdminOrders()
+        const response = await getAdminOrders({ page: 1, limit: 100 })
         const ordersData = (response as any).orders || []
         setOrders(ordersData)
         setFilteredOrders(ordersData)
+
+        // "Warten auf Kundenrückmeldung" kommt vom Server (nur echte Rückfragen,
+        // keine normalen Nachrichten). Ein Fehler hier darf die Liste nicht blockieren.
+        if (ordersData.length > 0) {
+          try {
+            const awaitingResponse = await api.get('/api/repair-workflows/admin/awaiting-customer-feedback', {
+              params: { orderIds: ordersData.map((order: AdminOrder) => order._id).join(',') },
+            })
+            const entries: AwaitingFeedbackEntry[] = awaitingResponse.data?.orders || []
+            setAwaitingByOrder(Object.fromEntries(entries.map((entry) => [String(entry.orderId), entry])))
+          } catch (awaitingError) {
+            console.error("Error fetching awaiting customer feedback:", awaitingError)
+            setAwaitingByOrder({})
+          }
+        } else {
+          setAwaitingByOrder({})
+        }
       } catch (error) {
         console.error("Error fetching orders:", error)
         toast({
@@ -96,8 +154,12 @@ export function OrderManagement() {
       filtered = filtered.filter(order => order.priority === priorityFilter)
     }
 
+    if (feedbackFilter === "awaiting") {
+      filtered = filtered.filter(order => Boolean(awaitingByOrder[order._id]))
+    }
+
     setFilteredOrders(filtered)
-  }, [orders, searchTerm, statusFilter, priorityFilter])
+  }, [orders, searchTerm, statusFilter, priorityFilter, feedbackFilter, awaitingByOrder])
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
@@ -109,13 +171,13 @@ export function OrderManagement() {
       ))
 
       toast({
-        title: "Success!",
-        description: "Order status updated successfully"
+        title: "Erfolg",
+        description: "Auftragsstatus wurde aktualisiert."
       })
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update order status",
+        title: "Fehler",
+        description: error.message || "Auftragsstatus konnte nicht aktualisiert werden.",
         variant: "destructive"
       })
     } finally {
@@ -183,19 +245,19 @@ export function OrderManagement() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Package className="h-8 w-8" />
-          Order Management
+          Auftragsverwaltung
         </h1>
         <p className="text-muted-foreground">
-          Monitor and manage all repair orders across the platform
+          Alle Reparaturaufträge der Plattform überwachen und verwalten
         </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Total Orders
+              Aufträge gesamt
             </CardTitle>
             <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </CardHeader>
@@ -209,7 +271,7 @@ export function OrderManagement() {
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              In Progress
+              In Bearbeitung
             </CardTitle>
             <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
@@ -223,7 +285,7 @@ export function OrderManagement() {
         <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-              Completed
+              Abgeschlossen
             </CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
@@ -234,10 +296,28 @@ export function OrderManagement() {
           </CardContent>
         </Card>
 
+        <Card
+          className="cursor-pointer bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-amber-200 dark:border-amber-800"
+          onClick={() => setFeedbackFilter(feedbackFilter === "awaiting" ? "all" : "awaiting")}
+          title="Nach „Warten auf Kundenrückmeldung“ filtern"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Warten auf Kundenrückmeldung
+            </CardTitle>
+            <MessageSquareWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+              {orders.filter(o => Boolean(awaitingByOrder[o._id])).length}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-red-200 dark:border-red-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
-              Urgent Orders
+              Dringende Aufträge
             </CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
           </CardHeader>
@@ -257,7 +337,7 @@ export function OrderManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search orders by number, customer, or device..."
+                  placeholder="Aufträge nach Nummer, Kunde oder Gerät suchen …"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -268,29 +348,39 @@ export function OrderManagement() {
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder="Alle Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="quality-check">Quality Check</SelectItem>
-                  <SelectItem value="ready-for-pickup">Ready for Pickup</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="all">Alle Status</SelectItem>
+                  <SelectItem value="pending">Ausstehend</SelectItem>
+                  <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                  <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
+                  <SelectItem value="ready-for-pickup">Abholbereit</SelectItem>
+                  <SelectItem value="completed">Abgeschlossen</SelectItem>
+                  <SelectItem value="cancelled">Storniert</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Priority" />
+                  <SelectValue placeholder="Alle Prioritäten" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">Alle Prioritäten</SelectItem>
+                  <SelectItem value="low">Niedrig</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                  <SelectItem value="urgent">Dringend</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={feedbackFilter} onValueChange={(value) => setFeedbackFilter(value as "all" | "awaiting")}>
+                <SelectTrigger className="w-60">
+                  <SelectValue placeholder="Kundenrückmeldung" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Aufträge</SelectItem>
+                  <SelectItem value="awaiting">Warten auf Kundenrückmeldung</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -301,32 +391,35 @@ export function OrderManagement() {
       {/* Orders Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Order Directory</CardTitle>
+          <CardTitle>Auftragsverzeichnis</CardTitle>
           <CardDescription>
-            Comprehensive list of all repair orders with management capabilities
+            Die neuesten 100 Reparaturaufträge mit Verwaltungsfunktionen
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Device</TableHead>
+                <TableHead>Auftrag</TableHead>
+                <TableHead>Kunde</TableHead>
+                <TableHead>Gerät</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Assigned Staff</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Priorität</TableHead>
+                <TableHead>Zugewiesen</TableHead>
+                <TableHead>Gesamt</TableHead>
+                <TableHead>Zahlung</TableHead>
+                <TableHead>Erstellt</TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No orders found</p>
+                    <p className="text-muted-foreground">
+                      {feedbackFilter === "awaiting" ? "Keine Aufträge warten auf eine Kundenrückmeldung" : "Keine Aufträge gefunden"}
+                    </p>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -343,8 +436,17 @@ export function OrderManagement() {
                       <div>
                         <p className="font-medium">{order.orderNumber}</p>
                         <p className="text-sm text-muted-foreground">
-                          Progress: {order.progress}%
+                          Fortschritt: {order.progress}%
                         </p>
+                        {awaitingByOrder[order._id] && (
+                          <Badge
+                            variant="outline"
+                            className="mt-1 border-amber-300 bg-amber-50 text-amber-800"
+                            title={awaitingByOrder[order._id].reasons.map((reason) => reason.detail ? `${reason.label}: ${reason.detail}` : reason.label).join("\n")}
+                          >
+                            Wartet auf Kundenrückmeldung
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -381,23 +483,23 @@ export function OrderManagement() {
                         <SelectTrigger className="w-36">
                           <SelectValue>
                             <Badge className={getStatusColor(order.status)}>
-                              {order.status.replace('-', ' ')}
+                              {ORDER_STATUS_LABELS[order.status] || order.status}
                             </Badge>
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
-                          <SelectItem value="quality-check">Quality Check</SelectItem>
-                          <SelectItem value="ready-for-pickup">Ready for Pickup</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                          <SelectItem value="pending">Ausstehend</SelectItem>
+                          <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                          <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
+                          <SelectItem value="ready-for-pickup">Abholbereit</SelectItem>
+                          <SelectItem value="completed">Abgeschlossen</SelectItem>
+                          <SelectItem value="cancelled">Storniert</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell>
                       <Badge className={getPriorityColor(order.priority)}>
-                        {order.priority}
+                        {PRIORITY_LABELS[order.priority] || order.priority}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -413,15 +515,21 @@ export function OrderManagement() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">${order.totalCost}</span>
-                      </div>
+                      <span className="font-medium">{formatEuro(order.totalCost)}</span>
+                    </TableCell>
+                    <TableCell>
+                      {PAYMENT_STATUS_LABELS[order.paymentStatus] ? (
+                        <Badge variant="outline" className={PAYMENT_STATUS_LABELS[order.paymentStatus].className}>
+                          {PAYMENT_STATUS_LABELS[order.paymentStatus].label}
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {new Date(order.createdAt).toLocaleDateString('de-DE')}
                       </div>
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -434,14 +542,14 @@ export function OrderManagement() {
                             console.log('Eye button clicked, navigating to order details:', order._id);
                             navigate(`/orders/${order._id}`);
                           }}
-                          title="View order details"
+                          title="Auftragsdetails anzeigen"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Edit order"
+                          title="Auftrag bearbeiten"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="h-4 w-4" />
@@ -461,7 +569,7 @@ export function OrderManagement() {
         {filteredOrders.map((order) => (
           <Card key={order._id}>
             <CardHeader>
-              <CardTitle>Order Details</CardTitle>
+              <CardTitle>Auftragsdetails {order.orderNumber}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-4">
@@ -469,7 +577,7 @@ export function OrderManagement() {
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-6">
                   <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                     <User className="h-5 w-5" />
-                    Customer Information
+                    Kundeninformationen
                   </h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="flex items-center gap-3">
@@ -501,7 +609,7 @@ export function OrderManagement() {
                 <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-2xl p-6">
                   <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                     <Wrench className="h-5 w-5" />
-                    Device & Services
+                    Gerät &amp; Leistungen
                   </h3>
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
@@ -514,7 +622,7 @@ export function OrderManagement() {
                       </div>
                     </div>
                     <div>
-                      <p className="font-semibold mb-2">Services:</p>
+                      <p className="font-semibold mb-2">Leistungen:</p>
                       <div className="flex flex-wrap gap-2">
                         {order.services.map((service, index) => (
                           <Badge key={index} variant="outline" className="bg-white/50">
@@ -530,7 +638,7 @@ export function OrderManagement() {
                 <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl p-6">
                   <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                     <Clock className="h-5 w-5" />
-                    Order Timeline
+                    Auftragsverlauf
                   </h3>
                   <div className="space-y-4">
                     {order.timeline.map((event, index) => (
@@ -545,7 +653,7 @@ export function OrderManagement() {
                           <p className="font-semibold">{event.status}</p>
                           <p className="text-sm text-slate-600 dark:text-slate-400">{event.description}</p>
                           <p className="text-xs text-slate-500 mt-1">
-                            {new Date(event.completedAt).toLocaleString()} • {event.staffName}
+                            {new Date(event.completedAt).toLocaleString('de-DE')} • {event.staffName}
                           </p>
                         </div>
                       </div>
@@ -558,7 +666,7 @@ export function OrderManagement() {
                   <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6">
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                       <Edit className="h-5 w-5" />
-                      Staff Notes
+                      Mitarbeiternotizen
                     </h3>
                     <div className="space-y-3">
                       {order.staffNotes.map((note) => (
@@ -568,7 +676,7 @@ export function OrderManagement() {
                             <div className="flex items-center gap-2">
                               <Badge variant="outline">{note.type}</Badge>
                               <span className="text-xs text-slate-500">
-                                {new Date(note.createdAt).toLocaleString()}
+                                {new Date(note.createdAt).toLocaleString('de-DE')}
                               </span>
                             </div>
                           </div>

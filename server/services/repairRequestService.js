@@ -1,7 +1,6 @@
 const RepairRequest = require('../models/RepairRequest');
 const Order = require('../models/Order');
 const User = require('../models/User');
-const Service = require('../models/Service');
 const BookingService = require('./bookingService');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
@@ -20,53 +19,6 @@ class RepairRequestService {
       return 'repair_request_completed';
     }
     return 'repair_request_processing';
-  }
-
-  /**
-   * Helper function to parse estimatedTime string to numeric minutes
-   * Examples: "2-3 hours" -> 150, "1-2 hours" -> 90, "30-60 minutes" -> 45
-   */
-  static parseEstimatedTime(timeString) {
-    try {
-      if (!timeString || typeof timeString !== 'string') {
-        console.warn('RepairRequestService: Invalid time string:', timeString);
-        return 0;
-      }
-
-      // Convert to lowercase for consistent matching
-      const lowerTime = timeString.toLowerCase().trim();
-
-      // Extract numbers from the string
-      const numbers = lowerTime.match(/\d+/g);
-      if (!numbers || numbers.length === 0) {
-        console.warn('RepairRequestService: No numbers found in time string:', timeString);
-        return 0;
-      }
-
-      // Calculate average of range (e.g., "2-3" -> 2.5)
-      let averageValue = 0;
-      if (numbers.length === 1) {
-        averageValue = parseInt(numbers[0]);
-      } else {
-        // Take average of first two numbers
-        averageValue = (parseInt(numbers[0]) + parseInt(numbers[1])) / 2;
-      }
-
-      // Check if it's in hours or minutes
-      if (lowerTime.includes('hour')) {
-        // Convert hours to minutes
-        return Math.round(averageValue * 60);
-      } else if (lowerTime.includes('minute') || lowerTime.includes('min')) {
-        return Math.round(averageValue);
-      } else {
-        // Default to minutes if no unit specified
-        console.warn('RepairRequestService: No time unit found, assuming minutes:', timeString);
-        return Math.round(averageValue);
-      }
-    } catch (error) {
-      console.error('RepairRequestService: Error parsing time string:', timeString, error);
-      return 0;
-    }
   }
 
   /**
@@ -655,51 +607,35 @@ class RepairRequestService {
         throw new Error('Repair request has already been converted to an order');
       }
 
-      // Transform service IDs into proper service objects
-      let formattedServices = [];
-      if (orderData.services && orderData.services.length > 0) {
-        console.log(`RepairRequestService: Fetching ${orderData.services.length} services`);
+      // Positionen kommen ausschliesslich aus dem Katalog (Service-IDs); Preise, Namen
+      // und Zeiten loest OrderService.create serverseitig auf. Der Auftragswert wird
+      // mit DER Preisregel des Auftrags gebildet (Listenpreise + Kunden-/Haendler-
+      // konditionen, Snapshot) - weder ein mitgeschicktes orderData.totalCost noch der
+      // Kostenvoranschlag der Anfrage (request.estimatedCost) werden als Auftragswert
+      // uebernommen. Der Kostenvoranschlag bleibt in den Kundennotizen nachvollziehbar.
+      const serviceIds = Array.isArray(orderData.services)
+        ? orderData.services.map((entry) => (entry && typeof entry === 'object' ? (entry.serviceId || entry._id) : entry))
+          .filter(Boolean)
+          .map(String)
+        : [];
+      console.log(`RepairRequestService: Converting with ${serviceIds.length} catalogue services`);
 
-        // Fetch all services in one query
-        const serviceIds = orderData.services;
-        const services = await Service.find({ _id: { $in: serviceIds } });
+      const estimateNote = Number(request.estimatedCost) > 0
+        ? `\nKostenvoranschlag der Anfrage: ${Number(request.estimatedCost).toFixed(2).replace('.', ',')} € (brutto, unverbindlich; Auftragswert nach Katalogpreisen und Kundenkonditionen)`
+        : '';
 
-        if (services.length !== serviceIds.length) {
-          console.warn(`RepairRequestService: Found ${services.length} services out of ${serviceIds.length} requested`);
-        }
-
-        // Transform services into the format expected by Order model
-        formattedServices = services.map(service => {
-          const estimatedTimeInMinutes = RepairRequestService.parseEstimatedTime(service.estimatedTime);
-          console.log(`RepairRequestService: Service "${service.name}" - Original time: "${service.estimatedTime}", Parsed to: ${estimatedTimeInMinutes} minutes`);
-
-          return {
-            serviceId: service._id,
-            price: service.price || 0,
-            estimatedTime: estimatedTimeInMinutes,
-            notes: ''
-          };
-        });
-
-        console.log(`RepairRequestService: Formatted ${formattedServices.length} services for order`);
-      }
-
-      // Create the order with formatted services
-      const order = new Order({
+      const OrderService = require('./orderService');
+      const order = await OrderService.create({
         customerId: request.customerId,
         deviceType: request.deviceType,
         deviceBrand: request.deviceBrand,
         deviceModel: request.deviceModel,
-        services: formattedServices,
-        addOns: orderData.addOns || [],
-        customerNotes: `Converted from Repair Request: ${request.requestNumber}\n\nIssue: ${request.issueDescription}`,
+        services: serviceIds,
+        addOns: Array.isArray(orderData.addOns) ? orderData.addOns : [],
+        customerNotes: `Converted from Repair Request: ${request.requestNumber}\n\nIssue: ${request.issueDescription}${estimateNote}`,
         photos: request.images,
-        totalCost: orderData.totalCost || request.estimatedCost || 0,
         status: 'pending',
-        paymentStatus: 'pending',
       });
-
-      await order.save();
       console.log(`RepairRequestService: Created order: ${order.orderNumber}`);
 
       // Create a booking for the order

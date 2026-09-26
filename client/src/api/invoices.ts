@@ -63,6 +63,27 @@ export interface Invoice {
     method?: string;
     note?: string;
   }>;
+  /** GET /api/invoices/:id: Buchung zum Beleg (Sprung "Bestellung"), sonst null. */
+  bookingReference?: { _id: string; bookingNumber: string } | null;
+  /** GET /api/invoices/:id: ausgestellte Gutschriften/Storno-Gutschriften zu dieser Rechnung. */
+  relatedCreditNotes?: Array<{
+    _id: string;
+    invoiceNumber: string;
+    total: number;
+    correctionType?: 'full_cancellation' | 'partial_refund' | 'price_adjustment' | null;
+    createdAt: string;
+    status?: string;
+  }>;
+  creditNoteOf?: string | { _id: string; invoiceNumber?: string };
+  correctionType?: 'full_cancellation' | 'partial_refund' | 'price_adjustment' | null;
+  /** Storno-Datensatz eines stornierten Belegs (Grund, Zeitpunkt, Storno-Gutschrift). */
+  cancellation?: {
+    kind?: 'storno' | 'draft_discarded';
+    state?: 'processing' | 'completed';
+    reason?: string;
+    completedAt?: string;
+    creditNoteNumber?: string;
+  };
 }
 
 export interface InvoiceItem {

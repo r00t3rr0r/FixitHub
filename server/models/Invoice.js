@@ -85,6 +85,18 @@ const invoiceSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Atomarer Anspruch "je Auftrag bzw. Buchung hoechstens EINE aktive Rechnung"
+  // ('order:<id>', 'booking:<id>'). Gesetzt nur von den Erstellungswegen des
+  // FinancialService (buildActiveBillingKeys) an AKTIVEN Rechnungen; ein partieller
+  // Unique-Index (unten) laesst von zwei gleichzeitigen Anlagen genau eine durch.
+  // Storno/Vollgutschrift ('cancelled'/'credited') geben den Anspruch frei, damit
+  // "Storno + neue Rechnung" moeglich bleibt. Gutschriften und Altbestand tragen das
+  // Feld nicht (default undefined, NIE ein leeres Array) - der Indexbau scheitert
+  // deshalb nicht an doppelten Altrechnungen.
+  activeBillingKeys: {
+    type: [String],
+    default: undefined
+  },
   correctionType: {
     type: String,
     enum: ['full_cancellation', 'partial_refund', 'price_adjustment', null],
@@ -93,6 +105,82 @@ const invoiceSchema = new mongoose.Schema({
   lockedAt: {
     type: Date
   },
+  // Stand bei Rechnungsstellung (einmalig beim Archivieren des PDFs festgehalten).
+  // Spaetere Zahlungen aendern weder diese Werte noch das archivierte PDF - der
+  // aktuelle Zahlungsstand kommt aus PaymentService (Liste/Detail/Kontoauszug).
+  issueSnapshot: {
+    capturedAt: { type: Date },
+    openAmount: { type: Number },
+    paidAmount: { type: Number },
+    paymentMethod: { type: String },
+    payments: [{
+      _id: false,
+      date: { type: Date },
+      method: { type: String },
+      amount: { type: Number }
+    }]
+  },
+  // Archiviertes Belegdokument (PDF) - hier nur METADATEN. Die Bytes jeder Fassung liegen
+  // unveraenderlich in der eigenen Sammlung InvoiceDocumentArchive (documentId), damit
+  // das Rechnungsdokument bei wiederholten Neufassungen nicht unbegrenzt waechst
+  // (Aufbewahrungsregel siehe models/InvoiceDocumentArchive.js). Aendert sich der
+  // betragsrelevante Inhalt eines ausgestellten Belegs (Altweg syncOrderAndBookingValue),
+  // entsteht eine neue Fassung; die bisherige wird in 'documentHistory' vermerkt.
+  // LEGACY: 'data' (Inline-Bytes) tragen nur Altbelege; sie werden weiter gelesen und
+  // nie mehr neu geschrieben (select: false).
+  documentArchive: {
+    data: { type: Buffer, select: false },
+    documentId: { type: mongoose.Schema.Types.ObjectId, ref: 'InvoiceDocumentArchive' },
+    sha256: { type: String },
+    size: { type: Number },
+    fingerprint: { type: String },
+    generatedAt: { type: Date },
+    version: { type: Number }
+  },
+  // Ersetzte Fassungen (nur Metadaten + Verweis; begrenzt, die erste Fassung bleibt).
+  // LEGACY: 'data' nur bei Altbelegen.
+  documentHistory: {
+    type: [{
+      _id: false,
+      data: { type: Buffer },
+      documentId: { type: mongoose.Schema.Types.ObjectId, ref: 'InvoiceDocumentArchive' },
+      sha256: { type: String },
+      size: { type: Number },
+      fingerprint: { type: String },
+      generatedAt: { type: Date },
+      supersededAt: { type: Date },
+      version: { type: Number }
+    }],
+    select: false,
+    default: undefined
+  },
+  // Storno eines ausgestellten Belegs bzw. Verwerfen eines Entwurfs. Der Ursprungsbeleg
+  // bleibt unveraendert erhalten; ein Storno erzeugt eine Storno-Gutschrift
+  // (INV-CN-..., correctionType 'full_cancellation'), die hier referenziert ist.
+  cancellation: {
+    kind: { type: String, enum: ['storno', 'draft_discarded'] },
+    state: { type: String, enum: ['processing', 'completed'] },
+    reason: { type: String },
+    requestedAt: { type: Date },
+    completedAt: { type: Date },
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    actorName: { type: String },
+    previousStatus: { type: String },
+    creditNoteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
+    creditNoteNumber: { type: String },
+    // Zum Zeitpunkt des Stornos bereits zugeordnetes Geld - es bleibt verbucht und wird
+    // als Guthaben/Erstattung offen ausgewiesen, nie automatisch erstattet.
+    allocatedAtCancellation: { type: Number }
+  },
+  // Revisionsspur fuer Belegaktionen (Storno, Versand, Archivierung, Mahnung).
+  auditTrail: [{
+    _id: false,
+    at: { type: Date, default: Date.now },
+    action: { type: String, required: true },
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    actorName: { type: String, default: '' },
+    detail: { type: String, default: '' }
+  }],
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -237,8 +325,32 @@ const invoiceSchema = new mongoose.Schema({
       ref: 'DunningRun'
     },
     emailSentAt: Date,
-    emailError: String
+    emailError: String,
+    // 'sent' = Stufe erreicht; 'failed' = Versand gescheitert, Stufe NICHT erreicht.
+    // Altbestand ohne Feld: emailSentAt gesetzt = versendet.
+    result: { type: String, enum: ['sent', 'failed'] },
+    recipient: String,
+    templateName: String,
+    trigger: String,
+    amountOpen: Number,
+    source: { type: String, enum: ['automatic', 'manual'] },
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Hinweis zum Schritt, z.B. "Stufe nicht übernommen" (Mail versendet, Rechnung aber
+    // waehrend des Versands bezahlt oder storniert).
+    note: String
   }],
+  // Sperre waehrend EINES Mahnschritts: Cron und manueller Lauf koennen denselben Beleg
+  // nicht gleichzeitig bearbeiten (kein doppelter Versand, keine doppelte Stufe).
+  dunningLock: {
+    token: { type: String },
+    at: { type: Date }
+  },
+  // Letzter gescheiterter Versuch (sichtbar in der Mahnliste, erneut ausloesbar).
+  dunningLastFailure: {
+    at: { type: Date },
+    stage: { type: String },
+    error: { type: String }
+  },
   dueDate: {
     type: Date,
     required: true
@@ -268,9 +380,28 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: 'standard'
   },
+  // Zahlungsziel. Bei neuen Rechnungen wird der Text IMMER aus paymentDueDays
+  // abgeleitet (siehe pre('validate')), damit Faelligkeitsdatum und Wortlaut nie
+  // auseinanderlaufen koennen - frueher stand 'Net 30' (Schema-Default) neben einem
+  // 7-Tage-Datum. Der Default bleibt nur fuer Altbestand ohne Frist erhalten.
   paymentTerms: {
     type: String,
     default: 'Net 30'
+  },
+  // Die EINE gespeicherte Zahlungsbedingung: Tage zwischen Rechnungsdatum und
+  // Faelligkeit. Quelle ist das Kunden-/Gruppenprofil (resolveFinancialProfile) oder
+  // ein ausdruecklich gewaehltes Faelligkeitsdatum.
+  paymentDueDays: {
+    type: Number,
+    min: 0
+  },
+  // Technische Sperre waehrend einer Zahlungszuordnung (PaymentService.allocateAtomically):
+  // nur ein Zuordnungslauf je Beleg gleichzeitig, damit zwei verschiedene Zahlungen nicht
+  // denselben offenen Betrag belegen. Wird nach dem Lauf entfernt; eine verwaiste Sperre
+  // verfaellt nach 30 Sekunden. Kein Belegfeld (nicht betragsrelevant, nicht im PDF).
+  allocationLock: {
+    token: { type: String },
+    at: { type: Date }
   },
   isReverseCharge: {
     type: Boolean,
@@ -325,7 +456,56 @@ const invoiceSchema = new mongoose.Schema({
 // Betragsrelevante Pfade. Nur ihre Aenderung darf eine Neuberechnung ausloesen.
 const MONETARY_PATHS = ['items', 'total', 'subtotal', 'tax', 'discount', 'taxRate', 'isReverseCharge'];
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Deutscher Wortlaut des Zahlungsziels aus der Frist in Tagen.
+function formatPaymentTerms(days) {
+  const numeric = Math.max(0, Math.round(Number(days) || 0));
+  if (numeric === 0) return 'Sofort fällig ohne Abzug';
+  return `${numeric} ${numeric === 1 ? 'Tag' : 'Tage'} netto ohne Abzug`;
+}
+
+// Kalendertage zwischen zwei Zeitpunkten. Verglichen werden die Kalenderdaten, nicht
+// die Uhrzeit: ein Faelligkeitsdatum aus einem Datumsfeld ('2026-10-01' = Mitternacht)
+// darf gegenueber einem Rechnungsdatum um 12:10 Uhr keinen Tag verlieren.
+function daysBetween(from, to) {
+  const start = new Date(from);
+  const end = new Date(to);
+  const startDay = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const endDay = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  return Math.round((endDay - startDay) / DAY_MS);
+}
+
+/**
+ * Zahlungsziel einer NEUEN Rechnung aus EINER Bedingung ableiten.
+ *  - Ist ein Faelligkeitsdatum gesetzt, ist es massgeblich (ausdruecklich gewaehlt
+ *    oder vom Aufrufer aus dem Profil berechnet); die Frist folgt dem Datum.
+ *  - Ist nur die Frist gesetzt, folgt das Datum der Frist.
+ *  - Der Text folgt in jedem Fall der Frist - ein mitgelieferter, abweichender Text
+ *    ('Net 30' neben 7 Tagen) wird nicht uebernommen.
+ * Gutschriften behalten ihren eigenen Text ('Sofort'), Bestandsbelege werden nie
+ * umgeschrieben (Mahnlaeufe aendern dueDate nie; die Folgefrist steht in nextDunningDueDate).
+ */
+function applyPaymentTerms(doc) {
+  if (!doc.isNew || doc.isCreditNote) return;
+  const issuedAt = doc.createdAt || new Date();
+  const hasDueDate = doc.dueDate && !Number.isNaN(new Date(doc.dueDate).getTime());
+  const hasDays = Number.isFinite(Number(doc.paymentDueDays)) && doc.paymentDueDays !== null && doc.paymentDueDays !== '';
+
+  if (hasDueDate) {
+    doc.paymentDueDays = Math.max(0, daysBetween(issuedAt, doc.dueDate));
+  } else if (hasDays) {
+    doc.paymentDueDays = Math.max(0, Math.round(Number(doc.paymentDueDays)));
+    doc.dueDate = new Date(new Date(issuedAt).getTime() + doc.paymentDueDays * DAY_MS);
+  } else {
+    return;
+  }
+  doc.paymentTerms = formatPaymentTerms(doc.paymentDueDays);
+}
+
 invoiceSchema.pre('validate', function(next) {
+  applyPaymentTerms(this);
+
   const monetaryTouched = MONETARY_PATHS.some((path) => this.isModified(path));
 
   // Unveraenderlichkeit (RECHNUNGSERSTELLUNG_SPEZIFIKATION.md, Abschnitt 3.2):
@@ -451,6 +631,34 @@ invoiceSchema.pre('validate', function(next) {
   next();
 });
 
+// Stornierte und gutgeschriebene Belege beanspruchen keinen Auftrag/keine Buchung mehr.
+const BILLING_KEY_RELEASING_STATUSES = ['cancelled', 'credited'];
+
+invoiceSchema.pre('save', function(next) {
+  if (this.activeBillingKeys !== undefined
+    && (this.isCreditNote || BILLING_KEY_RELEASING_STATUSES.includes(String(this.status || '')))) {
+    this.activeBillingKeys = undefined;
+  }
+  next();
+});
+
+// Dieselbe Freigabe fuer Status-Updates per Query (Storno-Abschluss, Entwurf verwerfen,
+// Statuswechsel per updateOne): setzt ein Update den Status auf 'cancelled'/'credited',
+// wird der Anspruch im selben atomaren Update entfernt.
+invoiceSchema.pre(['updateOne', 'updateMany', 'findOneAndUpdate'], function(next) {
+  const update = this.getUpdate();
+  if (!update || Array.isArray(update)) return next();
+  const nextStatus = update.$set && Object.prototype.hasOwnProperty.call(update.$set, 'status')
+    ? update.$set.status
+    : update.status;
+  if (BILLING_KEY_RELEASING_STATUSES.includes(String(nextStatus || ''))) {
+    if (update.$set && Object.prototype.hasOwnProperty.call(update.$set, 'activeBillingKeys')) delete update.$set.activeBillingKeys;
+    update.$unset = { ...(update.$unset || {}), activeBillingKeys: '' };
+    this.setUpdate(update);
+  }
+  next();
+});
+
 // Vergibt die Belegnummer atomar aus dem Nummernkreis (Rechnung / Gutschrift getrennt).
 invoiceSchema.pre('save', async function(next) {
   if (this.isNew && !this.invoiceNumber) {
@@ -485,6 +693,44 @@ invoiceSchema.index({ isCreditNote: 1, createdAt: -1 });
 invoiceSchema.index({ creditNoteOf: 1 });
 // invoiceNumber already has unique: true index, no need for duplicate
 invoiceSchema.index({ dueDate: 1 });
+// Je Auftrag/Buchung hoechstens eine aktive Rechnung (siehe activeBillingKeys). Partiell:
+// nur Dokumente mit mindestens einem Schluessel sind im Index - Altbestand ohne Feld und
+// leere Arrays bleiben aussen vor, doppelte Altrechnungen lassen den Indexbau nicht scheitern.
+invoiceSchema.index(
+  { activeBillingKeys: 1 },
+  { unique: true, name: 'activeBillingKeys_unique', partialFilterExpression: { activeBillingKeys: { $type: 'string' } } }
+);
+
+/**
+ * Anspruchsschluessel einer aktiven Rechnung aus ihren Bezuegen: jeder Auftrag
+ * (orderId, repairOrderIds) und die Buchung. Eine Rechnung ohne Bezug beansprucht nichts.
+ */
+function buildActiveBillingKeys({ orderId, repairOrderIds, bookingId } = {}) {
+  const idOf = (value) => {
+    if (!value) return '';
+    if (typeof value.toHexString === 'function') return value.toHexString();
+    if (value._id && value._id !== value) return idOf(value._id);
+    return String(value);
+  };
+  const keys = new Set();
+  [orderId, ...(Array.isArray(repairOrderIds) ? repairOrderIds : [])]
+    .map(idOf).filter(Boolean).forEach((id) => keys.add(`order:${id}`));
+  const booking = idOf(bookingId);
+  if (booking) keys.add(`booking:${booking}`);
+  return keys.size > 0 ? [...keys] : undefined;
+}
+
+// E11000 genau dieses Index (paralleler zweiter Anlageversuch).
+function isActiveBillingKeyConflict(error) {
+  if (!error || error.code !== 11000) return false;
+  if (error.keyPattern && Object.prototype.hasOwnProperty.call(error.keyPattern, 'activeBillingKeys')) return true;
+  return /activeBillingKeys/.test(String(error.message || ''));
+}
+
+invoiceSchema.statics.buildActiveBillingKeys = buildActiveBillingKeys;
+invoiceSchema.statics.isActiveBillingKeyConflict = isActiveBillingKeyConflict;
+
+invoiceSchema.statics.formatPaymentTerms = formatPaymentTerms;
 
 const Invoice = mongoose.model('Invoice', invoiceSchema);
 

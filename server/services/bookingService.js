@@ -9,6 +9,14 @@ const DHLService = require('./dhlService');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
 
+// Ab wann eine Einsendelabel-Sperre ohne Abgleich-Vermerk als verwaist gilt. Der
+// DHL-Aufruf selbst ist nach ~30 Sekunden beendet; eine aeltere Sperre stammt von einem
+// abgebrochenen Prozess und darf per Abgleich geloest werden.
+const BOOKING_LABEL_LOCK_STALE_MS = 10 * 60 * 1000;
+// Zahlungsziel (Tage), wenn weder Kunden- noch Standardprofil lesbar sind - derselbe Wert,
+// den FinancialService.normalizePaymentDueDays ohne gueltige Angabe verwendet.
+const BOOKING_INVOICE_FALLBACK_DUE_DAYS = 7;
+
 class BookingService {
   static shouldRefreshShipping(filters = {}) {
     const value = String(
@@ -452,7 +460,8 @@ class BookingService {
           // Repair order
           itemData.device = `${order.deviceBrand} ${order.deviceModel}`;
           itemData.services = order.services.map(service => ({
-            name: service.serviceId?.name || 'Unknown Service',
+            // Manuelle Positionen haben keine serviceId, nur ihren gespeicherten Namen.
+            name: service.serviceId?.name || service.name || 'Reparaturservice',
             price: service.price,
             estimatedTime: service.estimatedTime,
           }));
@@ -606,22 +615,50 @@ class BookingService {
       return null;
     }
 
-    // `booking.trackingNumber` / `booking.shippingLabelUrl` bedeuten im gesamten Produkt
-    // das EINSENDELABEL (Kunde -> McRepair, "Versand an McRepair (Hinweg)"). Ein bereits
-    // vorhandenes Label darf deshalb nur als Antwort auf eine Anfrage GLEICHER Richtung
-    // zurueckgegeben werden - sonst meldet der Aufrufer Erfolg und zeigt die
-    // Sendungsnummer der Gegenrichtung an.
+    // Das Buchungslabel ist ausschliesslich das EINSENDELABEL (Kunde -> McRepair, ein Paket
+    // fuer alle Geraete der Buchung). Die AUSLIEFERUNG (McRepair -> Kunde) wird je Auftrag
+    // erstellt ("An Kunden versenden"): so markiert ein fertiges Geraet nie die anderen
+    // Geraete derselben Buchung als versendet. Eine Sammel-Auslieferung mehrerer Geraete in
+    // einem Paket wird bewusst NICHT unterstuetzt und hier mit Erklaerung abgelehnt, statt
+    // sie in das Einsendefeld der Buchung zu schreiben.
+    const requestedDirection = this.resolveBookingLabelDirection(options.shipmentData || {});
+    if (requestedDirection === 'outbound') {
+      const error = new Error(
+        'Die Auslieferung an den Kunden (McRepair → Kunde) wird je Auftrag erstellt: bitte im jeweiligen '
+        + 'Auftrag „An Kunden versenden“ verwenden. Ein gemeinsames Paket für mehrere Geräte einer Buchung '
+        + 'wird derzeit nicht unterstützt.'
+      );
+      error.status = 422;
+      error.code = 'BOOKING_OUTBOUND_NOT_SUPPORTED';
+      throw error;
+    }
+
     if (booking.shippingLabelUrl && booking.trackingNumber) {
-      const existingDirection = 'inbound';
-      const requestedDirection = this.resolveBookingLabelDirection(options.shipmentData || {});
-      if (requestedDirection !== existingDirection) {
-        throw new Error(
-          'Für diese Buchung ist bereits ein Einsendelabel (Kunde an McRepair) hinterlegt. '
-          + 'Ein Label für den Rückweg (McRepair an Kunde) kann an der Buchung nicht zusätzlich '
-          + 'gespeichert werden – bitte das Versandlabel am zugehörigen Auftrag erstellen.'
+      // Altbestand: das Feld kann ein frueher erzeugtes Rueckweg-Label tragen. Das ist kein
+      // Einsendelabel und darf weder als solches gemeldet noch ueberschrieben werden.
+      if (this.resolveStoredShippingDirection(booking) === 'outbound') {
+        const error = new Error(
+          'An dieser Buchung ist bereits ein älteres Rückweg-Label (McRepair → Kunde) gespeichert. '
+          + 'Ein Einsendelabel kann hier nicht zusätzlich abgelegt werden – bitte im Auftrag das Einsendelabel per DHL-Retoure erstellen.'
         );
+        error.status = 409;
+        error.code = 'BOOKING_LABEL_SLOT_OCCUPIED';
+        throw error;
       }
       return booking;
+    }
+
+    // Sendungsnummer OHNE PDF: das Einsendelabel existiert bei DHL bereits (Abgleich
+    // 'created' nach einer unklaren DHL-Antwort). Ein neues Label waere ein ZWEITES,
+    // bezahltes Label und wuerde die abgeglichene Sendungsnummer ueberschreiben.
+    if (String(booking.trackingNumber || '').trim() && !String(booking.shippingLabelUrl || '').trim()) {
+      const error = new Error(
+        `Für diese Buchung existiert bei DHL bereits ein Einsendelabel (Sendungsnummer ${String(booking.trackingNumber).trim()}). `
+        + 'Das PDF bitte im DHL-Geschäftskundenportal abrufen – ein zweites Label wird nicht erstellt.'
+      );
+      error.status = 409;
+      error.code = 'EXISTING_SHIPMENT_LABEL_MISSING';
+      throw error;
     }
 
     const mode = await this.getBookingShippingLabelMode();
@@ -759,19 +796,9 @@ class BookingService {
   }
 
   static resolveStoredShippingDirection(booking) {
-    const timeline = Array.isArray(booking?.timeline) ? booking.timeline : [];
-
-    for (let index = timeline.length - 1; index >= 0; index -= 1) {
-      const entry = timeline[index];
-      if (String(entry?.status || '') !== 'Shipping Label Created') continue;
-      // Neue Eintraege sind deutsch ('Rückweg'/'Hinweg'), Altbestand englisch
-      // ('outbound'/'inbound') - beide muessen erkannt werden.
-      const description = String(entry?.description || '').toLowerCase();
-      if (description.includes('rückweg') || description.includes('rueckweg') || description.includes('outbound')) return 'outbound';
-      if (description.includes('hinweg') || description.includes('inbound')) return 'inbound';
-    }
-
-    return 'inbound';
+    // Neue Eintraege sind deutsch ('Rückweg'/'Hinweg'), Altbestand englisch
+    // ('outbound'/'inbound') - die Auswertung liegt an EINER Stelle in DHLService.
+    return DHLService.resolveStoredBookingLabelDirection(booking);
   }
 
   /**
@@ -781,20 +808,14 @@ class BookingService {
    * selbst nicht lesen koennen und deshalb nur ein Flag schicken.
    */
   static resolveConfiguredShopAddress(dhlConfig) {
-    const settings = dhlConfig?.settings || {};
-    const shipper = settings.shipper || {};
-    const rawStreet = String(settings.shipperStreet || shipper.street || '').trim();
-    const split = DHLService.splitStreetAndHouse(rawStreet);
-
+    // EINE Quelle fuer die Shop-Anschrift: DHLService (auch die Auslieferung nutzt sie).
+    // Nur Kontaktdaten erhalten hier - wie bisher - eine Vorgabe, weil DHL sie beim
+    // Einsendelabel als Empfaengerkontakt akzeptiert; Adressfelder werden nie erfunden.
+    const shop = DHLService.resolveConfiguredShopAddress(dhlConfig);
     return {
-      name: settings.shipperCompany || shipper.company || settings.shipperName || '',
-      street: split.street || rawStreet,
-      house: split.house || String(settings.shipperNumber || shipper.number || '').trim(),
-      city: settings.shipperCity || shipper.city || '',
-      postalCode: settings.shipperPostalCode || shipper.postalCode || '',
-      country: settings.shipperCountry || shipper.country || 'DE',
-      email: settings.shipperEmail || shipper.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
-      phone: settings.shipperPhone || shipper.phone || '+49301234567',
+      ...shop,
+      email: shop.email || process.env.SUPPORT_EMAIL || 'info@mcrepair.de',
+      phone: shop.phone || '+49301234567',
     };
   }
 
@@ -1024,122 +1045,296 @@ class BookingService {
       throw new Error('Zu dieser Buchung ist kein Auftrag hinterlegt, für den ein DHL-Versandlabel erstellt werden kann.');
     }
 
+    // Atomare Sperre an der BUCHUNG: das Einsendelabel wird nicht mehr am Auftrag abgelegt,
+    // also schuetzt die Buchung selbst vor Doppelklick und parallelen Aufrufen.
+    const claimedBooking = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        shippingLabelCreationInProgress: { $ne: true },
+        shippingLabelUrl: { $in: ['', null] },
+        // Auch eine abgeglichene Sendungsnummer ohne PDF ist ein vorhandenes Label.
+        trackingNumber: { $in: ['', null] },
+      },
+      // updatedAt = Beginn der Sperre: daran erkennt der Abgleich eine verwaiste Sperre.
+      { $set: { shippingLabelCreationInProgress: true, updatedAt: new Date() } },
+      { new: true, projection: { _id: 1 } }
+    ).setOptions({ skipAutoPopulate: true });
+    if (!claimedBooking) {
+      const error = new Error('Das Einsendelabel dieser Buchung wird bereits erstellt, ist schon vorhanden oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.');
+      error.status = 409;
+      error.code = 'LABEL_CREATION_IN_PROGRESS';
+      throw error;
+    }
+    let keepBookingLock = false;
+
     let lastError = null;
 
-    for (const orderId of candidateOrderIds) {
-      try {
-        const sourceOrder = await Order.findById(orderId)
-          .setOptions({ skipAutoPopulate: true })
-          .populate('customerId', 'name firstName lastName email phone invoiceAddress');
+    try {
+      for (const orderId of candidateOrderIds) {
+        try {
+          const sourceOrder = await Order.findById(orderId)
+            .setOptions({ skipAutoPopulate: true })
+            .populate('customerId', 'name firstName lastName email phone invoiceAddress');
 
-        if (!sourceOrder) {
-          console.error(`BookingService: Order not found for booking label generation: ${orderId}`);
-          throw new Error('Der zur Buchung gehörende Auftrag wurde nicht gefunden.');
-        }
-
-        const requestedShipmentData = options.shipmentData && typeof options.shipmentData === 'object'
-          ? options.shipmentData
-          : {};
-
-        // Die Richtung kommt vom Aufrufer, nicht aus der Reihenfolge der Adressbloecke.
-        const labelDirection = this.resolveBookingLabelDirection(requestedShipmentData);
-        const defaultShipmentData = this.buildBookingShipmentData(sourceOrder, booking, dhlConfig, labelDirection);
-        const shipmentData = this.mergeBookingShipmentData(defaultShipmentData, requestedShipmentData);
-        shipmentData.labelDirection = labelDirection;
-
-        // Der Aufrufer darf die Shop-Adresse dem Server ueberlassen (die
-        // Integrationseinstellungen sind nur fuer Administratoren lesbar). Dann muss der
-        // Server sie aufloesen - und laut scheitern, wenn sie gar nicht hinterlegt ist,
-        // statt ein Label mit falschem Absender zu erzeugen.
-        const shopSideRequested =
-          (requestedShipmentData.shipperFromConfiguration === true && 'Absenderadresse')
-          || (requestedShipmentData.receiverFromConfiguration === true && 'Empfängeradresse')
-          || '';
-        if (shopSideRequested) {
-          const shopAddress = this.resolveConfiguredShopAddress(dhlConfig);
-          const missingShopFields = this.missingShopAddressFields(shopAddress);
-          if (missingShopFields.length > 0) {
-            throw new Error(
-              `Die Shop-Adresse ist in der DHL-Integration nicht vollständig hinterlegt (${missingShopFields.join(', ')}). `
-              + 'Bitte unter Systemkonfiguration → Integrationen → DHL Straße mit Hausnummer, PLZ und Ort eintragen.'
-            );
+          if (!sourceOrder) {
+            console.error(`BookingService: Order not found for booking label generation: ${orderId}`);
+            throw new Error('Der zur Buchung gehörende Auftrag wurde nicht gefunden.');
           }
-          console.log(`BookingService: ${shopSideRequested} wird aus der DHL-Integration übernommen (${labelDirection}).`);
+
+          const requestedShipmentData = options.shipmentData && typeof options.shipmentData === 'object'
+            ? options.shipmentData
+            : {};
+
+          // Die Richtung kommt vom Aufrufer, nicht aus der Reihenfolge der Adressbloecke.
+          const labelDirection = this.resolveBookingLabelDirection(requestedShipmentData);
+          const defaultShipmentData = this.buildBookingShipmentData(sourceOrder, booking, dhlConfig, labelDirection);
+          const shipmentData = this.mergeBookingShipmentData(defaultShipmentData, requestedShipmentData);
+          shipmentData.labelDirection = labelDirection;
+
+          // Der Aufrufer darf die Shop-Adresse dem Server ueberlassen (die
+          // Integrationseinstellungen sind nur fuer Administratoren lesbar). Dann muss der
+          // Server sie aufloesen - und laut scheitern, wenn sie gar nicht hinterlegt ist,
+          // statt ein Label mit falschem Absender zu erzeugen.
+          const shopSideRequested =
+            (requestedShipmentData.shipperFromConfiguration === true && 'Absenderadresse')
+            || (requestedShipmentData.receiverFromConfiguration === true && 'Empfängeradresse')
+            || '';
+          if (shopSideRequested) {
+            const shopAddress = this.resolveConfiguredShopAddress(dhlConfig);
+            const missingShopFields = this.missingShopAddressFields(shopAddress);
+            if (missingShopFields.length > 0) {
+              throw new Error(
+                `Die Shop-Adresse ist in der DHL-Integration nicht vollständig hinterlegt (${missingShopFields.join(', ')}). `
+                + 'Bitte unter Systemkonfiguration → Integrationen → DHL Straße mit Hausnummer, PLZ und Ort eintragen.'
+              );
+            }
+            console.log(`BookingService: ${shopSideRequested} wird aus der DHL-Integration übernommen (${labelDirection}).`);
+          }
+
+          const missingReceiverFields = [
+            ['Name', shipmentData.receiverName],
+            ['Straße', shipmentData.receiverAddress],
+            ['Hausnummer', shipmentData.receiverNumber],
+            ['Ort', shipmentData.receiverCity],
+            ['PLZ', shipmentData.receiverPostalCode],
+          ].filter(([, value]) => !String(value || '').trim());
+
+          if (missingReceiverFields.length > 0) {
+            throw new Error(`Empfängeradresse unvollständig: ${missingReceiverFields.map(([field]) => field).join(', ')}.`);
+          }
+
+          const missingShipperFields = [
+            ['Name', shipmentData.shipperName],
+            ['Straße', shipmentData.shipperStreet],
+            ['Hausnummer', shipmentData.shipperNumber],
+            ['Ort', shipmentData.shipperCity],
+            ['PLZ', shipmentData.shipperPostalCode],
+            ['DHL-Abrechnungsnummer', shipmentData.accountNumber],
+          ].filter(([, value]) => !String(value || '').trim());
+
+          if (missingShipperFields.length > 0) {
+            throw new Error(`Absenderdaten unvollständig: ${missingShipperFields.map(([field]) => field).join(', ')}.`);
+          }
+
+          // Schutz gegen eine halb uebernommene Gegenpartei: wenn Absender und
+          // Empfaenger nach dem Zusammenfuehren dieselbe Anschrift tragen, ist genau
+          // eine der beiden Seiten falsch belegt. Lieber laut abbrechen als ein Label
+          // an die eigene Adresse erzeugen.
+          const addressKey = (prefix) => [
+            shipmentData[`${prefix}Street`] || shipmentData[`${prefix}Address`],
+            shipmentData[`${prefix}PostalCode`],
+            shipmentData[`${prefix}City`],
+          ].map((value) => String(value || '').trim().toLowerCase()).join('|');
+
+          if (addressKey('shipper') === addressKey('receiver')) {
+            throw new Error('Absender und Empfänger sind identisch. Bitte prüfen Sie die Versandadressen des Auftrags.');
+          }
+
+          // Einsendelabel: am Auftrag wird NICHTS gespeichert (persist:false) - das
+          // Auslieferungsfeld des Auftrags bleibt fuer "An Kunden versenden" frei.
+          let shipmentResult;
+          try {
+            shipmentResult = await DHLService.createShipment(orderId, shipmentData, { direction: 'inbound', persist: false });
+          } catch (shipmentError) {
+            if (shipmentError?.indeterminate) {
+              // Unklares DHL-Ergebnis: Sperre halten, NICHT mit dem naechsten Auftrag erneut senden.
+              keepBookingLock = true;
+              await Booking.updateOne(
+                { _id: booking._id },
+                {
+                  $set: { shippingStatusDescription: 'Ergebnis der DHL-Labelerstellung unklar – Abgleich im DHL-Geschäftskundenportal erforderlich' },
+                  $push: {
+                    timeline: {
+                      status: 'Shipping Label Reconciliation Required',
+                      description: `DHL hat beim Einsendelabel (Kunde an McRepair) nicht eindeutig geantwortet${shipmentError.trackingNumber ? ` (Sendungsnummer ${shipmentError.trackingNumber})` : ''}. Bitte im DHL-Geschäftskundenportal prüfen, bevor erneut ein Label erstellt wird.`,
+                      completedAt: new Date(),
+                      staffId: 'system',
+                      staffName: 'DHL Parcel Integration',
+                    },
+                  },
+                }
+              );
+              throw shipmentError;
+            }
+            throw shipmentError;
+          }
+
+          const now = new Date();
+          const trackingNumber = shipmentResult?.trackingNumber || '';
+          await Booking.updateOne(
+            { _id: booking._id },
+            {
+              $set: {
+                trackingNumber,
+                carrier: 'DHL',
+                shippingStatus: 'label-created',
+                shippingStatusDescription: 'DHL-Einsendelabel (Hinweg: Kunde an McRepair) wurde erstellt',
+                shippingLabelUrl: shipmentResult?.labelUrl || '',
+                shippingCost: shipmentResult?.shippingCost || booking.shippingCost || 0,
+                estimatedDelivery: shipmentResult?.estimatedDelivery || booking.estimatedDelivery,
+                shippingCreatedAt: now,
+                shippingLabelCreationInProgress: false,
+              },
+              $push: {
+                timeline: {
+                  status: 'Shipping Label Created',
+                  description: `DHL-Versandlabel für die Buchung erstellt (Hinweg: Kunde an McRepair). Sendungsnummer: ${trackingNumber || 'noch offen'}`,
+                  completedAt: now,
+                  staffId: 'system',
+                  staffName: 'DHL Parcel Integration',
+                },
+              },
+            }
+          );
+
+          const refreshedBooking = await Booking.findById(booking._id);
+          if (!refreshedBooking) {
+            throw new Error('Die Buchung wurde nach der Label-Erstellung nicht mehr gefunden.');
+          }
+          return refreshedBooking;
+        } catch (error) {
+          lastError = error;
+          console.error(`BookingService: Failed to create live shipping label for order ${orderId}:`, error.message);
+          if (error?.indeterminate) break;
         }
-
-        const missingReceiverFields = [
-          ['Name', shipmentData.receiverName],
-          ['Straße', shipmentData.receiverAddress],
-          ['Hausnummer', shipmentData.receiverNumber],
-          ['Ort', shipmentData.receiverCity],
-          ['PLZ', shipmentData.receiverPostalCode],
-        ].filter(([, value]) => !String(value || '').trim());
-
-        if (missingReceiverFields.length > 0) {
-          throw new Error(`Empfängeradresse unvollständig: ${missingReceiverFields.map(([field]) => field).join(', ')}.`);
-        }
-
-        const missingShipperFields = [
-          ['Name', shipmentData.shipperName],
-          ['Straße', shipmentData.shipperStreet],
-          ['Hausnummer', shipmentData.shipperNumber],
-          ['Ort', shipmentData.shipperCity],
-          ['PLZ', shipmentData.shipperPostalCode],
-          ['DHL-Abrechnungsnummer', shipmentData.accountNumber],
-        ].filter(([, value]) => !String(value || '').trim());
-
-        if (missingShipperFields.length > 0) {
-          throw new Error(`Absenderdaten unvollständig: ${missingShipperFields.map(([field]) => field).join(', ')}.`);
-        }
-
-        // Schutz gegen eine halb uebernommene Gegenpartei: wenn Absender und
-        // Empfaenger nach dem Zusammenfuehren dieselbe Anschrift tragen, ist genau
-        // eine der beiden Seiten falsch belegt. Lieber laut abbrechen als ein Label
-        // an die eigene Adresse erzeugen.
-        const addressKey = (prefix) => [
-          shipmentData[`${prefix}Street`] || shipmentData[`${prefix}Address`],
-          shipmentData[`${prefix}PostalCode`],
-          shipmentData[`${prefix}City`],
-        ].map((value) => String(value || '').trim().toLowerCase()).join('|');
-
-        if (addressKey('shipper') === addressKey('receiver')) {
-          throw new Error('Absender und Empfänger sind identisch. Bitte prüfen Sie die Versandadressen des Auftrags.');
-        }
-
-        const shipmentResult = await DHLService.createShipment(orderId, shipmentData);
-        const refreshedBooking = await Booking.findById(booking._id);
-
-        if (!refreshedBooking) {
-          throw new Error('Die Buchung wurde nach der Label-Erstellung nicht mehr gefunden.');
-        }
-
-        refreshedBooking.trackingNumber = shipmentResult?.trackingNumber || refreshedBooking.trackingNumber;
-        refreshedBooking.carrier = 'DHL';
-        refreshedBooking.shippingStatus = 'label-created';
-        refreshedBooking.shippingStatusDescription = labelDirection === 'outbound'
-          ? 'DHL-Versandlabel (Rückweg: McRepair an Kunde) wurde erstellt'
-          : 'DHL-Einsendelabel (Hinweg: Kunde an McRepair) wurde erstellt';
-        refreshedBooking.shippingLabelUrl = shipmentResult?.labelUrl || refreshedBooking.shippingLabelUrl;
-        refreshedBooking.shippingCost = shipmentResult?.shippingCost || refreshedBooking.shippingCost || 0;
-        refreshedBooking.estimatedDelivery = shipmentResult?.estimatedDelivery || refreshedBooking.estimatedDelivery;
-        refreshedBooking.shippingCreatedAt = new Date();
-        refreshedBooking.timeline.push({
-          status: 'Shipping Label Created',
-          description: `DHL-Versandlabel für die Buchung erstellt (${labelDirection === 'outbound' ? 'Rückweg: McRepair an Kunde' : 'Hinweg: Kunde an McRepair'}). Sendungsnummer: ${refreshedBooking.trackingNumber || 'noch offen'}`,
-          completedAt: new Date(),
-          staffId: 'system',
-          staffName: 'DHL Parcel Integration',
+      }
+    } finally {
+      if (!keepBookingLock) {
+        await Booking.updateOne(
+          { _id: booking._id, shippingLabelCreationInProgress: true },
+          { $set: { shippingLabelCreationInProgress: false } }
+        ).catch((releaseError) => {
+          console.error('BookingService: Could not release booking label lock:', releaseError.message);
         });
-
-        await refreshedBooking.save();
-        return refreshedBooking;
-      } catch (error) {
-        lastError = error;
-        console.error(`BookingService: Failed to create live shipping label for order ${orderId}:`, error.message);
       }
     }
 
     throw lastError || new Error('Das DHL-Versandlabel für diese Buchung konnte nicht erstellt werden.');
+  }
+
+  /**
+   * Offenen Abgleich des Einsendelabels nach einer unklaren DHL-Antwort abschliessen
+   * (nur Administratoren, nach Pruefung im DHL-Geschaeftskundenportal).
+   *  - 'not-created': bei DHL keine Sendung -> Sperre loesen, Label kann neu erstellt werden
+   *  - 'created' + trackingNumber: Sendung existiert -> Sendungsnummer uebernehmen
+   */
+  static async reconcileBookingInboundLabel(bookingId, { resolution, trackingNumber } = {}, actor = {}) {
+    const booking = await Booking.findById(bookingId).setOptions({ skipAutoPopulate: true })
+      .select('shippingLabelCreationInProgress trackingNumber updatedAt timeline').lean();
+    if (!booking) {
+      const error = new Error('Buchung nicht gefunden.');
+      error.status = 404;
+      throw error;
+    }
+    if (booking.shippingLabelCreationInProgress !== true) {
+      const error = new Error('Für diese Buchung ist kein Abgleich offen.');
+      error.status = 409;
+      error.code = 'NO_RECONCILIATION_PENDING';
+      throw error;
+    }
+    // Eine noch LAUFENDE Erstellung darf nicht abgeglichen werden: wuerde die Sperre
+    // waehrend des DHL-Aufrufs mit 'nicht angelegt' geloest, koennte ein zweiter Klick
+    // ein zweites bezahltes Label erzeugen. Erlaubt ist der Abgleich nur, wenn die
+    // unklare DHL-Antwort vermerkt ist oder die Sperre verwaist ist (Prozessabbruch).
+    if (!BookingService.isBookingLabelReconciliationAllowed(booking)) {
+      const error = new Error(
+        'Die Erstellung des Einsendelabels läuft gerade noch. Bitte einige Minuten warten und die Buchung neu laden – '
+        + 'ein Abgleich ist erst nach einer unklaren DHL-Antwort oder nach Ablauf der Sperre möglich.'
+      );
+      error.status = 409;
+      error.code = 'LABEL_CREATION_STILL_RUNNING';
+      throw error;
+    }
+
+    const actorName = String(actor.name || actor.email || 'Administrator');
+    const cleanTracking = String(trackingNumber || '').replace(/\s+/g, '');
+    const timelineEntry = (description) => ({
+      status: 'Shipping Label Reconciled',
+      description,
+      completedAt: new Date(),
+      staffId: String(actor._id || 'system'),
+      staffName: actorName,
+    });
+
+    if (resolution === 'not-created') {
+      await Booking.updateOne(
+        { _id: bookingId, shippingLabelCreationInProgress: true },
+        {
+          $set: { shippingLabelCreationInProgress: false, shippingStatusDescription: '' },
+          $push: { timeline: timelineEntry(`Abgleich abgeschlossen: Bei DHL wurde kein Einsendelabel angelegt (geprüft von ${actorName}).`) },
+        }
+      );
+    } else if (resolution === 'created') {
+      if (!/^[0-9A-Za-z]{8,40}$/.test(cleanTracking)) {
+        const error = new Error('Bitte die DHL-Sendungsnummer aus dem Geschäftskundenportal angeben (8 bis 40 Ziffern/Buchstaben).');
+        error.status = 422;
+        error.code = 'TRACKING_NUMBER_INVALID';
+        throw error;
+      }
+      await Booking.updateOne(
+        { _id: bookingId, shippingLabelCreationInProgress: true },
+        {
+          $set: {
+            shippingLabelCreationInProgress: false,
+            trackingNumber: cleanTracking,
+            carrier: 'DHL',
+            shippingStatus: 'label-created',
+            shippingStatusDescription: 'Einsendelabel bei DHL angelegt (per Abgleich übernommen) – PDF im DHL-Geschäftskundenportal abrufen',
+          },
+          $push: { timeline: timelineEntry(`Abgleich abgeschlossen: Einsendelabel ${cleanTracking} (Hinweg: Kunde an McRepair) existiert bei DHL (geprüft von ${actorName}).`) },
+        }
+      );
+    } else {
+      const error = new Error('Unbekannte Abgleich-Entscheidung.');
+      error.status = 422;
+      throw error;
+    }
+
+    return Booking.findById(bookingId);
+  }
+
+  /**
+   * Darf eine gesetzte Einsendelabel-Sperre abgeglichen werden?
+   *  - ja, wenn nach dem letzten Abschluss (Label erstellt / abgeglichen) eine unklare
+   *    DHL-Antwort vermerkt ist ('Shipping Label Reconciliation Required'),
+   *  - ja, wenn die Sperre aelter als BOOKING_LABEL_LOCK_STALE_MS ist (Prozessabbruch
+   *    waehrend des DHL-Aufrufs; der Aufruf selbst dauert hoechstens ~30 Sekunden),
+   *  - sonst nein: die Erstellung laeuft noch.
+   * Der Sperrbeginn steht in updatedAt (wird beim Setzen der Sperre geschrieben).
+   */
+  static isBookingLabelReconciliationAllowed(booking, now = Date.now()) {
+    const timeline = Array.isArray(booking?.timeline) ? booking.timeline : [];
+    const timeOf = (entry) => new Date(entry?.completedAt || entry?.createdAt || 0).getTime() || 0;
+    const lastMarker = Math.max(0, ...timeline
+      .filter((entry) => entry?.status === 'Shipping Label Reconciliation Required')
+      .map(timeOf));
+    const lastSettled = Math.max(0, ...timeline
+      .filter((entry) => ['Shipping Label Created', 'Shipping Label Reconciled'].includes(entry?.status))
+      .map(timeOf));
+    if (lastMarker > 0 && lastMarker >= lastSettled) return true;
+
+    const lockedSince = new Date(booking?.updatedAt || 0).getTime() || 0;
+    return lockedSince > 0 && now - lockedSince > BOOKING_LABEL_LOCK_STALE_MS;
   }
 
   static async bulkUpdateShippingStatuses() {
@@ -1418,6 +1613,10 @@ class BookingService {
    * Abgeleitet aus den gueltigen Zahlungszuordnungen, NICHT aus einem Belegstatus:
    * ein Auftrag kann gleichzeitig 'versendet' (Erfuellung) und 'teilbezahlt'
    * (Zahlung) sein, und eine Ueberzahlung erscheint nie als negativer offener Betrag.
+   *
+   * Schlaegt die Berechnung fehl, ist der Zahlungsstand UNBEKANNT: jede Buchung wird mit
+   * null eingetragen (die Oberflaeche zeigt dann '–'), nie mit einem erfundenen
+   * 0,00-€-Saldo, der wie "ausgeglichen" aussieht.
    */
   static async buildPaymentBalanceMap(bookings = []) {
     const result = new Map();
@@ -1429,28 +1628,45 @@ class BookingService {
 
       bookings.forEach((booking) => {
         const key = String(booking._id);
-        const entry = balances.get(key) || { invoicedTotal: 0, allocated: 0, open: 0, overpaid: 0, received: 0, unallocated: 0 };
         const orderValue = BookingService.roundCurrency(Number(booking.totalCost || 0));
-        // Bezugsgroesse: ohne Rechnung ist es der Auftragswert.
-        const reference = entry.invoicedTotal > 0.009 ? entry.invoicedTotal : orderValue;
+        const entry = balances.get(key) || {
+          invoicedTotal: 0, allocated: 0, open: 0, overpaid: 0, received: 0, unallocated: 0,
+          reference: orderValue, bookingOpen: orderValue,
+        };
+        // Bezugsgroesse, offen und ueberzahlt kommen UNVERAENDERT aus der gemeinsamen
+        // Berechnung (PaymentService.computeBookingBalancesCore) - dieselben Zahlen wie
+        // in der Detailansicht. Frueher rechnete die Liste hier selbst
+        // (Rechnungssumme ODER Auftragswert) und zeigte bei teilweise berechneten
+        // Buchungen eine Ueberzahlung, die es nicht gab.
+        const reference = BookingService.roundCurrency(Number(entry.reference ?? orderValue));
 
         result.set(key, {
           total: reference,
+          reference,
           orderValue,
           invoicedTotal: entry.invoicedTotal,
           allocated: entry.allocated,
           received: entry.received,
           unallocated: entry.unallocated,
-          open: BookingService.roundCurrency(Math.max(0, reference - entry.received)),
+          open: BookingService.roundCurrency(Number(entry.bookingOpen ?? Math.max(0, reference - entry.received))),
           invoiceOpen: entry.open,
-          overpaid: BookingService.roundCurrency(Math.max(0, entry.received - reference)),
+          overpaid: BookingService.roundCurrency(Number(entry.overpaid ?? Math.max(0, entry.received - reference))),
         });
       });
     } catch (error) {
       console.error('BookingService: Error computing payment balances:', error);
+      result.clear();
+      bookings.forEach((booking) => result.set(String(booking._id), null));
     }
 
     return result;
+  }
+
+  // paymentBalance einer Buchung aus buildPaymentBalanceMap: null = unbekannt (Berechnung
+  // fehlgeschlagen oder Buchung fehlt in der Map) - kein Null-Saldo als Ersatz.
+  static readPaymentBalance(balanceByBookingId, bookingId) {
+    const value = balanceByBookingId.get(String(bookingId));
+    return value === undefined ? null : value;
   }
 
   // Get all bookings (admin view)
@@ -1617,8 +1833,8 @@ class BookingService {
           // Einheitlicher Zahlungssatz fuer die Liste: total / allocated / open /
           // overpaid. Der Client soll die Werte anzeigen und nicht selbst rechnen -
           // und er soll den ZAHLUNGSstand nie aus einem Belegstatus ableiten.
-          bookingPlain.paymentBalance = balanceByBookingId.get(bookingKey)
-            || { total: 0, invoicedTotal: 0, allocated: 0, received: 0, open: 0, overpaid: 0, unallocated: 0 };
+          // null = unbekannt (Saldenberechnung fehlgeschlagen) - kein 0,00-€-Ersatz.
+          bookingPlain.paymentBalance = BookingService.readPaymentBalance(balanceByBookingId, bookingKey);
 
           if (bookingOrders.length > 0) {
             let totalProgress = 0;
@@ -1703,9 +1919,8 @@ class BookingService {
             ...booking,
             customerId: customer || booking.customerId || null,
             // Gleicher Satz wie in der Adminliste, damit beide Oberflaechen dieselben
-            // Zahlen zeigen.
-            paymentBalance: balanceByBookingId.get(String(booking._id))
-              || { total: 0, invoicedTotal: 0, allocated: 0, received: 0, open: 0, overpaid: 0, unallocated: 0 },
+            // Zahlen zeigen (null = unbekannt).
+            paymentBalance: BookingService.readPaymentBalance(balanceByBookingId, booking._id),
           };
           const bookingOrders = ordersByBookingId.get(String(booking._id)) || [];
           const orderById = new Map(bookingOrders.map((order) => [String(order._id), order]));
@@ -2006,7 +2221,7 @@ class BookingService {
       // Fetch all orders directly linked to booking
       const directOrders = await Order.find({ bookingId: bookingId })
         .setOptions({ skipAutoPopulate: true })
-        .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline hasComplaint isComplaintFollowup sourceComplaintId parentOrderId')
+        .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline hasComplaint isComplaintFollowup sourceComplaintId parentOrderId trackingNumber shippingStatus shippingStatusDescription')
         .lean();
 
       // Also include complaint follow-up orders that may not have bookingId set yet
@@ -2017,7 +2232,7 @@ class BookingService {
             parentOrderId: { $in: directOrderIds }
           })
             .setOptions({ skipAutoPopulate: true })
-            .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline hasComplaint isComplaintFollowup sourceComplaintId parentOrderId')
+            .select('orderNumber deviceType deviceBrand deviceModel status paymentStatus progress totalCost services shopProducts timeline hasComplaint isComplaintFollowup sourceComplaintId parentOrderId trackingNumber shippingStatus shippingStatusDescription')
             .lean()
         : [];
 
@@ -2083,6 +2298,19 @@ class BookingService {
           paymentStatus: order.paymentStatus || 'pending',
           progress: orderProgress,
           hasComplaint: Boolean(order.hasComplaint),
+          // Auslieferung DIESES Geraets (McRepair -> Kunde), je Auftrag getrennt. Eine
+          // Kopie des Einsendelabels der Buchung im Versandfeld (Altbestand) ist keine
+          // Auslieferung und wird hier nicht als solche gezeigt.
+          outboundShipment: order.trackingNumber && !(
+            String(order.trackingNumber) === String(booking.trackingNumber || '')
+            && this.resolveStoredShippingDirection(booking) === 'inbound'
+          )
+            ? {
+              trackingNumber: order.trackingNumber,
+              status: order.shippingStatus || '',
+              statusDescription: order.shippingStatusDescription || '',
+            }
+            : null,
           cost: order.totalCost,
           bookingItemCost: Number(bookingItem?.cost || 0),
           hasDeviceChangeHistory: deviceChangeEntries.length > 0,
@@ -2106,7 +2334,7 @@ class BookingService {
           // Repair order
           orderData.device = `${order.deviceBrand} ${order.deviceModel}`;
           orderData.services = order.services.map(service => ({
-            name: serviceMap.get(String(service.serviceId))?.name || 'Unknown Service',
+            name: serviceMap.get(String(service.serviceId))?.name || service.name || 'Reparaturservice',
             price: service.price,
             estimatedTime: service.estimatedTime,
             status: service.status || 'pending',
@@ -2198,10 +2426,12 @@ class BookingService {
         let hasItems = false;
 
         for (const svc of (order.services || [])) {
-          const serviceName = svc.serviceId?.name || 'Reparaturservice';
+          // Manuelle Position: gespeicherter Name (und Beschreibung) statt Platzhalter.
+          const serviceName = svc.serviceId?.name || String(svc.name || '').trim() || 'Reparaturservice';
+          const manualDescription = svc.isManual ? String(svc.description || '').trim() : '';
           invoiceItems.push({
             serviceName,
-            description: `${deviceLabel} – ${serviceName}`,
+            description: manualDescription ? `${deviceLabel} – ${serviceName}: ${manualDescription}` : `${deviceLabel} – ${serviceName}`,
             quantity: 1,
             unitPrice: svc.price,
             total: svc.price,
@@ -2554,6 +2784,36 @@ class BookingService {
 
       console.log('BookingService: Creating invoice with customer:', customerName, 'Email:', customerEmail);
 
+      // Zahlungsziel aus DERSELBEN gespeicherten Bedingung wie alle anderen Rechnungswege
+      // (Kunden-/Gruppenprofil, FinancialService.resolveFinancialProfile). Frueher stand
+      // hier fest +30 Tage - daneben zeigte das Kundenprofil z.B. 7 Tage.
+      // Lazy require: FinancialService laedt ueber BookingPaymentService auf diese Datei zurueck.
+      let paymentDueDays = null;
+      if (!invoiceData.dueDate) {
+        const FinancialService = require('./financialService');
+        let profile = null;
+        try {
+          profile = await FinancialService.resolveFinancialProfile({ customerId: booking.customerId?._id || null });
+        } catch (profileError) {
+          // Kundenprofil nicht lesbar: das Standardprofil OHNE Kunde - dieselbe Quelle
+          // (Finanzeinstellungen) und dieselbe Normalisierung (normalizePaymentDueDays,
+          // 1-14 Tage) wie jeder andere Rechnungsweg, statt des rohen Einstellungswerts
+          // oder eines festen Werts. Datum und Text bleiben deckungsgleich.
+          console.error('BookingService: payment terms profile could not be resolved:', profileError.message);
+          try {
+            profile = await FinancialService.resolveFinancialProfile({ customerId: null });
+          } catch (defaultProfileError) {
+            // Auch die Finanzeinstellungen sind nicht lesbar (z. B. Datenbankfehler): die
+            // Rechnung trotzdem erstellen - mit der Standardfrist, die normalizePaymentDueDays
+            // (financialService) ohne gueltige Angabe verwendet. Datum und Text bleiben deckungsgleich.
+            console.error('BookingService: default payment terms could not be resolved:', defaultProfileError.message);
+            profile = { paymentDueDays: BOOKING_INVOICE_FALLBACK_DUE_DAYS };
+          }
+        }
+        const resolvedDueDays = Number(profile?.paymentDueDays);
+        paymentDueDays = Number.isFinite(resolvedDueDays) && resolvedDueDays > 0 ? resolvedDueDays : null;
+      }
+
       // Build invoice items from current order data and compute correct totals.
       // Prices are gross (VAT inclusive) – VAT is extracted, NOT added on top again.
       const invoiceItems = BookingService._buildInvoiceItemsFromOrders(booking, selectedOrders);
@@ -2595,7 +2855,10 @@ class BookingService {
         discount: invoiceTotals.discount,
         total: invoiceTotals.total,
         status: 'sent',
-        dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        // Datum und Wortlaut leitet das Invoice-Modell gemeinsam aus paymentDueDays ab;
+        // ein ausdruecklich gewaehltes Datum gewinnt (Text folgt dann dem Datum).
+        dueDate: invoiceData.dueDate || (paymentDueDays ? new Date(Date.now() + paymentDueDays * 24 * 60 * 60 * 1000) : undefined),
+        paymentDueDays: invoiceData.dueDate ? undefined : (paymentDueDays || undefined),
         notes: invoiceData.notes || '',
         sentAt: new Date(),
       });
@@ -2684,7 +2947,29 @@ class BookingService {
         .sort({ createdAt: -1 });
 
       console.log('BookingService: Found', invoices.length, 'invoices for booking');
-      return invoices;
+
+      // Zahlungsstand je Beleg aus DERSELBEN Berechnung wie GET /api/invoices
+      // (PaymentService.getInvoiceBalances + FinancialService.toBalancePayload). Damit muss
+      // die Oberflaeche nicht zusaetzlich die gesamte Rechnungsliste laden. Die Belegfelder
+      // bleiben unveraendert (toJSON wie bisher bei res.json); ergaenzt werden nur
+      // balance / paymentState. Faellt die Berechnung aus: balance null (unbekannt).
+      let balances = null;
+      try {
+        const PaymentService = require('./paymentService');
+        balances = await PaymentService.getInvoiceBalances(invoices);
+      } catch (balanceError) {
+        console.error('BookingService: invoice balances could not be computed:', balanceError.message);
+      }
+      const FinancialService = require('./financialService');
+      return invoices.map((invoice) => {
+        const plain = typeof invoice.toJSON === 'function' ? invoice.toJSON() : { ...invoice };
+        const balance = balances ? balances.get(String(invoice._id)) : null;
+        return {
+          ...plain,
+          balance: balance ? FinancialService.toBalancePayload(balance) : null,
+          paymentState: balance ? (balance.paymentState || 'open') : null,
+        };
+      });
     } catch (error) {
       console.error('BookingService: Error getting invoices:', error);
       throw error;

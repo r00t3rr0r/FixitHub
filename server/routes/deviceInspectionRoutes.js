@@ -298,8 +298,10 @@ router.put('/:orderId/apple-specific', requireUser, requireAdminOrStaff, async (
 
 // Description: Complete inspection
 // Endpoint: PUT /api/device-inspections/:orderId/complete
-// Request: { isRepairable?, repairOffer?, completionAction?, customerInformation? }
-// Response: { inspection: DeviceInspection }
+// Request: { repairOffer?: { cost?, costSpecified?, timeframe?, description? }, customerInformation? }
+//   isRepairable / completionAction are still accepted for old clients but IGNORED (deprecated,
+//   never written). A missing/empty cost stays unknown; 0 counts only with costSpecified: true.
+// Response: { inspection: DeviceInspection } - inspection.repairOfferKnownCost: number | null
 router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection');
 

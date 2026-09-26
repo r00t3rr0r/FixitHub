@@ -34,6 +34,22 @@ const ALLOCATABLE_INVOICE_STATUSES = ['sent', 'viewed', 'partially_paid', 'overd
 // Nur tatsaechlich eingegangenes Geld zaehlt gegen den offenen Betrag.
 const COUNTABLE_PAYMENT_STATUSES = ['completed'];
 
+// Gutschriftarten, die Geld ZURUECKGEBEN statt die Forderung zu mindern (Altbestand
+// des frueheren Ueberzahlungsausgleichs). Sie senken die Forderung nie.
+const REFUND_CORRECTION_TYPES = ['partial_refund'];
+
+// Auftragsstatus ohne Forderung: ein stornierter Auftrag wird nicht (mehr) berechnet.
+const NON_RECEIVABLE_ORDER_STATUSES = ['cancelled'];
+
+// Sperre einer RECHNUNG waehrend einer Zuordnung. Die Sperre auf der Zahlung allein
+// verhindert nur, dass DIESELBE Zahlung doppelt verplant wird; zwei VERSCHIEDENE
+// Zahlungen saehen sonst gleichzeitig denselben offenen Betrag und ordneten beide zu.
+const INVOICE_ALLOCATION_LOCK_ATTEMPTS = 60;
+const INVOICE_ALLOCATION_LOCK_WAIT_MS = 50;
+// Eine Zuordnung dauert Millisekunden; eine aeltere Sperre stammt von einem
+// abgebrochenen Prozess und darf uebernommen werden.
+const INVOICE_ALLOCATION_LOCK_STALE_MS = 30 * 1000;
+
 // Versuche fuer das optimistische Sperren einer Zahlung. Ein Durchlauf kann aus
 // zwei Gruenden folgenlos bleiben: ein paralleler Lauf hat die Sperre zuerst
 // bekommen, oder ein Altbestandszaehler musste erst repariert werden. Beides
@@ -89,6 +105,8 @@ const isCountablePayment = (payment) => COUNTABLE_PAYMENT_STATUSES.includes(Stri
 class PaymentService {
   static ALLOCATABLE_INVOICE_STATUSES = ALLOCATABLE_INVOICE_STATUSES;
   static COUNTABLE_PAYMENT_STATUSES = COUNTABLE_PAYMENT_STATUSES;
+  static REFUND_CORRECTION_TYPES = REFUND_CORRECTION_TYPES;
+  static NON_RECEIVABLE_ORDER_STATUSES = NON_RECEIVABLE_ORDER_STATUSES;
   static INVOICE_STATUS_LABELS_DE = INVOICE_STATUS_LABELS_DE;
   static invoiceStatusLabel = invoiceStatusLabel;
   static round2 = round2;
@@ -179,29 +197,223 @@ class PaymentService {
   }
 
   /**
+   * Summe der WERTMINDERNDEN Gutschriften je Rechnung (positiver Betrag).
+   *
+   * Belegkorrektur ist eine eigene Achse neben Zahlung und Erstattung: eine
+   * Preiskorrektur/ein Storno senkt die Forderung, eine Ueberzahlungsrueckgabe
+   * ('partial_refund', Altbestand aus dem frueheren Ueberzahlungsausgleich) nicht -
+   * sie beschreibt Geld, das zurueckfliesst, und darf die Forderung nicht ein zweites
+   * Mal mindern. Stornierte Gutschriften zaehlen nicht.
+   *
+   * @returns {Promise<Map<string, number>>} invoiceId -> gutgeschriebener Betrag
+   */
+  static async getValueCreditedByInvoice(invoiceIds = []) {
+    const objectIds = (invoiceIds || [])
+      .map(toIdString)
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    const result = new Map();
+    if (objectIds.length === 0) return result;
+
+    const creditNotes = await Invoice.find({
+      creditNoteOf: { $in: objectIds },
+      isCreditNote: true,
+      status: { $ne: 'cancelled' },
+      correctionType: { $nin: REFUND_CORRECTION_TYPES },
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('creditNoteOf total')
+      .lean();
+
+    creditNotes.forEach((note) => {
+      const key = toIdString(note.creditNoteOf);
+      result.set(key, round2(Number(result.get(key) || 0) + Math.abs(Number(note.total || 0))));
+    });
+    return result;
+  }
+
+  /**
+   * Nicht zugeordneter Rest der Zahlungen, die an einer Rechnung haengen, EINMAL
+   * zugerechnet: auf die Rechnung, die die Zahlung als invoiceId traegt, ersatzweise
+   * auf die Rechnung ihrer aeltesten Zuordnung. Eine Zahlung, die zwei Rechnungen
+   * bedient, erscheint mit ihrem Ueberhang dadurch nicht auf beiden.
+   *
+   * @returns {Promise<{excess: Map<string, number>, refunded: Map<string, number>, refundsPending: Map<string, number>}>}
+   */
+  static async getLinkedPaymentExcessByInvoice(invoiceIds = []) {
+    const ids = (invoiceIds || []).map(toIdString).filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const excess = new Map();
+    const refunded = new Map();
+    const refundsPending = new Map();
+    if (ids.length === 0) return { excess, refunded, refundsPending };
+
+    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+    const requested = new Set(ids);
+
+    const hitPaymentIds = await PaymentAllocation.distinct('paymentId', { invoiceId: { $in: objectIds } });
+    const payments = await Payment.find({
+      $or: [{ invoiceId: { $in: objectIds } }, { _id: { $in: hitPaymentIds } }],
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id amount refundAmount status invoiceId refunds')
+      .lean();
+    if (payments.length === 0) return { excess, refunded, refundsPending };
+
+    const allocations = await PaymentAllocation.find({ paymentId: { $in: payments.map((payment) => payment._id) } })
+      .select('_id paymentId invoiceId allocatedAmount')
+      .lean();
+    const allocatedByPayment = new Map();
+    const firstInvoiceByPayment = new Map();
+    [...allocations]
+      .sort((a, b) => String(a._id).localeCompare(String(b._id)))
+      .forEach((allocation) => {
+        const key = toIdString(allocation.paymentId);
+        allocatedByPayment.set(key, round2(Number(allocatedByPayment.get(key) || 0) + Number(allocation.allocatedAmount || 0)));
+        if (!firstInvoiceByPayment.has(key)) firstInvoiceByPayment.set(key, toIdString(allocation.invoiceId));
+      });
+
+    payments.forEach((payment) => {
+      const key = toIdString(payment._id);
+      const primary = toIdString(payment.invoiceId) || firstInvoiceByPayment.get(key) || '';
+      if (!requested.has(primary)) return;
+
+      const refundedAmount = round2(Number(payment.refundAmount || 0));
+      if (refundedAmount > 0.009) refunded.set(primary, round2(Number(refunded.get(primary) || 0) + refundedAmount));
+      const pendingAmount = round2((payment.refunds || [])
+        .filter((entry) => entry.status === 'pending')
+        .reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+      if (pendingAmount > 0.009) refundsPending.set(primary, round2(Number(refundsPending.get(primary) || 0) + pendingAmount));
+
+      if (!isCountablePayment(payment)) return;
+      const unallocated = round2(Math.max(0, effectivePaymentAmount(payment) - Number(allocatedByPayment.get(key) || 0)));
+      if (unallocated > 0.009) excess.set(primary, round2(Number(excess.get(primary) || 0) + unallocated));
+    });
+
+    return { excess, refunded, refundsPending };
+  }
+
+  /**
+   * DER Zahlungsstand von Rechnungen - eine Berechnung fuer Liste, Detail, Buchung,
+   * Auftrag und Zuordnung.
+   *
+   *   forderung      = Brutto - wertmindernde Gutschriften
+   *   offen          = max(0, forderung - gueltig zugeordnet)
+   *   eingegangen    = zugeordnet + an der Rechnung haengender, nicht zugeordneter Rest
+   *   erstattungOffen= alles, was ueber die Forderung hinaus eingegangen ist
+   *
+   * Bei Buchungsrechnungen wird `refundPending` auf die Ueberzahlung der BUCHUNG
+   * gekappt: Geld, das fuer einen noch nicht berechneten Auftrag derselben Buchung
+   * bestimmt ist, ist keine Ueberzahlung.
+   *
+   * @returns {Promise<Map<string, object>>} invoiceId -> Balance (siehe buildInvoiceBalance)
+   */
+  static async getInvoiceBalances(invoices = [], { bookingCap = true } = {}) {
+    const docs = (invoices || []).filter((invoice) => invoice && invoice._id);
+    const result = new Map();
+    if (docs.length === 0) return result;
+
+    const ids = docs.map((invoice) => toIdString(invoice._id));
+    const receivableIds = docs.filter((invoice) => !invoice.isCreditNote).map((invoice) => toIdString(invoice._id));
+    const [allocatedByInvoice, creditedByInvoice, linked] = await Promise.all([
+      PaymentService.getAllocatedTotalsByInvoice(ids),
+      PaymentService.getValueCreditedByInvoice(receivableIds),
+      PaymentService.getLinkedPaymentExcessByInvoice(receivableIds),
+    ]);
+
+    docs.forEach((invoice) => {
+      const key = toIdString(invoice._id);
+      result.set(key, PaymentService.buildInvoiceBalance(invoice, Number(allocatedByInvoice.get(key) || 0), {
+        credited: invoice.isCreditNote ? 0 : Number(creditedByInvoice.get(key) || 0),
+        excess: invoice.isCreditNote ? 0 : Number(linked.excess.get(key) || 0),
+        refunded: Number(linked.refunded.get(key) || 0),
+        refundsInProgress: Number(linked.refundsPending.get(key) || 0),
+      }));
+    });
+
+    if (!bookingCap) return result;
+
+    // Kappung auf die Ueberzahlung der Buchung, deterministisch in Rechnungsreihenfolge
+    // (aelteste zuerst) ueber ALLE Forderungen der Buchung - unabhaengig davon, welche
+    // Rechnungen der Aufrufer gerade auf seiner Seite hat.
+    const bookingIds = [...new Set(docs
+      .filter((invoice) => !invoice.isCreditNote && invoice.bookingId)
+      .map((invoice) => toIdString(invoice.bookingId))
+      .filter(Boolean))];
+    if (bookingIds.length === 0) return result;
+
+    const bookingBalances = await PaymentService.getBookingBalancesBulk(bookingIds);
+    const bookingInvoices = await Invoice.find({ bookingId: { $in: bookingIds }, isCreditNote: { $ne: true }, status: { $ne: 'cancelled' } })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id bookingId invoiceNumber total status isCreditNote createdAt')
+      .sort({ createdAt: 1, _id: 1 })
+      .lean();
+    const missing = bookingInvoices.filter((invoice) => !result.has(toIdString(invoice._id)));
+    const extra = missing.length > 0
+      ? await PaymentService.getInvoiceBalances(missing, { bookingCap: false })
+      : new Map();
+
+    const remainingCap = new Map(bookingIds.map((id) => [id, Number(bookingBalances.get(id)?.overpaid || 0)]));
+    bookingInvoices.forEach((invoice) => {
+      const key = toIdString(invoice._id);
+      const bookingKey = toIdString(invoice.bookingId);
+      const balance = result.get(key) || extra.get(key);
+      if (!balance) return;
+      const cap = Number(remainingCap.get(bookingKey) || 0);
+      const capped = round2(Math.min(balance.refundPending, Math.max(0, cap)));
+      remainingCap.set(bookingKey, round2(cap - capped));
+      if (!result.has(key) || capped === balance.refundPending) return;
+      const reduction = round2(balance.refundPending - capped);
+      balance.refundPending = capped;
+      balance.received = round2(Math.max(balance.allocated, balance.received - reduction));
+      balance.unallocatedCredit = reduction;
+      if (balance.paymentState === 'overpaid' && capped <= 0.009) {
+        balance.paymentState = balance.open <= 0.009 ? (balance.receivable > 0.009 ? 'paid' : 'credited') : 'partially_paid';
+      }
+    });
+
+    return result;
+  }
+
+  /**
    * Abgeleiteter Zahlungsstand einer einzelnen Rechnung.
-   * @returns {{invoiceId, invoiceNumber, total, allocated, open, overpaid, paymentState}}
+   * @returns {{invoiceId, invoiceNumber, total, allocated, open, overpaid, paymentState, ...}}
    */
   static async computeInvoiceBalance(invoiceInput) {
-    const invoice = invoiceInput && typeof invoiceInput === 'object' && invoiceInput._id
+    // Achtung: ein ObjectId liefert auf `_id` sich selbst zurueck und ist deshalb KEIN
+    // Hinweis auf einen geladenen Beleg - frueher wurde eine uebergebene ObjectId als
+    // Beleg mit Summe 0 behandelt.
+    const isDocument = invoiceInput
+      && typeof invoiceInput === 'object'
+      && typeof invoiceInput.toHexString !== 'function'
+      && invoiceInput._id
+      && invoiceInput.total !== undefined;
+    const invoice = isDocument
       ? invoiceInput
-      : await Invoice.findById(invoiceInput).select('_id invoiceNumber total isCreditNote status').lean();
+      : await Invoice.findById(toIdString(invoiceInput))
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id invoiceNumber total isCreditNote status bookingId createdAt')
+        .lean();
     if (!invoice) return null;
 
-    const totals = await PaymentService.getAllocatedTotalsByInvoice([invoice._id]);
-    return PaymentService.buildInvoiceBalance(invoice, Number(totals.get(toIdString(invoice._id)) || 0));
+    const balances = await PaymentService.getInvoiceBalances([invoice]);
+    return balances.get(toIdString(invoice._id)) || null;
   }
 
   /** Reiner Rechenteil, damit Listen-Endpunkte ohne weitere DB-Runde auskommen. */
-  static buildInvoiceBalance(invoice, allocatedAmount) {
+  static buildInvoiceBalance(invoice, allocatedAmount, extras = {}) {
     const grossTotal = round2(Math.abs(Number(invoice.total || 0)));
+    const credited = round2(Math.min(grossTotal, Math.max(0, Number(extras.credited || 0))));
+    const receivable = round2(Math.max(0, grossTotal - credited));
     const allocated = round2(Math.max(0, Number(allocatedAmount || 0)));
-    const open = round2(Math.max(0, grossTotal - allocated));
-    const overpaid = round2(Math.max(0, allocated - grossTotal));
+    const excess = round2(Math.max(0, Number(extras.excess || 0)));
+    const open = round2(Math.max(0, receivable - allocated));
+    const overpaid = round2(Math.max(0, allocated - receivable));
+    const refundPending = round2(overpaid + excess);
 
     let paymentState = 'open';
-    if (overpaid > 0.009) paymentState = 'overpaid';
-    else if (open <= 0.009 && grossTotal > 0) paymentState = 'paid';
+    if (refundPending > 0.009) paymentState = 'overpaid';
+    else if (open <= 0.009 && receivable > 0.009) paymentState = 'paid';
+    else if (open <= 0.009 && grossTotal > 0.009) paymentState = 'credited';
     else if (allocated > 0.009) paymentState = 'partially_paid';
 
     return {
@@ -210,9 +422,20 @@ class PaymentService {
       isCreditNote: Boolean(invoice.isCreditNote),
       status: invoice.status || '',
       total: grossTotal,
+      // Wertmindernde Gutschriften und daraus die tatsaechliche Forderung.
+      credited,
+      receivable,
       allocated,
       open,
       overpaid,
+      // Insgesamt fuer diesen Beleg eingegangenes Geld - auch der Teil, der ueber die
+      // Forderung hinausgeht und deshalb nicht zugeordnet werden konnte.
+      received: round2(allocated + excess),
+      // "Ueberzahlt / Erstattung offen": der Betrag, der dem Kunden zurueckzuzahlen ist.
+      refundPending,
+      refunded: round2(Math.max(0, Number(extras.refunded || 0))),
+      refundsInProgress: round2(Math.max(0, Number(extras.refundsInProgress || 0))),
+      unallocatedCredit: 0,
       paymentState,
     };
   }
@@ -271,127 +494,113 @@ class PaymentService {
   }
 
   /**
-   * Abgeleiteter Zahlungsstand einer ganzen Buchung.
-   * `total` ist die Summe der offenen Forderungen (Rechnungen ohne Gutschriften und
-   * ohne stornierte Belege); `received` das insgesamt eingegangene Geld.
-   */
-  static async computeBookingBalance({ bookingId, invoices = null, orderIds = [], orderValue = null } = {}) {
-    const bookingKey = toIdString(bookingId);
-    if (!bookingKey) return null;
-
-    const invoiceDocs = invoices || await Invoice.find({ bookingId: bookingKey })
-      .select('_id invoiceNumber total paidAmount status isCreditNote dueDate createdAt')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const receivables = invoiceDocs.filter((invoice) => !invoice.isCreditNote && invoice.status !== 'cancelled');
-    const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(receivables.map((invoice) => invoice._id));
-
-    const byInvoice = receivables.map((invoice) => PaymentService.buildInvoiceBalance(
-      invoice,
-      Number(allocatedByInvoice.get(toIdString(invoice._id)) || 0)
-    ));
-
-    const invoicedTotal = round2(byInvoice.reduce((sum, entry) => sum + entry.total, 0));
-    const allocated = round2(byInvoice.reduce((sum, entry) => sum + entry.allocated, 0));
-    const open = round2(byInvoice.reduce((sum, entry) => sum + entry.open, 0));
-
-    // Dieselbe Trefferregel wie im Listenweg - inklusive der Auftraege der Buchung,
-    // auch wenn der Aufrufer keine `orderIds` mitgibt.
-    const { conditions: matchConditions } = await PaymentService.buildBookingPaymentMatch({
-      bookingIds: [bookingKey],
-      invoices: invoiceDocs,
-      orderIds,
-    });
-
-    const payments = await Payment.find({ $or: matchConditions })
-      .select('_id amount refundAmount status')
-      .lean();
-    const received = round2(payments
-      .filter(isCountablePayment)
-      .reduce((sum, payment) => sum + effectivePaymentAmount(payment), 0));
-
-    // Bezugsgroesse fuer den Buchungssaldo: solange keine Rechnung existiert, ist es
-    // der Auftragswert - sonst die Summe der gestellten Forderungen. Ohne diese
-    // Unterscheidung waere jede Vorauszahlung vor der Rechnungsstellung eine
-    // "Ueberzahlung".
-    const reference = invoicedTotal > 0.009
-      ? invoicedTotal
-      : round2(Math.max(0, Number(orderValue || 0)));
-
-    return {
-      bookingId: bookingKey,
-      orderValue: round2(Math.max(0, Number(orderValue || 0))),
-      reference,
-      invoicedTotal,
-      // allocated/invoiceOpen sind belegbezogen (Regel 3: zugeordnete Zahlungen).
-      allocated,
-      invoiceOpen: open,
-      // open/overpaid sind vorgangsbezogen: tatsaechlich eingegangenes Geld gegen die
-      // Bezugsgroesse. Nie negativ - eine Ueberzahlung steht separat in `overpaid`.
-      open: round2(Math.max(0, reference - received)),
-      received,
-      unallocated: round2(Math.max(0, received - allocated)),
-      overpaid: round2(Math.max(0, received - reference)),
-      byInvoice,
-    };
-  }
-
-  /**
-   * Zuordnungen fuer viele Buchungen auf einmal (Listen-Endpunkte).
+   * GEMEINSAMER Kern fuer Detail- (computeBookingBalance) und Listenweg
+   * (getBookingBalancesBulk). Beide duerfen fuer dieselbe Buchung nie verschiedene
+   * Zahlen liefern - deshalb gibt es genau diese eine Berechnung.
    *
-   * ACHTUNG zur Benennung: `open` ist hier - wie `invoiceOpen` in
-   * computeBookingBalance - BELEGbezogen (Summe der offenen Rechnungsbetraege).
-   * Der VORGANGSbezogene offene Betrag (Bezugsgroesse minus eingegangenes Geld)
-   * braucht den Auftragswert und entsteht erst in
-   * BookingService.buildPaymentBalanceMap, das `open` hier auf `invoiceOpen`
-   * abbildet. Beide Wege muessen fuer dieselbe Buchung dieselben Zahlen liefern.
+   * Bezugsgroesse (reference):
+   *   - ohne Rechnung: der Auftragswert der Buchung,
+   *   - mit Rechnung(en): Summe der Forderungen (Brutto minus wertmindernde
+   *     Gutschriften) PLUS der Wert der Auftraege, die noch auf keiner Rechnung
+   *     stehen. Frueher zaehlte nur die Rechnungssumme - eine Vorauszahlung fuer zwei
+   *     Auftraege erschien nach der ersten Teilrechnung als "Ueberzahlung".
    *
-   * @returns {Promise<Map<string, {invoicedTotal, allocated, open, invoiceOpen, overpaid, received, unallocated}>>}
+   * @returns {Promise<Map<string, object>>}
    */
-  static async getBookingBalancesBulk(bookingIds = []) {
-    const ids = (bookingIds || []).map(toIdString).filter(Boolean);
+  static async computeBookingBalancesCore(bookingIds = [], { orderValueByBooking = null, extraOrderIds = [] } = {}) {
+    const ids = [...new Set((bookingIds || []).map(toIdString).filter(Boolean))];
     const result = new Map();
     if (ids.length === 0) return result;
 
-    const invoices = await Invoice.find({ bookingId: { $in: ids } })
-      .select('_id bookingId invoiceNumber total status isCreditNote')
-      .lean();
+    const [invoices, orders] = await Promise.all([
+      Invoice.find({ bookingId: { $in: ids } })
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id bookingId invoiceNumber total paidAmount status isCreditNote dueDate createdAt orderId repairOrderIds')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Order.find({ bookingId: { $in: ids } })
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id bookingId totalCost status')
+        .lean(),
+    ]);
+
+    let orderValues = orderValueByBooking;
+    if (!orderValues) {
+      const Booking = require('../models/Booking');
+      const bookings = await Booking.find({ _id: { $in: ids } })
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id totalCost')
+        .lean();
+      orderValues = new Map(bookings.map((booking) => [toIdString(booking._id), Number(booking.totalCost || 0)]));
+    }
 
     const receivables = invoices.filter((invoice) => !invoice.isCreditNote && invoice.status !== 'cancelled');
-    const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(receivables.map((invoice) => invoice._id));
+    const balances = await PaymentService.getInvoiceBalances(receivables, { bookingCap: false });
 
-    // Zahlungen werden nach DERSELBEN Regel gesucht wie in computeBookingBalance:
-    // ueber die Buchung ODER eine ihrer Rechnungen ODER einen ihrer Auftraege.
-    // Beide Wege teilen sich dafuer buildBookingPaymentMatch, damit sie nicht
-    // wieder auseinanderlaufen koennen.
+    // Dieselbe Trefferregel wie ueberall: ueber die Buchung ODER eine ihrer Rechnungen
+    // ODER einen ihrer Auftraege. Eine Abfrage mit $or liefert jedes Dokument genau
+    // einmal - doppelt gezaehlt werden kann hier nichts.
     const {
       conditions: paymentMatch,
       bookingByInvoiceId,
       bookingByOrderId,
-    } = await PaymentService.buildBookingPaymentMatch({ bookingIds: ids, invoices });
+    } = await PaymentService.buildBookingPaymentMatch({ bookingIds: ids, invoices, orderIds: extraOrderIds });
+    const payments = paymentMatch.length > 0
+      ? await Payment.find({ $or: paymentMatch })
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id bookingId invoiceId orderId amount refundAmount status')
+        .lean()
+      : [];
 
-    // Eine Abfrage mit $or liefert jedes Dokument genau einmal, auch wenn mehrere
-    // Bedingungen zutreffen - doppelt gezaehlt werden kann hier nichts.
-    const payments = await Payment.find({ $or: paymentMatch })
-      .select('_id bookingId invoiceId orderId amount refundAmount status')
-      .lean();
-
-    ids.forEach((id) => result.set(id, {
-      invoicedTotal: 0, allocated: 0, open: 0, invoiceOpen: 0, overpaid: 0, received: 0, unallocated: 0,
-    }));
+    ids.forEach((id) => {
+      const orderValue = round2(Math.max(0, Number(orderValues.get(id) || 0)));
+      result.set(id, {
+        bookingId: id,
+        orderValue,
+        invoicedTotal: 0,
+        invoicedGross: 0,
+        credited: 0,
+        allocated: 0,
+        invoiceOpen: 0,
+        received: 0,
+        uninvoicedValue: 0,
+        nonReceivableOrderValue: 0,
+        reference: orderValue,
+        byInvoice: [],
+        coveredOrderIds: new Set(),
+        hasReceivables: false,
+      });
+    });
 
     receivables.forEach((invoice) => {
-      const key = toIdString(invoice.bookingId);
-      const entry = result.get(key);
-      if (!entry) return;
-      const balance = PaymentService.buildInvoiceBalance(
-        invoice,
-        Number(allocatedByInvoice.get(toIdString(invoice._id)) || 0)
-      );
-      entry.invoicedTotal = round2(entry.invoicedTotal + balance.total);
+      const entry = result.get(toIdString(invoice.bookingId));
+      const balance = balances.get(toIdString(invoice._id));
+      if (!entry || !balance) return;
+      entry.hasReceivables = true;
+      entry.byInvoice.push(balance);
+      entry.invoicedTotal = round2(entry.invoicedTotal + balance.receivable);
+      entry.invoicedGross = round2(entry.invoicedGross + balance.total);
+      entry.credited = round2(entry.credited + balance.credited);
       entry.allocated = round2(entry.allocated + balance.allocated);
-      entry.open = round2(entry.open + balance.open);
+      entry.invoiceOpen = round2(entry.invoiceOpen + balance.open);
+      if (invoice.orderId) entry.coveredOrderIds.add(toIdString(invoice.orderId));
+      (invoice.repairOrderIds || []).forEach((orderId) => entry.coveredOrderIds.add(toIdString(orderId)));
+    });
+
+    orders.forEach((order) => {
+      const entry = result.get(toIdString(order.bookingId));
+      if (!entry) return;
+      if (entry.coveredOrderIds.has(toIdString(order._id))) return;
+      // Ein stornierter Auftrag traegt keine Forderung: er zaehlt weder als "noch nicht
+      // berechnet" noch - ohne Rechnung - im Auftragswert der Buchung (der ihn als
+      // Summe aller Auftraege noch enthaelt). Frueher blieb die Buchung dadurch mit dem
+      // Wert des stornierten Geraets "teilbezahlt".
+      if (NON_RECEIVABLE_ORDER_STATUSES.includes(String(order.status || ''))) {
+        entry.nonReceivableOrderValue = round2(entry.nonReceivableOrderValue + Math.max(0, Number(order.totalCost || 0)));
+        return;
+      }
+      if (!entry.hasReceivables) return;
+      entry.uninvoicedValue = round2(entry.uninvoicedValue + Math.max(0, Number(order.totalCost || 0)));
     });
 
     payments.filter(isCountablePayment).forEach((payment) => {
@@ -407,15 +616,113 @@ class PaymentService {
     });
 
     result.forEach((entry) => {
-      entry.overpaid = round2(Math.max(0, entry.received - entry.invoicedTotal));
+      entry.reference = entry.hasReceivables
+        ? round2(entry.invoicedTotal + entry.uninvoicedValue)
+        : round2(Math.max(0, entry.orderValue - entry.nonReceivableOrderValue));
+      entry.open = round2(Math.max(0, entry.reference - entry.received));
+      entry.overpaid = round2(Math.max(0, entry.received - entry.reference));
       entry.unallocated = round2(Math.max(0, entry.received - entry.allocated));
-      // Gleicher Wert unter dem Namen, den die Detailansicht benutzt - damit ein
-      // Aufrufer, der nach `invoiceOpen` greift, nicht undefined bekommt und den
-      // belegbezogenen Wert nie versehentlich als vorgangsbezogen liest.
-      entry.invoiceOpen = entry.open;
+      delete entry.coveredOrderIds;
+      delete entry.hasReceivables;
     });
 
     return result;
+  }
+
+  /**
+   * Abgeleiteter Zahlungsstand einer ganzen Buchung.
+   * `invoicedTotal` ist die Summe der Forderungen (Rechnungen ohne Gutschriften und
+   * ohne stornierte Belege, abzueglich wertmindernder Gutschriften); `received` das
+   * insgesamt eingegangene Geld. `invoices` wird aus Kompatibilitaetsgruenden noch
+   * angenommen, die Berechnung liest aber immer den vollstaendigen Belegsatz.
+   */
+  static async computeBookingBalance({ bookingId, invoices = null, orderIds = [], orderValue = null } = {}) { // eslint-disable-line no-unused-vars
+    const bookingKey = toIdString(bookingId);
+    if (!bookingKey) return null;
+
+    const core = await PaymentService.computeBookingBalancesCore([bookingKey], {
+      orderValueByBooking: orderValue == null ? null : new Map([[bookingKey, Number(orderValue || 0)]]),
+      extraOrderIds: orderIds,
+    });
+    const entry = core.get(bookingKey);
+    if (!entry) return null;
+
+    return {
+      bookingId: bookingKey,
+      orderValue: entry.orderValue,
+      reference: entry.reference,
+      invoicedTotal: entry.invoicedTotal,
+      invoicedGross: entry.invoicedGross,
+      credited: entry.credited,
+      uninvoicedValue: entry.uninvoicedValue,
+      // allocated/invoiceOpen sind belegbezogen (Regel 3: zugeordnete Zahlungen).
+      allocated: entry.allocated,
+      invoiceOpen: entry.invoiceOpen,
+      // open/overpaid sind vorgangsbezogen: tatsaechlich eingegangenes Geld gegen die
+      // Bezugsgroesse. Nie negativ - eine Ueberzahlung steht separat in `overpaid`.
+      open: entry.open,
+      received: entry.received,
+      unallocated: entry.unallocated,
+      overpaid: entry.overpaid,
+      byInvoice: entry.byInvoice,
+    };
+  }
+
+  /**
+   * Zahlungsstand fuer viele Buchungen auf einmal (Listen-Endpunkte), ueber
+   * DENSELBEN Kern wie computeBookingBalance.
+   *
+   * ACHTUNG zur Benennung: `open` ist hier - wie `invoiceOpen` in
+   * computeBookingBalance - BELEGbezogen (Summe der offenen Rechnungsbetraege). Der
+   * VORGANGSbezogene offene Betrag steht in `bookingOpen`, die Bezugsgroesse in
+   * `reference`. BookingService.buildPaymentBalanceMap soll `reference` verwenden.
+   *
+   * @returns {Promise<Map<string, {invoicedTotal, allocated, open, invoiceOpen, overpaid, received, unallocated, reference, bookingOpen}>>}
+   */
+  static async getBookingBalancesBulk(bookingIds = []) {
+    const core = await PaymentService.computeBookingBalancesCore(bookingIds);
+    const result = new Map();
+    core.forEach((entry, key) => {
+      result.set(key, {
+        invoicedTotal: entry.invoicedTotal,
+        allocated: entry.allocated,
+        open: entry.invoiceOpen,
+        invoiceOpen: entry.invoiceOpen,
+        overpaid: entry.overpaid,
+        received: entry.received,
+        unallocated: entry.unallocated,
+        reference: entry.reference,
+        bookingOpen: entry.open,
+        uninvoicedValue: entry.uninvoicedValue,
+      });
+    });
+    return result;
+  }
+
+  /**
+   * Belegstatus aus dem Zahlungsstand - EINE Regel fuer Zuordnung, Neuableitung und
+   * Wertsynchronisation. Massgeblich ist die Forderung (Brutto minus wertmindernde
+   * Gutschriften), nicht das Brutto allein: eine teilweise gutgeschriebene Rechnung
+   * ist mit dem Restbetrag vollstaendig bezahlt.
+   *
+   * Liefert nur die zu setzenden Felder; der Aufrufer entscheidet vorher, ob der
+   * Beleg ueberhaupt fortgeschrieben werden darf (Entwurf/Freigabe/storniert nicht).
+   */
+  static resolvePaymentDerivedStatus({ status, total, credited = 0, paidAmount, paidAt = null, dueDate = null }) {
+    const gross = round2(Math.abs(Number(total || 0)));
+    const receivable = round2(Math.max(0, gross - Math.max(0, Number(credited || 0))));
+    const paid = round2(Math.max(0, Number(paidAmount || 0)));
+
+    if (receivable > 0.009 && paid >= receivable - 0.01) {
+      return { status: 'paid', paidAt: paidAt || new Date(), dunningLevel: 0, dunningStage: 'none' };
+    }
+    if (paid > 0.009) {
+      return { status: 'partially_paid', paidAt: null };
+    }
+    if (['paid', 'partially_paid'].includes(String(status || ''))) {
+      return { status: dueDate && new Date(dueDate) < new Date() ? 'overdue' : 'sent', paidAt: null };
+    }
+    return {};
   }
 
   /**
@@ -433,10 +740,72 @@ class PaymentService {
    *
    * @returns {Promise<{allocation, invoice, allocatedAmount}|null>} null = Rennen verloren
    */
-  static async allocateAtomically({ payment, invoice, amount, note = '', orderId = null }) {
-    const allocatable = round2(amount);
-    if (!(allocatable > 0.009)) return null;
+  static async allocateAtomically({ payment, invoice, amount, note = '', orderId = null, allowPartial = false }) {
+    const requested = round2(amount);
+    if (!(requested > 0.009)) return null;
 
+    // Serialisierung auf der RECHNUNG: nur ein Zuordnungslauf je Beleg gleichzeitig, und
+    // der offene Betrag wird INNERHALB der Sperre frisch gelesen. So koennen zwei
+    // verschiedene Zahlungen denselben offenen Betrag nie beide belegen.
+    return PaymentService.withInvoiceAllocationLock(invoice._id, async () => {
+      const freshInvoice = await Invoice.findById(invoice._id)
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id invoiceNumber total isCreditNote status bookingId createdAt')
+        .lean();
+      if (!freshInvoice || freshInvoice.isCreditNote) return null;
+      const balance = (await PaymentService.getInvoiceBalances([freshInvoice], { bookingCap: false }))
+        .get(toIdString(freshInvoice._id));
+      const open = round2(Number(balance?.open || 0));
+      if (requested > open + 0.009 && !allowPartial) return null;
+      const allocatable = round2(Math.min(requested, open));
+      if (!(allocatable > 0.009)) return null;
+      return PaymentService.allocateWithinInvoiceLock({ payment, invoice, allocatable, note, orderId });
+    });
+  }
+
+  /**
+   * Fuehrt `fn` unter der Zuordnungssperre der Rechnung aus. Die Sperre ist ein
+   * bedingtes Update auf Invoice.allocationLock (Token + Zeitpunkt), wartet kurz auf
+   * einen laufenden Lauf und uebernimmt eine verwaiste Sperre nach
+   * INVOICE_ALLOCATION_LOCK_STALE_MS. Liefert null, wenn die Sperre nicht zu bekommen war.
+   */
+  static async withInvoiceAllocationLock(invoiceId, fn) {
+    const id = toIdString(invoiceId);
+    if (!mongoose.Types.ObjectId.isValid(id)) return null;
+    const token = new mongoose.Types.ObjectId().toHexString();
+    for (let attempt = 0; attempt < INVOICE_ALLOCATION_LOCK_ATTEMPTS; attempt += 1) {
+      const now = new Date();
+      const claimed = await Invoice.updateOne(
+        {
+          _id: id,
+          $or: [
+            { 'allocationLock.token': { $exists: false } },
+            { 'allocationLock.token': { $in: [null, ''] } },
+            { 'allocationLock.at': { $lt: new Date(now.getTime() - INVOICE_ALLOCATION_LOCK_STALE_MS) } },
+          ],
+        },
+        { $set: { allocationLock: { token, at: now } } }
+      );
+      if (claimed.modifiedCount === 1) {
+        try {
+          return await fn();
+        } finally {
+          await Invoice.updateOne({ _id: id, 'allocationLock.token': token }, { $unset: { allocationLock: 1 } })
+            .catch((error) => console.error('PaymentService: invoice allocation lock not released:', error.message));
+        }
+      }
+      if (claimed.matchedCount === 0) {
+        const exists = await Invoice.exists({ _id: id });
+        if (!exists) return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, INVOICE_ALLOCATION_LOCK_WAIT_MS + Math.floor(Math.random() * INVOICE_ALLOCATION_LOCK_WAIT_MS)));
+    }
+    console.warn('PaymentService: invoice allocation lock not obtained for invoice', id);
+    return null;
+  }
+
+  // Zuordnung einer Zahlung; nur unter withInvoiceAllocationLock aufrufen.
+  static async allocateWithinInvoiceLock({ payment, invoice, allocatable, note = '', orderId = null }) {
     // Sperrwert und Budget kommen IMMER frisch aus der Datenbank. Der uebergebene
     // Zahlungsbeleg darf nicht als Erwartungswert dienen: Aufrufer ueberschreiben
     // `allocatedAmount` im Speicher mit einem nachgerechneten Wert, womit die
@@ -520,20 +889,20 @@ class PaymentService {
 
       if (incremented) {
         const paidAmount = round2(Number(incremented.paidAmount || 0));
-        const total = round2(Number(incremented.total || 0));
+        const credited = Number((await PaymentService.getValueCreditedByInvoice([incremented._id])).get(toIdString(incremented._id)) || 0);
         const statusUpdate = { paidAmount };
         // Belegstatus nur fortschreiben, wenn der Beleg die Freigabe hinter sich hat.
         // Ein Entwurf darf nicht ueber eine Zuordnung auf 'paid' gedraengt werden -
         // INVOICE_STATUS_TRANSITIONS kennt diesen Uebergang nicht.
         if (ALLOCATABLE_INVOICE_STATUSES.includes(String(incremented.status || ''))) {
-          if (total > 0 && paidAmount >= total - 0.01) {
-            statusUpdate.status = 'paid';
-            statusUpdate.paidAt = incremented.paidAt || new Date();
-            statusUpdate.dunningLevel = 0;
-            statusUpdate.dunningStage = 'none';
-          } else if (paidAmount > 0.009) {
-            statusUpdate.status = 'partially_paid';
-          }
+          Object.assign(statusUpdate, PaymentService.resolvePaymentDerivedStatus({
+            status: incremented.status,
+            total: incremented.total,
+            credited,
+            paidAmount,
+            paidAt: incremented.paidAt,
+            dueDate: incremented.dueDate,
+          }));
         }
         // Gezielter $set statt save(): der Betragshook der Rechnung bleibt unberuehrt.
         await Invoice.updateOne({ _id: invoice._id }, { $set: statusUpdate });

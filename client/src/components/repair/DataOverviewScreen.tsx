@@ -16,7 +16,17 @@ import {
   Play,
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { getKnownRepairCost } from '@/api/deviceInspection';
 import { CorrectionModal } from './CorrectionModal';
+
+const VERIFICATION_STATUS_LABELS: Record<string, string> = {
+  correct: 'Modell stimmt überein',
+  'incorrect-more-expensive': 'Abweichend – teureres Modell',
+  'incorrect-same-cheaper': 'Abweichend – gleichwertig oder günstiger',
+  unverifiable: 'Nicht verifizierbar',
+};
+
+const formatEuro = (value: number) => value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 
 interface DataOverviewScreenProps {
   orderId: string;
@@ -71,7 +81,11 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to approve repair');
+      if (!response.ok) {
+        // Die deutsche Servermeldung (z. B. 409 "bereits in Bearbeitung") anzeigen.
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.message || 'Der Reparatur-Workflow konnte nicht gestartet werden.');
+      }
 
       const data = await response.json();
       onWorkflowUpdated(data.workflow);
@@ -159,9 +173,9 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
               <div className="grid grid-cols-2 gap-px bg-[#1a2a5e]/08 p-px">
                 {[
                   { label: 'Auftragsnummer', value: order.orderNumber },
-                  { label: 'Gerät', value: `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim() || 'N/A' },
-                  { label: 'Gerätetyp', value: order.deviceType || 'N/A' },
-                  { label: 'Kunde', value: order.customerId?.name || order.customerId?.firstName || 'N/A' },
+                  { label: 'Gerät', value: `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim() || '—' },
+                  { label: 'Gerätetyp', value: order.deviceType || '—' },
+                  { label: 'Kunde', value: order.customerId?.name || order.customerId?.firstName || '—' },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-white p-3 space-y-0.5">
                     <p className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">{label}</p>
@@ -182,7 +196,7 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
                         </span>
                         {service?.price != null && (
                           <span className="text-[10px] font-semibold text-[#1a2a5e]">
-                            {Number(service.price).toFixed(2)} €
+                            {formatEuro(Number(service.price))}
                           </span>
                         )}
                       </div>
@@ -194,7 +208,7 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
                 {typeof order.totalCost === 'number' && (
                   <div className="flex items-center justify-between pt-1 border-t border-[#1a2a5e]/08">
                     <span className="text-[10px] font-medium text-[#1a2a5e]/60">Gesamt</span>
-                    <span className="text-xs font-bold text-[#1a2a5e]">{order.totalCost.toFixed(2)} €</span>
+                    <span className="text-xs font-bold text-[#1a2a5e]">{formatEuro(Number(order.totalCost))}</span>
                   </div>
                 )}
               </div>
@@ -236,8 +250,9 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
 
             <div className="bg-white divide-y divide-[#1a2a5e]/08">
 
-              {/* Summary grid: Modell, Identifikation, Gerätetests, Reparierbar */}
-              {(inspection.modelVerification || inspection.identification || inspection.deviceTest || typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
+              {/* Summary grid: Modell, Identifikation, Gerätetests, Kostenvoranschlag.
+                  Keine "Reparierbar"-Aussage: gespeicherte Altwerte waren Client-Vorgaben. */}
+              {(inspection.modelVerification || inspection.identification || inspection.deviceTest || inspection.repairOffer) && (
                 <div className="grid grid-cols-2 gap-px bg-[#1a2a5e]/08 p-px">
                   {inspection.modelVerification && (
                     <div className="bg-white p-3 space-y-1">
@@ -260,14 +275,16 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
                         ) : (
                           <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
                         )}
-                        <span className="text-[10px] text-muted-foreground capitalize">
-                          {inspection.modelVerification.verificationStatus?.replace(/-/g, ' ')}
+                        <span className="text-[10px] text-muted-foreground">
+                          {inspection.modelVerification.verificationStatus
+                            ? (VERIFICATION_STATUS_LABELS[inspection.modelVerification.verificationStatus] || 'Unbekannter Prüfstatus')
+                            : 'Nicht geprüft'}
                         </span>
                       </div>
                       {inspection.modelVerification.costDifference != null &&
                         inspection.modelVerification.costDifference !== 0 && (
                           <p className="text-[10px] text-amber-600">
-                            Preisdifferenz: {inspection.modelVerification.costDifference > 0 ? '+' : ''}{inspection.modelVerification.costDifference} €
+                            Preisdifferenz: {inspection.modelVerification.costDifference > 0 ? '+' : ''}{formatEuro(Number(inspection.modelVerification.costDifference))}
                           </p>
                       )}
                       {inspection.modelVerification.notes && (
@@ -330,30 +347,20 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
                     </div>
                   )}
 
-                  {(typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
+                  {inspection.repairOffer && (() => {
+                    // Nur ein tatsächlich angegebener Preis; eine Alt-0 ohne Kennzeichnung ist unbekannt.
+                    const knownCost = getKnownRepairCost(inspection);
+                    return (
                     <div className="bg-white p-3 space-y-1">
-                      {typeof inspection.isRepairable === 'boolean' && (
-                        <>
-                          <div className="flex items-center gap-1.5">
-                            <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
-                            <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Reparierbar</span>
-                          </div>
-                          {inspection.isRepairable ? (
-                            <div className="flex items-center gap-1">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                              <span className="text-xs font-semibold text-emerald-600">Ja</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-                              <span className="text-xs font-semibold text-red-600">Nein</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {inspection.repairOffer?.cost != null && inspection.repairOffer.cost > 0 && (
-                        <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.cost} €</p>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                        <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Kostenvoranschlag</span>
+                      </div>
+                      <p className="text-xs font-semibold text-[#1a2a5e]">
+                        {knownCost === null
+                          ? 'Kosten: nicht angegeben'
+                          : `${formatEuro(knownCost)}${knownCost === 0 ? ' (kostenlos)' : ''}`}
+                      </p>
                       {inspection.repairOffer?.timeframe && (
                         <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.timeframe}</p>
                       )}
@@ -361,7 +368,8 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
                         <p className="text-[10px] text-muted-foreground italic break-words">{inspection.repairOffer.description}</p>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
 

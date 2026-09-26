@@ -39,6 +39,13 @@ interface WorkflowStep {
   totalPausedMinutes?: number
 }
 
+const STEP_STATUS_LABELS: Record<string, string> = {
+  completed: 'Abgeschlossen',
+  'in-progress': 'In Bearbeitung',
+  skipped: 'Übersprungen',
+  pending: 'Ausstehend',
+}
+
 interface WorkflowExecutionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -392,27 +399,35 @@ export function WorkflowExecutionModal({
                     )
                   })}
                 </div>
-                {/* Sidebar footer: close/pause */}
-                <div className="flex-shrink-0 border-t border-gray-100 p-2">
+                {/* Sidebar footer: Schließen und Pausieren sind getrennte Aktionen.
+                    Schließen ändert den Arbeitszustand nicht - ein laufender Workflow
+                    bleibt "In Bearbeitung" und lässt sich direkt wieder öffnen. */}
+                <div className="flex-shrink-0 border-t border-gray-100 p-2 space-y-1.5">
+                  {workflow.status === 'in-progress' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={() => setShowPauseReasonDialog(true)}
+                      disabled={isLoading}
+                    >
+                      <PauseCircle className="h-3.5 w-3.5 mr-1.5 text-amber-600" />Pausieren
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full text-xs"
-                    onClick={() => {
-                      if (workflow.status === 'in-progress') {
-                        setShowPauseReasonDialog(true)
-                      } else {
-                        onOpenChange(false)
-                      }
-                    }}
+                    onClick={() => onOpenChange(false)}
                     disabled={isLoading}
                   >
-                    {workflow.status === 'in-progress' ? (
-                      <><PauseCircle className="h-3.5 w-3.5 mr-1.5 text-amber-600" />Pausieren</>
-                    ) : (
-                      <><X className="h-3.5 w-3.5 mr-1.5" />Schliessen</>
-                    )}
+                    <X className="h-3.5 w-3.5 mr-1.5" />Schließen
                   </Button>
+                  {workflow.status === 'in-progress' && (
+                    <p className="text-[10px] leading-snug text-slate-500">
+                      Schließen ändert den Status nicht – der Workflow bleibt in Bearbeitung.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -515,7 +530,7 @@ export function WorkflowExecutionModal({
                     {workflow.workflowName}
                   </DialogTitle>
                   <DialogDescription className="mt-2 text-blue-100">
-                    {totalSteps} Steps • {Math.round(totalEstimatedTime)} Minuten Richtzeit
+                    {totalSteps} Schritte • {Math.round(totalEstimatedTime)} Minuten Richtzeit
                   </DialogDescription>
                   <div className="mt-3 h-2 w-full rounded-full bg-white/20">
                     <div
@@ -524,13 +539,13 @@ export function WorkflowExecutionModal({
                     />
                   </div>
                   <p className="mt-2 text-xs text-blue-100">
-                    {completedSteps}/{totalSteps} Steps erledigt
+                    {completedSteps}/{totalSteps} Schritte erledigt
                   </p>
                 </div>
                 <Badge variant="outline" className="whitespace-nowrap border-white/30 bg-white text-[#1a2a5e]">
                   {mode === 'start' && 'Bereit zum Start'}
                   {mode === 'resume' && 'Bereit zum Fortsetzen'}
-                  {mode === 'view' && 'Workflow Uebersicht'}
+                  {mode === 'view' && 'Workflow-Übersicht (nur lesen)'}
                 </Badge>
               </div>
             </div>
@@ -621,7 +636,7 @@ export function WorkflowExecutionModal({
                       )}`}
                     >
                       {getStepStatusIcon(currentStep.status)}
-                      <span className="capitalize">{currentStep.status}</span>
+                      <span>{STEP_STATUS_LABELS[currentStep.status] || currentStep.status}</span>
                     </Badge>
                   </div>
                 </CardHeader>
@@ -633,7 +648,7 @@ export function WorkflowExecutionModal({
                     </div>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    Dieser Schritt erfordert sorgfaeltiges Arbeiten. Folge den Hinweisen und stelle sicher, dass alle Qualitaetspruefungen abgeschlossen sind.
+                    Dieser Schritt erfordert sorgfältiges Arbeiten. Folge den Hinweisen und stelle sicher, dass alle Qualitätsprüfungen abgeschlossen sind.
                   </p>
                 </CardContent>
               </Card>
@@ -692,10 +707,10 @@ export function WorkflowExecutionModal({
               <CardContent className="text-sm space-y-2 text-amber-900">
                 <ul className="list-disc list-inside space-y-1">
                   <li>Bearbeite die Schritte in der angegebenen Reihenfolge</li>
-                  <li>Pruefe die Schrittdetails, bevor du fortfaehrst</li>
+                  <li>Prüfe die Schrittdetails, bevor du fortfährst</li>
                   <li>Du kannst den Workflow bei Bedarf jederzeit pausieren</li>
-                  <li>Schritte nur im Ausnahmefall ueberspringen</li>
-                  <li>Dokumentiere Auffaelligkeiten fuer die Qualitaetssicherung</li>
+                  <li>Schritte nur im Ausnahmefall überspringen</li>
+                  <li>Dokumentiere Auffälligkeiten für die Qualitätssicherung</li>
                 </ul>
               </CardContent>
             </Card>
@@ -709,7 +724,7 @@ export function WorkflowExecutionModal({
               }}
               disabled={isLoading}
             >
-              {mode === 'view' ? 'Schliessen' : 'Abbrechen'}
+              {mode === 'view' ? 'Schließen' : 'Abbrechen'}
             </Button>
 
             <div className="flex gap-2">
@@ -742,7 +757,7 @@ export function WorkflowExecutionModal({
                 disabled={isLoading}
                 className="flex-1"
               >
-                {isLoading ? 'Lade...' : mode === 'start' ? 'Bestaetigen & Starten' : 'Bestaetigen & Fortsetzen'}
+                {isLoading ? 'Lade …' : mode === 'start' ? 'Bestätigen & Starten' : 'Bestätigen & Fortsetzen'}
               </Button>
             )}
           </DialogFooter>
@@ -759,13 +774,13 @@ export function WorkflowExecutionModal({
             <AlertDialogDescription>
               {mode === 'start'
                 ? `Du bist dabei, "${workflow.workflowName}" zu starten. Dieser Workflow hat ${totalSteps} Schritte und dauert voraussichtlich ca. ${Math.round(totalEstimatedTime)} Minuten.`
-                : `Du bist dabei, "${workflow.workflowName}" fortzusetzen. Der Workflow laeuft ab der letzten Pausenstelle weiter.`}
+                : `Du bist dabei, "${workflow.workflowName}" fortzusetzen. Der Workflow läuft ab der letzten Pausenstelle weiter.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isLoading}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isLoading}>
-              {isLoading ? 'Verarbeite...' : mode === 'start' ? 'Workflow starten' : 'Workflow fortsetzen'}
+              {isLoading ? 'Verarbeite …' : mode === 'start' ? 'Workflow starten' : 'Workflow fortsetzen'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

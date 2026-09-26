@@ -29,6 +29,18 @@ import {
   getCompatibleServices,
 } from "@/api/adminOrders"
 import { searchDevices } from "@/api/devices"
+import {
+  buildRepricingConfirmation,
+  isRepricingConfirmationOutdated,
+  type OrderRepricingOptions,
+} from "@/api/orders"
+import {
+  ORDER_VALUE_NOT_RECONCILED,
+  describeRepricingConsequence,
+  readOrderServiceErrorCode,
+  readReconciliationDetails,
+  type OrderValueReconciliationDetails,
+} from "@/api/orderServices"
 
 interface PricingChange {
   serviceName: string
@@ -89,6 +101,8 @@ interface PricingChangesSummary {
   requiresConfirmation: boolean
   changedAt: string
   changedBy: string
+  // Hinweise des Servers (z. B. fehlgeschlagener Finanzabgleich) - die Änderung ist gespeichert.
+  warnings?: string[]
 }
 
 interface CurrentOrderService {
@@ -114,7 +128,14 @@ interface DeviceChangeDialogProps {
     type: string
   }
   currentServices: CurrentOrderService[]
+  // Nach "Bestätigen": der Gerätewechsel ist gespeichert und bestätigt.
   onDeviceChanged?: (order: any) => void
+  // Der Server speichert den Wechsel bereits bei "Neu berechnen". Schließt die
+  // Mitarbeiterin den Dialog danach ohne Bestätigung (Abbrechen, X, Escape, Klick
+  // neben den Dialog), muss die Seite den gespeicherten
+  // Stand NEU LADEN (keine Erfolgsmeldung, keine Rohantwort von /change-device
+  // einsetzen - die hat nicht die Form der Detailansicht).
+  onRefreshRequested?: () => void
 }
 
 export function DeviceChangeDialog({
@@ -124,6 +145,7 @@ export function DeviceChangeDialog({
   currentDevice,
   currentServices,
   onDeviceChanged,
+  onRefreshRequested,
 }: DeviceChangeDialogProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -144,7 +166,19 @@ export function DeviceChangeDialog({
   const [loadingCompatibleServices, setLoadingCompatibleServices] = useState(false)
   const [loading, setLoading] = useState(false)
   const [pricingChanges, setPricingChanges] = useState<PricingChangesSummary | null>(null)
+  // Der Server speichert den Gerätewechsel bereits bei der Neuberechnung. Das hier
+  // gemerkte Ergebnis sorgt dafür, dass die Seite auch bei "Abbrechen" den
+  // gespeicherten Stand anzeigt statt eines veralteten Geräts.
+  const [savedOrder, setSavedOrder] = useState<any | null>(null)
   const [confirming, setConfirming] = useState(false)
+  // 409 ORDER_VALUE_NOT_RECONCILED: der gespeicherte Auftragswert passt nicht zu den
+  // Positionen. Nichts wurde gespeichert; der Dialog zeigt die Abweichung und bietet die
+  // ausdrückliche Bestätigung an (gebunden an genau diese Abweichung).
+  const [repricingPrompt, setRepricingPrompt] = useState<{
+    message: string
+    details: OrderValueReconciliationDetails | null
+    outdated: boolean
+  } | null>(null)
   const [densityMode, setDensityMode] = useState<'standard' | 'kompakt'>('kompakt')
   const searchRequestIdRef = useRef(0)
   const wasOpenRef = useRef(false)
@@ -161,6 +195,8 @@ export function DeviceChangeDialog({
       setSelectedReplacementServiceId("")
       setServiceReplacementMap({})
       setPricingChanges(null)
+      setSavedOrder(null)
+      setRepricingPrompt(null)
       setDensityMode('kompakt')
     }
 
@@ -231,7 +267,7 @@ export function DeviceChangeDialog({
 
     const timer = setTimeout(async () => {
       try {
-        console.log("[DeviceChange] Live-Suche nach Geraeten:", query)
+        console.log("[DeviceChange] Live-Suche nach Geräten:", query)
         const response = await searchDevices(query)
 
         // Nur das aktuellste Suchergebnis uebernehmen.
@@ -240,7 +276,7 @@ export function DeviceChangeDialog({
         setSearchResults((response as any).devices || [])
       } catch (error) {
         if (activeRequestId !== searchRequestIdRef.current) return
-        console.error("[DeviceChange] Fehler bei der Geraetesuche:", error)
+        console.error("[DeviceChange] Fehler bei der Gerätesuche:", error)
         toast({
           title: "Fehler",
           description: "Die Live-Suche konnte nicht aktualisiert werden.",
@@ -262,11 +298,13 @@ export function DeviceChangeDialog({
     setSelectedDevice(device)
     setSelectedReplacementServiceId("")
     setServiceReplacementMap({})
+    setRepricingPrompt(null)
     console.log("[DeviceChange] Selected device:", device)
   }
 
   const assignServiceReplacement = () => {
     if (!selectedCurrentServiceId || !selectedReplacementServiceId) return
+    setRepricingPrompt(null)
     setServiceReplacementMap((previousMap) => ({
       ...previousMap,
       [selectedCurrentServiceId]: selectedReplacementServiceId,
@@ -274,6 +312,7 @@ export function DeviceChangeDialog({
   }
 
   const removeServiceReplacement = (currentServiceId: string) => {
+    setRepricingPrompt(null)
     setServiceReplacementMap((previousMap) => {
       const nextMap = { ...previousMap }
       delete nextMap[currentServiceId]
@@ -325,13 +364,14 @@ export function DeviceChangeDialog({
     Boolean(selectedDevice) &&
     (!hasCurrentServices || selectedServiceReplacements.length === currentServices.length)
 
-  const formatCurrency = (value: number) => `$${(Number(value) || 0).toFixed(2)}`
+  const formatCurrency = (value: number) =>
+    (Number(value) || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
 
-  const handleRecalculateServices = async () => {
+  const handleRecalculateServices = async (repricing?: OrderRepricingOptions) => {
     if (!selectedDevice) {
       toast({
         title: "Fehler",
-        description: "Bitte waehlen Sie zuerst ein Geraet aus.",
+        description: "Bitte wählen Sie zuerst ein Gerät aus.",
         variant: "destructive",
       })
       return
@@ -358,25 +398,48 @@ export function DeviceChangeDialog({
         selectedDevice.manufacturer,
         selectedDevice.name,
         selectedDevice.deviceType,
-        hasCurrentServices
-          ? {
-              serviceReplacements: selectedServiceReplacements.map(({ oldOrderServiceId, newServiceId }) => ({
-                oldOrderServiceId,
-                newServiceId,
-              })),
-            }
-          : undefined
+        {
+          ...(hasCurrentServices
+            ? {
+                serviceReplacements: selectedServiceReplacements.map(({ oldOrderServiceId, newServiceId }) => ({
+                  oldOrderServiceId,
+                  newServiceId,
+                })),
+              }
+            : {}),
+          ...(repricing || {}),
+        }
       )
 
+      setRepricingPrompt(null)
       setPricingChanges(result.pricingChangesSummary)
+      setSavedOrder(result.order || null)
       setStep('review')
 
       toast({
-        title: "Erfolg",
-        description: "Die Servicepreise wurden fuer das neue Geraet neu berechnet.",
+        title: "Gerätewechsel gespeichert",
+        description: "Gerät, Reparaturservices und Auftragswert wurden gespeichert. Bitte prüfen Sie die Preisänderung und bestätigen Sie anschließend.",
       })
+
+      const warnings: string[] = result.warnings || result.pricingChangesSummary?.warnings || []
+      if (warnings.length > 0) {
+        toast({
+          title: "Achtung",
+          description: warnings.join(' '),
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       console.error("[DeviceChange] Error recalculating services:", error)
+      if (readOrderServiceErrorCode(error) === ORDER_VALUE_NOT_RECONCILED) {
+        // Nichts gespeichert: Abweichung im Dialog zeigen, Bestätigung anbieten.
+        setRepricingPrompt({
+          message: error instanceof Error ? error.message : "Der gespeicherte Auftragswert passt nicht zu den Positionen.",
+          details: readReconciliationDetails(error),
+          outdated: isRepricingConfirmationOutdated(error),
+        })
+        return
+      }
       toast({
         title: "Fehler",
         description: error instanceof Error ? error.message : "Die Neuberechnung der Servicepreise ist fehlgeschlagen.",
@@ -396,19 +459,21 @@ export function DeviceChangeDialog({
 
       toast({
         title: "Erfolg",
-        description: "Geraeteaenderung bestaetigt. Der Kunde wurde informiert.",
+        description: "Geräteänderung bestätigt. Der Kunde wurde informiert.",
       })
 
       if (onDeviceChanged) {
         onDeviceChanged(result.order)
       }
 
+      // Bereits über onDeviceChanged neu geladen - beim Schließen nicht ein zweites Mal.
+      setSavedOrder(null)
       onOpenChange(false)
     } catch (error) {
       console.error("[DeviceChange] Error confirming device change:", error)
       toast({
         title: "Fehler",
-        description: error instanceof Error ? error.message : "Die Bestaetigung der Geraeteaenderung ist fehlgeschlagen.",
+        description: error instanceof Error ? error.message : "Die Bestätigung der Geräteänderung ist fehlgeschlagen.",
         variant: "destructive",
       })
     } finally {
@@ -416,27 +481,53 @@ export function DeviceChangeDialog({
     }
   }
 
-  const handleCancel = () => {
+  // JEDER Schließweg (Abbrechen, X, Escape, Klick neben den Dialog) läuft hierüber: wurde
+  // der Wechsel bei "Neu berechnen" bereits gespeichert, muss die Seite den gespeicherten
+  // Stand neu laden - sonst zeigt sie weiter das alte Gerät und den alten Auftragswert.
+  const handleClose = () => {
+    if (savedOrder) {
+      // Seite neu laden lassen, ohne Erfolgsmeldung und ohne die Rohantwort einzusetzen.
+      // Aufrufer ohne onRefreshRequested erhalten wie bisher onDeviceChanged
+      // (OrderDetails lädt dort ebenfalls neu).
+      if (onRefreshRequested) {
+        onRefreshRequested()
+      } else if (onDeviceChanged) {
+        onDeviceChanged(savedOrder)
+      }
+    }
+    setSavedOrder(null)
     setStep('select')
     setSelectedDevice(null)
     setPricingChanges(null)
+    setRepricingPrompt(null)
     onOpenChange(false)
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true)
+      return
+    }
+    // Während gespeichert/bestätigt wird, nicht über X/Escape schließen (wie der
+    // deaktivierte Abbrechen-Knopf).
+    if (loading || confirming) return
+    handleClose()
   }
 
   const stepNumber = step === 'select' ? 1 : step === 'review' ? 2 : 3
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className={`order-device-change-dialog order-device-change-dialog--${densityMode} !max-w-[1320px] w-[96vw] overflow-hidden p-0`}>
         <DialogHeader className="order-device-change-header">
           <DialogTitle className="order-device-change-title">
             <span className="order-device-change-title-icon" aria-hidden="true">
               <Smartphone className="h-5 w-5" />
             </span>
-            {tr('orderDetails.changeDevice', 'Geraet aendern')}
+            {tr('orderDetails.changeDevice', 'Gerät ändern')}
           </DialogTitle>
           <DialogDescription className="order-device-change-description">
-            {tr('orderDetails.changeDeviceDescription', 'Aendern Sie das Geraet dieses Auftrags und pruefen Sie die Preisaktualisierung vor der Bestaetigung.')}
+            {tr('orderDetails.changeDeviceDescription', 'Ändern Sie das Gerät dieses Auftrags und prüfen Sie die Preisaktualisierung vor der Bestätigung.')}
           </DialogDescription>
           <div className="order-device-change-density-controls" role="group" aria-label="Darstellungsmodus">
             <Button
@@ -460,18 +551,18 @@ export function DeviceChangeDialog({
           </div>
         </DialogHeader>
 
-        <div className="order-device-change-stepper" aria-label="Schritte zur Geraeteaenderung">
+        <div className="order-device-change-stepper" aria-label="Schritte zur Geräteänderung">
           <div className={`order-device-change-step ${stepNumber >= 1 ? 'is-active' : ''}`}>
             <span>1</span>
-            <p>{tr('orderDetails.searchDevice', 'Geraet waehlen')}</p>
+            <p>{tr('orderDetails.searchDevice', 'Gerät wählen')}</p>
           </div>
           <div className={`order-device-change-step ${stepNumber >= 2 ? 'is-active' : ''}`}>
             <span>2</span>
-            <p>{tr('orderDetails.services', 'Aenderungen pruefen')}</p>
+            <p>{tr('orderDetails.services', 'Änderungen prüfen')}</p>
           </div>
           <div className={`order-device-change-step ${stepNumber >= 3 ? 'is-active' : ''}`}>
             <span>3</span>
-            <p>{tr('orderDetails.confirm', 'Bestaetigen')}</p>
+            <p>{tr('orderDetails.confirm', 'Bestätigen')}</p>
           </div>
         </div>
 
@@ -480,7 +571,7 @@ export function DeviceChangeDialog({
           <Card className="order-device-change-current-card">
             <CardHeader className="pb-2">
               <CardTitle className="order-device-change-section-title text-sm">
-                {tr('orderDetails.currentDevice', 'Aktuelles Geraet')}
+                {tr('orderDetails.currentDevice', 'Aktuelles Gerät')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -499,7 +590,7 @@ export function DeviceChangeDialog({
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="device-search" className="order-device-change-label">
-                    {tr('orderDetails.searchDevice', 'Nach einem neuen Geraet suchen')}
+                    {tr('orderDetails.searchDevice', 'Nach einem neuen Gerät suchen')}
                   </Label>
                   <Input
                     id="device-search"
@@ -522,7 +613,7 @@ export function DeviceChangeDialog({
                 {searchResults.length > 0 && (
                   <div className="order-device-change-results-wrap">
                     <Label className="order-device-change-results-label">
-                      {searchResults.length} Treffer fuer "{deviceSearchQuery.trim()}"
+                      {searchResults.length} Treffer für "{deviceSearchQuery.trim()}"
                     </Label>
                     <div className="order-device-change-results-list">
                       {searchResults.map((device) => (
@@ -553,7 +644,7 @@ export function DeviceChangeDialog({
                   <Alert className="order-device-change-empty-alert">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Keine Geraete gefunden. Bitte pruefen Sie einen anderen Suchbegriff.
+                      Keine Geräte gefunden. Bitte prüfen Sie einen anderen Suchbegriff.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -570,8 +661,8 @@ export function DeviceChangeDialog({
                         <Label className="order-device-change-label">Bisheriger Reparaturservice</Label>
                         <p className="order-device-change-side-subtitle">
                           {selectedCurrentService
-                            ? `Ausgewaehlt: ${selectedCurrentService.name}`
-                            : 'Waehlen Sie einen bestehenden Service aus.'}
+                            ? `Ausgewählt: ${selectedCurrentService.name}`
+                            : 'Wählen Sie einen bestehenden Service aus.'}
                         </p>
                         <div className="order-device-change-option-list">
                           {currentServices.map((service) => (
@@ -596,7 +687,7 @@ export function DeviceChangeDialog({
 
                         {!selectedDevice && (
                           <p className="order-device-change-side-empty">
-                            Waehlen Sie zuerst ein neues Geraet, um passende Services zu laden.
+                            Wählen Sie zuerst ein neues Gerät, um passende Services zu laden.
                           </p>
                         )}
 
@@ -611,7 +702,7 @@ export function DeviceChangeDialog({
                           <Alert className="order-device-change-empty-alert">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                              Fuer dieses Geraet wurden keine kompatiblen Reparaturservices gefunden.
+                              Für dieses Gerät wurden keine kompatiblen Reparaturservices gefunden.
                             </AlertDescription>
                           </Alert>
                         )}
@@ -645,18 +736,18 @@ export function DeviceChangeDialog({
                           onClick={assignServiceReplacement}
                           disabled={!selectedCurrentServiceId || !selectedReplacementServiceId}
                         >
-                          Zuordnung hinzufuegen / aktualisieren
+                          Zuordnung hinzufügen / aktualisieren
                         </Button>
                       </div>
 
                       <div className="space-y-2">
                         <Label className="order-device-change-label">Hinterlegte Zuordnungen</Label>
                         <p className="order-device-change-side-subtitle">
-                          {selectedServiceReplacements.length}/{currentServices.length} Zuordnungen vollstaendig
+                          {selectedServiceReplacements.length}/{currentServices.length} Zuordnungen vollständig
                         </p>
                         {selectedServiceReplacements.length === 0 ? (
                           <p className="order-device-change-side-empty">
-                            Noch keine Zuordnungen. Waehlen Sie je Service einen passenden neuen Reparaturservice.
+                            Noch keine Zuordnungen. Wählen Sie je Service einen passenden neuen Reparaturservice.
                           </p>
                         ) : (
                           <div className="order-device-change-option-list">
@@ -701,7 +792,7 @@ export function DeviceChangeDialog({
                       </div>
                     ) : (
                       <p className="order-device-change-side-empty">
-                        Waehlen Sie ein Geraet aus der Liste, um fortzufahren.
+                        Wählen Sie ein Gerät aus der Liste, um fortzufahren.
                       </p>
                     )}
 
@@ -728,7 +819,7 @@ export function DeviceChangeDialog({
                 <Card className="order-device-change-side-card is-muted">
                   <CardContent className="pt-4">
                     <p className="order-device-change-side-hint">
-                      Tipp: Fuer die besten Treffer Marke und Modell kombinieren.
+                      Tipp: Für die besten Treffer Marke und Modell kombinieren.
                     </p>
                   </CardContent>
                 </Card>
@@ -756,7 +847,7 @@ export function DeviceChangeDialog({
                         Servicepreise werden aktualisiert
                       </p>
                       <p className="order-device-change-info-text">
-                        Vor der finalen Bestaetigung werden kompatible Services fuer dieses Geraet neu berechnet.
+                        Vor der finalen Bestätigung werden kompatible Services für dieses Gerät neu berechnet.
                       </p>
                     </div>
                   </div>
@@ -793,7 +884,7 @@ export function DeviceChangeDialog({
               {/* New Device Info */}
               <Card className="order-device-change-new-device-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="order-device-change-section-title text-sm">Neues Geraet</CardTitle>
+                  <CardTitle className="order-device-change-section-title text-sm">Neues Gerät</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="order-device-change-current-row">
@@ -807,7 +898,7 @@ export function DeviceChangeDialog({
 
               {/* Service Price Changes */}
               <div className="space-y-2">
-                <Label className="order-device-change-section-title text-base font-semibold">Service-Preisveraenderungen</Label>
+                <Label className="order-device-change-section-title text-base font-semibold">Service-Preisveränderungen (Standardpreise brutto, vor Kundenrabatt)</Label>
                 <div className="order-device-change-service-list">
                   {pricingChanges.serviceChanges.map((change, idx) => (
                     <Card key={idx} className="order-device-change-service-card">
@@ -816,7 +907,7 @@ export function DeviceChangeDialog({
                           <div className="flex-1">
                             <div className="order-device-change-service-name">{change.serviceName}</div>
                             <div className="order-device-change-service-prices">
-                              ${change.originalPrice.toFixed(2)} → ${change.newPrice.toFixed(2)}
+                              {formatCurrency(change.originalPrice)} → {formatCurrency(change.newPrice)}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -824,7 +915,7 @@ export function DeviceChangeDialog({
                               <div className="order-device-change-diff increase">
                                 <TrendingUp className="h-4 w-4" />
                                 <span className="text-sm font-semibold">
-                                  +${Math.abs(change.difference).toFixed(2)}
+                                  +{formatCurrency(Math.abs(change.difference))}
                                 </span>
                               </div>
                             )}
@@ -832,12 +923,12 @@ export function DeviceChangeDialog({
                               <div className="order-device-change-diff decrease">
                                 <TrendingDown className="h-4 w-4" />
                                 <span className="text-sm font-semibold">
-                                  -${Math.abs(change.difference).toFixed(2)}
+                                  −{formatCurrency(Math.abs(change.difference))}
                                 </span>
                               </div>
                             )}
                             {change.status === 'no-change' && (
-                              <span className="order-device-change-diff neutral">Keine Aenderung</span>
+                              <span className="order-device-change-diff neutral">Keine Änderung</span>
                             )}
                           </div>
                         </div>
@@ -850,16 +941,16 @@ export function DeviceChangeDialog({
               {/* Total Cost Summary */}
               <Card className="order-device-change-total-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="order-device-change-section-title text-sm">Aenderung der Gesamtkosten</CardTitle>
+                  <CardTitle className="order-device-change-section-title text-sm">Änderung der Gesamtkosten</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[#636e85]">Bisherige Summe:</span>
-                    <span className="font-medium text-[#1a202c]">${pricingChanges.totalCostBefore.toFixed(2)}</span>
+                    <span className="text-[#636e85]">Auftragswert bisher (brutto):</span>
+                    <span className="font-medium text-[#1a202c]">{formatCurrency(pricingChanges.totalCostBefore)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-t border-[#eceef3] pt-2">
-                    <span className="text-[#636e85]">Neue Summe:</span>
-                    <span className="text-lg font-bold text-[#1a202c]">${pricingChanges.totalCostAfter.toFixed(2)}</span>
+                    <span className="text-[#636e85]">Auftragswert neu (brutto, nach Kundenrabatt):</span>
+                    <span className="text-lg font-bold text-[#1a202c]">{formatCurrency(pricingChanges.totalCostAfter)}</span>
                   </div>
                   <div className="order-device-change-total-diff-row">
                     <span className="font-semibold text-[#1a202c]">Differenz:</span>
@@ -868,7 +959,7 @@ export function DeviceChangeDialog({
                         <div className="order-device-change-diff increase">
                           <TrendingUp className="h-4 w-4" />
                           <span className="text-lg font-bold">
-                            +${pricingChanges.totalCostDifference.toFixed(2)}
+                            +{formatCurrency(pricingChanges.totalCostDifference)}
                           </span>
                         </div>
                       )}
@@ -876,12 +967,12 @@ export function DeviceChangeDialog({
                         <div className="order-device-change-diff decrease">
                           <TrendingDown className="h-4 w-4" />
                           <span className="text-lg font-bold">
-                            -${Math.abs(pricingChanges.totalCostDifference).toFixed(2)}
+                            −{formatCurrency(Math.abs(pricingChanges.totalCostDifference))}
                           </span>
                         </div>
                       )}
                       {pricingChanges.totalCostStatus === 'no-change' && (
-                        <span className="order-device-change-diff neutral">Keine Aenderung</span>
+                        <span className="order-device-change-diff neutral">Keine Änderung</span>
                       )}
                     </div>
                   </div>
@@ -890,14 +981,14 @@ export function DeviceChangeDialog({
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-[#636e85]">Bereits bezahlt:</span>
                         <span className="font-medium text-[#1a202c]">
-                          ${pricingChanges.paymentAdjustment.paidAmount.toFixed(2)}
+                          {formatCurrency(pricingChanges.paymentAdjustment.paidAmount)}
                         </span>
                       </div>
                       {pricingChanges.paymentAdjustment.refundAmount > 0 && (
                         <div className="flex items-center justify-between gap-3 text-emerald-700">
                           <span className="font-semibold">Erstattung an Kunde:</span>
                           <span className="font-bold">
-                            ${pricingChanges.paymentAdjustment.refundAmount.toFixed(2)}
+                            {formatCurrency(pricingChanges.paymentAdjustment.refundAmount)}
                           </span>
                         </div>
                       )}
@@ -905,7 +996,7 @@ export function DeviceChangeDialog({
                         <div className="flex items-center justify-between gap-3 text-amber-700">
                           <span className="font-semibold">Noch zu zahlen:</span>
                           <span className="font-bold">
-                            ${pricingChanges.paymentAdjustment.additionalPaymentAmount.toFixed(2)}
+                            {formatCurrency(pricingChanges.paymentAdjustment.additionalPaymentAmount)}
                           </span>
                         </div>
                       )}
@@ -918,7 +1009,7 @@ export function DeviceChangeDialog({
                 <Alert className="order-device-change-warning-alert">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Aufgrund der Preisveraenderung ist vor dem Fortfahren eine Kundenbestaetigung erforderlich.
+                    Der Gerätewechsel ist bereits gespeichert. Aufgrund der Preisveränderung ist vor dem Fortfahren eine Kundenbestätigung erforderlich.
                   </AlertDescription>
                 </Alert>
               )}
@@ -931,7 +1022,7 @@ export function DeviceChangeDialog({
               <Alert className="order-device-change-success-alert">
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Die Geraeteaenderung ist bereit zur Bestaetigung. Der Kunde wird automatisch informiert.
+                  Die Geräteänderung ist bereit zur Bestätigung. Der Kunde wird automatisch informiert.
                 </AlertDescription>
               </Alert>
 
@@ -942,7 +1033,7 @@ export function DeviceChangeDialog({
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-[#636e85]">Altes Geraet:</span>
+                      <span className="text-[#636e85]">Altes Gerät:</span>
                       <span className="text-right font-semibold text-[#1a202c]">
                         {pricingChanges.originalDevice.brand} {pricingChanges.originalDevice.model}
                       </span>
@@ -958,21 +1049,49 @@ export function DeviceChangeDialog({
                       </div>
                     )}
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-[#636e85]">Neues Geraet:</span>
+                      <span className="text-[#636e85]">Neues Gerät:</span>
                       <span className="text-right font-semibold text-[#1a202c]">
                         {pricingChanges.newDevice.brand} {pricingChanges.newDevice.model}
                       </span>
                     </div>
                     <div className="flex items-start justify-between gap-3 border-t border-[#eceef3] pt-2">
-                      <span className="text-[#636e85]">Aenderung Gesamtkosten:</span>
+                      <span className="text-[#636e85]">Änderung Gesamtkosten:</span>
                       <span className="text-right font-semibold text-[#1a202c]">
                         {pricingChanges.totalCostStatus === 'increase' ? '+' : ''}
-                        ${pricingChanges.totalCostDifference.toFixed(2)}
+                        {formatCurrency(pricingChanges.totalCostDifference)}
                       </span>
                     </div>
                   </CardContent>
                 </Card>
               )}
+            </div>
+          )}
+          {step === 'select' && repricingPrompt && (
+            <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p className="font-semibold">
+                {repricingPrompt.outdated
+                  ? 'Der Auftrag wurde inzwischen geändert – bitte die neue Abweichung prüfen'
+                  : 'Gerätewechsel nicht gespeichert'}
+              </p>
+              <p>{repricingPrompt.message}</p>
+              {repricingPrompt.details && (
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                  <dt>Gespeicherter Auftragswert</dt>
+                  <dd className="text-right font-semibold">{formatCurrency(repricingPrompt.details.storedTotal)}</dd>
+                  <dt>Positionen (Standardpreise brutto)</dt>
+                  <dd className="text-right">{formatCurrency(repricingPrompt.details.positionsGross)}</dd>
+                  <dt>Rabatt</dt>
+                  <dd className="text-right">−{formatCurrency(repricingPrompt.details.discount)}</dd>
+                  <dt>Positionen abzüglich Rabatt</dt>
+                  <dd className="text-right">{formatCurrency(repricingPrompt.details.expectedTotal)}</dd>
+                  <dt>Abweichung</dt>
+                  <dd className="text-right font-semibold">
+                    {repricingPrompt.details.difference > 0 ? '+' : repricingPrompt.details.difference < 0 ? '−' : ''}
+                    {formatCurrency(Math.abs(repricingPrompt.details.difference))}
+                  </dd>
+                </dl>
+              )}
+              <p className="text-xs">{describeRepricingConsequence(repricingPrompt.details)}</p>
             </div>
           )}
         </div>
@@ -981,19 +1100,30 @@ export function DeviceChangeDialog({
           <Button
             variant="outline"
             className="order-device-change-btn order-device-change-btn-secondary"
-            onClick={handleCancel}
+            onClick={handleClose}
             disabled={loading || confirming}
           >
             {tr('common.cancel', 'Abbrechen')}
           </Button>
 
-          {step === 'select' && (
+          {step === 'select' && !repricingPrompt && (
             <Button
               className="order-device-change-btn order-device-change-btn-primary"
-              onClick={handleRecalculateServices}
+              onClick={() => void handleRecalculateServices()}
               disabled={!canProceedToRecalculation || loading || loadingCompatibleServices}
             >
               {loading ? 'Berechne neu...' : 'Gegenrechnung und Servicepreise berechnen'}
+            </Button>
+          )}
+
+          {step === 'select' && repricingPrompt && (
+            <Button
+              variant="destructive"
+              className="order-device-change-btn"
+              onClick={() => void handleRecalculateServices(buildRepricingConfirmation(repricingPrompt.details))}
+              disabled={!canProceedToRecalculation || loading || loadingCompatibleServices}
+            >
+              {loading ? 'Berechne neu...' : 'Neuberechnung bestätigen'}
             </Button>
           )}
 
@@ -1008,14 +1138,14 @@ export function DeviceChangeDialog({
                 }}
                 disabled={loading}
               >
-                {tr('common.back', 'Zurueck')}
+                {tr('common.back', 'Zurück')}
               </Button>
               <Button
                 className="order-device-change-btn order-device-change-btn-primary"
                 onClick={() => setStep('confirm')}
                 disabled={loading}
               >
-                Weiter zur Bestaetigung
+                Weiter zur Bestätigung
               </Button>
             </>
           )}
@@ -1028,14 +1158,14 @@ export function DeviceChangeDialog({
                 onClick={() => setStep('review')}
                 disabled={confirming}
               >
-                {tr('common.back', 'Zurueck')}
+                {tr('common.back', 'Zurück')}
               </Button>
               <Button
                 className="order-device-change-btn order-device-change-btn-primary"
                 onClick={handleConfirmDeviceChange}
                 disabled={confirming}
               >
-                {confirming ? 'Bestaetige...' : 'Geraeteaenderung bestaetigen'}
+                {confirming ? 'Bestätige...' : 'Geräteänderung bestätigen'}
               </Button>
             </>
           )}

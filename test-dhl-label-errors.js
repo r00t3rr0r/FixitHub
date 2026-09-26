@@ -47,10 +47,32 @@ function testTemporaryDhlFailuresAreRetryable() {
 }
 
 function testServiceTypeMapping() {
+  // Legacy aliases and lower case keep being normalised to today's product codes.
   assert.strictEqual(DHLService.resolveShippingProduct({ serviceType: 'P' }, 'DEFAULT'), 'V01PAK');
   assert.strictEqual(DHLService.resolveShippingProduct({ serviceType: 'N' }, 'DEFAULT'), 'V53WPAK');
-  assert.strictEqual(DHLService.resolveShippingProduct({ product: 'CUSTOM' }, 'DEFAULT'), 'CUSTOM');
+  assert.strictEqual(DHLService.resolveShippingProduct({ product: 'y' }, 'DEFAULT'), 'V54EPAK');
+  // No request -> the product configured in the DHL integration.
   assert.strictEqual(DHLService.resolveShippingProduct({}, 'V01PAK'), 'V01PAK');
+  // The configured product itself stays allowed even if it is not in the offered list.
+  assert.strictEqual(DHLService.resolveShippingProduct({ product: 'v62wp' }, 'V62WP'), 'V62WP');
+}
+
+function testUnknownProductIsRejected() {
+  // An unknown code is neither passed through to DHL nor silently replaced by the configured
+  // default: it is rejected with a German 400 validation error before any DHL call.
+  for (const code of ['CUSTOM', 'V99TEST']) {
+    assert.throws(
+      () => DHLService.resolveShippingProduct({ product: code }, 'DEFAULT'),
+      (error) => {
+        assert.strictEqual(error.status, 400);
+        assert.strictEqual(error.code, 'DHL_PRODUCT_NOT_OFFERED');
+        assert.strictEqual(error.retryable, false);
+        assert.match(error.message, /wird nicht angeboten/);
+        assert.match(error.message, /V01PAK/);
+        return true;
+      }
+    );
+  }
 }
 
 testPackstationValidationError();
@@ -58,4 +80,5 @@ testPostalCodeValidationError();
 testServiceTypeValidationError();
 testTemporaryDhlFailuresAreRetryable();
 testServiceTypeMapping();
+testUnknownProductIsRejected();
 console.log('[DHL-LABEL-ERRORS] All label error classification tests passed');

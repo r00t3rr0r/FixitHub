@@ -21,28 +21,107 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Clock3, RotateCcw, Wrench } from 'lucide-react';
+import {
+  ORDER_VALUE_NOT_RECONCILED,
+  describeRepricingConsequence,
+  readOrderServiceErrorCode,
+  readReconciliationDetails,
+  type OrderValueReconciliationDetails,
+} from '@/api/orderServices';
 
 interface ServiceData {
   _id: string;
+  // null bei einer manuellen Reparaturposition (bewusst ohne Katalog-ID)
   serviceId: {
     _id: string;
     name: string;
     price: number;
     estimatedTime: number;
-  };
+  } | null;
+  isManual?: boolean;
+  name?: string;
+  description?: string;
   price: number;
   estimatedTime: number;
   notes: string;
 }
 
+export interface RepairServiceFormData {
+  serviceId: string;
+  isManual: boolean;
+  name: string;
+  description: string;
+  // STANDARD-/LISTENPREIS brutto. Der Kunden-/Händlerrabatt wird automatisch auf
+  // Auftragsebene abgezogen - nie in der Position.
+  price: number;
+  estimatedTime: number;
+  notes: string;
+  reason: string;
+  // Nur gesetzt, nachdem der Server eine Neuberechnung abgelehnt hat, weil der
+  // gespeicherte Auftragswert nicht zu den Positionen passt (409
+  // ORDER_VALUE_NOT_RECONCILED) und die Mitarbeiterin sie ausdrücklich bestätigt.
+  confirmRepricing?: boolean;
+}
+
+// Vertrag mit dem Server (POST/PUT /api/order-services, siehe orderServiceRoutes.js):
+//   Katalog hinzufügen:   { serviceId, price?, estimatedTime?, notes?, reason?, confirmRepricing? }
+//   Manuell hinzufügen:   { isManual: true, name, description?, price, estimatedTime?, notes?, reason?,
+//                           confirmRepricing? } - OHNE serviceId
+//   Ändern:               { price?, estimatedTime?, notes?, name?, description? (nur manuell), reason?,
+//                           confirmRepricing? }
+//   Antwort:              { order, pricing, warnings: string[] }
+//   Fehler:               { error: string (deutsch), code?: string, details?: object }
+//
+// onSave MUSS bei einem Serverfehler ein rejected Promise liefern (throw), dessen Error
+// die deutsche Servermeldung als message trägt - der Dialog bleibt dann offen und zeigt
+// die Meldung. Trägt der Error zusätzlich code === 'ORDER_VALUE_NOT_RECONCILED' (als
+// error.code oder error.response.data.code; api/orderServices.ts behält code und details),
+// zeigt der Dialog die Abweichung (gespeicherter Wert, Positionen, Rabatt, Differenz) und
+// bietet die ausdrückliche Bestätigung der Neuberechnung an: onSave wird erneut mit
+// confirmRepricing: true aufgerufen.
+// Erfolgsmeldung und Warnungen (warnings[]) zeigt die aufrufende Seite.
 interface RepairServiceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   service?: ServiceData;
   mode: 'edit' | 'add';
   availableServices: Array<{ _id: string; name: string; price: number; estimatedTime: number }>;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: RepairServiceFormData) => Promise<void>;
+  // Kunden-/Händlerrabatt dieses Auftrags in Prozent (aus pricing.groupDiscountPercent)
+  // - nur für die Vorschau; gerechnet wird ausschließlich auf dem Server.
+  discountPercent?: number;
 }
+
+const formatEuro = (value: number) =>
+  Number(value || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+const readErrorMessage = (error: any): string =>
+  String(error?.response?.data?.error || error?.message || 'Die Änderung konnte nicht gespeichert werden.');
+
+const emptyForm = (): RepairServiceFormData => ({
+  serviceId: '',
+  isManual: false,
+  name: '',
+  description: '',
+  price: 0,
+  estimatedTime: 0,
+  notes: '',
+  reason: '',
+});
+
+const formFromService = (service: ServiceData): RepairServiceFormData => ({
+  serviceId: service.serviceId?._id || '',
+  // Nur das gespeicherte Kennzeichen zählt: eine Katalogposition, deren Service inzwischen
+  // gelöscht wurde (serviceId nicht mehr auflösbar), ist KEINE manuelle Position - der
+  // Server übernimmt Name/Beschreibung nur bei manuellen Positionen.
+  isManual: service.isManual === true,
+  name: service.name || service.serviceId?.name || '',
+  description: service.description || '',
+  price: service.price || 0,
+  estimatedTime: service.estimatedTime || 0,
+  notes: service.notes || '',
+  reason: '',
+});
 
 export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
   isOpen,
@@ -51,17 +130,18 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
   mode,
   availableServices,
   onSave,
+  discountPercent,
 }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [showServiceSuggestions, setShowServiceSuggestions] = useState(false);
-  const [formData, setFormData] = useState({
-    serviceId: '',
-    price: 0,
-    estimatedTime: 0,
-    notes: '',
-  });
+  const [formData, setFormData] = useState<RepairServiceFormData>(emptyForm());
+  // Fehler des letzten Speicherversuchs - bleibt im Dialog sichtbar, bis erneut
+  // gespeichert oder der Dialog geschlossen wird.
+  const [saveError, setSaveError] = useState<string>('');
+  const [needsRepricingConfirmation, setNeedsRepricingConfirmation] = useState(false);
+  const [repricingDetails, setRepricingDetails] = useState<OrderValueReconciliationDetails | null>(null);
 
   const noteTemplates = [
     'Erstdiagnose abgeschlossen. Bitte den Standard-Reparaturablauf fortsetzen.',
@@ -79,24 +159,17 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
       })
     : availableServices;
 
-  // Initialize form data
+  // Initialize form data (auch für manuelle Positionen ohne Katalog-ID)
   useEffect(() => {
-    if (mode === 'edit' && service && service.serviceId) {
-      setFormData({
-        serviceId: service.serviceId?._id || '',
-        price: service.price || 0,
-        estimatedTime: service.estimatedTime || 0,
-        notes: service.notes || '',
-      });
-      setServiceSearchTerm(service.serviceId?.name || '');
+    setSaveError('');
+    setNeedsRepricingConfirmation(false);
+    setRepricingDetails(null);
+    if (mode === 'edit' && service) {
+      setFormData(formFromService(service));
+      setServiceSearchTerm(service.serviceId?.name || service.name || '');
       setShowServiceSuggestions(false);
     } else {
-      setFormData({
-        serviceId: '',
-        price: 0,
-        estimatedTime: 0,
-        notes: '',
-      });
+      setFormData(emptyForm());
       setServiceSearchTerm('');
       setShowServiceSuggestions(false);
     }
@@ -137,9 +210,9 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
     }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (options: { confirmRepricing?: boolean } = {}) => {
     // Validation
-    if (mode === 'add' && !formData.serviceId) {
+    if (mode === 'add' && !formData.isManual && !formData.serviceId) {
       toast({
         title: 'Fehler',
         description: 'Bitte wählen Sie einen Service aus.',
@@ -148,28 +221,49 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
       return;
     }
 
+    if (formData.isManual && !formData.name.trim()) {
+      toast({
+        title: 'Fehler',
+        description: 'Bitte geben Sie einen Namen für die manuelle Reparaturposition an.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (formData.price < 0 || formData.estimatedTime < 0) {
       toast({
         title: 'Fehler',
-        description: 'Preis und geschätzte Zeit müssen positive Werte sein.',
+        description: 'Standardpreis und geschätzte Zeit dürfen nicht negativ sein.',
         variant: 'destructive',
       });
       return;
     }
 
     setIsLoading(true);
+    setSaveError('');
     try {
-      await onSave(formData);
-      toast({
-        title: 'Erfolg',
-        description: `Service wurde erfolgreich ${mode === 'edit' ? 'aktualisiert' : 'hinzugefügt'}.`,
+      // Die Erfolgsmeldung zeigt die aufrufende Seite erst, wenn der Server die
+      // Änderung bestätigt hat - hier keine zweite (ggf. falsche) Erfolgsmeldung.
+      await onSave({
+        ...formData,
+        name: formData.name.trim(),
+        serviceId: formData.isManual ? '' : formData.serviceId,
+        ...(options.confirmRepricing ? { confirmRepricing: true } : {}),
       });
+      setNeedsRepricingConfirmation(false);
+      setRepricingDetails(null);
       onClose();
     } catch (error: any) {
-      console.error(`Error saving service: ${error.message}`);
+      // Speichern fehlgeschlagen: Dialog bleibt offen, Eingaben bleiben erhalten.
+      const message = readErrorMessage(error);
+      console.error(`Error saving service: ${message}`);
+      setSaveError(message);
+      const notReconciled = readOrderServiceErrorCode(error) === ORDER_VALUE_NOT_RECONCILED && !options.confirmRepricing;
+      setNeedsRepricingConfirmation(notReconciled);
+      setRepricingDetails(notReconciled ? readReconciliationDetails(error) : null);
       toast({
         title: 'Fehler',
-        description: error.message,
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -180,24 +274,20 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
   const selectedService = availableServices.find((s) => s._id === formData.serviceId);
 
   const handleResetForm = () => {
-    if (mode === 'edit' && service && service.serviceId) {
-      setFormData({
-        serviceId: service.serviceId?._id || '',
-        price: service.price || 0,
-        estimatedTime: service.estimatedTime || 0,
-        notes: service.notes || '',
-      });
-      setServiceSearchTerm(service.serviceId?.name || '');
+    if (mode === 'edit' && service) {
+      setFormData(formFromService(service));
+      setServiceSearchTerm(service.serviceId?.name || service.name || '');
       setShowServiceSuggestions(false);
       return;
     }
 
-    setFormData({
-      serviceId: '',
-      price: 0,
-      estimatedTime: 0,
-      notes: '',
-    });
+    setFormData((prev) => ({ ...emptyForm(), isManual: prev.isManual }));
+    setServiceSearchTerm('');
+    setShowServiceSuggestions(false);
+  };
+
+  const setEntryMode = (isManual: boolean) => {
+    setFormData({ ...emptyForm(), isManual });
     setServiceSearchTerm('');
     setShowServiceSuggestions(false);
   };
@@ -211,9 +301,23 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
     }));
   };
 
-  const canSubmit = mode === 'edit'
-    ? formData.price >= 0 && formData.estimatedTime >= 0
-    : Boolean(formData.serviceId) && formData.price >= 0 && formData.estimatedTime >= 0;
+  const pricesValid = formData.price >= 0 && formData.estimatedTime >= 0;
+  const canSubmit = formData.isManual
+    ? pricesValid && Boolean(formData.name.trim())
+    : mode === 'edit'
+      ? pricesValid
+      : Boolean(formData.serviceId) && pricesValid;
+
+  // Vorschau: Listenpreis -> Rabatt -> Endpreis. Nur Anzeige; der Server rechnet
+  // den Rabatt genau einmal auf Auftragsebene.
+  const previewPercent = Math.max(0, Number(discountPercent) || 0);
+  const previewListPrice = Number(formData.price || 0);
+  const previewDiscount = Math.round(previewListPrice * previewPercent) / 100;
+  const previewFinal = Math.max(0, previewListPrice - previewDiscount);
+  const positionTitle = formData.isManual
+    ? (formData.name.trim() || 'Manuelle Reparaturposition')
+    : (selectedService?.name || service?.serviceId?.name || service?.name
+      || (mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Kein Reparaturservice ausgewählt'));
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -224,12 +328,61 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
             {mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Reparaturservice zum Auftrag hinzufügen'}
           </DialogTitle>
           <DialogDescription>
-            Wählen Sie eine Service-Vorlage und passen Sie bei Bedarf Preis, Zeit und Notizen an.
+            Wählen Sie eine Service-Vorlage oder erfassen Sie eine manuelle Reparaturposition. Der Preis ist immer
+            der Standardpreis (brutto); Kunden- und Händlerrabatte werden automatisch abgezogen.
           </DialogDescription>
         </DialogHeader>
 
         <div className="order-dialog-body space-y-4 pb-2">
           {mode === 'add' && (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Art der Position">
+              <Button
+                type="button"
+                size="sm"
+                variant={formData.isManual ? 'outline' : 'default'}
+                onClick={() => setEntryMode(false)}
+              >
+                Aus dem Servicekatalog
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={formData.isManual ? 'default' : 'outline'}
+                onClick={() => setEntryMode(true)}
+              >
+                Manuelle Reparaturposition
+              </Button>
+            </div>
+          )}
+
+          {formData.isManual && (
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+              <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
+                {mode === 'add' ? '1 · Manuelle Position' : 'Manuelle Position'}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="manual-name">Bezeichnung *</Label>
+                <Input
+                  id="manual-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="z. B. Platinenreparatur"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-description">Beschreibung</Label>
+                <Textarea
+                  id="manual-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Was wird repariert? (erscheint auf Auftrag und Rechnung)"
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+
+          {mode === 'add' && !formData.isManual && (
             <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
               <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
                 1 · Service auswählen
@@ -285,7 +438,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-slate-900">{item.name}</p>
-                            <span className="text-xs font-semibold text-slate-600">{item.price.toFixed(2)} €</span>
+                            <span className="text-xs font-semibold text-slate-600">{formatEuro(item.price)}</span>
                           </div>
                         </button>
                       ))
@@ -320,7 +473,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                     ) : (
                       filteredAvailableServices.map((item) => (
                         <SelectItem key={item._id} value={item._id}>
-                          {item.name} - {item.price.toFixed(2)} €
+                          {item.name} – {formatEuro(item.price)}
                         </SelectItem>
                       ))
                     )}
@@ -333,7 +486,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                   <p className="text-sm font-semibold text-slate-900">{selectedService.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">Standardwerte aus dem Servicekatalog</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedService.price.toFixed(2)} €</span>
+                    <span className="rounded-full border bg-slate-50 px-2.5 py-1">{formatEuro(selectedService.price)}</span>
                     <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedService.estimatedTime} Min.</span>
                   </div>
                 </div>
@@ -343,11 +496,11 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
 
           <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
             <p className="text-[0.7rem] font-bold uppercase tracking-wide text-[#1a2a5e]">
-              {mode === 'add' ? '2 · Preis & Zeit' : 'Preis & Zeit'}
+              {mode === 'add' ? '2 · Standardpreis & Zeit' : 'Standardpreis & Zeit'}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="price">Preis (€) *</Label>
+              <Label htmlFor="price">Standardpreis brutto (€) *</Label>
               <Input
                 id="price"
                 type="number"
@@ -355,8 +508,13 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
                 step="0.01"
                 value={formData.price}
                 onChange={handlePriceChange}
-                placeholder="0.00"
+                placeholder="0,00"
+                aria-describedby="price-hint"
               />
+              <p id="price-hint" className="text-xs text-muted-foreground">
+                Listenpreis inkl. MwSt. vor Kunden-/Händlerrabatt. Den Rabatt zieht das System automatisch
+                einmal auf Auftragsebene ab – bitte keinen bereits rabattierten Preis eintragen.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -417,6 +575,19 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="reason" className="flex items-center gap-2">
+              Grund der Änderung
+              <span className="text-[0.62rem] font-normal text-slate-400">(wird in der Auftragshistorie gespeichert)</span>
+            </Label>
+            <Input
+              id="reason"
+              value={formData.reason}
+              onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
+              placeholder="z. B. Zusatzschaden bei der Diagnose festgestellt"
+            />
+          </div>
+
+          <div className="space-y-2">
               <Label htmlFor="notes" className="flex items-center gap-2">
                 Notizen
                 <span className="text-[0.62rem] font-normal text-slate-400">(optional)</span>
@@ -455,24 +626,74 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Vorschau</p>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {selectedService?.name || (mode === 'edit' ? 'Reparaturservice bearbeiten' : 'Kein Reparaturservice ausgewählt')}
-                </p>
+                <p className="text-sm font-semibold text-slate-900">{positionTitle}</p>
                 <p className="text-xs text-slate-600 mt-1">
                   {formData.estimatedTime > 0 ? `${formData.estimatedTime} Minuten` : 'Keine Zeitangabe'}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-slate-900">{Number(formData.price || 0).toFixed(2)} €</p>
-                {selectedService && (
+                <p className="text-xs text-slate-600">Standardpreis (brutto)</p>
+                <p className="text-lg font-bold text-slate-900">{formatEuro(previewListPrice)}</p>
+                {(selectedService || formData.isManual) && (
                   <Badge variant="secondary" className="text-xs">
                     <Wrench className="mr-1 h-3 w-3" />
-                    Vorlage
+                    {formData.isManual ? 'Manuell' : 'Vorlage'}
                   </Badge>
                 )}
               </div>
             </div>
+            {previewPercent > 0 ? (
+              <div className="grid grid-cols-3 gap-2 border-t border-blue-100 pt-2 text-xs text-slate-700">
+                <span>Listenpreis: {formatEuro(previewListPrice)}</span>
+                <span>Kundenrabatt {previewPercent.toLocaleString('de-DE')} %: −{formatEuro(previewDiscount)}</span>
+                <span className="text-right font-semibold">Endpreis: {formatEuro(previewFinal)}</span>
+              </div>
+            ) : (
+              <p className="border-t border-blue-100 pt-2 text-xs text-slate-600">
+                Ein vereinbarter Kunden- oder Händlerrabatt wird automatisch auf Auftragsebene abgezogen.
+              </p>
+            )}
           </div>
+          {saveError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 space-y-2"
+            >
+              <p className="font-semibold">Nicht gespeichert</p>
+              <p>{saveError}</p>
+              {needsRepricingConfirmation && (
+                <div className="flex flex-col gap-2 border-t border-red-200 pt-2">
+                  {repricingDetails && (
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                      <dt>Gespeicherter Auftragswert</dt>
+                      <dd className="text-right font-semibold">{formatEuro(repricingDetails.storedTotal)}</dd>
+                      <dt>Positionen (Standardpreise brutto)</dt>
+                      <dd className="text-right">{formatEuro(repricingDetails.positionsGross)}</dd>
+                      <dt>Rabatt</dt>
+                      <dd className="text-right">−{formatEuro(repricingDetails.discount)}</dd>
+                      <dt>Positionen abzüglich Rabatt</dt>
+                      <dd className="text-right">{formatEuro(repricingDetails.expectedTotal)}</dd>
+                      <dt>Abweichung</dt>
+                      <dd className="text-right font-semibold">
+                        {repricingDetails.difference > 0 ? '+' : repricingDetails.difference < 0 ? '−' : ''}
+                        {formatEuro(Math.abs(repricingDetails.difference))}
+                      </dd>
+                    </dl>
+                  )}
+                  <p className="text-xs">{describeRepricingConsequence(repricingDetails)}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleSubmit({ confirmRepricing: true })}
+                    disabled={isLoading || !canSubmit}
+                  >
+                    Neuberechnung bestätigen
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
@@ -495,7 +716,7 @@ export const RepairServiceDialog: React.FC<RepairServiceDialogProps> = ({
             >
               Formular zurücksetzen
             </Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit || isLoading}>
+            <Button onClick={() => handleSubmit()} disabled={!canSubmit || isLoading}>
               {isLoading ? 'Speichert...' : mode === 'edit' ? 'Service aktualisieren' : 'Reparaturservice hinzufügen'}
             </Button>
           </div>

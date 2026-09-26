@@ -376,12 +376,29 @@ const findPaymentByPaypalResource = async ({ orderId, captureId }) => {
   return Payment.findOne({ $or: orConditions }).sort({ createdAt: -1 });
 };
 
+/**
+ * CAPTURE-Ereignisse (COMPLETED/PENDING/DENIED/DECLINED) auf die Zahlung anwenden.
+ *
+ * Erstattungen (PAYMENT.CAPTURE.REFUNDED/REVERSED) laufen hier NICHT durch, sondern
+ * ueber PaypalService.handleRefundWebhook (siehe Route): dort ist die Ressource die
+ * REFUND-Ressource, die Buchung ist kumulativ und ueber die Refund-ID idempotent.
+ * Frueher setzte dieser Weg bei JEDER Teilerstattung status='refunded' und
+ * refundAmount = Betrag dieser einen Erstattung und ueberschrieb die Capture-Referenz
+ * mit der Refund-ID.
+ *
+ * Webhooks kommen wiederholt und in beliebiger Reihenfolge: der Zielstatus kommt aus
+ * PaypalService.resolveCaptureWebhookStatus (ein spaetes PENDING/COMPLETED stuft eine
+ * abgeschlossene oder erstattete Zahlung nicht um), und der Betrag einer bereits
+ * abgeschlossenen Zahlung wird nicht ueberschrieben.
+ */
 const applyPaypalWebhookUpdate = async ({ payment, eventType, resource, orderId, captureId }) => {
   if (!payment) return null;
+  const PaypalService = require('../services/paypalService');
 
   const resourceAmount = resource?.amount || {};
   const amountValue = Number(resourceAmount.value || 0);
-  const safeAmount = Number.isFinite(amountValue) && amountValue > 0 ? amountValue : payment.amount;
+  const previousStatus = payment.status;
+  const nextStatus = PaypalService.resolveCaptureWebhookStatus(previousStatus, eventType);
 
   const providerDetails = {
     ...(payment.metadata?.providerDetails || {}),
@@ -392,56 +409,40 @@ const applyPaypalWebhookUpdate = async ({ payment, eventType, resource, orderId,
     webhookUpdatedAt: new Date().toISOString()
   };
 
-  if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
-    payment.status = 'completed';
-    payment.processedAt = payment.processedAt || new Date();
-    payment.amount = safeAmount;
-    payment.gatewayResponse = `PayPal webhook completed capture ${captureId || orderId || payment.transactionId}`;
-  }
-
-  if (eventType === 'PAYMENT.CAPTURE.PENDING') {
-    payment.status = 'processing';
-    payment.gatewayResponse = `PayPal webhook pending capture ${captureId || orderId || payment.transactionId}`;
-  }
-
-  if (eventType === 'PAYMENT.CAPTURE.DENIED' || eventType === 'PAYMENT.CAPTURE.DECLINED') {
-    payment.status = 'failed';
-    payment.gatewayResponse = `PayPal webhook denied capture ${captureId || orderId || payment.transactionId}`;
-  }
-
-  if (eventType === 'PAYMENT.CAPTURE.REFUNDED' || eventType === 'PAYMENT.CAPTURE.REVERSED') {
-    payment.status = 'refunded';
-    payment.refundAmount = safeAmount;
-    payment.refundedAt = payment.refundedAt || new Date();
-    payment.refundReason = resource?.status_details?.reason || `paypal_${eventType.toLowerCase()}`;
-    payment.refundMode = 'gateway';
-    payment.refundGatewayProvider = 'paypal';
-    payment.refundGatewayReference = captureId || orderId || '';
-    payment.gatewayResponse = `PayPal webhook refund/reversal ${captureId || orderId || payment.transactionId}`;
+  if (nextStatus) {
+    payment.status = nextStatus;
+    const reference = captureId || orderId || payment.transactionId;
+    if (nextStatus === 'completed') {
+      payment.processedAt = payment.processedAt || new Date();
+      // Nur eine noch nicht abgeschlossene Zahlung uebernimmt den Capture-Betrag.
+      if (Number.isFinite(amountValue) && amountValue > 0) payment.amount = amountValue;
+      payment.gatewayResponse = `PayPal webhook completed capture ${reference}`;
+    } else if (nextStatus === 'processing') {
+      payment.gatewayResponse = `PayPal webhook pending capture ${reference}`;
+    } else if (nextStatus === 'failed') {
+      payment.gatewayResponse = `PayPal webhook denied capture ${reference}`;
+    }
   }
 
   payment.metadata = {
     ...(payment.metadata || {}),
     gatewayProvider: 'paypal',
     paypalOrderId: orderId || payment.metadata?.paypalOrderId || '',
+    // Nur CAPTURE-Ereignisse kommen hier an: resource.id ist die Capture-ID und damit
+    // die richtige Referenz fuer spaetere Erstattungen.
     providerReference: captureId || payment.metadata?.providerReference || payment.transactionId,
-    providerDetails
+    providerDetails: {
+      ...providerDetails,
+      captureId: providerDetails.captureId || captureId || undefined,
+    }
   };
 
   await payment.save();
 
   // Verspaetete Statusaenderung (Webhook trifft nach der Rechnungsstellung ein):
-  // Zuordnung nachziehen bzw. nach einer Erstattung den Rechnungsstand neu ableiten.
-  if (payment.status === 'completed') {
+  // Zuordnung nachziehen.
+  if (payment.status === 'completed' && previousStatus !== 'completed') {
     await allocateAfterPaymentCompleted(payment, 'paypalWebhook');
-  } else if (payment.status === 'refunded' || Number(payment.refundAmount || 0) > 0) {
-    try {
-      const PaymentAllocation = require('../models/PaymentAllocation');
-      const affected = await PaymentAllocation.find({ paymentId: payment._id }).select('invoiceId').lean();
-      await FinancialService.recalculateInvoicePaidAmounts(affected.map((entry) => entry.invoiceId));
-    } catch (error) {
-      console.error('CheckoutRoutes: invoice recalculation after refund webhook failed:', error.message);
-    }
   }
 
   return payment;
@@ -1395,6 +1396,23 @@ router.post('/paypal/webhook', async (req, res) => {
     }
 
     const resource = webhookEvent.resource || {};
+
+    // Erstattung/Rueckbuchung: die Ressource ist die REFUND-Ressource (id = Refund-ID,
+    // Capture im Link rel="up"). Kumulativ und idempotent ueber die Refund-ID -
+    // schliesst auch eine ausstehende oder ungeklaerte App-Erstattung genau einmal ab.
+    if (eventType === 'PAYMENT.CAPTURE.REFUNDED' || eventType === 'PAYMENT.CAPTURE.REVERSED') {
+      const PaypalService = require('../services/paypalService');
+      const refundResult = await PaypalService.handleRefundWebhook(eventType, resource);
+      return res.status(200).json({
+        success: true,
+        acknowledged: true,
+        eventType,
+        paymentUpdated: Boolean(refundResult?.applied),
+        duplicate: Boolean(refundResult?.duplicate),
+        ...(refundResult?.reason ? { reason: refundResult.reason } : {}),
+      });
+    }
+
     const orderId = resource.supplementary_data?.related_ids?.order_id
       || resource.id
       || webhookEvent.resource?.id
@@ -1943,7 +1961,20 @@ router.post('/complete', requireUser, async (req, res) => {
 
       try {
         console.log('CheckoutRoutes: Order data prepared:', orderData);
-        const order = await OrderService.create(orderData);
+        // Vertrauenswuerdige Checkout-Preisbildung NUR ueber die interne Option -
+        // nie ueber den Request-Body. Aktionsanteil (fest) und Gruppenprozentsatz
+        // werden als zeitgebundener Snapshot am Auftrag festgehalten.
+        const order = await OrderService.create(orderData, {
+          trustedPricing: {
+            totalCost: orderData.totalCost,
+            discount: allocatedDiscount,
+            promoDiscountAmount: allocateProportionalAmount(
+              orderSpecs.map((spec) => spec.rawTotalCost),
+              Number(cart.discount || 0)
+            )[i] || 0,
+            groupDiscountPercent: Number(checkoutPricing.groupDiscountPercent || 0),
+          },
+        });
         console.log('CheckoutRoutes: Order created successfully:', order._id);
 
         createdOrders.push(order);
@@ -2369,7 +2400,15 @@ router.post('/guest-complete', async (req, res) => {
 
       try {
         console.log('CheckoutRoutes: Guest order data prepared:', orderData);
-        const order = await OrderService.create(orderData);
+        // Gast-Checkout: nur der Aktionsrabatt (fester Betrag), keine Gruppenkondition.
+        const order = await OrderService.create(orderData, {
+          trustedPricing: {
+            totalCost: orderData.totalCost,
+            discount: allocatedDiscount,
+            promoDiscountAmount: allocatedDiscount,
+            groupDiscountPercent: 0,
+          },
+        });
         console.log('CheckoutRoutes: Guest order created successfully:', order._id);
 
         createdOrders.push(order);

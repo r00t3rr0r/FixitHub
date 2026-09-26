@@ -21,6 +21,179 @@ class ServiceService {
     return allDT;
   }
 
+  static escapeRegex(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Exakter, gross/klein-unabhaengiger Vergleich; Mehrfach-Leerzeichen zaehlen als eins.
+  static exactTextRegex(value) {
+    const escaped = ServiceService.escapeRegex(String(value || '').trim()).replace(/\s+/g, '\\s+');
+    return new RegExp(`^\\s*${escaped}\\s*$`, 'i');
+  }
+
+  static normalizeText(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  // Alle Schreibweisen eines Geraetetyps: DeviceType-Schluessel ("smartphone"),
+  // Anzeigename ("Smartphone") und Kleinschreibung, inkl. wearable <-> smartwatch.
+  static async buildDeviceTypeVariants(deviceType) {
+    const rawType = String(deviceType || '').trim();
+    if (!rawType) return [];
+    const lowerType = rawType.toLowerCase();
+    const typeVariants = new Set([rawType, lowerType]);
+
+    try {
+      const allDT = await ServiceService.getCachedDeviceTypes();
+      for (const dt of allDT) {
+        const key = String(dt._id || '').trim();
+        const name = String(dt.name || '').trim();
+        if (key.toLowerCase() === lowerType || name.toLowerCase() === lowerType) {
+          typeVariants.add(key);
+          typeVariants.add(name);
+          typeVariants.add(key.toLowerCase());
+          typeVariants.add(name.toLowerCase());
+        }
+      }
+
+      // Cross-compatibility: wearable ↔ smartwatch family.
+      const wearableSlugs = new Set(['wearable', 'wearables', 'smartwatch', 'smartwatches']);
+      const hasWearableRelated = [...typeVariants].some((v) => wearableSlugs.has(v.toLowerCase()));
+      if (hasWearableRelated) {
+        wearableSlugs.forEach((slug) => typeVariants.add(slug));
+        for (const dt of allDT) {
+          const keyLower = String(dt._id || '').toLowerCase();
+          const nameLower = String(dt.name || '').toLowerCase();
+          if (wearableSlugs.has(keyLower) || wearableSlugs.has(nameLower)) {
+            typeVariants.add(String(dt._id).trim());
+            typeVariants.add(String(dt.name || '').trim());
+            typeVariants.add(keyLower);
+            typeVariants.add(nameLower);
+          }
+        }
+      }
+    } catch (_) {
+      // Non-fatal: if the DeviceType lookup fails, fall through with the raw values.
+    }
+
+    return [...typeVariants].filter(Boolean);
+  }
+
+  // Modellbedingung (gleich fuer Katalogliste und Geraete-Abgleich):
+  //  - modelPrecise passt, ODER
+  //  - modelPrecise leer und das ALTE Textfeld `model` passt, ODER
+  //  - beide leer (modellunabhaengiger Service, z.B. "Diagnose").
+  // Frueher galt "modelPrecise leer" allein schon als "alle Modelle" - ein Altdaten-
+  // Service mit model = "iPhone 14" tauchte dadurch beim iPhone 15 auf.
+  static buildModelCondition(deviceModel) {
+    const modelRegex = ServiceService.exactTextRegex(deviceModel);
+    return {
+      $or: [
+        { modelPrecise: modelRegex },
+        { modelPrecise: { $in: ['', null] }, model: modelRegex },
+        { modelPrecise: { $in: ['', null] }, model: { $in: ['', null] } },
+      ],
+    };
+  }
+
+  static buildManufacturerCondition(deviceBrand) {
+    const manufacturerRegex = ServiceService.exactTextRegex(deviceBrand);
+    return {
+      $or: [
+        { manufacturerPrecise: manufacturerRegex },
+        { manufacturerPrecise: { $in: ['', null] }, manufacturer: manufacturerRegex },
+      ],
+    };
+  }
+
+  /**
+   * Alle AKTIVEN Services, die zum tatsaechlichen Geraet passen - vollstaendig, ohne
+   * Seitenbegrenzung. Grundlage fuer die Serviceauswahl im Geraetewechsel und am
+   * Auftrag. Services ohne gepflegten Geraetetyp gelten als typunabhaengig.
+   */
+  static async findServicesForDevice({ deviceType, deviceBrand, deviceModel } = {}) {
+    const andConditions = [];
+    const typeVariants = await ServiceService.buildDeviceTypeVariants(deviceType);
+    if (typeVariants.length > 0) {
+      andConditions.push({
+        $or: [
+          { deviceTypes: { $in: typeVariants } },
+          { deviceType: { $in: typeVariants } },
+          {
+            $and: [
+              { $or: [{ deviceTypes: { $exists: false } }, { deviceTypes: { $size: 0 } }] },
+              { deviceType: { $in: ['', null] } },
+            ],
+          },
+        ],
+      });
+    }
+    if (String(deviceBrand || '').trim()) {
+      andConditions.push(ServiceService.buildManufacturerCondition(deviceBrand));
+    }
+    if (String(deviceModel || '').trim()) {
+      andConditions.push(ServiceService.buildModelCondition(deviceModel));
+    }
+
+    const query = { isActive: true };
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
+    }
+    return Service.find(query).sort({ name: 1 });
+  }
+
+  /**
+   * Serverseitige Pruefung derselben Regel wie findServicesForDevice fuer EINEN
+   * Service (z.B. beim Hinzufuegen oder Tauschen einer Position).
+   * @returns {Promise<{ ok: boolean, reason?: 'inactive'|'type'|'brand'|'model' }>}
+   */
+  static async checkServiceForDevice(service, { deviceType, deviceBrand, deviceModel } = {}) {
+    if (!service || service.isActive === false) {
+      return { ok: false, reason: 'inactive' };
+    }
+
+    const declaredTypes = [
+      ...(Array.isArray(service.deviceTypes) ? service.deviceTypes : []),
+      service.deviceType,
+    ]
+      .filter(Boolean)
+      .map((entry) => String(entry).trim().toLowerCase());
+    if (declaredTypes.length > 0 && String(deviceType || '').trim()) {
+      const variants = (await ServiceService.buildDeviceTypeVariants(deviceType)).map((v) => v.toLowerCase());
+      if (!declaredTypes.some((entry) => variants.includes(entry))) {
+        return { ok: false, reason: 'type' };
+      }
+    }
+
+    if (String(deviceBrand || '').trim()) {
+      const serviceBrand = ServiceService.normalizeText(service.manufacturerPrecise)
+        || ServiceService.normalizeText(service.manufacturer);
+      if (serviceBrand !== ServiceService.normalizeText(deviceBrand)) {
+        return { ok: false, reason: 'brand' };
+      }
+    }
+
+    if (String(deviceModel || '').trim()) {
+      const serviceModel = ServiceService.normalizeText(service.modelPrecise)
+        || ServiceService.normalizeText(service.model);
+      if (serviceModel && serviceModel !== ServiceService.normalizeText(deviceModel)) {
+        return { ok: false, reason: 'model' };
+      }
+    }
+
+    return { ok: true };
+  }
+
+  // Deutsche Meldung fuer eine abgelehnte Serviceauswahl (checkServiceForDevice).
+  static describeDeviceMismatch(service, match, deviceLabel) {
+    const name = service?.name || 'Reparaturservice';
+    if (match?.reason === 'inactive') {
+      return `Der Service „${name}“ ist nicht mehr aktiv und kann nicht verwendet werden.`;
+    }
+    const detail = { type: 'anderer Gerätetyp', brand: 'anderer Hersteller', model: 'anderes Modell' }[match?.reason];
+    return `Der Service „${name}“ passt nicht zu ${deviceLabel}${detail ? ` (${detail})` : ''}.`;
+  }
+
   static async list(filters = {}, pagination = {}, sorting = {}) {
     try {
       console.log('ServiceService: Listing services with filters:', filters, 'pagination:', pagination, 'sorting:', sorting);
@@ -103,15 +276,10 @@ class ServiceService {
       }
 
       // Filter by precise model. When set, return services that match this model
-      // OR generic services with no model assigned (so a generic "Diagnose" still shows up).
+      // (modelPrecise, or the legacy `model` text when modelPrecise is empty) OR generic
+      // services with no model at all (so a generic "Diagnose" still shows up).
       if (filters.modelPrecise) {
-        const escaped = String(filters.modelPrecise).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        andConditions.push({
-          $or: [
-          { modelPrecise: new RegExp(`^${escaped}$`, 'i') },
-          { modelPrecise: { $in: ['', null] } }
-          ],
-        });
+        andConditions.push(ServiceService.buildModelCondition(filters.modelPrecise));
       }
 
       if (andConditions.length > 0) {

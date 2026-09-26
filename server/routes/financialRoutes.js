@@ -32,6 +32,14 @@ const respondWithError = (res, error, context, fallbackMessage) => {
   });
 };
 
+// Fachliche Fehler (statusCode, deutsch) unveraendert; technische/englische Texte
+// (Mongoose-Validierung, Laufzeitfehler) als deutsche Meldung, Details nur im Log.
+const germanCreateError = (error, fallbackMessage) => {
+  if (Number.isFinite(Number(error?.statusCode)) && error?.message) return error.message;
+  if (error?.name === 'ValidationError') return 'Die Rechnungsdaten sind unvollständig oder ungültig. Bitte Positionen, Kunde und Beträge prüfen.';
+  return fallbackMessage;
+};
+
 // Payment Management Routes
 
 // Get all payments (admin only)
@@ -64,6 +72,9 @@ router.get('/payments', requireUser, requireRole(['admin']), async (req, res) =>
 });
 
 // Process refund (admin only)
+// mode 'manual'  = Rueckzahlung wurde ausserhalb ausgefuehrt und wird hier erfasst.
+// mode 'gateway' = ECHTE Erstattung beim Zahlungsanbieter (derzeit PayPal). Eine
+//                  ausstehende Anbieter-Erstattung zaehlt erst nach Bestaetigung.
 router.post('/payments/:id/refund', requireUser, requireRole(['admin']), async (req, res) => {
   console.log('POST /api/admin/financial/payments/:id/refund - Processing refund for payment:', req.params.id);
 
@@ -73,33 +84,69 @@ router.post('/payments/:id/refund', requireUser, requireRole(['admin']), async (
       reason,
       mode,
       gatewayProvider,
-      gatewayReference
-    } = req.body;
+      gatewayReference,
+      idempotencyKey
+    } = req.body || {};
 
-    if (!amount || !reason) {
+    if (!amount || !String(reason || '').trim()) {
       return res.status(400).json({
         success: false,
-        error: 'Amount and reason are required'
+        error: 'Betrag und Grund der Erstattung sind erforderlich.'
       });
     }
 
     const refund = await FinancialService.processRefund(req.params.id, amount, reason, {
       mode,
       gatewayProvider,
-      gatewayReference
+      gatewayReference,
+      idempotencyKey: idempotencyKey || req.get('Idempotency-Key') || undefined,
+      recordedBy: req.user?._id,
     });
 
-    return res.status(200).json({
+    let message = 'Die Erstattung wurde erfasst.';
+    if (refund.indeterminate) {
+      // Zeitueberschreitung/Stoerung beim Anbieter: das Geld kann bereits geflossen sein.
+      message = 'PayPal hat nicht eindeutig geantwortet. Die Erstattung ist als „ausstehend – Abgleich nötig“ vorgemerkt und zählt noch nicht als erstattet. '
+        + 'Sie wird über die PayPal-Benachrichtigung abgeglichen oder beim erneuten Auslösen desselben Vorgangs geprüft – es wird dabei nicht doppelt erstattet.';
+    } else if (refund.duplicate && refund.status === 'completed') {
+      message = 'Diese Erstattung wurde bereits erfasst und nicht erneut gebucht.';
+    } else if (refund.status === 'pending') {
+      message = 'Die Erstattung wurde beim Zahlungsanbieter angestoßen und ist noch ausstehend. Sie zählt erst nach Bestätigung als erstattet.';
+    } else if (refund.duplicate) {
+      message = 'Diese Erstattung wurde bereits erfasst und nicht erneut gebucht.';
+    }
+
+    return res.status(refund.duplicate ? 200 : 201).json({
       success: true,
-      message: 'Refund processed successfully',
-      refund
+      message,
+      refund,
+      ...(refund.warning ? { warning: refund.warning } : {}),
     });
   } catch (error) {
-    console.error('Error processing refund:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to process refund'
+    return respondWithError(res, error, 'Error processing refund', 'Die Erstattung konnte nicht erfasst werden.');
+  }
+});
+
+// Abgleich eines ungeklaerten PayPal-Erstattungsversuchs (admin only), nachdem der
+// Stand im PayPal-Konto geprueft wurde.
+// Body: { resolution: 'executed' | 'not-executed', providerRefundId? }
+router.post('/payments/:id/refunds/:refundId/reconcile', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const { resolution, providerRefundId } = req.body || {};
+    const refund = await FinancialService.resolveUnresolvedRefund(req.params.id, req.params.refundId, {
+      resolution,
+      providerRefundId,
+      actorName: req.user?.name || req.user?.email || '',
     });
+    return res.status(200).json({
+      success: true,
+      message: refund.status === 'completed'
+        ? 'Die Erstattung wurde als ausgeführt verbucht.'
+        : 'Der Erstattungsversuch wurde als nicht ausgeführt abgeschlossen; der Betrag ist wieder erstattbar.',
+      refund,
+    });
+  } catch (error) {
+    return respondWithError(res, error, 'Error reconciling refund', 'Der Abgleich der Erstattung ist fehlgeschlagen.');
   }
 });
 
@@ -187,14 +234,15 @@ router.post('/invoices', requireUser, requireRole(['admin']), async (req, res) =
 
     return res.status(201).json({
       success: true,
-      message: 'Invoice created successfully',
+      message: 'Rechnung wurde erstellt.',
       invoice
     });
   } catch (error) {
     console.error('Error creating invoice:', error);
-    return res.status(400).json({
+    return res.status(Number(error?.statusCode) || 400).json({
       success: false,
-      error: error.message || 'Failed to create invoice'
+      error: germanCreateError(error, 'Die Rechnung konnte nicht erstellt werden.'),
+      code: error?.code || undefined,
     });
   }
 });
@@ -205,15 +253,14 @@ router.post('/invoices/:id/send', requireUser, requireRole(['admin']), async (re
 
   try {
     const { email, message } = req.body;
-    const result = await FinancialService.sendInvoice(req.params.id, email, message);
+    const result = await FinancialService.sendInvoice(req.params.id, email, message, {
+      actorId: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+    });
 
     return res.status(200).json(result);
   } catch (error) {
-    console.error('Error sending invoice:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to send invoice'
-    });
+    return respondWithError(res, error, 'Error sending invoice', 'Die Rechnung konnte nicht versendet werden.');
   }
 });
 
@@ -309,10 +356,16 @@ router.post('/invoices/from-repairs', requireUser, requireRole(['admin']), async
     }
 
     const invoice = await FinancialService.generateFromRepairOrders(repairOrderIds, options || {});
-    return res.status(201).json({ success: true, message: 'Invoice generated successfully', invoice });
+    return res.status(201).json({ success: true, message: 'Rechnung wurde erstellt.', invoice });
   } catch (error) {
     console.error('Error generating invoice from repair orders:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to generate invoice' });
+    // 409 (Auftrag bereits berechnet) samt bestehender Rechnung durchreichen.
+    return res.status(Number(error?.statusCode) || 400).json({
+      success: false,
+      error: error.message || 'Die Rechnung konnte nicht erstellt werden.',
+      code: error.code,
+      existingInvoice: error.existingInvoice,
+    });
   }
 });
 
@@ -321,17 +374,62 @@ router.patch('/invoices/:id/status', requireUser, requireRole(['admin']), async 
   console.log('PATCH /api/admin/financial/invoices/:id/status - Changing invoice status:', req.params.id);
 
   try {
-    const { status, notes, paymentMethod, paidAt } = req.body;
+    const { status, notes, paymentMethod, paidAt, confirmPaidCancellation } = req.body;
     if (!status) return res.status(400).json({ success: false, error: 'Es wurde kein neuer Status angegeben.' });
 
     const invoice = await FinancialService.changeInvoiceStatus(req.params.id, status, {
       notes,
       paymentMethod,
       paidAt,
+      // "Bezahlt" erfasst den fehlenden Betrag als echte Zahlung - mit Bearbeiter.
+      recordedBy: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+      // "Storniert" laeuft ueber das Storno (Gutschrift); bei gebuchtem Geld nur bestaetigt.
+      confirmPaidCancellation: confirmPaidCancellation === true,
     });
     return res.status(200).json({ success: true, message: 'Der Belegstatus wurde geändert.', invoice });
   } catch (error) {
     return respondWithError(res, error, 'Error changing invoice status', 'Der Belegstatus konnte nicht geändert werden.');
+  }
+});
+
+// Rechnungsstorno (admin only): ausgestellter Beleg -> Storno-Gutschrift, Original bleibt.
+// Body: { reason (Pflicht), confirmPaidCancellation?: boolean, sendEmail?: boolean, message?: string }
+// Response 200: { success, alreadyCancelled, invoice, creditNote, allocatedAtCancellation, balance, emailSent?, warning? }
+router.post('/invoices/:id/cancel', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const { reason, confirmPaidCancellation, sendEmail, message } = req.body || {};
+    const result = await FinancialService.cancelInvoice(req.params.id, {
+      reason,
+      confirmPaidCancellation: confirmPaidCancellation === true,
+      sendEmail: sendEmail === true,
+      message,
+      actorId: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+    });
+    return res.status(200).json({
+      success: true,
+      message: result.alreadyCancelled
+        ? 'Diese Rechnung war bereits storniert.'
+        : `Die Rechnung wurde storniert. Storno-Gutschrift ${result.creditNote?.invoiceNumber || ''} wurde ausgestellt.`,
+      ...result,
+    });
+  } catch (error) {
+    return respondWithError(res, error, 'Error cancelling invoice', 'Die Rechnung konnte nicht storniert werden.');
+  }
+});
+
+// Entwurf verwerfen (admin only) - getrennt vom Storno; nur fuer nicht ausgestellte Belege.
+router.post('/invoices/:id/discard', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.discardDraftInvoice(req.params.id, {
+      reason: req.body?.reason,
+      actorId: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+    });
+    return res.status(200).json({ success: true, message: 'Der Entwurf wurde verworfen.', ...result });
+  } catch (error) {
+    return respondWithError(res, error, 'Error discarding draft invoice', 'Der Entwurf konnte nicht verworfen werden.');
   }
 });
 
@@ -389,14 +487,17 @@ router.post('/invoices/:id/credit-note', requireUser, requireRole(['admin']), as
   }
 });
 
-// Get overdue invoices (admin only) — must be declared before /:id to avoid shadowing
+// Mahnliste (admin only) — must be declared before /:id to avoid shadowing.
+// Nur ueberfaellige Belege mit echter offener Forderung. Jeder Eintrag traegt zusaetzlich
+// `dunning` { originalDueDate, daysOverdue, openAmount, currentStage, currentStageLabel,
+// nextStage, nextStageLabel, nextEligibleDate, eligible, reason, lastFailure } sowie
+// `balance`/`paymentState` (additiv; die Belegfelder bleiben unveraendert).
 router.get('/invoices/overdue', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     const invoices = await FinancialService.getOverdueInvoices();
     return res.status(200).json({ success: true, invoices });
   } catch (error) {
-    console.error('Error getting overdue invoices:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Failed to get overdue invoices' });
+    return respondWithError(res, error, 'Error getting overdue invoices', 'Die Mahnliste konnte nicht geladen werden.');
   }
 });
 
@@ -407,30 +508,72 @@ router.get('/invoices/:id', requireUser, requireRole(['admin']), async (req, res
     const result = await FinancialService.getInvoiceDetails(req.params.id);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    console.error('Error getting invoice details:', error);
-    return res.status(404).json({ success: false, error: error.message || 'Invoice not found' });
+    if (error?.name === 'CastError') {
+      return res.status(404).json({ success: false, error: 'Rechnung wurde nicht gefunden.', code: 'INVOICE_NOT_FOUND' });
+    }
+    return respondWithError(res, error, 'Error getting invoice details', 'Die Rechnungsdetails konnten nicht geladen werden.');
   }
 });
 
-// Run dunning job manually (admin only)
+// Vom Bearbeiter gestarteter Mahnlauf (admin only). Dieselbe Logik wie der Cron
+// (FinancialService.runDunningJob -> processDunningStep): nur faellige Belege, je eine Stufe.
 router.post('/dunning/run', requireUser, requireRole(['admin']), async (req, res) => {
   try {
-    const result = await FinancialService.runDunningJob();
+    const result = await FinancialService.runDunningJob({
+      source: 'manual',
+      actorId: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+    });
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    console.error('Error running dunning job:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Failed to run dunning job' });
+    return respondWithError(res, error, 'Error running dunning job', 'Der Mahnlauf konnte nicht ausgeführt werden.');
+  }
+});
+
+// Einzelner Mahnschritt aus der Mahnliste / dem Versanddialog (admin only).
+// Body: { customMessage?: string }. 200 { success, result } bei Versand, 502 bei
+// E-Mail-Fehler (Stufe unveraendert), 409 wenn der Beleg (noch) nicht mahnbar ist.
+router.post('/dunning/invoices/:id/step', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.processDunningStep(req.params.id, {
+      source: 'manual',
+      customMessage: req.body?.customMessage,
+      recipientEmail: req.body?.recipientEmail,
+      actorId: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+    });
+    if (result.outcome === 'sent') return res.status(200).json({ success: true, message: result.message, result });
+    if (result.outcome === 'failed') return res.status(502).json({ success: false, error: result.message, code: 'DUNNING_EMAIL_FAILED', result });
+    return res.status(409).json({ success: false, error: result.message, code: 'DUNNING_NOT_ELIGIBLE', result });
+  } catch (error) {
+    return respondWithError(res, error, 'Error running dunning step', 'Der Mahnschritt konnte nicht ausgeführt werden.');
   }
 });
 
 // Transfer an overdue invoice to collection manually; collection is never auto-escalated.
 router.post('/dunning/invoices/:id/collection', requireUser, requireRole(['admin']), async (req, res) => {
   try {
-    const invoice = await FinancialService.activateCollection(req.params.id, req.user?._id);
+    const invoice = await FinancialService.activateCollection(req.params.id, req.user?._id, {
+      actorName: req.user?.name || req.user?.email || '',
+      customMessage: req.body?.customMessage,
+    });
     return res.status(200).json({ success: true, invoice });
   } catch (error) {
-    console.error('Error activating collection:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to activate collection' });
+    return respondWithError(res, error, 'Error activating collection', 'Die Übergabe an das Inkasso ist fehlgeschlagen.');
+  }
+});
+
+// Gespeicherten Mahnlauf ausfuehren (admin only) - jeder Fall ueber processDunningStep.
+router.post('/dunning/runs/:id/execute', requireUser, requireRole(['admin']), async (req, res) => {
+  try {
+    const result = await FinancialService.executeDunningRun(req.params.id, {
+      actorId: req.user?._id,
+      actorName: req.user?.name || req.user?.email || '',
+      customMessage: req.body?.customMessage,
+    });
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    return respondWithError(res, error, 'Error executing dunning run', 'Der Mahnlauf konnte nicht ausgeführt werden.');
   }
 });
 
@@ -440,8 +583,7 @@ router.post('/dunning/runs', requireUser, requireRole(['admin']), async (req, re
     const run = await FinancialService.createDunningRun(req.body, req.user?._id);
     return res.status(201).json({ success: true, run });
   } catch (error) {
-    console.error('Error creating dunning run:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to create dunning run' });
+    return respondWithError(res, error, 'Error creating dunning run', 'Der Mahnlauf konnte nicht angelegt werden.');
   }
 });
 
@@ -451,8 +593,7 @@ router.get('/dunning/runs', requireUser, requireRole(['admin']), async (req, res
     const runs = await FinancialService.getDunningRuns({ status: req.query.status });
     return res.status(200).json({ success: true, runs });
   } catch (error) {
-    console.error('Error getting dunning runs:', error);
-    return res.status(500).json({ success: false, error: error.message || 'Failed to get dunning runs' });
+    return respondWithError(res, error, 'Error getting dunning runs', 'Die Mahnläufe konnten nicht geladen werden.');
   }
 });
 
@@ -462,8 +603,7 @@ router.get('/dunning/runs/:id', requireUser, requireRole(['admin']), async (req,
     const run = await FinancialService.getDunningRunById(req.params.id);
     return res.status(200).json({ success: true, run });
   } catch (error) {
-    console.error('Error getting dunning run:', error);
-    return res.status(404).json({ success: false, error: error.message || 'Failed to get dunning run' });
+    return respondWithError(res, error, 'Error getting dunning run', 'Der Mahnlauf konnte nicht geladen werden.');
   }
 });
 
@@ -473,8 +613,7 @@ router.patch('/dunning/runs/:id', requireUser, requireRole(['admin']), async (re
     const run = await FinancialService.updateDunningRun(req.params.id, req.body, req.user?._id);
     return res.status(200).json({ success: true, run });
   } catch (error) {
-    console.error('Error updating dunning run:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to update dunning run' });
+    return respondWithError(res, error, 'Error updating dunning run', 'Der Mahnlauf konnte nicht geändert werden.');
   }
 });
 
@@ -484,8 +623,7 @@ router.patch('/dunning/runs/:id/items/:invoiceId', requireUser, requireRole(['ad
     const run = await FinancialService.updateDunningRunItem(req.params.id, req.params.invoiceId, req.body, req.user?._id);
     return res.status(200).json({ success: true, run });
   } catch (error) {
-    console.error('Error updating dunning run item:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to update dunning item' });
+    return respondWithError(res, error, 'Error updating dunning run item', 'Der Fall konnte nicht geändert werden.');
   }
 });
 
@@ -493,24 +631,29 @@ router.patch('/dunning/runs/:id/items/:invoiceId', requireUser, requireRole(['ad
 router.post('/dunning/runs/:id/items', requireUser, requireRole(['admin']), async (req, res) => {
   try {
     const { invoiceId } = req.body;
-    if (!invoiceId) return res.status(400).json({ success: false, error: 'invoiceId is required' });
+    if (!invoiceId) return res.status(400).json({ success: false, error: 'Bitte eine Rechnung auswählen.' });
 
     const run = await FinancialService.addDunningRunItem(req.params.id, invoiceId, req.user?._id);
     return res.status(200).json({ success: true, run });
   } catch (error) {
-    console.error('Error adding dunning run item:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to add dunning item' });
+    return respondWithError(res, error, 'Error adding dunning run item', 'Der Fall konnte nicht hinzugefügt werden.');
   }
 });
 
 // Reconcile overpayment for a booking (admin only)
 router.post('/bookings/:bookingId/overpayment/reconcile', requireUser, requireRole(['admin']), async (req, res) => {
   try {
-    const result = await FinancialService.handleOverpayment(req.params.bookingId, req.body || {});
+    const { amount, reason, processRefund, refundMode } = req.body || {};
+    const result = await FinancialService.handleOverpayment(req.params.bookingId, {
+      amount,
+      reason,
+      processRefund: processRefund === true || processRefund === 'true',
+      refundMode,
+      recordedBy: req.user?._id,
+    });
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    console.error('Error reconciling overpayment:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to reconcile overpayment' });
+    return respondWithError(res, error, 'Error reconciling overpayment', 'Die Überzahlung konnte nicht bearbeitet werden.');
   }
 });
 
@@ -557,13 +700,20 @@ router.post('/payment-requests/:id/resend', requireUser, requireRole(['admin']),
 // Force financial synchronization for a booking or order (admin only)
 router.post('/bookings/:bookingId/sync', requireUser, requireRole(['admin']), async (req, res) => {
   try {
-    await FinancialService.syncOrderAndBookingValue(req.params.bookingId, req.body?.type || 'booking');
+    const syncResult = await FinancialService.syncOrderAndBookingValue(req.params.bookingId, req.body?.type || 'booking');
+    if (syncResult && syncResult.ok === false) {
+      console.error('Financial sync failed:', syncResult.error);
+      return res.status(500).json({
+        success: false,
+        error: 'Der Abgleich von Buchung, Auftrag und Rechnung ist fehlgeschlagen. Bitte später erneut versuchen oder den technischen Support informieren.',
+        code: 'FINANCIAL_SYNC_FAILED',
+      });
+    }
     const BookingPaymentService = require('../services/bookingPaymentService');
     const overview = await BookingPaymentService.getOverview(req.params.bookingId);
     return res.status(200).json({ success: true, overview });
   } catch (error) {
-    console.error('Error syncing order/booking value:', error);
-    return res.status(400).json({ success: false, error: error.message || 'Failed to sync financial values' });
+    return respondWithError(res, error, 'Error syncing order/booking value', 'Der Finanzabgleich konnte nicht ausgeführt werden.');
   }
 });
 
@@ -639,7 +789,7 @@ router.post('/orders/:orderId/invoice', requireUser, requireRole(['admin']), asy
 
     return res.status(201).json({
       success: true,
-      message: 'Invoice created successfully',
+      message: 'Rechnung wurde erstellt.',
       invoice
     });
   } catch (error) {
@@ -647,7 +797,7 @@ router.post('/orders/:orderId/invoice', requireUser, requireRole(['admin']), asy
     const existingInvoiceId = error?.existingInvoice?._id || null;
     return res.status(error.statusCode || 400).json({
       success: false,
-      error: error.message || 'Failed to create invoice from order',
+      error: germanCreateError(error, 'Die Rechnung zum Auftrag konnte nicht erstellt werden.'),
       code: error.code,
       existingInvoice: error.existingInvoice,
       redirectTo: existingInvoiceId ? `/admin/financial?tab=overview&highlightInvoiceId=${existingInvoiceId}` : null,

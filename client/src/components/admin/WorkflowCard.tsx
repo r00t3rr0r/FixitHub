@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,9 +14,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   Trash2, Play, Pause, CheckCircle2, Clock, AlertTriangle,
-  FileText, RotateCcw, ChevronRight, Loader2, User
+  FileText, RotateCcw, ChevronRight, Loader2, User, Eye, ExternalLink
 } from "lucide-react"
 import { WorkflowReportModal } from "./WorkflowReportModal"
+import type { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 
 interface WorkflowCardProps {
   workflow: any
@@ -24,6 +26,9 @@ interface WorkflowCardProps {
   onStart?: (workflowId: string) => void
   onPause?: (workflowId: string) => void
   onResume?: (workflowId: string) => void
+  // Öffnet einen laufenden Workflow direkt im Ausführungsmodus (ohne Navigation). Ist der
+  // Callback gesetzt, bleibt der Navigationszustand der Seite (z. B. backTarget) unberührt.
+  onOpen?: (workflowId: string) => void
   isDeleting?: boolean
   isActionInProgress?: boolean
   actionInProgressType?: 'start' | 'pause' | 'resume'
@@ -50,10 +55,13 @@ export function WorkflowCard({
   onStart,
   onPause,
   onResume,
+  onOpen,
   isDeleting = false,
   isActionInProgress = false,
   actionInProgressType,
 }: WorkflowCardProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
   const [showStartConfirm, setShowStartConfirm] = useState(false)
@@ -80,6 +88,38 @@ export function WorkflowCard({
   const handleStartConfirmation = () => {
     setShowStartConfirm(false)
     onStart?.(workflow._id)
+  }
+
+  // Einen laufenden Workflow direkt wieder öffnen - ohne Pausieren/Fortsetzen.
+  // Bevorzugt über onOpen (keine Navigation, der Seitenzustand bleibt unberührt). Ohne Callback
+  // öffnet OrderDetails den Workflow aus dem Navigationszustand (openWorkflowId/workflowMode).
+  // Übergeben wird GENAU, was OrderDetails liest: openWorkflowId, workflowMode und - für
+  // „Zurück“ - backTarget. backTarget nur, wenn es ein gültiges Rücksprungziel auf eine ANDERE
+  // Seite ist; ein unvollständiges oder auf diese Seite selbst zeigendes (veraltetes) Ziel wird
+  // nicht weitergereicht. Alle übrigen Schlüssel des bisherigen Zustands (z. B. source oder ein
+  // schon verarbeiteter Öffnen-Auftrag) entfallen.
+  const handleOpenRunning = () => {
+    if (onOpen) {
+      onOpen(String(workflow._id))
+      return
+    }
+    const currentState = (location.state && typeof location.state === 'object')
+      ? location.state as OrderDetailsNavigationState
+      : {}
+    const nextState: OrderDetailsNavigationState = {
+      openWorkflowId: String(workflow._id),
+      workflowMode: 'execute',
+    }
+    const candidate = currentState.backTarget
+    const isUsableBackTarget = Boolean(
+      candidate
+      && typeof candidate === 'object'
+      && typeof candidate.pathname === 'string'
+      && candidate.pathname.startsWith('/')
+      && candidate.pathname !== location.pathname
+    )
+    if (candidate && isUsableBackTarget) nextState.backTarget = candidate
+    navigate(location.pathname, { replace: true, state: nextState })
   }
 
   const visibleSteps = stepsExpanded ? workflow.steps : workflow.steps?.slice(0, 4)
@@ -209,6 +249,18 @@ export function WorkflowCard({
               </Button>
             )}
 
+            {workflow.status === 'in-progress' && (
+              <Button
+                size="sm"
+                onClick={handleOpenRunning}
+                disabled={isActionInProgress}
+                className="flex-1 h-8 text-xs bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white"
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Öffnen
+              </Button>
+            )}
+
             {workflow.status === 'in-progress' && onPause && (
               <Button
                 size="sm"
@@ -238,7 +290,7 @@ export function WorkflowCard({
               </Button>
             )}
 
-            {workflow.status === 'completed' && (
+            {workflow.status === 'completed' ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -247,6 +299,19 @@ export function WorkflowCard({
               >
                 <FileText className="h-3.5 w-3.5 mr-1.5" />
                 Bericht anzeigen
+              </Button>
+            ) : (
+              // Vollständige Lesesicht (Schritte, Notizen, Befunde, Pausen) für jeden
+              // Zustand - ändert nichts am Workflow.
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowReportModal(true)}
+                className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50"
+                title="Workflow vollständig ansehen (nur lesen)"
+              >
+                <Eye className="h-3.5 w-3.5 mr-1.5" />
+                Ansehen
               </Button>
             )}
 
@@ -288,7 +353,7 @@ export function WorkflowCard({
               disabled={isActionInProgress}
               className="bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white"
             >
-              {isActionInProgress && actionInProgressType === 'start' ? 'Starte...' : 'Workflow starten'}
+              {isActionInProgress && actionInProgressType === 'start' ? 'Starte …' : 'Workflow starten'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -311,7 +376,7 @@ export function WorkflowCard({
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Wird entfernt...' : 'Entfernen'}
+              {isDeleting ? 'Wird entfernt …' : 'Entfernen'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

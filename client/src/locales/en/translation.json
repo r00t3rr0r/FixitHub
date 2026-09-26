@@ -2385,6 +2385,13 @@
     "noProductsDesc": "Try adjusting your search or filter criteria"
   },
   "orderDetails": {
+    "servicesAndProducts": {
+      "title": "Repair services & products",
+      "description": "Booked repair services, add-ons and products for this order"
+    },
+    "noElectronicParts": "No electronic parts",
+    "currentProgress": "Current progress",
+    "customerSince": "Customer since",
     "backToOrders": "Back to Orders",
     "orderHeader": "Order",
     "customerInformation": "Customer Information",

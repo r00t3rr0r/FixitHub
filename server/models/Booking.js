@@ -231,7 +231,11 @@ const bookingSchema = new mongoose.Schema({
     min: 0,
     max: 100,
   },
-  // Outbound shipping information for the booking package
+  // Einsendelabel der Buchung (Kunde -> McRepair, ein Paket fuer alle Geraete).
+  // Altbestand: kann ein frueher an der Buchung erzeugtes Rueckweg-Label tragen - die
+  // Richtung steht im Timeline-Eintrag 'Shipping Label Created' (Hinweg/Rueckweg), siehe
+  // DHLService.resolveStoredBookingLabelDirection. Die Auslieferung (McRepair -> Kunde)
+  // liegt am jeweiligen Auftrag.
   trackingNumber: {
     type: String,
     default: '',
@@ -265,6 +269,12 @@ const bookingSchema = new mongoose.Schema({
   },
   shippingCreatedAt: {
     type: Date,
+  },
+  // Sperre waehrend der Erstellung des Einsendelabels (Doppelklick/parallel). Bleibt nach
+  // einer unklaren DHL-Antwort gesetzt, bis der Abgleich im DHL-Portal erfolgt ist.
+  shippingLabelCreationInProgress: {
+    type: Boolean,
+    default: false,
   },
   // Return shipping information for DHL Parcel DE Returns
   returnLabelUrl: {

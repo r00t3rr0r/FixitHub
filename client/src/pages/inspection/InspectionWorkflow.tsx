@@ -19,6 +19,7 @@ export function InspectionWorkflow() {
   const { toast } = useToast();
 
   const [order, setOrder] = useState<any>(null);
+  const [inspectionId, setInspectionId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [generatingReport, setGeneratingReport] = useState(false);
 
@@ -39,9 +40,16 @@ export function InspectionWorkflow() {
         }
 
         setOrder(orderData);
+        // The communication panel needs the INSPECTION id (it used to receive the order id). It is
+        // reported by DeviceInspectionForm once the inspection is loaded - or created, on a first
+        // visit, where a GET here would still find none.
       } catch (error: any) {
         console.error('Error fetching order:', error);
-        toast({ title: 'Error', description: error.message });
+        toast({
+          variant: 'destructive',
+          title: 'Fehler',
+          description: error?.message || 'Der Auftrag konnte nicht geladen werden.',
+        });
       } finally {
         setLoading(false);
       }
@@ -56,35 +64,40 @@ export function InspectionWorkflow() {
     try {
       setGeneratingReport(true);
       const result = await generateInspectionReport(orderId);
+      const reportUrl = typeof result.reportUrl === 'string' ? result.reportUrl : '';
 
       // Download the report
-      if (result.reportUrl) {
+      if (reportUrl) {
         const link = document.createElement('a');
-        link.href = result.reportUrl;
+        link.href = reportUrl;
         link.download = `inspection-report-${orderId}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
 
-      toast({ title: 'Success', description: 'Report generated and downloaded' });
+      toast({ title: 'Erfolg', description: 'Der Prüfbericht wurde erstellt und heruntergeladen.' });
     } catch (error: any) {
       console.error('Error generating report:', error);
-      toast({ title: 'Error', description: error.message });
+      toast({
+        variant: 'destructive',
+        title: 'Fehler',
+        description: error?.message || 'Der Prüfbericht konnte nicht erstellt werden.',
+      });
     } finally {
       setGeneratingReport(false);
     }
   };
 
   const handleInspectionComplete = () => {
-    toast({ title: 'Success', description: 'Inspection completed successfully!' });
+    toast({ title: 'Erfolg', description: 'Die Inspektion wurde abgeschlossen.' });
     navigate(-1);
   };
 
   if (loading) {
     return (
       <div className="inspection-workflow-loading">
-        <div className="inspection-workflow-loading-text">Loading inspection workflow...</div>
+        <div className="inspection-workflow-loading-text">Inspektion wird geladen …</div>
       </div>
     );
   }
@@ -92,7 +105,7 @@ export function InspectionWorkflow() {
   if (!order) {
     return (
       <div className="inspection-workflow-loading">
-        <div className="inspection-workflow-error-text">Order not found</div>
+        <div className="inspection-workflow-error-text">Auftrag nicht gefunden</div>
       </div>
     );
   }
@@ -112,8 +125,8 @@ export function InspectionWorkflow() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="inspection-workflow-title">Device Inspection</h1>
-              <p className="inspection-workflow-subtitle">Order {order.orderNumber}</p>
+              <h1 className="inspection-workflow-title">Geräteinspektion</h1>
+              <p className="inspection-workflow-subtitle">Auftrag {order.orderNumber}</p>
             </div>
           </div>
           <Button
@@ -123,44 +136,46 @@ export function InspectionWorkflow() {
             className="inspection-report-button"
           >
             <Download className="h-4 w-4 mr-2" />
-            Generate Report
+            {generatingReport ? 'Wird erstellt …' : 'Prüfbericht erstellen'}
           </Button>
         </div>
 
         {/* Order Summary */}
         <Card className="inspection-summary-card">
           <CardHeader className="inspection-summary-header">
-            <CardTitle className="inspection-summary-title">Order Information</CardTitle>
+            <CardTitle className="inspection-summary-title">Auftragsinformationen</CardTitle>
           </CardHeader>
           <CardContent className="inspection-summary-grid">
             <div className="inspection-summary-item">
-              <p className="inspection-summary-label">Order Number</p>
+              <p className="inspection-summary-label">Auftragsnummer</p>
               <p className="inspection-summary-value">{order.orderNumber}</p>
             </div>
             <div className="inspection-summary-item">
-              <p className="inspection-summary-label">Device</p>
+              <p className="inspection-summary-label">Gerät</p>
               <p className="inspection-summary-value">{order.deviceBrand} {order.deviceModel}</p>
             </div>
             <div className="inspection-summary-item">
-              <p className="inspection-summary-label">Type</p>
+              <p className="inspection-summary-label">Gerätetyp</p>
               <p className="inspection-summary-value">{order.deviceType}</p>
             </div>
             <div className="inspection-summary-item">
-              <p className="inspection-summary-label">Customer</p>
-              <p className="inspection-summary-value">{order.customerId?.name || 'N/A'}</p>
+              <p className="inspection-summary-label">Kunde</p>
+              <p className="inspection-summary-value">{order.customerId?.name || 'Nicht angegeben'}</p>
             </div>
             <div className="inspection-summary-item">
-              <p className="inspection-summary-label">Booked Repair</p>
+              <p className="inspection-summary-label">Gebuchte Reparatur</p>
               <p className="inspection-summary-value">
                 {Array.isArray(order.services) && order.services.length > 0
                   ? order.services.map((service: any) => service?.name || service?.serviceName || String(service)).join(', ')
-                  : 'N/A'}
+                  : 'Nicht angegeben'}
               </p>
             </div>
             <div className="inspection-summary-item">
-              <p className="inspection-summary-label">Order Total</p>
+              <p className="inspection-summary-label">Auftragssumme</p>
               <p className="inspection-summary-value">
-                {typeof order.totalCost === 'number' ? `${order.totalCost.toFixed(2)} EUR` : 'N/A'}
+                {typeof order.totalCost === 'number'
+                  ? order.totalCost.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+                  : 'Nicht angegeben'}
               </p>
             </div>
           </CardContent>
@@ -185,6 +200,9 @@ export function InspectionWorkflow() {
                 : []}
               orderTotalCost={typeof order.totalCost === 'number' ? order.totalCost : undefined}
               onComplete={handleInspectionComplete}
+              onInspectionLoaded={(inspection) => {
+                if (inspection?._id) setInspectionId(String(inspection._id));
+              }}
             />
           </div>
 
@@ -192,13 +210,13 @@ export function InspectionWorkflow() {
           <div className="inspection-communication-column">
             <Card className="inspection-communication-card">
               <CardHeader className="inspection-communication-header">
-                <CardTitle className="inspection-communication-title">Customer Communication</CardTitle>
-                <CardDescription className="inspection-communication-description">Feedback & Updates</CardDescription>
+                <CardTitle className="inspection-communication-title">Kundenkommunikation</CardTitle>
+                <CardDescription className="inspection-communication-description">Rückmeldungen & Neuigkeiten</CardDescription>
               </CardHeader>
               <CardContent className="inspection-communication-content">
                 <CommunicationPanel
                   orderId={orderId!}
-                  inspectionId={order._id}
+                  inspectionId={inspectionId || undefined}
                 />
               </CardContent>
             </Card>
@@ -208,20 +226,20 @@ export function InspectionWorkflow() {
         {/* Important Notes */}
         <Card className="inspection-notes-card">
           <CardHeader className="inspection-notes-header">
-            <CardTitle className="inspection-notes-title">Important Notes</CardTitle>
+            <CardTitle className="inspection-notes-title">Wichtige Hinweise</CardTitle>
           </CardHeader>
           <CardContent className="inspection-notes-content">
             <div className="inspection-note-row">
               <AlertCircle className="inspection-note-icon" />
-              <p>All inspection fields must be completed before finalizing the repair order.</p>
+              <p>Alle Inspektionsschritte müssen ausgefüllt sein, bevor der Reparaturauftrag abgeschlossen wird.</p>
             </div>
             <div className="inspection-note-row">
               <AlertCircle className="inspection-note-icon" />
-              <p>If any tests fail, a customer notification will be automatically created.</p>
+              <p>Schlägt ein Gerätetest fehl, wird automatisch eine Benachrichtigung für den Kunden erstellt.</p>
             </div>
             <div className="inspection-note-row">
               <AlertCircle className="inspection-note-icon" />
-              <p>A PDF report will be generated upon completion with all inspection details.</p>
+              <p>Nach dem Abschluss kann ein PDF-Prüfbericht mit allen Inspektionsdetails erstellt werden.</p>
             </div>
           </CardContent>
         </Card>

@@ -769,7 +769,7 @@ export function GuestBookingTracking() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("orderTracking.services")}</p>
                           {order.services.map((service: any, index: number) => (
                             <div key={`${order._id}-service-${index}`} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                              <span className="text-slate-700">{service?.serviceId?.name || t("common.service")}</span>
+                              <span className="text-slate-700">{service?.serviceId?.name || service?.name || t("common.service")}</span>
                               <span className="font-semibold text-[#1a2a5e]">{currencyFormatter.format(Number(service?.price || 0))}</span>
                             </div>
                           ))}

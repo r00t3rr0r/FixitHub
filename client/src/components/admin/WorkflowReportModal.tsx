@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Download, Euro, ShieldCheck, Smartphone, Wrench } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
+import { getKnownRepairCost } from "@/api/deviceInspection"
 import { jsPDF } from "jspdf"
 
 interface WorkflowReportModalProps {
@@ -49,11 +50,21 @@ type WorkflowStep = {
   photos?: string[]
 }
 
+type WorkflowPauseEntry = {
+  pausedAt?: string | Date
+  resumedAt?: string | Date
+  reason?: string
+  stepName?: string
+}
+
 type WorkflowReport = {
   workflowName?: string
   status?: string
   startedAt?: string | Date
   completedAt?: string | Date
+  pausedAt?: string | Date
+  pauseReason?: string
+  pauseHistory?: WorkflowPauseEntry[]
   steps?: WorkflowStep[]
   [key: string]: unknown
 }
@@ -116,8 +127,11 @@ type DeviceInspection = {
   status?: string
   hasFailedTests?: boolean
   failedTestDetails?: Array<{ testName?: string; reason?: string }>
+  // DEPRECATED (isRepairable, completionAction): stored legacy values were client defaults and
+  // are never shown. Only repairOfferKnownCost / an explicitly specified cost is a real price.
   isRepairable?: boolean
-  repairOffer?: { cost?: number | string; timeframe?: string; description?: string }
+  repairOffer?: { cost?: number | string; costSpecified?: boolean; timeframe?: string; description?: string }
+  repairOfferKnownCost?: number | null
   completionAction?: string
   customerInformation?: { reason?: string; note?: string }
   [key: string]: unknown
@@ -158,7 +172,7 @@ export function WorkflowReportModal({
   workflow,
   orderId,
 }: WorkflowReportModalProps) {
-  const { showToast } = useToast()
+  const { toast } = useToast()
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
 
   const getStatusColor = (status: string) => {
@@ -177,10 +191,16 @@ export function WorkflowReportModal({
   }
 
   const formatDate = (date: string | Date | undefined) => {
-    if (!date) return "N/A"
+    if (!date) return "—"
     const dateObj = typeof date === "string" ? new Date(date) : date
-    return dateObj.toLocaleString()
+    if (!Number.isFinite(dateObj.getTime())) return "—"
+    return dateObj.toLocaleString("de-DE")
   }
+
+  // Für nicht abgeschlossene Workflows ist das Fenster eine reine Lesesicht auf den
+  // aktuellen Stand; es verändert weder Status noch Zeiterfassung.
+  const isFinalReport = String(workflow?.status || "").toLowerCase() === "completed"
+  const pauseEntries: WorkflowPauseEntry[] = Array.isArray(workflow?.pauseHistory) ? workflow.pauseHistory : []
 
   const formatValue = (value: unknown): string => {
     if (Array.isArray(value)) {
@@ -190,6 +210,11 @@ export function WorkflowReportModal({
       return value ? "Ja" : "Nein"
     }
     if (typeof value === "object" && value !== null) {
+      // Eingebettete Prüfdaten nicht als Roh-JSON ausgeben (enthielte u. a. die veralteten
+      // Client-Vorgaben isRepairable/completionAction und einen Default-Preis 0).
+      if (isInspectionLike(value)) {
+        return "Prüfdaten der Geräteprüfung (siehe Abschnitte oben)"
+      }
       return JSON.stringify(value, null, 2)
     }
     return String(value || "-")
@@ -206,11 +231,13 @@ export function WorkflowReportModal({
     const labels: Record<string, string> = {
       completed: "Abgeschlossen",
       "in-progress": "In Bearbeitung",
+      "on-hold": "Pausiert",
+      "not-started": "Nicht gestartet",
       pending: "Ausstehend",
-      skipped: "Uebersprungen",
+      skipped: "Übersprungen",
       correct: "Modell korrekt",
       "incorrect-more-expensive": "Modell abweichend, teurer",
-      "incorrect-same-cheaper": "Modell abweichend, gleicher/guenstiger Preis",
+      "incorrect-same-cheaper": "Modell abweichend, gleicher/günstiger Preis",
       unverifiable: "Nicht verifizierbar",
       OK: "OK",
       "Not OK": "Fehler",
@@ -223,7 +250,7 @@ export function WorkflowReportModal({
       "light-wear": "Leichte Gebrauchsspuren",
       "scratches-wear": "Kratzer/Gebrauchsspuren",
       "heavy-scratches-wear": "Starke Gebrauchsspuren",
-      damaged: "Beschaedigt",
+      damaged: "Beschädigt",
     }
     return labels[normalized] || normalized.replace(/-/g, " ")
   }
@@ -409,13 +436,20 @@ export function WorkflowReportModal({
       sections.push({ title: "Apple-spezifische Prüfung", rows })
     }
 
-    if (typeof inspection.isRepairable === "boolean" || inspection.repairOffer || inspection.customerInformation || inspection.failedTestDetails?.length) {
+    // Keine "Reparierbar"/"Empfohlene Maßnahme"-Zeile: diese Angaben gibt es in der Inspektion nicht
+    // mehr, gespeicherte Altwerte waren automatische Client-Vorgaben. Ein Preis nur, wenn er
+    // tatsächlich angegeben wurde; eine Alt-0 ohne Kennzeichnung ist "nicht angegeben".
+    if (inspection.repairOffer || inspection.customerInformation || inspection.failedTestDetails?.length) {
       const rows: ReportRow[] = []
-      if (typeof inspection.isRepairable === "boolean") {
-        addRow(rows, "Reparierbar", inspection.isRepairable ? "Ja" : "Nein", inspection.isRepairable ? "success" : "danger")
+      if (inspection.repairOffer) {
+        const knownCost = getKnownRepairCost(inspection)
+        addRow(
+          rows,
+          "Kostenvoranschlag",
+          knownCost === null ? "nicht angegeben" : `${formatMoney(knownCost)}${knownCost === 0 ? " (kostenlos)" : ""}`,
+          knownCost === null ? "neutral" : "warning"
+        )
       }
-      addRow(rows, "Empfohlene Maßnahme", formatStatus(inspection.completionAction))
-      addRow(rows, "Reparaturangebot", inspection.repairOffer?.cost != null ? formatMoney(inspection.repairOffer.cost) : undefined, "warning")
       addRow(rows, "Zeitrahmen", inspection.repairOffer?.timeframe)
       addRow(rows, "Angebotsbeschreibung", inspection.repairOffer?.description)
       addRow(rows, "Kundeninfo Grund", inspection.customerInformation?.reason)
@@ -423,7 +457,7 @@ export function WorkflowReportModal({
       inspection.failedTestDetails?.forEach((failedTest) => {
         addRow(rows, failedTest.testName || "Fehlgeschlagener Test", failedTest.reason, "danger")
       })
-      sections.push({ title: "Reparaturentscheidung", rows })
+      sections.push({ title: "Kostenvoranschlag und Befunde", rows })
     }
 
     return sections.filter((section) => section.rows.length > 0)
@@ -462,7 +496,11 @@ export function WorkflowReportModal({
         pdf.text("McRepair", margin, firstPage ? 15 : 12)
         pdf.setFont(undefined, "normal")
         pdf.setFontSize(firstPage ? 10 : 8)
-        pdf.text("Professioneller Device Diagnostic Report", margin, firstPage ? 24 : 16)
+        pdf.text(
+          isFinalReport ? "Prüfbericht Geräteprüfung" : "Zwischenstand - Workflow nicht abgeschlossen",
+          margin,
+          firstPage ? 24 : 16
+        )
         yPosition = firstPage ? 47 : 30
       }
 
@@ -525,14 +563,24 @@ export function WorkflowReportModal({
       pdf.setFont(undefined, "bold")
       pdf.setFontSize(15)
       setColor(brand.navyDark)
-      pdf.text(workflow.workflowName || "Workflow Report", margin, yPosition)
+      pdf.text(workflow.workflowName || "Workflow-Bericht", margin, yPosition)
       yPosition += 9
+
+      if (!isFinalReport) {
+        // Ehrlich über den Stand: kein abgeschlossener Prüfbericht, sondern ein Zwischenstand.
+        addText(
+          `Zwischenstand vom ${new Date().toLocaleString("de-DE")} (Workflow-Status: ${formatStatus(workflow.status || "not-started")}). Dieses Dokument ist KEIN abgeschlossener Prüfbericht; Befunde und Angaben können sich noch ändern.`,
+          9,
+          "bold",
+          brand.warning
+        )
+      }
 
       const completedSteps = workflow.steps?.filter((step) => step.status === "completed").length || 0
       const totalSteps = workflow.steps?.length || 0
       const summaryRows: ReportRow[] = [
         { label: "Auftrag", value: orderId },
-        { label: "Status", value: formatStatus(workflow.status || "N/A"), tone: getToneForValue(workflow.status) },
+        { label: "Status", value: formatStatus(workflow.status || "not-started"), tone: getToneForValue(workflow.status) },
         { label: "Gestartet", value: formatDate(workflow.startedAt) },
         { label: "Abgeschlossen", value: formatDate(workflow.completedAt) },
       ]
@@ -546,7 +594,7 @@ export function WorkflowReportModal({
       if (diagnosticSections.length > 0) {
         diagnosticSections.forEach(addSection)
       } else {
-        addText("Keine strukturierten Device-Diagnostic-Daten im Workflow gefunden. Die verfügbaren Workflow-Schritte werden unten ausgegeben.", 9, "normal", brand.muted)
+        addText("Keine strukturierten Prüfdaten im Workflow gefunden. Die verfügbaren Workflow-Schritte werden unten ausgegeben.", 9, "normal", brand.muted)
       }
 
       if (workflow.steps && workflow.steps.length > 0) {
@@ -558,7 +606,7 @@ export function WorkflowReportModal({
           addText(`Status: ${formatStatus(step.status || "pending")}`, 8, "normal", brand.muted)
 
           if (step.assignedStaffId) {
-            addText(`Zugewiesen an: ${step.staffName || "N/A"}`, 8, "normal", brand.muted)
+            addText(`Zugewiesen an: ${step.staffName || "Unbekannt"}`, 8, "normal", brand.muted)
           }
 
           if (step.startedAt) {
@@ -614,11 +662,15 @@ export function WorkflowReportModal({
         yPosition
       )
 
-      pdf.save(`mcrepair-diagnostic-report-${orderId}-${new Date().getTime()}.pdf`)
-      showToast("PDF wurde heruntergeladen", "success")
+      pdf.save(
+        isFinalReport
+          ? `mcrepair-pruefbericht-${orderId}-${new Date().getTime()}.pdf`
+          : `mcrepair-zwischenstand-${orderId}-${new Date().getTime()}.pdf`
+      )
+      toast({ title: "Erfolg", description: "PDF wurde heruntergeladen." })
     } catch (error) {
       console.error("Error generating PDF:", error)
-      showToast("PDF konnte nicht erstellt werden", "error")
+      toast({ variant: "destructive", title: "Fehler", description: "PDF konnte nicht erstellt werden." })
     } finally {
       setIsGeneratingPDF(false)
     }
@@ -628,9 +680,11 @@ export function WorkflowReportModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>McRepair Device Diagnostic Report</DialogTitle>
+          <DialogTitle>{isFinalReport ? "McRepair Prüfbericht" : "Workflow ansehen (nur lesen)"}</DialogTitle>
           <DialogDescription>
-            Professionelle Übersicht der Geräteprüfung inklusive Modell- und Preisänderungen.
+            {isFinalReport
+              ? "Professionelle Übersicht der Geräteprüfung inklusive Modell- und Preisänderungen."
+              : "Aktueller Stand mit Schritten, Notizen, Befunden und Pausen. Diese Ansicht ändert nichts am Workflow."}
           </DialogDescription>
         </DialogHeader>
 
@@ -643,11 +697,15 @@ export function WorkflowReportModal({
                     <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-base font-semibold leading-tight">McRepair Prüfbericht</p>
+                    <p className="text-base font-semibold leading-tight">
+                      {isFinalReport ? "McRepair Prüfbericht" : "Zwischenstand – Workflow nicht abgeschlossen"}
+                    </p>
                     <p className="text-xs text-white/70">Auftrag {orderId}</p>
                   </div>
                 </div>
-                {inspection?.hasFailedTests ? (
+                {!inspection ? (
+                  <Badge className="border border-white/30 bg-white/10 text-white/80">Keine Prüfdaten</Badge>
+                ) : inspection.hasFailedTests ? (
                   <Badge className="border border-red-300/40 bg-red-500/20 text-red-100">Prüfung mit Auffälligkeiten</Badge>
                 ) : (
                   <Badge className="border border-emerald-300/40 bg-emerald-500/20 text-emerald-50">Prüfdaten erfasst</Badge>
@@ -662,12 +720,12 @@ export function WorkflowReportModal({
                       {section.title === "Modellverifizierung" && <Smartphone className="h-3.5 w-3.5" />}
                       {section.title === "Modell- und Preisänderungen" && <Euro className="h-3.5 w-3.5" />}
                       {section.title === "Funktionstests" && <ClipboardCheck className="h-3.5 w-3.5" />}
-                      {section.title === "Reparaturentscheidung" && <Wrench className="h-3.5 w-3.5" />}
+                      {section.title === "Kostenvoranschlag und Befunde" && <Wrench className="h-3.5 w-3.5" />}
                       {![
                         "Modellverifizierung",
                         "Modell- und Preisänderungen",
                         "Funktionstests",
-                        "Reparaturentscheidung",
+                        "Kostenvoranschlag und Befunde",
                       ].includes(section.title) && <CheckCircle2 className="h-3.5 w-3.5" />}
                       {section.title}
                     </p>
@@ -706,7 +764,7 @@ export function WorkflowReportModal({
                 <div>
                   <p className="text-sm font-medium text-gray-500">Status</p>
                   <Badge className={getStatusColor(workflow.status)}>
-                    {formatStatus(workflow.status || "N/A")}
+                    {formatStatus(workflow.status || "not-started")}
                   </Badge>
                 </div>
                 <div>
@@ -718,9 +776,29 @@ export function WorkflowReportModal({
                   <p className="text-sm">{formatDate(workflow.completedAt)}</p>
                 </div>
               </div>
+              {String(workflow.status || "").toLowerCase() === "on-hold" && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  Pausiert seit {formatDate(workflow.pausedAt)}
+                  {workflow.pauseReason ? ` – Grund: ${workflow.pauseReason}` : ""}
+                </div>
+              )}
+              {pauseEntries.length > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-sm font-medium text-gray-500">Pause-Historie</p>
+                  <div className="mt-2 space-y-1">
+                    {pauseEntries.map((entry, idx) => (
+                      <p key={idx} className="text-xs text-gray-600">
+                        {formatDate(entry.pausedAt)} – {entry.resumedAt ? formatDate(entry.resumedAt) : "noch pausiert"}
+                        {entry.stepName ? ` · Schritt: ${entry.stepName}` : ""}
+                        {entry.reason ? ` · Grund: ${entry.reason}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
               {workflow.steps && workflow.steps.length > 0 && (
                 <div className="pt-2 border-t">
-                  <p className="text-sm font-medium text-gray-500">Progress</p>
+                  <p className="text-sm font-medium text-gray-500">Fortschritt</p>
                   <div className="mt-2 flex items-center gap-3">
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
                       <div
@@ -831,7 +909,7 @@ export function WorkflowReportModal({
                             <div key={idx} className="relative bg-gray-100 rounded-lg overflow-hidden">
                               <img
                                 src={photo}
-                                alt={`Step ${index + 1} photo ${idx + 1}`}
+                                alt={`Schritt ${index + 1}, Foto ${idx + 1}`}
                                 className="w-full h-24 object-cover"
                               />
                             </div>
@@ -868,7 +946,9 @@ export function WorkflowReportModal({
             className="gap-2"
           >
             <Download className="w-4 h-4" />
-            {isGeneratingPDF ? "PDF wird erstellt..." : "Download PDF"}
+            {isGeneratingPDF
+              ? "PDF wird erstellt …"
+              : isFinalReport ? "Prüfbericht als PDF" : "Zwischenstand als PDF"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,5 @@
 import api from './api';
+import { toOrderEditError, repricingPayload, type OrderRepricingOptions } from './orders';
 import { generateAvatarPlaceholder, generateImagePlaceholder } from '@/utils/placeholders';
 
 export interface StaffMember {
@@ -523,30 +524,34 @@ export const updateEPartStatus = async (orderId: string, ePartId: string, status
 
 // Description: Add add-on service to order
 // Endpoint: POST /api/admin/orders/:orderId/addons
-// Request: { name: string, description?: string, price: number, estimatedTime?: string, status?: string }
+// Request: { name: string, description?: string, price: number, estimatedTime?: string, status?: string,
+//            confirmRepricing?: boolean, repricingBasis?: { storedTotal: number, expectedTotal: number } }
 // Response: { success: boolean, message: string, order: AdminOrder }
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED, siehe api/orders.ts)
 export const addAddonToOrder = async (orderId: string, addonData: {
   name: string;
   description?: string;
   price: number;
   estimatedTime?: string;
   status?: string;
-}) => {
+}, options?: OrderRepricingOptions) => {
   console.log('addAddonToOrder called with orderId:', orderId, 'addonData:', addonData);
   try {
-    const response = await api.post(`/api/admin/orders/${orderId}/addons`, addonData);
+    const response = await api.post(`/api/admin/orders/${orderId}/addons`, { ...addonData, ...repricingPayload(options) });
     console.log('addAddonToOrder API response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('addAddonToOrder API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 
 // Description: Update add-on service in order
 // Endpoint: PUT /api/admin/orders/:orderId/addons/:addonId
-// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, status?: string, progress?: number }
+// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, status?: string, progress?: number,
+//            confirmRepricing?: boolean, repricingBasis? }
 // Response: { success: boolean, message: string, order: AdminOrder }
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED)
 export const updateOrderAddon = async (orderId: string, addonId: string, updateData: {
   name?: string;
   description?: string;
@@ -554,31 +559,36 @@ export const updateOrderAddon = async (orderId: string, addonId: string, updateD
   estimatedTime?: string;
   status?: string;
   progress?: number;
-}) => {
+}, options?: OrderRepricingOptions) => {
   console.log('updateOrderAddon called with orderId:', orderId, 'addonId:', addonId, 'updateData:', updateData);
   try {
-    const response = await api.put(`/api/admin/orders/${orderId}/addons/${addonId}`, updateData);
+    const response = await api.put(`/api/admin/orders/${orderId}/addons/${addonId}`, { ...updateData, ...repricingPayload(options) });
     console.log('updateOrderAddon API response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('updateOrderAddon API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 
 // Description: Remove add-on service from order
 // Endpoint: DELETE /api/admin/orders/:orderId/addons/:addonId
-// Request: {}
+// Request: { confirmRepricing?: boolean, repricingBasis? } (Body)
 // Response: { success: boolean, message: string, order: AdminOrder }
-export const removeAddonFromOrder = async (orderId: string, addonId: string) => {
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED)
+export const removeAddonFromOrder = async (orderId: string, addonId: string, options?: OrderRepricingOptions) => {
   console.log('removeAddonFromOrder called with orderId:', orderId, 'addonId:', addonId);
   try {
-    const response = await api.delete(`/api/admin/orders/${orderId}/addons/${addonId}`);
+    const payload = repricingPayload(options);
+    const response = await api.delete(
+      `/api/admin/orders/${orderId}/addons/${addonId}`,
+      Object.keys(payload).length > 0 ? { data: payload } : undefined
+    );
     console.log('removeAddonFromOrder API response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('removeAddonFromOrder API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 
@@ -586,6 +596,7 @@ export const removeAddonFromOrder = async (orderId: string, addonId: string) => 
 // Endpoint: PUT /api/admin/orders/:orderId/addons/:addonId/assign
 // Request: { staffId: string }
 // Response: { success: boolean, message: string, order: AdminOrder }
+// Fehler:  OrderEditError mit deutscher Meldung und code (400 INVALID_STAFF, 404, 409 ORDER_EDIT_CONFLICT)
 export const assignStaffToAddon = async (orderId: string, addonId: string, staffId: string) => {
   console.log('assignStaffToAddon called with orderId:', orderId, 'addonId:', addonId, 'staffId:', staffId);
   try {
@@ -594,7 +605,7 @@ export const assignStaffToAddon = async (orderId: string, addonId: string, staff
     return response.data;
   } catch (error: any) {
     console.error('assignStaffToAddon API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 
@@ -652,8 +663,12 @@ export const requestUnlockInfoUpdate = async (orderId: string, notes: string = '
 
 // Description: Change device and recalculate repair services
 // Endpoint: POST /api/admin/orders/:id/change-device
-// Request: { deviceBrand: string, deviceModel: string, deviceType: string }
-// Response: { success: boolean, order: AdminOrder, pricingChangesSummary: Object, requiresConfirmation: boolean }
+// Request: { deviceBrand: string, deviceModel: string, deviceType: string,
+//            serviceReplacements?: Array<{ oldOrderServiceId, newServiceId }>,
+//            confirmRepricing?: boolean, repricingBasis?: { storedTotal: number, expectedTotal: number } }
+// Response: { success: boolean, order: AdminOrder, pricingChangesSummary: Object, requiresConfirmation: boolean,
+//             warnings: string[] }
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED, siehe api/orders.ts)
 export const changeDeviceAndRecalculateServices = async (
   orderId: string,
   deviceBrand: string,
@@ -668,7 +683,7 @@ export const changeDeviceAndRecalculateServices = async (
       oldOrderServiceId: string
       newServiceId: string
     }>
-  }
+  } & OrderRepricingOptions
 ) => {
   console.log('changeDeviceAndRecalculateServices called with:', {
     orderId,
@@ -685,12 +700,13 @@ export const changeDeviceAndRecalculateServices = async (
       deviceType,
       serviceReplacement: options?.serviceReplacement,
       serviceReplacements: options?.serviceReplacements,
+      ...repricingPayload(options),
     });
     console.log('changeDeviceAndRecalculateServices API response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('changeDeviceAndRecalculateServices API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 

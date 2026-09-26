@@ -1,4 +1,6 @@
 import api from './api';
+import { toShippingLabelError } from './shipping';
+import type { OrderValueReconciliationDetails } from './orderServices';
 
 export interface CustomerInfo {
   _id: string;
@@ -196,6 +198,14 @@ export interface OrderPricingSummary {
   shopProductsGross: number;
   discount: number;
   appliedPromoCode?: string;
+  // Aufteilung von `discount` (Summe bleibt `discount`): Kunden-/Händlerkondition in
+  // Prozent und EUR sowie ein fester Aktionsrabatt (Gutscheincode).
+  groupDiscountPercent?: number;
+  groupDiscountAmount?: number;
+  promoDiscountAmount?: number;
+  // Herkunft der Kondition: none | customer | customer_group | settings_default | legacy
+  conditionsSource?: string;
+  conditionsAppliedAt?: string | null;
   dealerDiscountPercent: number;
   dealerDiscountAmount: number;
   grossTotal: number;
@@ -216,7 +226,186 @@ export interface CustomerOrderInvoice {
   orderId?: any;
   bookingId?: any;
   repairOrderIds?: any[];
+  /** Zahlungsstand vom Server (fehlt bei älteren Antworten - dann nichts erfinden). */
+  balance?: InvoiceBalanceView | null;
+  paymentState?: string;
 }
+
+// ── Zahlungsstand eines Belegs ───────────────────────────────────────────────
+// Der Server berechnet ihn EINMAL (PaymentService.buildInvoiceBalance) und liefert ihn
+// in Liste und Detail als `balance` (+ `paymentState`). Die Oberfläche rendert ihn nur –
+// sie rechnet nie `total - paidAmount` nach. Belegstatus (Versendet, Überfällig …) und
+// Zahlungsstand (Teilbezahlt, Überzahlt …) sind getrennte Dimensionen.
+export interface InvoiceBalanceView {
+  total?: number;
+  credited?: number;
+  receivable?: number;
+  allocated?: number;
+  open?: number;
+  overpaid?: number;
+  received?: number;
+  refundPending?: number;
+  refunded?: number;
+  refundsInProgress?: number;
+  paymentState?: string;
+}
+
+export type InvoicePaymentTone = 'open' | 'partial' | 'paid' | 'overpaid' | 'credited' | 'unknown';
+
+export interface InvoicePaymentSummary {
+  /** false = der Server hat keinen Zahlungsstand geliefert; dann KEINE Beträge anzeigen. */
+  known: boolean;
+  tone: InvoicePaymentTone;
+  /** Kurzlabel, z. B. "Teilbezahlt · offen 12,00 €" oder "Überzahlt · Erstattung offen 5,00 €". */
+  label: string;
+  open: number | null;
+  received: number | null;
+  refundPending: number | null;
+  refundsInProgress: number | null;
+}
+
+const formatEuroAmount = (value: number) =>
+  new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(value) || 0);
+
+const readAmount = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 100) / 100 : null;
+};
+
+export const summarizeInvoicePayment = (
+  invoice: { balance?: InvoiceBalanceView | null; paymentState?: string; isCreditNote?: boolean } | null | undefined
+): InvoicePaymentSummary => {
+  const balance = invoice?.balance;
+  const unknown: InvoicePaymentSummary = {
+    known: false, tone: 'unknown', label: '', open: null, received: null, refundPending: null, refundsInProgress: null,
+  };
+  if (!invoice || !balance || typeof balance !== 'object' || invoice.isCreditNote) return unknown;
+
+  const open = readAmount(balance.open);
+  const received = readAmount(balance.received ?? balance.allocated);
+  const refundPending = readAmount(balance.refundPending ?? balance.overpaid);
+  const refundsInProgress = readAmount(balance.refundsInProgress);
+  if (open === null && received === null && refundPending === null) return unknown;
+
+  const state = String(invoice.paymentState || balance.paymentState || '').toLowerCase();
+  const base = { known: true, open, received, refundPending, refundsInProgress };
+
+  if (state === 'overpaid' || (refundPending ?? 0) > 0.009) {
+    return { ...base, tone: 'overpaid', label: `Überzahlt · Erstattung offen ${formatEuroAmount(refundPending ?? 0)}` };
+  }
+  if (state === 'credited') {
+    return { ...base, tone: 'credited', label: 'Gutgeschrieben' };
+  }
+  if (state === 'paid' || ((open ?? 0) <= 0.009 && (received ?? 0) > 0.009)) {
+    return { ...base, tone: 'paid', label: 'Bezahlt' };
+  }
+  if ((open ?? 0) <= 0.009) {
+    // z. B. Beleg über 0,00 € - nichts offen, aber auch nichts eingegangen.
+    return { ...base, tone: 'paid', label: 'Ausgeglichen' };
+  }
+  if (state === 'partially_paid' || ((received ?? 0) > 0.009 && (open ?? 0) > 0.009)) {
+    return { ...base, tone: 'partial', label: `Teilbezahlt · offen ${formatEuroAmount(open ?? 0)}` };
+  }
+  return { ...base, tone: 'open', label: `Offen ${formatEuroAmount(open ?? 0)}` };
+};
+
+export const INVOICE_PAYMENT_TONE_CLASSES: Record<InvoicePaymentTone, string> = {
+  open: 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800',
+  partial: 'bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-800',
+  paid: 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/40 dark:text-green-200 dark:border-green-800',
+  overpaid: 'bg-violet-100 text-violet-800 border border-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:border-violet-800',
+  credited: 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700',
+  unknown: 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+};
+
+// Ergänzt Belege ohne `balance` um den Zahlungsstand aus der kundeneigenen Rechnungsliste
+// GET /api/invoices - dieselbe Serverberechnung. GET /api/bookings/:id/invoices liefert
+// balance/paymentState inzwischen selbst (BookingService.getBookingInvoices); dann entfällt
+// dieser zweite Aufruf ganz. Er bleibt nur als Rückfall für ältere Antworten bzw. einen
+// serverseitigen Ausfall der Saldenberechnung (balance: null). Belege, für die kein
+// Zahlungsstand gefunden wird, bleiben OHNE balance (die Anzeige erfindet dann nichts).
+export const attachInvoiceBalances = async <T extends { _id: string; balance?: InvoiceBalanceView | null; paymentState?: string }>(
+  invoices: T[]
+): Promise<T[]> => {
+  const list = Array.isArray(invoices) ? invoices : [];
+  if (list.length === 0 || list.every((invoice) => invoice && invoice.balance && typeof invoice.balance === 'object')) {
+    return list;
+  }
+  try {
+    const response = await api.get('/api/invoices?limit=500');
+    const withBalance = Array.isArray(response?.data?.invoices) ? response.data.invoices : [];
+    const byId = new Map<string, { balance?: InvoiceBalanceView | null; paymentState?: string }>();
+    withBalance.forEach((entry: any) => {
+      if (entry?._id && entry.balance) byId.set(String(entry._id), { balance: entry.balance, paymentState: entry.paymentState });
+    });
+    return list.map((invoice) => {
+      if (invoice.balance && typeof invoice.balance === 'object') return invoice;
+      const match = byId.get(String(invoice._id));
+      return match ? { ...invoice, balance: match.balance, paymentState: match.paymentState } : invoice;
+    });
+  } catch (error) {
+    console.error('Zahlungsstand der Rechnungen konnte nicht geladen werden:', error);
+    return list;
+  }
+};
+
+// Offene Erstattung (Überzahlung) aus Sicht EINES Auftrags. Eine Buchungs-/Sammelrechnung
+// über mehrere Aufträge lässt sich keinem einzelnen Auftrag zurechnen - ihr Betrag wird
+// getrennt als Beleg-Betrag ausgewiesen, statt bei jedem Auftrag der Buchung als dessen
+// eigene Überzahlung zu erscheinen.
+export interface RefundPendingByScope {
+  /** Überzahlung aus Rechnungen, die nur diesen Auftrag betreffen. */
+  orderAmount: number;
+  /** Überzahlte Rechnungen, die mehrere Aufträge (bzw. die ganze Buchung) abdecken. */
+  bookingLevel: Array<{ invoiceId: string; invoiceNumber: string; amount: number }>;
+}
+
+const idOfRef = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return String(value._id || value.id || '');
+};
+
+export const splitRefundPendingByScope = (
+  invoices: Array<{
+    _id: string;
+    invoiceNumber?: string;
+    orderId?: any;
+    repairOrderIds?: any[];
+    bookingId?: any;
+    isCreditNote?: boolean;
+    balance?: InvoiceBalanceView | null;
+    paymentState?: string;
+  }>,
+  orderId: string
+): RefundPendingByScope => {
+  const wanted = String(orderId || '');
+  const result: RefundPendingByScope = { orderAmount: 0, bookingLevel: [] };
+  (Array.isArray(invoices) ? invoices : []).forEach((invoice) => {
+    const payment = summarizeInvoicePayment(invoice);
+    const amount = payment.known ? Number(payment.refundPending ?? 0) : 0;
+    if (!(amount > 0.009)) return;
+    const coveredOrders = new Set(
+      [idOfRef(invoice.orderId), ...(Array.isArray(invoice.repairOrderIds) ? invoice.repairOrderIds.map(idOfRef) : [])]
+        .filter(Boolean)
+    );
+    // Beleg nur fuer ANDERE Auftraege der Buchung: gehoert weder zu diesem Auftrag noch
+    // ist er ein Buchungsbeleg, der diesen Auftrag mit abdeckt.
+    if (coveredOrders.size > 0 && !coveredOrders.has(wanted)) return;
+    const onlyThisOrder = coveredOrders.size > 0 && [...coveredOrders].every((entry) => entry === wanted);
+    if (onlyThisOrder) {
+      result.orderAmount = Math.round((result.orderAmount + amount) * 100) / 100;
+    } else {
+      result.bookingLevel.push({
+        invoiceId: String(invoice._id),
+        invoiceNumber: invoice.invoiceNumber || '',
+        amount: Math.round(amount * 100) / 100,
+      });
+    }
+  });
+  return result;
+};
 
 export interface AddOnService {
   _id: string;
@@ -331,6 +520,41 @@ export const createOrderReturnLabel = async (orderId: string) => {
   }
 };
 
+// Description: Abgleich der EINSENDUNG am Auftrag (DHL-Retoure bzw. Einsendelabel im
+//              return*-Slot) nach unklarer DHL-Antwort oder verwaister Sperre - nur Admin.
+// Endpoint: POST /api/orders/:id/return-label/reconcile (der Server liefert die Adresse
+//           zusätzlich als shipments.inbound.reconcileUrl; diese wird bevorzugt)
+// Request: { resolution: 'not-created' | 'created', trackingNumber?: string }
+// Response: { success: boolean, shipments?: OrderShipmentsView }
+// Fehler: wie toShippingLabelError (shipping.ts) mit code/status/details, damit die
+// Oberfläche z. B. NO_RECONCILIATION_PENDING erkennen kann.
+const isOwnOrderUrl = (url: string | undefined, orderId: string): url is string => {
+  if (!url || typeof url !== 'string') return false;
+  if (!url.startsWith(`/api/orders/${orderId}/`)) return false;
+  const path = url.split(/[?#]/)[0];
+  // Kein Pfad-Trick: '..'/'.'-Segmente, kodierte Punkte/Schrägstriche und Backslashes
+  // würden nach der Normalisierung im Browser eine andere Adresse treffen.
+  if (/\\|%2e|%2f|%5c/i.test(path)) return false;
+  return !path.split('/').some((segment) => segment === '..' || segment === '.');
+};
+
+export const reconcileOrderInboundShipment = async (
+  orderId: string,
+  payload: { resolution: 'not-created' | 'created'; trackingNumber?: string },
+  reconcileUrl?: string
+): Promise<{ success: boolean; shipments?: any; message?: string }> => {
+  // Nur eine Adresse DIESES Auftrags akzeptieren.
+  const url = isOwnOrderUrl(reconcileUrl, orderId)
+    ? reconcileUrl
+    : `/api/orders/${orderId}/return-label/reconcile`;
+  try {
+    const response = await api.post(url, payload);
+    return response.data;
+  } catch (error: unknown) {
+    throw toShippingLabelError(error);
+  }
+};
+
 // Description: Download return label PDF for an order
 // Endpoint: GET /api/orders/:id/return-label
 // Response: PDF file blob
@@ -364,15 +588,16 @@ export const getCustomerInvoicesForOrder = async (
   orderId: string,
   bookingId?: string | null
 ): Promise<CustomerOrderInvoice[]> => {
-  // Exactly ONE request.
+  // ONE request for the documents, plus a balance request only as a fallback.
   // Booked order: GET /api/bookings/:id/invoices is server-side scoped to this
   // booking, runs an owner-or-staff check and excludes Entwuerfe for a customer
   // (server/routes/bookingRoutes.js). It is a true superset of what this page needs:
   // BookingService.getBookingInvoices matches bookingId OR orderId/repairOrderIds of
   // the booking's orders, so documents that are linked only to the ORDER (legacy
   // invoices and credit notes written before the bookingId copy landed) are included.
-  // That is why the second, identical /api/invoices call the previous version fired
-  // is gone without losing coverage.
+  // It also carries balance/paymentState per document, so attachInvoiceBalances below
+  // normally issues NO second request; it only falls back to GET /api/invoices when a
+  // document arrives without a balance (older server, or balance computation failed).
   // Standalone order: fall back to the owner-scoped list. The server does not filter
   // by orderId yet (it ignores the parameter), so the narrowing below still runs
   // locally; send the parameter anyway so it starts working the moment it lands.
@@ -386,7 +611,9 @@ export const getCustomerInvoicesForOrder = async (
     return Array.isArray(response?.data?.invoices) ? response.data.invoices : [];
   };
 
-  const invoices = await fetchInvoices();
+  // Zahlungsstand kommt normalerweise schon mit den Belegen; nur Belege ohne balance
+  // werden aus der Serverberechnung ergänzt (siehe attachInvoiceBalances).
+  const invoices = await attachInvoiceBalances(await fetchInvoices());
 
   const idOf = (value: any): string => {
     if (!value) return '';
@@ -454,59 +681,132 @@ export const getOrderProgressTimeline = async (orderId: string) => {
   }
 };
 
+// ── Positionsänderungen am Auftrag: Fehler und Bestätigung der Neuberechnung ──────
+// Zusatzleistungen, Shop-Produkte und Gerätewechsel antworten bei einem Auftrag, dessen
+// gespeicherter Wert nicht zu den Positionen passt, mit 409 ORDER_VALUE_NOT_RECONCILED und
+// details (siehe api/orderServices.ts). Der Fehler behält code, status, details und response,
+// damit die Oberfläche die Abweichung zeigen und die Bestätigung anbieten kann.
+export interface OrderEditError extends Error {
+  code?: string;
+  status?: number;
+  details?: (OrderValueReconciliationDetails & { confirmationOutdated?: boolean }) | Record<string, unknown>;
+  response?: unknown;
+}
+
+export const toOrderEditError = (error: any): OrderEditError => {
+  const data = error?.response?.data || error?.data || {};
+  const wrapped: OrderEditError = new Error(
+    data?.error || error?.message || 'Die Änderung konnte nicht gespeichert werden.'
+  );
+  wrapped.code = data?.code || error?.code || undefined;
+  wrapped.status = error?.response?.status ?? error?.status;
+  wrapped.details = data?.details || undefined;
+  wrapped.response = error?.response;
+  return wrapped;
+};
+
+// Bestätigung einer Neuberechnung, GEBUNDEN an die gezeigte Abweichung: der Server rechnet
+// nur neu, solange der Auftrag noch genau diese Abweichung hat (sonst frische 409 mit
+// details.confirmationOutdated und den neuen Werten).
+export interface OrderRepricingOptions {
+  confirmRepricing?: boolean;
+  repricingBasis?: { storedTotal: number; expectedTotal: number } | null;
+}
+
+export const buildRepricingConfirmation = (
+  details?: Pick<OrderValueReconciliationDetails, 'storedTotal' | 'expectedTotal'> | null
+): OrderRepricingOptions => ({
+  confirmRepricing: true,
+  ...(details ? { repricingBasis: { storedTotal: Number(details.storedTotal), expectedTotal: Number(details.expectedTotal) } } : {}),
+});
+
+// Nur gesetzte Bestätigungen gehen an den Server (kein confirmRepricing: false im Body).
+export const repricingPayload = (options?: OrderRepricingOptions | null): Record<string, unknown> =>
+  options?.confirmRepricing === true
+    ? { confirmRepricing: true, ...(options.repricingBasis ? { repricingBasis: options.repricingBasis } : {}) }
+    : {};
+
+// Hat der Server die Bestätigung abgelehnt, weil sich der Auftrag seit der Anzeige geändert hat?
+export const isRepricingConfirmationOutdated = (error: any): boolean =>
+  Boolean((error?.details || error?.response?.data?.details)?.confirmationOutdated);
+
 // Description: Add shop product to order
 // Endpoint: POST /api/admin/orders/:id/shop-products
-// Request: { productId: string, quantity: number }
+// Request: { productId: string, quantity: number, confirmRepricing?: boolean,
+//            repricingBasis?: { storedTotal: number, expectedTotal: number } }
 // Response: { success: boolean, message: string, order: Order }
-export const addShopProductToOrder = async (orderId: string, productId: string, quantity: number) => {
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED)
+export const addShopProductToOrder = async (
+  orderId: string,
+  productId: string,
+  quantity: number,
+  options?: OrderRepricingOptions
+) => {
   console.log('addShopProductToOrder called with:', { orderId, productId, quantity });
 
   try {
     const response = await api.post(`/api/admin/orders/${orderId}/shop-products`, {
       productId,
-      quantity
+      quantity,
+      ...repricingPayload(options),
     });
     console.log('addShopProductToOrder API response:', response.data);
     return response.data;
   } catch (error) {
     console.error('addShopProductToOrder API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 
 // Description: Update shop product quantity in order
 // Endpoint: PUT /api/admin/orders/:id/shop-products/:productItemId
-// Request: { quantity: number }
+// Request: { quantity: number, confirmRepricing?: boolean, repricingBasis? }
 // Response: { success: boolean, message: string, order: Order }
-export const updateShopProductQuantity = async (orderId: string, productItemId: string, quantity: number) => {
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED)
+export const updateShopProductQuantity = async (
+  orderId: string,
+  productItemId: string,
+  quantity: number,
+  options?: OrderRepricingOptions
+) => {
   console.log('updateShopProductQuantity called with:', { orderId, productItemId, quantity });
 
   try {
     const response = await api.put(`/api/admin/orders/${orderId}/shop-products/${productItemId}`, {
-      quantity
+      quantity,
+      ...repricingPayload(options),
     });
     console.log('updateShopProductQuantity API response:', response.data);
     return response.data;
   } catch (error) {
     console.error('updateShopProductQuantity API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 
 // Description: Remove shop product from order
 // Endpoint: DELETE /api/admin/orders/:id/shop-products/:productItemId
-// Request: {}
+// Request: { confirmRepricing?: boolean, repricingBasis? } (Body)
 // Response: { success: boolean, message: string, order: Order }
-export const removeShopProductFromOrder = async (orderId: string, productItemId: string) => {
+// Fehler:  OrderEditError mit code/details (z. B. 409 ORDER_VALUE_NOT_RECONCILED)
+export const removeShopProductFromOrder = async (
+  orderId: string,
+  productItemId: string,
+  options?: OrderRepricingOptions
+) => {
   console.log('removeShopProductFromOrder called with:', { orderId, productItemId });
 
   try {
-    const response = await api.delete(`/api/admin/orders/${orderId}/shop-products/${productItemId}`);
+    const payload = repricingPayload(options);
+    const response = await api.delete(
+      `/api/admin/orders/${orderId}/shop-products/${productItemId}`,
+      Object.keys(payload).length > 0 ? { data: payload } : undefined
+    );
     console.log('removeShopProductFromOrder API response:', response.data);
     return response.data;
   } catch (error) {
     console.error('removeShopProductFromOrder API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw toOrderEditError(error);
   }
 };
 

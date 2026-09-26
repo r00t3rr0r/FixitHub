@@ -1312,7 +1312,7 @@ function getDefaultNotificationTemplates() {
           { label: 'Zahlungsziel', value: '{{dueDate}}' },
           { label: 'Zahlungsart', value: '{{paymentMethod}}' }
         ],
-        body: '<p style="margin:0 0 16px 0;">Bitte begleichen Sie den ausstehenden Betrag bis zum angegebenen Zahlungsziel. Für Fragen zur Rechnung steht Ihnen unser Team gerne zur Verfügung.</p><p style="margin:0;">Nach vollständigem Zahlungseingang erhalten Sie eine separate Zahlungsbestätigung.</p>',
+        body: '{{customMessage}}<p style="margin:0 0 16px 0;">Bitte begleichen Sie den ausstehenden Betrag bis zum angegebenen Zahlungsziel. Für Fragen zur Rechnung steht Ihnen unser Team gerne zur Verfügung.</p><p style="margin:0;">Nach vollständigem Zahlungseingang erhalten Sie eine separate Zahlungsbestätigung.</p>',
         ctaLabel: 'Rechnung herunterladen',
         ctaUrl: '{{invoiceUrl}}',
         closing: 'Vielen Dank für Ihr Vertrauen in {{companyName}}.<br /><strong>Ihr {{companyName}} Team</strong>',
@@ -1327,6 +1327,7 @@ function getDefaultNotificationTemplates() {
         createVariable('dueDate', 'Zahlungsziel / Faelligkeitsdatum', true),
         createVariable('paymentMethod', 'Zahlungsart'),
         createVariable('invoiceUrl', 'Link zum Rechnungsdokument', true),
+        createVariable('customMessage', 'Persönliche Nachricht des Bearbeiters (optional)'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],
@@ -1356,7 +1357,7 @@ function getDefaultNotificationTemplates() {
           { label: 'Mahnstufe', value: '{{dunningStage}}' },
           { label: 'Offener Betrag', value: '{{amountOpen}}' }
         ],
-        body: '<p style="margin:0;">Bitte nutzen Sie den folgenden Link, um Ihre Rechnung einzusehen und die Zahlung zu veranlassen.</p>',
+        body: '{{customMessage}}<p style="margin:0;">Bitte nutzen Sie den folgenden Link, um Ihre Rechnung einzusehen und die Zahlung zu veranlassen.</p>',
         ctaLabel: 'Rechnung ansehen',
         ctaUrl: '{{invoiceUrl}}',
         closing: 'Bei Fragen zu Ihrer Rechnung helfen wir Ihnen gerne weiter.<br /><strong>Ihr {{companyName}} Team</strong>',
@@ -1371,6 +1372,7 @@ function getDefaultNotificationTemplates() {
         createVariable('dueDate', 'Neues Zahlungsziel', true),
         createVariable('dunningStage', 'Aktuelle Mahnstufe', true),
         createVariable('invoiceUrl', 'Link zur Rechnung', true),
+        createVariable('customMessage', 'Persönliche Nachricht des Bearbeiters (optional)'),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')
       ],

@@ -325,17 +325,28 @@ class WorkflowService {
   // service CATEGORY. We therefore accept a match on either representation, so a
   // template scoped in the admin UI actually matches instead of matching nothing
   // (and no data migration is required). See F1-D.
-  static matchesOrderScope(workflow, deviceType, serviceCategories = [], serviceIds = []) {
-    const deviceTypes = workflow?.deviceTypes || [];
-    const serviceTypes = workflow?.serviceTypes || [];
+  //
+  // Compared case-insensitively and trimmed: the template UI writes 'Smartphone',
+  // while device data from the catalogue (Device.deviceType is `lowercase: true`)
+  // can reach an order as 'smartphone'. An exact comparison made such orders match
+  // no specific template, so only the general fallback was offered ("the general
+  // workflow is back").
+  static normalizeScopeToken(token) {
+    return token === undefined || token === null ? '' : String(token).trim().toLowerCase();
+  }
 
-    const deviceMatches = deviceTypes.length === 0 || deviceTypes.includes(deviceType);
+  static matchesOrderScope(workflow, deviceType, serviceCategories = [], serviceIds = []) {
+    const normalize = WorkflowService.normalizeScopeToken;
+    const deviceTypes = (workflow?.deviceTypes || []).map(normalize).filter(Boolean);
+    const serviceTypes = (workflow?.serviceTypes || []).map(normalize).filter(Boolean);
+
+    const deviceMatches = deviceTypes.length === 0 || deviceTypes.includes(normalize(deviceType));
 
     const orderServiceTokens = [
       ...(serviceCategories || []),
       ...(serviceIds || [])
     ]
-      .map((token) => (token ? String(token) : ''))
+      .map(normalize)
       .filter(Boolean);
 
     const serviceMatches = serviceTypes.length === 0 ||
@@ -396,12 +407,22 @@ class WorkflowService {
         (template) => WorkflowService.isGeneralTemplate(template)
       );
 
-      const suggested = specificMatches.length > 0 ? specificMatches : generalMatches;
+      // Within the fallback, a true catch-all (no device AND no service scope) is the
+      // honest "general" answer. A half-scoped template that CONTRADICTS the order
+      // (e.g. deviceTypes ['Smartphone'] on a Laptop order) is only offered when there
+      // is no catch-all at all, so the assignment dialog is never left empty.
+      const catchAllMatches = generalMatches.filter(
+        (template) => WorkflowService.isCatchAllTemplate(template)
+      );
+      const fallback = catchAllMatches.length > 0 ? catchAllMatches : generalMatches;
+
+      const suggested = specificMatches.length > 0 ? specificMatches : fallback;
 
       console.log('WorkflowService: Suggested', suggested.length, 'workflows', {
         offerableCount: offerable.length,
         specificMatchCount: specificMatches.length,
         generalCount: generalMatches.length,
+        catchAllCount: catchAllMatches.length,
         usedGeneralFallback: specificMatches.length === 0
       });
 

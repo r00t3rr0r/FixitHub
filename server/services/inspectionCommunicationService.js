@@ -5,6 +5,11 @@ const Complaint = require('../models/Complaint');
 const NotificationService = require('./notificationService');
 const EmailService = require('./emailService');
 
+// Deutsches Betragsformat fuer Meldungen an die Oberflaeche (20,00 € statt 20.00 €).
+function formatEuroDe(value) {
+  return `${Number(value || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
 class InspectionCommunicationService {
   static async notifyGuestMessageRecipient(order, senderType, senderName, content) {
     try {
@@ -971,7 +976,7 @@ class InspectionCommunicationService {
         senderName,
         senderRole: 'system',
         messageType: 'repair_offer',
-        content: `Neues Reparaturangebot: ${offerDescription} – Kosten: ${Number(offerAmount).toFixed(2)} €`,
+        content: `Neues Reparaturangebot: ${offerDescription} – Kosten: ${formatEuroDe(Number(offerAmount))}`,
         metadata: {
           complaintId: complaintId.toString(),
           offerAmount: Number(offerAmount),
@@ -996,7 +1001,7 @@ class InspectionCommunicationService {
           await NotificationService.createNotification({
             userId: order.customerId,
             title: 'Neues Reparaturangebot verfügbar',
-            message: `${offerDescription} – ${Number(offerAmount).toFixed(2)} €. Bitte annehmen oder ablehnen.`,
+            message: `${offerDescription} – ${formatEuroDe(Number(offerAmount))}. Bitte annehmen oder ablehnen.`,
             type: 'message',
             orderId,
             actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,

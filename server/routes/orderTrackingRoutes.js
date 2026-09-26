@@ -4,6 +4,83 @@ const Order = require('../models/Order');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const InspectionCommunication = require('../models/InspectionCommunication');
+const DHLService = require('../services/dhlService');
+
+// Oeffentliche Sicht auf eine Versandrichtung - ohne interne Abgleich-/Download-Details.
+const publicShipmentDirection = (view = {}) => ({
+  direction: view.direction,
+  label: view.label,
+  hasLabel: Boolean(view.hasLabel),
+  trackingNumber: view.trackingNumber || '',
+  status: view.status || '',
+  statusDescription: view.statusDescription || '',
+  estimatedDelivery: view.estimatedDelivery || null,
+  actualDelivery: view.actualDelivery || null,
+});
+
+/**
+ * Versandfelder eines Auftrags fuer die Gast-Sendungsverfolgung.
+ * trackingNumber / shippingStatus / shippingLabelUrl / trackingEvents am Auftrag sind die
+ * AUSLIEFERUNG (McRepair -> Kunde). Im Altbestand steht dort mitunter eine KOPIE des
+ * Einsendelabels (Kunde -> McRepair); die wuerde sonst als "Versand an Sie" angezeigt. Die
+ * Werte kommen deshalb aus DHLService.getOrderShipmentState, Einsendung und Auslieferung
+ * getrennt unter `shipments`. Die bisherigen Feldnamen bleiben erhalten.
+ */
+const withShipmentView = async (order) => {
+  if (!order || !order._id) {
+    return order;
+  }
+  try {
+    const { shipments } = await DHLService.getOrderShipmentState(order._id);
+    const outbound = shipments.outbound;
+    const legacyCopy = shipments.legacy?.inboundInOutboundSlot === true;
+    // Nur Felder ersetzen, die die Antwort bisher schon trug (die Buchungsansicht laedt die
+    // Auftraege mit einer schmalen Projektion) - oder wenn es eine echte Auslieferung gibt.
+    const hasOutbound = Boolean(outbound.trackingNumber);
+    const shippingFields = {
+      trackingNumber: outbound.trackingNumber,
+      shippingStatus: outbound.status,
+      shippingStatusDescription: outbound.statusDescription,
+      estimatedDelivery: outbound.estimatedDelivery,
+      actualDelivery: outbound.actualDelivery,
+      trackingEvents: legacyCopy ? [] : (order.trackingEvents || []),
+      shippingLabelUrl: outbound.hasLabel ? (order.shippingLabelUrl || '') : '',
+    };
+    const replaced = {};
+    Object.keys(shippingFields).forEach((key) => {
+      if (hasOutbound || Object.prototype.hasOwnProperty.call(order, key)) {
+        replaced[key] = shippingFields[key];
+      }
+    });
+    return {
+      ...order,
+      ...replaced,
+      shipments: {
+        outbound: publicShipmentDirection(outbound),
+        inbound: publicShipmentDirection(shipments.inbound),
+      },
+    };
+  } catch (error) {
+    // Im Zweifel keine Versanddaten zeigen statt womoeglich die falsche Richtung: ALLE Felder
+    // der (nicht pruefbaren) Auslieferung werden neutralisiert - auch Status ('delivered' einer
+    // Einsende-Kopie) und Zustelldaten, sonst sähe der Gast "zugestellt" samt Datum.
+    console.error('OrderTrackingRoutes: Shipment state could not be resolved:', error.message);
+    const blanked = { ...order };
+    const neutral = {
+      trackingNumber: '',
+      shippingStatus: 'pending',
+      shippingStatusDescription: '',
+      shippingLabelUrl: '',
+      estimatedDelivery: null,
+      actualDelivery: null,
+      trackingEvents: [],
+    };
+    Object.keys(neutral).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(order, key)) blanked[key] = neutral[key];
+    });
+    return blanked;
+  }
+};
 
 const normalizeGuestCommunication = (communication) => {
   if (!communication) {
@@ -163,7 +240,7 @@ router.get('/', async (req, res) => {
 
     // Prepare response data
     const responseOrder = {
-      ...order,
+      ...(await withShipmentView(order)),
       // Hide sensitive internal information
       unlockPattern: undefined,
       unlockCode: undefined,
@@ -255,7 +332,8 @@ router.get('/booking', async (req, res) => {
     console.log('OrderTrackingRoutes: Booking found:', booking.bookingNumber);
 
     // Prepare response data - hide sensitive information
-    const responseOrders = booking.orderIds.map(order => ({
+    const shipmentViews = await Promise.all((booking.orderIds || []).map((order) => withShipmentView(order)));
+    const responseOrders = shipmentViews.map(order => ({
       ...order,
       unlockPattern: undefined,
       unlockCode: undefined,
@@ -329,7 +407,8 @@ router.get('/by-number', async (req, res) => {
       });
     }
 
-    const responseOrders = (booking.orderIds || []).map(order => ({
+    const shipmentViews = await Promise.all((booking.orderIds || []).map((order) => withShipmentView(order)));
+    const responseOrders = shipmentViews.map(order => ({
       ...order,
       unlockPattern: undefined,
       unlockCode: undefined,

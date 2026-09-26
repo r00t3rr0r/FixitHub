@@ -6,8 +6,14 @@ const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const FinancialService = require('../services/financialService');
+const PaymentService = require('../services/paymentService');
 const InvoicePdfService = require('../services/invoicePdfService');
 const NotificationService = require('../services/notificationService');
+
+// Deutsches Betragsformat fuer Meldungen an die Oberflaeche (20,00 € statt 20.00 €).
+function formatEuroDe(value) {
+  return `${Number(value || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
 
 const getFrontendBaseUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
 
@@ -46,9 +52,81 @@ const getGatewayFromRequest = async (gatewayId, gatewayProvider) => {
   const gateways = await FinancialService.getPaymentGateways();
   const gateway = gateways.find((item) => item._id === gatewayId && item.provider === gatewayProvider);
   if (!gateway || !gateway.isActive) {
-    throw new Error('Selected payment gateway is not available');
+    throw new Error('Die gewählte Zahlungsart ist derzeit nicht verfügbar.');
   }
   return gateway;
+};
+
+// Deutsche Kundenmeldungen des Rechnungsbereichs. Der Status traegt die Fehlerart,
+// der Code bleibt maschinenlesbar (der Client waehlt anhand des Status/Codes).
+const INVOICE_NOT_FOUND_MESSAGE = 'Die Rechnung wurde nicht gefunden.';
+const INVOICE_FORBIDDEN_MESSAGE = 'Sie haben keine Berechtigung für diese Rechnung.';
+
+const buildAccessError = (message, statusCode, code) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  return error;
+};
+
+const isPrivilegedRole = (user) => user?.role === 'admin' || user?.role === 'staff';
+
+// Nicht ausgestellte Belege (Entwurf, Freigabe) sind fuer Kunden unsichtbar - auch ein
+// verworfener Entwurf (Status 'cancelled', cancellation.kind 'draft_discarded').
+const CUSTOMER_HIDDEN_STATUSES = ['draft', 'pending_approval'];
+const isNeverIssued = (invoice) => CUSTOMER_HIDDEN_STATUSES.includes(String(invoice?.status || ''))
+  || invoice?.cancellation?.kind === 'draft_discarded';
+const NOT_DISCARDED_FILTER = { 'cancellation.kind': { $ne: 'draft_discarded' } };
+
+// KUNDENSICHT eines Belegs: interne Felder verlassen den Server nicht - Revisionsspur
+// (Bearbeiternamen, interne Details, rohe SMTP-Fehler), technische Sperren, Mahn-Interna
+// (Fehlertexte, naechster interner Termin), Archiv-Metadaten und die Storno-Interna
+// (Bearbeiter, Vorstatus, gebuchter Betrag). Erhalten bleibt alles, was der Kunde auf dem
+// Beleg bzw. in seiner Ansicht sieht (Positionen, Betraege, Status, Storno-Hinweis mit
+// Grund und Gutschriftnummer, erreichte Mahnstufen). Admin/Mitarbeiter: unveraendert.
+const CUSTOMER_HIDDEN_INVOICE_FIELDS = [
+  'auditTrail', 'dunningLock', 'allocationLock', 'dunningLastFailure',
+  'documentArchive', 'documentHistory', 'nextDunningDueDate', 'lockedAt',
+  'activeBillingKeys',
+];
+const toCustomerInvoice = (invoice) => {
+  if (!invoice || typeof invoice !== 'object') return invoice;
+  const plain = typeof invoice.toObject === 'function' ? invoice.toObject() : { ...invoice };
+  CUSTOMER_HIDDEN_INVOICE_FIELDS.forEach((field) => { delete plain[field]; });
+  if (Array.isArray(plain.dunningHistory)) {
+    // Nur tatsaechlich versendete Schreiben (Altbestand ohne result: emailSentAt gesetzt).
+    plain.dunningHistory = plain.dunningHistory
+      .filter((entry) => entry && (entry.result === 'sent' || (!entry.result && entry.emailSentAt)))
+      .map((entry) => ({ stage: entry.stage, executedAt: entry.executedAt }));
+  }
+  if (plain.cancellation && typeof plain.cancellation === 'object') {
+    const { kind, state, reason, completedAt, creditNoteId, creditNoteNumber } = plain.cancellation;
+    plain.cancellation = { kind, state, reason, completedAt, creditNoteId, creditNoteNumber };
+  }
+  return plain;
+};
+const forViewer = (user, invoice) => (isPrivilegedRole(user) ? invoice : toCustomerInvoice(invoice));
+
+// Nur fachliche, bereits deutsche Meldungen gehen an den Kunden; technische Fehler
+// (Netzwerk, Anbieter-SDK, englische Laufzeittexte) werden durch einen deutschen Satz
+// ersetzt und nur geloggt.
+const toCustomerMessage = (error, fallback) => {
+  const message = String(error?.message || '');
+  return /[äöüÄÖÜß]|^(Die|Der|Das|Diese|Dieser|Bitte|Für|Sie|Ihre|Ungültig|Kein)\b/.test(message) ? message : fallback;
+};
+
+const PAYMENT_FIELD_LABELS = {
+  cardholderName: 'Karteninhaber',
+  cardNumber: 'Kartennummer',
+  cardExpiry: 'Ablaufdatum',
+  cardCvc: 'Prüfnummer',
+  'billingAddress.street': 'Straße',
+  'billingAddress.city': 'Ort',
+  'billingAddress.zipCode': 'PLZ',
+  'billingAddress.country': 'Land',
+  paypalEmail: 'PayPal-E-Mail',
+  accountHolder: 'Kontoinhaber',
+  iban: 'IBAN'
 };
 
 // Zahlungshistorie einer Rechnung.
@@ -69,31 +147,72 @@ const loadInvoicePaymentHistory = async (invoiceId, orderId = null) => {
     _id: String(payment._id),
     date: payment.processedAt || payment.createdAt || new Date(),
     amount: Number(payment.amount || 0),
+    // Nur abgeschlossene Zahlungen sind eingegangenes Geld; eine angekuendigte
+    // Ueberweisung ('pending') oder eine Erstattung muss erkennbar bleiben.
+    status: payment.status,
+    refundAmount: Number(payment.refundAmount || 0),
     method: payment.paymentMethod,
     note: payment.gatewayResponse || payment.metadata?.providerReference || payment.transactionId || ''
   }));
 };
 
-const assertInvoiceOwner = (invoice, user) => {
-  if (!invoice) throw new Error('Invoice not found');
+// Zahlungsstand fuer die Kundenansicht aus DERSELBEN Berechnung wie im Admin
+// (PaymentService). `remainingAmount` wird daraus abgeleitet, nicht aus paidAmount.
+const withBalance = async (invoice) => {
+  if (!invoice) return invoice;
+  const balance = await PaymentService.computeInvoiceBalance(invoice);
+  return {
+    ...invoice,
+    balance: balance ? FinancialService.toBalancePayload(balance) : null,
+    paymentState: balance?.paymentState || 'open',
+  };
+};
 
-  const isPrivilegedUser = user?.role === 'admin' || user?.role === 'staff';
-  if (isPrivilegedUser) return;
+const assertInvoiceOwner = (invoice, user) => {
+  if (!invoice) throw buildAccessError(INVOICE_NOT_FOUND_MESSAGE, 404, 'INVOICE_NOT_FOUND');
+
+  if (isPrivilegedRole(user)) return;
 
   const invoiceCustomerId = invoice.customerId?._id || invoice.customerId;
   const requesterId = user?._id || user;
 
   if (!invoiceCustomerId || !requesterId || String(invoiceCustomerId) !== String(requesterId)) {
-    throw new Error('You do not have permission to access this invoice');
+    throw buildAccessError(INVOICE_FORBIDDEN_MESSAGE, 403, 'INVOICE_FORBIDDEN');
+  }
+  // Ein Entwurf existiert fuer den Kunden nicht (kein Hinweis auf seine Existenz).
+  if (isNeverIssued(invoice)) {
+    throw buildAccessError(INVOICE_NOT_FOUND_MESSAGE, 404, 'INVOICE_NOT_FOUND');
   }
 };
 
-const validatePaymentAmount = (invoice, amount) => {
-  const numericAmount = Number(amount);
-  const remaining = Number(invoice.total || 0) - Number(invoice.paidAmount || 0);
-  if (!numericAmount || numericAmount <= 0) throw new Error('Invalid payment amount');
+// Bezug "Bestellung": die Buchung (bzw. der Auftrag) zum Beleg, damit Kunden- und
+// Adminansicht direkt dorthin springen koennen.
+const loadBookingReference = async (invoice) => {
+  const Booking = require('../models/Booking');
+  const Order = require('../models/Order');
+  let bookingId = invoice?.bookingId?._id || invoice?.bookingId || null;
+  if (!bookingId) {
+    const orderId = invoice?.orderId?._id || invoice?.orderId || (invoice?.repairOrderIds || [])[0] || null;
+    if (orderId) {
+      const order = await Order.findById(orderId?._id || orderId).setOptions({ skipAutoPopulate: true }).select('bookingId').lean();
+      bookingId = order?.bookingId || null;
+    }
+  }
+  if (!bookingId) return null;
+  const booking = await Booking.findById(bookingId).setOptions({ skipAutoPopulate: true }).select('_id bookingNumber customerId').lean();
+  if (!booking) return null;
+  return { _id: String(booking._id), bookingNumber: booking.bookingNumber || '' };
+};
+
+// Offener Betrag aus der gemeinsamen Berechnung (Forderung minus gueltige
+// Zuordnungen) - nicht aus dem denormalisierten paidAmount.
+const validatePaymentAmount = async (invoice, amount) => {
+  const numericAmount = Math.round(Number(amount) * 100) / 100;
+  const balance = await PaymentService.computeInvoiceBalance(invoice);
+  const remaining = Number(balance?.open || 0);
+  if (!numericAmount || numericAmount <= 0) throw new Error('Ungültiger Zahlungsbetrag.');
   if (numericAmount > remaining + 0.01) {
-    throw new Error(`Payment amount exceeds remaining balance (${remaining.toFixed(2)}).`);
+    throw new Error(`Der Betrag übersteigt den offenen Rechnungsbetrag (${formatEuroDe(remaining)}).`);
   }
   return { numericAmount, remaining };
 };
@@ -155,7 +274,7 @@ const getPaypalAccessToken = async (gateway) => {
   const baseUrl = useLive ? (config.api_base_url_live || 'https://api-m.paypal.com') : (config.api_base_url_sandbox || 'https://api-m.sandbox.paypal.com');
 
   if (!clientId || !clientSecret) {
-    throw new Error('PayPal gateway credentials are not configured.');
+    throw new Error('PayPal ist derzeit nicht eingerichtet. Bitte wählen Sie eine andere Zahlungsart.');
   }
 
   const tokenResponse = await axios.post(
@@ -187,15 +306,16 @@ router.get('/', requireUser, async (req, res) => {
   try {
     console.log('InvoiceRoutes: Getting invoices for user:', req.user._id);
 
-    const { status, limit = 50, skip = 0 } = req.query;
+    const { status, limit = 50, skip = 0, orderId, bookingId } = req.query;
 
     const filters = {
       customerId: req.user._id,
-      status: { $ne: 'draft' }
+      status: { $nin: CUSTOMER_HIDDEN_STATUSES },
+      ...NOT_DISCARDED_FILTER
     };
 
     if (status) {
-      if (status === 'draft') {
+      if (CUSTOMER_HIDDEN_STATUSES.includes(String(status))) {
         return res.json({
           success: true,
           invoices: [],
@@ -204,6 +324,18 @@ router.get('/', requireUser, async (req, res) => {
       }
       filters.status = status;
     }
+
+    // Optional: nur die Belege eines Auftrags bzw. einer Buchung (immer innerhalb der
+    // eigenen Belege - customerId bleibt Pflichtfilter).
+    const mongoose = require('mongoose');
+    const scope = [];
+    if (orderId && mongoose.Types.ObjectId.isValid(String(orderId))) {
+      scope.push({ orderId: String(orderId) }, { repairOrderIds: String(orderId) });
+    }
+    if (bookingId && mongoose.Types.ObjectId.isValid(String(bookingId))) {
+      scope.push({ bookingId: String(bookingId) });
+    }
+    if (scope.length > 0) filters.$or = scope;
 
     const invoices = await Invoice.find(filters)
       .sort({ createdAt: -1 })
@@ -214,7 +346,16 @@ router.get('/', requireUser, async (req, res) => {
       .lean();
 
     const count = await Invoice.countDocuments(filters);
-    const hydratedInvoices = invoices.map((invoice) => withProfileBillingAddress(invoice));
+    // Zahlungsstand je Rechnung aus der gemeinsamen Berechnung (wie im Admin).
+    const balances = await PaymentService.getInvoiceBalances(invoices);
+    const hydratedInvoices = invoices.map((invoice) => {
+      const balance = balances.get(String(invoice._id));
+      return {
+        ...forViewer(req.user, withProfileBillingAddress(invoice)),
+        balance: balance ? FinancialService.toBalancePayload(balance) : null,
+        paymentState: balance?.paymentState || 'open',
+      };
+    });
 
     console.log('InvoiceRoutes: Retrieved', invoices.length, 'invoices for user');
 
@@ -227,7 +368,7 @@ router.get('/', requireUser, async (req, res) => {
     console.error('InvoiceRoutes: Error getting invoices:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: 'Die Rechnungen konnten nicht geladen werden.',
     });
   }
 });
@@ -282,7 +423,7 @@ router.get('/paypal/config', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('InvoiceRoutes: Error loading PayPal SDK config:', error);
-    return res.status(400).json({ success: false, error: error.message || 'PayPal-Konfiguration konnte nicht geladen werden.' });
+    return res.status(400).json({ success: false, error: toCustomerMessage(error, 'Die PayPal-Konfiguration konnte nicht geladen werden.') });
   }
 });
 
@@ -334,7 +475,7 @@ router.get('/payment-gateways', requireUser, async (req, res) => {
     console.error('InvoiceRoutes: Error getting customer payment gateways:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to load payment gateways'
+      error: 'Die Zahlungsarten konnten nicht geladen werden.'
     });
   }
 });
@@ -348,7 +489,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
     const { amount, gatewayId, gatewayProvider, paymentData = {}, isJsSdk = false } = req.body;
 
     if (!['stripe', 'paypal'].includes(gatewayProvider)) {
-      return res.status(400).json({ success: false, error: 'Only Stripe and PayPal support redirect initialization.' });
+      return res.status(400).json({ success: false, error: 'Diese Zahlungsart wird über die Weiterleitung zum Zahlungsanbieter nicht unterstützt. Bitte wählen Sie Kartenzahlung oder PayPal.', code: 'UNSUPPORTED_REDIRECT_PROVIDER' });
     }
 
     const invoice = await Invoice.findById(req.params.id);
@@ -357,7 +498,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
     if (!isInvoiceProviderAllowed({ provider: gatewayProvider, allowedMethods })) {
       return res.status(403).json({ success: false, error: 'Diese Zahlungsart ist für Ihre Kundengruppe nicht freigegeben.' });
     }
-    const { numericAmount } = validatePaymentAmount(invoice, amount);
+    const { numericAmount } = await validatePaymentAmount(invoice, amount);
 
     const gateway = await getGatewayFromRequest(gatewayId, gatewayProvider);
     const currency = (gateway.configuration?.default_currency || gateway.configuration?.currency || 'EUR').toLowerCase();
@@ -370,7 +511,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
       const stripeSecretKey = useLive ? config.live_secret_key : config.test_secret_key;
 
       if (!stripeSecretKey) {
-        return res.status(400).json({ success: false, error: 'Stripe secret key is not configured.' });
+        return res.status(400).json({ success: false, error: 'Die Kartenzahlung ist derzeit nicht eingerichtet. Bitte wählen Sie eine andere Zahlungsart.' });
       }
 
       const successUrl = `${frontendBase}${returnPath}?paymentStatus=success&paymentProvider=stripe&invoiceId=${invoice._id}&gatewayId=${gateway._id}&sessionId={CHECKOUT_SESSION_ID}`;
@@ -457,7 +598,7 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
 
       const approveLink = (orderResponse.data.links || []).find((link) => link.rel === 'approve')?.href;
       if (!approveLink) {
-        return res.status(502).json({ success: false, error: 'PayPal approval URL could not be generated.' });
+        return res.status(502).json({ success: false, error: 'Die Weiterleitung zu PayPal konnte nicht erstellt werden. Bitte versuchen Sie es erneut.' });
       }
 
       return res.json({
@@ -469,12 +610,12 @@ router.post('/:id/payments/initialize', requireUser, async (req, res) => {
       });
     }
 
-    return res.status(400).json({ success: false, error: 'Unsupported payment provider.' });
+    return res.status(400).json({ success: false, error: 'Diese Zahlungsart wird für Rechnungen nicht unterstützt.' });
   } catch (error) {
     console.error('InvoiceRoutes: Error initializing redirect payment:', error?.response?.data || error);
     return res.status(400).json({
       success: false,
-      error: error.message || 'Failed to initialize payment.'
+      error: toCustomerMessage(error, 'Die Zahlung konnte nicht gestartet werden. Bitte versuchen Sie es erneut.')
     });
   }
 });
@@ -488,10 +629,10 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     const { gatewayProvider, gatewayId, providerReference, amount } = req.body;
 
     if (!['stripe', 'paypal'].includes(gatewayProvider)) {
-      return res.status(400).json({ success: false, error: 'Only Stripe and PayPal can be confirmed via redirect tokens.' });
+      return res.status(400).json({ success: false, error: 'Diese Zahlungsart kann nicht über die Rückleitung vom Zahlungsanbieter bestätigt werden.', code: 'UNSUPPORTED_REDIRECT_PROVIDER' });
     }
     if (!providerReference) {
-      return res.status(400).json({ success: false, error: 'Provider reference is required.' });
+      return res.status(400).json({ success: false, error: 'Die Zahlungsreferenz des Anbieters fehlt.' });
     }
 
     const invoice = await Invoice.findById(req.params.id);
@@ -508,16 +649,17 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
 
     if (existingPayment) {
       const paymentHistory = await loadInvoicePaymentHistory(invoice._id, invoice.orderId);
+      const invoiceWithBalance = await withBalance(invoice.toObject ? invoice.toObject() : invoice);
       return res.json({
         success: true,
         alreadyRecorded: true,
         payment: existingPayment,
-        invoice: {
-          ...invoice,
+        invoice: forViewer(req.user, {
+          ...invoiceWithBalance,
           paymentHistory,
           amountPaid: invoice.paidAmount,
-        },
-        remainingAmount: Number(invoice.total || 0) - Number(invoice.paidAmount || 0)
+        }),
+        remainingAmount: Number(invoiceWithBalance?.balance?.open || 0)
       });
     }
 
@@ -533,7 +675,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       const useLive = config.mode === 'live';
       const stripeSecretKey = useLive ? config.live_secret_key : config.test_secret_key;
       if (!stripeSecretKey) {
-        return res.status(400).json({ success: false, error: 'Stripe secret key is not configured.' });
+        return res.status(400).json({ success: false, error: 'Die Kartenzahlung ist derzeit nicht eingerichtet. Bitte wählen Sie eine andere Zahlungsart.' });
       }
 
       const sessionResponse = await axios.get(
@@ -545,8 +687,15 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       );
 
       const session = sessionResponse.data;
+      // Die Session muss zu DIESER Rechnung gehoeren (beim Initialisieren gesetzt):
+      // sonst koennte eine bezahlte Session einer anderen Rechnung hier ein zweites Mal
+      // gebucht werden.
+      const sessionInvoiceId = String(session?.metadata?.invoiceId || session?.client_reference_id || '');
+      if (sessionInvoiceId !== String(invoice._id)) {
+        return res.status(409).json({ success: false, error: 'Diese Stripe-Zahlung gehört nicht zu dieser Rechnung und wurde nicht verbucht.' });
+      }
       if (session.payment_status !== 'paid') {
-        return res.status(400).json({ success: false, error: 'Stripe payment is not completed yet.' });
+        return res.status(400).json({ success: false, error: 'Die Stripe-Zahlung ist noch nicht abgeschlossen.' });
       }
 
       finalAmount = Number(session.amount_total || 0) / 100;
@@ -579,6 +728,14 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
 
       // Check order status first to avoid sending an unnecessary capture request that would return 422.
       let order = await fetchOrder();
+      // Die PayPal-Order muss zu DIESER Rechnung gehoeren (custom_id/reference_id setzt
+      // /payments/initialize). Gepruefte VOR einem Capture: sonst wuerde Geld fuer eine
+      // fremde Rechnung eingezogen oder eine bereits bezahlte Order erneut gebucht.
+      const boundUnit = order?.purchase_units?.[0] || {};
+      const boundInvoiceId = String(boundUnit.custom_id || boundUnit.reference_id || '');
+      if (boundInvoiceId !== String(invoice._id)) {
+        return res.status(409).json({ success: false, error: 'Diese PayPal-Zahlung gehört nicht zu dieser Rechnung und wurde nicht verbucht.' });
+      }
       if (order.status !== 'COMPLETED') {
         try {
           const captureResponse = await axios.post(
@@ -596,7 +753,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
           if (captureError?.response?.status === 422 || errName === 'UNPROCESSABLE_ENTITY') {
             order = await fetchOrder();
             if (order.status !== 'COMPLETED') {
-              return res.status(400).json({ success: false, error: 'PayPal payment could not be completed.' });
+              return res.status(400).json({ success: false, error: 'Die PayPal-Zahlung konnte nicht abgeschlossen werden.' });
             }
           } else {
             throw captureError;
@@ -605,7 +762,7 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       }
 
       if (order.status !== 'COMPLETED') {
-        return res.status(400).json({ success: false, error: 'PayPal payment is not completed yet.' });
+        return res.status(400).json({ success: false, error: 'Die PayPal-Zahlung ist noch nicht abgeschlossen.' });
       }
 
       const capture = order.purchase_units?.[0]?.payments?.captures?.[0];
@@ -619,13 +776,49 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       };
     }
 
-    const { numericAmount } = validatePaymentAmount(invoice, finalAmount);
+    // Dieselbe Anbieterzahlung darf nur EINMAL im System stehen - auch wenn sie bereits
+    // an anderer Stelle gebucht ist (z.B. als Vorauszahlung im Checkout oder auf einer
+    // anderen Rechnung).
+    const providerKeys = [...new Set([
+      String(providerReference),
+      String(providerDetails.captureId || ''),
+      String(providerDetails.sessionId || ''),
+    ].filter(Boolean))];
+    const bookedElsewhere = await Payment.findOne({
+      invoiceId: { $ne: invoice._id },
+      $or: [
+        { 'metadata.providerReference': { $in: providerKeys } },
+        { 'metadata.paypalOrderId': { $in: providerKeys } },
+        { 'metadata.providerDetails.captureId': { $in: providerKeys } },
+        { transactionId: { $in: providerKeys } },
+        { idempotencyKey: `gateway:${gatewayProvider}:${providerReference}` },
+      ],
+    }).select('_id invoiceId').lean();
+    if (bookedElsewhere) {
+      return res.status(409).json({
+        success: false,
+        error: 'Diese Zahlung ist bereits an anderer Stelle verbucht und wurde nicht erneut erfasst. Bitte wenden Sie sich an unseren Support, falls die Rechnung dennoch offen ist.',
+      });
+    }
+
+    // Das Geld ist beim Anbieter bereits eingezogen: es wird IMMER erfasst. Frueher
+    // wurde hier erst jetzt gegen den offenen Betrag geprueft - war die Rechnung
+    // inzwischen anderweitig bezahlt, scheiterte die Erfassung und das eingezogene
+    // Geld stand nirgends. Ein Ueberhang bleibt als "Erstattung offen" sichtbar.
+    const numericAmount = Math.round(Number(finalAmount || 0) * 100) / 100;
+    if (!(numericAmount > 0)) {
+      return res.status(400).json({ success: false, error: 'Der Zahlungsanbieter hat keinen Betrag gemeldet.' });
+    }
 
     const result = await FinancialService.addInvoicePayment(invoice._id, {
       amount: numericAmount,
       currency,
       paymentMethod: gatewayProvider,
       gatewayResponse,
+      allowOverpayment: true,
+      // Dieselbe Anbieter-Referenz ist genau EINE Zahlung - auch bei parallelem
+      // Redirect- und onApprove-Aufruf oder spaeterem Retry.
+      idempotencyKey: `gateway:${gatewayProvider}:${providerReference}`,
       metadata: {
         gatewayId,
         gatewayProvider,
@@ -637,11 +830,23 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
     });
 
     const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id, result.invoice.orderId);
-    const invoiceWithHistory = {
-      ...result.invoice,
+    const confirmedInvoice = await withBalance(result.invoice?.toObject ? result.invoice.toObject() : result.invoice);
+    // Kundensicht wie GET /:id: keine internen Felder in der Antwort.
+    const invoiceWithHistory = forViewer(req.user, {
+      ...confirmedInvoice,
       paymentHistory,
       amountPaid: result.invoice.paidAmount,
-    };
+    });
+
+    if (result.duplicate) {
+      return res.json({
+        success: true,
+        alreadyRecorded: true,
+        payment: result.payment,
+        invoice: invoiceWithHistory,
+        remainingAmount: Number(confirmedInvoice?.balance?.open || 0)
+      });
+    }
 
     // Notify customer of successful payment
     setImmediate(async () => {
@@ -664,13 +869,14 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       success: true,
       payment: result.payment,
       invoice: invoiceWithHistory,
-      remainingAmount: Number(result.invoice.total || 0) - Number(result.invoice.paidAmount || 0)
+      ...(result.warning ? { warning: result.warning } : {}),
+      remainingAmount: Number(confirmedInvoice?.balance?.open || 0)
     });
   } catch (error) {
     console.error('InvoiceRoutes: Error confirming redirect payment:', error?.response?.data || error);
     return res.status(400).json({
       success: false,
-      error: error.message || 'Failed to confirm payment.'
+      error: toCustomerMessage(error, 'Die Zahlung konnte nicht bestätigt werden. Bitte wenden Sie sich an unseren Support, falls der Betrag abgebucht wurde.')
     });
   }
 });
@@ -686,18 +892,22 @@ router.post('/:id/pay', requireUser, async (req, res) => {
     if (['stripe', 'paypal'].includes(gatewayProvider)) {
       return res.status(400).json({
         success: false,
-        error: 'Stripe/PayPal require redirect initialization. Use /payments/initialize first.'
+        error: 'Kartenzahlung und PayPal werden über die Weiterleitung zum Zahlungsanbieter abgewickelt. Bitte die Zahlung erneut starten.',
+        code: 'REDIRECT_REQUIRED'
       });
     }
 
     const invoice = await Invoice.findById(req.params.id);
-    if (!invoice) {
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    if (!invoice || CUSTOMER_HIDDEN_STATUSES.includes(String(invoice.status || ''))) {
+      return res.status(404).json({ success: false, error: INVOICE_NOT_FOUND_MESSAGE, code: 'INVOICE_NOT_FOUND' });
     }
 
     const invoiceCustomerId = invoice.customerId?._id || invoice.customerId;
     if (!invoiceCustomerId || String(invoiceCustomerId) !== String(req.user._id)) {
-      return res.status(403).json({ success: false, error: 'You do not have permission to pay this invoice' });
+      return res.status(403).json({ success: false, error: 'Sie haben keine Berechtigung, diese Rechnung zu bezahlen.', code: 'INVOICE_FORBIDDEN' });
+    }
+    if (['cancelled', 'credited'].includes(String(invoice.status || '')) || invoice.isCreditNote) {
+      return res.status(409).json({ success: false, error: 'Für diesen Beleg ist keine Zahlung offen.', code: 'INVOICE_NOT_PAYABLE' });
     }
 
     const allowedMethods = await loadAllowedInvoiceMethodsForUser(req.user._id);
@@ -708,19 +918,14 @@ router.post('/:id/pay', requireUser, async (req, res) => {
     const gateways = await FinancialService.getPaymentGateways();
     const gateway = gateways.find((item) => item._id === gatewayId && item.provider === gatewayProvider);
     if (!gateway || !gateway.isActive) {
-      return res.status(400).json({ success: false, error: 'Selected payment gateway is not available' });
+      return res.status(400).json({ success: false, error: 'Die gewählte Zahlungsart ist derzeit nicht verfügbar.', code: 'GATEWAY_UNAVAILABLE' });
     }
 
-    const numericAmount = Number(amount);
-    const remaining = Number(invoice.total || 0) - Number(invoice.paidAmount || 0);
-    if (!numericAmount || numericAmount <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid payment amount' });
-    }
-    if (numericAmount > remaining + 0.01) {
-      return res.status(400).json({
-        success: false,
-        error: `Payment amount exceeds remaining balance (${remaining.toFixed(2)}).`
-      });
+    let numericAmount = 0;
+    try {
+      ({ numericAmount } = await validatePaymentAmount(invoice, amount));
+    } catch (validationError) {
+      return res.status(400).json({ success: false, error: validationError.message });
     }
 
     const requiredFieldsByProvider = {
@@ -738,7 +943,7 @@ router.post('/:id/pay', requireUser, async (req, res) => {
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        error: `Missing required payment fields: ${missingFields.join(', ')}`
+        error: `Bitte füllen Sie alle Pflichtfelder aus: ${missingFields.map((field) => PAYMENT_FIELD_LABELS[field] || field).join(', ')}.`
       });
     }
 
@@ -780,75 +985,179 @@ router.post('/:id/pay', requireUser, async (req, res) => {
             }
     };
 
-    const result = await FinancialService.addInvoicePayment(invoice._id, {
+    // Ueber diesen Weg laeuft KEIN Zahlungsanbieter (Stripe/PayPal gehen ueber den
+    // Redirect). Was der Kunde hier angibt - z.B. eine Ueberweisung mit IBAN - ist eine
+    // ANKUENDIGUNG, kein Zahlungseingang. Frueher wurde sie als abgeschlossene Zahlung
+    // gebucht: ein Kunde konnte jede Rechnung durch Eingabe einer IBAN auf "bezahlt"
+    // setzen. Jetzt wird sie als 'pending' vorgemerkt und zaehlt erst, wenn der
+    // Eingang im Admin erfasst ist.
+    const method = methodByProvider[gatewayProvider] || 'bank_transfer';
+
+    // Idempotenz: dieselbe Ankuendigung (Rechnung, Betrag, Zahlart, Kunde) wird nur
+    // EINMAL vorgemerkt, solange sie offen ist - ein Doppelklick oder Retry legt keine
+    // zweite Vormerkung an, die ein Bearbeiter spaeter doppelt uebernehmen koennte.
+    const announcementFilter = {
+      invoiceId: invoice._id,
+      customerId: invoiceCustomerId,
       amount: numericAmount,
-      currency: gateway.configuration?.default_currency || gateway.configuration?.currency || 'EUR',
-      paymentMethod: methodByProvider[gatewayProvider],
-      gatewayResponse: `Customer payment processed via ${gateway.name}`,
-      metadata: safePaymentMetadata
-    });
-
-    const paymentHistory = await loadInvoicePaymentHistory(result.invoice._id, result.invoice.orderId);
-    const invoiceWithHistory = {
-      ...result.invoice,
-      paymentHistory,
-      amountPaid: result.invoice.paidAmount,
+      paymentMethod: method,
+      source: 'gateway',
     };
+    const respondWithAnnouncement = async (payment, alreadyRecorded) => {
+      const paymentHistory = await loadInvoicePaymentHistory(invoice._id, invoice.orderId);
+      const currentInvoice = await withBalance(invoice.toObject ? invoice.toObject() : invoice);
+      return res.status(202).json({
+        success: true,
+        pending: true,
+        ...(alreadyRecorded ? { alreadyRecorded: true } : {}),
+        message: alreadyRecorded
+          ? 'Diese Zahlung ist bereits vorgemerkt. Die Rechnung gilt als bezahlt, sobald der Zahlungseingang bei uns bestätigt ist.'
+          : 'Ihre Zahlung wurde vorgemerkt. Die Rechnung gilt als bezahlt, sobald der Zahlungseingang bei uns bestätigt ist.',
+        payment,
+        invoice: forViewer(req.user, {
+          ...currentInvoice,
+          paymentHistory,
+          amountPaid: invoice.paidAmount,
+        }),
+        remainingAmount: Number(currentInvoice?.balance?.open || 0)
+      });
+    };
+    const openAnnouncement = await Payment.findOne({ ...announcementFilter, status: 'pending' });
+    if (openAnnouncement) return respondWithAnnouncement(openAnnouncement, true);
+    // Paralleler Doppelklick: der eindeutige Schluessel laesst nur eine Vormerkung zu.
+    // Die Zahl bereits erledigter Vormerkungen gehoert dazu, damit eine NEUE Ankuendigung
+    // nach Bestaetigung/Ablehnung der alten wieder moeglich ist.
+    const settledAnnouncements = await Payment.countDocuments({ ...announcementFilter, status: { $ne: 'pending' } });
+    const announcementKey = `announce:${invoice._id}:${String(invoiceCustomerId)}:${method}:${numericAmount.toFixed(2)}:${settledAnnouncements}`;
 
-    // Notify customer of successful payment
-    setImmediate(async () => {
-      try {
-        await NotificationService.createPaymentNotification(
-          req.user._id,
-          numericAmount,
-          'completed',
-          result.invoice.orderId || null
-        );
-      } catch (notifError) {
-        console.error('Error creating payment notification:', notifError.message);
+    let announcement;
+    try {
+      announcement = await Payment.create({
+        invoiceId: invoice._id,
+        orderId: invoice.orderId?._id || invoice.orderId || undefined,
+        bookingId: invoice.bookingId || undefined,
+        customerId: invoiceCustomerId,
+        customerName: invoice.customerName,
+        amount: numericAmount,
+        currency: gateway.configuration?.default_currency || gateway.configuration?.currency || 'EUR',
+        paymentMethod: method,
+        status: 'pending',
+        source: 'gateway',
+        paymentReference: invoice.invoiceNumber ? `Rechnung ${invoice.invoiceNumber}` : '',
+        gatewayResponse: `Vom Kunden angekündigt über ${gateway.name} – Zahlungseingang noch nicht bestätigt`,
+        idempotencyKey: announcementKey,
+        metadata: safePaymentMetadata
+      });
+    } catch (createError) {
+      if (createError?.code === 11000 && String(createError?.message || '').includes('idempotencyKey')) {
+        const winner = await Payment.findOne({ idempotencyKey: announcementKey });
+        if (winner) return respondWithAnnouncement(winner, true);
       }
-    });
+      throw createError;
+    }
 
-    return res.status(201).json({
-      success: true,
-      message: 'Invoice payment processed successfully',
-      payment: result.payment,
-      invoice: invoiceWithHistory,
-      remainingAmount: Number(result.invoice.total || 0) - Number(result.invoice.paidAmount || 0)
-    });
+    return respondWithAnnouncement(announcement, false);
   } catch (error) {
     console.error('InvoiceRoutes: Error processing invoice payment:', error);
     return res.status(400).json({
       success: false,
-      error: error.message || 'Failed to process invoice payment'
+      error: toCustomerMessage(error, 'Die Zahlung konnte nicht vorgemerkt werden. Bitte versuchen Sie es erneut.')
     });
+  }
+});
+
+// Description: Invoices (and credit notes) of one repair order
+// Endpoint: GET /api/invoices/for-order/:orderId
+// Auth: Admin/Mitarbeiter sehen alle Belege des Auftrags (inkl. Entwuerfe, markiert);
+//       ein Kunde nur, wenn der Auftrag ihm gehoert, und nur ausgestellte Belege.
+// Response: { success, invoices: Invoice[] (mit balance/paymentState), bookingReference }
+router.get('/for-order/:orderId', requireUser, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const Order = require('../models/Order');
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.orderId || ''))) {
+      return res.status(404).json({ success: false, error: 'Der Auftrag wurde nicht gefunden.', code: 'ORDER_NOT_FOUND' });
+    }
+    const order = await Order.findById(req.params.orderId)
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id customerId bookingId orderNumber')
+      .lean();
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Der Auftrag wurde nicht gefunden.', code: 'ORDER_NOT_FOUND' });
+    }
+    const privileged = isPrivilegedRole(req.user);
+    if (!privileged && String(order.customerId || '') !== String(req.user._id)) {
+      return res.status(403).json({ success: false, error: 'Sie haben keine Berechtigung für diesen Auftrag.', code: 'ORDER_FORBIDDEN' });
+    }
+
+    const scope = [{ orderId: order._id }, { repairOrderIds: order._id }];
+    if (order.bookingId) scope.push({ bookingId: order.bookingId });
+    const filter = { $or: scope };
+    if (!privileged) {
+      // Kunde: nur eigene, ausgestellte Belege - auch wenn die Buchung weitere enthaelt.
+      filter.customerId = req.user._id;
+      filter.status = { $nin: CUSTOMER_HIDDEN_STATUSES };
+      Object.assign(filter, NOT_DISCARDED_FILTER);
+    }
+    const invoices = await Invoice.find(filter)
+      .sort({ createdAt: -1 })
+      .populate('orderId', 'orderNumber deviceBrand deviceModel status')
+      .lean();
+    const balances = await PaymentService.getInvoiceBalances(invoices);
+    const bookingReference = invoices.length > 0 ? await loadBookingReference(invoices[0]) : await loadBookingReference({ orderId: order._id });
+
+    return res.json({
+      success: true,
+      invoices: invoices.map((invoice) => {
+        const balance = balances.get(String(invoice._id));
+        return {
+          ...forViewer(req.user, invoice),
+          balance: balance ? FinancialService.toBalancePayload(balance) : null,
+          paymentState: balance?.paymentState || 'open',
+        };
+      }),
+      bookingReference,
+    });
+  } catch (error) {
+    console.error('InvoiceRoutes: Error loading invoices for order:', error);
+    return res.status(500).json({ success: false, error: 'Die Belege zum Auftrag konnten nicht geladen werden.' });
   }
 });
 
 // Description: Download a specific invoice as PDF
 // Endpoint: GET /api/invoices/:id/pdf
+// Ausgestellte Belege: IMMER die archivierte Fassung (FinancialService.ensureInvoiceDocument) -
+// byte-identisch bei jedem Abruf, unveraendert nach spaeteren Zahlungen. Entwuerfe nur fuer
+// Admin/Mitarbeiter als nicht archivierte Vorschau; fuer Kunden existieren sie nicht.
 router.get('/:id/pdf', requireUser, async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id);
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.id || ''))) {
+      throw buildAccessError(INVOICE_NOT_FOUND_MESSAGE, 404, 'INVOICE_NOT_FOUND');
+    }
+    const invoice = await Invoice.findById(req.params.id).setOptions({ skipAutoPopulate: true }).select('_id customerId status invoiceNumber isCreditNote cancellation.kind').lean();
     assertInvoiceOwner(invoice, req.user);
 
-    if (req.user.role !== 'admin' && req.user.role !== 'staff' && invoice.status === 'draft') {
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
-    }
-
-    const pdf = await InvoicePdfService.generate(invoice);
+    const isDraft = isNeverIssued(invoice);
+    const pdf = isDraft
+      ? await FinancialService.renderDraftPdf(invoice._id)
+      : (await FinancialService.ensureInvoiceDocument(invoice._id, { reason: 'Abruf', actorId: req.user._id, actorName: req.user.name || '' })).buffer;
     const safeInvoiceNumber = String(invoice.invoiceNumber || invoice._id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const prefix = isDraft ? 'Entwurf' : (invoice.isCreditNote ? 'Gutschrift' : 'Rechnung');
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="Rechnung_${safeInvoiceNumber}.pdf"`,
-      'Content-Length': pdf.length
+      'Content-Disposition': `inline; filename="${prefix}_${safeInvoiceNumber}.pdf"`,
+      'Content-Length': pdf.length,
+      'Cache-Control': 'private, no-store'
     });
     return res.send(pdf);
   } catch (error) {
-    const status = error.message === 'Invoice not found'
-      ? 404
-      : (error.message.includes('permission') ? 403 : 500);
-    return res.status(status).json({ success: false, error: error.message || 'Invoice PDF could not be generated' });
+    const statusCode = Number(error?.statusCode);
+    if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode < 500) {
+      return res.status(statusCode).json({ success: false, error: error.message, code: error.code });
+    }
+    console.error('InvoiceRoutes: Error generating invoice PDF:', error);
+    return res.status(500).json({ success: false, error: 'Das Rechnungs-PDF konnte nicht erstellt werden.', code: 'INVOICE_PDF_FAILED' });
   }
 });
 
@@ -856,62 +1165,59 @@ router.get('/:id/pdf', requireUser, async (req, res) => {
 // Endpoint: GET /api/invoices/:id
 // Request: {}
 // Response: { success: boolean, invoice: Invoice }
+//   invoice.bookingReference = { _id, bookingNumber } | null  (Sprung "Bestellung")
+//   invoice.relatedCreditNotes = [{ _id, invoiceNumber, total, correctionType, createdAt }]
 router.get('/:id', requireUser, async (req, res) => {
   try {
     console.log('InvoiceRoutes: Getting invoice:', req.params.id);
 
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.id || ''))) {
+      return res.status(404).json({ success: false, error: INVOICE_NOT_FOUND_MESSAGE, code: 'INVOICE_NOT_FOUND' });
+    }
     const invoice = await Invoice.findById(req.params.id)
       .populate('customerId', 'customerNumber invoiceAddress paymentAddress addressAddition country company firstName lastName name email')
       .populate('orderId', 'orderNumber deviceBrand deviceModel status')
       .lean();
 
-    if (!invoice) {
-      console.log('InvoiceRoutes: Invoice not found');
-      return res.status(404).json({
-        success: false,
-        error: 'Invoice not found',
-      });
-    }
-
-    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
-    const invoiceCustomerId = invoice.customerId?._id || invoice.customerId;
-    const isOwner = invoiceCustomerId.toString() === req.user._id.toString();
-
-    // Verify ownership
-    if (!isOwner && !isPrivilegedUser) {
-      console.log('InvoiceRoutes: Unauthorized access to invoice');
-      return res.status(403).json({
-        success: false,
-        error: 'You do not have permission to view this invoice',
-      });
-    }
-
-    if (!isPrivilegedUser && invoice.status === 'draft') {
-      return res.status(404).json({
-        success: false,
-        error: 'Invoice not found',
-      });
+    try {
+      assertInvoiceOwner(invoice, req.user);
+    } catch (accessError) {
+      console.log('InvoiceRoutes: Invoice access refused:', accessError.code);
+      return res.status(accessError.statusCode || 403).json({ success: false, error: accessError.message, code: accessError.code });
     }
 
     console.log('InvoiceRoutes: Invoice retrieved successfully');
 
-    const enrichedInvoice = withProfileBillingAddress(invoice);
+    const enrichedInvoice = await withBalance(withProfileBillingAddress(invoice));
     const paymentHistory = await loadInvoicePaymentHistory(invoice._id, invoice.orderId);
+    const bookingReference = await loadBookingReference(invoice);
+    const creditNoteFilter = { creditNoteOf: invoice._id, isCreditNote: true };
+    if (!isPrivilegedRole(req.user)) Object.assign(creditNoteFilter, { status: { $nin: CUSTOMER_HIDDEN_STATUSES } }, NOT_DISCARDED_FILTER);
+    const relatedCreditNotes = invoice.isCreditNote
+      ? []
+      : (await Invoice.find(creditNoteFilter)
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id invoiceNumber total correctionType createdAt status')
+        .sort({ createdAt: 1 })
+        .lean()).map((note) => ({ ...note, _id: String(note._id) }));
     const invoiceWithHistory = {
       ...enrichedInvoice,
       paymentHistory,
       amountPaid: enrichedInvoice.paidAmount,
+      bookingReference,
+      relatedCreditNotes,
     };
 
     res.json({
       success: true,
-      invoice: invoiceWithHistory,
+      invoice: forViewer(req.user, invoiceWithHistory),
     });
   } catch (error) {
     console.error('InvoiceRoutes: Error getting invoice:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: 'Die Rechnung konnte nicht geladen werden.',
     });
   }
 });
@@ -930,18 +1236,22 @@ router.put('/:id/view', requireUser, async (req, res) => {
       console.log('InvoiceRoutes: Invoice not found');
       return res.status(404).json({
         success: false,
-        error: 'Invoice not found',
+        error: INVOICE_NOT_FOUND_MESSAGE,
       });
     }
 
     // Verify ownership
     const viewCustomerId = invoice.customerId?._id || invoice.customerId;
-    if (viewCustomerId.toString() !== req.user._id.toString()) {
+    if (String(viewCustomerId || '') !== req.user._id.toString()) {
       console.log('InvoiceRoutes: Unauthorized access to invoice');
       return res.status(403).json({
         success: false,
-        error: 'You do not have permission to view this invoice',
+        error: INVOICE_FORBIDDEN_MESSAGE,
       });
+    }
+    // Entwurf/Freigabe/verworfener Entwurf existiert fuer den Kunden nicht - wie GET /:id.
+    if (!isPrivilegedRole(req.user) && isNeverIssued(invoice)) {
+      return res.status(404).json({ success: false, error: INVOICE_NOT_FOUND_MESSAGE, code: 'INVOICE_NOT_FOUND' });
     }
 
     // Update status to 'viewed' if it was 'sent'
@@ -957,13 +1267,13 @@ router.put('/:id/view', requireUser, async (req, res) => {
 
     res.json({
       success: true,
-      invoice: invoice,
+      invoice: forViewer(req.user, invoice),
     });
   } catch (error) {
     console.error('InvoiceRoutes: Error marking invoice as viewed:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: 'Die Rechnung konnte nicht als gelesen markiert werden.',
     });
   }
 });
@@ -976,7 +1286,7 @@ router.get('/stats/summary', requireUser, async (req, res) => {
   try {
     console.log('InvoiceRoutes: Getting invoice statistics for user:', req.user._id);
 
-    const customerInvoiceScope = { customerId: req.user._id, status: { $ne: 'draft' } };
+    const customerInvoiceScope = { customerId: req.user._id, status: { $nin: CUSTOMER_HIDDEN_STATUSES }, ...NOT_DISCARDED_FILTER };
 
     const totalInvoices = await Invoice.countDocuments(customerInvoiceScope);
     const paidInvoices = await Invoice.countDocuments({ ...customerInvoiceScope, status: 'paid' });
@@ -1022,7 +1332,7 @@ router.get('/stats/summary', requireUser, async (req, res) => {
     console.error('InvoiceRoutes: Error getting invoice statistics:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: 'Die Rechnungsübersicht konnte nicht geladen werden.',
     });
   }
 });

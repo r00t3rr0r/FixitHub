@@ -13,11 +13,20 @@ const mongoose = require('mongoose');
  *   dargestellt werden.
  */
 const paymentRequestSchema = new mongoose.Schema({
+  // Eine Rechnung ohne Buchung (z.B. Auftragsrechnung aus dem Admin) kann ebenfalls
+  // angefordert werden - deshalb ist die Buchung optional, die Rechnung dann Pflicht.
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Booking',
-    required: true,
     index: true,
+    required: function requireBookingOrInvoice() { return !this.invoiceId; },
+  },
+  // Worauf sich die Anforderung bezieht: eine konkrete Rechnung (Suche per
+  // Rechnungsnummer, offener Betrag dieser Rechnung) oder die ganze Buchung.
+  targetType: {
+    type: String,
+    enum: ['invoice', 'booking'],
+    default: 'booking',
   },
   bookingNumber: {
     type: String,
@@ -47,10 +56,17 @@ const paymentRequestSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  // Versandkanal. Derzeit ausschliesslich E-Mail - es gibt KEINE PayPal-
+  // Zahlungsanforderung ueber die PayPal-API. Der Kunde bezahlt ueber den Link zur
+  // Rechnung (paymentLink), dort steht PayPal als Zahlart zur Verfuegung.
   channel: {
     type: String,
     enum: ['email'],
     default: 'email',
+  },
+  paymentLink: {
+    type: String,
+    default: '',
   },
   recipientEmail: {
     type: String,

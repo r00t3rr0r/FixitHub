@@ -124,6 +124,32 @@ const paymentSchema = new mongoose.Schema({
   refundGatewayReference: {
     type: String
   },
+  // Einzelne Erstattungsvorgaenge. refundAmount ist die Summe der ABGESCHLOSSENEN
+  // Eintraege; ein ausstehender oder fehlgeschlagener Eintrag zaehlt nie als erstattet.
+  // idempotencyKey (Doppelklick/Retry) bzw. reference (Anbieter-Refund-ID, Webhook)
+  // verhindern, dass derselbe Vorgang zweimal gebucht wird.
+  refunds: [{
+    idempotencyKey: { type: String },
+    // PayPal-Request-Id dieses Versuchs. Eine Wiederholung DESSELBEN Versuchs sendet
+    // dieselbe ID (PayPal erstattet dann nicht ein zweites Mal); ein neuer Versuch nach
+    // endgueltiger Ablehnung bekommt eine neue.
+    requestId: { type: String, default: '' },
+    attempt: { type: Number, default: 1 },
+    // true = PayPal hat nicht eindeutig geantwortet (Zeitueberschreitung/5xx). Der
+    // Eintrag bleibt 'pending' und wird per Webhook oder Wiederholung abgeglichen.
+    unresolved: { type: Boolean, default: false },
+    lastCheckedAt: { type: Date },
+    amount: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ['pending', 'completed', 'failed'], required: true },
+    mode: { type: String, enum: ['gateway', 'manual'] },
+    provider: { type: String },
+    reference: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    error: { type: String, default: '' },
+    recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now },
+    completedAt: { type: Date }
+  }],
   disputeReason: {
     type: String
   },
@@ -179,6 +205,8 @@ paymentSchema.index({ orderNumber: 1 });
 // Altbestand ohne das Feld bleibt unberuehrt. Dieser Index ist der eigentliche
 // Doppelbuchungsschutz - er wirkt auch bei zwei gleichzeitigen Requests.
 paymentSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+// Webhook-Zuordnung einer Anbieter-Erstattung zu ihrem Eintrag.
+paymentSchema.index({ 'refunds.reference': 1 }, { sparse: true });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

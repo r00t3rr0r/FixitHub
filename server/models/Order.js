@@ -1,6 +1,27 @@
 const mongoose = require('mongoose');
 const CalculationHelper = require('../services/calculationHelper');
 
+// Mitarbeiterzuweisung an eine einzelne Zusatzleistung (OrderService.assignStaffToAddon).
+const addOnAssignedStaffSchema = new mongoose.Schema({
+  staffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  name: {
+    type: String,
+    default: '',
+  },
+  avatar: {
+    type: String,
+    default: '',
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: false });
+
 const addOnServiceSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -35,6 +56,10 @@ const addOnServiceSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100,
+  },
+  assignedStaff: {
+    type: [addOnAssignedStaffSchema],
+    default: undefined,
   },
 }, { _id: true });
 
@@ -407,11 +432,34 @@ const orderShopProductSchema = new mongoose.Schema({
 }, { _id: true });
 
 // Define service schema for order services (repair services)
+//
+// `price` is the GROSS LIST price (Standardpreis) of the position. Kunden-/Haendler-
+// konditionen werden NICHT in die Position gerechnet, sondern genau einmal auf der
+// Auftragsebene (order.discount / order.totalCost). So bleibt der Listenpreis
+// nachvollziehbar und der Rabatt kann nie doppelt abgezogen werden.
 const orderServiceSchema = new mongoose.Schema({
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
-    required: true,
+    // Eine manuelle Reparaturposition hat bewusst KEINE Katalog-ID. Es wird keine
+    // ObjectId erfunden - stattdessen traegt die Position ihren eigenen Namen.
+    required: function () {
+      return this.isManual !== true;
+    },
+  },
+  // Manuelle Reparaturposition (freier Name/Beschreibung, Standardpreis brutto)
+  isManual: {
+    type: Boolean,
+    default: false,
+  },
+  name: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  description: {
+    type: String,
+    default: '',
   },
   price: {
     type: Number,
@@ -422,12 +470,60 @@ const orderServiceSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0,
+    default: 0,
   },
   notes: {
     type: String,
     default: '',
   },
 }, { _id: true });
+
+// Zeitgebundene Kundenkonditionen (Snapshot): festgehalten wird, WELCHE Kondition
+// fuer diesen Auftrag gilt und seit wann. Jede spaetere Positionsbearbeitung rechnet
+// mit diesem Snapshot und NIE mit dem aktuellen Kundenstamm - eine spaetere Aenderung
+// der Kundengruppe schreibt den Preis eines alten Auftrags nicht rueckwirkend um.
+// Geschrieben ausschliesslich von OrderService.applyOrderPricing (eine Preisregel).
+const orderPricingConditionsSchema = new mongoose.Schema({
+  // Kunden-/Haendlerrabatt in PROZENT (10 = 10 %), nie als Bruchzahl.
+  groupDiscountPercent: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
+  },
+  // Aktionsrabatt (Gutscheincode) als FESTER Bruttobetrag - er wird bei einer
+  // Positionsaenderung nicht prozentual neu gerechnet.
+  promoDiscountAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  // Herkunft des Prozentsatzes:
+  //  customer         - individueller Kundenrabatt (User.discount)
+  //  customer_group   - Rabatt der Kundengruppe (financeProfile.discountPercent)
+  //  settings_default - globaler Standardrabatt aus den Finanzeinstellungen
+  //  none             - kein Rabatt
+  //  legacy           - Altauftrag ohne Snapshot: aus den eigenen gespeicherten Werten
+  //                     des Auftrags abgeleitet (nie aus dem heutigen Kundenstamm)
+  source: {
+    type: String,
+    enum: ['none', 'customer', 'customer_group', 'settings_default', 'legacy'],
+    default: 'none',
+  },
+  customerGroupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CustomerGroup',
+    default: null,
+  },
+  customerGroupName: {
+    type: String,
+    default: '',
+  },
+  // Zeitpunkt, zu dem diese Kondition fuer den Auftrag festgelegt wurde.
+  appliedAt: {
+    type: Date,
+  },
+}, { _id: false });
 
 const orderSchema = new mongoose.Schema({
   orderNumber: {
@@ -592,6 +688,11 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Konditionen-Snapshot, mit dem order.discount / order.totalCost berechnet wurden.
+  pricingConditions: {
+    type: orderPricingConditionsSchema,
+    default: undefined,
+  },
   netAmount: {
     type: Number,
     min: 0,
@@ -607,6 +708,16 @@ const orderSchema = new mongoose.Schema({
   revisionCount: {
     type: Number,
     default: 0,
+  },
+  // Bearbeitungsstand fuer Positions-/Wertaenderungen (optimistische Nebenlaeufigkeit).
+  // Jede Aenderung an Positionen und Auftragswert speichert NUR, wenn der Auftrag seit
+  // dem Laden unveraendert ist (OrderService.saveOrderGuarded), und zaehlt den Stand
+  // hoch. So stammen gespeicherte Positionen und gespeicherter Auftragswert immer aus
+  // demselben Stand - auch bei Doppelklick oder zwei gleichzeitig arbeitenden
+  // Mitarbeitenden. Bewusst OHNE default: Altauftraege ohne Feld gelten als Stand 0.
+  editRevision: {
+    type: Number,
+    min: 0,
   },
   photos: [{
     type: String,
@@ -908,6 +1019,11 @@ orderSchema.pre('save', async function(next) {
 // Remember the device as it was loaded from the database, so a later overwrite of
 // deviceBrand/deviceModel/deviceType can still snapshot the ORIGINAL booked device.
 orderSchema.post('init', function() {
+  // Bearbeitungsstand zum Ladezeitpunkt - Grundlage der bedingten Speicherung in
+  // OrderService.saveOrderGuarded (nicht aus dem ggf. schon geaenderten Dokument lesen).
+  this.$locals.editRevisionLoaded =
+    typeof this.$__isSelected === 'function' ? this.$__isSelected('editRevision') : true;
+  this.$locals.loadedEditRevision = Number(this.editRevision) || 0;
   this.$locals.loadedDevice = {
     brand: this.deviceBrand,
     model: this.deviceModel,

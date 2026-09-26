@@ -4,15 +4,22 @@ import api from './api';
 // Single authoritative list, shared by every shipping-label dialog. Add or remove
 // entries HERE only – the dialogs must not hard-code their own lists again.
 
+// Mirrors DHLService.OFFERED_PRODUCTS on the server – the server accepts only these codes
+// (plus the legacy aliases below) and rejects any other code with 400 DHL_PRODUCT_NOT_OFFERED
+// before calling DHL (it no longer silently substitutes the configured product).
+// Whether the list is reduced (e.g. domestic only) is an open business decision.
+
 export interface DhlProduct {
   code: string;
   label: string;
+  /** Kurzer Hinweis unter der Auswahl, wofür das Produkt gedacht ist. */
+  hint: string;
 }
 
 export const DHL_PRODUCTS: readonly DhlProduct[] = [
-  { code: 'V01PAK', label: 'DHL Paket (national)' },
-  { code: 'V53WPAK', label: 'DHL Paket International' },
-  { code: 'V54EPAK', label: 'DHL Europaket' },
+  { code: 'V01PAK', label: 'DHL Paket – Inland (V01PAK)', hint: 'Standard für Sendungen innerhalb Deutschlands.' },
+  { code: 'V53WPAK', label: 'DHL Paket International – Ausland (V53WPAK)', hint: 'Nur für Empfänger außerhalb Deutschlands.' },
+  { code: 'V54EPAK', label: 'DHL Europaket – Geschäftskunden in der EU (V54EPAK)', hint: 'Nur für Firmenempfänger im EU-Ausland.' },
 ] as const;
 
 export const DEFAULT_DHL_PRODUCT = DHL_PRODUCTS[0].code;
@@ -29,9 +36,14 @@ export const DHL_PRODUCT_ALIASES: Record<string, string> = {
 };
 
 export const normalizeDhlProduct = (value?: string): string => {
-  const raw = String(value || '').trim();
+  const raw = String(value || '').trim().toUpperCase();
   if (!raw) return DEFAULT_DHL_PRODUCT;
   return DHL_PRODUCT_ALIASES[raw] || raw;
+};
+
+export const dhlProductHint = (code?: string): string => {
+  const normalized = normalizeDhlProduct(code);
+  return DHL_PRODUCTS.find((product) => product.code === normalized)?.hint || '';
 };
 
 export const dhlProductLabel = (code?: string): string => {
@@ -221,6 +233,85 @@ export const createShippingLabel = async (orderId: string, shipmentData: Shipmen
     throw toShippingLabelError(error);
   }
 };
+
+// ── Versandrichtungen am Auftrag ─────────────────────────────────────────────
+// Einsendung   = Kunde → McRepair (Einsendelabel an der Buchung bzw. DHL-Retoure am Auftrag)
+// Auslieferung = McRepair → Kunde ("An Kunden versenden", DHL Paket, Absender ist der Shop)
+// GET /api/orders/:id liefert beides getrennt als `order.shipments`, inklusive der
+// SERVERSEITIGEN Entscheidung, ob eine Aktion möglich ist. Die Oberfläche rendert diese
+// Entscheidung nur – sie rechnet die Status-/Zahlungsbedingungen nicht selbst nach.
+
+export interface ShipmentActionView {
+  allowed: boolean;
+  code: string;
+  reason: string;
+  /** Nur Einsendung: wo das Label erstellt wird ('booking' | 'order'). */
+  target?: '' | 'booking' | 'order';
+  bookingId?: string | null;
+}
+
+export interface ShipmentDirectionView {
+  direction: 'inbound' | 'outbound';
+  label: string;
+  hasLabel: boolean;
+  trackingNumber: string;
+  status: string;
+  statusDescription: string;
+  downloadUrl: string;
+  /** Einsendung: Herkunft des maßgeblichen Labels. */
+  source?: '' | 'order' | 'booking' | 'booking-retoure';
+  estimatedDelivery?: string | null;
+  actualDelivery?: string | null;
+  inProgress?: boolean;
+  /**
+   * Abgleich erforderlich – für BEIDE Richtungen (Auslieferung: Auftrags-Versandfelder;
+   * Einsendung: return* am Auftrag, d. h. DHL-Retoure bzw. Reklamations-Einsendelabel).
+   */
+  reconciliationRequired?: boolean;
+  /** 'dhl-result-unknown' (unklare DHL-Antwort/Speicherfehler) | 'stale-lock' (verwaiste Sperre) | '' */
+  reconciliationReason?: '' | 'dhl-result-unknown' | 'stale-lock';
+  /** true, wenn die Sperre älter als die Frist ist (bzw. ohne Startzeit aus dem Altbestand). */
+  lockStale?: boolean;
+  lockStartedAt?: string | null;
+  /** Endpunkt für den Admin-Abgleich, nur gesetzt, wenn reconciliationRequired. */
+  reconcileUrl?: string;
+  reference?: string;
+}
+
+export interface OrderShipmentsView {
+  outbound: ShipmentDirectionView;
+  inbound: ShipmentDirectionView;
+  inboundLabels: Array<Partial<ShipmentDirectionView> & { source: string; bookingId?: string; bookingNumber?: string }>;
+  outboundAction: ShipmentActionView;
+  inboundAction: ShipmentActionView;
+  legacy: {
+    inboundInOutboundSlot: boolean;
+    bookingOutboundLabel: { bookingId: string; trackingNumber: string } | null;
+  };
+}
+
+// Description: Auslieferung an den Kunden – "An Kunden versenden"
+// Endpoint: POST /api/orders/:id/shipping/create-label
+// Absender (Shop) und Empfänger (Lieferadresse) bestimmt ausschließlich der Server.
+export const createOutboundShippingLabel = async (orderId: string, shipmentData: Pick<ShipmentData, 'weight' | 'product' | 'serviceType'> = {}): Promise<ShipmentResult> =>
+  createShippingLabel(orderId, { ...shipmentData, labelDirection: 'outbound' });
+
+// Description: Offenen Abgleich nach unklarer DHL-Antwort abschließen (nur Administratoren)
+// Endpoint: POST /api/orders/:id/shipping/reconcile
+export const reconcileOrderShipment = async (
+  orderId: string,
+  payload: { resolution: 'not-created' | 'created'; trackingNumber?: string }
+): Promise<{ success: boolean; shipments: OrderShipmentsView }> => {
+  try {
+    const response = await api.post(`/api/orders/${orderId}/shipping/reconcile`, payload);
+    return response.data;
+  } catch (error: unknown) {
+    throw toShippingLabelError(error);
+  }
+};
+
+// Abgleich der EINSENDUNG am Auftrag (POST /api/orders/:id/return-label/reconcile):
+//   einzige Client-Funktion ist reconcileOrderInboundShipment in client/src/api/orders.ts.
 
 // Description: Get tracking information for an order
 // Endpoint: GET /api/orders/:id/tracking
@@ -586,4 +677,25 @@ export const buildBookingLabelParties = (input: BookingLabelPartyInput): Partial
       ? { ...asShipper(input.customer, false), ...asReceiver(input.shop, shopFromConfiguration) }
       : { ...asShipper(input.shop, shopFromConfiguration), ...asReceiver(input.customer, false) }),
   };
+};
+
+// Description: Versandstand eines Auftrags getrennt nach Richtung
+// Endpoint: GET /api/orders/:id/shipments
+export const getOrderShipments = async (orderId: string): Promise<OrderShipmentsView | null> => {
+  const response = await api.get(`/api/orders/${orderId}/shipments`);
+  return response.data?.shipments || null;
+};
+
+// Description: Offenen Abgleich des Einsendelabels einer Buchung abschließen (nur Administratoren)
+// Endpoint: POST /api/bookings/:id/shipping/reconcile
+export const reconcileBookingInboundLabel = async (
+  bookingId: string,
+  payload: { resolution: 'not-created' | 'created'; trackingNumber?: string }
+) => {
+  try {
+    const response = await api.post(`/api/bookings/${bookingId}/shipping/reconcile`, payload);
+    return response.data;
+  } catch (error: unknown) {
+    throw toShippingLabelError(error);
+  }
 };
