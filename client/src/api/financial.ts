@@ -28,7 +28,63 @@ export interface Payment {
   disputeReason?: string;
   disputeStatus?: 'open' | 'under_review' | 'resolved' | 'closed';
   metadata?: Record<string, unknown>;
+  /** Einzelne Erstattungsvorgaenge; nur 'completed' ist tatsaechlich zurueckgezahlt. */
+  refunds?: PaymentRefundEntry[];
+  /** Vom Server berechnet: Betrag nach abgeschlossenen Erstattungen. */
+  effectiveAmount?: number;
+  allocatedAmount?: number;
+  /** Frei verfuegbarer, keiner Rechnung zugeordneter Rest (ohne laufende Erstattungen). */
+  unallocatedAmount?: number;
+  /** Beim Anbieter angestossene, noch nicht bestaetigte Erstattungen. */
+  refundsInProgress?: number;
 }
+
+export interface PaymentRefundEntry {
+  _id: string;
+  amount: number;
+  status: 'pending' | 'completed' | 'failed';
+  /** true = PayPal hat nicht eindeutig geantwortet; bleibt 'pending', bis abgeglichen. */
+  unresolved?: boolean;
+  /** PayPal-Request-Id dieses Versuchs (Wiederholung desselben Versuchs = dieselbe ID). */
+  requestId?: string;
+  attempt?: number;
+  lastCheckedAt?: string;
+  mode?: 'gateway' | 'manual';
+  provider?: string;
+  reference?: string;
+  reason?: string;
+  error?: string;
+  createdAt?: string;
+  completedAt?: string;
+}
+
+/**
+ * Verbindlicher Zahlungsstand eines Belegs - vom Server EINMAL berechnet und in
+ * Liste und Detail identisch geliefert. Der Client rechnet nicht selbst nach.
+ */
+export interface InvoiceBalance {
+  /** Brutto des Belegs. */
+  total: number;
+  /** Wertmindernde Gutschriften (Preiskorrektur/Storno). */
+  credited?: number;
+  /** Tatsaechliche Forderung = Brutto - Gutschriften. */
+  receivable?: number;
+  /** Gueltig zugeordnete Zahlungen. */
+  allocated: number;
+  open: number;
+  overpaid: number;
+  /** Insgesamt fuer diesen Beleg eingegangen (auch der nicht zuordenbare Ueberhang). */
+  received?: number;
+  /** "Ueberzahlt / Erstattung offen": an den Kunden zurueckzuzahlender Betrag. */
+  refundPending?: number;
+  /** Bereits abgeschlossen erstattet. */
+  refunded?: number;
+  /** Beim Zahlungsanbieter angestossen, noch nicht bestaetigt. */
+  refundsInProgress?: number;
+  paymentState?: InvoicePaymentState;
+}
+
+export type InvoicePaymentState = 'open' | 'partially_paid' | 'paid' | 'overpaid' | 'credited';
 
 export interface Invoice {
   _id: string;
@@ -85,6 +141,54 @@ export interface Invoice {
   sellerVatId?: string;
   zmRelevant?: boolean;
   taxRate?: number;
+  /** Die EINE gespeicherte Zahlungsbedingung (Tage); paymentTerms ist daraus abgeleitet. */
+  paymentDueDays?: number;
+  /** Zahlungsstand aus Liste/Detail (Server). */
+  balance?: InvoiceBalance;
+  paymentState?: InvoicePaymentState;
+  /** Nur in der Mahnliste (GET /invoices/overdue): Mahnstand aus der Serverberechnung. */
+  dunning?: InvoiceDunningState;
+  /** Storno-Datensatz (ausgestellter Beleg storniert bzw. Entwurf verworfen). */
+  cancellation?: {
+    kind?: 'storno' | 'draft_discarded';
+    state?: 'processing' | 'completed';
+    reason?: string;
+    requestedAt?: string;
+    completedAt?: string;
+    actorName?: string;
+    previousStatus?: InvoiceStatus;
+    creditNoteId?: string;
+    creditNoteNumber?: string;
+    allocatedAtCancellation?: number;
+  };
+  /** Revisionsspur der Belegaktionen (Storno, Versand, Archivierung, Mahnung). */
+  auditTrail?: Array<{ at: string; action: string; actorName?: string; detail?: string }>;
+}
+
+export interface InvoiceDunningState {
+  originalDueDate: string | null;
+  daysOverdue: number;
+  openAmount: number;
+  currentStage: 'none' | 'payment_reminder' | 'dunning_notice' | 'final_notice' | 'collection';
+  currentStageLabel: string;
+  currentLevel: number;
+  nextStage: string | null;
+  nextStageLabel: string | null;
+  nextEligibleDate: string | null;
+  /** true = der naechste Mahnschritt ist jetzt zulaessig. */
+  eligible: boolean;
+  /** Deutscher Grund, warum (noch) kein Mahnschritt moeglich ist. */
+  reason: string;
+  lastFailure: { at: string | null; stage: string; stageLabel: string; error: string } | null;
+}
+
+export interface DunningStepResult {
+  outcome: 'sent' | 'failed' | 'skipped';
+  message: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  stage?: string;
+  stageLabel?: string;
 }
 
 export interface InvoiceItem {
@@ -343,8 +447,27 @@ export const processRefund = async (
     mode?: 'gateway' | 'manual';
     gatewayProvider?: PaymentGateway['provider'];
     gatewayReference?: string;
+    /** Gegen Doppelklick/Retry: gleicher Schluessel = gleiche Erstattung. */
+    idempotencyKey?: string;
   }
-) => {
+): Promise<{
+  success: boolean;
+  message?: string;
+  warning?: string;
+  refund?: {
+    _id: string;
+    paymentId: string;
+    amount: number;
+    status: 'pending' | 'completed' | 'failed';
+    mode: 'gateway' | 'manual';
+    /** true = Ergebnis bei PayPal unklar (Zeitüberschreitung/Störung); zählt noch nicht als erstattet. */
+    indeterminate?: boolean;
+    gatewayProvider?: string;
+    gatewayReference?: string;
+    refundedTotal?: number;
+    duplicate?: boolean;
+  };
+}> => {
   try {
     const response = await api.post(`/api/admin/financial/payments/${paymentId}/refund`, {
       amount,
@@ -353,7 +476,23 @@ export const processRefund = async (
     });
     return response.data;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'Failed to process refund'));
+    throw new Error(extractErrorMessage(error, 'Die Erstattung konnte nicht erfasst werden.'));
+  }
+};
+
+// Abgleich eines ungeklaerten PayPal-Erstattungsversuchs (refunds[].unresolved) nach
+// Pruefung im PayPal-Konto. 'executed' braucht die Erstattungs-ID aus dem PayPal-Konto.
+// Endpoint: POST /api/admin/financial/payments/:id/refunds/:refundId/reconcile
+export const reconcileRefund = async (
+  paymentId: string,
+  refundId: string,
+  body: { resolution: 'executed' | 'not-executed'; providerRefundId?: string }
+): Promise<{ success: boolean; message?: string; refund?: { _id: string; status: 'pending' | 'completed' | 'failed'; amount: number; refundedTotal?: number } }> => {
+  try {
+    const response = await api.post(`/api/admin/financial/payments/${paymentId}/refunds/${refundId}/reconcile`, body);
+    return response.data;
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Der Abgleich der Erstattung ist fehlgeschlagen.'));
   }
 };
 
@@ -371,6 +510,7 @@ export const getInvoiceDetails = async (invoiceId: string): Promise<{
   invoice: Invoice & { creditNoteOf?: Partial<Invoice> | string };
   payments: Payment[];
   creditNotes: Partial<Invoice>[];
+  balance?: InvoiceBalance | null;
 }> => {
   try {
     const response = await api.get(`/api/admin/financial/invoices/${invoiceId}`);
@@ -419,6 +559,8 @@ export const changeInvoiceStatus = async (
     notes?: string;
     paymentMethod?: Invoice['paymentMethod'];
     paidAt?: string;
+    /** Nur fuer 'cancelled' auf einem Beleg mit gebuchtem Geld (Storno bestaetigt). */
+    confirmPaidCancellation?: boolean;
   }
 ) => {
   try {
@@ -427,10 +569,76 @@ export const changeInvoiceStatus = async (
       notes: payload?.notes,
       paymentMethod: payload?.paymentMethod,
       paidAt: payload?.paidAt,
+      confirmPaidCancellation: payload?.confirmPaidCancellation === true,
     });
     return response.data;
   } catch (error: unknown) {
     throw new Error(extractErrorMessage(error, 'Failed to change invoice status'));
+  }
+};
+
+// Rechnungsstorno: ausgestellter Beleg -> Storno-Gutschrift (INV-CN-...), Original bleibt.
+// Endpoint: POST /api/admin/financial/invoices/:id/cancel
+// 409 CANCELLATION_REQUIRES_CONFIRMATION, wenn bereits Geld gebucht ist (dann mit
+// confirmPaidCancellation erneut senden - es wird nichts automatisch erstattet).
+export const cancelInvoice = async (
+  invoiceId: string,
+  body: { reason: string; confirmPaidCancellation?: boolean; sendEmail?: boolean; message?: string }
+): Promise<{
+  success: boolean;
+  message?: string;
+  alreadyCancelled?: boolean;
+  invoice?: Invoice;
+  creditNote?: Invoice | null;
+  allocatedAtCancellation?: number;
+  balance?: InvoiceBalance;
+  emailSent?: boolean;
+  warning?: string;
+}> => {
+  try {
+    const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/cancel`, body);
+    return response.data;
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Die Rechnung konnte nicht storniert werden.'));
+  }
+};
+
+// Entwurf verwerfen (kein Storno; die Nummer bleibt belegt, keine Gutschrift).
+// Endpoint: POST /api/admin/financial/invoices/:id/discard
+export const discardDraftInvoice = async (invoiceId: string, reason: string) => {
+  try {
+    const response = await api.post(`/api/admin/financial/invoices/${invoiceId}/discard`, { reason });
+    return response.data as { success: boolean; message?: string; invoice?: Invoice; alreadyDiscarded?: boolean };
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Der Entwurf konnte nicht verworfen werden.'));
+  }
+};
+
+// Einzelner Mahnschritt (dieselbe Serverlogik wie Mahnlauf und Cron).
+// Endpoint: POST /api/admin/financial/dunning/invoices/:id/step
+export const runDunningStep = async (invoiceId: string, customMessage?: string, recipientEmail?: string): Promise<{ success: boolean; message?: string; result?: DunningStepResult }> => {
+  try {
+    const response = await api.post(`/api/admin/financial/dunning/invoices/${invoiceId}/step`, { customMessage, recipientEmail });
+    return response.data;
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Der Mahnschritt konnte nicht ausgeführt werden.'));
+  }
+};
+
+// Gespeicherten Mahnlauf ausfuehren (jeder Fall ueber dieselbe Serverlogik).
+// Endpoint: POST /api/admin/financial/dunning/runs/:id/execute
+export const executeDunningRun = async (runId: string, customMessage?: string): Promise<{
+  success: boolean;
+  run?: DunningRun;
+  sent?: number;
+  failed?: number;
+  skipped?: number;
+}> => {
+  try {
+    const response = await api.post(`/api/admin/financial/dunning/runs/${runId}/execute`, { customMessage });
+    return response.data;
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Der Mahnlauf konnte nicht ausgeführt werden.'));
   }
 };
 
@@ -638,9 +846,20 @@ export const exportInvoicesData = async (filters: Record<string, unknown> = {}, 
   }
 };
 
-export const reconcileOverpayment = async (bookingId: string, options?: { amount?: number; reason?: string; processRefund?: boolean; refundMode?: 'manual' | 'gateway' }) => {
+export interface ReconcileOverpaymentResult {
+  success: boolean;
+  isOverpaid: boolean;
+  overpaidAmount: number;
+  /** Wird nicht mehr erzeugt: eine Ueberzahlung aendert keinen Beleg. */
+  creditNote?: null;
+  refundStatus?: 'pending' | 'completed';
+  refunds?: Array<{ _id: string; paymentId: string; amount: number; status: 'pending' | 'completed' | 'failed' }>;
+  message?: string;
+}
+
+export const reconcileOverpayment = async (bookingId: string, options?: { amount?: number; reason?: string; processRefund?: boolean; refundMode?: 'manual' | 'gateway' }): Promise<ReconcileOverpaymentResult> => {
   try {
-    const response = await api.post(`/api/admin/financial/bookings/${bookingId}/overpayment/reconcile`, options || {});
+    const response = await api.post(`/api/admin/financial/bookings/${encodeURIComponent(bookingId)}/overpayment/reconcile`, options || {});
     return response.data;
   } catch (error: unknown) {
     throw new Error(extractErrorMessage(error, 'Error reconciling overpayment'));
@@ -657,11 +876,17 @@ export interface PaymentRequestRecord {
   _id: string;
   bookingId?: string;
   bookingNumber?: string;
+  /** 'invoice' = per Rechnungsnummer fuer genau diese Rechnung angefordert. */
+  targetType?: 'invoice' | 'booking';
   invoiceId?: string;
   invoiceNumber?: string;
   amount?: number;
   openBalanceAtRequest?: number;
-  channel?: string;
+  /** Derzeit immer 'email' - es gibt keine PayPal-Zahlungsanforderung ueber die API. */
+  channel?: 'email' | string;
+  paymentLink?: string;
+  noteDelivered?: boolean;
+  templateName?: string;
   recipientEmail?: string;
   recipientName?: string;
   note?: string;
@@ -688,6 +913,12 @@ export interface RequestAdditionalPaymentResult {
   requestId?: string;
   error?: string;
   isOverpaid?: boolean;
+  channel?: 'email';
+  targetType?: 'invoice' | 'booking';
+  invoiceNumber?: string;
+  paymentLink?: string;
+  noteDelivered?: boolean;
+  templateName?: string;
 }
 
 export const requestAdditionalPayment = async (
@@ -695,7 +926,8 @@ export const requestAdditionalPayment = async (
   options?: { amount?: number; note?: string }
 ): Promise<RequestAdditionalPaymentResult> => {
   try {
-    const response = await api.post(`/api/admin/financial/bookings/${bookingId}/payment-request`, options || {});
+    // Kennung darf Buchungs-, Auftrags- ODER Rechnungsnummer sein.
+    const response = await api.post(`/api/admin/financial/bookings/${encodeURIComponent(bookingId)}/payment-request`, options || {});
     return response.data as RequestAdditionalPaymentResult;
   } catch (error: unknown) {
     throw new Error(extractErrorMessage(error, 'Zahlungsaufforderung konnte nicht gesendet werden.'));
@@ -712,7 +944,7 @@ export const getPaymentRequests = async (
   bookingId: string
 ): Promise<{ available: boolean; requests: PaymentRequestRecord[] }> => {
   try {
-    const response = await api.get(`/api/admin/financial/bookings/${bookingId}/payment-requests`);
+    const response = await api.get(`/api/admin/financial/bookings/${encodeURIComponent(bookingId)}/payment-requests`);
     const data = response.data as { requests?: PaymentRequestRecord[]; paymentRequests?: PaymentRequestRecord[] };
     return { available: true, requests: data?.requests || data?.paymentRequests || [] };
   } catch (error: unknown) {

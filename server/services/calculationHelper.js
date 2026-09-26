@@ -15,6 +15,32 @@ class CalculationHelper {
    * @param {number} value
    * @returns {number}
    */
+  /**
+   * EINZIGE Regel fuer "Prozentsatz eines Bruttobetrags" (Haendler-/Gruppenrabatt,
+   * prozentuale Aktionsrabatte, Standardrabatt manueller Rechnungen).
+   *
+   * Sie entspricht bewusst exakt der Berechnung im Warenkorb/Checkout
+   * (betrag * (prozent / 100), auf zwei Stellen), damit Warenkorb, Auftrag und
+   * Rechnung fuer denselben Fall IMMER denselben Betrag zeigen. Frueher gab es drei
+   * verschiedene Formeln: 15 % von 49,90 ergab im Warenkorb 7,48 (42,42 EUR),
+   * bei der Auftragsbepreisung und beim Standardrabatt manueller Rechnungen 7,49
+   * (42,41 EUR) - je nach Weg ein Cent Unterschied.
+   *
+   * Hinweis: Das ist die bestehende Warenkorb-Rundung, keine streng kaufmaennische
+   * Rundung (die ergaebe bei exakten halben Cent aufgerundet 7,49). Eine Umstellung
+   * waere eine Geschaeftsentscheidung und muss dann HIER - und nur hier - erfolgen.
+   *
+   * @param {number} amount - Bruttobetrag
+   * @param {number} percent - Prozentsatz (15 = 15 %)
+   * @returns {number}
+   */
+  static percentOf(amount, percent) {
+    const base = Number(amount);
+    const pct = Number(percent);
+    if (!Number.isFinite(base) || !Number.isFinite(pct) || base <= 0 || pct <= 0) return 0;
+    return Number((base * (pct / 100)).toFixed(2));
+  }
+
   static round(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return 0;
@@ -40,7 +66,7 @@ class CalculationHelper {
     const taxDivisor = 1 + (taxRate / 100);
 
     // 1. Rabattierung vom Bruttobetrag abziehen
-    const discountAmount = CalculationHelper.round((gross * discountPercent) / 100);
+    const discountAmount = CalculationHelper.percentOf(gross, discountPercent);
     const orderValueGross = CalculationHelper.round(Math.max(0, gross - discountAmount));
 
     // 2. Netto und MwSt aus dem finalen Brutto-Auftragswert ermitteln
@@ -52,6 +78,60 @@ class CalculationHelper {
       dealerDiscountPercent: discountPercent,
       dealerDiscountAmount: discountAmount,
       currentGrossAmount: orderValueGross,
+      netAmount,
+      taxAmount,
+      taxRate
+    };
+  }
+
+  /**
+   * DIE Preisregel für den Auftragswert (eine Regel für alle Schreiber: Anlage über
+   * POST /api/orders, Service hinzufügen/ändern/löschen, manuelle Position,
+   * Zusatzleistungen, Produkte, Gerätewechsel).
+   *
+   * Regel (brutto-first, Rabatt genau EINMAL auf Auftragsebene):
+   *   positionsGross = Summe der Listen-Bruttopreise aller Positionen
+   *   promo          = fester Aktionsrabatt (Brutto-Betrag), höchstens positionsGross
+   *   groupDiscount  = percentOf(positionsGross - promo, groupDiscountPercent)  (Warenkorb-Regel)
+   *   discount       = promo + groupDiscount
+   *   totalCost      = positionsGross - discount
+   *   netAmount      = totalCost / (1 + taxRate/100);  taxAmount = totalCost - netAmount
+   *
+   * Der Aktionsrabatt bleibt bei einer späteren Positionsänderung ein FESTER Betrag;
+   * nur der prozentuale Kunden-/Händlerrabatt wird neu gerechnet. Das entspricht der
+   * Warenkorbrechnung (CartService.buildPricing: Gruppenrabatt auf Zwischensumme minus
+   * Aktionsrabatt). Die Positionen selbst werden NIE rabattiert.
+   *
+   * @param {object} params
+   * @param {number} params.positionsGross - Summe der Listen-Bruttopreise
+   * @param {number} params.groupDiscountPercent - Kunden-/Händlerrabatt in PROZENT (10 = 10 %)
+   * @param {number} params.promoDiscountAmount - fester Aktionsrabatt (Brutto)
+   * @param {number} params.taxRatePercent - Steuersatz in Prozent (Standard 19)
+   */
+  static calculateOrderPricing({
+    positionsGross = 0,
+    groupDiscountPercent = 0,
+    promoDiscountAmount = 0,
+    taxRatePercent = CalculationHelper.DEFAULT_TAX_RATE
+  } = {}) {
+    const gross = CalculationHelper.round(Math.max(0, Number(positionsGross) || 0));
+    const percent = Math.min(100, Math.max(0, Number(groupDiscountPercent) || 0));
+    const promo = CalculationHelper.round(Math.min(gross, Math.max(0, Number(promoDiscountAmount) || 0)));
+    const groupBase = CalculationHelper.round(gross - promo);
+    const groupDiscountAmount = CalculationHelper.percentOf(groupBase, percent);
+    const discount = CalculationHelper.round(Math.min(gross, promo + groupDiscountAmount));
+    const totalCost = CalculationHelper.round(Math.max(0, gross - discount));
+    const taxRate = Number.isFinite(Number(taxRatePercent)) ? Number(taxRatePercent) : CalculationHelper.DEFAULT_TAX_RATE;
+    const netAmount = CalculationHelper.round(totalCost / (1 + taxRate / 100));
+    const taxAmount = CalculationHelper.round(totalCost - netAmount);
+
+    return {
+      positionsGross: gross,
+      promoDiscountAmount: promo,
+      groupDiscountPercent: percent,
+      groupDiscountAmount,
+      discount,
+      totalCost,
       netAmount,
       taxAmount,
       taxRate

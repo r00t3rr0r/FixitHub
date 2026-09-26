@@ -9,13 +9,16 @@ const FinancialService = require('./financialService');
 const PaymentService = require('./paymentService');
 const PaypalService = require('./paypalService');
 
+// Deutsches Betragsformat fuer Meldungen an die Oberflaeche (20,00 € statt 20.00 €).
+function formatEuroDe(value) {
+  return `${Number(value || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
 const MANUAL_PAYMENT_METHODS = ['cash', 'bank_transfer', 'sepa', 'credit_card', 'debit_card', 'paypal', 'invoice'];
 // Belege, denen ein Bearbeiter MANUELL eine Zahlung zuordnen darf.
 const OPEN_INVOICE_STATUSES = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
-// Fuer den SALDO zaehlt nur Geld, das tatsaechlich eingegangen ist. 'processing' und
-// 'pending' sind angekuendigtes, nicht vereinnahmtes Geld und wurden frueher
-// mitgezaehlt - dadurch sah ein Auftrag bezahlt aus, dessen Zahlung noch offen war.
-const COUNTABLE_PAYMENT_STATUSES = PaymentService.COUNTABLE_PAYMENT_STATUSES;
+// Fuer den SALDO zaehlt nur Geld, das tatsaechlich eingegangen ist ('completed').
+// Die Regel lebt in PaymentService (computeBookingBalance), das diese Ansicht nutzt.
 const MAX_PAYMENT_AMOUNT = 1000000;
 const MAX_NOTE_LENGTH = 500;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -94,6 +97,15 @@ class BookingPaymentService {
       }
     }
 
+    if (!booking && cleanId) {
+      // Suche per Rechnungsnummer (auch Altformate und weiche Trennzeichen) bzw.
+      // Rechnungs-ID: fuehrt zur Buchung der Rechnung.
+      const invoice = await BookingPaymentService.findInvoiceByIdentifier(rawId);
+      if (invoice?.bookingId) {
+        booking = await Booking.findById(invoice.bookingId).lean();
+      }
+    }
+
     if (!booking) {
       const error = new Error('Auftrag wurde nicht gefunden.');
       error.statusCode = 404;
@@ -106,6 +118,32 @@ class BookingPaymentService {
     ]);
 
     return { booking, orders, invoices };
+  }
+
+  /**
+   * Rechnung zu einer Eingabe finden: Rechnungs-ID oder Rechnungsnummer (weiche
+   * Trennzeichen, fuehrende Nullen optional, Altformate). Gutschriften werden nur bei
+   * exakter Nummer getroffen.
+   */
+  static async findInvoiceByIdentifier(identifier) {
+    const raw = String(identifier || '').trim();
+    if (!raw) return null;
+    if (mongoose.Types.ObjectId.isValid(raw)) {
+      const byId = await Invoice.findById(raw).lean();
+      if (byId) return byId;
+    }
+    const cleaned = raw.replace(/^#/, '').replace(/[\s_/]+/g, '-').replace(/-+/g, '-');
+    if (!/\d/.test(cleaned)) return null;
+    const exact = await Invoice.findOne({ invoiceNumber: { $regex: `^${cleaned.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }).lean();
+    if (exact) return exact;
+    const pattern = cleaned
+      .split('-')
+      .filter(Boolean)
+      .map((part) => (/^\d+$/.test(part) ? `0*${part}` : part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+      .join('[-\\s_/]*');
+    return Invoice.findOne({ invoiceNumber: { $regex: `^${pattern}$`, $options: 'i' }, isCreditNote: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .lean();
   }
 
   static async getOverview(bookingId) {
@@ -148,47 +186,56 @@ class BookingPaymentService {
       const allocatedAmount = round2(paymentAllocations.reduce((sum, entry) => sum + entry.allocatedAmount, 0));
       const effectiveAmount = round2(Number(payment.amount || 0) - Number(payment.refundAmount || 0));
 
+      const refundsInProgress = round2((payment.refunds || [])
+        .filter((entry) => entry.status === 'pending')
+        .reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+
       return {
         ...payment,
         amount: round2(payment.amount),
+        effectiveAmount: round2(Math.max(0, effectiveAmount)),
         allocatedAmount,
-        unallocatedAmount: round2(Math.max(effectiveAmount - allocatedAmount, 0)),
+        // Frei verfuegbarer Rest - ohne Betraege, deren Erstattung bereits laeuft.
+        unallocatedAmount: round2(Math.max(effectiveAmount - allocatedAmount - refundsInProgress, 0)),
+        refundsInProgress,
         allocations: paymentAllocations,
         paypalOrderId: payment.metadata?.paypalOrderId || '',
         paypalCaptureId: payment.metadata?.providerDetails?.captureId || payment.metadata?.providerReference || '',
       };
     });
 
-    // Zahlungsstand je Beleg aus den GUELTIGEN Zuordnungen, nicht aus dem
-    // denormalisierten paidAmount: so stimmt die Anzeige auch dann, wenn ein
-    // Altbestandsbeleg einen abweichenden Zaehlerstand traegt.
-    const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(invoices.map((invoice) => invoice._id));
+    // Zahlungsstand je Beleg und fuer die Buchung aus DERSELBEN Berechnung wie
+    // Rechnungsliste, Rechnungsdetail und Buchungsliste (PaymentService). Frueher
+    // rechnete diese Ansicht selbst und wich z.B. bei Gutschriften ab.
+    const [balancesByInvoice, bookingBalance] = await Promise.all([
+      PaymentService.getInvoiceBalances(invoices),
+      PaymentService.computeBookingBalance({
+        bookingId: booking._id,
+        orderIds,
+        orderValue: Number(booking.totalCost || 0),
+      }),
+    ]);
 
     const invoiceSummaries = invoices.map((invoice) => {
-      const allocated = round2(Number(allocatedByInvoice.get(String(invoice._id)) || 0));
-      const total = round2(Math.abs(Number(invoice.total || 0)));
-      const open = round2(Math.max(total - allocated, 0));
-      const overpaid = round2(Math.max(allocated - total, 0));
-
-      let paymentState = 'open';
-      if (overpaid > 0.009) paymentState = 'overpaid';
-      else if (open <= 0.009 && total > 0) paymentState = 'paid';
-      else if (allocated > 0.009) paymentState = 'partially_paid';
-
+      const balance = balancesByInvoice.get(String(invoice._id)) || PaymentService.buildInvoiceBalance(invoice, 0);
       return {
         _id: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
         // Belegstatus (Erfuellung/Lebenslauf) - NICHT der Zahlungsstand.
         status: invoice.status,
         // Zahlungsstand, getrennt vom Belegstatus.
-        paymentState,
+        paymentState: balance.paymentState,
         isCreditNote: Boolean(invoice.isCreditNote),
         total: round2(invoice.total),
-        allocated,
-        paidAmount: allocated,
+        credited: balance.credited,
+        receivable: balance.receivable,
+        allocated: balance.allocated,
+        paidAmount: balance.allocated,
         storedPaidAmount: round2(invoice.paidAmount || 0),
-        openAmount: invoice.isCreditNote ? 0 : open,
-        overpaidAmount: invoice.isCreditNote ? 0 : overpaid,
+        openAmount: invoice.isCreditNote ? 0 : balance.open,
+        overpaidAmount: invoice.isCreditNote ? 0 : balance.overpaid,
+        received: invoice.isCreditNote ? 0 : balance.received,
+        refundPending: invoice.isCreditNote ? 0 : balance.refundPending,
         dueDate: invoice.dueDate,
         createdAt: invoice.createdAt,
         isOpen: OPEN_INVOICE_STATUSES.includes(invoice.status) && !invoice.isCreditNote,
@@ -198,22 +245,22 @@ class BookingPaymentService {
     });
 
     const orderValue = round2(booking.totalCost || 0);
-    const invoicedTotal = round2(invoiceSummaries
-      .filter((invoice) => !invoice.isCreditNote && invoice.status !== 'cancelled')
-      .reduce((sum, invoice) => sum + invoice.total, 0));
+    const invoicedTotal = round2(bookingBalance?.invoicedTotal || 0);
     const creditedTotal = round2(invoiceSummaries
       .filter((invoice) => invoice.isCreditNote)
       .reduce((sum, invoice) => sum + Math.abs(invoice.total), 0));
-    const receivedTotal = round2(enrichedPayments
-      .filter((payment) => COUNTABLE_PAYMENT_STATUSES.includes(payment.status))
-      .reduce((sum, payment) => sum + Math.max(0, payment.amount - Number(payment.refundAmount || 0)), 0));
+    const receivedTotal = round2(bookingBalance?.received || 0);
     const allocatedTotal = round2(enrichedPayments.reduce((sum, payment) => sum + payment.allocatedAmount, 0));
     const invoiceOpenTotal = round2(invoiceSummaries
       .filter((invoice) => invoice.isOpen)
       .reduce((sum, invoice) => sum + invoice.openAmount, 0));
-    // Bezugsgroesse: solange keine Rechnung existiert, der Auftragswert.
-    const referenceTotal = invoicedTotal > 0.009 ? invoicedTotal : orderValue;
-    const overpaidTotal = round2(Math.max(0, receivedTotal - referenceTotal));
+    const referenceTotal = round2(bookingBalance?.reference ?? orderValue);
+    const overpaidTotal = round2(bookingBalance?.overpaid || 0);
+    // Beim Anbieter angestossene, noch nicht bestaetigte Erstattungen: das Geld ist
+    // noch nicht zurueck (zaehlt weiter als eingegangen), darf aber nicht ein zweites
+    // Mal erstattet werden.
+    const refundsInProgressTotal = round2(enrichedPayments
+      .reduce((sum, payment) => sum + Number(payment.refundsInProgress || 0), 0));
 
     return {
       booking: {
@@ -235,12 +282,15 @@ class BookingPaymentService {
         allocatedTotal,
         unallocatedTotal: round2(Math.max(receivedTotal - allocatedTotal, 0)),
         invoiceOpenTotal,
-        notInvoicedTotal: round2(orderValue - invoicedTotal),
+        notInvoicedTotal: round2(bookingBalance?.uninvoicedValue ?? Math.max(0, orderValue - invoicedTotal)),
         // NIE negativ: eine Ueberzahlung wird separat als overpaidTotal gefuehrt und
         // nicht als "Saldo -300,00 EUR" dargestellt.
-        openOrderBalance: round2(Math.max(0, referenceTotal - receivedTotal)),
+        openOrderBalance: round2(bookingBalance?.open ?? Math.max(0, referenceTotal - receivedTotal)),
         referenceTotal,
         overpaidTotal,
+        refundsInProgressTotal,
+        // Tatsaechlich noch zu erstattender Betrag (ohne bereits angestossene Erstattungen).
+        refundPendingTotal: round2(Math.max(0, overpaidTotal - refundsInProgressTotal)),
         isOverpaid: overpaidTotal > 0.009,
         isFullyPaid: referenceTotal > 0 && receivedTotal >= referenceTotal - 0.01,
       },
@@ -250,10 +300,12 @@ class BookingPaymentService {
         invoicedTotal,
         allocated: allocatedTotal,
         received: receivedTotal,
-        open: round2(Math.max(0, referenceTotal - receivedTotal)),
+        open: round2(bookingBalance?.open ?? Math.max(0, referenceTotal - receivedTotal)),
         invoiceOpen: invoiceOpenTotal,
         unallocated: round2(Math.max(receivedTotal - allocatedTotal, 0)),
         overpaid: overpaidTotal,
+        refundPending: round2(Math.max(0, overpaidTotal - refundsInProgressTotal)),
+        refundsInProgress: refundsInProgressTotal,
       },
       paymentMethods: MANUAL_PAYMENT_METHODS,
     };
@@ -365,8 +417,8 @@ class BookingPaymentService {
     try {
       if (targetInvoice) {
         const invoice = await Invoice.findById(targetInvoice._id);
-        const allocatedForInvoice = await PaymentService.getAllocatedTotalsByInvoice([invoice._id]);
-        const invoiceOpen = round2(Math.max(0, Number(invoice.total || 0) - Number(allocatedForInvoice.get(String(invoice._id)) || 0)));
+        const invoiceBalance = await PaymentService.computeInvoiceBalance(invoice);
+        const invoiceOpen = round2(Number(invoiceBalance?.open || 0));
         const allocatable = round2(Math.min(amount, invoiceOpen));
         if (allocatable > 0.009) {
           await PaymentService.allocateAtomically({
@@ -374,6 +426,9 @@ class BookingPaymentService {
             invoice,
             amount: allocatable,
             note: note || `Zuordnung zu Rechnung ${invoice.invoiceNumber || invoice._id}`,
+            // Die Zahlung ist bereits erfasst: ein parallel kleiner gewordener offener
+            // Betrag wird nur teilweise belegt, der Rest bleibt sichtbar nicht zugeordnet.
+            allowPartial: true,
           });
         }
       } else {
@@ -394,7 +449,7 @@ class BookingPaymentService {
 
     const warnings = [];
     if (unallocatedAmount > 0.009) {
-      warnings.push(`${unallocatedAmount.toFixed(2)} € dieser Zahlung konnten keiner offenen Rechnung zugeordnet werden und bleiben als nicht zugeordnet stehen.`);
+      warnings.push(`${formatEuroDe(unallocatedAmount)} dieser Zahlung konnten keiner offenen Rechnung zugeordnet werden und bleiben als nicht zugeordnet stehen.`);
     }
     // Ein Beleg ohne Freigabe nimmt das Geld an, behaelt aber seinen Belegstatus -
     // sonst waere ein Entwurf ueber eine Zuordnung auf 'bezahlt' gesetzt worden.
@@ -453,9 +508,10 @@ class BookingPaymentService {
       throw buildValidationError('Diese Zahlung ist bereits vollständig zugeordnet.');
     }
 
-    // Offener Rechnungsbetrag aus den gueltigen Zuordnungen, nicht aus paidAmount.
-    const allocatedForInvoice = await PaymentService.getAllocatedTotalsByInvoice([invoice._id]);
-    const invoiceOpenAmount = round2(Math.max(0, Number(invoice.total || 0) - Number(allocatedForInvoice.get(String(invoice._id)) || 0)));
+    // Offener Rechnungsbetrag aus derselben Berechnung wie Liste/Detail (Forderung
+    // minus gueltige Zuordnungen), nicht aus paidAmount.
+    const invoiceBalance = await PaymentService.computeInvoiceBalance(invoice);
+    const invoiceOpenAmount = round2(Number(invoiceBalance?.open || 0));
 
     const requestedAmount = data.amount === undefined || data.amount === null || data.amount === ''
       ? Math.min(unallocated, invoiceOpenAmount)
@@ -465,10 +521,10 @@ class BookingPaymentService {
       throw buildValidationError('Es ist kein zuordenbarer Betrag vorhanden.');
     }
     if (requestedAmount > unallocated + 0.01) {
-      throw buildValidationError(`Der Zuordnungsbetrag übersteigt den nicht zugeordneten Zahlungsbetrag (${unallocated.toFixed(2)} €).`);
+      throw buildValidationError(`Der Zuordnungsbetrag übersteigt den nicht zugeordneten Zahlungsbetrag (${formatEuroDe(unallocated)}).`);
     }
     if (requestedAmount > invoiceOpenAmount + 0.01) {
-      throw buildValidationError(`Der Zuordnungsbetrag übersteigt den offenen Rechnungsbetrag (${invoiceOpenAmount.toFixed(2)} €).`);
+      throw buildValidationError(`Der Zuordnungsbetrag übersteigt den offenen Rechnungsbetrag (${formatEuroDe(invoiceOpenAmount)}).`);
     }
 
     const allocatedAmount = round2(Math.min(requestedAmount, unallocated, invoiceOpenAmount));

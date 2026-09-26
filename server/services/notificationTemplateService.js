@@ -48,9 +48,19 @@ class NotificationTemplateService {
         return null;
       }
 
+      // Persoenliche Nachricht ({{customMessage}}): immer als fertiger, HTML-escapter Block.
+      // Gespeicherte Vorlagen aelterer Installationen kennen den Platzhalter nicht - dort
+      // wird der Block nach der Einleitung eingefuegt, statt die Nachricht still zu verlieren.
+      const customMessageBlock = this.renderCustomMessageBlock(normalizedVariables.customMessage);
+      normalizedVariables.customMessage = customMessageBlock;
+      let templateContent = template.content || '';
+      if (channelType === 'email' && customMessageBlock && !templateContent.includes('{{customMessage}}')) {
+        templateContent = this.injectCustomMessage(templateContent);
+      }
+
       // Substitute variables in subject and content
       const subject = this.substituteVariables(template.subject || '', normalizedVariables);
-      const content = this.substituteVariables(template.content, normalizedVariables);
+      const content = this.substituteVariables(templateContent, normalizedVariables);
 
       // For email, also generate plain text version
       let plainText = null;
@@ -150,6 +160,38 @@ class NotificationTemplateService {
     return result;
   }
 
+  static escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /**
+   * Freitext des Bearbeiters als E-Mail-Block. Der Text wird IMMER escaped (kein HTML
+   * aus dem Eingabefeld) und Zeilenumbrueche werden uebernommen. Leer -> ''.
+   */
+  static renderCustomMessageBlock(message) {
+    const clean = String(message ?? '').trim();
+    if (!clean) return '';
+    const html = this.escapeHtml(clean).replace(/\r?\n/g, '<br />');
+    return '<div style="margin:0 0 24px 0;padding:16px 18px;border-left:4px solid #f5b800;background:#fffbea;border-radius:12px;font-size:15px;line-height:1.7;color:#1f2937;">'
+      + '<div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6b7280;margin-bottom:6px;">Persönliche Nachricht</div>'
+      + `${html}</div>`;
+  }
+
+  // Fuegt {{customMessage}} hinter die Einleitung einer gespeicherten Vorlage ein
+  // (Fallback: direkt nach <body>, sonst an den Anfang).
+  static injectCustomMessage(content = '') {
+    const introPattern = /(<p[^>]*class="email-intro"[^>]*>[\s\S]*?<\/p>)/i;
+    if (introPattern.test(content)) return content.replace(introPattern, '$1{{customMessage}}');
+    const bodyPattern = /(<body[^>]*>)/i;
+    if (bodyPattern.test(content)) return content.replace(bodyPattern, '$1{{customMessage}}');
+    return `{{customMessage}}${content}`;
+  }
+
   static async normalizeLinkVariables(variables = {}, config = null) {
     const normalizedVariables = { ...variables };
     const urlKeyPattern = /(url|link)$/i;
@@ -160,7 +202,8 @@ class NotificationTemplateService {
     }
 
     for (const [key, rawValue] of Object.entries(normalizedVariables)) {
-      if (typeof rawValue !== 'string') {
+      // Freitext wird nie als Link umgeschrieben (auch wenn er mit '/' oder http beginnt).
+      if (typeof rawValue !== 'string' || key === 'customMessage') {
         continue;
       }
 

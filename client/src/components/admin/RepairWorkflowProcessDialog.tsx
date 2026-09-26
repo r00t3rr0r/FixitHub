@@ -32,6 +32,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/useToast"
+import api from "@/api/api"
+import { getKnownRepairCost } from "@/api/deviceInspection"
 import {
   approveRepairStart,
   completeRepair,
@@ -86,6 +88,14 @@ const INCIDENT_TYPE_OPTIONS = [
   { value: "technician_handover", label: "Techniker-Übergabe" },
   { value: "needs_time", label: "Mehr Zeit erforderlich" },
 ]
+
+const INCIDENT_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  INCIDENT_TYPE_OPTIONS.map((option) => [option.value, option.label])
+)
+
+// Server-Meldungen (deutsch) bevorzugen, sonst die Axios-Meldung.
+const errorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.message || error?.response?.data?.error || error?.message || fallback
 
 const STATUS_UI: Record<RepairWorkflowStatus, { label: string; dotColor: string; badgeClass: string }> = {
   "pending-confirmation": {
@@ -206,11 +216,45 @@ export function RepairWorkflowProcessDialog({
   const [showCorrectionModal, setShowCorrectionModal] = useState(false)
   const [showPauseDialog, setShowPauseDialog] = useState(false)
   const [showIncidentDialog, setShowIncidentDialog] = useState(false)
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
-  const [closeReason, setCloseReason] = useState("")
+  const [resolvingIncidentId, setResolvingIncidentId] = useState<string | null>(null)
 
   // Incident: notify customer
   const [incidentNotifyCustomer, setIncidentNotifyCustomer] = useState(false)
+
+  // "Wartet auf Kundenrückmeldung" kommt ausschließlich aus der Server-Ableitung
+  // (GET /api/repair-workflows/admin/awaiting-customer-feedback) - dieselbe Regel wie in den
+  // Auftragslisten: eine Kundenantwort oder eine Erledigung beendet das Warten.
+  const [awaitingIncidentIds, setAwaitingIncidentIds] = useState<Set<string>>(() => new Set())
+  const incidentsSignature = Array.isArray(workflow?.incidents)
+    ? workflow.incidents.map((incident: any) => `${incident?._id}:${incident?.status}:${incident?.emailSentAt || ""}`).join("|")
+    : ""
+  useEffect(() => {
+    if (!open || !orderId || !incidentsSignature) {
+      setAwaitingIncidentIds(new Set())
+      return
+    }
+    let cancelled = false
+    api.get("/api/repair-workflows/admin/awaiting-customer-feedback", { params: { orderIds: orderId } })
+      .then((response: any) => {
+        if (cancelled) return
+        const entries: any[] = Array.isArray(response?.data?.orders) ? response.data.orders : []
+        const ids = new Set<string>()
+        entries
+          .filter((entry) => String(entry?.orderId) === String(orderId))
+          .forEach((entry) => (Array.isArray(entry?.reasons) ? entry.reasons : [])
+            .filter((reason: any) => reason?.type === "workflow_customer_info" && reason?.sourceId)
+            .forEach((reason: any) => ids.add(String(reason.sourceId))))
+        setAwaitingIncidentIds(ids)
+      })
+      .catch((error: any) => {
+        // Ohne Server-Antwort keine Behauptung - "Kunde benachrichtigt" bleibt sichtbar.
+        if (!cancelled) setAwaitingIncidentIds(new Set())
+        console.warn("Kundenrückmeldungs-Status konnte nicht geladen werden", error)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, orderId, incidentsSignature])
 
   // Sync form from workflow
   useEffect(() => {
@@ -259,7 +303,19 @@ export function RepairWorkflowProcessDialog({
   const incidents: any[] = Array.isArray(workflow.incidents) ? workflow.incidents : []
   const incidentCount = incidents.length
   const totalPausedMs = Number(workflow?.timerData?.totalPausedMs || 0)
-  const pauseHistory: any[] = Array.isArray(workflow?.timerData?.pauseHistory) ? workflow.timerData.pauseHistory : []
+  const storedPauseHistory: any[] = Array.isArray(workflow?.timerData?.pauseHistory) ? workflow.timerData.pauseHistory : []
+  // Die laufende Pause steht erst nach dem Fortsetzen in pauseHistory - für die
+  // Lesesicht wird sie als offener Eintrag angehängt.
+  const pauseHistory: any[] = (status === "paused" || status === "incident") && workflow?.timerData?.pausedAt
+    ? [
+        ...storedPauseHistory,
+        {
+          pausedAt: workflow.timerData.pausedAt,
+          reason: workflow.timerData.currentPauseReason,
+          pausedByTechnicianName: workflow.timerData.currentPausedByTechnicianName,
+        },
+      ]
+    : storedPauseHistory
 
   const technicianName =
     workflow?.approvalData?.approvedByTechnicianName ||
@@ -284,7 +340,7 @@ export function RepairWorkflowProcessDialog({
       const response = await approveRepairStart(orderId, internalNotes, "", notifyCustomer)
       applyUpdate((response as any)?.data?.workflow, "Reparatur-Workflow wurde gestartet.")
     } catch (error: any) {
-      toast({ title: "Fehler", description: error?.message || "Workflow konnte nicht gestartet werden", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht gestartet werden"), variant: "destructive" })
     } finally {
       setLoadingAction(null)
     }
@@ -298,7 +354,7 @@ export function RepairWorkflowProcessDialog({
       setPauseReason("")
       setShowPauseDialog(false)
     } catch (error: any) {
-      toast({ title: "Fehler", description: error?.message || "Workflow konnte nicht pausiert werden", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht pausiert werden"), variant: "destructive" })
     } finally {
       setLoadingAction(null)
     }
@@ -310,7 +366,7 @@ export function RepairWorkflowProcessDialog({
       const response = await resumeRepair(orderId)
       applyUpdate((response as any)?.data?.workflow, "Workflow wurde fortgesetzt.")
     } catch (error: any) {
-      toast({ title: "Fehler", description: error?.message || "Workflow konnte nicht fortgesetzt werden", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht fortgesetzt werden"), variant: "destructive" })
     } finally {
       setLoadingAction(null)
     }
@@ -323,7 +379,7 @@ export function RepairWorkflowProcessDialog({
       applyUpdate((response as any)?.data?.workflow, "Workflow wurde erfolgreich abgeschlossen.")
       setShowCompleteConfirm(false)
     } catch (error: any) {
-      toast({ title: "Fehler", description: error?.message || "Workflow konnte nicht abgeschlossen werden", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht abgeschlossen werden"), variant: "destructive" })
     } finally {
       setLoadingAction(null)
     }
@@ -347,33 +403,28 @@ export function RepairWorkflowProcessDialog({
       setShowIncidentDialog(false)
       setActiveSection("incidents")
     } catch (error: any) {
-      toast({ title: "Fehler", description: error?.message || "Zwischenfall konnte nicht gemeldet werden", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error, "Zwischenfall konnte nicht gemeldet werden"), variant: "destructive" })
     } finally {
       setLoadingAction(null)
     }
   }
 
+  // Schließen ist KEIN Zustandswechsel: Ansicht und Arbeitszustand sind getrennt.
+  // Ein laufender Workflow läuft weiter (Zeiterfassung inklusive) und lässt sich
+  // jederzeit direkt wieder öffnen; Pausieren ist eine eigene, ausdrückliche Aktion.
   const handleCloseDialog = () => {
-    if (status === "in-progress") {
-      setShowCloseConfirm(true)
-    } else {
-      onOpenChange(false)
-    }
+    onOpenChange(false)
   }
 
-  const handleCloseWithPause = async () => {
-    if (!closeReason.trim()) return
+  const handleResolveIncident = async (incidentId: string) => {
     try {
-      setLoadingAction("pause")
-      const response = await pauseRepair(orderId, closeReason.trim())
-      applyUpdate((response as any)?.data?.workflow, "Workflow pausiert & Dialog geschlossen.")
-      setCloseReason("")
-      setShowCloseConfirm(false)
-      onOpenChange(false)
+      setResolvingIncidentId(incidentId)
+      const response = await api.post(`/api/repair-workflows/${orderId}/incidents/${incidentId}/resolve`, {})
+      applyUpdate((response as any)?.data?.workflow, "Zwischenfall wurde als erledigt markiert.")
     } catch (error: any) {
-      toast({ title: "Fehler", description: error?.message || "Workflow konnte nicht pausiert werden", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error, "Zwischenfall konnte nicht als erledigt markiert werden"), variant: "destructive" })
     } finally {
-      setLoadingAction(null)
+      setResolvingIncidentId(null)
     }
   }
 
@@ -521,8 +572,13 @@ export function RepairWorkflowProcessDialog({
                   disabled={loadingAction !== null}
                 >
                   <XCircle className="h-3.5 w-3.5" />
-                  Schliessen
+                  Schließen
                 </Button>
+                {status === "in-progress" && (
+                  <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+                    Schließen ändert den Status nicht – die Zeiterfassung läuft weiter.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -692,32 +748,21 @@ export function RepairWorkflowProcessDialog({
                                 </div>
                               )}
 
-                              {/* Repair assessment */}
-                              {(typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
-                                <div className={`rounded-md border px-3 py-2 ${
-                                  inspection.isRepairable === true
-                                    ? "border-emerald-200 bg-emerald-50"
-                                    : inspection.isRepairable === false
-                                      ? "border-red-200 bg-red-50"
-                                      : "border-slate-200 bg-slate-50"
-                                }`}>
+                              {/* Repair assessment: keine "Reparierbar"-Aussage (gespeicherte Altwerte waren
+                                  Client-Vorgaben); nur ein tatsächlich angegebener Preis wird gezeigt. */}
+                              {inspection.repairOffer && (() => {
+                                const knownCost = getKnownRepairCost(inspection)
+                                return (
+                                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                   <div className="flex items-center gap-2">
-                                    {typeof inspection.isRepairable === 'boolean' ? (
-                                      <span className={`text-xs font-semibold ${
-                                        inspection.isRepairable === true ? "text-emerald-700" : "text-red-700"
-                                      }`}>
-                                        {inspection.isRepairable === true ? "✓ Reparierbar" : "✗ Nicht reparierbar"}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs font-semibold text-slate-700">
-                                        Reparaturangaben
-                                      </span>
-                                    )}
-                                    {inspection.repairOffer?.cost != null && inspection.repairOffer.cost > 0 && (
-                                      <span className="ml-auto text-xs font-bold text-slate-800">
-                                        {Number(inspection.repairOffer.cost).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                                      </span>
-                                    )}
+                                    <span className="text-xs font-semibold text-slate-700">
+                                      Kostenvoranschlag
+                                    </span>
+                                    <span className={`ml-auto text-xs ${knownCost === null ? "text-slate-500" : "font-bold text-slate-800"}`}>
+                                      {knownCost === null
+                                        ? "Kosten: nicht angegeben"
+                                        : `${knownCost.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}${knownCost === 0 ? " (kostenlos)" : ""}`}
+                                    </span>
                                   </div>
                                   {inspection.repairOffer?.timeframe && (
                                     <p className="mt-0.5 text-xs text-slate-600">Zeitrahmen: {inspection.repairOffer.timeframe}</p>
@@ -726,7 +771,8 @@ export function RepairWorkflowProcessDialog({
                                     <p className="mt-0.5 text-xs text-slate-600">{inspection.repairOffer.description}</p>
                                   )}
                                 </div>
-                              )}
+                                )
+                              })()}
 
                               {/* Accessories */}
                               {inspection.accessories && (
@@ -835,10 +881,10 @@ export function RepairWorkflowProcessDialog({
                       {/* 3 Action buttons */}
                       <div className="grid gap-3">
 
-                        {/* Workflow pausieren */}
+                        {/* Workflow pausieren - wie der Server nur aus laufender Arbeit ("in-progress") */}
                         <button
                           onClick={() => setShowPauseDialog(true)}
-                          disabled={loadingAction !== null || status === "paused"}
+                          disabled={loadingAction !== null || status !== "in-progress"}
                           className="flex items-center gap-4 rounded-xl border border-blue-200 bg-white p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
@@ -846,7 +892,13 @@ export function RepairWorkflowProcessDialog({
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-800">Workflow pausieren</p>
-                            <p className="text-xs text-slate-500 mt-0.5">Zeiterfassung unterbrechen, z. B. bei Wartezeit auf Ersatzteile oder Kundenkontakt</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {status === "incident"
+                                ? "Während eines aktiven Zwischenfalls nicht möglich – die Zeiterfassung ist bereits angehalten. Zum Weiterarbeiten „Fortsetzen“ wählen."
+                                : status === "paused"
+                                  ? "Der Workflow ist bereits pausiert."
+                                  : "Zeiterfassung unterbrechen, z. B. bei Wartezeit auf Ersatzteile oder Kundenkontakt"}
+                            </p>
                           </div>
                         </button>
 
@@ -875,8 +927,8 @@ export function RepairWorkflowProcessDialog({
                             <CheckCircle2 className="h-5 w-5 text-emerald-700" />
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800">Reparatur abschliessen</p>
-                            <p className="text-xs text-slate-500 mt-0.5">Alle Arbeiten abgeschlossen — beendet die Zeiterfassung und schliesst den Workflow</p>
+                            <p className="text-sm font-semibold text-slate-800">Reparatur abschließen</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Alle Arbeiten abgeschlossen — beendet die Zeiterfassung und schließt den Workflow</p>
                           </div>
                         </button>
 
@@ -936,15 +988,53 @@ export function RepairWorkflowProcessDialog({
                               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold">
                                 {incidents.length - i}
                               </span>
-                              <p className="text-sm font-semibold text-red-800 capitalize">
-                                {String(incident.type || "").replace(/_/g, " ")}
+                              <p className="text-sm font-semibold text-red-800">
+                                {INCIDENT_TYPE_LABEL[incident.type] || "Zwischenfall"}
                               </p>
+                              <Badge
+                                variant="outline"
+                                className={incident.status === "resolved" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-red-300 bg-red-50 text-red-700"}
+                              >
+                                {incident.status === "resolved" ? "Erledigt" : "Offen"}
+                              </Badge>
+                              {incident._id && awaitingIncidentIds.has(String(incident._id)) && (
+                                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
+                                  Wartet auf Kundenrückmeldung
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-slate-500 flex-shrink-0">{formatDateTime(incident.timestamp)}</p>
                           </div>
                           <p className="mt-2 text-sm text-slate-700">{incident.reason || "Kein Grund angegeben"}</p>
                           {incident.notes && (
                             <p className="mt-1 text-xs text-slate-500 border-t border-slate-100 pt-1.5">{incident.notes}</p>
+                          )}
+                          <div className="mt-2 grid grid-cols-1 gap-0.5 text-[11px] text-slate-500 sm:grid-cols-2">
+                            <span>Gemeldet von: {incident.reportedByTechnicianName || "—"}</span>
+                            <span>
+                              Kunde benachrichtigt: {incident.emailSentAt ? formatDateTime(incident.emailSentAt) : "Nein"}
+                            </span>
+                            {incident.status === "resolved" && (
+                              <span className="sm:col-span-2">
+                                Erledigt am {formatDateTime(incident.resolvedAt)}
+                                {incident.resolvedByTechnicianName ? ` von ${incident.resolvedByTechnicianName}` : ""}
+                                {incident.resolutionNote ? ` – ${incident.resolutionNote}` : ""}
+                              </span>
+                            )}
+                          </div>
+                          {incident.status !== "resolved" && incident._id && (
+                            <div className="mt-2 flex justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => handleResolveIncident(String(incident._id))}
+                                disabled={resolvingIncidentId !== null || loadingAction !== null}
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                {resolvingIncidentId === String(incident._id) ? "Wird gespeichert …" : "Als erledigt markieren"}
+                              </Button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -1019,6 +1109,13 @@ export function RepairWorkflowProcessDialog({
                             {entry?.reason && (
                               <p className="mt-2 text-xs text-slate-600 border-t border-slate-100 pt-1.5">
                                 <span className="text-slate-400">Grund: </span>{entry.reason}
+                              </p>
+                            )}
+                            {(entry?.pausedByTechnicianName || entry?.resumedByTechnicianName) && (
+                              <p className="mt-1 text-[11px] text-slate-500">
+                                {entry?.pausedByTechnicianName ? `Pausiert von ${entry.pausedByTechnicianName}` : ""}
+                                {entry?.pausedByTechnicianName && entry?.resumedByTechnicianName ? " · " : ""}
+                                {entry?.resumedByTechnicianName ? `Fortgesetzt von ${entry.resumedByTechnicianName}` : ""}
                               </p>
                             )}
                           </div>
@@ -1143,7 +1240,7 @@ export function RepairWorkflowProcessDialog({
       <AlertDialog open={showCompleteConfirm} onOpenChange={setShowCompleteConfirm}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Reparatur abschliessen?</AlertDialogTitle>
+            <AlertDialogTitle>Reparatur abschließen?</AlertDialogTitle>
             <AlertDialogDescription>
               Diese Aktion beendet die Zeiterfassung und markiert den Reparatur-Workflow als abgeschlossen. Sie kann nicht rückgängig gemacht werden.
             </AlertDialogDescription>
@@ -1155,7 +1252,7 @@ export function RepairWorkflowProcessDialog({
               disabled={loadingAction !== null}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {loadingAction === "complete" ? "Wird abgeschlossen …" : "Ja, abschliessen"}
+              {loadingAction === "complete" ? "Wird abgeschlossen …" : "Ja, abschließen"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1309,47 +1406,6 @@ export function RepairWorkflowProcessDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Close confirm — pause workflow before leaving */}
-      <Dialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
-              <Pause className="h-5 w-5 text-amber-600" />
-              Workflow pausieren & schliessen
-            </DialogTitle>
-            <DialogDescription>
-              Der Workflow wird automatisch pausiert, wenn Sie den Dialog verlassen. Bitte geben Sie einen Grund an.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="close-reason" className="text-sm font-medium text-slate-700">
-                Pausengrund <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="close-reason"
-                value={closeReason}
-                onChange={(e) => setCloseReason(e.target.value)}
-                placeholder="z. B. Mittagspause, anderer Auftrag …"
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowCloseConfirm(false)} disabled={loadingAction !== null}>
-              Abbrechen
-            </Button>
-            <Button
-              onClick={handleCloseWithPause}
-              disabled={loadingAction !== null || !closeReason.trim()}
-              className="gap-2 bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <Pause className="h-4 w-4" />
-              {loadingAction === "pause" ? "Wird pausiert …" : "Pausieren & Schliessen"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

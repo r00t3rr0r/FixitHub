@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const { requireUser, requireAdmin, requireRole } = require('./middleware/auth');
 const ComplaintService = require('../services/complaintService');
@@ -11,8 +12,344 @@ const EmailService = require('../services/emailService');
 const InspectionCommunicationService = require('../services/inspectionCommunicationService');
 const FinancialService = require('../services/financialService');
 const DHLService = require('../services/dhlService');
+const OrderRevisionService = require('../services/orderRevisionService');
 
 const ADMIN_NOTIFICATION_TYPE = 'system';
+const Invoice = require('../models/Invoice');
+
+// Servicepauschale fuer eine abgelehnte Reklamation, wenn an der Reklamation selbst
+// keine hinterlegt ist. Der Betrag kommt NIE vom Kunden (Request-Body).
+const DEFAULT_COMPLAINT_SERVICE_FEE = 39;
+
+function formatEuroDe(value) {
+  return `${Number(Number(value) || 0).toFixed(2).replace('.', ',')} €`;
+}
+
+/**
+ * Legt fest, was der Reklamationsauftrag nach der Entscheidung des Kunden kostet: seine
+ * Positionen werden durch GENAU die abzurechnende Leistung ersetzt (angenommenes
+ * Angebot bzw. Servicepauschale), der Auftragswert wird mit DER Preisregel des
+ * Auftrags daraus gebildet (ohne Rabatt - Angebot und Pauschale sind Endbetraege).
+ *
+ * Warum ersetzen statt aufaddieren: der Reklamationsauftrag ist bei der Freigabe eine
+ * KOPIE des Originalauftrags (buildComplaintOrderPayload) - inklusive dessen Positionen
+ * und Auftragswert, die bereits mit dem Originalauftrag berechnet wurden. Frueher wurde
+ * totalCost direkt ueberschrieben bzw. erhoeht; Positionen und Wert passten dann nicht
+ * mehr zusammen, und die naechste Positionsbearbeitung hat Angebot/Pauschale still
+ * verworfen. Jetzt ist die Leistung eine Position und ueberlebt jede Bearbeitung.
+ *
+ * Konfliktsicher ueber OrderService.runGuardedOrderEdit; schreibt einen Historieneintrag.
+ */
+async function setComplaintOrderBillablePositions(orderId, { services = [], addOns = [], applyExtra, action, actor }) {
+  const { order, context } = await OrderService.runGuardedOrderEdit(orderId, async (freshOrder) => {
+    const previousGross = Number(freshOrder.totalCost || 0);
+    const replacedPositions = [
+      ...(freshOrder.services || []).filter((line) => line && typeof line === 'object')
+        .map((line) => `${line.name || 'Reparaturservice'} (${formatEuroDe(line.price)})`),
+      ...(freshOrder.addOns || []).map((addOn) => `${addOn.name} (${formatEuroDe(addOn.price)})`),
+      ...(freshOrder.shopProducts || []).map((product) => `Produkt x${product.quantity} (${formatEuroDe(product.priceAtOrder)})`),
+    ];
+    freshOrder.services = services;
+    freshOrder.addOns = addOns;
+    freshOrder.shopProducts = [];
+    freshOrder.appliedPromoCode = '';
+    OrderService.applyOrderPricing(freshOrder, {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'none',
+      appliedAt: new Date(),
+    });
+    if (typeof applyExtra === 'function') applyExtra(freshOrder);
+    return { previousGross, replacedPositions };
+  });
+
+  await OrderRevisionService.recordRevision(order, {
+    triggerReason: 'manual_edit',
+    previousGrossAmount: context.previousGross,
+    changedBy: actor?._id || undefined,
+    changedByName: actorName(actor),
+    notes: [
+      action,
+      `Auftragswert ${formatEuroDe(context.previousGross)} → ${formatEuroDe(order.totalCost)}`,
+      context.replacedPositions.length > 0
+        ? `Ersetzte Positionen (aus dem Originalauftrag kopiert): ${context.replacedPositions.join(', ')}`
+        : '',
+    ].filter(Boolean).join(' | '),
+  });
+
+  return order;
+}
+
+/**
+ * Fehlerantwort der Reklamationsrouten: Fehler mit statusCode (deutsche Meldung aus
+ * ensureTransition, buildComplaintError, OrderService ...) und DHL-Fehler
+ * (ShippingLabelError, deutsche Meldung mit status) werden durchgereicht; alles andere
+ * (Mongo 'E11000 duplicate key ...', Verbindungsfehler, Programmfehler) erreicht die
+ * Oberflaeche nur als deutsche Ersatzmeldung - der Rohtext steht im Log.
+ */
+function respondComplaintError(res, error, fallbackMessage, fallbackStatus = 500) {
+  if (error && Number(error.statusCode)) {
+    return res.status(Number(error.statusCode)).json({
+      success: false,
+      error: error.message,
+      code: error.code || undefined,
+      details: error.details || undefined,
+    });
+  }
+  if (error && error.name === 'ShippingLabelError') {
+    return res.status(Number(error.status) || 502).json({ success: false, error: error.message, code: error.code || undefined });
+  }
+  if (error && (error.name === 'ValidationError' || error.name === 'CastError')) {
+    return res.status(400).json({ success: false, error: 'Die Eingaben zur Reklamation sind ungültig. Bitte prüfen Sie die Angaben.' });
+  }
+  return res.status(fallbackStatus).json({ success: false, error: fallbackMessage });
+}
+
+function buildComplaintError(message, statusCode = 400, code = 'COMPLAINT_INVALID') {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  return error;
+}
+
+const toIdString = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value.toHexString === 'function') return value.toHexString();
+  if (value._id && value._id !== value) return toIdString(value._id);
+  return String(value);
+};
+
+/**
+ * Pauschale, die Personal/Admin ausdruecklich setzt. null, undefined und '' bedeuten
+ * "nicht angegeben" (dann gilt die gespeicherte bzw. die Standardpauschale) - frueher
+ * wurde daraus Number(null) = 0 und still eine 0,00-€-Rechnung. Negative oder nicht
+ * numerische Werte werden abgelehnt. Kunden koennen den Betrag nie setzen.
+ */
+function parseStaffServiceFee(user, rawValue) {
+  if (!['admin', 'staff'].includes(user?.role)) return { provided: false };
+  if (rawValue === undefined || rawValue === null) return { provided: false };
+  if (typeof rawValue === 'string' && rawValue.trim() === '') return { provided: false };
+  const numeric = typeof rawValue === 'string' ? Number(rawValue.trim().replace(',', '.')) : Number(rawValue);
+  if (typeof rawValue === 'boolean' || !Number.isFinite(numeric) || numeric < 0) {
+    throw buildComplaintError('Die Servicepauschale muss eine Zahl größer oder gleich 0 sein.', 400, 'INVALID_SERVICE_FEE');
+  }
+  return { provided: true, value: Math.round(numeric * 100) / 100 };
+}
+
+// Bestehende (nicht stornierte) Rechnung des Reklamationsauftrags - eine Wiederholung
+// der Ablehnung stellt keine zweite aus.
+async function findComplaintOrderInvoice(complaintOrderId) {
+  if (!complaintOrderId) return null;
+  return Invoice.findOne({
+    $or: [{ orderId: complaintOrderId }, { repairOrderIds: complaintOrderId }],
+    isCreditNote: { $ne: true },
+    status: { $ne: 'cancelled' },
+  }).sort({ createdAt: 1 });
+}
+
+// Rechnung ueber die Servicepauschale einer abgelehnten Reklamation (Bruttoposition, kein
+// Rabatt). EINE Stelle fuer den ersten Lauf und das kontrollierte Nachholen.
+async function createComplaintFeeInvoice({ complaint, complaintOrderId, serviceFee }) {
+  return FinancialService.createInvoice({
+    orderId: complaintOrderId,
+    customerId: getComplaintCustomerId(complaint),
+    items: [{
+      serviceName: 'Servicepauschale',
+      description: `Servicepauschale für abgelehnte Reklamation ${complaint.complaintNumber || ''}`.trim(),
+      quantity: 1,
+      unitPrice: serviceFee,
+      total: serviceFee,
+      type: 'fee'
+    }],
+    discount: 0,
+  });
+}
+
+// Nachholen einer fehlgeschlagenen Pauschalenrechnung: hoechstens EIN Lauf - OHNE Zeitablauf.
+// Die Beanspruchung ist ein Protokolleintrag 'fee_invoice_retry' (metadata.finished: false),
+// seine _id ist das Token des Laufs. Solange er offen ist, beansprucht KEIN weiterer Aufruf,
+// auch nicht nach Minuten: eine langsame Rechnungserstellung kann noch laufen (mit der
+// frueheren 2-Minuten-Sperre konnte eine zweite Wiederholung dann eine ZWEITE Rechnung
+// erstellen). Jeder Lauf endet in einem Schreibvorgang, der das Token prueft
+// (completeFeeInvoiceRetry / failFeeInvoiceRetry). Bricht der Prozess mitten im Lauf ab,
+// bleibt die Beanspruchung stehen: es entsteht KEINE Rechnung auf Verdacht; das Personal
+// prueft in der Finanzverwaltung und legt die Rechnung ggf. manuell an - die liefert dann
+// jede Wiederholung (findComplaintOrderInvoice). Liefert { claimed, retryId }.
+const FEE_INVOICE_RETRY_STALE_MS = 15 * 60 * 1000;
+async function claimFeeInvoiceRetry(complaintId, actor) {
+  const now = new Date();
+  const retryId = new mongoose.Types.ObjectId();
+  const claimed = await Complaint.findOneAndUpdate(
+    {
+      _id: complaintId,
+      status: 'awaiting_payment',
+      'repairOffer.status': 'rejected',
+      complaintLogs: {
+        $not: {
+          $elemMatch: {
+            action: 'fee_invoice_retry',
+            'metadata.finished': { $ne: true },
+          },
+        },
+      },
+    },
+    {
+      $push: {
+        complaintLogs: {
+          _id: retryId,
+          actorId: actor?._id,
+          actorName: actorName(actor),
+          actorRole: actor?.role || '',
+          action: 'fee_invoice_retry',
+          fromStatus: 'awaiting_payment',
+          toStatus: 'awaiting_payment',
+          notes: 'Rechnung über die Servicepauschale wird nachgeholt.',
+          metadata: { finished: false },
+          createdAt: now,
+        },
+      },
+    },
+    { new: true }
+  ).setOptions({ skipAutoPopulate: true });
+  return { claimed, retryId };
+}
+
+// Hinweis, wenn ein anderer Lauf die Rechnung gerade erstellt (oder ein frueherer Lauf nicht
+// abgeschlossen wurde) - es wird nichts erstellt.
+async function describeRunningFeeInvoiceRetry(complaintId) {
+  const current = await Complaint.findById(complaintId).setOptions({ skipAutoPopulate: true }).select('complaintLogs').lean();
+  const open = (current?.complaintLogs || []).find((entry) => entry && entry.action === 'fee_invoice_retry' && entry.metadata?.finished !== true);
+  const startedAt = open?.createdAt ? new Date(open.createdAt).getTime() : Date.now();
+  if (Date.now() - startedAt > FEE_INVOICE_RETRY_STALE_MS) {
+    return 'Die Rechnung über die Servicepauschale wird gerade erstellt oder ein früherer Versuch wurde unterbrochen. '
+      + 'Bitte in der Finanzverwaltung prüfen, ob die Rechnung vorliegt, und sie andernfalls manuell erstellen.';
+  }
+  return 'Die Rechnung über die Servicepauschale wird gerade erstellt. Bitte laden Sie die Seite in Kürze neu.';
+}
+
+// Erfolg: der Beanspruchungs-Eintrag (Token retryId) wird in EINEM Schreibvorgang zum
+// Protokolleintrag der nachgeholten Rechnung - kein zweiter Eintrag.
+async function completeFeeInvoiceRetry(complaintId, retryId, { actor, notes, metadata }) {
+  try {
+    const result = await Complaint.updateOne(
+      { _id: complaintId },
+      {
+        $set: {
+          'complaintLogs.$[retry].action': 'fee_invoice_created',
+          'complaintLogs.$[retry].actorId': actor?._id,
+          'complaintLogs.$[retry].actorName': actorName(actor),
+          'complaintLogs.$[retry].actorRole': actor?.role || '',
+          'complaintLogs.$[retry].notes': notes,
+          'complaintLogs.$[retry].metadata': { finished: true, ...metadata },
+          'complaintLogs.$[retry].createdAt': new Date(),
+        },
+      },
+      { arrayFilters: [{ 'retry._id': retryId, 'retry.metadata.finished': { $ne: true } }] }
+    );
+    if (!result.modifiedCount) {
+      console.error('ComplaintRoutes: fee invoice retry token no longer open - log entry not updated:', String(retryId));
+    }
+  } catch (finishError) {
+    console.error('ComplaintRoutes: fee invoice retry could not be marked as finished:', finishError.message);
+  }
+}
+
+// Freigeben: bereits vorhandene Rechnung (Token-Eintrag abschliessen) oder Fehlschlag.
+// Fehlschlaege werden in EINEM Eintrag 'fee_invoice_retry_failed' gezaehlt (attempts), statt
+// je Versuch einen neuen Protokolleintrag anzuhaengen; danach wird die Beanspruchung entfernt.
+async function releaseFeeInvoiceRetry(complaintId, retryId, { failed = false, actor, result = {} } = {}) {
+  try {
+    if (failed) {
+      const now = new Date();
+      const counted = await Complaint.updateOne(
+        { _id: complaintId, 'complaintLogs.action': 'fee_invoice_retry_failed' },
+        {
+          $inc: { 'complaintLogs.$.metadata.attempts': 1 },
+          $set: {
+            'complaintLogs.$.metadata.lastFailedAt': now,
+            'complaintLogs.$.actorId': actor?._id,
+            'complaintLogs.$.actorName': actorName(actor),
+            'complaintLogs.$.actorRole': actor?.role || '',
+          },
+        }
+      );
+      if (!counted.matchedCount) {
+        await Complaint.updateOne(
+          { _id: complaintId },
+          {
+            $push: {
+              complaintLogs: {
+                actorId: actor?._id,
+                actorName: actorName(actor),
+                actorRole: actor?.role || '',
+                action: 'fee_invoice_retry_failed',
+                fromStatus: 'awaiting_payment',
+                toStatus: 'awaiting_payment',
+                notes: 'Rechnung über die Servicepauschale konnte nicht nachgeholt werden.',
+                metadata: { attempts: 1, lastFailedAt: now },
+                createdAt: now,
+              },
+            },
+          }
+        );
+      }
+      await Complaint.updateOne({ _id: complaintId }, { $pull: { complaintLogs: { _id: retryId } } });
+      return;
+    }
+    await Complaint.updateOne(
+      { _id: complaintId },
+      { $set: { 'complaintLogs.$[retry].metadata': { finished: true, ...result } } },
+      { arrayFilters: [{ 'retry._id': retryId }] }
+    );
+  } catch (finishError) {
+    console.error('ComplaintRoutes: fee invoice retry could not be released:', finishError.message);
+  }
+}
+
+/**
+ * Entscheidung des Kunden ueber das Reparaturangebot ATOMAR beanspruchen: nur EINE
+ * Anfrage (Doppelklick, Wiederholung, Annehmen und Ablehnen gleichzeitig) kommt von
+ * 'denied' in den Zielstatus; alle anderen sehen den neuen Stand. Liefert das
+ * beanspruchte Dokument (ohne Auto-Populate) oder null.
+ */
+async function claimOfferDecision(complaintId, { toStatus, offerStatus, timestampField }) {
+  return Complaint.findOneAndUpdate(
+    { _id: complaintId, status: 'denied' },
+    {
+      $set: {
+        status: toStatus,
+        'repairOffer.status': offerStatus,
+        [`repairOffer.${timestampField}`]: new Date(),
+      },
+    },
+    { new: true }
+  ).setOptions({ skipAutoPopulate: true });
+}
+
+// Anspruch zuruecknehmen, wenn die Entscheidung vor ihrem ersten bleibenden Beleg
+// scheitert - der Kunde kann es dann erneut versuchen.
+async function releaseOfferDecision(complaintId, { fromStatus, previousOffer }) {
+  try {
+    await Complaint.updateOne(
+      { _id: complaintId, status: fromStatus },
+      {
+        $set: {
+          status: 'denied',
+          'repairOffer.status': previousOffer?.status || 'pending',
+          'repairOffer.acceptedAt': previousOffer?.acceptedAt || null,
+          'repairOffer.rejectedAt': previousOffer?.rejectedAt || null,
+        },
+      }
+    );
+  } catch (releaseError) {
+    console.error('ComplaintRoutes: offer decision could not be released:', releaseError.message);
+  }
+}
+
+function hasComplaintLog(complaint, action) {
+  return Array.isArray(complaint?.complaintLogs) && complaint.complaintLogs.some((entry) => entry && entry.action === action);
+}
 
 function actorName(user) {
   return user?.firstName
@@ -22,7 +359,13 @@ function actorName(user) {
 
 function ensureTransition(currentStatus, allowedStatuses, actionLabel) {
   if (!allowedStatuses.includes(currentStatus)) {
-    throw new Error(`${actionLabel} not allowed while complaint status is ${currentStatus}`);
+    // Deutsche Meldung fuer die Oberflaeche; Aktion und Statuswert (englische Enums)
+    // nur im Log, nicht im Satz.
+    console.warn(`ComplaintRoutes: ${actionLabel} not allowed while complaint status is ${currentStatus}`);
+    const error = new Error('Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.');
+    error.statusCode = 409;
+    error.code = 'COMPLAINT_STATUS_CONFLICT';
+    throw error;
   }
 }
 
@@ -137,7 +480,7 @@ async function notifyCustomer(complaint, customerId, title, message, metadata = 
         senderName: metadata.senderName || complaint.assignedToName || 'Service Team',
         messageSentAt: new Date().toLocaleString('de-DE'),
         resolutionSummary: message,
-        compensationInfo: complaint.partialRefund ? `Teil-Erstattung: EUR ${Number(complaint.partialRefund).toFixed(2)}` : 'Keine zusaetzliche Kompensation',
+        compensationInfo: complaint.partialRefund ? `Teil-Erstattung: ${formatEuroDe(complaint.partialRefund)}` : 'Keine zusätzliche Kompensation',
         resolvedAt: ['resolved', 'closed', 'new_repair'].includes(String(complaint.status || '').toLowerCase())
           ? new Date().toLocaleDateString('de-DE')
           : '',
@@ -178,10 +521,14 @@ async function createComplaintReturnLabel(complaintOrder, customer) {
   const receiverPostalCode = dhlConfig.settings?.shipperPostalCode || companyAddress.postalCode;
 
   if (!receiverStreet || !receiverCity || !receiverPostalCode) {
-    throw new Error('Die McRepair-Empfängeradresse ist für das Reklamationslabel nicht vollständig konfiguriert.');
+    throw buildComplaintError('Die McRepair-Empfängeradresse ist für das Reklamationslabel nicht vollständig konfiguriert.', 400, 'COMPLAINT_LABEL_ADDRESS_MISSING');
   }
 
   const shipmentResult = await DHLService.createShipment(complaintOrder._id, {
+    // Einsendung (Kunde -> McRepair): ausdruecklich angeben, statt die Richtung aus der
+    // Absenderadresse ableiten zu lassen - das Label gehoert in den return*-Slot des
+    // Auftrags, nie in die Auslieferung.
+    labelDirection: 'inbound',
     receiverName: dhlConfig.settings?.shipperCompany || companyAddress.company || 'McRepair.de GmbH',
     receiverAddress: receiverStreet,
     receiverNumber: dhlConfig.settings?.shipperNumber || companyAddress.number || '',
@@ -206,7 +553,7 @@ async function createComplaintReturnLabel(complaintOrder, customer) {
   });
 
   if (!/^data:application\/pdf;base64,/.test(shipmentResult?.labelUrl || '')) {
-    throw new Error('DHL hat kein PDF für das Reklamationslabel zurückgegeben.');
+    throw buildComplaintError('DHL hat kein PDF für das Reklamationslabel zurückgegeben.', 502, 'COMPLAINT_LABEL_NO_PDF');
   }
 
   return shipmentResult;
@@ -240,6 +587,8 @@ function buildComplaintOrderPayload(sourceOrder, complaint) {
   delete source.orderNumber;
   delete source.createdAt;
   delete source.updatedAt;
+  // Neuer Auftrag, neuer Bearbeitungsstand (siehe Order.editRevision).
+  delete source.editRevision;
 
   source.deviceBrand = sourceOrder.deviceBrand;
   source.deviceModel = sourceOrder.deviceModel;
@@ -280,7 +629,7 @@ router.get('/booking/:bookingId', requireUser, async (req, res) => {
     return res.json({ success: true, complaints });
   } catch (error) {
     console.error('ComplaintRoutes: Error getting complaints by booking:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamationen zur Buchung konnten nicht geladen werden.');
   }
 });
 
@@ -317,60 +666,119 @@ router.get('/', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('ComplaintRoutes: Error getting all complaints:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamationen konnten nicht geladen werden.');
   }
 });
 
 // Description: Accept new repair offer (customer)
 // Endpoint: POST /api/complaints/:id/accept-offer
+// Idempotent: die Entscheidung wird atomar beansprucht (denied -> new_repair). Eine
+// Wiederholung nach erfolgter Annahme liefert 200 mit alreadyProcessed: true; eine
+// gleichzeitige zweite Entscheidung (auch Ablehnen) bekommt eine deutsche 409.
+// Response: { success, complaint, newOrder: { _id, orderNumber, status }, alreadyProcessed? }
 router.post('/:id/accept-offer', requireUser, async (req, res) => {
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const complaintCustomerId = getComplaintCustomerId(complaint);
     if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
+    const respondAlreadyAccepted = async (current) => {
+      const repairOrder = await Order.findById(toIdString(current.newOrderId))
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id orderNumber status')
+        .lean();
+      return res.json({
+        success: true,
+        alreadyProcessed: true,
+        complaint: current,
+        newOrder: repairOrder ? { _id: repairOrder._id, orderNumber: repairOrder.orderNumber, status: repairOrder.status } : null,
+      });
+    };
+    const isAcceptedAndDone = (current) => current?.status === 'new_repair'
+      && current?.repairOffer?.status === 'accepted'
+      && hasComplaintLog(current, 'offer_accepted');
+
+    if (complaint.status !== 'denied' && isAcceptedAndDone(complaint)) {
+      return respondAlreadyAccepted(complaint);
+    }
     ensureTransition(complaint.status, ['denied'], 'Accept offer');
 
     if (!complaint.newOrderId) {
-      return res.status(400).json({ success: false, error: 'No complaint repair order available' });
+      return res.status(400).json({ success: false, error: 'Für diese Reklamation existiert kein Reklamationsauftrag.' });
     }
 
-    const repairOrder = await Order.findById(complaint.newOrderId).setOptions({ skipAutoPopulate: true });
-    if (!repairOrder) {
-      return res.status(404).json({ success: false, error: 'Complaint repair order not found' });
+    const repairOrderExists = await Order.exists({ _id: toIdString(complaint.newOrderId) });
+    if (!repairOrderExists) {
+      return res.status(404).json({ success: false, error: 'Der Reklamationsauftrag wurde nicht gefunden.' });
     }
 
-    // Der bestehende Reklamationsauftrag wird mit dem angenommenen Angebot als Reparaturauftrag eroeffnet.
-    const offerAmount = Number(complaint.repairOffer?.amount || 0);
-    repairOrder.totalCost = offerAmount;
-    repairOrder.status = 'in-progress';
-    repairOrder.progress = 0;
-    repairOrder.actualCompletion = undefined;
-    repairOrder.estimatedCompletion = undefined;
-    repairOrder.hasComplaint = false;
-    repairOrder.isComplaintFollowup = true;
-    repairOrder.paymentStatus = 'pending';
-    repairOrder.requiresPaymentBeforeCompletion = true;
-    await repairOrder.save();
+    const previousOffer = {
+      status: complaint.repairOffer?.status,
+      acceptedAt: complaint.repairOffer?.acceptedAt,
+      rejectedAt: complaint.repairOffer?.rejectedAt,
+    };
+    const claimed = await claimOfferDecision(complaint._id, {
+      toStatus: 'new_repair', offerStatus: 'accepted', timestampField: 'acceptedAt',
+    });
+    if (!claimed) {
+      const current = await Complaint.findById(complaint._id);
+      if (isAcceptedAndDone(current)) return respondAlreadyAccepted(current);
+      throw buildComplaintError(
+        'Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.',
+        409,
+        'COMPLAINT_DECISION_IN_PROGRESS'
+      );
+    }
 
-    const previousStatus = complaint.status;
-    complaint.status = 'new_repair';
-    complaint.repairOffer.status = 'accepted';
-    complaint.repairOffer.acceptedAt = new Date();
-    complaint.complaintLogs.push({
+    // Der bestehende Reklamationsauftrag wird mit dem angenommenen Angebot als
+    // Reparaturauftrag eroeffnet. Das Angebot ist die (einzige) abzurechnende POSITION
+    // dieses Auftrags - Endbetrag brutto, ohne weiteren Rabatt.
+    const offerAmount = Math.max(0, Math.round(Number(claimed.repairOffer?.amount || 0) * 100) / 100);
+    const offerDescription = String(claimed.repairOffer?.description || '').trim();
+    let repairOrder;
+    try {
+      repairOrder = await setComplaintOrderBillablePositions(toIdString(claimed.newOrderId), {
+        services: [{
+          isManual: true,
+          name: `Reparaturangebot (Reklamation ${claimed.complaintNumber || claimed._id})`,
+          description: offerDescription,
+          price: offerAmount,
+          estimatedTime: 0,
+          notes: '',
+        }],
+        addOns: [],
+        applyExtra: (order) => {
+          order.status = 'in-progress';
+          order.progress = 0;
+          order.actualCompletion = undefined;
+          order.estimatedCompletion = undefined;
+          order.hasComplaint = false;
+          order.isComplaintFollowup = true;
+          order.paymentStatus = 'pending';
+          order.requiresPaymentBeforeCompletion = true;
+        },
+        action: `Reparaturangebot angenommen: ${formatEuroDe(offerAmount)}`,
+        actor: req.user,
+      });
+    } catch (positionError) {
+      await releaseOfferDecision(claimed._id, { fromStatus: 'new_repair', previousOffer });
+      throw positionError;
+    }
+
+    claimed.complaintLogs.push({
       actorId: req.user._id,
       actorName: actorName(req.user),
       actorRole: req.user.role,
       action: 'offer_accepted',
-      fromStatus: previousStatus,
+      fromStatus: 'denied',
       toStatus: 'new_repair',
-      notes: 'Customer accepted technician repair offer',
+      notes: 'Kunde hat das Reparaturangebot angenommen.',
       metadata: {
         repairOrderId: repairOrder._id,
         repairOrderNumber: repairOrder.orderNumber,
@@ -378,29 +786,31 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
       }
     });
 
-    await complaint.save();
+    await claimed.save();
+    // Antwort und Benachrichtigung mit dem vollstaendigen (populierten) Stand wie bisher.
+    const acceptedComplaint = (await Complaint.findById(claimed._id)) || claimed;
 
     // Update repair offer message status in the communication thread
     try {
-      const targetOrderId = (complaint.newOrderId || complaint.orderId).toString();
+      const targetOrderId = toIdString(claimed.newOrderId || claimed.orderId);
       await InspectionCommunicationService.updateRepairOfferStatus(
-        targetOrderId, complaint._id, 'accepted'
+        targetOrderId, claimed._id, 'accepted'
       );
     } catch (commError) {
       console.error('ComplaintRoutes: Error updating repair offer message status (accept):', commError);
     }
 
     await notifyCustomer(
-      complaint,
-      complaint.customerId,
+      acceptedComplaint,
+      acceptedComplaint.customerId,
       'Neues Reparaturangebot angenommen',
-      `Der Reklamationsauftrag wurde als Reparaturauftrag eroeffnet: ${repairOrder.orderNumber}`,
+      `Der Reklamationsauftrag wurde als Reparaturauftrag eröffnet: ${repairOrder.orderNumber}`,
       { event: 'offer_accepted', repairOrderId: repairOrder._id, offerAmount }
     );
 
     return res.json({
       success: true,
-      complaint,
+      complaint: acceptedComplaint,
       newOrder: {
         _id: repairOrder._id,
         orderNumber: repairOrder.orderNumber,
@@ -409,104 +819,247 @@ router.post('/:id/accept-offer', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('ComplaintRoutes: Error accepting offer:', error);
-    return res.status(400).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Das Reparaturangebot konnte nicht angenommen werden. Bitte versuchen Sie es erneut.');
   }
 });
 
 // Description: Reject new repair offer (customer)
 // Endpoint: POST /api/complaints/:id/reject-offer
+// Request: { serviceFee?: number } - nur Personal/Admin; null/'' = nicht angegeben
+// Idempotent: die Entscheidung wird atomar beansprucht (denied -> awaiting_payment), es
+// entsteht genau EINE Pauschalen-Position und genau EINE Rechnung. Eine Wiederholung nach
+// erfolgter Ablehnung liefert 200 mit alreadyProcessed: true und der bestehenden
+// Rechnung; eine gleichzeitige zweite Entscheidung bekommt eine deutsche 409.
+// Response: { success, complaint, invoice, warnings: string[], alreadyProcessed? }
 router.post('/:id/reject-offer', requireUser, async (req, res) => {
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const complaintCustomerId = getComplaintCustomerId(complaint);
     if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
+    // Eine Wiederholung nach abgeschlossener Ablehnung ist erfolgreich und stellt nichts
+    // ein zweites Mal aus. Fehlt die Pauschalenrechnung, weil sie beim ersten Lauf nicht
+    // erstellt werden konnte, wird sie hier KONTROLLIERT nachgeholt: nur wenn die Ablehnung
+    // abgeschlossen ist (Protokoll offer_rejected), nur EIN Nachholversuch gleichzeitig
+    // (claimFeeInvoiceRetry) und erst nach erneuter Pruefung, dass noch keine Rechnung
+    // existiert - die Pauschale wird so nie doppelt berechnet.
+    const respondAlreadyRejected = async (current) => {
+      const complaintOrderId = toIdString(current.newOrderId);
+      let invoice = await findComplaintOrderInvoice(complaintOrderId);
+      const warnings = [];
+      if (!invoice && hasComplaintLog(current, 'offer_rejected') && complaintOrderId) {
+        const outcome = await retryComplaintFeeInvoice(current, complaintOrderId);
+        invoice = outcome.invoice;
+        if (outcome.warning) warnings.push(outcome.warning);
+      }
+      const freshComplaint = invoice && warnings.length === 0 ? ((await Complaint.findById(current._id)) || current) : current;
+      return res.json({ success: true, alreadyProcessed: true, complaint: freshComplaint, invoice, warnings });
+    };
+    const retryComplaintFeeInvoice = async (current, complaintOrderId) => {
+      const rejectedLog = [...(current.complaintLogs || [])].reverse().find((entry) => entry && entry.action === 'offer_rejected');
+      const loggedFee = Number(rejectedLog?.metadata?.serviceFee);
+      const serviceFee = Math.round((Number.isFinite(loggedFee) && loggedFee >= 0 ? loggedFee : Number(current.serviceFee || 0)) * 100) / 100;
+      if (!(await Order.exists({ _id: complaintOrderId })) || !(serviceFee > 0)) {
+        return {
+          invoice: null,
+          warning: 'Für diese Reklamation fehlt die Rechnung über die Servicepauschale. Bitte die Rechnung in der Finanzverwaltung prüfen.',
+        };
+      }
+      const { claimed: retryClaim, retryId } = await claimFeeInvoiceRetry(current._id, req.user);
+      if (!retryClaim) {
+        const existing = await findComplaintOrderInvoice(complaintOrderId);
+        return existing
+          ? { invoice: existing }
+          : { invoice: null, warning: await describeRunningFeeInvoiceRetry(current._id) };
+      }
+      // Erneut pruefen: ein frueherer Versuch kann die Rechnung inzwischen erstellt haben.
+      const existing = await findComplaintOrderInvoice(complaintOrderId);
+      if (existing) {
+        await releaseFeeInvoiceRetry(current._id, retryId, {
+          result: { invoiceId: existing._id, invoiceNumber: existing.invoiceNumber, alreadyExisted: true },
+        });
+        return { invoice: existing };
+      }
+      let created;
+      try {
+        created = await createComplaintFeeInvoice({ complaint: current, complaintOrderId, serviceFee });
+      } catch (retryError) {
+        console.error('ComplaintRoutes: Error re-creating invoice for rejected offer:', retryError.message);
+        await releaseFeeInvoiceRetry(current._id, retryId, { failed: true, actor: req.user });
+        return {
+          invoice: null,
+          warning: 'Die Rechnung über die Servicepauschale konnte weiterhin nicht erstellt werden. '
+            + 'Bitte später erneut versuchen oder die Rechnung in der Finanzverwaltung manuell erstellen.',
+        };
+      }
+      await completeFeeInvoiceRetry(current._id, retryId, {
+        actor: req.user,
+        notes: `Rechnung über die Servicepauschale nachgeholt: ${created.invoiceNumber || ''} (${formatEuroDe(created.total)})`.trim(),
+        metadata: { serviceFee, complaintOrderId, invoiceId: created._id, invoiceNumber: created.invoiceNumber },
+      });
+      return { invoice: created };
+    };
+    const isRejectedAndDone = async (current) => current?.status === 'awaiting_payment'
+      && current?.repairOffer?.status === 'rejected'
+      && (hasComplaintLog(current, 'offer_rejected') || Boolean(await findComplaintOrderInvoice(toIdString(current.newOrderId))));
+
+    if (complaint.status !== 'denied' && await isRejectedAndDone(complaint)) {
+      return respondAlreadyRejected(complaint);
+    }
     ensureTransition(complaint.status, ['denied'], 'Reject offer');
 
-    const serviceFee = Number(req.body?.serviceFee || 39);
-    const previousStatus = complaint.status;
+    // Pauschale serverseitig: an der Reklamation hinterlegt, sonst Standard. Ein Kunde
+    // kann den Betrag nicht selbst setzen; nur Personal/Admin darf ihn ausdruecklich
+    // uebersteuern (vor dem Beanspruchen pruefen - ein Eingabefehler aendert nichts).
+    const staffFee = parseStaffServiceFee(req.user, req.body?.serviceFee);
 
-    const complaintOrderId = complaint.newOrderId || complaint.orderId;
-    const complaintOrder = await Order.findById(complaintOrderId).setOptions({ skipAutoPopulate: true });
-    if (!complaintOrder) {
-      return res.status(404).json({ success: false, error: 'Reklamationsauftrag not found for complaint' });
+    const previousOffer = {
+      status: complaint.repairOffer?.status,
+      acceptedAt: complaint.repairOffer?.acceptedAt,
+      rejectedAt: complaint.repairOffer?.rejectedAt,
+    };
+    const claimed = await claimOfferDecision(complaint._id, {
+      toStatus: 'awaiting_payment', offerStatus: 'rejected', timestampField: 'rejectedAt',
+    });
+    if (!claimed) {
+      const current = await Complaint.findById(complaint._id);
+      if (await isRejectedAndDone(current)) return respondAlreadyRejected(current);
+      throw buildComplaintError(
+        'Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.',
+        409,
+        'COMPLAINT_DECISION_IN_PROGRESS'
+      );
     }
 
-    // Gebuehr fuer abgelehnte Reklamation zusaetzlich zu den Reparaturkosten hinterlegen
-    const existingTotalCost = Number(complaintOrder.totalCost || 0);
-    complaintOrder.totalCost = existingTotalCost + serviceFee;
-    complaintOrder.requiresPaymentBeforeCompletion = true;
-    await complaintOrder.save();
+    const storedFee = Number(claimed.serviceFee || 0);
+    const serviceFee = Math.round(
+      (staffFee.provided ? staffFee.value : (storedFee > 0 ? storedFee : DEFAULT_COMPLAINT_SERVICE_FEE)) * 100
+    ) / 100;
+    const warnings = [];
 
-    let invoice = null;
+    // Die Pauschale gehoert zum REKLAMATIONSAUFTRAG, nie zum Originalauftrag (der ist in
+    // der Regel schon berechnet - frueher lief die Rechnung dort in die
+    // Doppelrechnungssperre und wurde still nicht erstellt, bzw. davor wurde der
+    // Originalauftrag ein zweites Mal berechnet). Fehlt der Reklamationsauftrag
+    // (Altdaten), wird er jetzt aus dem Originalauftrag angelegt und SOFORT verknuepft -
+    // scheitert ein spaeterer Schritt, verwendet ein neuer Versuch ihn wieder (kein
+    // verwaister zweiter Reklamationsauftrag).
+    let complaintOrder;
     try {
-      // Die Servicepauschale steckt bereits im order.totalCost und wird als eigene
-      // BRUTTO-Position mitgegeben - nicht nachtraeglich ein zweites Mal aufaddiert.
-      // Netto und MwSt rechnet das Invoice-Modell aus dem Brutto heraus.
-      invoice = await FinancialService.createInvoiceFromOrder(complaintOrder._id, {
-        additionalItems: [{
-          serviceName: 'Servicepauschale',
-          description: 'Servicepauschale für abgelehnte Reklamation',
-          quantity: 1,
-          unitPrice: serviceFee,
-          total: serviceFee,
-          type: 'fee'
-        }]
+      let complaintOrderId = toIdString(claimed.newOrderId) || null;
+      if (complaintOrderId && !(await Order.exists({ _id: complaintOrderId }))) {
+        complaintOrderId = null;
+      }
+      if (!complaintOrderId) {
+        const sourceOrder = await Order.findById(toIdString(claimed.orderId)).setOptions({ skipAutoPopulate: true });
+        if (!sourceOrder) {
+          throw buildComplaintError('Der Auftrag zu dieser Reklamation wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+        }
+        const createdComplaintOrder = await Order.create(buildComplaintOrderPayload(sourceOrder, claimed));
+        complaintOrderId = String(createdComplaintOrder._id);
+        claimed.newOrderId = createdComplaintOrder._id;
+        await Complaint.updateOne({ _id: claimed._id }, { $set: { newOrderId: createdComplaintOrder._id } });
+      }
+
+      // Pauschale als POSITION (Zusatzleistung); der Wert des Reklamationsauftrags ist
+      // genau die Pauschale. Wiederholbar: die Positionen werden ersetzt, nicht ergaenzt.
+      complaintOrder = await setComplaintOrderBillablePositions(complaintOrderId, {
+        services: [],
+        addOns: [{
+          name: 'Servicepauschale (abgelehnte Reklamation)',
+          description: `Servicepauschale für die abgelehnte Reklamation ${claimed.complaintNumber || claimed._id}`,
+          price: serviceFee,
+          status: 'completed',
+          estimatedTime: '',
+          progress: 100,
+        }],
+        applyExtra: (order) => {
+          order.requiresPaymentBeforeCompletion = true;
+          order.paymentStatus = 'pending';
+        },
+        action: `Reparaturangebot abgelehnt: Servicepauschale ${formatEuroDe(serviceFee)}`,
+        actor: req.user,
       });
-    } catch (invoiceError) {
-      console.error('ComplaintRoutes: Error creating invoice for rejected offer:', invoiceError.message);
+    } catch (positionError) {
+      await releaseOfferDecision(claimed._id, { fromStatus: 'awaiting_payment', previousOffer });
+      throw positionError;
     }
 
-    complaint.status = 'awaiting_payment';
-    complaint.serviceFee = serviceFee;
-    complaint.extraCosts = Number(complaint.extraCosts || 0) + serviceFee;
-    complaint.repairOffer.status = 'rejected';
-    complaint.repairOffer.rejectedAt = new Date();
-    complaint.complaintLogs.push({
+    // Eigene Rechnung NUR ueber die Pauschale (Bruttoposition, kein Rabatt). Nicht ueber
+    // createInvoiceFromOrder: der Reklamationsauftrag traegt als Kopie die bookingId des
+    // Originals, dessen Buchungsrechnung die Anlage sonst blockiert. Gibt es fuer den
+    // Reklamationsauftrag bereits eine gueltige Rechnung, wird KEINE zweite erstellt.
+    let invoice = await findComplaintOrderInvoice(complaintOrder._id);
+    if (invoice) {
+      if (Math.abs(Number(invoice.total || 0) - serviceFee) > 0.009) {
+        warnings.push(
+          `Für den Reklamationsauftrag besteht bereits die Rechnung ${invoice.invoiceNumber || ''} über ${formatEuroDe(invoice.total)}; `
+          + 'es wurde keine weitere Rechnung erstellt. Bitte die Rechnung in der Finanzverwaltung prüfen.'
+        );
+      }
+    } else {
+      try {
+        invoice = await createComplaintFeeInvoice({ complaint: claimed, complaintOrderId: complaintOrder._id, serviceFee });
+      } catch (invoiceError) {
+        console.error('ComplaintRoutes: Error creating invoice for rejected offer:', invoiceError.message);
+        invoice = null;
+        warnings.push(
+          'Die Servicepauschale wurde am Reklamationsauftrag gespeichert, die Rechnung konnte jedoch nicht erstellt werden. '
+          + 'Ein erneuter Aufruf der Ablehnung holt sie nach; alternativ die Rechnung in der Finanzverwaltung manuell erstellen.'
+        );
+      }
+    }
+
+    claimed.serviceFee = serviceFee;
+    claimed.extraCosts = Number(claimed.extraCosts || 0) + serviceFee;
+    claimed.complaintLogs.push({
       actorId: req.user._id,
       actorName: actorName(req.user),
       actorRole: req.user.role,
       action: 'offer_rejected',
-      fromStatus: previousStatus,
+      fromStatus: 'denied',
       toStatus: 'awaiting_payment',
-      notes: `Customer rejected offer. Service fee applied: ${serviceFee}. Invoice: ${invoice?.invoiceNumber || 'n/a'}`,
+      notes: `Reparaturangebot abgelehnt. Servicepauschale: ${formatEuroDe(serviceFee)}. Rechnung: ${invoice?.invoiceNumber || 'nicht erstellt'}`,
       metadata: {
         serviceFee,
+        complaintOrderId: complaintOrder._id,
         invoiceId: invoice?._id,
         invoiceNumber: invoice?.invoiceNumber
       }
     });
 
-    await complaint.save();
+    await claimed.save();
+    // Antwort und Benachrichtigung mit dem vollstaendigen (populierten) Stand wie bisher.
+    const rejectedComplaint = (await Complaint.findById(claimed._id)) || claimed;
 
     // Update repair offer message status in the communication thread
     try {
-      const targetOrderId = (complaint.newOrderId || complaint.orderId).toString();
+      const targetOrderId = toIdString(claimed.newOrderId || claimed.orderId);
       await InspectionCommunicationService.updateRepairOfferStatus(
-        targetOrderId, complaint._id, 'rejected'
+        targetOrderId, claimed._id, 'rejected'
       );
     } catch (commError) {
       console.error('ComplaintRoutes: Error updating repair offer message status (reject):', commError);
     }
 
     await notifyCustomer(
-      complaint,
-      complaint.customerId,
+      rejectedComplaint,
+      rejectedComplaint.customerId,
       'Reparaturangebot abgelehnt',
-      `Die Reklamation und Reparatur werden nach Zahlungseingang versendet. Rechnungsbetrag: ${Number(invoice?.total || serviceFee).toFixed(2)} EUR`,
+      `Die Reklamation und Reparatur werden nach Zahlungseingang versendet. Rechnungsbetrag: ${formatEuroDe(invoice?.total || serviceFee)}`,
       { event: 'offer_rejected', serviceFee, invoiceId: invoice?._id, invoiceNumber: invoice?.invoiceNumber }
     );
 
-    return res.json({ success: true, complaint, invoice });
+    return res.json({ success: true, complaint: rejectedComplaint, invoice, warnings });
   } catch (error) {
     console.error('ComplaintRoutes: Error rejecting offer:', error);
-    return res.status(400).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Ablehnung des Reparaturangebots konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.');
   }
 });
 
@@ -516,14 +1069,14 @@ router.patch('/:id/approve', requireAdmin, async (req, res) => {
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     ensureTransition(complaint.status, ['pending_approval'], 'Approve complaint');
 
     const order = await Order.findById(complaint.orderId).setOptions({ skipAutoPopulate: true });
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Source order not found for complaint' });
+      return res.status(404).json({ success: false, error: 'Der Auftrag zu dieser Reklamation wurde nicht gefunden.' });
     }
 
     order.hasComplaint = true;
@@ -544,7 +1097,7 @@ router.patch('/:id/approve', requireAdmin, async (req, res) => {
     const customer = await User.findById(complaint.customerId)
       .select('name firstName lastName email phone shippingAddress invoiceAddress paymentAddress');
     if (!customer?.email) {
-      return res.status(400).json({ success: false, error: 'Kunde besitzt keine E-Mail-Adresse' });
+      return res.status(400).json({ success: false, error: 'Der Kunde besitzt keine E-Mail-Adresse.' });
     }
 
     const shipmentResult = await createComplaintReturnLabel(complaintOrder, customer);
@@ -606,7 +1159,7 @@ router.patch('/:id/approve', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('ComplaintRoutes: Error approving complaint:', error);
-    return res.status(400).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht genehmigt werden. Bitte versuchen Sie es erneut.');
   }
 });
 
@@ -619,12 +1172,12 @@ router.patch('/:id/reject', requireAdmin, async (req, res) => {
       .populate('newOrderId', 'orderNumber status')
       .populate('customerId', 'firstName lastName email');
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const rejectionReason = req.body?.rejection_reason;
     if (!rejectionReason) {
-      return res.status(400).json({ success: false, error: 'rejection_reason is required' });
+      return res.status(400).json({ success: false, error: 'Bitte geben Sie einen Ablehnungsgrund an.' });
     }
 
     ensureTransition(complaint.status, ['pending_approval'], 'Reject complaint');
@@ -658,7 +1211,7 @@ router.patch('/:id/reject', requireAdmin, async (req, res) => {
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error rejecting complaint:', error);
-    return res.status(400).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht abgelehnt werden. Bitte versuchen Sie es erneut.');
   }
 });
 
@@ -668,12 +1221,12 @@ router.patch('/:id/acknowledge', requireUser, requireRole(['staff', 'admin']), a
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const technicianReason = req.body?.technician_reason;
     if (!technicianReason) {
-      return res.status(400).json({ success: false, error: 'technician_reason is required' });
+      return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Begründung des Technikers an.' });
     }
 
     ensureTransition(complaint.status, ['approved'], 'Acknowledge complaint');
@@ -721,7 +1274,7 @@ router.patch('/:id/acknowledge', requireUser, requireRole(['staff', 'admin']), a
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error acknowledging complaint:', error);
-    return res.status(400).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht anerkannt werden. Bitte versuchen Sie es erneut.');
   }
 });
 
@@ -731,12 +1284,12 @@ router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (r
   try {
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const technicianReason = req.body?.technician_reason;
     if (!technicianReason) {
-      return res.status(400).json({ success: false, error: 'technician_reason is required' });
+      return res.status(400).json({ success: false, error: 'Bitte geben Sie eine Begründung des Technikers an.' });
     }
 
     if (req.user.role === 'staff') {
@@ -757,7 +1310,7 @@ router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (r
     if (req.user.role === 'admin' && !resolvedOfferDescription) {
       return res.status(400).json({
         success: false,
-        error: 'Repair offer configuration is required before admin confirmation',
+        error: 'Bitte hinterlegen Sie vor der Bestätigung ein Reparaturangebot (Beschreibung).',
       });
     }
     const previousStatus = complaint.status;
@@ -835,14 +1388,14 @@ router.patch('/:id/deny', requireUser, requireRole(['staff', 'admin']), async (r
       complaint,
       complaint.customerId,
       'Neues Reparaturangebot verfügbar',
-      `Die Reklamation wurde abgelehnt. Neues Angebot: ${resolvedOfferAmount.toFixed(2)} EUR. Bitte annehmen oder ablehnen.`,
+      `Die Reklamation wurde abgelehnt. Neues Angebot: ${formatEuroDe(resolvedOfferAmount)}. Bitte annehmen oder ablehnen.`,
       { event: 'technician_denied', offerAmount: resolvedOfferAmount, offerDescription: resolvedOfferDescription }
     );
 
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error denying complaint:', error);
-    return res.status(400).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht abgelehnt werden. Bitte versuchen Sie es erneut.');
   }
 });
 
@@ -856,7 +1409,7 @@ router.get('/my', requireUser, async (req, res) => {
     return res.json({ success: true, complaints });
   } catch (error) {
     console.error('ComplaintRoutes: Error getting customer complaints:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Ihre Reklamationen konnten nicht geladen werden.');
   }
 });
 
@@ -867,18 +1420,18 @@ router.get('/:id', requireUser, async (req, res) => {
     const complaint = await Complaint.findById(req.params.id);
 
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const complaintCustomerId = getComplaintCustomerId(complaint);
     if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error getting complaint:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht geladen werden.');
   }
 });
 
@@ -891,7 +1444,7 @@ router.post('/', requireUser, async (req, res) => {
     if (!subject || !description || !category) {
       return res.status(400).json({
         success: false,
-        error: 'subject, description, and category are required'
+        error: 'Bitte geben Sie Betreff, Beschreibung und Kategorie der Reklamation an.'
       });
     }
 
@@ -932,7 +1485,7 @@ router.post('/', requireUser, async (req, res) => {
     return res.status(201).json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error creating complaint:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht angelegt werden. Bitte versuchen Sie es erneut.');
   }
 });
 
@@ -943,14 +1496,14 @@ router.put('/:id/status', requireAdmin, async (req, res) => {
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({ success: false, error: 'status is required' });
+      return res.status(400).json({ success: false, error: 'Bitte geben Sie einen Status an.' });
     }
 
     const validStatuses = ['open', 'in-progress', 'pending-customer', 'resolved', 'closed'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        error: `status must be one of: ${validStatuses.join(', ')}`
+        error: 'Dieser Status ist für eine Reklamation nicht zulässig.'
       });
     }
 
@@ -965,7 +1518,7 @@ router.put('/:id/status', requireAdmin, async (req, res) => {
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error updating complaint status:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Der Status der Reklamation konnte nicht geändert werden.');
   }
 });
 
@@ -976,17 +1529,17 @@ router.post('/:id/comments', requireUser, async (req, res) => {
     const { comment, isInternal } = req.body;
 
     if (!comment) {
-      return res.status(400).json({ success: false, error: 'comment is required' });
+      return res.status(400).json({ success: false, error: 'Bitte geben Sie einen Kommentar ein.' });
     }
 
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) {
-      return res.status(404).json({ success: false, error: 'Complaint not found' });
+      return res.status(404).json({ success: false, error: 'Die Reklamation wurde nicht gefunden.' });
     }
 
     const complaintCustomerId = getComplaintCustomerId(complaint);
     if (req.user.role === 'customer' && complaintCustomerId !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+      return res.status(403).json({ success: false, error: 'Zugriff verweigert.' });
     }
 
     const commentData = {
@@ -1021,7 +1574,7 @@ router.post('/:id/comments', requireUser, async (req, res) => {
     return res.json({ success: true, complaint: updatedComplaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error adding comment:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Der Kommentar zur Reklamation konnte nicht gespeichert werden.');
   }
 });
 
@@ -1032,14 +1585,14 @@ router.put('/:id/assign', requireAdmin, async (req, res) => {
     const { staffId, staffName } = req.body;
 
     if (!staffId || !staffName) {
-      return res.status(400).json({ success: false, error: 'staffId and staffName are required' });
+      return res.status(400).json({ success: false, error: 'Bitte wählen Sie eine Mitarbeiterin bzw. einen Mitarbeiter aus.' });
     }
 
     const complaint = await ComplaintService.assign(req.params.id, staffId, staffName);
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error assigning complaint:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht zugewiesen werden.');
   }
 });
 
@@ -1050,14 +1603,14 @@ router.put('/:id/resolve', requireAdmin, async (req, res) => {
     const { resolution } = req.body;
 
     if (!resolution) {
-      return res.status(400).json({ success: false, error: 'resolution is required' });
+      return res.status(400).json({ success: false, error: 'Bitte beschreiben Sie die Lösung der Reklamation.' });
     }
 
     const complaint = await ComplaintService.resolve(req.params.id, resolution, req.user._id);
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error resolving complaint:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht als gelöst markiert werden.');
   }
 });
 
@@ -1069,7 +1622,7 @@ router.put('/:id/close', requireAdmin, async (req, res) => {
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('ComplaintRoutes: Error closing complaint:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return respondComplaintError(res, error, 'Die Reklamation konnte nicht geschlossen werden.');
   }
 });
 

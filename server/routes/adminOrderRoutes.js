@@ -11,9 +11,43 @@ const router = express.Router();
 // Middleware to check if user is admin or staff
 const requireAdminOrStaff = (req, res, next) => {
   if (!req.user || !['admin', 'staff'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied. Admin or staff role required.' });
+    return res.status(403).json({ error: 'Zugriff verweigert. Nur für Admin und Personal.' });
   }
   next();
+};
+
+// Fehler von Auftragsaenderungen an die Oberflaeche: Status und deutsche Meldung aus
+// dem Service (statusCode/code/details, z. B. 409 ORDER_VALUE_NOT_RECONCILED oder
+// ORDER_EDIT_CONFLICT). Unerwartete Fehler werden nicht roh (englisch) durchgereicht.
+const respondOrderEditError = (res, error, fallbackMessage, fallbackStatus = 500) => {
+  const statusCode = Number(error?.statusCode)
+    || (error?.name === 'ValidationError' || error?.name === 'CastError' ? 400 : fallbackStatus);
+  const message = error?.statusCode ? error.message : fallbackMessage;
+  return res.status(statusCode).json({
+    error: message,
+    code: error?.code || undefined,
+    details: error?.details || undefined,
+  });
+};
+
+const isConfirmFlag = (value) => value === true || value === 'true';
+
+// Bestaetigung einer Neuberechnung (siehe OrderService.getPricingConditionsForEdit):
+// confirmRepricing plus die GEZEIGTE Abweichung repricingBasis = { storedTotal, expectedTotal }
+// (details der 409). Hat sich der Auftrag seitdem geaendert, antwortet der Service mit einer
+// frischen 409 (details.confirmationOutdated). Bei DELETE auch als Query
+// (?confirmRepricing=true&repricingStoredTotal=..&repricingExpectedTotal=..).
+const readRepricingConfirmation = (body, query = {}, { allowQuery = false } = {}) => {
+  const fromQuery = allowQuery && query.repricingStoredTotal !== undefined
+    ? { storedTotal: query.repricingStoredTotal, expectedTotal: query.repricingExpectedTotal }
+    : undefined;
+  const repricingBasis = body && body.repricingBasis !== undefined && body.repricingBasis !== null
+    ? body.repricingBasis
+    : fromQuery;
+  return {
+    confirmRepricing: isConfirmFlag(body?.confirmRepricing) || (allowQuery && isConfirmFlag(query.confirmRepricing)),
+    ...(repricingBasis !== undefined ? { repricingBasis } : {}),
+  };
 };
 
 // Get all orders (admin/staff)
@@ -80,16 +114,22 @@ router.get('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Admin get order by ID request received:', req.params.id);
 
   try {
-    const order = await OrderService.getById(req.params.id);
+    // Personal-Ansicht (vollstaendiger Konditionen-Snapshot). Das Label-PDF (Base64)
+    // gehoert nicht in die Detailantwort - hasShippingLabel/hasReturnLabel zeigen, ob
+    // eines existiert; der Download laeuft ueber die eigenen Label-Endpunkte.
+    const order = await OrderService.getById(req.params.id, { audience: 'staff' });
+    if (order.shippingLabelUrl) {
+      order.shippingLabelUrl = '';
+    }
 
     return res.status(200).json({ order });
   } catch (error) {
     console.error('Error getting admin order by ID:', error);
     if (error.message === 'Order not found') {
-      return res.status(404).json({ error: error.message });
+      return res.status(404).json({ error: 'Auftrag wurde nicht gefunden.' });
     }
-    return res.status(500).json({ 
-      error: error.message || 'Failed to get order' 
+    return res.status(500).json({
+      error: 'Der Auftrag konnte nicht geladen werden.'
     });
   }
 });
@@ -396,8 +436,14 @@ router.put('/:id/eparts/:ePartId/status', requireUser, requireAdminOrStaff, asyn
 
 // Description: Add add-on service to order
 // Endpoint: POST /api/admin/orders/:id/addons
-// Request: { name: string, description?: string, price: number, estimatedTime?: string, status?: string }
+// Request: { name: string, description?: string, price: number (LIST gross), estimatedTime?: string, status?: string,
+//            confirmRepricing?: boolean, repricingBasis?: { storedTotal: number, expectedTotal: number } }
+//          confirmRepricing: explicit confirmation to re-price an order whose stored value does not match its
+//          positions (otherwise 409 { code: 'ORDER_VALUE_NOT_RECONCILED', details }).
+//          repricingBasis: the details.storedTotal / details.expectedTotal the user confirmed; if the order changed
+//          since, 409 ORDER_VALUE_NOT_RECONCILED with the NEW details and details.confirmationOutdated = true.
 // Response: { success: boolean, message: string, order: Order }
+//           errors: { error: string (German), code?: string, details?: object } with 400/404/409
 router.post('/:id/addons', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Add add-on to order request received:', req.params.id, req.body);
 
@@ -405,38 +451,34 @@ router.post('/:id/addons', requireUser, requireAdminOrStaff, async (req, res) =>
     const { name, description, price, estimatedTime, status } = req.body;
 
     if (!name || price === undefined) {
-      return res.status(400).json({ error: 'Name and price are required' });
+      return res.status(400).json({ error: 'Bitte geben Sie Name und Preis der Zusatzleistung an.' });
     }
 
     if (typeof price !== 'number' || price < 0) {
-      return res.status(400).json({ error: 'Price must be a positive number' });
+      return res.status(400).json({ error: 'Der Preis muss eine Zahl größer oder gleich 0 sein.' });
     }
 
     const order = await OrderService.addAddonToOrder(
       req.params.id,
-      { name, description, price, estimatedTime, status },
+      { name, description, price, estimatedTime, status, ...readRepricingConfirmation(req.body) },
       req.user._id
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Add-on service added successfully',
+      message: 'Die Zusatzleistung wurde hinzugefügt.',
       order
     });
   } catch (error) {
     console.error('Error adding add-on to order:', error);
-    if (error.message === 'Order not found') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(500).json({
-      error: error.message || 'Failed to add add-on service'
-    });
+    return respondOrderEditError(res, error, 'Die Zusatzleistung konnte nicht hinzugefügt werden.');
   }
 });
 
 // Description: Update add-on service in order
 // Endpoint: PUT /api/admin/orders/:id/addons/:addonId
-// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, status?: string, progress?: number }
+// Request: { name?: string, description?: string, price?: number, estimatedTime?: string, status?: string, progress?: number,
+//            confirmRepricing?: boolean, repricingBasis? (see POST /:id/addons) }
 // Response: { success: boolean, message: string, order: Order }
 router.put('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Update add-on in order request received:', req.params.id, req.params.addonId, req.body);
@@ -445,43 +487,39 @@ router.put('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (req,
     const { name, description, price, estimatedTime, status, progress } = req.body;
 
     if (price !== undefined && (typeof price !== 'number' || price < 0)) {
-      return res.status(400).json({ error: 'Price must be a positive number' });
+      return res.status(400).json({ error: 'Der Preis muss eine Zahl größer oder gleich 0 sein.' });
     }
 
     if (status && !['pending', 'in-progress', 'completed'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
+      return res.status(400).json({ error: 'Ungültiger Status der Zusatzleistung.' });
     }
 
     if (progress !== undefined && (typeof progress !== 'number' || progress < 0 || progress > 100)) {
-      return res.status(400).json({ error: 'Progress must be between 0 and 100' });
+      return res.status(400).json({ error: 'Der Fortschritt muss zwischen 0 und 100 liegen.' });
     }
 
     const order = await OrderService.updateOrderAddon(
       req.params.id,
       req.params.addonId,
-      { name, description, price, estimatedTime, status, progress },
+      { name, description, price, estimatedTime, status, progress, ...readRepricingConfirmation(req.body) },
       req.user._id
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Add-on service updated successfully',
+      message: 'Die Zusatzleistung wurde aktualisiert.',
       order
     });
   } catch (error) {
     console.error('Error updating add-on in order:', error);
-    if (error.message === 'Order not found' || error.message === 'Add-on not found in order') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(500).json({
-      error: error.message || 'Failed to update add-on service'
-    });
+    return respondOrderEditError(res, error, 'Die Zusatzleistung konnte nicht aktualisiert werden.');
   }
 });
 
 // Description: Remove add-on service from order
 // Endpoint: DELETE /api/admin/orders/:id/addons/:addonId
-// Request: {}
+// Request: { confirmRepricing?: boolean, repricingBasis? } (body, or ?confirmRepricing=true
+//          &repricingStoredTotal=..&repricingExpectedTotal=..; see POST /:id/addons)
 // Response: { success: boolean, message: string, order: Order }
 router.delete('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Remove add-on from order request received:', req.params.id, req.params.addonId);
@@ -490,22 +528,18 @@ router.delete('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (r
     const order = await OrderService.removeAddonFromOrder(
       req.params.id,
       req.params.addonId,
-      req.user._id
+      req.user._id,
+      readRepricingConfirmation(req.body, req.query, { allowQuery: true })
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Add-on service removed successfully',
+      message: 'Die Zusatzleistung wurde entfernt.',
       order
     });
   } catch (error) {
     console.error('Error removing add-on from order:', error);
-    if (error.message === 'Order not found' || error.message === 'Add-on not found in order') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(500).json({
-      error: error.message || 'Failed to remove add-on service'
-    });
+    return respondOrderEditError(res, error, 'Die Zusatzleistung konnte nicht entfernt werden.');
   }
 });
 
@@ -513,14 +547,16 @@ router.delete('/:id/addons/:addonId', requireUser, requireAdminOrStaff, async (r
 // Endpoint: PUT /api/admin/orders/:id/addons/:addonId/assign
 // Request: { staffId: string }
 // Response: { success: boolean, message: string, order: Order }
+//           errors: { error: string (German), code?: string } - 400 INVALID_STAFF, 404 ORDER_NOT_FOUND /
+//           ADDON_NOT_FOUND, 409 ORDER_EDIT_CONFLICT
 router.put('/:id/addons/:addonId/assign', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Assign staff to add-on request received:', req.params.id, req.params.addonId, req.body);
 
   try {
-    const { staffId } = req.body;
+    const { staffId } = req.body || {};
 
     if (!staffId) {
-      return res.status(400).json({ error: 'Staff ID is required' });
+      return res.status(400).json({ error: 'Bitte wählen Sie einen Mitarbeiter aus.', code: 'STAFF_REQUIRED' });
     }
 
     const order = await OrderService.assignStaffToAddon(
@@ -532,17 +568,12 @@ router.put('/:id/addons/:addonId/assign', requireUser, requireAdminOrStaff, asyn
 
     return res.status(200).json({
       success: true,
-      message: 'Staff assigned to add-on service successfully',
+      message: 'Der Mitarbeiter wurde der Zusatzleistung zugewiesen.',
       order
     });
   } catch (error) {
     console.error('Error assigning staff to add-on:', error);
-    if (error.message === 'Order not found' || error.message === 'Add-on not found in order') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(500).json({
-      error: error.message || 'Failed to assign staff to add-on service'
-    });
+    return respondOrderEditError(res, error, 'Der Mitarbeiter konnte der Zusatzleistung nicht zugewiesen werden.');
   }
 });
 
@@ -1018,7 +1049,7 @@ router.post('/:id/request-unlock-update', requireUser, requireAdminOrStaff, asyn
 
 // Description: Add shop product to order
 // Endpoint: POST /api/admin/orders/:id/shop-products
-// Request: { productId: string, quantity: number }
+// Request: { productId: string, quantity: number, confirmRepricing?: boolean, repricingBasis? (see POST /:id/addons) }
 // Response: { success: boolean, message: string, order: Order }
 router.post('/:id/shop-products', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Add shop product to order request received:', req.params.id, req.body);
@@ -1027,39 +1058,35 @@ router.post('/:id/shop-products', requireUser, requireAdminOrStaff, async (req, 
     const { productId, quantity } = req.body;
 
     if (!productId || !quantity) {
-      return res.status(400).json({ error: 'Product ID and quantity are required' });
+      return res.status(400).json({ error: 'Bitte wählen Sie ein Produkt und eine Menge aus.' });
     }
 
     if (quantity <= 0) {
-      return res.status(400).json({ error: 'Quantity must be greater than 0' });
+      return res.status(400).json({ error: 'Die Menge muss größer als 0 sein.' });
     }
 
     const order = await OrderService.addShopProduct(
       req.params.id,
       productId,
       quantity,
-      req.user._id
+      req.user._id,
+      readRepricingConfirmation(req.body)
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Shop product added successfully',
+      message: 'Das Produkt wurde dem Auftrag hinzugefügt.',
       order
     });
   } catch (error) {
     console.error('Error adding shop product to order:', error);
-    if (error.message === 'Order not found' || error.message === 'Product not found') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(400).json({
-      error: error.message || 'Failed to add shop product'
-    });
+    return respondOrderEditError(res, error, 'Das Produkt konnte nicht hinzugefügt werden.', 400);
   }
 });
 
 // Description: Update shop product quantity in order
 // Endpoint: PUT /api/admin/orders/:id/shop-products/:productItemId
-// Request: { quantity: number }
+// Request: { quantity: number, confirmRepricing?: boolean, repricingBasis? (see POST /:id/addons) }
 // Response: { success: boolean, message: string, order: Order }
 router.put('/:id/shop-products/:productItemId', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Update shop product quantity in order request received:', req.params.id, req.params.productItemId, req.body);
@@ -1068,39 +1095,36 @@ router.put('/:id/shop-products/:productItemId', requireUser, requireAdminOrStaff
     const { quantity } = req.body;
 
     if (!quantity) {
-      return res.status(400).json({ error: 'Quantity is required' });
+      return res.status(400).json({ error: 'Bitte geben Sie eine Menge an.' });
     }
 
     if (quantity <= 0) {
-      return res.status(400).json({ error: 'Quantity must be greater than 0' });
+      return res.status(400).json({ error: 'Die Menge muss größer als 0 sein.' });
     }
 
     const order = await OrderService.updateShopProductQuantity(
       req.params.id,
       req.params.productItemId,
       quantity,
-      req.user._id
+      req.user._id,
+      readRepricingConfirmation(req.body)
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Shop product quantity updated successfully',
+      message: 'Die Produktmenge wurde aktualisiert.',
       order
     });
   } catch (error) {
     console.error('Error updating shop product quantity:', error);
-    if (error.message === 'Order not found' || error.message === 'Product not found in order' || error.message === 'Product not found in database') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(400).json({
-      error: error.message || 'Failed to update shop product quantity'
-    });
+    return respondOrderEditError(res, error, 'Die Produktmenge konnte nicht aktualisiert werden.', 400);
   }
 });
 
 // Description: Remove shop product from order
 // Endpoint: DELETE /api/admin/orders/:id/shop-products/:productItemId
-// Request: {}
+// Request: { confirmRepricing?: boolean, repricingBasis? } (body, or ?confirmRepricing=true
+//          &repricingStoredTotal=..&repricingExpectedTotal=..; see POST /:id/addons)
 // Response: { success: boolean, message: string, order: Order }
 router.delete('/:id/shop-products/:productItemId', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('Remove shop product from order request received:', req.params.id, req.params.productItemId);
@@ -1109,22 +1133,18 @@ router.delete('/:id/shop-products/:productItemId', requireUser, requireAdminOrSt
     const order = await OrderService.removeShopProduct(
       req.params.id,
       req.params.productItemId,
-      req.user._id
+      req.user._id,
+      readRepricingConfirmation(req.body, req.query, { allowQuery: true })
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Shop product removed successfully',
+      message: 'Das Produkt wurde aus dem Auftrag entfernt.',
       order
     });
   } catch (error) {
     console.error('Error removing shop product from order:', error);
-    if (error.message === 'Order not found' || error.message === 'Product not found in order') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(500).json({
-      error: error.message || 'Failed to remove shop product'
-    });
+    return respondOrderEditError(res, error, 'Das Produkt konnte nicht entfernt werden.');
   }
 });
 
@@ -1160,16 +1180,29 @@ router.delete('/:id/workflows/:workflowId', requireUser, requireAdminOrStaff, as
 
 // Description: Change device and recalculate repair services
 // Endpoint: POST /api/admin/orders/:id/change-device
-// Request: { deviceBrand: string, deviceModel: string, deviceType: string }
-// Response: { success: boolean, order: Order, pricingChangesSummary: Object, requiresConfirmation: boolean }
+// Request: { deviceBrand: string, deviceModel: string, deviceType: string,
+//            serviceReplacements?: Array<{ oldOrderServiceId: string, newServiceId: string }>,
+//            serviceReplacement?: { oldOrderServiceId, newServiceId } (legacy single swap),
+//            reason?: string (stored in the order history),
+//            confirmRepricing?: boolean, repricingBasis? (see POST /:id/addons) }
+// Response: { success: boolean, message: string, order: Order, pricingChangesSummary: Object,
+//             requiresConfirmation: boolean, warnings: string[] (German; the change IS saved) }
+//           errors: { error: string (German), code?: string, details?: object } with 400/404/409
 router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, res) => {
   console.log('[DeviceChange] Change device request received:', req.params.id, req.body);
 
   try {
-    const { deviceBrand, deviceModel, deviceType, serviceReplacement, serviceReplacements } = req.body;
+    const {
+      deviceBrand,
+      deviceModel,
+      deviceType,
+      serviceReplacement,
+      serviceReplacements,
+      reason,
+    } = req.body || {};
 
     if (!deviceBrand || !deviceModel || !deviceType) {
-      return res.status(400).json({ error: 'Device brand, model, and type are required' });
+      return res.status(400).json({ error: 'Bitte geben Sie Marke, Modell und Gerätetyp an.' });
     }
 
     const result = await DeviceChangeService.changeDeviceAndRecalculateServices(
@@ -1180,25 +1213,23 @@ router.post('/:id/change-device', requireUser, requireAdminOrStaff, async (req, 
         deviceType,
         serviceReplacement,
         serviceReplacements,
+        reason: typeof reason === 'string' ? reason.trim() : '',
+        ...readRepricingConfirmation(req.body || {}),
       },
       req.user._id
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Device changed and services recalculated successfully',
+      message: 'Gerätewechsel gespeichert, Reparaturservices und Auftragswert wurden neu berechnet.',
       order: result.order,
       pricingChangesSummary: result.pricingChangesSummary,
       requiresConfirmation: result.requiresConfirmation,
+      warnings: Array.isArray(result.warnings) ? result.warnings : [],
     });
   } catch (error) {
     console.error('[DeviceChange] Error changing device:', error);
-    if (error.message === 'Order not found') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(400).json({
-      error: error.message || 'Failed to change device',
-    });
+    return respondOrderEditError(res, error, 'Der Gerätewechsel konnte nicht gespeichert werden.', 400);
   }
 });
 
@@ -1213,7 +1244,7 @@ router.post('/:id/confirm-device-change', requireUser, requireAdminOrStaff, asyn
     const { confirmed } = req.body;
 
     if (typeof confirmed !== 'boolean') {
-      return res.status(400).json({ error: 'Confirmation status is required' });
+      return res.status(400).json({ error: 'Bitte geben Sie an, ob der Gerätewechsel bestätigt wird.' });
     }
 
     const order = await DeviceChangeService.confirmDeviceChange(
@@ -1224,17 +1255,12 @@ router.post('/:id/confirm-device-change', requireUser, requireAdminOrStaff, asyn
 
     return res.status(200).json({
       success: true,
-      message: confirmed ? 'Device change confirmed' : 'Device change cancelled',
+      message: confirmed ? 'Der Gerätewechsel wurde bestätigt.' : 'Der Gerätewechsel wurde abgebrochen.',
       order,
     });
   } catch (error) {
     console.error('[DeviceChange] Error confirming device change:', error);
-    if (error.message === 'Order not found') {
-      return res.status(404).json({ error: error.message });
-    }
-    return res.status(400).json({
-      error: error.message || 'Failed to confirm device change',
-    });
+    return respondOrderEditError(res, error, 'Die Bestätigung des Gerätewechsels ist fehlgeschlagen.', 400);
   }
 });
 

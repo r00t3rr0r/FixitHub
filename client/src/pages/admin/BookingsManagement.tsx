@@ -5,6 +5,7 @@ import "./BookingsManagement.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { reconcileBookingInboundLabel } from "@/api/shipping"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
@@ -40,6 +41,7 @@ import {
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBookingShippingLabelDialog"
 import { BookingPaymentsDialog } from "@/components/admin/BookingPaymentsDialog"
+import { getBookingPayments } from "@/api/bookingPayments"
 import { ManualRepairOrderDialog } from "@/components/admin/ManualRepairOrderDialog"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import { printInvoice } from "@/lib/invoicePrint"
@@ -196,6 +198,21 @@ interface Booking {
   invoiceOpenAmount?: number
   customerCreditOpenAmount?: number
   netOpenAmount?: number
+  // Zahlungsstand vom Server (BookingService.buildPaymentBalanceMap / getBookingBalancesBulk).
+  // null = der Server konnte ihn nicht berechnen ("unbekannt", Anzeige '–').
+  paymentBalance?: null | {
+    total?: number
+    orderValue?: number
+    invoicedTotal?: number
+    allocated?: number
+    received?: number
+    unallocated?: number
+    open?: number
+    invoiceOpen?: number
+    overpaid?: number
+    refundPending?: number
+    reference?: number
+  }
   // DHL Returns information
   trackingNumber?: string
   carrier?: string
@@ -204,6 +221,8 @@ interface Booking {
   // Server aus dem Buchungsverlauf abgeleitet (GET /api/bookings/:id); fehlt das Feld
   // (Listenantwort, Altbestand), gilt 'inbound'.
   shippingLabelDirection?: 'inbound' | 'outbound'
+  // Sperre der Einsendelabel-Erstellung; bleibt nach unklarer DHL-Antwort bis zum Abgleich gesetzt.
+  shippingLabelCreationInProgress?: boolean
   shippingStatus?: 'pending' | 'label-created' | 'shipped' | 'in-transit' | 'out-for-delivery' | 'delivered' | 'failed' | ''
   shippingStatusDescription?: string
   shippingLabelUrl?: string
@@ -1182,9 +1201,9 @@ export function BookingsManagement() {
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value)
   }
 
@@ -1206,38 +1225,40 @@ export function BookingsManagement() {
     })
   }
 
+  // Offener Betrag der Liste: ausschließlich der vom Server berechnete Zahlungsstand
+  // (booking.paymentBalance: open / overpaid / received). Hier wird nicht mehr
+  // "Gesamt - bezahlt" nachgerechnet. Eine Überzahlung ist eine offene ERSTATTUNG an den
+  // Kunden, keine Gutschrift auf den Beleg.
   const getBookingOpenAmountInfo = (booking: Booking) => {
-    const hasInvoiceSummary = Number.isFinite(Number(booking.netOpenAmount))
-    if (hasInvoiceSummary) {
+    const balance = booking.paymentBalance
+    // Ausdrücklich unbekannt (Saldenberechnung auf dem Server fehlgeschlagen): nichts erfinden.
+    if (balance === null) {
+      return { amount: 0, type: 'unknown' as const, received: 0 }
+    }
+    if (balance && typeof balance === 'object') {
+      const overpaid = Number(balance.refundPending ?? balance.overpaid ?? 0)
+      const open = Number(balance.open ?? 0)
+      const received = Number(balance.received ?? 0)
+      if (Number.isFinite(overpaid) && overpaid > 0.009) {
+        return { amount: overpaid, type: 'refund' as const, received }
+      }
+      if (Number.isFinite(open) && open > 0.009) {
+        return { amount: open, type: received > 0.009 ? 'partial' as const : 'open' as const, received }
+      }
+      return { amount: 0, type: 'settled' as const, received }
+    }
+
+    // Ältere Antwort ohne paymentBalance: Rechnungssalden des Servers, sonst "unbekannt"
+    // (kein erfundener Betrag). Ein negativer Saldo ist hier offenes GUTSCHRIFTS-Guthaben
+    // (customerCreditOpenAmount) - keine Überzahlung mit offener Erstattung.
+    if (booking.netOpenAmount !== undefined && booking.netOpenAmount !== null && Number.isFinite(Number(booking.netOpenAmount))) {
       const netOpen = Number(booking.netOpenAmount || 0)
-      if (netOpen > 0.009) {
-        return { amount: netOpen, type: 'open' as const }
-      }
-      if (netOpen < -0.009) {
-        return { amount: Math.abs(netOpen), type: 'credit' as const }
-      }
-      return { amount: 0, type: 'settled' as const }
+      if (netOpen > 0.009) return { amount: netOpen, type: 'open' as const, received: 0 }
+      if (netOpen < -0.009) return { amount: Math.abs(netOpen), type: 'credit' as const, received: 0 }
+      return { amount: 0, type: 'settled' as const, received: 0 }
     }
 
-    const dueTotal = Number(booking.finalCost ?? booking.totalCost ?? 0)
-    const paidAmountFallback = Number((booking as any).amountPaid ?? (booking as any).paidAmount ?? 0)
-
-    if (Number.isFinite(paidAmountFallback) && paidAmountFallback > 0) {
-      const netOpen = dueTotal - paidAmountFallback
-      if (netOpen > 0.009) {
-        return { amount: netOpen, type: 'open' as const }
-      }
-      if (netOpen < -0.009) {
-        return { amount: Math.abs(netOpen), type: 'credit' as const }
-      }
-      return { amount: 0, type: 'settled' as const }
-    }
-
-    if (booking.billingStatus === 'paid') {
-      return { amount: 0, type: 'settled' as const }
-    }
-
-    return { amount: Math.max(0, dueTotal), type: 'open' as const }
+    return { amount: 0, type: 'unknown' as const, received: 0 }
   }
 
   if (loading && filteredBookings.length === 0) {
@@ -1550,7 +1571,7 @@ export function BookingsManagement() {
                     <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Status</TableHead>
                     <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Zahlungsstatus</TableHead>
                     <TableHead className="min-w-[120px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Offener Betrag</TableHead>
-                    <TableHead className="min-w-[110px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Versandstatus</TableHead>
+                    <TableHead className="min-w-[110px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }} title="DHL-Retoure: Kunde → McRepair">Retoure</TableHead>
                     <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Fortschritt</TableHead>
                     <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Gesamtkosten</TableHead>
                     <TableHead className="min-w-[70px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Orders</TableHead>
@@ -1640,7 +1661,18 @@ export function BookingsManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {openAmountInfo.type === 'settled' ? (
+                        {openAmountInfo.type === 'unknown' ? (
+                          <span className="text-xs" style={{ color: 'var(--gray-500)' }} title="Der Zahlungsstand konnte nicht ermittelt werden.">–</span>
+                        ) : openAmountInfo.type === 'credit' ? (
+                          <div className="flex flex-col leading-tight" title="Offenes Gutschriftsguthaben des Kunden.">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#475569' }}>
+                              Gutschrift
+                            </span>
+                            <span className="text-sm font-semibold" style={{ color: '#475569' }}>
+                              {formatCurrency(openAmountInfo.amount)}
+                            </span>
+                          </div>
+                        ) : openAmountInfo.type === 'settled' ? (
                           <div className="flex flex-col leading-tight">
                             <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500)' }}>
                               Ausgeglichen
@@ -1649,20 +1681,28 @@ export function BookingsManagement() {
                               {formatCurrency(0)}
                             </span>
                           </div>
+                        ) : openAmountInfo.type === 'refund' ? (
+                          <div className="flex flex-col leading-tight" title="Der Kunde hat mehr gezahlt als gefordert – der Betrag ist zu erstatten.">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#6d28d9' }}>
+                              Überzahlt · Erstattung offen
+                            </span>
+                            <span className="text-sm font-semibold" style={{ color: '#6d28d9' }}>
+                              {formatCurrency(openAmountInfo.amount)}
+                            </span>
+                          </div>
                         ) : (
                           <div className="flex flex-col leading-tight">
-                            <span
-                              className="text-[11px] font-semibold uppercase tracking-wide"
-                              style={{ color: openAmountInfo.type === 'credit' ? '#047857' : '#dc2626' }}
-                            >
-                              {openAmountInfo.type === 'credit' ? 'Gutschrift' : 'Offen'}
+                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#dc2626' }}>
+                              {openAmountInfo.type === 'partial' ? 'Teilbezahlt · offen' : 'Offen'}
                             </span>
-                            <span
-                              className="text-sm font-semibold"
-                              style={{ color: openAmountInfo.type === 'credit' ? '#047857' : '#dc2626' }}
-                            >
-                              {openAmountInfo.type === 'credit' ? '-' : ''}{formatCurrency(openAmountInfo.amount)}
+                            <span className="text-sm font-semibold" style={{ color: '#dc2626' }}>
+                              {formatCurrency(openAmountInfo.amount)}
                             </span>
+                            {openAmountInfo.type === 'partial' && (
+                              <span className="text-[11px]" style={{ color: 'var(--gray-500)' }}>
+                                Eingegangen: {formatCurrency(openAmountInfo.received)}
+                              </span>
+                            )}
                           </div>
                         )}
                       </TableCell>
@@ -1679,7 +1719,7 @@ export function BookingsManagement() {
                             {getShippingStatusLabel(booking.returnShipmentStatus)}
                           </Badge>
                         ) : (
-                          <span className="text-xs text-foreground/50">Keine Rücksendung</span>
+                          <span className="text-xs text-foreground/50">Keine Retoure</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -1797,7 +1837,7 @@ export function BookingsManagement() {
                               setShowCreateShippingLabelDialog(true)
                             }}>
                               <Truck className="h-4 w-4 mr-2" />
-                              Versandlabel erstellen
+                              Einsendelabel erstellen (Kunde → McRepair)
                             </DropdownMenuItem>
                             {(booking.orderIds?.length || 0) > 0 && (
                               <DropdownMenuItem onClick={() => {
@@ -2332,6 +2372,25 @@ function BookingDetailDialog({
   const [detailOrders, setDetailOrders] = useState<any[]>([])
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(true)
   const { toast } = useToast()
+  const { user: currentUser } = useAuth()
+  const [reconcileTracking, setReconcileTracking] = useState('')
+  const [reconcilingInbound, setReconcilingInbound] = useState(false)
+
+  // Abgleich nach unklarer DHL-Antwort beim Einsendelabel (nur Administratoren).
+  const handleReconcileInbound = async (resolution: 'not-created' | 'created') => {
+    if (reconcilingInbound) return
+    try {
+      setReconcilingInbound(true)
+      await reconcileBookingInboundLabel(booking._id, { resolution, trackingNumber: reconcileTracking.trim() || undefined })
+      setReconcileTracking('')
+      toast({ title: 'Abgleich abgeschlossen', description: resolution === 'created' ? 'Die Sendungsnummer wurde übernommen.' : 'Das Einsendelabel kann neu erstellt werden.' })
+      onStatusUpdate()
+    } catch (error: any) {
+      toast({ title: 'Abgleich fehlgeschlagen', description: error?.message || 'Bitte erneut versuchen.', variant: 'destructive' })
+    } finally {
+      setReconcilingInbound(false)
+    }
+  }
 
   useEffect(() => {
     setActiveTab(initialTab || "overview")
@@ -2422,9 +2481,9 @@ function BookingDetailDialog({
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value)
   }
 
@@ -2526,8 +2585,9 @@ function BookingDetailDialog({
       'Booking Created': 'Buchung angelegt',
       'Shipping Label Prepared': 'Versandlabel vorbereitet',
       'Shipping Label Created': 'Versandlabel erstellt',
+      'Shipping Label Reconciliation Required': 'Abgleich des Versandlabels erforderlich',
       'Shipping Status Updated': 'Versandstatus aktualisiert',
-      'Return Status Updated': 'Rücksendestatus aktualisiert',
+      'Return Status Updated': 'Retourenstatus aktualisiert',
       'Order Status Updated': 'Auftragsstatus aktualisiert',
       'Status Updated': 'Status aktualisiert',
     }
@@ -2640,19 +2700,20 @@ function BookingDetailDialog({
 
   const hasAnyShippingInfo = hasOutboundShippingInfo || hasReturnShippingInfo
 
-  // G5: booking.trackingNumber kann ein Einsendelabel (Kunde -> McRepair) ODER ein
-  // Ruecksendelabel (McRepair -> Kunde) sein - der Admin-Dialog laesst die Richtung
-  // waehlen. Die Ueberschriften duerfen deshalb nicht fest 'Hinweg' behaupten, sondern
-  // folgen der vom Server gelieferten Richtung (Vorgabe: Hinweg).
+  // booking.trackingNumber ist das EINSENDELABEL der Buchung (Kunde -> McRepair). Nur
+  // Altbestand kann dort ein frueher an der Buchung erzeugtes Rueckweg-Label tragen; die
+  // Richtung liefert der Server aus dem Verlaufseintrag (Vorgabe: Einsendung). Die
+  // Variablennamen 'outbound*' sind historisch und bezeichnen diesen Buchungs-Block.
+  // Die Auslieferung (McRepair -> Kunde) liegt je Auftrag und wird separat angezeigt.
   const isOutboundShippingLabel = booking.shippingLabelDirection === 'outbound'
   const outboundShippingTitle = isOutboundShippingLabel
-    ? 'Rücksendung an den Kunden (Rückweg)'
-    : 'Versand an McRepair (Hinweg)'
+    ? 'Rückweg-Label an den Kunden (McRepair → Kunde, Altbestand)'
+    : 'Versand zum Reparaturbetrieb (Kunde → McRepair)'
   const outboundShippingHistoryTitle = isOutboundShippingLabel
-    ? 'Versandverlauf (Rückweg)'
-    : 'Versandverlauf (Hinweg)'
+    ? 'Versandverlauf (McRepair → Kunde)'
+    : 'Versandverlauf (Kunde → McRepair)'
   const outboundShippingHint = isOutboundShippingLabel
-    ? 'Sendung von McRepair an den Kunden'
+    ? 'Sendung von McRepair an den Kunden (älteres Buchungslabel)'
     : 'Sendung des Kunden an McRepair'
   const repairJobs = (detailOrders.length > 0 ? detailOrders : booking.items || []).filter((item: any) => item.type === 'repair')
 
@@ -3588,6 +3649,77 @@ function BookingDetailDialog({
         </TabsContent>
 
         <TabsContent value="shipping" className="space-y-4 mt-4">
+          {booking.shippingLabelCreationInProgress && (
+            <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Einsendelabel: Ergebnis der DHL-Labelerstellung unklar oder Erstellung läuft
+              </p>
+              <p className="text-xs text-amber-900 dark:text-amber-200">
+                Bitte im DHL-Geschäftskundenportal prüfen, ob die Sendung angelegt wurde, bevor erneut ein Label erstellt wird – sonst entsteht ein zweites, bezahltes Label.
+              </p>
+              {currentUser?.role === 'admin' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    value={reconcileTracking}
+                    onChange={(event) => setReconcileTracking(event.target.value)}
+                    placeholder="Sendungsnummer aus dem DHL-Portal"
+                    className="h-8 w-56 text-xs"
+                  />
+                  <Button size="sm" variant="outline" disabled={reconcilingInbound} onClick={() => void handleReconcileInbound('created')}>
+                    Sendung existiert – übernehmen
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={reconcilingInbound} onClick={() => void handleReconcileInbound('not-created')}>
+                    Bei DHL nicht angelegt
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-amber-900 dark:text-amber-200">Den Abgleich schließt ein Administrator ab.</p>
+              )}
+            </div>
+          )}
+          {/* Auslieferung (McRepair -> Kunde) je Gerät - getrennt vom Einsendelabel der Buchung.
+              Ein fertiges Gerät wird einzeln versendet und markiert die anderen nicht mit. */}
+          {repairJobs.length > 0 && (
+            <div
+              style={{
+                background: 'var(--white, #ffffff)',
+                border: '2px solid var(--gray-200, #d8dce6)',
+                borderLeft: '4px solid var(--accent-yellow, #f5b800)',
+                borderRadius: 'var(--radius-lg, 16px)',
+                padding: '20px',
+                boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
+              }}
+            >
+              <h3 className="font-semibold text-base flex items-center gap-2 mb-1" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+                <Truck className="h-4 w-4" />
+                Auslieferung an den Kunden (McRepair → Kunde)
+              </h3>
+              <p className="text-xs mb-3" style={{ color: 'var(--gray-500, #636e85)' }}>
+                Wird je Auftrag über „An Kunden versenden“ erstellt. Ein erstelltes Label bedeutet noch nicht, dass das Paket an DHL übergeben wurde.
+              </p>
+              <div className="space-y-2">
+                {repairJobs.map((job: any, index: number) => (
+                  <div key={job.orderId || job._id || index} className="flex flex-wrap items-center justify-between gap-2 rounded border p-2 text-sm">
+                    <span className="font-medium">{job.orderNumber || job.device || 'Auftrag'}</span>
+                    {job.outboundShipment ? (
+                      <span>
+                        Sendungsnummer <span className="font-mono">{job.outboundShipment.trackingNumber}</span>
+                        {job.outboundShipment.status ? ` · ${getShippingStatusLabel(job.outboundShipment.status)}` : ''}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--gray-500, #636e85)' }}>Noch kein Versandlabel</span>
+                    )}
+                    {job.orderId && (
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/orders/${job.orderId}`)}>
+                        Zum Auftrag
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {hasAnyShippingInfo ? (
             <div className="space-y-4">
               {hasOutboundShippingInfo && (
@@ -3753,11 +3885,14 @@ function BookingDetailDialog({
                   }}
                 >
                   <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
-                  <p style={{ color: 'var(--gray-600, #4a5568)' }}>Noch kein Rücksendelabel für diese Buchung vorhanden</p>
+                  <p style={{ color: 'var(--gray-600, #4a5568)' }}>Noch kein DHL-Retourenlabel (Kunde → McRepair) für diese Buchung vorhanden</p>
                 </div>
               )}
 
-              {/* Always visible, regardless of existing return shipping info, so a new label can be generated at any time */}
+              {/* DHL-Retoure: der KUNDE ist Absender, McRepair Empfänger - also eine Einsendung,
+                  kein Versand an den Kunden. Der Server liefert ein vorhandenes Label zurück statt
+                  ein zweites zu erzeugen, daher nur anbieten, solange keines existiert. */}
+              {!hasReturnShippingInfo && (
               <div className="flex justify-center">
                 <Button
                   onClick={() => setShowReturnLabelDialog(true)}
@@ -3770,9 +3905,10 @@ function BookingDetailDialog({
                   }}
                 >
                   <Truck className="h-4 w-4 mr-2" />
-                  {hasReturnShippingInfo ? 'Neues Rücksendelabel erstellen' : 'Rücksendelabel erstellen'}
+                  Retourenlabel erstellen (Kunde → McRepair)
                 </Button>
               </div>
+              )}
 
               {hasReturnShippingInfo && (
                 <div
@@ -3791,7 +3927,7 @@ function BookingDetailDialog({
                       style={{ color: '#f5c800', fontWeight: '700' }}
                     >
                       <Truck className="h-5 w-5" style={{ color: '#f5c800' }} />
-                      Rücksendungsinformationen
+                      DHL-Retoure (Kunde → McRepair)
                     </h3>
                     {booking.returnShipmentStatus && (
                       <Badge className={getShippingStatusBadgeClass(booking.returnShipmentStatus)}>
@@ -3811,7 +3947,7 @@ function BookingDetailDialog({
                               {booking.returnTrackingNumber}
                             </p>
                             <p className="text-xs mt-1" style={{ color: 'var(--gray-400, #8892a8)' }}>
-                              Nutze diese Nummer, um die Rücksendung bei DHL zu verfolgen
+                              Nutze diese Nummer, um die Einsendung des Kunden (DHL-Retoure, Kunde → McRepair) bei DHL zu verfolgen
                             </p>
                           </div>
                         </div>
@@ -3830,17 +3966,17 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <FileText className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Rücksende-Label (PDF)</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Retouren-Label (PDF, Kunde → McRepair)</p>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => downloadBookingReturnLabel(booking._id, `return-label-${booking.bookingNumber || booking._id}.pdf`)}
                             >
                               <Download className="h-4 w-4 mr-2" />
-                              Rücksende-Label herunterladen
+                              Retouren-Label herunterladen
                             </Button>
                             <p className="text-xs text-foreground/50 mt-2">
-                              Dieses Label ausdrucken und am Rücksendepaket anbringen
+                              Der Kunde druckt dieses Label aus und bringt es am Paket an McRepair an
                             </p>
                           </div>
                         </div>
@@ -3852,7 +3988,7 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <QrCode className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-1 flex-shrink-0" />
                           <div className="flex-1">
-                            <p className="text-sm text-foreground/60 mb-2">QR-Code für label-freie Rücksendung</p>
+                            <p className="text-sm text-foreground/60 mb-2">QR-Code für label-freie Einsendung (DHL-Retoure)</p>
                             <Button
                               size="sm"
                               variant="outline"
@@ -3867,7 +4003,7 @@ function BookingDetailDialog({
                               QR-Code herunterladen
                             </Button>
                             <p className="text-xs mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>
-                              Diesen QR-Code in einer DHL-Filiale für die label-freie Rücksendung vorzeigen
+                              Diesen QR-Code in einer DHL-Filiale für die label-freie Einsendung an McRepair vorzeigen
                             </p>
                           </div>
                         </div>
@@ -3879,7 +4015,7 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <Clock className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Rücksendeverlauf</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Sendungsverlauf der Retoure (Kunde → McRepair)</p>
                             <div className="space-y-2 text-sm">
                               {booking.returnCreatedAt && (
                                 <div className="flex items-center gap-2">
@@ -3914,13 +4050,13 @@ function BookingDetailDialog({
                     boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))'
                   }}
                 >
-                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Rücksendehinweise</h4>
+                  <h4 className="font-semibold" style={{ background: 'linear-gradient(180deg, #1a2a5e 0%, #0f1d45 100%)', color: '#f5c800', fontSize: '1.05rem', padding: '10px 16px', borderRadius: '16px 16px 0 0', margin: '-20px -20px 12px -20px', borderBottom: '1px solid #0f1d45', fontWeight: 700 }}>Hinweise für den Kunden (Einsendung per DHL-Retoure)</h4>
                   <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--gray-600, #4a5568)', fontSize: '0.9rem' }}>
-                    <li>Rücksende-Label ausdrucken oder den QR-Code am Handy speichern</li>
+                    <li>Retouren-Label ausdrucken oder den QR-Code am Handy speichern</li>
                     <li>Artikel sicher in einem geeigneten Karton verpacken</li>
                     <li>Label aufkleben oder den QR-Code in einer DHL-Filiale vorzeigen</li>
                     <li>Paket bei DHL abgeben oder eine Abholung vereinbaren</li>
-                    <li>Rücksendung mit der oben stehenden Nummer verfolgen</li>
+                    <li>Einsendung mit der oben stehenden Nummer verfolgen</li>
                   </ol>
                 </div>
               )}
@@ -3936,8 +4072,8 @@ function BookingDetailDialog({
               }}
             >
               <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
-              <p style={{ color: 'var(--gray-600, #4a5568)' }}>Keine Rücksendungsinformationen für diese Buchung verfügbar</p>
-              <p className="text-sm mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>Rücksendedetails erscheinen hier, sobald sie erstellt wurden</p>
+              <p style={{ color: 'var(--gray-600, #4a5568)' }}>Für diese Buchung ist noch kein Einsendelabel (Kunde → McRepair) vorhanden</p>
+              <p className="text-sm mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>Einsendelabel und DHL-Retoure erscheinen hier, sobald sie erstellt wurden</p>
               <Button
                 onClick={() => setShowReturnLabelDialog(true)}
                 className="mt-4"
@@ -3950,7 +4086,7 @@ function BookingDetailDialog({
                 }}
               >
                 <Truck className="h-4 w-4 mr-2" />
-                Rücksende-Label erstellen
+                Retourenlabel erstellen (Kunde → McRepair)
               </Button>
             </div>
           )}
@@ -4062,8 +4198,24 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
   const loadInvoices = async () => {
     try {
       setLoading(true)
-      const response = await getBookingInvoices(booking._id)
-      setInvoices(response.invoices || [])
+      // Zahlungsstand je Beleg aus der Zahlungsübersicht der Buchung (dieselbe
+      // Serverberechnung wie im Zahlungen-Dialog). Scheitert sie, bleiben die Belege
+      // ohne Zahlungsstand sichtbar - es wird kein Betrag erfunden.
+      const [response, paymentOverview] = await Promise.all([
+        getBookingInvoices(booking._id),
+        getBookingPayments(booking._id).catch((error) => {
+          console.error('Error loading booking payment overview:', error)
+          return null
+        }),
+      ])
+      const balanceById = new Map<string, any>(
+        (Array.isArray((paymentOverview as any)?.invoices) ? (paymentOverview as any).invoices : [])
+          .map((entry: any) => [String(entry._id), entry])
+      )
+      setInvoices((response.invoices || []).map((invoice: any) => {
+        const entry = balanceById.get(String(invoice._id))
+        return entry ? { ...invoice, paymentOverview: entry } : invoice
+      }))
     } catch (error) {
       console.error('Error loading invoices:', error)
       toast({
@@ -4140,18 +4292,51 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(value)
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('de-DE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     })
+  }
+
+  // Belegstatus (Lebenslauf des Dokuments) - nie den rohen englischen Wert anzeigen.
+  const getInvoiceStatusLabel = (status?: string) => {
+    const labels: Record<string, string> = {
+      draft: 'Entwurf',
+      pending_approval: 'Freigabe ausstehend',
+      sent: 'Versendet',
+      viewed: 'Gesehen',
+      partially_paid: 'Teilbezahlt',
+      paid: 'Bezahlt',
+      overdue: 'Überfällig',
+      cancelled: 'Storniert',
+      credited: 'Gutgeschrieben',
+      pending: 'Ausstehend',
+    }
+    return labels[String(status || '')] || 'Unbekannt'
+  }
+
+  // Zahlungsstand (getrennt vom Belegstatus) aus der Serverberechnung.
+  const getInvoicePaymentInfo = (invoice: any): { label: string; className: string } | null => {
+    const entry = invoice?.paymentOverview
+    if (!entry || invoice?.isCreditNote) return null
+    const refundPending = Number(entry.refundPending ?? entry.overpaidAmount ?? 0)
+    const open = Number(entry.openAmount ?? 0)
+    const state = String(entry.paymentState || '')
+    if (state === 'overpaid' || refundPending > 0.009) {
+      return { label: `Überzahlt · Erstattung offen ${formatCurrency(refundPending)}`, className: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200' }
+    }
+    if (state === 'paid') return { label: 'Bezahlt', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' }
+    if (state === 'credited') return { label: 'Gutgeschrieben', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
+    if (state === 'partially_paid') return { label: `Teilbezahlt · offen ${formatCurrency(open)}`, className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' }
+    return { label: `Offen ${formatCurrency(open)}`, className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }
   }
 
   const paymentsHeader = (
@@ -4209,11 +4394,17 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-semibold">Rechnung #{invoice.invoiceNumber}</h4>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h4 className="font-semibold">{invoice.isCreditNote ? 'Gutschrift' : 'Rechnung'} #{invoice.invoiceNumber}</h4>
                   <Badge className={getInvoiceStatusColor(invoice.status)}>
-                    {invoice.status}
+                    {getInvoiceStatusLabel(invoice.status)}
                   </Badge>
+                  {(() => {
+                    const payment = getInvoicePaymentInfo(invoice)
+                    return payment ? (
+                      <Badge className={payment.className}>{payment.label}</Badge>
+                    ) : null
+                  })()}
                 </div>
                 <p className="text-sm text-foreground/60">
                   Erstellt: {formatDate(invoice.createdAt)}
@@ -4226,10 +4417,19 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
               </div>
               <div className="text-right">
                 <p className="text-lg font-bold">{formatCurrency(invoice.total)}</p>
-                {invoice.amountPaid > 0 && (
-                  <p className="text-sm text-green-600">
-                    Bezahlt: {formatCurrency(invoice.amountPaid)}
-                  </p>
+                {invoice.paymentOverview && !invoice.isCreditNote && (
+                  <>
+                    {Number(invoice.paymentOverview.received ?? invoice.paymentOverview.allocated ?? 0) > 0 && (
+                      <p className="text-sm text-green-600">
+                        Eingegangen: {formatCurrency(Number(invoice.paymentOverview.received ?? invoice.paymentOverview.allocated ?? 0))}
+                      </p>
+                    )}
+                    {Number(invoice.paymentOverview.openAmount || 0) > 0 && (
+                      <p className="text-sm text-red-600">
+                        Offen: {formatCurrency(Number(invoice.paymentOverview.openAmount || 0))}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -4295,7 +4495,7 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
               <div className="bg-muted/50 p-3 rounded">
                 <p className="text-sm font-medium">Rechnungsdetails</p>
                 <p className="text-sm text-foreground/60">Betrag: {formatCurrency(selectedInvoice.total)}</p>
-                <p className="text-sm text-foreground/60">Status: {selectedInvoice.status}</p>
+                <p className="text-sm text-foreground/60">Status: {getInvoiceStatusLabel(selectedInvoice.status)}</p>
                 {selectedInvoice.dueDate && (
                   <p className="text-sm text-foreground/60">Fälligkeitsdatum: {formatDate(selectedInvoice.dueDate)}</p>
                 )}
@@ -5148,18 +5348,18 @@ function ReturnLabelDialog({
 
         toast({
           title: "Erfolg",
-          description: "Rücksende-Label erfolgreich erstellt"
+          description: "Retouren-Label (Kunde → McRepair) erfolgreich erstellt"
         })
 
         onSuccess()
       } else {
-        throw new Error(response.message || 'Rücksende-Label konnte nicht erstellt werden')
+        throw new Error(response.message || 'Retouren-Label konnte nicht erstellt werden')
       }
     } catch (error) {
       console.error('Error creating return label:', error)
       toast({
         title: "Fehler",
-        description: error instanceof Error ? error.message : "Rücksende-Label konnte nicht erstellt werden",
+        description: error instanceof Error ? error.message : "Retouren-Label konnte nicht erstellt werden",
         variant: "destructive"
       })
     } finally {
@@ -5171,9 +5371,9 @@ function ReturnLabelDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Rücksende-Label erstellen</DialogTitle>
+          <DialogTitle>Retouren-Label erstellen (Kunde → McRepair)</DialogTitle>
           <DialogDescription>
-            DHL-Rücksende-Label für Buchung #{booking._id.slice(-8).toUpperCase()} erstellen
+            DHL-Retouren-Label (Einsendung Kunde → McRepair) für Buchung #{booking._id.slice(-8).toUpperCase()} erstellen
           </DialogDescription>
         </DialogHeader>
 
@@ -5226,10 +5426,10 @@ function ReturnLabelDialog({
               Wichtig
             </h3>
             <ul className="text-sm space-y-1 list-disc list-inside" style={{ color: 'var(--gray-600, #4a5568)' }}>
-              <li>Es wird ein DHL-Rücksende-Label für diese Buchung erstellt</li>
+              <li>Es wird ein DHL-Retouren-Label für diese Buchung erstellt: Absender ist der Kunde, Empfänger McRepair</li>
               <li>Eine Sendungsnummer wird erzeugt und dem Kunden angezeigt</li>
-              <li>Der Kunde erhält eine E-Mail-Benachrichtigung mit dem Rücksende-Label</li>
-              <li>Das Rücksende-Label kann gedruckt oder als QR-Code in DHL-Filialen gezeigt werden</li>
+              <li>Der Kunde erhält eine E-Mail-Benachrichtigung mit dem Retouren-Label</li>
+              <li>Das Retouren-Label kann gedruckt oder als QR-Code in DHL-Filialen gezeigt werden</li>
             </ul>
           </div>
 
@@ -5244,9 +5444,9 @@ function ReturnLabelDialog({
           >
             <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>Wie geht es weiter?</h3>
             <ol className="list-decimal list-inside space-y-1 text-sm" style={{ color: 'var(--gray-600, #4a5568)' }}>
-              <li>Ein Rücksende-Label wird über die DHL-Integration erstellt</li>
+              <li>Ein Retouren-Label wird über die DHL-Integration erstellt</li>
               <li>Sendungsnummer und Label werden in der Buchung gespeichert</li>
-              <li>Der Tab Versand wird mit den Rücksendedaten aktualisiert</li>
+              <li>Der Tab Versand wird mit den Retourendaten aktualisiert</li>
               <li>Der Kunde erhält eine E-Mail mit den Download-Links</li>
             </ol>
           </div>
@@ -5280,7 +5480,7 @@ function ReturnLabelDialog({
             {creatingLabel && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
             )}
-            {creatingLabel ? "Wird erstellt..." : "Rücksende-Label erstellen"}
+            {creatingLabel ? "Wird erstellt..." : "Retouren-Label erstellen"}
           </Button>
         </DialogFooter>
       </DialogContent>

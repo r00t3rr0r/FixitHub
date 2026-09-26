@@ -32,6 +32,17 @@ const modelVerificationSchema = new mongoose.Schema({
     ref: 'User',
   },
   notes: String,
+  // Where reportedModel came from, so a report can say how reliable "Gemeldetes Modell" is:
+  //   order-snapshot            Order.reportedDevice, written once when the order was created
+  //   order-snapshot-unverified Order.reportedDevice captured lazily AFTER an earlier recorded change
+  //   order-timeline            oldest "Device Changed" entry of the order history (legacy order)
+  //   order-current             no snapshot and no change recorded: the booked device is the current one
+  //   order-current-unverified  no snapshot, a change is recorded but its original device is unreadable
+  // Missing on inspections created before 25.09.2026 (unknown origin, shown as recorded).
+  reportedModelSource: {
+    type: String,
+    enum: ['order-snapshot', 'order-snapshot-unverified', 'order-timeline', 'order-current', 'order-current-unverified'],
+  },
   verifiedAt: {
     type: Date,
     default: Date.now,
@@ -340,14 +351,20 @@ const deviceInspectionSchema = new mongoose.Schema({
   },
 
   // Repair assessment
-  // DEPRECATED: the "Reparatureinschaetzung" control was removed from the inspection UI,
-  // so nothing writes these two fields any more. They are kept so historical inspections
-  // (and their actionLogs) stay readable - do not repurpose them.
+  // DEPRECATED: the "Reparatureinschaetzung" control was removed from the inspection UI and
+  // completeInspection() ignores both fields on write. Historical values were largely written
+  // automatically by old clients (default 'repairable'), so they are kept in the database but
+  // never shown (UI, PDF, e-mail) - do not repurpose them.
   isRepairable: {
     type: Boolean,
   },
   repairOffer: {
+    // Only set when a price was actually given. A missing price is UNKNOWN, never 0.
     cost: Number,
+    // true = the cost was given explicitly (0 = a deliberately free quote). Records written
+    // before 25.09.2026 do not have it: the client then sent 0 whenever no price existed, so
+    // a legacy 0 without this flag is treated as unknown (see resolveKnownRepairCost).
+    costSpecified: Boolean,
     timeframe: String,
     description: String,
   },
@@ -395,6 +412,36 @@ const deviceInspectionSchema = new mongoose.Schema({
     default: Date.now,
   },
 }, { versionKey: false });
+
+// The only repair cost that may be shown anywhere (UI, PDF, e-mail): an explicitly given price,
+// or - for legacy records without costSpecified - a positive one. Returns null when unknown.
+const resolveKnownRepairCost = (repairOffer) => {
+  if (!repairOffer || typeof repairOffer !== 'object') {
+    return null;
+  }
+  const { cost } = repairOffer;
+  if (typeof cost !== 'number' || !Number.isFinite(cost) || cost < 0) {
+    return null;
+  }
+  if (repairOffer.costSpecified === true) {
+    return cost;
+  }
+  return cost > 0 ? cost : null;
+};
+
+deviceInspectionSchema.statics.resolveKnownRepairCost = resolveKnownRepairCost;
+
+// API responses additionally carry repairOfferKnownCost (number | null), so no client has to
+// re-derive "unknown" from a raw cost that may be a legacy default 0.
+deviceInspectionSchema.set('toJSON', {
+  transform(doc, ret) {
+    if (typeof doc.ownerDocument === 'function' && doc.ownerDocument() !== doc) {
+      return ret; // subdocument
+    }
+    ret.repairOfferKnownCost = resolveKnownRepairCost(ret.repairOffer);
+    return ret;
+  },
+});
 
 // Update timestamp on save
 deviceInspectionSchema.pre('save', function(next) {

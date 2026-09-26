@@ -51,6 +51,11 @@ import {
   getPayments,
   processRefund,
   reconcileOverpayment,
+  reconcileRefund,
+  cancelInvoice,
+  discardDraftInvoice,
+  runDunningStep,
+  executeDunningRun,
   requestAdditionalPayment,
   runDunningJob,
   searchCustomers,
@@ -187,17 +192,6 @@ const trackedPaymentMethodOptions = [
 const formatCurrencyValue = (value: number, currency = 'EUR') =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(Number(value || 0));
 
-const toAmountNumber = (value: unknown): number => {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  if (typeof value === 'string') {
-    const normalized = value.replace(/\./g, '').replace(',', '.').trim();
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
 const formatDate = (value?: string) => {
   if (!value) return '-';
   const date = new Date(value);
@@ -255,6 +249,150 @@ const getDaysPastDue = (dueDate?: string): number => {
   if (Number.isNaN(due.getTime())) return 0;
   const diff = Date.now() - due.getTime();
   return Math.max(0, Math.floor(diff / 86400000));
+};
+
+// Zahlungsstand eines Belegs. Massgeblich ist der vom Server EINMAL berechnete Satz
+// (`balance`: Forderung minus gueltig zugeordnete Zahlungen), den Liste und Detail
+// identisch liefern. Nur fuer Altantworten ohne `balance` die fruehere Naeherung aus
+// dem gespeicherten paidAmount.
+const getInvoiceOpenAmount = (invoice?: Partial<Invoice> | null): number => {
+  if (!invoice) return 0;
+  const open = Number(invoice.balance?.open);
+  if (invoice.balance && Number.isFinite(open)) return Math.max(0, open);
+  return getInvoiceOpenAmount(invoice);
+};
+
+const getInvoicePaidAmount = (invoice?: Partial<Invoice> | null): number => {
+  if (!invoice) return 0;
+  const allocated = Number(invoice.balance?.allocated);
+  if (invoice.balance && Number.isFinite(allocated)) return Math.max(0, allocated);
+  return Math.max(0, Number(invoice.paidAmount || 0));
+};
+
+// "Ueberzahlt / Erstattung offen": an den Kunden zurueckzuzahlender Betrag.
+const getInvoiceRefundPending = (invoice?: Partial<Invoice> | null): number =>
+  Math.max(0, Number(invoice?.balance?.refundPending || 0));
+
+// Tatsaechlich eingegangener Betrag einer Zahlung (nach abgeschlossenen Erstattungen).
+const getPaymentEffectiveAmount = (payment?: Partial<Payment> | null): number => {
+  if (!payment) return 0;
+  if (Number.isFinite(Number(payment.effectiveAmount))) return Math.max(0, Number(payment.effectiveAmount));
+  return Math.max(0, Number(payment.amount || 0) - Number(payment.refundAmount || 0));
+};
+
+// Zahlungsstand-Hinweise NEBEN dem Belegstatus. "Teilbezahlt" und "Ueberzahlt /
+// Erstattung offen" sind vom Belegstatus (z.B. versendet) unabhaengig und muessen
+// auf einen Blick sichtbar sein - auch wenn der zugeordnete Betrag gekappt ist.
+const InvoicePaymentHints = ({ invoice }: { invoice?: Partial<Invoice> | null }) => {
+  if (!invoice || invoice.isCreditNote) return null;
+  const refundPending = getInvoiceRefundPending(invoice);
+  const inProgress = Math.max(0, Number(invoice.balance?.refundsInProgress || 0));
+  const state = invoice.balance?.paymentState || invoice.paymentState;
+  const received = Math.max(0, Number(invoice.balance?.received || 0));
+  return (
+    <>
+      {state === 'partially_paid' && (
+        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-800">
+          Teilbezahlt · offen {formatCurrencyValue(getInvoiceOpenAmount(invoice))}
+        </Badge>
+      )}
+      {refundPending > 0.009 && (
+        <Badge
+          variant="outline"
+          className="border-rose-300 bg-rose-50 text-[10px] text-rose-800"
+          title={`Insgesamt eingegangen: ${formatCurrencyValue(received)} · davon zurückzuzahlen: ${formatCurrencyValue(refundPending)}`}
+        >
+          Überzahlt · Erstattung offen {formatCurrencyValue(refundPending)}
+        </Badge>
+      )}
+      {inProgress > 0.009 && (
+        <Badge variant="outline" className="border-sky-300 bg-sky-50 text-[10px] text-sky-800">
+          Erstattung in Bearbeitung {formatCurrencyValue(inProgress)}
+        </Badge>
+      )}
+    </>
+  );
+};
+
+// Server-Regel "ungeklärte Anbieter-Erstattung" (FinancialService.isUnresolvedGatewayRefund).
+const isRefundEntryUnresolved = (entry: { status?: string; mode?: string; unresolved?: boolean; reference?: string }) =>
+  entry.status === 'pending'
+  && entry.mode === 'gateway'
+  && (entry.unresolved === true || !String(entry.reference || '').trim());
+
+// Geldfluss einer Zahlung: Teilerstattungen (Status bleibt "abgeschlossen"),
+// laufende Anbieter-Erstattungen und der keiner Rechnung zugeordnete Rest.
+const PaymentMoneyFlow = ({ payment, onReconcile }: {
+  payment: Partial<Payment>;
+  /** Öffnet den Abgleich eines ungeklärten Anbieter-Erstattungsversuchs. */
+  onReconcile?: (payment: Partial<Payment>, entry: NonNullable<Payment['refunds']>[number]) => void;
+}) => {
+  const currency = payment.currency || 'EUR';
+  const refunded = Math.max(0, Number(payment.refundAmount || 0));
+  const inProgress = Math.max(0, Number(payment.refundsInProgress || 0));
+  const unallocated = Math.max(0, Number(payment.unallocatedAmount || 0));
+  // PayPal hat nicht eindeutig geantwortet: das Geld kann bereits zurückgeflossen sein.
+  // Dieselbe Regel wie der Server (isUnresolvedGatewayRefund): auch ein ausstehender
+  // Anbieter-Eintrag OHNE Referenz ist ungeklärt; der Server liefert das Flag mit.
+  const unresolved = (payment.refunds || [])
+    .filter(isRefundEntryUnresolved)
+    .reduce((sum, entry) => sum + Math.max(0, Number(entry.amount || 0)), 0);
+  if (refunded <= 0.009 && inProgress <= 0.009 && unallocated <= 0.009) return null;
+  return (
+    <div className="mt-0.5 space-y-0.5 text-[11px] font-normal">
+      {refunded > 0.009 && (
+        <div className="text-purple-700">Erstattet: {formatCurrencyValue(refunded, currency)} · verbleibend {formatCurrencyValue(getPaymentEffectiveAmount(payment), currency)}</div>
+      )}
+      {inProgress > 0.009 && (
+        <div className="text-sky-800">Erstattung in Bearbeitung: {formatCurrencyValue(inProgress, currency)} (zählt erst nach Bestätigung)</div>
+      )}
+      {unresolved > 0.009 && (
+        <div className="text-amber-800">
+          PayPal-Ergebnis unklar: {formatCurrencyValue(unresolved, currency)} · Abgleich nötig, nicht erneut erstatten
+          {onReconcile && (payment.refunds || []).filter(isRefundEntryUnresolved).map((entry) => (
+            <Button
+              key={`reconcile-${entry._id}`}
+              type="button"
+              size="sm"
+              variant="outline"
+              className="ml-2 h-6 px-2 text-[11px]"
+              onClick={() => onReconcile(payment, entry)}
+            >
+              Abgleichen ({formatCurrencyValue(entry.amount, currency)})
+            </Button>
+          ))}
+        </div>
+      )}
+      {unallocated > 0.009 && (
+        <div className="text-rose-800">Nicht zugeordnet: {formatCurrencyValue(unallocated, currency)} · Überzahlung/Erstattung prüfen</div>
+      )}
+    </div>
+  );
+};
+
+// Zusatzfelder der Buchungs-Zahlungsuebersicht (Server liefert sie seit dem
+// gemeinsamen Saldo-Kern; der Typ in api/bookingPayments.ts kennt sie noch nicht).
+type BookingPaymentSummaryExtended = BookingPaymentOverview['summary'] & {
+  referenceTotal?: number;
+  overpaidTotal?: number;
+  refundPendingTotal?: number;
+  refundsInProgressTotal?: number;
+};
+const getExtendedSummary = (overview?: BookingPaymentOverview | null): BookingPaymentSummaryExtended =>
+  (overview?.summary || {}) as BookingPaymentSummaryExtended;
+
+// Zahlungsziel-Text aus dem Faelligkeitsdatum - dieselbe Regel wie im Server
+// (Invoice.formatPaymentTerms). Der Text ist nicht frei editierbar, damit Datum und
+// Wortlaut nie auseinanderlaufen ("faellig in 7 Tagen, Zahlungsziel Net 30").
+const formatPaymentTermsFromDueDate = (dueDate?: string): string => {
+  if (!dueDate) return 'Aus Kundenprofil (wird beim Speichern berechnet)';
+  const due = new Date(`${dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return '-';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.round((due.getTime() - today.getTime()) / 86400000));
+  if (days === 0) return 'Sofort fällig ohne Abzug';
+  return `${days} ${days === 1 ? 'Tag' : 'Tage'} netto ohne Abzug`;
 };
 
 const emptyLineItem = (): Omit<InvoiceItem, '_id' | 'total'> & { total?: number } => ({
@@ -438,7 +576,10 @@ const createInvoiceFormState = (settings: FinancialSettingsState) => ({
 const createFromRepairFormState = (settings: FinancialSettingsState) => ({
   repairOrderIds: '',
   taxRate: String(settings.defaults.taxRate),
-  discount: String(settings.defaults.defaultDiscount),
+  // ZUSATZrabatt in EURO. Der Kundengruppenrabatt steckt bereits im Auftrag
+  // (order.discount) und wird vom Server uebernommen - ein Vorschlagswert hier wuerde
+  // ihn ein zweites Mal abziehen (Sophies 36,06 statt 42,42).
+  discount: '',
   dueDate: getDueDateByDays(settings.defaults.paymentDueDays),
   paymentTerms: settings.defaults.paymentTerms,
   notes: '',
@@ -615,6 +756,12 @@ interface BookingSearchAutocompleteProps {
   placeholder?: string;
   type?: 'booking' | 'order';
   disabled?: boolean;
+  /**
+   * Treffer ueber eine Rechnungsnummer als RECHNUNG uebernehmen (Kennung = Rechnungs-
+   * nummer statt Buchung) - auch fuer Rechnungen ohne Buchung. Fuer die
+   * Zahlungsaufforderung: dann gilt der offene Betrag genau dieser Rechnung.
+   */
+  allowInvoiceTarget?: boolean;
 }
 
 function BookingSearchAutocomplete({
@@ -624,6 +771,7 @@ function BookingSearchAutocomplete({
   placeholder = 'Buchungs-ID oder Kundenname eingeben...',
   type = 'booking',
   disabled = false,
+  allowInvoiceTarget = false,
 }: BookingSearchAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -732,7 +880,10 @@ function BookingSearchAutocomplete({
     // Bei einem Treffer ueber die Rechnungsnummer gibt es keine Buchungsnummer im
     // Ergebnis - dann wird die unveraenderliche Id uebernommen, damit die Aktion
     // garantiert auf der richtigen Buchung landet.
-    const identifier = type === 'order' ? (item.orderNumber || item._id) : (item.bookingNumber || item._id);
+    const invoiceTarget = allowInvoiceTarget && type !== 'order' && (item.matchedInvoiceNumbers || []).length === 1
+      ? (item.matchedInvoiceNumbers || [])[0]
+      : '';
+    const identifier = invoiceTarget || (type === 'order' ? (item.orderNumber || item._id) : (item.bookingNumber || item._id));
     onChange(identifier);
     if (onSelectItem) {
       onSelectItem(item);
@@ -855,7 +1006,26 @@ function BookingSearchAutocomplete({
               Keine {type === 'order' ? 'Bestellungen' : 'Buchungen'} gefunden.
             </div>
           )}
-          {!loading && unlinkedInvoiceHits.length > 0 && (
+          {!loading && unlinkedInvoiceHits.length > 0 && allowInvoiceTarget && (
+            <div className="border-t border-border/40 p-1">
+              {unlinkedInvoiceHits.map((num) => (
+                <button
+                  key={`unlinked-${num}`}
+                  type="button"
+                  onClick={() => {
+                    onChange(num);
+                    if (onSelectItem) onSelectItem({ _id: '', matchedInvoiceNumbers: [num] });
+                    setIsOpen(false);
+                  }}
+                  className="w-full rounded p-2 text-left text-[11px] hover:bg-accent"
+                >
+                  <span className="font-mono font-semibold text-primary">{num}</span>
+                  <span className="text-muted-foreground"> · Rechnung ohne Buchung</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {!loading && unlinkedInvoiceHits.length > 0 && !allowInvoiceTarget && (
             <div className="border-t border-border/40 p-2 text-[11px] text-amber-700">
               {unlinkedInvoiceHits.length === 1 ? 'Beleg ' : 'Belege '}
               <span className="font-mono font-semibold">{unlinkedInvoiceHits.join(', ')}</span>
@@ -906,6 +1076,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [creditDialogOpen, setCreditDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  // Abgleich eines ungeklärten PayPal-Erstattungsversuchs (nach Prüfung im PayPal-Konto).
+  const [reconcileTarget, setReconcileTarget] = useState<{ payment: Partial<Payment>; entry: NonNullable<Payment['refunds']>[number] } | null>(null);
+  const [reconcileRefundId, setReconcileRefundId] = useState('');
+  const [reconcileSubmitting, setReconcileSubmitting] = useState(false);
   const [gatewayDialogOpen, setGatewayDialogOpen] = useState(false);
 
   const tabFromQuery = useMemo(() => {
@@ -1156,14 +1330,14 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
   const selectedInvoiceOpenAmount = useMemo(() => {
     if (!selectedInvoice) return 0;
-    return Math.max(0, toAmountNumber(selectedInvoice.total) - toAmountNumber(selectedInvoice.paidAmount));
+    return getInvoiceOpenAmount(selectedInvoice);
   }, [selectedInvoice]);
 
   const canRecordPayment = (invoice?: Invoice | null) => {
     if (!invoice) return false;
     if (invoice.isCreditNote) return false;
     if (!paymentEligibleInvoiceStatuses.includes(invoice.status)) return false;
-    const remaining = Math.max(0, toAmountNumber(invoice.total) - toAmountNumber(invoice.paidAmount));
+    const remaining = getInvoiceOpenAmount(invoice);
     return remaining > 0;
   };
 
@@ -1180,21 +1354,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     });
   }, [selectedInvoice, invoiceDetailPayments, payments]);
 
-  const dunningEligibleInvoices = useMemo(() => {
-    const byId = new Map<string, Invoice>();
-
-    for (const invoice of overdueInvoices) {
-      byId.set(invoice._id, invoice);
-    }
-
-    for (const invoice of invoices) {
-      if (invoice.status === 'overdue') {
-        byId.set(invoice._id, invoice);
-      }
-    }
-
-    return Array.from(byId.values());
-  }, [overdueInvoices, invoices]);
+  // Mahnliste ausschließlich aus der Serverberechnung (GET /invoices/overdue): nur
+  // überfällige Belege mit echter offener Forderung. Früher kamen alle Belege mit Status
+  // 'overdue' hinzu - auch bezahlte oder nur überzahlte.
+  const dunningEligibleInvoices = useMemo(() => overdueInvoices, [overdueInvoices]);
 
   const selectedDunningQueueItem = useMemo(() => {
     if (!selectedInvoice) return null;
@@ -1204,7 +1367,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const generatedSendMessage = useMemo(() => {
     if (!selectedInvoice) return '';
 
-    const openAmount = Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0));
+    const openAmount = getInvoiceOpenAmount(selectedInvoice);
     const lines: string[] = [];
 
     lines.push(sendComposerForm.greeting);
@@ -1268,7 +1431,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
   const generatedAsciiPreview = useMemo(() => {
     if (!selectedInvoice) return '';
-    const openAmount = Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0));
+    const openAmount = getInvoiceOpenAmount(selectedInvoice);
     const line = '----------------------------------------------------------------------';
     const lines: string[] = [];
 
@@ -1292,7 +1455,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const generatedHtmlPreview = useMemo(() => {
     if (!selectedInvoice) return '';
 
-    const openAmount = Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0));
+    const openAmount = getInvoiceOpenAmount(selectedInvoice);
     const themeBackground =
       sendComposerForm.visualTheme === 'modern'
         ? '#f7f9fc'
@@ -1386,10 +1549,20 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       entries.push({ id: 'dunning_notified', title: 'Mahnung/Erinnerung versendet', detail: `Mahnstufe: ${selectedInvoice.dunningLevel ?? 0}`, at: selectedInvoice.dunningNotifiedAt, severity: 'warning' });
     }
     if (selectedInvoice.paidAt) {
-      entries.push({ id: 'paid', title: 'Rechnung bezahlt', detail: `Bezahlt: ${formatCurrencyValue(selectedInvoice.paidAmount || 0)}`, at: selectedInvoice.paidAt, severity: 'success' });
+      entries.push({ id: 'paid', title: 'Rechnung bezahlt', detail: `Bezahlt: ${formatCurrencyValue(getInvoicePaidAmount(selectedInvoice))}`, at: selectedInvoice.paidAt, severity: 'success' });
     }
     if (selectedInvoice.cancelledAt) {
-      entries.push({ id: 'cancelled', title: 'Rechnung storniert', detail: 'Rechnung wurde storniert', at: selectedInvoice.cancelledAt, severity: 'critical' });
+      const cancellation = selectedInvoice.cancellation;
+      const isDiscarded = cancellation?.kind === 'draft_discarded';
+      const cancellationDetail = cancellation?.reason
+        ? [
+          `Grund: ${cancellation.reason}`,
+          cancellation.actorName ? `durch ${cancellation.actorName}` : '',
+          cancellation.creditNoteNumber ? `Storno-Gutschrift ${cancellation.creditNoteNumber}` : '',
+          Number(cancellation.allocatedAtCancellation || 0) > 0.009 ? `${formatCurrency(Number(cancellation.allocatedAtCancellation || 0))} bleiben als Guthaben/offene Erstattung` : '',
+        ].filter(Boolean).join(' · ')
+        : 'Rechnung wurde storniert';
+      entries.push({ id: 'cancelled', title: isDiscarded ? 'Entwurf verworfen' : 'Rechnung storniert', detail: cancellationDetail, at: selectedInvoice.cancelledAt, severity: 'critical' });
     }
 
     entries.push({
@@ -1429,10 +1602,11 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   }, [selectedInvoice, selectedDunningQueueItem, t]);
 
   const totals = useMemo(() => {
-    const paidAmount = payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    // Eingegangenes Geld nach abgeschlossenen Erstattungen (Teilerstattung bleibt 'completed').
+    const paidAmount = payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + getPaymentEffectiveAmount(p), 0);
     const openInvoices = invoices.filter((i) => !['paid', 'cancelled', 'credited'].includes(i.status));
-    const openAmount = openInvoices.reduce((sum, i) => sum + Math.max(0, Number(i.total || 0) - Number(i.paidAmount || 0)), 0);
-    const overdueAmount = dunningEligibleInvoices.reduce((sum, i) => sum + Math.max(0, Number(i.total || 0) - Number(i.paidAmount || 0)), 0);
+    const openAmount = openInvoices.reduce((sum, i) => sum + getInvoiceOpenAmount(i), 0);
+    const overdueAmount = dunningEligibleInvoices.reduce((sum, i) => sum + getInvoiceOpenAmount(i), 0);
     return {
       paidAmount,
       openCount: openInvoices.length,
@@ -1901,7 +2075,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         reverseChargeNotice: fromRepairForm.reverseChargeNotice,
         // taxRate ist ein PROZENTWERT (19), kein Bruch.
         taxRate: isReverseCharge ? 0 : Number(fromRepairForm.taxRate),
-        discount: Number(fromRepairForm.discount),
+        // Betrag in EUR, zusaetzlich zum bereits im Auftrag verrechneten Rabatt.
+        discount: Math.max(0, Number(String(fromRepairForm.discount || '0').replace(',', '.')) || 0),
         dueDate: fromRepairForm.dueDate,
         paymentTerms: fromRepairForm.paymentTerms,
         notes: fromRepairForm.notes
@@ -1929,7 +2104,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       const result = await getInvoiceDetails(invoice._id);
       setInvoiceDetailPayments(result.payments || []);
       setInvoiceDetailCreditNotes(result.creditNotes || []);
-      if (result.invoice) setSelectedInvoice(result.invoice as Invoice);
+      // Zahlungsstand aus der Detailantwort uebernehmen - dieselbe Berechnung wie die Liste.
+      if (result.invoice) setSelectedInvoice({ ...(result.invoice as Invoice), balance: result.balance || invoice.balance });
     } catch {
       // silently fall back to invoice data already in state
     } finally {
@@ -1950,7 +2126,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     try {
       const result = await getInvoiceDetails(invoiceId);
       if (!result?.invoice) throw new Error('Beleg nicht gefunden');
-      setSelectedInvoice(result.invoice as Invoice);
+      setSelectedInvoice({ ...(result.invoice as Invoice), balance: result.balance || undefined });
       setInvoiceDetailPayments(result.payments || []);
       setInvoiceDetailCreditNotes(result.creditNotes || []);
       setInvoiceDetailsDialogOpen(true);
@@ -2024,7 +2200,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   };
 
   const openSendComposer = (invoice: Invoice, mode: SendComposerMode = 'invoice') => {
-    const defaultOpenAmount = Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0));
+    const defaultOpenAmount = getInvoiceOpenAmount(invoice);
     const defaultSubject =
       mode === 'reminder'
         ? `Zahlungserinnerung zu Rechnung ${invoice.invoiceNumber}`
@@ -2081,31 +2257,75 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const onSubmitSendComposer = async () => {
     if (!selectedInvoice) return;
     if (!sendComposerForm.recipientEmail.trim()) {
-      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
+      toast({ title: t('common.error'), description: 'Bitte eine Empfänger-E-Mail-Adresse angeben.', variant: 'destructive' });
       return;
     }
 
-    const basePreview = sendComposerForm.previewFormat === 'ascii' ? generatedAsciiPreview : generatedHtmlPreview;
-    const message = sendComposerForm.customMessage.trim() || basePreview;
-    const operationalNotes: string[] = [];
-    if (sendComposerForm.attachPdf) operationalNotes.push('PDF-Anhang vorgesehen');
-    if (sendComposerForm.sendCopyInternal && sendComposerForm.internalCopyEmail.trim()) {
-      operationalNotes.push(`Interne Kopie an ${sendComposerForm.internalCopyEmail.trim()}`);
-    }
+    // An den Kunden geht NUR der frei formulierte Text ({{customMessage}} der Vorlage).
+    // Vorschau und interne Versandhinweise sind Arbeitshilfen im Dialog und gehören nicht
+    // in die E-Mail (früher wurde ohne eigenen Text die gesamte Vorschau samt interner
+    // Konfiguration als "persönliche Nachricht" mitgesendet).
+    const message = sendComposerForm.customMessage.trim();
 
-    const finalMessage = operationalNotes.length > 0
-      ? `${message}\n\n---\nInterne Versandkonfiguration:\n- ${operationalNotes.join('\n- ')}`
-      : message;
-
-    await onSendInvoice(selectedInvoice._id, sendComposerForm.recipientEmail.trim(), finalMessage);
     if (sendComposerMode === 'reminder') {
-      onMarkDunningReminderSent(selectedInvoice._id);
+      // Mahnung: derselbe serverseitige Mahnschritt wie Mahnlauf und Cron - nur ein
+      // fälliger Beleg geht genau eine Stufe weiter; ein E-Mail-Fehler erhöht die Stufe nicht.
+      const invoiceId = selectedInvoice._id;
+      try {
+        const res = await runDunningStep(invoiceId, message || undefined, sendComposerForm.recipientEmail.trim());
+        onMarkDunningReminderSent(invoiceId, res?.message || res?.result?.message || 'Mahnschritt versendet');
+        setSendComposerOpen(false);
+        void fetchFinancialData();
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Der Mahnschritt konnte nicht ausgeführt werden.';
+        setDunningQueueItem(invoiceId, { status: 'failed', note: msg });
+        void syncDunningItemUpdate(invoiceId, { status: 'failed', note: msg, logMessage: msg });
+        toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+      }
+      return;
     }
+
+    await onSendInvoice(selectedInvoice._id, sendComposerForm.recipientEmail.trim(), message);
     setSendComposerOpen(false);
   };
 
+  const [confirmPaidCancellation, setConfirmPaidCancellation] = useState(false);
+
   const onChangeStatus = async () => {
     if (!selectedInvoice) return;
+
+    // "Storniert": ausgestellter Beleg -> Storno mit Storno-Gutschrift; Entwurf -> verwerfen.
+    // Beides braucht einen Grund; gebuchtes Geld bleibt als Guthaben erhalten.
+    if (statusForm.status === 'cancelled' && selectedInvoice.status !== 'cancelled') {
+      const reason = statusForm.notes.trim();
+      if (!reason) {
+        toast({ title: t('common.error'), description: 'Bitte im Feld „Notiz“ den Grund für das Storno angeben.', variant: 'destructive' });
+        return;
+      }
+      const isDraft = ['draft', 'pending_approval'].includes(selectedInvoice.status);
+      try {
+        if (isDraft) {
+          await discardDraftInvoice(selectedInvoice._id, reason);
+          toast({ title: t('common.success'), description: 'Der Entwurf wurde verworfen.' });
+        } else {
+          const res = await cancelInvoice(selectedInvoice._id, { reason, confirmPaidCancellation });
+          toast({
+            title: t('common.success'),
+            description: res?.alreadyCancelled
+              ? 'Diese Rechnung war bereits storniert.'
+              : `Rechnung storniert. Storno-Gutschrift ${res?.creditNote?.invoiceNumber || ''} wurde ausgestellt${Number(res?.allocatedAtCancellation || 0) > 0.009 ? `; ${formatCurrency(Number(res?.allocatedAtCancellation || 0))} bleiben als Guthaben/offene Erstattung erhalten` : ''}.`,
+          });
+        }
+        setStatusDialogOpen(false);
+        setSelectedInvoice(null);
+        setConfirmPaidCancellation(false);
+        void fetchFinancialData();
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Die Rechnung konnte nicht storniert werden.';
+        toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+      }
+      return;
+    }
 
     if (statusForm.status === 'paid') {
       if (!statusForm.paymentMethod) {
@@ -2137,7 +2357,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
   const openPaymentDialog = (invoice: Invoice, presetAmount?: number) => {
     if (!canRecordPayment(invoice)) {
-      const remaining = Math.max(0, toAmountNumber(invoice.total) - toAmountNumber(invoice.paidAmount));
+      const remaining = getInvoiceOpenAmount(invoice);
       const reason = invoice.isCreditNote
         ? 'Für Gutschriften können keine Teilzahlungen erfasst werden.'
         : remaining <= 0
@@ -2147,7 +2367,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       return;
     }
 
-    const remaining = Math.max(0, toAmountNumber(invoice.total) - toAmountNumber(invoice.paidAmount));
+    const remaining = getInvoiceOpenAmount(invoice);
     if (remaining <= 0) {
       toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
       return;
@@ -2175,7 +2395,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       return;
     }
 
-    const remaining = Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0));
+    const remaining = getInvoiceOpenAmount(selectedInvoice);
     if (amount > remaining + 0.01) {
       toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment'), variant: 'destructive' });
       return;
@@ -2229,6 +2449,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
   const openStatusDialog = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
+    setConfirmPaidCancellation(false);
     setStatusForm({
       status: invoice.status,
       notes: '',
@@ -2424,6 +2645,9 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     }
   };
 
+  // Ein Schluessel je geoeffnetem Erstattungsdialog: Doppelklick/Retry bucht nichts doppelt.
+  const refundIdempotencyKeyRef = useRef<string>('');
+
   const onRefund = async () => {
     if (!selectedPayment) return;
 
@@ -2449,12 +2673,20 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     ].filter(Boolean).join(' – ');
 
     try {
-      await processRefund(selectedPayment._id, amount, combinedReason, {
+      const response = await processRefund(selectedPayment._id, amount, combinedReason, {
         mode: refundForm.mode,
         gatewayProvider: refundForm.mode === 'gateway' ? (refundForm.gatewayProvider as PaymentGateway['provider']) : undefined,
-        gatewayReference: refundForm.gatewayReference.trim() || undefined
+        gatewayReference: refundForm.gatewayReference.trim() || undefined,
+        idempotencyKey: refundIdempotencyKeyRef.current || undefined,
       });
-      toast({ title: t('common.success'), description: t('financialManagement.refundIssuedSuccess') });
+      // Eine ausstehende Anbieter-Erstattung ist KEIN Erfolg im Sinne von "Geld zurueck".
+      const refundStatus = response?.refund?.status;
+      toast({
+        title: response?.refund?.indeterminate
+          ? 'Erstattung ungeklärt – Abgleich nötig'
+          : (refundStatus === 'pending' ? 'Erstattung ausstehend' : t('common.success')),
+        description: [response?.message || t('financialManagement.refundIssuedSuccess'), response?.warning].filter(Boolean).join(' '),
+      });
       setRefundDialogOpen(false);
       setSelectedPayment(null);
       setRefundForm({ amount: '', reason: '', reasonCategory: '', internalNote: '', mode: 'gateway', gatewayProvider: '', gatewayReference: '', notifyCustomer: false });
@@ -2465,13 +2697,57 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     }
   };
 
-  const onRunDunning = async () => {
+  const openReconcileDialog = (payment: Partial<Payment>, entry: NonNullable<Payment['refunds']>[number]) => {
+    setReconcileTarget({ payment, entry });
+    setReconcileRefundId('');
+  };
+
+  const onSubmitReconcile = async (resolution: 'executed' | 'not-executed') => {
+    if (!reconcileTarget?.payment?._id || !reconcileTarget.entry?._id) return;
+    if (resolution === 'executed' && !reconcileRefundId.trim()) {
+      toast({ title: t('common.error'), description: 'Bitte die Erstattungs-ID aus dem PayPal-Konto angeben.', variant: 'destructive' });
+      return;
+    }
+    setReconcileSubmitting(true);
     try {
-      await runDunningJob();
-      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
+      await reconcileRefund(String(reconcileTarget.payment._id), String(reconcileTarget.entry._id), {
+        resolution,
+        ...(resolution === 'executed' ? { providerRefundId: reconcileRefundId.trim() } : {}),
+      });
+      toast({
+        title: t('common.success'),
+        description: resolution === 'executed'
+          ? 'Die Erstattung wurde als bei PayPal ausgeführt verbucht.'
+          : 'Der Erstattungsversuch wurde als nicht ausgeführt markiert; der Betrag ist wieder frei.',
+      });
+      setReconcileTarget(null);
       void fetchFinancialData();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('financialManagement.failedToUpdatePayment');
+      const msg = error instanceof Error ? error.message : 'Der Abgleich der Erstattung ist fehlgeschlagen.';
+      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+    } finally {
+      setReconcileSubmitting(false);
+    }
+  };
+
+  // Vom Bearbeiter gestarteter Mahnlauf: dieselbe Serverlogik wie der automatische Lauf
+  // (nur fällige Belege, je eine Stufe, keine doppelte Mail am selben Tag).
+  const onRunDunning = async () => {
+    try {
+      const res = await runDunningJob();
+      const sent = Number(res?.sent || 0);
+      const failed = Number(res?.failed || 0);
+      const skipped = Number(res?.skipped || 0);
+      toast({
+        title: failed > 0 ? t('common.error') : t('common.success'),
+        description: sent + failed + skipped === 0
+          ? 'Mahnlauf ausgeführt: aktuell ist kein Beleg für den nächsten Mahnschritt fällig.'
+          : `Mahnlauf ausgeführt: ${sent} versendet, ${failed} fehlgeschlagen, ${skipped} übersprungen.`,
+        ...(failed > 0 ? { variant: 'destructive' as const } : {}),
+      });
+      void fetchFinancialData();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Der Mahnlauf konnte nicht ausgeführt werden.';
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
     }
   };
@@ -2564,15 +2840,18 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   };
 
   const openRefundForPayment = (payment: Payment) => {
-    const defaultProvider = payment.paymentMethod === 'paypal'
-      ? 'paypal'
-      : payment.paymentMethod === 'stripe'
-        ? 'stripe'
-        : '';
+    // Eine echte Anbieter-Erstattung ist derzeit nur fuer PayPal angebunden. Alle
+    // anderen Zahlarten werden ausserhalb zurueckgezahlt und hier manuell erfasst.
+    const defaultProvider = payment.paymentMethod === 'paypal' ? 'paypal' : '';
+    // Vorschlag: bevorzugt der nicht zugeordnete Rest (Ueberzahlung), sonst der noch
+    // erstattbare Betrag - nie mehr als nach bisherigen Erstattungen uebrig ist.
+    const refundable = Math.max(0, getPaymentEffectiveAmount(payment) - Math.max(0, Number(payment.refundsInProgress || 0)));
+    const suggested = Number(payment.unallocatedAmount || 0) > 0.009 ? Number(payment.unallocatedAmount) : refundable;
 
+    refundIdempotencyKeyRef.current = `refund-${payment._id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setSelectedPayment(payment);
     setRefundForm({
-      amount: String(payment.amount),
+      amount: suggested.toFixed(2),
       reason: '',
       reasonCategory: '',
       internalNote: '',
@@ -2685,7 +2964,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         invoiceId: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
         customerName: invoice.customerName,
-        amountOpen: Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)),
+        amountOpen: getInvoiceOpenAmount(invoice),
         status: 'pending' as const,
         note: ''
       }));
@@ -2733,38 +3012,38 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     void syncDunningItemUpdate(invoiceId, { status: 'processing', note: 'Versanddialog geoeffnet...', logMessage: 'Versanddialog geoeffnet' });
   };
 
-  const onMarkDunningReminderSent = (invoiceId: string) => {
+  const onMarkDunningReminderSent = (invoiceId: string, note: string) => {
+    setDunningQueueItem(invoiceId, { status: 'sent', note });
+    void syncDunningItemUpdate(invoiceId, { status: 'sent', note, logMessage: note });
+    toast({ title: t('common.success'), description: note });
+  };
+
+  // Manueller Eingriff (Detailansicht): Belegstatus ändern, mit Notiz. "Storniert" läuft
+  // serverseitig über das Storno (Storno-Gutschrift; die Notiz ist der Storno-Grund).
+  const onDunningCaseStatusChange = async (invoiceId: string, status: InvoiceStatus, note: string) => {
     try {
-      setDunningQueueItem(invoiceId, { status: 'sent', note: 'Erinnerung versendet' });
-      void syncDunningItemUpdate(invoiceId, { status: 'sent', note: 'Erinnerung versendet', logMessage: 'Mahnung versendet' });
-      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
+      await changeInvoiceStatus(invoiceId, status, { notes: note || undefined });
+      setDunningQueueItem(invoiceId, { status: 'escalated', note: `Status auf ${getInvoiceStatusLabel(status, t)} gesetzt` });
+      void syncDunningItemUpdate(invoiceId, { status: 'escalated', note: `Status auf ${getInvoiceStatusLabel(status, t)} gesetzt`, logMessage: `Status manuell auf ${getInvoiceStatusLabel(status, t)} gesetzt` });
+      toast({ title: t('common.success'), description: `Status auf ${getInvoiceStatusLabel(status, t)} gesetzt.` });
+      void fetchFinancialData();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Versand fehlgeschlagen';
-      setDunningQueueItem(invoiceId, { status: 'failed', note: msg });
+      const msg = error instanceof Error ? error.message : 'Der Status konnte nicht geändert werden.';
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
     }
   };
 
-  const onDunningEscalateInvoice = async (invoiceId: string, status?: InvoiceStatus, note?: string) => {
-    const invoice = getInvoiceById(invoiceId);
-    if (!invoice) return;
-
-    const nextStatus = status || dunningDefaultStatus;
-    const escalationNote = note ?? dunningDefaultNote;
+  // "Eskalieren" = nächster Mahnschritt über den Server (keine reine Statusänderung mehr).
+  const onDunningEscalateInvoice = async (invoiceId: string) => {
     try {
-      setDunningQueueItem(invoiceId, { status: 'processing', note: `Setze Status auf ${nextStatus}...` });
-      await changeInvoiceStatus(invoiceId, nextStatus, escalationNote);
-      setDunningQueueItem(invoiceId, { status: 'escalated', note: `Status auf ${nextStatus} gesetzt` });
-      await syncDunningItemUpdate(invoiceId, {
-        status: 'escalated',
-        note: `Status auf ${nextStatus} gesetzt`,
-        logMessage: `Fall eskaliert auf ${nextStatus}`
-      });
-      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
+      setDunningQueueItem(invoiceId, { status: 'processing', note: 'Mahnschritt wird ausgeführt …' });
+      const res = await runDunningStep(invoiceId);
+      onMarkDunningReminderSent(invoiceId, res?.message || res?.result?.message || 'Mahnschritt versendet');
       void fetchFinancialData();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Eskalation fehlgeschlagen';
+      const msg = error instanceof Error ? error.message : 'Der Mahnschritt konnte nicht ausgeführt werden.';
       setDunningQueueItem(invoiceId, { status: 'failed', note: msg });
+      void syncDunningItemUpdate(invoiceId, { status: 'failed', note: msg, logMessage: msg });
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
     }
   };
@@ -2788,7 +3067,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
           invoiceId: invoice._id,
           invoiceNumber: invoice.invoiceNumber,
           customerName: invoice.customerName,
-          amountOpen: Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)),
+          amountOpen: getInvoiceOpenAmount(invoice),
           status: 'pending',
           note: 'Manuell hinzugefuegt'
         }
@@ -2809,36 +3088,37 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     }
   };
 
+  // Gespeicherten Mahnlauf ausführen: der Server verarbeitet jeden Fall über dieselbe
+  // Mahnlogik wie der automatische Lauf (nicht fällige Fälle werden mit Grund übersprungen).
   const onExecuteDunningQueue = async () => {
     if (dunningQueue.length === 0) {
-      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment') });
+      toast({ title: t('common.error'), description: 'Der Mahnlauf enthält keine Fälle.', variant: 'destructive' });
       return;
     }
     if (dunningPaused) {
-      toast({ title: t('common.error'), description: t('financialManagement.failedToUpdatePayment') });
+      toast({ title: t('common.error'), description: 'Der Mahnlauf ist pausiert. Bitte zuerst fortsetzen.', variant: 'destructive' });
       return;
     }
 
     setDunningExecuting(true);
     try {
       const runId = await ensureActiveDunningRun();
-      if (runId) {
-        await updateDunningRun(runId, { status: 'running', logType: 'started', logMessage: 'Automatische Verarbeitung gestartet' });
+      if (!runId) return;
+      const res = await executeDunningRun(runId);
+      if (res?.run) {
+        hydrateQueueFromRun(res.run);
+        setDunningRuns((prev) => [res.run as DunningRun, ...prev.filter((entry) => entry._id !== res.run?._id)]);
       }
-
-      for (const item of dunningQueue) {
-        if (item.status !== 'pending' && item.status !== 'failed') continue;
-        await onDunningSendReminder(item.invoiceId);
-        await onDunningEscalateInvoice(item.invoiceId);
-      }
-
-      if (runId) {
-        const res = await updateDunningRun(runId, { status: 'completed', logType: 'completed', logMessage: 'Mahnlauf abgeschlossen' });
-        const run = res?.run as DunningRun;
-        setDunningRuns((prev) => [run, ...prev.filter((entry) => entry._id !== run._id)]);
-      }
-
-      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
+      const failed = Number(res?.failed || 0);
+      toast({
+        title: failed > 0 ? t('common.error') : t('common.success'),
+        description: `Mahnlauf ausgeführt: ${Number(res?.sent || 0)} versendet, ${failed} fehlgeschlagen, ${Number(res?.skipped || 0)} übersprungen.`,
+        ...(failed > 0 ? { variant: 'destructive' as const } : {}),
+      });
+      void fetchFinancialData();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Der Mahnlauf konnte nicht ausgeführt werden.';
+      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
     } finally {
       setDunningExecuting(false);
     }
@@ -3018,6 +3298,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const [paymentRequestNote, setPaymentRequestNote] = useState('Bitte begleichen Sie den offenen Betrag.');
   const [selectedPaymentRequestBooking, setSelectedPaymentRequestBooking] = useState<BookingSearchResultItem | null>(null);
   const [paymentRequestOverview, setPaymentRequestOverview] = useState<BookingPaymentOverview | null>(null);
+  // Per Rechnungsnummer gewaehlt: dann gilt der offene Betrag genau DIESER Rechnung.
+  const [paymentRequestInvoice, setPaymentRequestInvoice] = useState<Invoice | null>(null);
   const [loadingPaymentRequestOverview, setLoadingPaymentRequestOverview] = useState(false);
   const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
 
@@ -3072,7 +3354,9 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       const overview = await getBookingPayments(bookingId);
       setOverpaymentOverview(overview);
       if (overview?.summary?.isOverpaid) {
-        const overpaidVal = Math.max(0, (overview.summary.receivedTotal || 0) - (overview.summary.orderValue || 0));
+        // Vorschlag = tatsaechlich noch zu erstattender Betrag (Server), ohne bereits
+        // laufende Anbieter-Erstattungen.
+        const overpaidVal = Math.max(0, Number(getExtendedSummary(overview).refundPendingTotal ?? getExtendedSummary(overview).overpaidTotal ?? 0));
         if (overpaidVal > 0) {
           setOverpaymentAmount(overpaidVal.toFixed(2));
           setOverpaymentReason(`Überzahlungsausgleich (${overpaidVal.toFixed(2)} €)`);
@@ -3085,13 +3369,31 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     }
   };
 
-  const loadPaymentRequestOverview = async (bookingId: string) => {
-    if (!bookingId) {
+  const loadPaymentRequestOverview = async (bookingId: string, invoiceNumber = '') => {
+    if (!bookingId && !invoiceNumber) {
       setPaymentRequestOverview(null);
+      setPaymentRequestInvoice(null);
       return;
     }
     setLoadingPaymentRequestOverview(true);
     try {
+      if (invoiceNumber) {
+        // Rechnungsziel: offener Betrag aus dem Server-Saldo dieser Rechnung.
+        const res = await getInvoices({ invoiceNumber, scope: 'invoices', limit: 5 });
+        const needle = normalizeDocumentNumber(invoiceNumber);
+        const match = ((res?.invoices || []) as Invoice[]).find((inv) => normalizeDocumentNumber(inv.invoiceNumber) === needle) || null;
+        setPaymentRequestInvoice(match);
+        setPaymentRequestOverview(null);
+        const invoiceOpen = match ? getInvoiceOpenAmount(match) : 0;
+        if (invoiceOpen > 0) {
+          setPaymentRequestAmount(invoiceOpen.toFixed(2));
+          setPaymentRequestNote(`Bitte begleichen Sie den offenen Betrag der Rechnung ${match?.invoiceNumber} in Höhe von ${formatCurrencyValue(invoiceOpen)}.`);
+        } else {
+          setPaymentRequestAmount('');
+        }
+        return;
+      }
+      setPaymentRequestInvoice(null);
       const overview = await getBookingPayments(bookingId);
       setPaymentRequestOverview(overview);
       const openBal = overview?.summary?.openOrderBalance || 0;
@@ -3101,6 +3403,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       }
     } catch {
       setPaymentRequestOverview(null);
+      setPaymentRequestInvoice(null);
     } finally {
       setLoadingPaymentRequestOverview(false);
     }
@@ -3113,8 +3416,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
   const onSelectPaymentRequestBooking = (item: BookingSearchResultItem) => {
     setSelectedPaymentRequestBooking(item);
-    const identifier = item._id || item.bookingNumber || '';
-    void loadPaymentRequestOverview(identifier);
+    // Treffer ueber genau eine Rechnungsnummer -> Rechnungsziel (siehe allowInvoiceTarget).
+    const invoiceNumber = (item.matchedInvoiceNumbers || []).length === 1 ? (item.matchedInvoiceNumbers || [])[0] : '';
+    const identifier = invoiceNumber || item._id || item.bookingNumber || '';
+    void loadPaymentRequestOverview(item._id || item.bookingNumber || '', invoiceNumber);
     void loadPaymentRequestHistory(identifier);
   };
 
@@ -3136,7 +3441,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         processRefund: overpaymentProcessRefund,
         refundMode: overpaymentRefundMode
       });
-      if (res?.isOverpaid === false && !parsedAmount) {
+      // Die Meldung kommt vom Server: sie sagt, ob erstattet, ausstehend oder nur als
+      // Guthaben stehen gelassen wurde. Eine ausstehende Anbieter-Erstattung ist kein
+      // abgeschlossener Erfolg.
+      if (res?.isOverpaid === false) {
         toast({
           title: 'Hinweis',
           description: res.message || 'Keine Überzahlung für diesen Auftrag festgestellt.',
@@ -3144,8 +3452,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         });
       } else {
         toast({
-          title: t('common.success'),
-          description: `Überzahlung für ${overpaymentBookingId} erfolgreich ausgeglichen.${overpaymentProcessRefund ? ' Erstattung wurde veranlasst.' : ''}`
+          title: res?.refundStatus === 'pending' ? 'Erstattung ausstehend' : (overpaymentProcessRefund ? t('common.success') : 'Hinweis'),
+          description: res?.message || 'Überzahlung wurde geprüft.',
         });
       }
       if (selectedOverpaymentBooking?._id || overpaymentBookingId) {
@@ -3196,13 +3504,15 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
           variant: 'destructive',
         });
       } else {
+        // Wortlaut vom Server: per E-Mail uebergeben, kein PayPal-Auftrag, Zustellung
+        // nicht garantiert - und ob der Hinweistext mitging.
         toast({
-          title: t('common.success'),
-          description: `Zahlungsaufforderung an ${res.recipientEmail} übergeben (Zustellung nicht garantiert).`,
+          title: res.noteDelivered === false && paymentRequestNote.trim() ? 'Hinweis' : t('common.success'),
+          description: res.message || `Zahlungsaufforderung per E-Mail an ${res.recipientEmail} übergeben (Zustellung nicht garantiert).`,
         });
       }
 
-      const historyId = selectedPaymentRequestBooking?._id || paymentRequestBookingId.trim();
+      const historyId = paymentRequestBookingId.trim() || selectedPaymentRequestBooking?._id || '';
       void loadPaymentRequestHistory(historyId);
       void fetchFinancialData();
     } catch (error: unknown) {
@@ -3475,10 +3785,15 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       <TableRow key={`overview-inv-${invoice._id}`}>
                         <TableCell className="font-medium text-[#1a2a5e]">{invoice.invoiceNumber}</TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge></TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge>
+                            <InvoicePaymentHints invoice={invoice} />
+                          </div>
+                        </TableCell>
                         <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell>{formatCurrencyValue(invoice.total)}</TableCell>
-                        <TableCell>{formatCurrencyValue(Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)))}</TableCell>
+                        <TableCell>{formatCurrencyValue(getInvoiceOpenAmount(invoice))}</TableCell>
                         <TableCell className="text-right">
                           <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}>
                             <Eye className="mr-1 h-3.5 w-3.5" />{t('common.details', 'Details')}
@@ -3652,10 +3967,15 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                           </div>
                         </TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge></TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline" className={invoiceStatusClass[invoice.status]}>{getInvoiceStatusLabel(invoice.status, t)}</Badge>
+                            <InvoicePaymentHints invoice={invoice} />
+                          </div>
+                        </TableCell>
                         <TableCell><Calendar className="mr-1 inline h-3.5 w-3.5" />{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell>{formatCurrencyValue(getStoredGross(invoice))}</TableCell>
-                        <TableCell>{formatCurrencyValue(invoice.paidAmount || 0)}</TableCell>
+                        <TableCell>{formatCurrencyValue(getInvoicePaidAmount(invoice))}</TableCell>
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           {(() => {
                             const target = resolveInvoiceNavigationTarget(invoice);
@@ -3717,14 +4037,17 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                                               <div className="space-y-1">
                                                 <Badge variant="outline">{processLabel}</Badge>
                                                 <div className="text-xs text-muted-foreground">{payment.orderNumber || payment._id.slice(-8)}</div>
-                                                {payment.status === 'refunded' && (
-                                                  <div className="text-xs text-purple-700">{formatCurrencyValue(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundGatewayProvider || payment.refundMode || 'n/a'}</div>
+                                                {Number(payment.refundAmount || 0) > 0.009 && (
+                                                  <div className="text-xs text-purple-700">Erstattet {formatCurrencyValue(payment.refundAmount || 0, payment.currency || 'EUR')} · {payment.refundMode === 'gateway' ? 'über Zahlungsanbieter' : 'manuell erfasst'}</div>
                                                 )}
                                               </div>
                                             </TableCell>
                                             <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{getPaymentStatusLabel(payment.status, t)}</Badge></TableCell>
                                             <TableCell>{getPaymentMethodLabel(payment.paymentMethod, t)}</TableCell>
-                                            <TableCell>{formatCurrencyValue(payment.amount, payment.currency || 'EUR')}</TableCell>
+                                            <TableCell>
+                                              {formatCurrencyValue(payment.amount, payment.currency || 'EUR')}
+                                              <PaymentMoneyFlow payment={payment} onReconcile={openReconcileDialog} />
+                                            </TableCell>
                                             <TableCell>
                                               <div className="text-sm">{formatDate(payment.processedAt || payment.createdAt)}</div>
                                               <div className="text-xs text-muted-foreground">{formatDateTime(payment.processedAt || payment.createdAt).split(', ')[1] || '-'}</div>
@@ -3870,7 +4193,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                         <TableCell>{payment.customerName}</TableCell>
                         <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{getPaymentStatusLabel(payment.status, t)}</Badge></TableCell>
                         <TableCell>{getPaymentMethodLabel(payment.paymentMethod, t)}</TableCell>
-                        <TableCell className="font-semibold">{formatCurrencyValue(payment.amount, payment.currency || 'EUR')}</TableCell>
+                        <TableCell className="font-semibold">
+                          {formatCurrencyValue(payment.amount, payment.currency || 'EUR')}
+                          <PaymentMoneyFlow payment={payment} onReconcile={openReconcileDialog} />
+                        </TableCell>
                         <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
                         <TableCell className="text-right">
                           {payment.status === 'completed' && (
@@ -3905,7 +4231,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       Überzahlung ausgleichen
                     </span>
                     <Badge variant="outline" className="text-[10px] border-[#f5c800]/40 text-[#f5c800] py-0 px-1.5 h-4 font-normal">
-                      Gutschrift / Erstattung
+                      Erstattung / Guthaben
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -3952,7 +4278,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                         </div>
                         {overpaymentOverview?.summary?.isOverpaid ? (
                           <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border-emerald-200 text-[10px] h-4 px-1.5">
-                            Überzahlt (+{formatCurrencyValue(Math.max(0, (overpaymentOverview.summary.receivedTotal || 0) - (overpaymentOverview.summary.orderValue || 0)))})
+                            Überzahlt · Erstattung offen {formatCurrencyValue(Math.max(0, Number(getExtendedSummary(overpaymentOverview).refundPendingTotal ?? getExtendedSummary(overpaymentOverview).overpaidTotal ?? 0)))}
                           </Badge>
                         ) : overpaymentOverview ? (
                           <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
@@ -3963,8 +4289,11 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
                       {overpaymentOverview && (
                         <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground pt-1 border-t border-border/50">
-                          <div>Auftragswert: <span className="font-semibold text-foreground">{formatCurrencyValue(overpaymentOverview.summary.orderValue)}</span></div>
+                          <div>Forderung: <span className="font-semibold text-foreground">{formatCurrencyValue(getExtendedSummary(overpaymentOverview).referenceTotal ?? overpaymentOverview.summary.orderValue)}</span></div>
                           <div>Erhalten: <span className="font-semibold text-foreground">{formatCurrencyValue(overpaymentOverview.summary.receivedTotal)}</span></div>
+                          {Number(getExtendedSummary(overpaymentOverview).refundsInProgressTotal || 0) > 0.009 && (
+                            <div className="col-span-2 text-sky-800">Erstattung in Bearbeitung: {formatCurrencyValue(Number(getExtendedSummary(overpaymentOverview).refundsInProgressTotal || 0))}</div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -3993,8 +4322,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
                   <div className="flex items-center justify-between rounded-md border p-2 bg-background">
                     <div className="space-y-0.5 pr-2">
-                      <span className="font-medium text-xs">Rückerstattung veranlassen</span>
-                      <p className="text-[10px] text-muted-foreground">Guthaben direkt an Zahlungsmethode erstatten</p>
+                      <span className="font-medium text-xs">Rückerstattung erfassen</span>
+                      <p className="text-[10px] text-muted-foreground">Erstattet nur nicht zugeordnetes Geld. Die Rechnung bleibt unverändert – es wird keine Gutschrift erstellt. Ohne diese Option bleibt die Überzahlung als Guthaben stehen.</p>
                     </div>
                     <Switch checked={overpaymentProcessRefund} onCheckedChange={setOverpaymentProcessRefund} />
                   </div>
@@ -4005,8 +4334,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       <Select value={overpaymentRefundMode} onValueChange={(v) => setOverpaymentRefundMode(v as 'manual' | 'gateway')}>
                         <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="manual">Manuell (z.B. Banküberweisung durch Admin)</SelectItem>
-                          <SelectItem value="gateway">Automatisches Gateway (Stripe/PayPal Refund)</SelectItem>
+                          <SelectItem value="manual">Manuell erfasst (Rückzahlung bereits selbst ausgeführt)</SelectItem>
+                          <SelectItem value="gateway">Über PayPal erstatten (nur PayPal-Zahlungen)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -4028,7 +4357,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                   ) : (
                     <>
                       <Wallet className="mr-1.5 h-3.5 w-3.5" />
-                      Überzahlung abgleichen
+                      {overpaymentProcessRefund ? 'Überzahlung erstatten' : 'Überzahlung prüfen'}
                     </>
                   )}
                 </Button>
@@ -4044,7 +4373,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       Zahlungsaufforderung senden
                     </span>
                     <Badge variant="outline" className="text-[10px] border-[#f5c800]/40 text-[#f5c800] py-0 px-1.5 h-4 font-normal">
-                      E-Mail Benachrichtigung
+                      Per E-Mail (kein PayPal-Auftrag)
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -4066,6 +4395,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                         if (!matchesSelectedBooking(val, selectedPaymentRequestBooking)) {
                           setSelectedPaymentRequestBooking(null);
                           setPaymentRequestOverview(null);
+                          setPaymentRequestInvoice(null);
                           setPaymentRequestAmount('');
                           setPaymentRequests([]);
                           setPaymentRequestsAvailable(true);
@@ -4074,11 +4404,39 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       onSelectItem={onSelectPaymentRequestBooking}
                       placeholder="Buchung, Rechnungsnr. (z.B. INV-2026-0001) oder Kunde suchen..."
                       type="booking"
+                      allowInvoiceTarget
                     />
                   </div>
 
                   {/* Selected Booking Info Box */}
-                  {(selectedPaymentRequestBooking || paymentRequestOverview) && (
+                  {paymentRequestInvoice && (
+                    <div className="p-2.5 rounded-md border bg-muted/40 space-y-1 animate-in fade-in-50">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground truncate">
+                          Rechnung {paymentRequestInvoice.invoiceNumber} · {paymentRequestInvoice.customerName}
+                        </span>
+                        {getInvoiceOpenAmount(paymentRequestInvoice) > 0.009 ? (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] h-4 px-1.5">
+                            Offen: {formatCurrencyValue(getInvoiceOpenAmount(paymentRequestInvoice))}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">Kein offener Betrag</Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                        <div>Rechnungsbetrag: <span className="font-semibold text-foreground">{formatCurrencyValue(Number(paymentRequestInvoice.invoiceGrossTotal ?? paymentRequestInvoice.total ?? 0))}</span></div>
+                        <div>Bezahlt: <span className="font-semibold text-foreground">{formatCurrencyValue(getInvoicePaidAmount(paymentRequestInvoice))}</span></div>
+                      </div>
+                      {paymentRequestInvoice.customerEmail && (
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                          <Mail className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{paymentRequestInvoice.customerEmail}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!paymentRequestInvoice && (selectedPaymentRequestBooking || paymentRequestOverview) && (
                     <div className="p-2.5 rounded-md border bg-muted/40 space-y-1.5 animate-in fade-in-50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 font-medium text-foreground truncate">
@@ -4143,7 +4501,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
                     {!selectedPaymentRequestBooking && !paymentRequests.length ? (
                       <p className="text-[11px] text-muted-foreground">
-                        Buchung auswählen, um den Verlauf zu sehen.
+                        Buchung oder Rechnung auswählen, um den Verlauf zu sehen.
                       </p>
                     ) : !paymentRequestsAvailable ? (
                       <p className="text-[11px] text-amber-700">
@@ -4152,7 +4510,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       </p>
                     ) : paymentRequests.length === 0 ? (
                       <p className="text-[11px] text-muted-foreground">
-                        Für diese Buchung wurde noch keine Zahlungsaufforderung versendet.
+                        Hierfür wurde noch keine Zahlungsaufforderung versendet.
                       </p>
                     ) : (
                       <div className="space-y-1.5 max-h-40 overflow-y-auto">
@@ -4187,10 +4545,23 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                               {formatDateTime(req.requestedAt)}
                               {req.invoiceNumber && <span> · Beleg {req.invoiceNumber}</span>}
                             </div>
+                            <div className="text-muted-foreground">
+                              Kanal: E-Mail mit Link zur Rechnung (kein PayPal-Zahlungsauftrag)
+                              {req.targetType === 'invoice' ? ' · für diese Rechnung' : ' · für die Buchung'}
+                            </div>
                             {req.recipientEmail && (
                               <div className="truncate text-muted-foreground">An: {req.recipientEmail}</div>
                             )}
-                            {req.note && <div className="truncate text-muted-foreground">„{req.note}“</div>}
+                            {req.note && (
+                              <div className="truncate text-muted-foreground">
+                                „{req.note}“
+                                {req.status === 'accepted_by_provider' && (
+                                  <span className={req.noteDelivered ? 'text-emerald-700' : 'text-amber-700'}>
+                                    {req.noteDelivered ? ' · Text mitgesendet' : ' · Text NICHT mitgesendet'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {req.error && <div className="text-red-700">{req.error}</div>}
                           </div>
                         ))}
@@ -4555,6 +4926,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       <TableHead>{t('financialManagement.customer')}</TableHead>
                       <TableHead>{t('financialManagement.originalDueDate')}</TableHead>
                       <TableHead>{t('financialManagement.daysOverdue')}</TableHead>
+                      <TableHead>Mahnstufe</TableHead>
                       <TableHead>{t('financialManagement.nextDueDate')}</TableHead>
                       <TableHead>{t('financialManagement.openAmount')}</TableHead>
                       <TableHead className="text-right">{t('financialManagement.interaction')}</TableHead>
@@ -4581,10 +4953,25 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                           )}
                         </TableCell>
                         <TableCell>{invoice.customerName}</TableCell>
-                        <TableCell>{formatDate(invoice.originalDueDate || invoice.dueDate)}</TableCell>
-                        <TableCell>{getDaysPastDue(invoice.originalDueDate || invoice.dueDate)} Tage</TableCell>
-                        <TableCell>{invoice.dunningStage === 'collection' ? t('financialManagement.collection') : formatDate(invoice.nextDunningDueDate)}</TableCell>
-                        <TableCell>{formatCurrency(Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)))}</TableCell>
+                        <TableCell>{formatDate(invoice.dunning?.originalDueDate || invoice.originalDueDate || invoice.dueDate)}</TableCell>
+                        <TableCell>{invoice.dunning ? invoice.dunning.daysOverdue : getDaysPastDue(invoice.originalDueDate || invoice.dueDate)} Tage</TableCell>
+                        <TableCell>
+                          <div>{invoice.dunning?.currentStageLabel || '-'}</div>
+                          {invoice.dunning?.lastFailure && (
+                            <div className="text-xs text-red-700">Letzter Versand fehlgeschlagen ({formatDate(invoice.dunning.lastFailure.at || undefined)}): {invoice.dunning.lastFailure.error}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {invoice.dunningStage === 'collection'
+                            ? t('financialManagement.collection')
+                            : formatDate(invoice.dunning?.nextEligibleDate || invoice.nextDunningDueDate)}
+                          {invoice.dunning && (
+                            <div className={`text-xs ${invoice.dunning.eligible ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+                              {invoice.dunning.eligible ? `Fällig: ${invoice.dunning.nextStageLabel || 'nächste Stufe'}` : invoice.dunning.reason}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{formatCurrency(invoice.dunning ? invoice.dunning.openAmount : getInvoiceOpenAmount(invoice))}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => openInvoiceDetails(invoice)}><Eye className="mr-1 h-3.5 w-3.5" />{t('common.details', 'Details')}</Button>
@@ -4597,7 +4984,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                     ))}
                     {dunningEligibleInvoices.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">Keine ueberfaelligen Rechnungen vorhanden.</TableCell>
+                        <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">Keine überfälligen Rechnungen mit offener Forderung vorhanden.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -4957,7 +5344,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               <div><Label>Name</Label><Input value={invoiceForm.customerName} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerName: e.target.value }))} /></div>
               <div><Label>E-Mail</Label><Input value={invoiceForm.customerEmail} onChange={(e) => setInvoiceForm((p) => ({ ...p, customerEmail: e.target.value }))} /></div>
               <div><Label>Faelligkeit</Label><Input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-              <div><Label>Zahlungsziel</Label><Input value={invoiceForm.paymentTerms} onChange={(e) => setInvoiceForm((p) => ({ ...p, paymentTerms: e.target.value }))} /></div>
+              <div><Label>Zahlungsziel (aus Fälligkeit)</Label><Input value={formatPaymentTermsFromDueDate(invoiceForm.dueDate)} readOnly disabled title="Wird aus dem Fälligkeitsdatum abgeleitet" /></div>
               <div><Label>Steuer %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.taxRate} disabled={invoiceForm.isReverseCharge} onChange={(e) => setInvoiceForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
               <div><Label>Rabatt %</Label><Input type="number" min="0" max="100" step="0.1" value={invoiceForm.discount} onChange={(e) => setInvoiceForm((p) => ({ ...p, discount: e.target.value }))} /></div>
             </div>
@@ -5104,11 +5491,15 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
-              <div><Label>Rabatt %</Label><Input type="number" value={fromRepairForm.discount} onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} /></div>
+              <div>
+                <Label>Zusatzrabatt (€ brutto, optional)</Label>
+                <Input type="number" min="0" step="0.01" value={fromRepairForm.discount} placeholder="0,00" onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} />
+                <p className="mt-1 text-[11px] text-muted-foreground">Der Kundengruppenrabatt ist bereits im Auftragswert enthalten und wird automatisch übernommen.</p>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Fälligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-              <div><Label>Zahlungsziel</Label><Input value={fromRepairForm.paymentTerms} onChange={(e) => setFromRepairForm((p) => ({ ...p, paymentTerms: e.target.value }))} placeholder="Net 14" /></div>
+              <div><Label>Zahlungsziel (aus Fälligkeit)</Label><Input value={formatPaymentTermsFromDueDate(fromRepairForm.dueDate)} readOnly disabled title="Wird aus dem Fälligkeitsdatum abgeleitet; ohne Datum gilt die Frist aus dem Kundenprofil" /></div>
             </div>
           </div>
           <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
@@ -5198,7 +5589,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                     <div className="rounded-md border border-[#d8dce6] p-2">Rechnung: {selectedInvoice.invoiceNumber}</div>
                     <div className="rounded-md border border-[#d8dce6] p-2">Kunde: {selectedInvoice.customerName}</div>
                     <div className="rounded-md border border-[#d8dce6] p-2">Gesamt: {formatCurrency(selectedInvoice.total || 0)}</div>
-                    <div className="rounded-md border border-[#d8dce6] p-2">Offen: {formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
+                    <div className="rounded-md border border-[#d8dce6] p-2">Offen: {formatCurrency(getInvoiceOpenAmount(selectedInvoice))}</div>
                   </div>
 
                   <div className="grid gap-2 rounded-md border border-[#d8dce6] bg-white p-3 text-sm md:grid-cols-2">
@@ -5453,11 +5844,14 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-xs text-muted-foreground">{t('financialManagement.status')}</div>
-                  <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge></div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge>
+                    <InvoicePaymentHints invoice={selectedInvoice} />
+                  </div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-xs text-muted-foreground">{t('financialManagement.openAmount')}</div>
-                  <div className="font-semibold text-red-700">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
+                  <div className="font-semibold text-red-700">{formatCurrency(getInvoiceOpenAmount(selectedInvoice))}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-xs text-muted-foreground">Ueberfaellig seit</div>
@@ -5476,8 +5870,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                     <div><span className="text-muted-foreground">{t('financialManagement.dueDate')}:</span> {formatDate(selectedInvoice.dueDate)}</div>
                     <div><span className="text-muted-foreground">Mahnstufe:</span> {selectedInvoice.dunningLevel ?? 0}</div>
                     <div><span className="text-muted-foreground">Zuletzt erinnert:</span> {formatDate(selectedInvoice.dunningNotifiedAt)}</div>
-                    <div><span className="text-muted-foreground">Order-ID:</span> {formatReferenceValue(selectedInvoice.orderId)}</div>
-                    <div><span className="text-muted-foreground">RepairOrder-IDs:</span> {formatReferenceList(selectedInvoice.repairOrderIds)}</div>
+                    <div><span className="text-muted-foreground">Auftrag:</span> {formatReferenceValue(selectedInvoice.orderId)}</div>
+                    <div><span className="text-muted-foreground">Reparaturaufträge:</span> {formatReferenceList(selectedInvoice.repairOrderIds)}</div>
                   </CardContent>
                 </Card>
 
@@ -5505,7 +5899,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => onDunningSendReminder(selectedInvoice._id)}><Send className="mr-1 h-3.5 w-3.5" />{t('financialManagement.send')}</Button>
-                      <Button size="sm" variant="outline" onClick={() => onDunningEscalateInvoice(selectedInvoice._id, dunningCaseStatus, dunningCaseNote)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.changeStatus')}</Button>
+                      <Button size="sm" variant="outline" onClick={() => onDunningCaseStatusChange(selectedInvoice._id, dunningCaseStatus, dunningCaseNote)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.changeStatus')}</Button>
                       <Button size="sm" variant="outline" onClick={() => onAddInvoiceToDunningQueue(selectedInvoice)}><ListChecks className="mr-1 h-3.5 w-3.5" />Zu aktivem Lauf</Button>
                       <Button size="sm" variant="outline" onClick={() => onDunningSkipItem(selectedInvoice._id)}><SkipForward className="mr-1 h-3.5 w-3.5" />{t('financialManagement.skip')}</Button>
                       <Button size="sm" variant="outline" onClick={() => onDunningRemoveItem(selectedInvoice._id)}><XCircle className="mr-1 h-3.5 w-3.5" />{t('financialManagement.remove')}</Button>
@@ -5689,7 +6083,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.status')}</div>
-                  <div className="mt-1"><Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge></div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <Badge variant="outline" className={invoiceStatusClass[selectedInvoice.status]}>{getInvoiceStatusLabel(selectedInvoice.status, t)}</Badge>
+                    <InvoicePaymentHints invoice={selectedInvoice} />
+                  </div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.totalAmount')}</div>
@@ -5697,9 +6094,37 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('financialManagement.openAmount')}</div>
-                  <div className="mt-1 font-semibold text-red-700">{formatCurrency(Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || 0)))}</div>
+                  <div className="mt-1 font-semibold text-red-700">{formatCurrency(getInvoiceOpenAmount(selectedInvoice))}</div>
                 </div>
               </div>
+
+              {/* Geldfluss des Belegs: auch der nicht zuordenbare Ueberhang bleibt sichtbar. */}
+              {!selectedInvoice.isCreditNote && selectedInvoice.balance && (
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Insgesamt eingegangen</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(Number(selectedInvoice.balance.received ?? getInvoicePaidAmount(selectedInvoice)))}</div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Der Rechnung zugeordnet</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(getInvoicePaidAmount(selectedInvoice))}</div>
+                    {Number(selectedInvoice.balance.credited || 0) > 0.009 && (
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">Forderung nach Gutschrift: {formatCurrency(Number(selectedInvoice.balance.receivable || 0))}</div>
+                    )}
+                  </div>
+                  <div className={`rounded-md border p-3 ${getInvoiceRefundPending(selectedInvoice) > 0.009 ? 'border-rose-300 bg-rose-50' : 'border-[#d8dce6] bg-white'}`}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Überzahlt / Erstattung offen</div>
+                    <div className={`mt-1 font-semibold ${getInvoiceRefundPending(selectedInvoice) > 0.009 ? 'text-rose-800' : 'text-[#1a2a5e]'}`}>{formatCurrency(getInvoiceRefundPending(selectedInvoice))}</div>
+                  </div>
+                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Bereits erstattet</div>
+                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatCurrency(Number(selectedInvoice.balance.refunded || 0))}</div>
+                    {Number(selectedInvoice.balance.refundsInProgress || 0) > 0.009 && (
+                      <div className="mt-0.5 text-[11px] text-sky-800">In Bearbeitung: {formatCurrency(Number(selectedInvoice.balance.refundsInProgress || 0))}</div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Card className="border-[#d8dce6] overflow-hidden">
                 <CardHeader className="bg-[#1a2a5e] px-4 py-2.5">
@@ -6121,6 +6546,43 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         </DialogContent>
       </Dialog>
 
+      <Dialog open={Boolean(reconcileTarget)} onOpenChange={(open) => { if (!open) setReconcileTarget(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ungeklärte PayPal-Erstattung abgleichen</DialogTitle>
+            <DialogDescription>
+              PayPal hat auf diesen Erstattungsversuch nicht eindeutig geantwortet. Bitte im PayPal-Konto prüfen,
+              ob die Erstattung ausgeführt wurde, und das Ergebnis hier eintragen. Bitte NICHT zusätzlich eine manuelle
+              Erstattung erfassen – derselbe Betrag würde sonst doppelt gezählt.
+            </DialogDescription>
+          </DialogHeader>
+          {reconcileTarget && (
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3 space-y-1">
+                <div><span className="text-muted-foreground">Betrag:</span> {formatCurrencyValue(reconcileTarget.entry.amount, reconcileTarget.payment.currency || 'EUR')}</div>
+                <div><span className="text-muted-foreground">Grund:</span> {reconcileTarget.entry.reason || '-'}</div>
+                <div><span className="text-muted-foreground">Angelegt:</span> {formatDateTime(reconcileTarget.entry.createdAt)}</div>
+                {reconcileTarget.entry.error && <div className="text-amber-800">{reconcileTarget.entry.error}</div>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="reconcile-refund-id">PayPal-Erstattungs-ID (nur bei „ausgeführt“)</Label>
+                <Input
+                  id="reconcile-refund-id"
+                  value={reconcileRefundId}
+                  onChange={(e) => setReconcileRefundId(e.target.value)}
+                  placeholder="z.B. 1AB23456CD789012E"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setReconcileTarget(null)} disabled={reconcileSubmitting}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => void onSubmitReconcile('not-executed')} disabled={reconcileSubmitting}>Nicht ausgeführt</Button>
+            <Button onClick={() => void onSubmitReconcile('executed')} disabled={reconcileSubmitting || !reconcileRefundId.trim()}>Bei PayPal ausgeführt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
@@ -6361,7 +6823,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                   <div className="grid gap-2 md:grid-cols-3">
                     <div><span className="text-muted-foreground">{t('financialManagement.customer')}:</span> {selectedInvoice.customerName}</div>
                     <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
-                    <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
+                    <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(getInvoicePaidAmount(selectedInvoice))}</div>
                   </div>
                 </div>
               </div>
@@ -6403,10 +6865,17 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               </div>
               <div className="bg-[#f8f9fc] p-3 space-y-3">
                 {statusForm.status === 'paid' ? (
-                  <p className="flex items-center gap-1.5 text-xs text-amber-700">
-                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    {t('financialManagement.paymentInfoRequired')}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="flex items-center gap-1.5 text-xs text-amber-700">
+                      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                      {t('financialManagement.paymentInfoRequired')}
+                    </p>
+                    <p className="text-xs text-[#1a2a5e]">
+                      {selectedInvoice && getInvoiceOpenAmount(selectedInvoice) > 0.009
+                        ? `Bereits zugeordnete Zahlungen (${formatCurrency(getInvoicePaidAmount(selectedInvoice))}) werden berücksichtigt. Nur der offene Betrag von ${formatCurrency(getInvoiceOpenAmount(selectedInvoice))} wird einmalig als Zahlung erfasst.`
+                        : 'Der Beleg ist bereits vollständig bezahlt – es wird kein weiterer Betrag erfasst.'}
+                    </p>
+                  </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">Optional – hilfreich zur Dokumentation bereits erhaltener Zahlungen.</p>
                 )}
@@ -6441,9 +6910,39 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               </div>
             </div>
 
+            {selectedInvoice && statusForm.status === 'cancelled' && selectedInvoice.status !== 'cancelled' && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+                {['draft', 'pending_approval'].includes(selectedInvoice.status) ? (
+                  <p>Der Entwurf wird verworfen (nicht gelöscht): die Nummer bleibt belegt, es entsteht keine Gutschrift.</p>
+                ) : (
+                  <>
+                    <p>
+                      Storno: Die Rechnung bleibt mit Nummer und PDF unverändert erhalten und wird als storniert markiert.
+                      Es wird eine Storno-Gutschrift (INV-CN-…) über den noch nicht gutgeschriebenen Betrag ausgestellt.
+                      Der Grund (Notiz) ist Pflicht und wird mit Bearbeiter und Zeitpunkt protokolliert.
+                    </p>
+                    {getInvoicePaidAmount(selectedInvoice) > 0.009 && (
+                      <label className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4"
+                          checked={confirmPaidCancellation}
+                          onChange={(e) => setConfirmPaidCancellation(e.target.checked)}
+                        />
+                        <span>
+                          Auf diese Rechnung sind bereits {formatCurrency(getInvoicePaidAmount(selectedInvoice))} gebucht. Ich bestätige das Storno:
+                          die Zahlung bleibt erhalten und wird als Guthaben bzw. offene Erstattung ausgewiesen – es wird nichts automatisch erstattet.
+                        </span>
+                      </label>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="rounded-md border border-[#0f1d45] overflow-hidden">
               <div className="bg-[#1a2a5e] px-3 py-2">
-                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>Notiz (optional)</span>
+                <span className="text-sm font-semibold" style={{ color: '#f5c800' }}>{statusForm.status === 'cancelled' ? 'Grund (Pflicht)' : 'Notiz (optional)'}</span>
               </div>
               <div className="bg-[#f8f9fc] p-3">
                 <Textarea
@@ -6493,7 +6992,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 <div className="grid gap-2 md:grid-cols-3">
                   <div><span className="text-muted-foreground">{t('financialManagement.customer')}:</span> {selectedInvoice.customerName}</div>
                   <div><span className="text-muted-foreground">Rechnung:</span> {formatCurrency(selectedInvoice.total || 0)}</div>
-                  <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(selectedInvoice.paidAmount || 0)}</div>
+                  <div><span className="text-muted-foreground">Bereits bezahlt:</span> {formatCurrency(getInvoicePaidAmount(selectedInvoice))}</div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -6503,7 +7002,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                   <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                     <div
                       className="h-full bg-[#1a2a5e]"
-                      style={{ width: `${Math.min(100, Math.max(0, ((Number(selectedInvoice.paidAmount || 0) / Math.max(1, Number(selectedInvoice.total || 0))) * 100)))}%` }}
+                      style={{ width: `${Math.min(100, Math.max(0, ((getInvoicePaidAmount(selectedInvoice) / Math.max(1, Number(selectedInvoice.balance?.receivable ?? selectedInvoice.total ?? 0))) * 100)))}%` }}
                     />
                   </div>
                 </div>

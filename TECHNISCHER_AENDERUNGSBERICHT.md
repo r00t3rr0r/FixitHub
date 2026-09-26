@@ -1,5 +1,11 @@
 # Technischer Änderungsbericht
 
+> **⚠ Überholt — Stand 22.09.2026.** Ersetzt durch
+> [`TECHNISCHER_AENDERUNGSBERICHT_2026-09-26.md`](TECHNISCHER_AENDERUNGSBERICHT_2026-09-26.md). Dort steht in
+> Abschnitt 1, was an diesem Bericht falsch war. Unter anderem prüfte der hier genannte Befehl
+> `npx tsc --noEmit` keine einzige Datei, und die Rechnungserstellung zog den Gruppenrabatt nach
+> dem 22.09. doppelt ab. Dieser Text bleibt zur Nachvollziehbarkeit unverändert stehen.
+
 **Branch:** `adars` (Basis `60a301d`) · **Stand:** 22.09.2026
 **Umfang:** 57 geänderte Dateien, 4 neue Dateien, ca. +8.600 / −1.900 Zeilen
 **Status:** vollständig im Arbeitsbaum, **nicht committet**, nicht gemergt, nicht deployed

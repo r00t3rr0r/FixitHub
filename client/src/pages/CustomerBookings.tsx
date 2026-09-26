@@ -74,6 +74,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel, getBookingInvoices } from "@/api/bookings";
 import { downloadInvoicePdf } from "@/api/invoices";
+import { attachInvoiceBalances, summarizeInvoicePayment, INVOICE_PAYMENT_TONE_CLASSES } from "@/api/orders";
 import { createOrderComplaint } from "@/api/orders";
 import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
@@ -143,6 +144,8 @@ interface Booking {
   status: string;
   billingStatus: string;
   paymentStatus?: string;
+  // Zahlungsstand vom Server (gleiche Berechnung wie in der Adminliste); null = unbekannt
+  paymentBalance?: { open?: number; received?: number; overpaid?: number; refundPending?: number } | null;
   overallProgress: number;
   createdAt: string;
   updatedAt: string;
@@ -383,7 +386,10 @@ export function CustomerBookings() {
     setLoadingBookingInvoiceIds((prev) => new Set(prev).add(bookingId));
     try {
       const data = await getBookingInvoices(bookingId);
-      setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: data?.invoices || [] }));
+      // Der Buchungsendpunkt liefert balance/paymentState je Beleg selbst; attachInvoiceBalances
+      // lädt nur noch nach, falls ein Beleg ohne Saldo ankommt (älterer Server / Ausfall).
+      const invoices = await attachInvoiceBalances(data?.invoices || []);
+      setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: invoices }));
     } catch (error) {
       console.error('CustomerBookings: Rechnungen konnten nicht geladen werden:', error);
       setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: [] }));
@@ -643,7 +649,7 @@ export function CustomerBookings() {
       case 'viewed':
         return 'Angesehen';
       case 'partially_paid':
-        return 'Teilweise Bezahlt';
+        return 'Teilbezahlt';
       case 'overdue':
         return 'Überfällig';
       case 'unpaid':
@@ -860,6 +866,11 @@ export function CustomerBookings() {
                           <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
                             {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
                           </Badge>
+                          {Number(booking.paymentBalance?.refundPending ?? booking.paymentBalance?.overpaid ?? 0) > 0.009 && (
+                            <span className="mt-1 block text-[11px] font-semibold text-violet-700">
+                              Überzahlt · Erstattung offen {formatCurrency(Number(booking.paymentBalance?.refundPending ?? booking.paymentBalance?.overpaid ?? 0))}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="py-5" data-label="Fortschritt">
                           <div className="progress-container">
@@ -1101,6 +1112,14 @@ export function CustomerBookings() {
                                           {getInvoiceStatusLabel(inv.status)}
                                         </span>
                                         <span className="text-foreground/70">{formatCurrency(inv.total)}</span>
+                                        {(() => {
+                                          const payment = summarizeInvoicePayment(inv);
+                                          return payment.known ? (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
+                                              {payment.label}
+                                            </span>
+                                          ) : null;
+                                        })()}
                                         <div className="ml-auto flex items-center gap-1">
                                           <Button
                                             variant="outline"
@@ -1653,7 +1672,8 @@ function BookingDetailDialog({
       setLoadingBookingInvoices(true);
       try {
         const data = await getBookingInvoices(booking._id);
-        if (!cancelled) setBookingInvoices(data.invoices || []);
+        const invoices = await attachInvoiceBalances(data.invoices || []);
+        if (!cancelled) setBookingInvoices(invoices);
       } catch {
         if (!cancelled) setBookingInvoices([]);
       } finally {
@@ -1692,7 +1712,7 @@ function BookingDetailDialog({
       case 'viewed':
         return 'Angesehen';
       case 'partially_paid':
-        return 'Teilweise Bezahlt';
+        return 'Teilbezahlt';
       case 'overdue':
         return 'Überfällig';
       case 'unpaid':
@@ -1896,9 +1916,9 @@ function BookingDetailDialog({
   const isOutboundShippingLabel = booking.shippingLabelDirection === 'outbound';
   const isInboundShippingLabel = booking.shippingLabelDirection === 'inbound';
   const shippingBlockTitle = isOutboundShippingLabel
-    ? 'Rücksendung an Sie'
+    ? 'Rücksendung an Sie (McRepair → Sie, älteres Buchungslabel)'
     : isInboundShippingLabel
-      ? 'Versand an McRepair'
+      ? 'Versand zum Reparaturbetrieb (Sie → McRepair)'
       : 'Versand';
   const shippingLabelCaption = isOutboundShippingLabel
     ? 'Generiertes Versandlabel an Sie'
@@ -2188,8 +2208,10 @@ function BookingDetailDialog({
               ) : (
                 <div className="space-y-2">
                   {bookingInvoices.map((inv: any) => {
-                    const openAmount = Math.max(0, Number(inv.total || 0) - Number(inv.paidAmount || inv.amountPaid || 0));
-                    const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'paid';
+                    // Zahlungsstand ausschließlich vom Server; ohne ihn keine Beträge erfinden.
+                    const payment = summarizeInvoicePayment(inv);
+                    const openAmount = payment.known ? (payment.open ?? 0) : 0;
+                    const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'paid' && (!payment.known || openAmount > 0);
                     return (
                       <div
                         key={inv._id}
@@ -2207,14 +2229,19 @@ function BookingDetailDialog({
                             <span className="text-xs text-[var(--gray-600,#4a5568)]">
                               Gesamt: <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatCurrency(inv.total)}</span>
                             </span>
-                            {Number(inv.paidAmount || inv.amountPaid || 0) > 0 && (
+                            {payment.known && (payment.received ?? 0) > 0 && (
                               <span className="text-xs text-green-600 font-semibold">
-                                Bezahlt: {formatCurrency(Number(inv.paidAmount || inv.amountPaid || 0))}
+                                Eingegangen: {formatCurrency(payment.received ?? 0)}
                               </span>
                             )}
-                            {openAmount > 0 && (
+                            {payment.known && openAmount > 0 && (
                               <span className={`text-xs font-semibold ${isOverdue ? 'text-red-600' : 'text-[var(--gray-600,#4a5568)]'}`}>
                                 Offen: {formatCurrency(openAmount)}
+                              </span>
+                            )}
+                            {payment.known && (payment.refundPending ?? 0) > 0 && (
+                              <span className="text-xs font-semibold text-violet-700">
+                                Überzahlt · Erstattung offen {formatCurrency(payment.refundPending ?? 0)}
                               </span>
                             )}
                             {inv.dueDate && (
@@ -2494,6 +2521,39 @@ function BookingDetailDialog({
           </TabsContent>
 
           <TabsContent value="shipping" className="space-y-3 sm:space-y-4 mt-3 sm:mt-5">
+            {/* Auslieferung (McRepair → Sie) je Gerät - Richtung und Sendungsnummer liefert der
+                Server getrennt vom Einsendelabel der Buchung (getBookingOrders.outboundShipment). */}
+            {detailOrders.some((entry: any) => entry?.outboundShipment?.trackingNumber) && (
+              <div className="bg-white p-3 sm:p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
+                <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)] mb-2">
+                  <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
+                  Auslieferung an Sie (McRepair → Sie)
+                </h3>
+                <div className="space-y-2">
+                  {detailOrders
+                    .filter((entry: any) => entry?.outboundShipment?.trackingNumber)
+                    .map((entry: any, index: number) => (
+                      <div key={entry.orderId || entry._id || index} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--gray-200,#d8dce6)] bg-[var(--gray-50,#f5f6f8)] p-2 text-sm">
+                        <span className="font-semibold">{entry.orderNumber || entry.device || 'Auftrag'}</span>
+                        <span className="font-mono">{entry.outboundShipment.trackingNumber}</span>
+                        {entry.outboundShipment.status && (
+                          <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-xs font-bold">
+                            {getShippingStatusLabel(entry.outboundShipment.status)}
+                          </Badge>
+                        )}
+                        <a
+                          href={`https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(entry.outboundShipment.trackingNumber)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                        >
+                          Sendung verfolgen <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
             {(hasOutboundShipping || hasReturnShipping) ? (
               <div className="space-y-4">
                 {hasOutboundShipping && (
@@ -2609,7 +2669,7 @@ function BookingDetailDialog({
                   <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
                     <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)]">
                       <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
-                      Rücksendung
+                      DHL-Retourenlabel
                     </h3>
                     {booking.returnShipmentStatus && (
                       <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0`}>
@@ -2718,14 +2778,14 @@ function BookingDetailDialog({
                     <li>Artikel sicher verpacken</li>
                     <li>Etikett befestigen oder QR-Code bei DHL vorzeigen</li>
                     <li>Bei DHL-Standort abgeben</li>
-                    <li>Rücksendung verfolgen</li>
+                    <li>Sendung verfolgen</li>
                   </ol>
                 </div>
               </div>
             ) : (
               <div className="text-center py-16 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
                 <Truck className="h-16 w-16 mx-auto mb-4 text-[var(--gray-300,#b0b8c9)]" />
-                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Rücksendung</p>
+                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Noch keine Versanddaten vorhanden</p>
               </div>
             )}
           </TabsContent>

@@ -13,6 +13,7 @@ import { getAssignedOrders } from "@/api/adminOrders"
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication"
 import { getUnreadMessageCount as getRepairRequestUnreadMessageCount } from "@/api/repairRequestCommunication"
 import { getRepairRequests } from "@/api/repairRequests"
+import api from "@/api/api"
 import {
   Search,
   Filter,
@@ -25,7 +26,8 @@ import {
   Camera,
   Phone,
   Mail,
-  DollarSign
+  DollarSign,
+  MessageSquareWarning
 } from "lucide-react"
 import {
   Select,
@@ -62,6 +64,7 @@ interface AssignedOrder {
   estimatedCompletion: string
   totalCost: number
   progress: number
+  paymentStatus?: 'pending' | 'paid' | 'refunded' | 'partial'
   workflows?: Array<{
     _id: string
     workflowName?: string
@@ -88,6 +91,50 @@ interface AssignedOrder {
     }>
   }>
   createdAt: string
+}
+
+// Antwort von GET /api/repair-workflows/admin/awaiting-customer-feedback
+interface AwaitingFeedbackEntry {
+  orderId: string
+  since?: string | null
+  overdue?: boolean
+  reasons: Array<{ type: string; label: string; detail?: string; since?: string | null }>
+}
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'Ausstehend',
+  'diagnostic-assessment': 'Diagnose',
+  'in-progress': 'In Bearbeitung',
+  paused: 'Pausiert',
+  'quality-check': 'Qualitätsprüfung',
+  'ready-for-pickup': 'Abholbereit',
+  completed: 'Abgeschlossen',
+  cancelled: 'Storniert',
+}
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Niedrig',
+  medium: 'Mittel',
+  normal: 'Normal',
+  high: 'Hoch',
+  urgent: 'Dringend',
+}
+
+const REPAIR_REQUEST_STATUS_LABELS: Record<string, string> = {
+  pending: 'Ausstehend',
+  reviewing: 'In Prüfung',
+  approved: 'Angenommen',
+  rejected: 'Abgelehnt',
+  converted: 'Umgewandelt',
+}
+
+// Order.paymentStatus wird serverseitig abgeleitet (FinancialService.syncOrderPaymentTracking)
+// - hier nur anzeigen, nie aus Summe minus Zahlung nachrechnen.
+const PAYMENT_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  pending: { label: 'Offen', className: 'bg-slate-100 text-slate-700 border-slate-300' },
+  partial: { label: 'Teilbezahlt', className: 'bg-amber-100 text-amber-800 border-amber-300' },
+  paid: { label: 'Bezahlt', className: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  refunded: { label: 'Erstattet', className: 'bg-violet-100 text-violet-800 border-violet-300' },
 }
 
 interface ActionableWorkflowItem {
@@ -142,6 +189,8 @@ export function StaffOrders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "awaiting">("all")
+  const [awaitingByOrder, setAwaitingByOrder] = useState<Record<string, AwaitingFeedbackEntry>>({})
   const [nowTimestamp, setNowTimestamp] = useState(() => Date.now())
   const { toast } = useToast()
 
@@ -154,13 +203,13 @@ export function StaffOrders() {
   const getWorkflowStatusLabel = (status?: string) => {
     switch (normalizeWorkflowStatus(status)) {
       case 'in-progress':
-        return 'In Progress'
+        return 'In Bearbeitung'
       case 'on-hold':
-        return 'Paused'
+        return 'Pausiert'
       case 'completed':
-        return 'Completed'
+        return 'Abgeschlossen'
       default:
-        return 'Pending'
+        return 'Ausstehend'
     }
   }
 
@@ -286,7 +335,7 @@ export function StaffOrders() {
           workflowName: workflow?.workflowName || 'Workflow',
           isDirectWorkflowAssignment,
           workflowStatus,
-          activeStepLabel: currentStep?.stepName || currentStep?.name || 'No step assigned',
+          activeStepLabel: currentStep?.stepName || currentStep?.name || 'Kein Schritt zugewiesen',
           pausedAt: workflow?.pausedAt,
           updatedAt: workflow?.pausedAt || workflow?.completedAt || workflow?.startedAt || order.createdAt,
           progressPercentage: progress.percentage,
@@ -373,14 +422,27 @@ export function StaffOrders() {
 
         const nextOrders = ordersResult.orders || []
         setOrders(nextOrders)
-        setFilteredOrders(nextOrders)
         setRepairRequests(repairResult.requests || [])
 
         if (nextOrders.length > 0) {
           const counts = await getUnreadMessageCounts(nextOrders.map((order: AssignedOrder) => order._id))
           setUnreadCounts(counts || {})
+
+          // "Warten auf Kundenrückmeldung" kommt vom Server (nur echte Rückfragen,
+          // keine normalen Nachrichten). Ein Fehler hier darf die Liste nicht blockieren.
+          try {
+            const awaitingResponse = await api.get('/api/repair-workflows/admin/awaiting-customer-feedback', {
+              params: { orderIds: nextOrders.map((order: AssignedOrder) => order._id).join(',') },
+            })
+            const entries: AwaitingFeedbackEntry[] = awaitingResponse.data?.orders || []
+            setAwaitingByOrder(Object.fromEntries(entries.map((entry) => [String(entry.orderId), entry])))
+          } catch (awaitingError) {
+            console.error("Error fetching awaiting customer feedback:", awaitingError)
+            setAwaitingByOrder({})
+          }
         } else {
           setUnreadCounts({})
+          setAwaitingByOrder({})
         }
 
         const nextRepairRequests = repairResult.requests || []
@@ -404,8 +466,8 @@ export function StaffOrders() {
       } catch (error: any) {
         console.error("Error fetching assigned orders:", error)
         toast({
-          title: "Error",
-          description: error.message || "Failed to load orders",
+          title: "Fehler",
+          description: error.message || "Aufträge konnten nicht geladen werden",
           variant: "destructive"
         })
       } finally {
@@ -415,6 +477,14 @@ export function StaffOrders() {
 
     fetchAssignedOrders()
   }, [searchTerm, statusFilter, priorityFilter, toast, user?._id])
+
+  useEffect(() => {
+    setFilteredOrders(
+      feedbackFilter === "awaiting"
+        ? orders.filter((order) => Boolean(awaitingByOrder[order._id]))
+        : orders
+    )
+  }, [orders, feedbackFilter, awaitingByOrder])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -505,14 +575,14 @@ export function StaffOrders() {
     const lastName = request.customerId?.lastName || ''
     const fullName = `${firstName} ${lastName}`.trim()
     if (fullName) return fullName
-    return request.customerId?.name || 'Unknown Customer'
+    return request.customerId?.name || 'Unbekannter Kunde'
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
-    }).format(amount)
+      currency: 'EUR'
+    }).format(Number(amount) || 0)
   }
 
   if (loading) {
@@ -541,10 +611,10 @@ export function StaffOrders() {
       <div className="rounded-xl bg-[#1a2a5e] px-4 py-3 shadow-sm md:px-5 md:py-4">
         <h1 className="flex items-center gap-2 text-xl font-semibold text-white md:text-2xl">
           <Package className="h-6 w-6" />
-          My Orders
+          Meine Aufträge
         </h1>
         <p className="mt-1 text-xs text-blue-100 md:text-sm">
-          Manage your assigned repair orders
+          Zugewiesene Reparaturaufträge bearbeiten
         </p>
       </div>
 
@@ -553,7 +623,7 @@ export function StaffOrders() {
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-blue-700 dark:text-blue-300">
-              Assigned Orders
+              Zugewiesene Aufträge
             </CardTitle>
             <Package className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
           </CardHeader>
@@ -567,7 +637,7 @@ export function StaffOrders() {
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-orange-700 dark:text-orange-300">
-              In Progress
+              In Bearbeitung
             </CardTitle>
             <Clock className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
           </CardHeader>
@@ -581,7 +651,7 @@ export function StaffOrders() {
         <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-green-700 dark:text-green-300">
-              Completed
+              Abgeschlossen
             </CardTitle>
             <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
           </CardHeader>
@@ -595,7 +665,7 @@ export function StaffOrders() {
         <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-red-200 dark:border-red-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-red-700 dark:text-red-300">
-              Urgent Orders
+              Dringende Aufträge
             </CardTitle>
             <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
           </CardHeader>
@@ -609,13 +679,31 @@ export function StaffOrders() {
         <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950 dark:to-indigo-900 border-indigo-200 dark:border-indigo-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
             <CardTitle className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-              Assigned Repair Requests
+              Zugewiesene Reparaturanfragen
             </CardTitle>
             <Package className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
           </CardHeader>
           <CardContent className="px-4 pb-3 pt-0">
             <div className="text-xl font-bold text-indigo-900 dark:text-indigo-100">
               {repairRequests.length}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="cursor-pointer bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-amber-200 dark:border-amber-800"
+          onClick={() => setFeedbackFilter(feedbackFilter === "awaiting" ? "all" : "awaiting")}
+          title="Nach „Warten auf Kundenrückmeldung“ filtern"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-1 pt-3">
+            <CardTitle className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Warten auf Kundenrückmeldung
+            </CardTitle>
+            <MessageSquareWarning className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          </CardHeader>
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="text-xl font-bold text-amber-900 dark:text-amber-100">
+              {orders.filter((order) => Boolean(awaitingByOrder[order._id])).length}
             </div>
           </CardContent>
         </Card>
@@ -629,7 +717,7 @@ export function StaffOrders() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 transform text-muted-foreground" />
                 <Input
-                  placeholder="Search orders..."
+                  placeholder="Aufträge suchen …"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-9 pl-9 text-xs"
@@ -640,29 +728,39 @@ export function StaffOrders() {
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 w-36 text-xs">
                   <Filter className="mr-1 h-3.5 w-3.5" />
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder="Alle Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="quality-check">Quality Check</SelectItem>
-                  <SelectItem value="ready-for-pickup">Ready for Pickup</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="all">Alle Status</SelectItem>
+                  <SelectItem value="pending">Ausstehend</SelectItem>
+                  <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                  <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
+                  <SelectItem value="ready-for-pickup">Abholbereit</SelectItem>
+                  <SelectItem value="completed">Abgeschlossen</SelectItem>
+                  <SelectItem value="cancelled">Storniert</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="h-9 w-32 text-xs">
-                  <SelectValue placeholder="All Priority" />
+                  <SelectValue placeholder="Alle Prioritäten" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">Alle Prioritäten</SelectItem>
+                  <SelectItem value="low">Niedrig</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                  <SelectItem value="urgent">Dringend</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={feedbackFilter} onValueChange={(value) => setFeedbackFilter(value as "all" | "awaiting")}>
+                <SelectTrigger className="h-9 w-56 text-xs">
+                  <SelectValue placeholder="Kundenrückmeldung" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Aufträge</SelectItem>
+                  <SelectItem value="awaiting">Warten auf Kundenrückmeldung</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -675,7 +773,7 @@ export function StaffOrders() {
         <CardHeader className="rounded-t-xl bg-[#1a2a5e] px-4 py-3">
           <CardTitle className="text-sm font-semibold text-white">Abzuarbeitende Workflows</CardTitle>
           <CardDescription className="text-xs text-blue-100">
-            Pending Workflows sind hervorgehoben. Bei pausierten Workflows wird die Pausenzeit angezeigt.
+            Ausstehende Workflows sind hervorgehoben. Bei pausierten Workflows wird die Pausenzeit angezeigt.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 sm:p-2">
@@ -684,12 +782,12 @@ export function StaffOrders() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Workflow</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Order</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Auftrag</TableHead>
                   <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Status</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Current Step</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Progress</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Pause Duration</TableHead>
-                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Actions</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Aktueller Schritt</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Fortschritt</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Pausendauer</TableHead>
+                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -724,7 +822,7 @@ export function StaffOrders() {
                         <TableCell className="px-2 py-2 align-middle">
                           <div>
                             <p className="text-xs font-semibold">{workflow.orderNumber}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{workflow.orderStatus.replace('-', ' ')}</p>
+                            <p className="text-xs text-muted-foreground">{ORDER_STATUS_LABELS[workflow.orderStatus] || workflow.orderStatus}</p>
                           </div>
                         </TableCell>
                         <TableCell className="px-2 py-2 align-middle">
@@ -744,7 +842,7 @@ export function StaffOrders() {
                               />
                             </div>
                             <p className="text-[10px] text-muted-foreground">
-                              {workflow.completedSteps}/{workflow.totalSteps || 0} steps
+                              {workflow.completedSteps}/{workflow.totalSteps || 0} Schritte
                             </p>
                           </div>
                         </TableCell>
@@ -764,7 +862,7 @@ export function StaffOrders() {
                               e.stopPropagation()
                               handleViewOrder(workflow.orderId)
                             }}
-                            title="Open Order"
+                            title="Auftrag öffnen"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -782,9 +880,9 @@ export function StaffOrders() {
       {/* Orders Table */}
       <Card>
         <CardHeader className="rounded-t-xl bg-[#1a2a5e] px-4 py-3">
-          <CardTitle className="text-sm font-semibold text-white">Assigned Orders</CardTitle>
+          <CardTitle className="text-sm font-semibold text-white">Zugewiesene Aufträge</CardTitle>
           <CardDescription className="text-xs text-blue-100">
-            Click on any order to view details
+            Auftrag anklicken, um die Details zu öffnen
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 sm:p-2">
@@ -792,23 +890,26 @@ export function StaffOrders() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Order Number</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Customer</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Device</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Services</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Auftragsnummer</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Kunde</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Gerät</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Leistungen</TableHead>
                   <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Status</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Priority</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Progress</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Total Cost</TableHead>
-                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Actions</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Priorität</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Fortschritt</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Gesamt</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Zahlung</TableHead>
+                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center">
+                    <TableCell colSpan={10} className="py-6 text-center">
                       <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No orders found</p>
+                      <p className="text-muted-foreground">
+                        {feedbackFilter === "awaiting" ? "Keine Aufträge warten auf eine Kundenrückmeldung" : "Keine Aufträge gefunden"}
+                      </p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -822,8 +923,17 @@ export function StaffOrders() {
                         <div>
                           <p className="text-xs font-semibold">{order.orderNumber}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(order.createdAt).toLocaleDateString()}
+                            {new Date(order.createdAt).toLocaleDateString('de-DE')}
                           </p>
+                          {awaitingByOrder[order._id] && (
+                            <Badge
+                              variant="outline"
+                              className="mt-1 h-5 border-amber-300 bg-amber-50 px-1.5 text-[10px] text-amber-800"
+                              title={awaitingByOrder[order._id].reasons.map((reason) => reason.detail ? `${reason.label}: ${reason.detail}` : reason.label).join("\n")}
+                            >
+                              Wartet auf Kundenrückmeldung
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="px-2 py-2 align-middle">
@@ -868,12 +978,12 @@ export function StaffOrders() {
                       </TableCell>
                       <TableCell className="px-2 py-2 align-middle">
                         <Badge className={`${getStatusColor(order.status)} h-5 px-1.5 text-[10px]`}>
-                          {order.status.replace('-', ' ')}
+                          {ORDER_STATUS_LABELS[order.status] || order.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-2 py-2 align-middle">
                         <Badge className={`${getPriorityColor(order.priority)} h-5 px-1.5 text-[10px]`}>
-                          {order.priority}
+                          {PRIORITY_LABELS[order.priority] || order.priority}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-2 py-2 align-middle">
@@ -881,6 +991,15 @@ export function StaffOrders() {
                       </TableCell>
                       <TableCell className="px-2 py-2 text-right align-middle">
                         <span className="text-xs font-semibold">{formatCurrency(order.totalCost)}</span>
+                      </TableCell>
+                      <TableCell className="px-2 py-2 align-middle">
+                        {order.paymentStatus && PAYMENT_STATUS_LABELS[order.paymentStatus] ? (
+                          <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${PAYMENT_STATUS_LABELS[order.paymentStatus].className}`}>
+                            {PAYMENT_STATUS_LABELS[order.paymentStatus].label}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="px-2 py-2 text-right align-middle">
                         <div className="flex justify-end gap-1">
@@ -892,7 +1011,7 @@ export function StaffOrders() {
                               e.stopPropagation()
                               handleViewOrder(order._id)
                             }}
-                            title="View Details"
+                            title="Details anzeigen"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -901,8 +1020,8 @@ export function StaffOrders() {
                             size="sm"
                             className="relative h-7 w-7 p-0"
                             title={unreadCounts[order._id]?.unread > 0
-                              ? `${unreadCounts[order._id].unread} new message${unreadCounts[order._id].unread > 1 ? "s" : ""}`
-                              : "Messages"
+                              ? `${unreadCounts[order._id].unread} neue Nachricht${unreadCounts[order._id].unread > 1 ? "en" : ""}`
+                              : "Nachrichten"
                             }
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -927,9 +1046,9 @@ export function StaffOrders() {
       {/* Repair Requests Table */}
       <Card>
         <CardHeader className="rounded-t-xl bg-[#1a2a5e] px-4 py-3">
-          <CardTitle className="text-sm font-semibold text-white">Assigned Repair Requests</CardTitle>
+          <CardTitle className="text-sm font-semibold text-white">Zugewiesene Reparaturanfragen</CardTitle>
           <CardDescription className="text-xs text-blue-100">
-            Repair Requests assigned to you
+            Dir zugewiesene Reparaturanfragen
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 sm:p-2">
@@ -937,13 +1056,13 @@ export function StaffOrders() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Request</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Customer</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Device</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Issue</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Anfrage</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Kunde</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Gerät</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Problem</TableHead>
                   <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Status</TableHead>
-                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Priority</TableHead>
-                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Actions</TableHead>
+                  <TableHead className="h-9 px-2 text-[11px] uppercase tracking-wide">Priorität</TableHead>
+                  <TableHead className="h-9 px-2 text-right text-[11px] uppercase tracking-wide">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -951,7 +1070,7 @@ export function StaffOrders() {
                   <TableRow>
                     <TableCell colSpan={7} className="py-6 text-center">
                       <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No assigned repair requests found</p>
+                      <p className="text-muted-foreground">Keine zugewiesenen Reparaturanfragen gefunden</p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -965,7 +1084,7 @@ export function StaffOrders() {
                         <div>
                           <p className="text-xs font-semibold">{request.requestNumber || request._id.slice(-8)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(request.createdAt).toLocaleDateString()}
+                            {new Date(request.createdAt).toLocaleDateString('de-DE')}
                           </p>
                         </div>
                       </TableCell>
@@ -985,12 +1104,12 @@ export function StaffOrders() {
                       </TableCell>
                       <TableCell className="px-2 py-2 align-middle">
                         <Badge className={`${getRepairStatusColor(request.status)} h-5 px-1.5 text-[10px]`}>
-                          {String(request.status).replace('-', ' ')}
+                          {REPAIR_REQUEST_STATUS_LABELS[request.status] || String(request.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-2 py-2 align-middle">
                         <Badge className={`${getRepairPriorityColor(request.priority)} h-5 px-1.5 text-[10px]`}>
-                          {request.priority}
+                          {PRIORITY_LABELS[request.priority] || request.priority}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-2 py-2 text-right align-middle">
@@ -1004,8 +1123,8 @@ export function StaffOrders() {
                               handleViewRepairRequest(request._id)
                             }}
                             title={repairUnreadCounts[request._id] > 0
-                              ? `${repairUnreadCounts[request._id]} new message${repairUnreadCounts[request._id] > 1 ? "s" : ""}`
-                              : "View Details"
+                              ? `${repairUnreadCounts[request._id]} neue Nachricht${repairUnreadCounts[request._id] > 1 ? "en" : ""}`
+                              : "Details anzeigen"
                             }
                           >
                             <Eye className="h-4 w-4" />

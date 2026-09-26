@@ -13,6 +13,7 @@ import {
   DEFAULT_DHL_PRODUCT,
   dhlShipperSettingsMessage,
   DHL_PRODUCTS,
+  dhlProductHint,
   getDhlShipperSettings,
   missingBookingLabelFields,
   normalizeDhlProduct,
@@ -91,9 +92,10 @@ export function CreateBookingShippingLabelDialog({
   // configuration instead – see ShipmentData.shipperFromConfiguration /
   // receiverFromConfiguration.
   const [shopFromConfiguration, setShopFromConfiguration] = useState(false)
-  // Richtung des Labels. Vorgabe ist das EINSENDELABEL: booking.trackingNumber wird im
-  // Produkt durchgehend als "Versand an McRepair (Hinweg)" angezeigt.
-  const [labelDirection, setLabelDirection] = useState<ShippingLabelDirection>("inbound")
+  // Das Buchungslabel ist ausschließlich das EINSENDELABEL (Kunde -> McRepair). Die
+  // Auslieferung an den Kunden wird je Auftrag erstellt ("An Kunden versenden" in der
+  // Auftragsansicht); der Server lehnt ein Rückweg-Label an der Buchung ab.
+  const labelDirection: ShippingLabelDirection = "inbound"
 
   const [formData, setFormData] = useState<BookingShipmentData>({
     weight: 1.0,
@@ -130,7 +132,6 @@ export function CreateBookingShippingLabelDialog({
       setCreationError(null)
       setShopNotice(null)
       setShopFromConfiguration(false)
-      setLabelDirection("inbound")
       loadBookingDetails()
       loadShopDefaults()
     }
@@ -307,7 +308,7 @@ export function CreateBookingShippingLabelDialog({
         deliveryType: "address",
       })
       toast({
-        title: labelDirection === "inbound" ? "Einsendelabel erstellt" : "Rücksendelabel erstellt",
+        title: "Einsendelabel erstellt",
         description: `Sendungsnummer: ${result?.trackingNumber || "-"}`,
       })
       onSuccess()
@@ -357,23 +358,11 @@ export function CreateBookingShippingLabelDialog({
               </div>
               <Separator />
               <div className="space-y-2">
-                <Label htmlFor="labelDirection">Richtung</Label>
-                <Select
-                  value={labelDirection}
-                  onValueChange={(value) => setLabelDirection(value === "outbound" ? "outbound" : "inbound")}
-                >
-                  <SelectTrigger id="labelDirection">
-                    <SelectValue placeholder="Richtung wählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="inbound">Einsendelabel (Hinweg: Kunde an McRepair)</SelectItem>
-                    <SelectItem value="outbound">Rücksendelabel (Rückweg: McRepair an Kunde)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <p className="text-sm font-medium">Versand zum Reparaturbetrieb (Kunde → McRepair)</p>
                 <p className="text-sm text-muted-foreground">
-                  {labelDirection === "inbound"
-                    ? "Absender ist der Kunde, Empfänger ist McRepair. Die Sendungsnummer wird in der Buchung als „Versand an McRepair (Hinweg)“ angezeigt."
-                    : "Absender ist McRepair, Empfänger ist der Kunde."}
+                  Absender ist der Kunde, Empfänger ist McRepair. Die Auslieferung des reparierten Geräts
+                  an den Kunden wird je Auftrag über „An Kunden versenden“ erstellt – so wird ein fertiges
+                  Gerät nie zusammen mit noch offenen Geräten derselben Buchung als versendet markiert.
                 </p>
               </div>
             </div>
@@ -382,7 +371,7 @@ export function CreateBookingShippingLabelDialog({
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">
-                  Kundenadresse ({labelDirection === "inbound" ? "Absender" : "Empfänger"})
+                  Kundenadresse (Absender)
                 </h3>
               </div>
               <Separator />
@@ -468,7 +457,7 @@ export function CreateBookingShippingLabelDialog({
               <div className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">
-                  Shop-Adresse ({labelDirection === "inbound" ? "Empfänger" : "Absender"}, aus der DHL-Integration)
+                  Shop-Adresse (Empfänger, aus der DHL-Integration)
                 </h3>
               </div>
               <Separator />
@@ -528,6 +517,7 @@ export function CreateBookingShippingLabelDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">{dhlProductHint(formData.serviceType)}</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="length">Länge (cm)</Label>
@@ -596,10 +586,8 @@ export function CreateBookingShippingLabelDialog({
               </>
             ) : (
               <>
-                {creationError && <RotateCcw className="h-4 w-4 mr-2" />}
-                {creationError
-                  ? "Erneut versuchen"
-                  : labelDirection === "inbound" ? "Einsendelabel erstellen" : "Rücksendelabel erstellen"}
+                {creationError?.retryable && <RotateCcw className="h-4 w-4 mr-2" />}
+                {creationError?.retryable ? "Erneut versuchen" : "Einsendelabel erstellen"}
               </>
             )}
           </Button>

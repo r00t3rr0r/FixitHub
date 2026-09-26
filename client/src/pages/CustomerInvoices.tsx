@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   confirmInvoicePayment,
+  downloadInvoicePdf,
   getInvoice,
   getCustomerInvoices,
   getInvoicePaymentGateways,
@@ -47,7 +48,38 @@ import {
   InvoicePaypalSdkConfig,
 } from "@/api/invoices";
 import { useToast } from "@/hooks/useToast";
-import { jsPDF } from "jspdf";
+import { summarizeInvoicePayment, INVOICE_PAYMENT_TONE_CLASSES, type InvoiceBalanceView } from "@/api/orders";
+
+// Der Server liefert je Rechnung den Zahlungsstand (`balance`, `paymentState`) und in der
+// Zahlungshistorie den Status jeder Zahlung ('pending' = nur angekündigt). Ältere Antworten
+// haben beides nicht - dann werden keine offenen/bezahlten Beträge erfunden.
+type InvoicePaymentHistoryEntry = NonNullable<Invoice["paymentHistory"]>[number] & { status?: string; refundAmount?: number };
+type InvoiceWithBalance = Omit<Invoice, "paymentHistory"> & {
+  balance?: InvoiceBalanceView | null;
+  paymentState?: string;
+  paymentHistory?: InvoicePaymentHistoryEntry[];
+};
+
+// Deutsche Bezeichnung der Zahlart (nie der rohe Enum-Wert).
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  credit_card: "Kreditkarte",
+  card: "Kreditkarte",
+  debit_card: "Debitkarte",
+  stripe: "Kreditkarte (Stripe)",
+  paypal: "PayPal",
+  sepa: "SEPA-Lastschrift",
+  bank_transfer: "Überweisung",
+  invoice: "Rechnung (Überweisung)",
+  cash: "Bar",
+};
+
+const PAYMENT_HISTORY_STATUS_LABELS: Record<string, string> = {
+  pending: "Angekündigt – Eingang noch nicht bestätigt",
+  processing: "In Bearbeitung",
+  failed: "Fehlgeschlagen",
+  refunded: "Erstattet",
+  disputed: "Angefochten",
+};
 
 export function CustomerInvoices() {
   const { t } = useTranslation();
@@ -342,7 +374,8 @@ export function CustomerInvoices() {
             paymentMethod: 'paypal',
           };
           setSelectedInvoice(updatedInvoice);
-          setPaymentAmount(Math.max(0, Number(response.remainingAmount || 0)).toFixed(2));
+          const confirmedPayment = summarizeInvoicePayment(updatedInvoice as InvoiceWithBalance);
+          setPaymentAmount(confirmedPayment.known ? Math.max(0, confirmedPayment.open ?? 0).toFixed(2) : "");
           await fetchInvoices();
 
           toast({ title: t('common.success'), description: 'PayPal-Zahlung erfolgreich abgeschlossen.' });
@@ -416,8 +449,9 @@ export function CustomerInvoices() {
       setPayerName(mergedInvoice.customerName || invoice.customerName || "");
       setPayerEmail(mergedInvoice.customerEmail || invoice.customerEmail || "");
 
-      const openAmount = Math.max(0, Number(mergedInvoice.total || 0) - Number(mergedInvoice.paidAmount || mergedInvoice.amountPaid || 0));
-      setPaymentAmount(openAmount.toFixed(2));
+      // Vorbelegung mit dem offenen Betrag des SERVERS; ohne Zahlungsstand bleibt das Feld leer.
+      const mergedPayment = summarizeInvoicePayment(mergedInvoice as InvoiceWithBalance);
+      setPaymentAmount(mergedPayment.known ? Math.max(0, mergedPayment.open ?? 0).toFixed(2) : "");
 
       setSelectedGatewayId("");
       setAcceptedTerms(false);
@@ -475,9 +509,9 @@ export function CustomerInvoices() {
   };
 
   const selectedGateway = paymentGateways.find((gateway) => gateway._id === selectedGatewayId);
-  const outstandingAmount = selectedInvoice
-    ? Math.max(0, Number(selectedInvoice.total || 0) - Number(selectedInvoice.paidAmount || selectedInvoice.amountPaid || 0))
-    : 0;
+  // Zahlungsstand der geöffneten Rechnung - nur vom Server, nie "Gesamt - bezahlt".
+  const selectedInvoicePayment = summarizeInvoicePayment(selectedInvoice as InvoiceWithBalance | null);
+  const outstandingAmount: number | null = selectedInvoicePayment.known ? Math.max(0, selectedInvoicePayment.open ?? 0) : null;
 
   const normalizeAddressLines = (addressInput: unknown, fallbackCountry = "", fallbackAddition = "") => {
     const readText = (value: unknown) => String(value ?? "").trim();
@@ -583,10 +617,10 @@ export function CustomerInvoices() {
       toast({ title: t('common.error'), description: 'Bitte geben Sie einen gültigen Zahlungsbetrag ein.', variant: 'destructive' });
       return;
     }
-    if (amount > outstandingAmount + 0.01) {
+    if (outstandingAmount !== null && amount > outstandingAmount + 0.01) {
       toast({
         title: t('common.error'),
-        description: `Der Betrag übersteigt den offenen Restbetrag (${formatEUR(outstandingAmount)}).`,
+        description: `Der Betrag übersteigt den offenen Restbetrag (${formatEUR(outstandingAmount ?? 0)}).`,
         variant: 'destructive',
       });
       return;
@@ -678,30 +712,30 @@ export function CustomerInvoices() {
         },
       });
 
+      // Eine Überweisung o. Ä. ist nur eine ANKÜNDIGUNG (HTTP 202, pending: true): Sie zählt
+      // erst, wenn der Eingang bestätigt ist. Die Historie kommt vom Server (mit Status) -
+      // hier wird keine abgeschlossene Zahlung erfunden.
+      const isPendingAnnouncement = response?.pending === true;
       const updatedInvoice = {
         ...selectedInvoice,
         ...response.invoice,
         amountPaid: response.invoice?.paidAmount ?? response.invoice?.amountPaid,
         paymentMethod: provider,
-        paymentHistory: [
-          {
-            _id: response.payment?._id,
-            date: response.payment?.processedAt || new Date().toISOString(),
-            amount,
-            method: selectedGateway.name,
-            note: response.payment?.transactionId || 'Transaktion erfasst',
-          },
-          ...(selectedInvoice.paymentHistory || []),
-        ],
-      };
+        paymentHistory: Array.isArray(response.invoice?.paymentHistory)
+          ? response.invoice.paymentHistory
+          : selectedInvoice.paymentHistory,
+      } as Invoice;
 
       setSelectedInvoice(updatedInvoice);
       setInvoices((prev) => prev.map((invoice) => (invoice._id === updatedInvoice._id ? updatedInvoice : invoice)));
-      setPaymentAmount(Math.max(0, Number(response.remainingAmount || 0)).toFixed(2));
+      const updatedPayment = summarizeInvoicePayment(updatedInvoice as InvoiceWithBalance);
+      setPaymentAmount(updatedPayment.known ? Math.max(0, updatedPayment.open ?? 0).toFixed(2) : "");
 
       toast({
-        title: t('common.success'),
-        description: `Zahlung über ${selectedGateway.name} wurde erfolgreich erfasst.`,
+        title: isPendingAnnouncement ? 'Zahlung vorgemerkt' : t('common.success'),
+        description: isPendingAnnouncement
+          ? (response?.message || 'Ihre Zahlung wurde vorgemerkt. Die Rechnung gilt als bezahlt, sobald der Zahlungseingang bei uns bestätigt ist.')
+          : `Zahlung über ${selectedGateway.name} wurde erfasst.`,
       });
     } catch (error: any) {
       toast({
@@ -780,762 +814,23 @@ export function CustomerInvoices() {
     void confirmRedirectPayment();
   }, []);
 
+  // Download = das ARCHIVIERTE Rechnungsdokument vom Server (GET /api/invoices/:id/pdf):
+  // dieselbe, unveraenderliche Fassung, die per E-Mail versendet wurde (Fusszeile,
+  // Bewertungs-QR nur mit konfiguriertem Ziel, Stand bei Rechnungsstellung). Frueher
+  // wurde hier clientseitig ein eigenes PDF gebaut - mit abweichender Fusszeile und einer
+  // fest eingetragenen Bewertungsadresse. Der aktuelle Zahlungsstand steht in der Ansicht.
   const handleDownloadInvoice = async (invoice: Invoice) => {
     try {
-      const detailedResponse = await getInvoice(invoice._id);
-      const sourceInvoice = (detailedResponse?.invoice || invoice) as Invoice;
-
-      const pdf = new jsPDF({ unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const left = 12;
-      const right = pageWidth - 12;
-      const strictTemplateMode = true;
-      const logoUrl = "https://www.mcrepair.de/bilder/intern/shoplogo/logo180.png";
-      const reviewUrl = "https://search.google.com/local/writereview?placeid=ChIJVVVVlf1QqEcRtHn-0ehLwpk&source=g.page.m.dd._&laa=lu-desktop-reviews-dialog-review-solicitation";
-      const lineSoft: [number, number, number] = [203, 210, 222];
-      const lineStrong: [number, number, number] = [138, 149, 170];
-
-      const drawLine = (x1: number, y1: number, x2: number, y2: number, strong = false) => {
-        const color = strong ? lineStrong : lineSoft;
-        pdf.setDrawColor(...color);
-        pdf.setLineWidth(strong ? 0.4 : 0.22);
-        pdf.line(x1, y1, x2, y2);
-      };
-
-      const drawRect = (x: number, y: number, w: number, h: number, strong = false) => {
-        const color = strong ? lineStrong : lineSoft;
-        pdf.setDrawColor(...color);
-        pdf.setLineWidth(strong ? 0.4 : 0.24);
-        pdf.rect(x, y, w, h);
-      };
-
-      const formatDate = (value?: string | Date) => {
-        if (!value) return "-";
-        const parsed = new Date(value);
-        if (Number.isNaN(parsed.getTime())) return "-";
-        return parsed.toLocaleDateString("de-DE");
-      };
-
-      const formatMoney = (value: number | undefined | null) => {
-        const numeric = Number(value || 0);
-        return `${numeric.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-      };
-
-      const formatSignedMoney = (value: number | undefined | null) => {
-        const numeric = Number(value || 0);
-        const sign = numeric < 0 ? "-" : "";
-        const absolute = Math.abs(numeric);
-        return `${sign}${absolute.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-      };
-
-      const formatTax = (value: number | undefined | null) => {
-        const numeric = Number(value || 0);
-        return `${numeric.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
-      };
-
-      const cleanText = (value: unknown, fallback = "-") => {
-        const text = String(value ?? "").trim();
-        return text || fallback;
-      };
-
-      const normalizeAmount = (value: number | undefined | null) => Number(value || 0);
-
-      const createQrDataUrl = async (value: string): Promise<string | null> => {
-        try {
-          const qrModule = await import("qrcode");
-          const toDataURL = (qrModule as any).toDataURL || (qrModule as any).default?.toDataURL;
-          if (!toDataURL) return null;
-
-          return await toDataURL(value, {
-            errorCorrectionLevel: "M",
-            margin: 1,
-            width: 300,
-            color: {
-              dark: "#0b1220",
-              light: "#FFFFFF",
-            },
-          });
-        } catch {
-          return null;
-        }
-      };
-
-      const loadImageData = async (url: string): Promise<{ dataUrl: string; width: number; height: number } | null> => {
-        return new Promise((resolve) => {
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => {
-            try {
-              const canvas = document.createElement("canvas");
-              canvas.width = image.naturalWidth;
-              canvas.height = image.naturalHeight;
-              const context = canvas.getContext("2d");
-              if (!context) {
-                resolve(null);
-                return;
-              }
-              context.drawImage(image, 0, 0);
-              resolve({
-                dataUrl: canvas.toDataURL("image/png"),
-                width: image.naturalWidth,
-                height: image.naturalHeight,
-              });
-            } catch {
-              resolve(null);
-            }
-          };
-          image.onerror = () => resolve(null);
-          if (url.startsWith("data:")) {
-            image.src = url;
-          } else {
-            image.src = url.includes("?") ? `${url}&v=1` : `${url}?v=1`;
-          }
-        });
-      };
-
-      const rawInvoice = sourceInvoice as Invoice & {
-        customerId?: string | {
-          _id?: string;
-          customerNumber?: string;
-          addressAddition?: string;
-          country?: string;
-          invoiceAddress?: {
-            street?: string;
-            city?: string;
-            state?: string;
-            zipCode?: string;
-            country?: string;
-          };
-          paymentAddress?: {
-            street?: string;
-            city?: string;
-            state?: string;
-            zipCode?: string;
-            country?: string;
-            sameAsInvoice?: boolean;
-          };
-        };
-        customerNumber?: string;
-      };
-
-      const pickAddressField = (source: Record<string, unknown>, keys: string[]) => {
-        for (const key of keys) {
-          const value = cleanText(source[key], "");
-          if (value) return value;
-        }
-        return "";
-      };
-
-      const toAddressLines = (addressInput?: unknown, fallbackCountry = "", fallbackAddition = "") => {
-        if (!addressInput) return [];
-
-        if (typeof addressInput === "string") {
-          return addressInput
-            .split(/\n|,/) 
-            .map((line) => line.trim())
-            .filter(Boolean);
-        }
-
-        if (typeof addressInput === "object") {
-          const addressAny = addressInput as Record<string, unknown>;
-          const street = pickAddressField(addressAny, ["street", "line1", "addressLine1", "address1"]);
-          const street2 = pickAddressField(addressAny, ["line2", "addressLine2", "address2"]);
-          const zip = pickAddressField(addressAny, ["zip", "postalCode", "postcode", "zipCode"]);
-          const city = pickAddressField(addressAny, ["city", "town"]);
-          const state = pickAddressField(addressAny, ["state", "province"]);
-          const country = pickAddressField(addressAny, ["country"]) || fallbackCountry;
-          const addition = pickAddressField(addressAny, ["addressAddition", "addition"]) || fallbackAddition;
-          const zipCity = [zip, city].filter(Boolean).join(" ").trim();
-          return [addition, street, street2, zipCity, state, country].filter(Boolean);
-        }
-
-        return [];
-      };
-
-      const billingAddressLines = (() => {
-        const customerProfile = typeof rawInvoice.customerId === "object" ? rawInvoice.customerId : undefined;
-        const profileAddress = toAddressLines(
-          customerProfile?.invoiceAddress,
-          cleanText(customerProfile?.country, ""),
-          cleanText(customerProfile?.addressAddition, ""),
-        );
-        if (profileAddress.length) return profileAddress;
-
-        const paymentProfileAddress = toAddressLines(
-          customerProfile?.paymentAddress,
-          cleanText(customerProfile?.country, ""),
-          cleanText(customerProfile?.addressAddition, ""),
-        );
-        if (paymentProfileAddress.length) return paymentProfileAddress;
-
-        const invoiceAddress = toAddressLines(sourceInvoice.billingAddress);
-        if (invoiceAddress.length) return invoiceAddress;
-
-        if (typeof sourceInvoice.billingAddress === "string") {
-          return sourceInvoice.billingAddress
-            .split(/\n|,/)
-            .map((line) => line.trim())
-            .filter(Boolean);
-        }
-
-        if (sourceInvoice.billingAddress && typeof sourceInvoice.billingAddress === "object") {
-          const addressAny = sourceInvoice.billingAddress as Record<string, unknown>;
-          const street = pickAddressField(addressAny, ["street", "line1", "addressLine1", "address1"]);
-          const street2 = pickAddressField(addressAny, ["line2", "addressLine2", "address2"]);
-          const zip = pickAddressField(addressAny, ["zip", "postalCode", "postcode", "zipCode"]);
-          const city = pickAddressField(addressAny, ["city", "town"]);
-          const state = pickAddressField(addressAny, ["state", "province"]);
-          const country = pickAddressField(addressAny, ["country"]);
-          const zipCity = [zip, city].filter(Boolean).join(" ").trim();
-          return [street, street2, zipCity, state, country].filter(Boolean);
-        }
-
-        return [];
-      })();
-
-      const customerIdentityLines = [
-        cleanText(sourceInvoice.customerName),
-        cleanText(sourceInvoice.contactPerson, ""),
-      ].filter(Boolean);
-      const invoiceAddressLines = billingAddressLines.length ? billingAddressLines : ["Rechnungsadresse nicht hinterlegt"];
-      const customerLines = [...customerIdentityLines, ...invoiceAddressLines];
-
-      const orderNumber = cleanText(sourceInvoice.orderId?.orderNumber);
-      const invoiceNumber = cleanText(sourceInvoice.invoiceNumber);
-      const customerIdRaw = typeof rawInvoice.customerId === "string"
-        ? rawInvoice.customerId
-        : rawInvoice.customerId?._id;
-      const customerNumber = cleanText(
-        rawInvoice.customerNumber ||
-        (typeof rawInvoice.customerId === "object" ? rawInvoice.customerId?.customerNumber : "") ||
-        (customerIdRaw ? `KD${String(customerIdRaw).slice(-6).toUpperCase()}` : ""),
-      );
-
-      const isReverseCharge = Boolean(sourceInvoice.isReverseCharge);
-      const reverseChargeNotice = cleanText(sourceInvoice.reverseChargeNotice, "Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge");
-      const customerVatId = cleanText(
-        sourceInvoice.customerVatId ||
-        (typeof rawInvoice.customerId === "object" ? (rawInvoice.customerId as any)?.vatId : ""),
-        ""
-      );
-      const sellerVatId = cleanText(sourceInvoice.sellerVatId, "DE318981969");
-
-      if (customerVatId) {
-        customerLines.push(`USt-IdNr.: ${customerVatId}`);
-      }
-
-      const invoiceDate = formatDate(sourceInvoice.createdAt);
-      const dueDate = formatDate(sourceInvoice.dueDate);
-      const paymentMethod = cleanText(sourceInvoice.paymentMethod || "-");
-
-      const amountPaid = normalizeAmount(sourceInvoice.amountPaid ?? sourceInvoice.paidAmount ?? 0);
-      // Betraege werden IMMER aus dem gespeicherten Beleg gelesen (brutto-first):
-      // invoiceNetTotal/invoiceTaxTotal/invoiceGrossTotal sind die Spiegelfelder,
-      // subtotal/tax/total der aeltere Name derselben Werte. Nichts wird hier neu gerechnet.
-      const subtotal = normalizeAmount(sourceInvoice.invoiceNetTotal ?? sourceInvoice.subtotal);
-      const total = normalizeAmount(sourceInvoice.invoiceGrossTotal ?? sourceInvoice.total);
-      const taxAmount = isReverseCharge ? 0 : normalizeAmount(sourceInvoice.invoiceTaxTotal ?? sourceInvoice.tax);
-      const discountAmount = normalizeAmount(sourceInvoice.discount);
-      const openAmount = total - amountPaid;
-      const defaultTaxRate = isReverseCharge
-        ? 0
-        : (typeof sourceInvoice.taxRate === "number"
-          ? sourceInvoice.taxRate
-          : (sourceInvoice.items.find((item) => typeof item.taxRate === "number")?.taxRate ?? (taxAmount > 0 ? 19 : 0)));
-
-      const latestPayment = sourceInvoice.paymentHistory && sourceInvoice.paymentHistory.length > 0 ? sourceInvoice.paymentHistory[0] : undefined;
-      const paymentDate = formatDate(latestPayment?.date || sourceInvoice.createdAt);
-
-      const paymentHistoryRows = (() => {
-        const normalized = (sourceInvoice.paymentHistory || [])
-          .map((entry) => ({
-            date: entry?.date,
-            amount: normalizeAmount(entry?.amount),
-            method: cleanText(entry?.method || paymentMethod, "-"),
-            note: cleanText(entry?.note || "", ""),
-          }))
-          .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0)
-          .sort((a, b) => {
-            const tsA = a.date ? new Date(a.date).getTime() : 0;
-            const tsB = b.date ? new Date(b.date).getTime() : 0;
-            return tsB - tsA;
-          });
-
-        if (normalized.length > 0) {
-          return normalized;
-        }
-
-        if (amountPaid > 0) {
-          return [{
-            date: sourceInvoice.paidAt || sourceInvoice.createdAt,
-            amount: amountPaid,
-            method: cleanText(paymentMethod, "-"),
-            note: "Gesamtzahlung",
-          }];
-        }
-
-        return [] as Array<{ date?: string; amount: number; method: string; note: string }>;
-      })();
-
-      const baseline = 4;
-
-      const logoAsset = await loadImageData(logoUrl);
-      const qrDataUrl = await createQrDataUrl(reviewUrl);
-      const qrAsset = qrDataUrl ? await loadImageData(qrDataUrl) : null;
-      let logoLeftBoundary = right;
-
-      if (logoAsset) {
-        const maxLogoWidth = 38;
-        const maxLogoHeight = 14;
-        const logoRatio = logoAsset.width / Math.max(logoAsset.height, 1);
-        let logoWidth = maxLogoWidth;
-        let logoHeight = logoWidth / logoRatio;
-
-        if (logoHeight > maxLogoHeight) {
-          logoHeight = maxLogoHeight;
-          logoWidth = logoHeight * logoRatio;
-        }
-
-        const logoX = right - logoWidth;
-        const logoY = 9.5;
-        logoLeftBoundary = logoX;
-        pdf.addImage(logoAsset.dataUrl, "PNG", logoX, logoY, logoWidth, logoHeight, undefined, "FAST");
-      } else {
-        pdf.setDrawColor(28, 43, 92);
-        pdf.setLineWidth(0.35);
-        pdf.rect(right - 43, 9, 31, 13.5);
-        logoLeftBoundary = right - 43;
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(28, 43, 92);
-        pdf.setFontSize(8.8);
-        pdf.text("McRepair.de", right - 27.5, 16, { align: "center" });
-      }
-
-      // Top sender line
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.text("Online Point GmbH, Kurfuerstenstrasse 106, 10787 Berlin", left, 14);
-      drawLine(left, 16, Math.max(left + 30, logoLeftBoundary - 2), 16);
-
-      // Recipient block
-      const recipientTop = 19;
-      const recipientWidth = 76;
-      const recipientTextWidth = recipientWidth - 5.2;
-      const recipientLines = (customerLines.length ? customerLines : ["-"])
-        .flatMap((line) => pdf.splitTextToSize(String(line), recipientTextWidth));
-      const recipientHeight = Math.max(19, recipientLines.length * 4 + 10.5);
-      drawRect(left, recipientTop, recipientWidth, recipientHeight);
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8.8);
-      pdf.text("Rechnungsadresse", left + 2.4, recipientTop + 5.2);
-      drawLine(left + 2, recipientTop + 6.8, left + recipientWidth - 2, recipientTop + 6.8);
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9.1);
-      pdf.text(recipientLines, left + 2.4, recipientTop + 10.8);
-
-      // Headline
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
-      pdf.text("Rechnung", pageWidth / 2, 56, { align: "center" });
-
-      // Meta row
-      drawLine(left, 61.5, right, 61.5, true);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.text("Seite: 1", left, 65);
-      pdf.text(invoiceDate, right, 65, { align: "right" });
-      pdf.text(`Rechnungsnr. ${invoiceNumber} bzgl. Bestellnummer: ${orderNumber}`, left, 71);
-      if (isReverseCharge) {
-        pdf.text(`Kundennummer: ${customerNumber} | USt-IdNr. Empfänger: ${customerVatId || '-'}`, left, 77);
-        pdf.text(`USt-IdNr. Aussteller: ${sellerVatId}`, right, 77, { align: "right" });
-      } else {
-        pdf.text(`Kundennummer: ${customerNumber}`, left, 77);
-        if (customerVatId) {
-          pdf.text(`USt-IdNr. Kunde: ${customerVatId}`, right, 77, { align: "right" });
-        } else if (!strictTemplateMode) {
-          pdf.text(`Faelligkeitsdatum: ${dueDate}`, right, 77, { align: "right" });
-        }
-      }
-      drawLine(left, 79.8, right, 79.8);
-
-      // Items table (professionelles, nutzerfreundliches Grid)
-      const tableLeft = left;
-      const tableRight = right;
-      const tableTop = 84.5;
-      const tableHeaderHeight = 9;
-      const colWidths = {
-        pos: 10,
-        qty: 20,
-        article: 24,
-        desc: 56,
-        tax: 12,
-        unit: 26,
-      };
-      const xPos = tableLeft;
-      const xQty = xPos + colWidths.pos;
-      const xArticle = xQty + colWidths.qty;
-      const xDesc = xArticle + colWidths.article;
-      const xTax = xDesc + colWidths.desc;
-      const xUnit = xTax + colWidths.tax;
-      const xTotal = tableRight;
-
-      pdf.setFillColor(245, 248, 252);
-      pdf.rect(tableLeft, tableTop, tableRight - tableLeft, tableHeaderHeight, "F");
-      drawLine(tableLeft, tableTop, tableRight, tableTop, true);
-      drawLine(tableLeft, tableTop + tableHeaderHeight, tableRight, tableTop + tableHeaderHeight, true);
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8.8);
-      const headerTextY = tableTop + 5.8;
-      pdf.text("Pos.", xPos + 1.6, headerTextY);
-      pdf.text("Menge", xQty + 1.6, headerTextY);
-      pdf.text("Art.-Nr.", xArticle + 1.6, headerTextY);
-      pdf.text("Service Name", xDesc + 1.6, headerTextY);
-      pdf.text("USt.", xTax + 1.6, headerTextY);
-      pdf.text("Einzel", xUnit + colWidths.unit - 1.8, headerTextY, { align: "right" });
-      pdf.text("Gesamt", xTotal - 1.8, headerTextY, { align: "right" });
-
-      let tableCursorY = tableTop + tableHeaderHeight;
-
-      if (!invoice.items.length) {
-        const emptyRowHeight = 10;
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(8.8);
-        pdf.text("Keine Positionen vorhanden", xDesc + 1.6, tableCursorY + 6);
-        tableCursorY += emptyRowHeight;
-        drawLine(tableLeft, tableCursorY, tableRight, tableCursorY);
-      } else {
-        invoice.items.forEach((item, index) => {
-          const itemAny = item as Invoice["items"][number] & { articleNumber?: string; sku?: string };
-          const descLines = pdf.splitTextToSize(cleanText(getInvoiceItemServiceName(item)), colWidths.desc - 3.4);
-          const descLineCount = Math.max(descLines.length, 1);
-          const rowHeight = Math.max(9.5, descLineCount * 3.9 + 3.8);
-          const rowBottom = tableCursorY + rowHeight;
-
-          if (index % 2 === 1) {
-            pdf.setFillColor(252, 253, 255);
-            pdf.rect(tableLeft, tableCursorY, tableRight - tableLeft, rowHeight, "F");
-          }
-
-          const taxRate = item.taxRate != null ? item.taxRate : defaultTaxRate;
-          const rowTextY = tableCursorY + 5.5;
-
-          pdf.setFont("helvetica", "normal");
-          pdf.setFontSize(8.7);
-          pdf.text(String(index + 1), xPos + 1.6, rowTextY);
-          pdf.text(`${cleanText(item.quantity, 1)} Stk`, xQty + 1.6, rowTextY);
-          pdf.text(cleanText(itemAny.articleNumber || itemAny.sku, "-"), xArticle + 1.6, rowTextY);
-          pdf.text(descLines, xDesc + 1.6, rowTextY);
-          pdf.text(`${Number(taxRate || 0).toLocaleString("de-DE", { maximumFractionDigits: 2 })}%`, xTax + 1.6, rowTextY);
-          pdf.text(formatMoney(item.unitPrice), xUnit + colWidths.unit - 1.8, rowTextY, { align: "right" });
-          pdf.text(formatMoney(item.total), xTotal - 1.8, rowTextY, { align: "right" });
-
-          drawLine(tableLeft, rowBottom, tableRight, rowBottom);
-          tableCursorY = rowBottom;
-        });
-      }
-
-      drawRect(tableLeft, tableTop, tableRight - tableLeft, tableCursorY - tableTop, true);
-      [xQty, xArticle, xDesc, xTax, xUnit].forEach((xLine) => {
-        drawLine(xLine, tableTop, xLine, tableCursorY);
-      });
-
-      // Informations- und Summenbereich als 2-Spalten-Layout
-      const footerY = pageHeight - 22;
-      const footerTop = footerY - 4;
-      const groupedTaxLabel = taxAmount > 0
-        ? `(${Number(defaultTaxRate).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-        : "(0,00%)";
-
-      let y = tableCursorY + 5.5;
-      const summaryWidth = 72;
-      const summaryX = right - summaryWidth;
-      const infoX = left;
-      const infoWidth = summaryX - infoX - 4;
-
-      const detailLines = [
-        `Leistungsdatum: ${invoiceDate}`,
-        `Zahlungsart: ${paymentMethod}`,
-        `Faelligkeitsdatum: ${dueDate}`,
-        `E-Mail: ${cleanText(sourceInvoice.customerEmail, "-")}`,
-      ];
-      if (isReverseCharge) {
-        detailLines.push(`Hinweis: ${reverseChargeNotice}`);
-      }
-
-      const notes = cleanText(sourceInvoice.notes, "");
-      const rawNoteLines = notes ? pdf.splitTextToSize(notes, infoWidth - 8) : [];
-
-      let noteLines = rawNoteLines.slice(0, 7);
-      const rowHeight = 5.9;
-      const totalsRows = [
-        { label: "Gesamt Netto", value: formatMoney(subtotal), emphasize: false },
-        {
-          label: isReverseCharge ? "zzgl. 0,00% MwSt. (Reverse Charge)" : `zzgl. ${formatTax(defaultTaxRate)} MwSt. ${groupedTaxLabel}`,
-          value: formatMoney(isReverseCharge ? 0 : taxAmount),
-          emphasize: false
-        },
-      ];
-      if (discountAmount > 0) {
-        // Der Rabatt mindert das BRUTTO genau einmal; der Betrag vor Rabatt ist
-        // deshalb Brutto + Rabatt und nicht Netto + MwSt.
-        totalsRows.push({ label: "Betrag vor Rabatt (brutto)", value: formatMoney(total + discountAmount), emphasize: false });
-        totalsRows.push({ label: "Rabatt (brutto)", value: `- ${formatMoney(discountAmount)}`, emphasize: false });
-      }
-      totalsRows.push({ label: "Gesamtbetrag", value: formatMoney(total), emphasize: true });
-      if (amountPaid > 0) {
-        totalsRows.push({ label: `Zahlung (${paymentMethod})`, value: formatMoney(amountPaid), emphasize: false });
-      }
-      totalsRows.push({ label: "Offener Betrag", value: formatSignedMoney(openAmount), emphasize: true });
-
-      const computeInfoHeight = () => 10 + detailLines.length * 4.9 + (noteLines.length ? 6 + noteLines.length * 4 : 0);
-      const computeSummaryHeight = () => 10 + totalsRows.length * rowHeight;
-
-      const maxBlockHeight = footerTop - y - 8;
-      while (computeInfoHeight() > maxBlockHeight && noteLines.length > 0) {
-        noteLines = noteLines.slice(0, noteLines.length - 1);
-      }
-      if (rawNoteLines.length > noteLines.length && noteLines.length > 0) {
-        const lastLine = String(noteLines[noteLines.length - 1]);
-        noteLines[noteLines.length - 1] = `${lastLine} ...`;
-      }
-
-      const infoHeight = computeInfoHeight();
-      const summaryHeight = computeSummaryHeight();
-      const cardHeight = Math.max(infoHeight, summaryHeight, 24);
-
-      const qrSize = 17;
-      const feedbackTextLines = [
-        "Wenn Sie mit der Reparatur zufrieden",
-        "waren, bewerten Sie uns gern.",
-        "Wir freuen uns auf Ihr Feedback!",
-      ];
-      const feedbackTextBlockHeight = 11.5;
-      const feedbackBoxHeight = qrSize + feedbackTextBlockHeight + 11;
-      const feedbackGap = 4;
-      const paymentSectionGap = 4;
-      const paymentHistoryVisibleRows = paymentHistoryRows.slice(0, 6);
-      const paymentHistoryHasMore = paymentHistoryRows.length > paymentHistoryVisibleRows.length;
-      const paymentHistoryHeaderHeight = 12.2;
-      const paymentHistoryRowHeight = 6.1;
-      const paymentHistoryEmptyHeight = 8.6;
-      const paymentHistoryMoreHintHeight = paymentHistoryHasMore ? 4.2 : 0;
-      const paymentHistoryBodyHeight = paymentHistoryVisibleRows.length > 0
-        ? paymentHistoryVisibleRows.length * paymentHistoryRowHeight
-        : paymentHistoryEmptyHeight;
-      const paymentHistoryHeight = paymentHistoryHeaderHeight + paymentHistoryBodyHeight + paymentHistoryMoreHintHeight;
-      const requiredBottomSectionHeight = cardHeight + paymentSectionGap + paymentHistoryHeight + feedbackGap + feedbackBoxHeight;
-
-      if (y + requiredBottomSectionHeight > footerTop - 2) {
-        pdf.addPage();
-
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(13.5);
-        pdf.text("Rechnung - Fortsetzung", left, 18);
-        drawLine(left, 21, right, 21, true);
-
-        if (logoAsset) {
-          const maxLogoWidth = 34;
-          const maxLogoHeight = 12;
-          const logoRatio = logoAsset.width / Math.max(logoAsset.height, 1);
-          let logoWidth = maxLogoWidth;
-          let logoHeight = logoWidth / logoRatio;
-          if (logoHeight > maxLogoHeight) {
-            logoHeight = maxLogoHeight;
-            logoWidth = logoHeight * logoRatio;
-          }
-          const logoX = right - logoWidth;
-          pdf.addImage(logoAsset.dataUrl, "PNG", logoX, 9, logoWidth, logoHeight, undefined, "FAST");
-        }
-
-        y = 26;
-      }
-
-      pdf.setFillColor(250, 252, 254);
-      pdf.rect(infoX, y, infoWidth, cardHeight, "F");
-      drawRect(infoX, y, infoWidth, cardHeight);
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.text("Rechnungsdetails", infoX + 2.4, y + 5.2);
-      drawLine(infoX + 1.8, y + 6.8, infoX + infoWidth - 1.8, y + 6.8);
-
-      let infoCursor = y + 11;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8.7);
-      detailLines.forEach((line) => {
-        pdf.text(line, infoX + 2.4, infoCursor);
-        infoCursor += 4.9;
-      });
-
-      if (noteLines.length) {
-        infoCursor += 1;
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Hinweise", infoX + 2.4, infoCursor + 1.8);
-        infoCursor += 4.4;
-        pdf.setFont("helvetica", "normal");
-        pdf.text(noteLines, infoX + 2.4, infoCursor + 1.2);
-      }
-
-      pdf.setFillColor(248, 250, 253);
-      pdf.rect(summaryX, y, summaryWidth, cardHeight, "F");
-      drawRect(summaryX, y, summaryWidth, cardHeight, true);
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.text("Zahlungsuebersicht", summaryX + 2.5, y + 5.2);
-      drawLine(summaryX + 2, y + 6.8, summaryX + summaryWidth - 2, y + 6.8);
-
-      let summaryCursor = y + 11;
-      totalsRows.forEach((row, index) => {
-        if (row.emphasize) {
-          pdf.setFillColor(238, 244, 252);
-          pdf.rect(summaryX + 1.2, summaryCursor - 3.8, summaryWidth - 2.4, rowHeight, "F");
-        }
-
-        pdf.setFont("helvetica", row.emphasize ? "bold" : "normal");
-        pdf.setFontSize(row.emphasize ? 9.2 : 8.7);
-        pdf.text(row.label, summaryX + 2.4, summaryCursor);
-        pdf.text(row.value, summaryX + summaryWidth - 2.2, summaryCursor, { align: "right" });
-
-        if (index < totalsRows.length - 1) {
-          drawLine(summaryX + 2, summaryCursor + 2.1, summaryX + summaryWidth - 2, summaryCursor + 2.1);
-        }
-        summaryCursor += rowHeight;
-      });
-
-      // Payment history section (professionell strukturiert als kompaktes Journal)
-      const paymentHistoryY = y + cardHeight + paymentSectionGap;
-      const paymentHistoryX = left;
-      const paymentHistoryWidth = right - left;
-      const paymentDateColWidth = 25;
-      const paymentAmountColWidth = 30;
-      const paymentDetailColWidth = paymentHistoryWidth - paymentDateColWidth - paymentAmountColWidth - 5.6;
-      const paymentDetailMaxChars = 60;
-
-      pdf.setFillColor(250, 252, 254);
-      pdf.rect(paymentHistoryX, paymentHistoryY, paymentHistoryWidth, paymentHistoryHeight, "F");
-      drawRect(paymentHistoryX, paymentHistoryY, paymentHistoryWidth, paymentHistoryHeight);
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.setTextColor(26, 42, 94);
-      pdf.text("Zahlungsverlauf", paymentHistoryX + 2.4, paymentHistoryY + 5.2);
-      drawLine(paymentHistoryX + 2, paymentHistoryY + 6.8, paymentHistoryX + paymentHistoryWidth - 2, paymentHistoryY + 6.8);
-
-      const paymentHeaderY = paymentHistoryY + 10.2;
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8.2);
-      pdf.setTextColor(76, 91, 121);
-      pdf.text("Datum", paymentHistoryX + 2.4, paymentHeaderY);
-      pdf.text("Methode / Notiz", paymentHistoryX + paymentDateColWidth + 2.2, paymentHeaderY);
-      pdf.text("Betrag", paymentHistoryX + paymentHistoryWidth - 2.4, paymentHeaderY, { align: "right" });
-      drawLine(paymentHistoryX + 2, paymentHeaderY + 1.6, paymentHistoryX + paymentHistoryWidth - 2, paymentHeaderY + 1.6);
-
-      let paymentRowY = paymentHeaderY + 4.5;
-      if (paymentHistoryVisibleRows.length > 0) {
-        paymentHistoryVisibleRows.forEach((row, index) => {
-          if (index % 2 === 1) {
-            pdf.setFillColor(253, 253, 255);
-            pdf.rect(paymentHistoryX + 1.2, paymentRowY - 3.9, paymentHistoryWidth - 2.4, paymentHistoryRowHeight, "F");
-          }
-
-          const methodAndNoteRaw = row.note ? `${row.method} • ${row.note}` : row.method;
-          const methodAndNote = methodAndNoteRaw.length > paymentDetailMaxChars
-            ? `${methodAndNoteRaw.slice(0, paymentDetailMaxChars - 1)}...`
-            : methodAndNoteRaw;
-
-          pdf.setFont("helvetica", "normal");
-          pdf.setFontSize(8.4);
-          pdf.setTextColor(30, 41, 59);
-          pdf.text(formatDate(row.date), paymentHistoryX + 2.4, paymentRowY);
-          pdf.text(methodAndNote, paymentHistoryX + paymentDateColWidth + 2.2, paymentRowY, { maxWidth: paymentDetailColWidth });
-          pdf.setFont("helvetica", "bold");
-          pdf.text(formatMoney(row.amount), paymentHistoryX + paymentHistoryWidth - 2.4, paymentRowY, { align: "right" });
-
-          drawLine(paymentHistoryX + 2, paymentRowY + 2.1, paymentHistoryX + paymentHistoryWidth - 2, paymentRowY + 2.1);
-          paymentRowY += paymentHistoryRowHeight;
-        });
-      } else {
-        pdf.setFont("helvetica", "italic");
-        pdf.setFontSize(8.4);
-        pdf.setTextColor(107, 114, 128);
-        pdf.text("Noch keine Zahlungen erfasst", paymentHistoryX + 2.4, paymentRowY);
-      }
-
-      if (paymentHistoryHasMore) {
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(8);
-        pdf.setTextColor(95, 109, 134);
-        pdf.text(`Weitere Zahlungen: ${paymentHistoryRows.length - paymentHistoryVisibleRows.length}`, paymentHistoryX + 2.4, paymentHistoryY + paymentHistoryHeight - 1.9);
-      }
-
-      pdf.setTextColor(0, 0, 0);
-
-      // Feedback callout + QR (collision-safe placement oberhalb Footer)
-      const postCardY = paymentHistoryY + paymentHistoryHeight;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8.8);
-      const feedbackX = right - 46;
-      const feedbackWidth = 48;
-      const feedbackTopPreferred = postCardY + 4;
-      const feedbackTopMax = footerTop - feedbackBoxHeight - 5;
-      const feedbackTop = Math.min(feedbackTopPreferred, feedbackTopMax);
-      if (feedbackTop >= postCardY + 1.5) {
-        pdf.setFillColor(248, 251, 255);
-        pdf.rect(feedbackX - 2, feedbackTop, feedbackWidth, feedbackBoxHeight, "F");
-        drawRect(feedbackX - 2, feedbackTop, feedbackWidth, feedbackBoxHeight);
-
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(8);
-        pdf.setTextColor(26, 42, 94);
-        pdf.text("Bewertung", feedbackX + (feedbackWidth - 4) / 2, feedbackTop + 4.8, { align: "center" });
-        drawLine(feedbackX + 2, feedbackTop + 6.2, feedbackX + feedbackWidth - 4, feedbackTop + 6.2);
-
-        const qrX = feedbackX + (feedbackWidth - 4 - qrSize) / 2;
-        const qrY = feedbackTop + 7.4;
-        if (qrAsset) {
-          pdf.addImage(qrAsset.dataUrl, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
-        } else {
-          drawRect(qrX, qrY, qrSize, qrSize);
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(7.4);
-          pdf.text("QR", qrX + qrSize / 2, qrY + qrSize / 2 + 0.8, { align: "center" });
-        }
-
-        const feedbackTextY = qrY + qrSize + 4.3;
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(7.6);
-        pdf.setTextColor(30, 41, 59);
-        pdf.text(feedbackTextLines[0], feedbackX + feedbackWidth / 2 - 2, feedbackTextY, { align: "center" });
-        pdf.text(feedbackTextLines[1], feedbackX + feedbackWidth / 2 - 2, feedbackTextY + 3.7, { align: "center" });
-        pdf.text(feedbackTextLines[2], feedbackX + feedbackWidth / 2 - 2, feedbackTextY + 7.4, { align: "center" });
-        pdf.setTextColor(0, 0, 0);
-      }
-
-      drawLine(left, footerY - 4, right, footerY - 4, true);
-      drawLine(pageWidth / 2 - 24, footerY - 1, pageWidth / 2 - 24, pageHeight - 8);
-      drawLine(right - 64, footerY - 1, right - 64, pageHeight - 8);
-      pdf.setFontSize(8.2);
-      pdf.text(["Online Point GmbH", "Kurfuerstenstrasse 106", "10787 Berlin", "Tel.: 030 403 688 951"], left, footerY);
-      pdf.text(["Commerzbank AG", "IBAN: DE95100400000501905400", "BIC: COBADEFFXXX"], pageWidth / 2 - 18, footerY);
-      pdf.text(["Amtsgericht Charlottenburg", "HRB 136735 B", "Geschaeftsfuehrer: Julian Szymansky", "Ust-IdNr.: DE318981969"], right - 58, footerY);
-
-      const safeInvoiceNumber = cleanText(sourceInvoice.invoiceNumber).replace(/[^a-zA-Z0-9_-]/g, "_");
-      pdf.save(`Rechnung_${safeInvoiceNumber}.pdf`);
-
+      await downloadInvoicePdf(invoice._id, invoice.invoiceNumber);
       toast({
         title: t("common.success"),
         description: t("invoices.downloadStarted"),
       });
     } catch (error: any) {
-      console.error("CustomerInvoices: Error generating invoice PDF", error);
+      console.error("CustomerInvoices: Error downloading invoice PDF", error);
       toast({
         title: t("common.error"),
-        description: error?.message || "Die Rechnung konnte nicht als PDF erstellt werden.",
+        description: error?.message || "Die Rechnung konnte nicht als PDF geladen werden.",
         variant: "destructive",
       });
     }
@@ -1724,6 +1019,15 @@ export function CustomerInvoices() {
                           {getStatusIcon(invoice.status)}
                           {getStatusLabel(invoice.status)}
                         </Badge>
+                        {(() => {
+                          // Zahlungsstand (getrennt vom Belegstatus) - nur wenn der Server ihn liefert.
+                          const payment = summarizeInvoicePayment(invoice as InvoiceWithBalance);
+                          return payment.known ? (
+                            <span className={`text-xs px-2 py-0.5 rounded font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
+                              {payment.label}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
 
                       <p className="text-base font-semibold text-slate-900 truncate mb-1.5">
@@ -1857,8 +1161,40 @@ export function CustomerInvoices() {
                     )}
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Zahlungsart</p>
-                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.paymentMethod || '-'}</p>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{PAYMENT_METHOD_LABELS[String(selectedInvoice.paymentMethod || '').toLowerCase()] || selectedInvoice.paymentMethod || '-'}</p>
                     </div>
+                    {(selectedInvoice.bookingReference || selectedInvoice.orderId?.orderNumber) && (
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bestellung</p>
+                        {selectedInvoice.bookingReference ? (
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-[#1a2a5e] underline underline-offset-2 mt-0.5 hover:text-[#f5b800]"
+                            onClick={() => navigate('/bookings', { state: { reopenBookingDialog: selectedInvoice.bookingReference?._id } })}
+                          >
+                            {selectedInvoice.bookingReference.bookingNumber || 'Buchung öffnen'}
+                          </button>
+                        ) : (
+                          <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedInvoice.orderId?.orderNumber}</p>
+                        )}
+                      </div>
+                    )}
+                    {selectedInvoice.status === 'cancelled' && selectedInvoice.cancellation?.kind === 'storno' && (
+                      <div className="col-span-3 rounded-md border border-slate-300 bg-slate-50 px-3 py-2">
+                        <p className="text-xs font-semibold text-slate-700">
+                          Diese Rechnung wurde storniert{selectedInvoice.cancellation.creditNoteNumber ? ` (Storno-Gutschrift ${selectedInvoice.cancellation.creditNoteNumber})` : ''}.
+                          {' '}Bereits gezahlte Beträge bleiben Ihnen gutgeschrieben und werden verrechnet oder erstattet.
+                        </p>
+                      </div>
+                    )}
+                    {(selectedInvoice.relatedCreditNotes || []).length > 0 && (
+                      <div className="col-span-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gutschriften zu dieser Rechnung</p>
+                        <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                          {(selectedInvoice.relatedCreditNotes || []).map((note) => `${note.invoiceNumber} (${formatEUR(Math.abs(Number(note.total || 0)))})`).join(', ')}
+                        </p>
+                      </div>
+                    )}
                     {selectedInvoice.customerVatId && (
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">USt-IdNr. Kunde</p>
@@ -1970,16 +1306,28 @@ export function CustomerInvoices() {
                           </>
                         );
                       })()}
-                      {selectedInvoice.amountPaid != null && selectedInvoice.amountPaid > 0 && (
+                      {selectedInvoicePayment.known && (selectedInvoicePayment.received ?? 0) > 0 && (
                         <div className="flex justify-between text-xs text-emerald-600">
-                          <span>Bereits bezahlt</span>
-                          <span className="font-semibold">- {formatEUR(selectedInvoice.amountPaid)}</span>
+                          <span>Bereits eingegangen</span>
+                          <span className="font-semibold">- {formatEUR(selectedInvoicePayment.received ?? 0)}</span>
                         </div>
                       )}
-                      {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'cancelled' && (
+                      {selectedInvoicePayment.known && (selectedInvoicePayment.refundPending ?? 0) > 0 && (
+                        <div className="flex justify-between text-xs font-bold border-t border-violet-100 pt-1.5 text-violet-700">
+                          <span>Überzahlt · Erstattung offen</span>
+                          <span>{formatEUR(selectedInvoicePayment.refundPending ?? 0)}</span>
+                        </div>
+                      )}
+                      {selectedInvoicePayment.known && (selectedInvoicePayment.open ?? 0) > 0 && selectedInvoice.status !== 'cancelled' && (
                         <div className="flex justify-between text-xs font-bold border-t border-red-100 pt-1.5 text-red-600">
                           <span>Offener Restbetrag</span>
-                          <span>{formatEUR(selectedInvoice.total - (selectedInvoice.amountPaid || 0))}</span>
+                          <span>{formatEUR(selectedInvoicePayment.open ?? 0)}</span>
+                        </div>
+                      )}
+                      {!selectedInvoicePayment.known && selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'cancelled' && (
+                        <div className="flex justify-between text-xs border-t border-slate-100 pt-1.5 text-slate-500">
+                          <span>Zahlungsstand</span>
+                          <span>derzeit nicht verfügbar</span>
                         </div>
                       )}
                       {selectedInvoice.status === 'paid' && (
@@ -1995,16 +1343,21 @@ export function CustomerInvoices() {
                       <h3 className="font-bold text-[10px] text-[#1a2a5e] uppercase tracking-wider mb-2">Zahlungsverlauf</h3>
                       {selectedInvoice.paymentHistory && selectedInvoice.paymentHistory.length > 0 ? (
                         <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
-                          {selectedInvoice.paymentHistory.map((payment, idx) => (
-                            <div key={idx} className="flex justify-between items-start border-b border-slate-100 pb-1 last:border-0 last:pb-0">
-                              <div>
-                                <p className="text-xs font-semibold text-slate-700">{new Date(payment.date).toLocaleDateString('de-DE')}</p>
-                                {payment.method && <p className="text-[10px] text-slate-400">{payment.method}</p>}
-                                {payment.note && <p className="text-[10px] text-slate-400 italic">{payment.note}</p>}
+                          {((selectedInvoice as InvoiceWithBalance).paymentHistory || []).map((payment, idx) => {
+                            const statusLabel = payment.status ? PAYMENT_HISTORY_STATUS_LABELS[payment.status] : '';
+                            const counts = !payment.status || payment.status === 'completed';
+                            return (
+                              <div key={idx} className="flex justify-between items-start border-b border-slate-100 pb-1 last:border-0 last:pb-0">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-700">{new Date(payment.date).toLocaleDateString('de-DE')}</p>
+                                  {payment.method && <p className="text-[10px] text-slate-400">{payment.method}</p>}
+                                  {statusLabel && <p className="text-[10px] font-semibold text-amber-700">{statusLabel}</p>}
+                                  {payment.note && <p className="text-[10px] text-slate-400 italic">{payment.note}</p>}
+                                </div>
+                                <span className={`text-xs font-bold ml-2 shrink-0 ${counts ? 'text-emerald-600' : 'text-slate-400'}`}>{formatEUR(payment.amount)}</span>
                               </div>
-                              <span className="text-xs font-bold text-emerald-600 ml-2 shrink-0">{formatEUR(payment.amount)}</span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : selectedInvoice.status === 'paid' && selectedInvoice.paidAt ? (
                         <div className="flex justify-between items-start">
@@ -2036,7 +1389,7 @@ export function CustomerInvoices() {
                         </div>
                         <div className="text-right bg-white/10 rounded-lg px-3 py-1.5">
                           <p className="text-[9px] text-blue-200/60 uppercase tracking-wider">Offener Betrag</p>
-                          <p className="text-lg font-extrabold text-[#f5b800] leading-tight">{formatEUR(outstandingAmount)}</p>
+                          <p className="text-lg font-extrabold text-[#f5b800] leading-tight">{outstandingAmount === null ? '–' : formatEUR(outstandingAmount)}</p>
                         </div>
                       </div>
 
@@ -2182,7 +1535,7 @@ export function CustomerInvoices() {
                       <Button
                         size="sm"
                         onClick={handlePayInvoice}
-                        disabled={processingPayment || outstandingAmount <= 0}
+                        disabled={processingPayment || (outstandingAmount !== null && outstandingAmount <= 0)}
                         className="h-8 text-xs px-3 bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d9a400] text-white font-bold shadow"
                       >
                         <DollarSign className="h-3.5 w-3.5 mr-1.5" />

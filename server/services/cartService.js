@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const PromoCode = require('../models/PromoCode');
 const PromoCodeRedemption = require('../models/PromoCodeRedemption');
 const FinancialService = require('./financialService');
+const CalculationHelper = require('./calculationHelper');
 
 class CartService {
   static async buildPricing({ cart, userId }) {
@@ -10,7 +11,7 @@ class CartService {
     const subtotal = Number((cart?.subtotal || this.calculateCartSubtotal(cart)).toFixed(2));
     const promoDiscount = Number(Number(cart?.discount || 0).toFixed(2));
     const groupDiscountPercent = Math.max(0, Math.min(100, Number(financialProfile?.defaultDiscountPercent || 0)));
-    const groupDiscountAmount = Number(((subtotal - promoDiscount) * (groupDiscountPercent / 100)).toFixed(2));
+    const groupDiscountAmount = CalculationHelper.percentOf(subtotal - promoDiscount, groupDiscountPercent);
     const totalDiscount = Number((promoDiscount + Math.max(0, groupDiscountAmount)).toFixed(2));
     const total = Number(Math.max(0, subtotal - totalDiscount).toFixed(2));
     const taxRatePercent = Math.max(0, Number(financialProfile?.taxRate || 0));
@@ -68,7 +69,7 @@ class CartService {
     if (safeSubtotal <= 0) return 0;
 
     if (discountType === 'percentage') {
-      return Number(Math.min(safeSubtotal, safeSubtotal * (safeDiscountValue / 100)).toFixed(2));
+      return Math.min(safeSubtotal, CalculationHelper.percentOf(safeSubtotal, safeDiscountValue));
     }
 
     if (discountType === 'fixed_amount') {

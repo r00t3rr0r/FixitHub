@@ -31,7 +31,19 @@ const incidentSchema = new mongoose.Schema({
   reason: String,
   notes: String,
   additionalData: mongoose.Schema.Types.Mixed,
+  // Nur gesetzt, wenn die Kundenbenachrichtigung nachweislich zugestellt wurde
+  // (EmailService meldet success). Bei customer_info ist das der Beginn von
+  // "Warten auf Kundenrückmeldung".
   emailSentAt: Date,
+  // Autorisierte Erledigung (z. B. telefonisch geklärt). Eine Kundenantwort im
+  // Kommunikationsverlauf beendet das Warten ebenfalls, ohne dieses Feld zu setzen.
+  resolvedAt: Date,
+  resolvedByTechnicianId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  resolvedByTechnicianName: String,
+  resolutionNote: String,
   reportedByTechnicianId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

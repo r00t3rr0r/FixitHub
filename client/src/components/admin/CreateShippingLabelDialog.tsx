@@ -11,6 +11,7 @@ import {
   DEFAULT_DHL_PRODUCT,
   dhlShipperSettingsMessage,
   DHL_PRODUCTS,
+  dhlProductHint,
   getDhlShipperSettings,
   normalizeDhlProduct,
   ShipmentData,
@@ -492,6 +493,7 @@ export function CreateShippingLabelDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">{dhlProductHint(formData.serviceType)}</p>
             </div>
 
             {/* Shipper Details */}

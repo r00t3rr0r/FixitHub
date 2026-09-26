@@ -36,6 +36,27 @@ export interface BookingPayment {
   paypalOrderId?: string;
   paypalCaptureId?: string;
   createdAt: string;
+  /** Betrag nach ABGESCHLOSSENEN Erstattungen (amount - refundAmount). */
+  effectiveAmount?: number;
+  /** Beim Anbieter angestossene, noch nicht bestaetigte Erstattungen (zaehlen noch als eingegangen). */
+  refundsInProgress?: number;
+  /** Einzelne Erstattungsvorgaenge; nur 'completed' ist tatsaechlich zurueckgezahlt. */
+  refunds?: BookingPaymentRefundEntry[];
+}
+
+export interface BookingPaymentRefundEntry {
+  _id: string;
+  amount: number;
+  status: 'pending' | 'completed' | 'failed';
+  mode?: 'gateway' | 'manual';
+  provider?: string;
+  reference?: string;
+  reason?: string;
+  error?: string;
+  /** true = PayPal hat nicht eindeutig geantwortet; Abgleich noetig, nicht erneut erstatten. */
+  unresolved?: boolean;
+  createdAt?: string;
+  completedAt?: string;
 }
 
 export interface BookingPaymentInvoice {
@@ -49,6 +70,20 @@ export interface BookingPaymentInvoice {
   dueDate?: string;
   createdAt: string;
   isOpen: boolean;
+  /** Zahlungsstand, getrennt vom Belegstatus: open | partially_paid | paid | overpaid | credited. */
+  paymentState?: 'open' | 'partially_paid' | 'paid' | 'overpaid' | 'credited';
+  /** Wertmindernde Gutschriften auf diesen Beleg. */
+  credited?: number;
+  /** Forderung = Brutto - credited. */
+  receivable?: number;
+  allocated?: number;
+  /** Insgesamt fuer diesen Beleg eingegangen (auch ueber die Forderung hinaus). */
+  received?: number;
+  overpaidAmount?: number;
+  /** "Ueberzahlt / Erstattung offen": dem Kunden zurueckzuzahlender Betrag. */
+  refundPending?: number;
+  storedPaidAmount?: number;
+  isAllocatable?: boolean;
 }
 
 export interface BookingPaymentSummary {
@@ -63,6 +98,26 @@ export interface BookingPaymentSummary {
   openOrderBalance: number;
   isOverpaid: boolean;
   isFullyPaid: boolean;
+  /** Bezugsgroesse: Forderungen + noch nicht berechnete (nicht stornierte) Auftraege, ohne Rechnung der Auftragswert. */
+  referenceTotal?: number;
+  overpaidTotal?: number;
+  /** Noch zu erstattender Betrag (Ueberzahlung minus bereits angestossene Erstattungen). */
+  refundPendingTotal?: number;
+  refundsInProgressTotal?: number;
+}
+
+/** Einheitlicher Anzeige-Satz der Buchung (Server rechnet, Client rechnet nicht nach). */
+export interface BookingPaymentBalance {
+  total: number;
+  invoicedTotal: number;
+  allocated: number;
+  received: number;
+  open: number;
+  invoiceOpen: number;
+  unallocated: number;
+  overpaid: number;
+  refundPending: number;
+  refundsInProgress: number;
 }
 
 export interface BookingPaymentOverview {
@@ -78,6 +133,7 @@ export interface BookingPaymentOverview {
   invoices: BookingPaymentInvoice[];
   payments: BookingPayment[];
   summary: BookingPaymentSummary;
+  balance?: BookingPaymentBalance;
   paymentMethods: BookingPaymentMethod[];
   importResult?: {
     imported: number;

@@ -1,6 +1,7 @@
 const Payment = require('../models/Payment');
 const PaymentAllocation = require('../models/PaymentAllocation');
 const Invoice = require('../models/Invoice');
+const InvoiceDocumentArchive = require('../models/InvoiceDocumentArchive');
 const DunningRun = require('../models/DunningRun');
 const Order = require('../models/Order');
 const Booking = require('../models/Booking');
@@ -25,6 +26,11 @@ function buildFinancialError(message, statusCode = 400, code = 'FINANCIAL_ERROR'
 
 // Zeitfenster fuer die abgeleitete Idempotenz (Doppelklick / Retry des Clients).
 const IDEMPOTENCY_WINDOW_MS = 5 * 60 * 1000;
+
+// So lange wird ein PayPal-Erstattungsversuch mit unklarem Ergebnis automatisch mit
+// SEINER PayPal-Request-Id erneut abgefragt. Bewusst kurz gewaehlt: PayPal erkennt eine
+// Request-ID nur begrenzt wieder; danach wuerde derselbe Aufruf ggf. neu ausgefuehrt.
+const REFUND_REQUEST_ID_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Baut den Idempotenzschluessel einer Zahlungserfassung.
@@ -62,6 +68,39 @@ async function findDuplicatePayment(scope, fingerprintParts, explicitKey = null)
   return { keys, existing };
 }
 
+/**
+ * PayPal-Erstattung mit UNKLAREM Ergebnis (Zeitueberschreitung, 5xx, Antwort ohne
+ * Refund-ID). Ein solcher Eintrag bleibt 'pending' und muss abgeglichen werden, bevor
+ * eine weitere PayPal-Erstattung derselben Zahlung ausgeloest wird. Altbestand ohne
+ * Merker: ein ausstehender Gateway-Eintrag ohne Refund-ID ist ebenfalls ungeklaert.
+ */
+function isUnresolvedGatewayRefund(entry) {
+  if (!entry || entry.status !== 'pending' || entry.mode !== 'gateway') return false;
+  return entry.unresolved === true || !String(entry.reference || '').trim();
+}
+
+// Capture-ID einer PayPal-Zahlung (nie die Order-ID).
+function resolvePaypalCaptureId(payment) {
+  const captureId = String(
+    payment?.metadata?.providerDetails?.captureId
+    || payment?.metadata?.providerReference
+    || ''
+  ).trim();
+  if (!captureId || captureId === String(payment?.metadata?.paypalOrderId || '')) return '';
+  return captureId;
+}
+
+/**
+ * PayPal-Request-Id eines Erstattungsversuchs. Deterministisch aus Schluessel und
+ * Versuchsnummer: derselbe Versuch hat immer dieselbe ID (PayPal fuehrt ihn nur einmal
+ * aus), ein neuer Versuch nach ENDGUELTIGER Ablehnung eine neue. Kurz genug fuer das
+ * PayPal-Limit (108 Zeichen), damit ein Suffix nie abgeschnitten wird.
+ */
+function buildRefundRequestId(idempotencyKey, attempt = 1) {
+  const hash = crypto.createHash('sha1').update(String(idempotencyKey || '')).digest('hex').slice(0, 32);
+  return `mcr-refund-${hash}-${Math.max(1, Number(attempt) || 1)}`;
+}
+
 function parseDueDaysFromTerms(paymentTerms) {
   if (!paymentTerms) return null;
 
@@ -84,11 +123,45 @@ function addDays(date, days) {
   return result;
 }
 
+// Mahnstufen (automatisch fortschaltbar). Die Stufe "Mahnung" ist die "1. Mahnung"
+// der fachlichen Vorgabe - es gibt bewusst KEINE zusaetzliche Stufe dafuer.
+// Inkasso (Stufe 4, 'collection') wird nie automatisch erreicht, nur manuell
+// (activateCollection) und erst nach der Letzten Mahnung; danach steht die Automatik.
 const DUNNING_STAGES = [
   { level: 1, stage: 'payment_reminder', trigger: 'payment_reminder', label: 'Zahlungserinnerung' },
   { level: 2, stage: 'dunning_notice', trigger: 'dunning_notice', label: 'Mahnung' },
   { level: 3, stage: 'final_notice', trigger: 'final_dunning_notice', label: 'Letzte Mahnung' }
 ];
+const DUNNING_STAGE_LABELS = {
+  none: 'Keine Mahnstufe',
+  payment_reminder: 'Zahlungserinnerung',
+  dunning_notice: 'Mahnung',
+  final_notice: 'Letzte Mahnung',
+  collection: 'Inkasso',
+};
+// Belegstatus mit mahnbarer Forderung (ausgestellt, nicht bezahlt/storniert/gutgeschrieben).
+const DUNNING_RECEIVABLE_STATUSES = ['sent', 'viewed', 'partially_paid', 'overdue'];
+// Karenz bis zur ersten Zahlungserinnerung und Abstand zwischen zwei Stufen (Tage).
+const DUNNING_INTERVAL_DAYS = 7;
+// Eine Sperre, die laenger besteht, gilt als verwaist (Prozessabbruch waehrend eines
+// Schritts). Der automatische Lauf uebernimmt sie NIE (Versandergebnis unklar), nur ein
+// ausdruecklicher Einzelschritt eines Bearbeiters.
+const DUNNING_LOCK_STALE_MS = 10 * 60 * 1000;
+// Storno: zwischen dem Speichern der Storno-Gutschrift und dem Abschluss des Originals
+// liegt normalerweise nur ein Lese-/Schreibzugriff. Erst wenn ein Vorgang laenger als
+// diese Karenz in 'processing' steht, gilt er als unterbrochen und darf von einem
+// weiteren Aufruf abgeschlossen werden.
+const CANCELLATION_COMPLETION_GRACE_MS = 30 * 1000;
+
+function startOfLocalDay(value = new Date()) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatEuroDe(value) {
+  return `${Number(value || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
 
 function calculateDiscountAmount(subtotal, discountPercent) {
   const numericSubtotal = Number(subtotal);
@@ -97,7 +170,8 @@ function calculateDiscountAmount(subtotal, discountPercent) {
   if (!Number.isFinite(numericSubtotal) || numericSubtotal <= 0) return 0;
   if (!Number.isFinite(numericDiscountPercent) || numericDiscountPercent <= 0) return 0;
 
-  return Number(((numericSubtotal * numericDiscountPercent) / 100).toFixed(2));
+  // Gemeinsame Regel mit Warenkorb und Auftrag (siehe CalculationHelper.percentOf).
+  return CalculationHelper.percentOf(numericSubtotal, numericDiscountPercent);
 }
 
 /**
@@ -127,8 +201,12 @@ const VALID_CORRECTION_TYPES = ['full_cancellation', 'partial_refund', 'price_ad
 
 // Zahlungsziel (Net X). Skonto wird bewusst nicht mehr ausgewiesen - es wurde nie
 // tatsaechlich gewaehrt und ist aus allen aktiven Flows entfernt.
+// Der Wortlaut folgt immer der Frist (Invoice.formatPaymentTerms), nie einem zweiten
+// Freitext.
 function composePaymentTerms(financialProfile) {
-  return String(financialProfile?.paymentTerms || '').trim() || 'Net 14';
+  const days = Number(financialProfile?.paymentDueDays);
+  if (Number.isFinite(days)) return Invoice.formatPaymentTerms(days);
+  return String(financialProfile?.paymentTerms || '').trim() || Invoice.formatPaymentTerms(14);
 }
 
 // Geraetekennzeichnung fuer Rechnungspositionen: Marke/Modell, IMEI bzw. Seriennummer.
@@ -175,10 +253,16 @@ function buildInvoiceItemsFromOrder(order, options = {}) {
   }
 
   (order.services || []).forEach((service) => {
-    const serviceName = (typeof service === 'string' ? service : service?.serviceId?.name) || 'Reparaturservice';
+    // Katalogname, sonst der gespeicherte Positionsname (manuelle Position ohne
+    // serviceId) - eine manuelle Position muss auf Rechnung/PDF mit IHREM Namen stehen.
+    const catalogName = typeof service === 'string' ? service : service?.serviceId?.name;
+    const serviceName = catalogName || String(service?.name || '').trim() || 'Reparaturservice';
+    const manualDescription = service?.isManual ? String(service?.description || '').trim() : '';
     items.push({
       serviceName,
-      description: `${deviceLabel} – ${serviceName}`,
+      description: manualDescription
+        ? `${deviceLabel} – ${serviceName}: ${manualDescription}`
+        : `${deviceLabel} – ${serviceName}`,
       quantity: 1,
       unitPrice: Number(service?.price) || 0,
       total: CalculationHelper.round(Number(service?.price) || 0),
@@ -209,6 +293,107 @@ function findOrdersForInvoiceItems(filter) {
     .select('orderNumber status totalCost discount deviceType deviceBrand deviceModel imei serialNumber services shopProducts addOns bookingId')
     .populate('services.serviceId', 'name')
     .populate('shopProducts.productId', 'name');
+}
+
+/**
+ * Dieselbe Leistung darf nicht auf zwei Rechnungen stehen. Blockiert, solange fuer
+ * einen der Auftraege eine gueltige Rechnung existiert (nicht storniert, nicht
+ * vollstaendig gutgeschrieben). Nach einer Voll-Gutschrift darf neu berechnet werden.
+ */
+async function assertOrdersNotYetInvoiced(orders = []) {
+  const objectIds = orders
+    .map((order) => toIdString(order?._id || order))
+    .filter((id) => Types.ObjectId.isValid(id))
+    .map((id) => new Types.ObjectId(id));
+  if (objectIds.length === 0) return;
+
+  const existing = await Invoice.findOne({
+    isCreditNote: { $ne: true },
+    status: { $nin: ['cancelled', 'credited'] },
+    $or: [{ orderId: { $in: objectIds } }, { repairOrderIds: { $in: objectIds } }],
+  })
+    .setOptions({ skipAutoPopulate: true })
+    .select('_id invoiceNumber orderId repairOrderIds')
+    .lean();
+  if (!existing) return;
+
+  const hitIds = new Set([toIdString(existing.orderId), ...(existing.repairOrderIds || []).map(toIdString)]);
+  const hitOrder = orders.find((order) => hitIds.has(toIdString(order?._id || order)));
+  const orderLabel = hitOrder?.orderNumber ? `Auftrag ${hitOrder.orderNumber}` : 'diesen Auftrag';
+  const error = buildFinancialError(
+    `Für ${orderLabel} besteht bereits die Rechnung ${existing.invoiceNumber || existing._id}. `
+    + 'Eine Leistung darf nicht zweimal berechnet werden – bitte die bestehende Rechnung verwenden '
+    + 'oder sie zuerst vollständig gutschreiben.',
+    409,
+    'ORDER_ALREADY_INVOICED'
+  );
+  error.existingInvoice = { _id: String(existing._id), invoiceNumber: existing.invoiceNumber || null };
+  throw error;
+}
+
+/**
+ * Je Buchung hoechstens EINE gueltige Rechnung. Gezaehlt werden nur AKTIVE Rechnungen:
+ * keine Gutschriften (auch die Storno-Gutschrift traegt die bookingId), keine stornierten
+ * oder vollstaendig gutgeschriebenen Belege und keine verworfenen Entwuerfe (Status
+ * 'cancelled'). Dieselbe Regel wie assertOrdersNotYetInvoiced - sonst ist der Korrekturweg
+ * "Storno + neue Rechnung" (RECHNUNGSERSTELLUNG_SPEZIFIKATION.md) fuer Buchungen gesperrt.
+ */
+async function assertBookingNotYetInvoiced(bookingId) {
+  const id = toIdString(bookingId);
+  if (!id || !Types.ObjectId.isValid(id)) return;
+  const existing = await Invoice.findOne({
+    bookingId: new Types.ObjectId(id),
+    isCreditNote: { $ne: true },
+    status: { $nin: ['cancelled', 'credited'] },
+  })
+    .setOptions({ skipAutoPopulate: true })
+    .select('_id invoiceNumber')
+    .lean();
+  if (!existing) return;
+  const error = buildFinancialError(
+    `Für diese Buchung besteht bereits die Rechnung ${existing.invoiceNumber || existing._id}. `
+    + 'Für eine Korrektur bitte diese Rechnung zuerst stornieren.',
+    409,
+    'INVOICE_ALREADY_EXISTS'
+  );
+  error.existingInvoice = { _id: String(existing._id), invoiceNumber: existing.invoiceNumber || null };
+  throw error;
+}
+
+/**
+ * Speichert eine NEUE aktive Rechnung zusammen mit ihrem atomaren Anspruch auf Auftrag(e)
+ * und Buchung (Invoice.activeBillingKeys, partieller Unique-Index). Die Pruefungen
+ * assertOrdersNotYetInvoiced/assertBookingNotYetInvoiced sind nur Lesezugriffe - zwei
+ * gleichzeitige "Rechnung erstellen" kamen beide daran vorbei. Jetzt entscheidet das
+ * Einfuegen selbst: der Verlierer scheitert am Index (E11000) und bekommt dieselbe
+ * deutsche 409 wie im sequentiellen Fall, mit der Nummer der bestehenden Rechnung.
+ * Die im pre('save') bereits vergebene Belegnummer des Verlierers bleibt als Luecke
+ * verbraucht; DocumentSequence vergibt sie nie ein zweites Mal.
+ */
+async function saveClaimedInvoice(invoice, { orders = [] } = {}) {
+  const releasing = invoice.isCreditNote || ['cancelled', 'credited'].includes(String(invoice.status || ''));
+  invoice.activeBillingKeys = releasing ? undefined : Invoice.buildActiveBillingKeys({
+    orderId: invoice.orderId,
+    repairOrderIds: invoice.repairOrderIds,
+    bookingId: invoice.bookingId,
+  });
+  try {
+    await invoice.save();
+    return invoice;
+  } catch (error) {
+    if (!Invoice.isActiveBillingKeyConflict(error)) throw error;
+    if (invoice.bookingId) await assertBookingNotYetInvoiced(invoice.bookingId);
+    const orderRefs = orders.length > 0
+      ? orders
+      : [invoice.orderId, ...(invoice.repairOrderIds || [])].filter(Boolean);
+    await assertOrdersNotYetInvoiced(orderRefs);
+    // Der Gewinner ist inzwischen selbst storniert: kein Doppelbeleg, aber ein neuer Versuch ist moeglich.
+    throw buildFinancialError(
+      'Für diesen Auftrag bzw. diese Buchung wurde soeben parallel eine Rechnung erstellt. Bitte die Ansicht neu laden.',
+      409,
+      'INVOICE_ALREADY_EXISTS'
+    );
+  }
 }
 
 function normalizeBillingAddress(address) {
@@ -297,6 +482,46 @@ function resolveShippingAddressFromBooking(booking) {
     || resolveShippingAddressFromCustomer(booking.customerId)
     || null;
 }
+
+// Ausgestellt = nicht mehr Entwurf/Freigabe. Nur ausgestellte Belege werden archiviert,
+// storniert (statt verworfen) und sind fuer Kunden sichtbar.
+const NOT_ISSUED_STATUSES = ['draft', 'pending_approval'];
+function isIssuedStatus(status) {
+  return Boolean(status) && !NOT_ISSUED_STATUSES.includes(String(status));
+}
+// Archivierte PDF-Fassungen: hoechstens so viele Historien-Eintraege (nur Metadaten)
+// stehen im Rechnungsdokument; die Bytes liegen in InvoiceDocumentArchive.
+const DOCUMENT_HISTORY_INLINE_LIMIT = 20;
+
+function toBufferValue(raw) {
+  if (!raw) return null;
+  if (Buffer.isBuffer(raw)) return raw;
+  // BSON Binary (lean-Abfragen): nur die belegten Bytes (length()), nicht die Kapazitaet.
+  if (raw._bsontype === 'Binary' && typeof raw.read === 'function') return Buffer.from(raw.read(0, raw.length()));
+  if (raw instanceof Uint8Array) return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+  return Buffer.from(raw);
+}
+
+// Bytes der aktuellen Fassung: aus der Archivsammlung (documentId) oder - Altbestand -
+// inline aus documentArchive.data. Stimmt der Hash nicht, wird NICHT still neu erzeugt.
+async function readArchivedDocumentBytes(archive = {}) {
+  if (archive.documentId) {
+    const stored = await InvoiceDocumentArchive.findById(archive.documentId).lean();
+    const bytes = toBufferValue(stored?.data);
+    if (!bytes || bytes.length === 0) {
+      throw buildFinancialError('Das archivierte Rechnungsdokument ist nicht auffindbar. Bitte den Support informieren.', 500, 'DOCUMENT_ARCHIVE_MISSING');
+    }
+    if (archive.sha256 && crypto.createHash('sha256').update(bytes).digest('hex') !== archive.sha256) {
+      throw buildFinancialError('Das archivierte Rechnungsdokument ist beschädigt (Prüfsumme weicht ab). Bitte den Support informieren.', 500, 'DOCUMENT_ARCHIVE_CORRUPT');
+    }
+    return bytes;
+  }
+  const inline = toBufferValue(archive.data);
+  return inline && inline.length > 0 ? inline : null;
+}
+
+// Ausgestellt und noch wirksam: nur diese Belege koennen storniert werden.
+const CANCELLABLE_INVOICE_STATUSES = ['sent', 'viewed', 'partially_paid', 'paid', 'overdue'];
 
 // Valid invoice status transitions
 const INVOICE_STATUS_TRANSITIONS = {
@@ -479,15 +704,23 @@ class FinancialService {
       ? 0
       : settings.defaults.taxRate;
 
+    // EINE Zahlungsbedingung: die Frist in Tagen. Der Text wird daraus abgeleitet und
+    // nicht mehr aus einem zweiten, unabhaengig gepflegten Freitextfeld gelesen - sonst
+    // entsteht genau Sophies Widerspruch "faellig in 7 Tagen, Zahlungsziel: Net 30".
+    // Ein Freitext wie 'Net 30' am Kunden dient nur noch als Quelle der Zahl, wenn
+    // keine Frist gepflegt ist.
+    const paymentDueDays = normalizePaymentDueDays(
+      customerDueDays ?? groupFinanceProfile.paymentDueDays ?? parseDueDaysFromTerms(groupFinanceProfile.paymentTermsLabel)
+        ?? settings.defaults.paymentDueDays ?? parseDueDaysFromTerms(settings.defaults.paymentTerms)
+    );
+
     return {
       currency: groupFinanceProfile.currency || settings.defaults.currency,
       locale: settings.defaults.locale,
       taxRate: resolvedTaxRate,
       taxMode,
-      paymentDueDays: normalizePaymentDueDays(
-        customerDueDays ?? groupFinanceProfile.paymentDueDays ?? settings.defaults.paymentDueDays
-      ),
-      paymentTerms: customerPaymentTerms || groupFinanceProfile.paymentTermsLabel || settings.defaults.paymentTerms,
+      paymentDueDays,
+      paymentTerms: Invoice.formatPaymentTerms(paymentDueDays),
       // Kein invoicePrefix mehr: die Belegnummer kommt global aus DocumentSequence
       // ('INV-JJJJ-NNNN' / 'INV-CN-JJJJ-NNNN') und ist nicht mehr gruppenabhaengig.
       defaultDiscountPercent: typeof resolvedCustomer?.discount === 'number' && resolvedCustomer.discount > 0
@@ -585,7 +818,42 @@ class FinancialService {
         },
       ]);
 
-      const payments = (paymentSummary?.items || []).map((payment) => ({ ...payment }));
+      // Zuordnungsstand je Zahlung, damit die Zahlungsansicht eine Ueberzahlung
+      // ("nicht zugeordnet / Erstattung offen") direkt zeigen kann.
+      const rawPayments = paymentSummary?.items || [];
+      const pageAllocations = rawPayments.length > 0
+        ? await PaymentAllocation.find({ paymentId: { $in: rawPayments.map((payment) => payment._id) } })
+          .select('paymentId allocatedAmount')
+          .lean()
+        : [];
+      const allocatedByPayment = new Map();
+      pageAllocations.forEach((allocation) => {
+        const key = toIdString(allocation.paymentId);
+        allocatedByPayment.set(key, CalculationHelper.round(Number(allocatedByPayment.get(key) || 0) + Number(allocation.allocatedAmount || 0)));
+      });
+      const payments = rawPayments.map((payment) => {
+        const effectiveAmount = PaymentService.effectivePaymentAmount(payment);
+        const allocatedAmount = CalculationHelper.round(Number(allocatedByPayment.get(toIdString(payment._id)) || 0));
+        const refundsInProgress = CalculationHelper.round((payment.refunds || [])
+          .filter((entry) => entry.status === 'pending')
+          .reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+        return {
+          ...payment,
+          // Je Erstattungseintrag die SERVER-Regel "ungeklaert" (isUnresolvedGatewayRefund):
+          // auch ein ausstehender Anbieter-Eintrag OHNE Referenz (Altbestand, Abbruch
+          // zwischen Reservierung und PayPal-Aufruf) blockiert weitere Erstattungen.
+          refunds: (payment.refunds || []).map((entry) => ({ ...entry, unresolved: isUnresolvedGatewayRefund(entry) })),
+          effectiveAmount,
+          allocatedAmount,
+          unallocatedAmount: PaymentService.isCountablePayment(payment)
+            ? CalculationHelper.round(Math.max(0, effectiveAmount - allocatedAmount - refundsInProgress))
+            : 0,
+          refundsInProgress,
+          unresolvedRefundAmount: CalculationHelper.round((payment.refunds || [])
+            .filter(isUnresolvedGatewayRefund)
+            .reduce((sum, entry) => sum + Number(entry.amount || 0), 0)),
+        };
+      });
       const totalPayments = paymentSummary?.totalCount?.[0]?.count || 0;
       const totalPages = Math.ceil(totalPayments / limit);
       const totalAmount = paymentSummary?.totalAmount?.[0]?.totalAmount || 0;
@@ -603,89 +871,708 @@ class FinancialService {
     }
   }
 
+  /**
+   * Erstattet (einen Teil) einer Zahlung.
+   *
+   * Regeln:
+   *  - Erstattungen sind KUMULATIV: refundAmount ist die Summe aller abgeschlossenen
+   *    Erstattungsvorgaenge (Payment.refunds). Frueher ueberschrieb jede Teilerstattung
+   *    die vorherige.
+   *  - Idempotent: derselbe Vorgang (idempotencyKey bzw. Fingerabdruck im 5-Minuten-
+   *    Fenster) wird genau einmal gebucht, auch bei Doppelklick oder Retry.
+   *  - 'gateway' bedeutet eine ECHTE Erstattung beim Anbieter (derzeit nur PayPal).
+   *    Frueher wurde im Gateway-Modus nur ein Status gesetzt, ohne den Anbieter
+   *    aufzurufen - die Oberflaeche meldete Erfolg fuer Geld, das nie zurueckging.
+   *    Eine ausstehende (PENDING) oder fehlgeschlagene Anbieter-Erstattung zaehlt NICHT
+   *    als erstattet; bestaetigt wird sie ueber applyGatewayRefundUpdate (Webhook).
+   *  - Eine Erstattung aendert keinen Beleg. Belegkorrektur (Gutschrift) und
+   *    Zuordnung sind eigene Vorgaenge.
+   */
   static async processRefund(paymentId, amount, reason, options = {}) {
     console.log('FinancialService: Processing refund for payment:', paymentId);
 
-    try {
-      const payment = await Payment.findById(paymentId);
-
-      if (!payment) {
-        throw new Error('Payment not found');
-      }
-
-      if (payment.status !== 'completed') {
-        throw new Error('Can only refund completed payments');
-      }
-
-      if (amount > payment.amount) {
-        throw new Error('Refund amount cannot exceed payment amount');
-      }
-
-      const requestedMode = options.mode === 'manual' ? 'manual' : 'gateway';
-      let resolvedGatewayProvider = options.gatewayProvider || FinancialService.mapPaymentMethodToGateway(payment.paymentMethod);
-
-      if (requestedMode === 'gateway') {
-        if (!resolvedGatewayProvider) {
-          throw new Error('No compatible gateway available for this payment method. Use manual mode.');
-        }
-
-        const gateways = await FinancialService.getPaymentGateways();
-        const selectedGateway = gateways.find((gateway) => gateway.provider === resolvedGatewayProvider);
-
-        if (!selectedGateway) {
-          throw new Error('Selected gateway not found');
-        }
-
-        if (!selectedGateway.isActive) {
-          throw new Error('Selected gateway is not active');
-        }
-
-        if (!selectedGateway.supportedMethods.includes(payment.paymentMethod)) {
-          throw new Error(`Gateway ${selectedGateway.name} does not support payment method ${payment.paymentMethod}`);
-        }
-      } else {
-        resolvedGatewayProvider = 'manual';
-      }
-
-      // Update payment status and refund info
-      // Nur eine VOLLerstattung setzt den Status auf 'refunded'. Bei einer
-      // Teilerstattung bleibt die Zahlung 'completed' mit gesetztem refundAmount,
-      // sonst faellt der noch nicht erstattete Rest dauerhaft aus jeder
-      // Saldo- und Zuordnungsrechnung heraus (Filter status: 'completed').
-      const refundAmount = CalculationHelper.round(Number(amount));
-      const isFullRefund = refundAmount >= CalculationHelper.round(Number(payment.amount || 0)) - 0.01;
-      payment.status = isFullRefund ? 'refunded' : 'completed';
-      payment.refundAmount = refundAmount;
-      payment.refundReason = reason;
-      payment.refundedAt = new Date();
-      payment.refundMode = requestedMode;
-      payment.refundGatewayProvider = resolvedGatewayProvider;
-      payment.refundGatewayReference = options.gatewayReference || '';
-
-      await payment.save();
-
-      // Zugeordnete Rechnungen nachziehen: erstattetes Geld darf nicht weiter als
-      // beglichen gelten. paidAmount wird aus den GUELTIGEN Zuordnungen neu abgeleitet.
-      await FinancialService.recalculateInvoicePaidAmounts(
-        (await PaymentAllocation.find({ paymentId: payment._id }).select('invoiceId').lean())
-          .map((entry) => entry.invoiceId)
-      );
-
-      console.log('FinancialService: Refund processed successfully');
-      return {
-        _id: 'refund_' + Date.now(),
-        paymentId,
-        amount,
-        reason,
-        mode: requestedMode,
-        gatewayProvider: resolvedGatewayProvider,
-        gatewayReference: options.gatewayReference || '',
-        processedAt: new Date()
-      };
-    } catch (error) {
-      console.error('FinancialService: Error processing refund:', error);
-      throw error;
+    if (!Types.ObjectId.isValid(String(paymentId || ''))) {
+      throw buildFinancialError('Ungültige Zahlungs-ID.', 400, 'INVALID_PAYMENT_ID');
     }
+    let payment = await Payment.findById(paymentId);
+    if (!payment) throw buildFinancialError('Zahlung wurde nicht gefunden.', 404, 'PAYMENT_NOT_FOUND');
+
+    const refundAmount = CalculationHelper.round(Number(amount));
+    if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+      throw buildFinancialError('Der Erstattungsbetrag muss größer als 0 sein.', 400, 'INVALID_AMOUNT');
+    }
+    const cleanReason = String(reason || '').trim().slice(0, 500);
+    if (!cleanReason) {
+      throw buildFinancialError('Bitte einen Grund für die Erstattung angeben.', 400, 'REASON_REQUIRED');
+    }
+    const mode = options.mode === 'manual' ? 'manual' : 'gateway';
+
+    // Wiederholung desselben Vorgangs? Dann den bereits gebuchten Eintrag melden.
+    // Ein ENDGUELTIG abgelehnter Versuch ('failed') blockiert den Schluessel nicht: die
+    // Wiederholung wird ein neuer Versuch mit neuer PayPal-Request-Id. Ein Versuch mit
+    // UNKLAREM Ergebnis wird dagegen mit SEINER Request-ID erneut abgefragt - PayPal
+    // liefert dann das Ergebnis des ersten Aufrufs statt ein zweites Mal zu erstatten.
+    const fingerprint = [toIdString(payment._id), refundAmount.toFixed(2), cleanReason, String(options.mode || '')];
+    const keys = String(options.idempotencyKey || '').trim()
+      ? [buildPaymentIdempotencyKey('refund', fingerprint, options.idempotencyKey)]
+      : [
+        buildPaymentIdempotencyKey('refund', fingerprint, null, 0),
+        buildPaymentIdempotencyKey('refund', fingerprint, null, 1),
+      ];
+    const duplicate = (payment.refunds || []).find((entry) => keys.includes(entry.idempotencyKey) && entry.status !== 'failed');
+    if (duplicate) {
+      if (isUnresolvedGatewayRefund(duplicate)) {
+        // Wiederholung DESSELBEN Auftrags: Abfrage, danach Wiederholung mit derselben Request-ID.
+        return FinancialService.settleUnresolvedRefund(payment._id, duplicate._id, { duplicate: true, allowReplay: true });
+      }
+      return FinancialService.describeRefund(payment, duplicate, { duplicate: true });
+    }
+
+    if (payment.status !== 'completed') {
+      throw buildFinancialError('Nur abgeschlossene Zahlungen können erstattet werden.', 409, 'PAYMENT_NOT_REFUNDABLE');
+    }
+
+    // Solange ein PayPal-Vorgang dieser Zahlung ein UNKLARES Ergebnis hat, wird WEDER eine
+    // weitere PayPal-Erstattung NOCH eine manuelle Erstattung gebucht: der ungeklaerte
+    // Vorgang kann bei PayPal noch abschliessen (Webhook) - eine zusaetzlich erfasste
+    // "manuelle" Rueckzahlung desselben Geldes wuerde dann doppelt zaehlen.
+    // Der alte Vorgang wird dabei NIE erneut ausgefuehrt (kein Geldfluss als Nebenwirkung
+    // eines ANDEREN Auftrags); sein Stand wird beim Anbieter nur ABGEFRAGT.
+    {
+      const unresolved = (payment.refunds || []).filter(isUnresolvedGatewayRefund);
+      let settledAsExecuted = null;
+      for (const entry of unresolved) {
+        const settled = await FinancialService.settleUnresolvedRefund(payment._id, entry._id, { throwOnReject: false, allowReplay: false });
+        if (['completed', 'pending'].includes(settled.status) && !settled.indeterminate) settledAsExecuted = settled;
+        if (settled.indeterminate) {
+          throw buildFinancialError(
+            `Eine frühere PayPal-Erstattung dieser Zahlung über ${formatEuroDe(CalculationHelper.round(Number(entry.amount || 0)))} ist noch ungeklärt `
+            + '(PayPal hat nicht eindeutig geantwortet). Bitte zuerst im PayPal-Konto prüfen, ob diese Erstattung ausgeführt wurde, und den Vorgang '
+            + 'bei der Zahlung über „Abgleichen“ klären (ausgeführt – mit PayPal-Erstattungs-ID – oder nicht ausgeführt). '
+            + 'Bis dahin wird keine weitere Erstattung gebucht, auch keine manuelle: sonst würde dasselbe Geld doppelt gezählt, '
+            + 'sobald PayPal den offenen Vorgang abschließt.',
+            409,
+            'REFUND_UNRESOLVED'
+          );
+        }
+      }
+      // Die fruehere Erstattung ist bei PayPal tatsaechlich ausgefuehrt worden. Haeufig ist
+      // der neue Auftrag genau die Wiederholung dieser Erstattung (neuer Dialog) - dann
+      // wuerde das Geld ein zweites Mal fliessen. Deshalb hier anhalten und den
+      // Bearbeiter den bestaetigten Stand pruefen lassen; ein erneutes Ausloesen danach
+      // ist eine bewusste, weitere Erstattung.
+      if (settledAsExecuted) {
+        throw buildFinancialError(
+          `Eine frühere PayPal-Erstattung dieser Zahlung über ${formatEuroDe(settledAsExecuted.amount)} wurde soeben von PayPal als `
+          + `${settledAsExecuted.status === 'completed' ? 'ausgeführt' : 'angenommen (ausstehend)'} bestätigt. `
+          + 'Bitte den Stand prüfen – soll zusätzlich erstattet werden, den Vorgang danach erneut auslösen.',
+          409,
+          'REFUND_SETTLED_RECHECK'
+        );
+      }
+      if (unresolved.length > 0) payment = await Payment.findById(payment._id);
+    }
+
+    const alreadyRefunded = CalculationHelper.round(Number(payment.refundAmount || 0));
+    const inProgress = CalculationHelper.round((payment.refunds || [])
+      .filter((entry) => entry.status === 'pending')
+      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+    const refundable = CalculationHelper.round(Math.max(0, Number(payment.amount || 0) - alreadyRefunded - inProgress));
+    if (refundAmount > refundable + 0.01) {
+      throw buildFinancialError(
+        `Die Erstattung (${formatEuroDe(refundAmount)}) übersteigt den noch erstattbaren Betrag dieser Zahlung (${formatEuroDe(refundable)}`
+        + `${inProgress > 0.009 ? `, davon ${formatEuroDe(inProgress)} bereits in Bearbeitung beim Zahlungsanbieter` : ''}).`,
+        400,
+        'REFUND_EXCEEDS_PAYMENT'
+      );
+    }
+
+    const allocationRows = await PaymentAllocation.find({ paymentId: payment._id }).select('allocatedAmount').lean();
+    const unallocatedBefore = CalculationHelper.round(Math.max(0,
+      Number(payment.amount || 0) - alreadyRefunded - inProgress
+      - allocationRows.reduce((sum, row) => sum + Number(row.allocatedAmount || 0), 0)));
+
+    let provider = 'manual';
+    let captureId = '';
+    if (mode === 'gateway') {
+      provider = options.gatewayProvider || FinancialService.mapPaymentMethodToGateway(payment.paymentMethod) || '';
+      if (provider !== 'paypal') {
+        throw buildFinancialError(
+          'Für diese Zahlart ist keine automatische Erstattung über einen Zahlungsanbieter angebunden. '
+          + 'Bitte die Rückzahlung selbst ausführen und hier als manuelle Erstattung erfassen.',
+          400,
+          'GATEWAY_REFUND_UNAVAILABLE'
+        );
+      }
+      captureId = resolvePaypalCaptureId(payment);
+      if (!captureId) {
+        throw buildFinancialError(
+          'Zu dieser PayPal-Zahlung ist keine Capture-ID gespeichert – eine Erstattung über PayPal ist nicht möglich. '
+          + 'Bitte die Rückzahlung im PayPal-Konto ausführen und hier manuell erfassen.',
+          400,
+          'PAYPAL_CAPTURE_MISSING'
+        );
+      }
+    }
+
+    // Eintrag atomar anlegen. Die Bedingung auf die Anzahl der Eintraege serialisiert
+    // parallele Erstattungen derselben Zahlung: der zweite Lauf findet einen
+    // veraenderten Stand vor und prueft neu, statt ueber den Restbetrag zu buchen.
+    const now = new Date();
+    const entryId = new Types.ObjectId();
+    const attempt = (payment.refunds || []).filter((item) => keys.includes(item.idempotencyKey) && item.status === 'failed').length + 1;
+    const entry = {
+      _id: entryId,
+      idempotencyKey: keys[0],
+      requestId: mode === 'gateway' ? buildRefundRequestId(keys[0], attempt) : '',
+      attempt,
+      unresolved: false,
+      amount: refundAmount,
+      status: mode === 'manual' ? 'completed' : 'pending',
+      mode,
+      provider,
+      reference: mode === 'manual' ? String(options.gatewayReference || '').trim().slice(0, 120) : '',
+      reason: cleanReason,
+      recordedBy: options.recordedBy || undefined,
+      createdAt: now,
+      completedAt: mode === 'manual' ? now : undefined,
+    };
+    const currentCount = (payment.refunds || []).length;
+    const update = {
+      $push: { refunds: entry },
+      $set: {
+        refundReason: cleanReason,
+        refundMode: mode,
+        refundGatewayProvider: provider,
+        updatedAt: now,
+      },
+    };
+    if (mode === 'manual') {
+      const total = CalculationHelper.round(alreadyRefunded + refundAmount);
+      update.$set.refundAmount = total;
+      update.$set.refundedAt = now;
+      update.$set.refundGatewayReference = entry.reference;
+      // Nur eine VOLLerstattung setzt den Status auf 'refunded'; bei einer
+      // Teilerstattung bleibt der Rest gueltig und zaehlt weiter.
+      if (total >= CalculationHelper.round(Number(payment.amount || 0)) - 0.01) update.$set.status = 'refunded';
+    }
+    const reserved = await Payment.findOneAndUpdate(
+      {
+        _id: payment._id,
+        status: 'completed',
+        refundAmount: payment.refundAmount == null ? { $in: [null, 0] } : payment.refundAmount,
+        $expr: { $eq: [{ $size: { $ifNull: ['$refunds', []] } }, currentCount] },
+        // Nur ein NICHT fehlgeschlagener Eintrag mit demselben Schluessel ist ein Duplikat.
+        refunds: { $not: { $elemMatch: { idempotencyKey: { $in: keys }, status: { $ne: 'failed' } } } },
+      },
+      update,
+      { new: true }
+    );
+    if (!reserved) {
+      const latest = await Payment.findById(payment._id);
+      const winner = (latest?.refunds || []).find((item) => keys.includes(item.idempotencyKey) && item.status !== 'failed');
+      if (winner) return FinancialService.describeRefund(latest, winner, { duplicate: true });
+      throw buildFinancialError(
+        'Die Zahlung wurde parallel geändert. Bitte die Ansicht neu laden und die Erstattung erneut prüfen.',
+        409,
+        'REFUND_CONFLICT'
+      );
+    }
+
+    let gatewayResult = null;
+    if (mode === 'gateway') {
+      gatewayResult = await FinancialService.runGatewayRefundAttempt(payment._id, entryId, {
+        captureId,
+        amount: refundAmount,
+        requestId: entry.requestId,
+        currency: payment.currency || 'EUR',
+        note: cleanReason,
+      });
+      if (gatewayResult.outcome === 'rejected') {
+        throw buildFinancialError(
+          `${gatewayResult.message} Es wurde nichts als erstattet verbucht; die Erstattung kann nach Klärung erneut ausgelöst werden.`,
+          502,
+          'GATEWAY_REFUND_FAILED'
+        );
+      }
+    }
+
+    await FinancialService.syncAfterRefund(payment._id);
+    const finalPayment = await Payment.findById(payment._id);
+    const finalEntry = (finalPayment?.refunds || []).find((item) => String(item._id) === String(entryId));
+    console.log('FinancialService: Refund recorded with status', finalEntry?.status);
+    const described = FinancialService.describeRefund(finalPayment, finalEntry || entry, { duplicate: false });
+    // Erstattung ueber den freien (nicht zugeordneten) Rest hinaus: das Geld fehlt nun
+    // einer Rechnung. Das ist erlaubt (z.B. Kulanz), wird aber ausdruecklich gemeldet -
+    // eine Wertkorrektur der Rechnung waere eine eigene Gutschrift.
+    if (refundAmount > unallocatedBefore + 0.01) {
+      described.warning = `Die Erstattung übersteigt den nicht zugeordneten Betrag dieser Zahlung (${formatEuroDe(unallocatedBefore)}). `
+        + 'Die zugeordnete Rechnung ist dadurch wieder (teilweise) offen. Soll die Forderung sinken, ist zusätzlich eine Gutschrift nötig.';
+    }
+    return described;
+  }
+
+  /**
+   * Fuehrt EINEN Aufruf der PayPal-Erstattung fuer einen bereits reservierten Eintrag
+   * aus und schreibt das Ergebnis an diesen Eintrag.
+   *
+   * outcome:
+   *  - 'completed'     PayPal hat erstattet -> genau einmal gebucht (completeRefundEntry)
+   *  - 'pending'       PayPal hat angenommen, Geld noch nicht zurueck (Webhook schliesst ab)
+   *  - 'rejected'      PayPal hat ENDGUELTIG abgelehnt -> Eintrag 'failed', nichts gebucht
+   *  - 'indeterminate' Ergebnis unklar (Zeitueberschreitung/5xx) -> Eintrag bleibt
+   *                    'pending' und wird als ungeklaert markiert; NIE 'failed'.
+   */
+  static async runGatewayRefundAttempt(paymentId, entryId, { captureId, amount, requestId, currency = 'EUR', note = '' } = {}) {
+    const PaypalService = require('./paypalService');
+    const now = new Date();
+    let providerResult = null;
+    try {
+      providerResult = await PaypalService.refundCapture(captureId, amount, { requestId, currency, note });
+    } catch (error) {
+      const statusCode = Number(error?.statusCode) || 0;
+      const outcome = error?.refundOutcome
+        || (statusCode >= 400 && statusCode < 500 && ![408, 409].includes(statusCode) ? 'rejected' : 'indeterminate');
+      if (outcome === 'rejected') {
+        // Nur Meldungen aus dem PayPal-Dienst sind deutsch aufbereitet; alles andere
+        // bekommt einen neutralen deutschen Satz (kein roher Code im UI-Text).
+        const message = error?.refundOutcome ? String(error.message || '') : 'PayPal hat die Erstattung abgelehnt.';
+        await Payment.updateOne(
+          { _id: paymentId, refunds: { $elemMatch: { _id: entryId, status: 'pending' } } },
+          {
+            $set: {
+              'refunds.$.status': 'failed',
+              'refunds.$.unresolved': false,
+              'refunds.$.lastCheckedAt': now,
+              'refunds.$.error': `${message}${error?.providerCode ? ` [${error.providerCode}]` : ''}`.slice(0, 500),
+            },
+          }
+        );
+        return { outcome: 'rejected', message: message || 'PayPal hat die Erstattung abgelehnt.' };
+      }
+      await Payment.updateOne(
+        { _id: paymentId, refunds: { $elemMatch: { _id: entryId, status: 'pending' } } },
+        {
+          $set: {
+            'refunds.$.unresolved': true,
+            'refunds.$.lastCheckedAt': now,
+            'refunds.$.error': 'Ergebnis bei PayPal unklar (keine eindeutige Antwort) – Abgleich per Webhook oder Wiederholung mit derselben Anfrage-ID.',
+          },
+        }
+      );
+      return { outcome: 'indeterminate' };
+    }
+
+    const providerStatus = String(providerResult?.status || '').toUpperCase();
+    const providerRefundId = String(providerResult?.id || '').trim();
+    if (!providerRefundId) {
+      // Antwort ohne Refund-ID: PayPal hat etwas getan, wir wissen nicht was.
+      await Payment.updateOne(
+        { _id: paymentId, refunds: { $elemMatch: { _id: entryId, status: 'pending' } } },
+        { $set: { 'refunds.$.unresolved': true, 'refunds.$.lastCheckedAt': now, 'refunds.$.error': 'PayPal-Antwort ohne Erstattungs-ID – Abgleich erforderlich.' } }
+      );
+      return { outcome: 'indeterminate' };
+    }
+    await Payment.updateOne(
+      { _id: paymentId, refunds: { $elemMatch: { _id: entryId } } },
+      {
+        $set: {
+          'refunds.$.reference': providerRefundId,
+          'refunds.$.unresolved': false,
+          'refunds.$.lastCheckedAt': now,
+          'refunds.$.error': '',
+          refundGatewayReference: providerRefundId,
+        },
+      }
+    );
+    if (providerStatus === 'COMPLETED') {
+      await FinancialService.completeRefundEntry(paymentId, entryId, providerRefundId);
+      return { outcome: 'completed', refundId: providerRefundId };
+    }
+    if (['FAILED', 'CANCELLED'].includes(providerStatus)) {
+      await Payment.updateOne(
+        { _id: paymentId, refunds: { $elemMatch: { _id: entryId, status: 'pending' } } },
+        { $set: { 'refunds.$.status': 'failed', 'refunds.$.error': providerStatus === 'FAILED' ? 'Von PayPal als fehlgeschlagen gemeldet' : 'Von PayPal abgebrochen' } }
+      );
+      return {
+        outcome: 'rejected',
+        message: `PayPal meldet die Erstattung als ${providerStatus === 'FAILED' ? 'fehlgeschlagen' : 'abgebrochen'}.`,
+      };
+    }
+    // PENDING (oder unbekannt): bei PayPal angelegt, zaehlt erst nach Bestaetigung.
+    return { outcome: 'pending', refundId: providerRefundId };
+  }
+
+  /**
+   * Gleicht einen PayPal-Eintrag mit UNKLAREM Ergebnis ab: derselbe Aufruf mit
+   * derselben PayPal-Request-Id. Hat PayPal beim ersten Mal erstattet, liefert es jetzt
+   * dieses Ergebnis (keine zweite Erstattung); kam der erste Aufruf nie an, wird er
+   * jetzt ausgefuehrt. Liefert die Antwort fuer Route/Client; `indeterminate` = weiter unklar.
+   */
+  static async settleUnresolvedRefund(paymentId, entryId, { duplicate = false, throwOnReject = true, allowReplay = false } = {}) {
+    const payment = await Payment.findById(paymentId);
+    const entry = (payment?.refunds || []).find((item) => String(item._id) === String(entryId));
+    if (!payment || !entry) {
+      throw buildFinancialError('Der Erstattungsvorgang wurde nicht gefunden.', 404, 'REFUND_NOT_FOUND');
+    }
+    if (!isUnresolvedGatewayRefund(entry)) {
+      return FinancialService.describeRefund(payment, entry, { duplicate });
+    }
+
+    // 1. Nur LESEN: Stand beim Anbieter abfragen (keine Ausfuehrung).
+    const queried = await FinancialService.queryGatewayRefundState(payment, entry);
+    if (queried.state === 'completed' || queried.state === 'pending') {
+      await Payment.updateOne(
+        { _id: payment._id, refunds: { $elemMatch: { _id: entry._id, status: 'pending' } } },
+        { $set: { 'refunds.$.reference': queried.refundId, 'refunds.$.unresolved': false, 'refunds.$.lastCheckedAt': new Date(), 'refunds.$.error': 'Per Abfrage bei PayPal geklärt', refundGatewayReference: queried.refundId } }
+      );
+      if (queried.state === 'completed') {
+        const completed = await FinancialService.completeRefundEntry(payment._id, entry._id, queried.refundId);
+        if (completed.applied) await FinancialService.syncAfterRefund(payment._id);
+      }
+      const fresh = await Payment.findById(payment._id);
+      const freshEntry = (fresh?.refunds || []).find((item) => String(item._id) === String(entry._id)) || entry;
+      const described = FinancialService.describeRefund(fresh, freshEntry, { duplicate });
+      described.indeterminate = false;
+      return described;
+    }
+    if (queried.state === 'failed') {
+      await Payment.updateOne(
+        { _id: payment._id, refunds: { $elemMatch: { _id: entry._id, status: 'pending' } } },
+        { $set: { 'refunds.$.status': 'failed', 'refunds.$.unresolved': false, 'refunds.$.reference': queried.refundId, 'refunds.$.lastCheckedAt': new Date(), 'refunds.$.error': 'Laut PayPal fehlgeschlagen (per Abfrage geklärt)' } }
+      );
+      const fresh = await Payment.findById(payment._id);
+      const freshEntry = (fresh?.refunds || []).find((item) => String(item._id) === String(entry._id)) || entry;
+      const described = FinancialService.describeRefund(fresh, freshEntry, { duplicate });
+      described.indeterminate = false;
+      return described;
+    }
+    if (!allowReplay) {
+      const fresh = await Payment.findById(payment._id);
+      const freshEntry = (fresh?.refunds || []).find((item) => String(item._id) === String(entry._id)) || entry;
+      const described = FinancialService.describeRefund(fresh, freshEntry, { duplicate });
+      described.indeterminate = true;
+      return described;
+    }
+
+    // 2. Nur bei ausdruecklicher Wiederholung DESSELBEN Auftrags (gleicher Dialog/Schluessel):
+    // derselbe Aufruf mit derselben PayPal-Request-Id. PayPal liefert dann das Ergebnis des
+    // ersten Aufrufs bzw. fuehrt genau diesen einen Auftrag aus - nie einen anderen.
+    const captureId = resolvePaypalCaptureId(payment);
+    const requestId = entry.requestId || String(entry.idempotencyKey || '').slice(0, 108);
+    // Nur innerhalb des Fensters, in dem PayPal eine Request-ID sicher wiedererkennt.
+    // Danach koennte derselbe Aufruf als NEUE Erstattung ausgefuehrt werden - dann bleibt
+    // der Vorgang ungeklaert, bis Webhook oder Pruefung im PayPal-Konto ihn klaeren.
+    const entryAge = Date.now() - new Date(entry.createdAt || 0).getTime();
+    const replayAllowed = entryAge >= 0 && entryAge <= REFUND_REQUEST_ID_REPLAY_WINDOW_MS;
+    let result = { outcome: 'indeterminate' };
+    if (captureId && requestId && replayAllowed) {
+      result = await FinancialService.runGatewayRefundAttempt(payment._id, entry._id, {
+        captureId,
+        amount: CalculationHelper.round(Number(entry.amount || 0)),
+        requestId,
+        currency: payment.currency || 'EUR',
+        note: entry.reason || '',
+      });
+    }
+    if (result.outcome === 'completed') await FinancialService.syncAfterRefund(payment._id);
+    if (result.outcome === 'rejected' && throwOnReject) {
+      throw buildFinancialError(
+        `${result.message} Es wurde nichts als erstattet verbucht; die Erstattung kann erneut ausgelöst werden.`,
+        502,
+        'GATEWAY_REFUND_FAILED'
+      );
+    }
+
+    const fresh = await Payment.findById(payment._id);
+    const freshEntry = (fresh?.refunds || []).find((item) => String(item._id) === String(entry._id)) || entry;
+    const described = FinancialService.describeRefund(fresh, freshEntry, { duplicate });
+    described.indeterminate = result.outcome === 'indeterminate';
+    return described;
+  }
+
+  /**
+   * Stand eines ungeklaerten PayPal-Erstattungsversuchs NUR LESEND ermitteln: die
+   * PayPal-Order der Zahlung (GET /v2/checkout/orders/{id}) listet alle Erstattungen.
+   * Treffer nur, wenn GENAU EINE bisher keinem Eintrag zugeordnete Erstattung zu Betrag,
+   * Hinweistext (note_to_payer = Grund) und Zeitfenster passt - sonst bleibt der Vorgang
+   * ungeklaert (Abgleich durch den Bearbeiter). Fuehrt nie eine Erstattung aus.
+   * @returns {Promise<{state: 'completed'|'pending'|'failed'|'not_found'|'ambiguous'|'unknown', refundId?: string}>}
+   */
+  static async queryGatewayRefundState(payment, entry) {
+    const orderId = String(payment?.metadata?.paypalOrderId || payment?.metadata?.providerDetails?.orderId || '').trim();
+    if (!orderId || String(entry?.provider || 'paypal') !== 'paypal') return { state: 'unknown' };
+    let order = null;
+    try {
+      const PaypalService = require('./paypalService');
+      order = await PaypalService.getOrder(orderId);
+    } catch (error) {
+      console.warn('FinancialService: PayPal-Order fuer Erstattungsabgleich nicht abrufbar:', error.message);
+      return { state: 'unknown' };
+    }
+    if (!order) return { state: 'unknown' };
+    const known = new Set((payment.refunds || []).map((item) => String(item.reference || '').trim()).filter(Boolean));
+    const createdAt = new Date(entry.createdAt || 0).getTime();
+    const reason = String(entry.reason || '').slice(0, 255);
+    const candidates = (order.purchase_units || [])
+      .flatMap((unit) => unit?.payments?.refunds || [])
+      .filter((refund) => refund && refund.id && !known.has(String(refund.id)))
+      .filter((refund) => Math.abs(Number(refund.amount?.value || 0) - Number(entry.amount || 0)) < 0.01)
+      .filter((refund) => !refund.create_time || new Date(refund.create_time).getTime() >= createdAt - 5 * 60 * 1000)
+      .filter((refund) => !refund.note_to_payer || !reason || String(refund.note_to_payer) === reason);
+    if (candidates.length > 1) return { state: 'ambiguous' };
+    if (candidates.length === 0) return { state: 'not_found' };
+    const status = String(candidates[0].status || '').toUpperCase();
+    if (status === 'COMPLETED') return { state: 'completed', refundId: String(candidates[0].id) };
+    if (['FAILED', 'CANCELLED'].includes(status)) return { state: 'failed', refundId: String(candidates[0].id) };
+    return { state: 'pending', refundId: String(candidates[0].id) };
+  }
+
+  /**
+   * Manueller Abgleich eines UNGEKLAERTEN PayPal-Erstattungsversuchs durch einen
+   * Administrator nach Pruefung im PayPal-Konto (falls weder Webhook noch Wiederholung
+   * ihn klaeren konnten):
+   *  - 'executed'     + PayPal-Refund-ID: die Erstattung ist erfolgt -> genau einmal buchen
+   *  - 'not-executed' : bei PayPal keine Erstattung -> Eintrag 'failed', Betrag wieder frei
+   */
+  static async resolveUnresolvedRefund(paymentId, entryId, { resolution, providerRefundId = '', actorName = '' } = {}) {
+    if (!Types.ObjectId.isValid(String(paymentId || '')) || !Types.ObjectId.isValid(String(entryId || ''))) {
+      throw buildFinancialError('Ungültige Zahlungs- oder Erstattungs-ID.', 400, 'INVALID_ID');
+    }
+    const payment = await Payment.findById(paymentId);
+    const entry = (payment?.refunds || []).find((item) => String(item._id) === String(entryId));
+    if (!payment || !entry) throw buildFinancialError('Der Erstattungsvorgang wurde nicht gefunden.', 404, 'REFUND_NOT_FOUND');
+    if (!isUnresolvedGatewayRefund(entry)) {
+      throw buildFinancialError('Dieser Erstattungsvorgang ist nicht (mehr) ungeklärt.', 409, 'REFUND_NOT_UNRESOLVED');
+    }
+    const who = String(actorName || 'Administrator').slice(0, 80);
+
+    if (resolution === 'executed') {
+      const refundId = String(providerRefundId || '').trim();
+      if (!/^[A-Za-z0-9-]{6,64}$/.test(refundId)) {
+        throw buildFinancialError('Bitte die Erstattungs-ID aus dem PayPal-Konto angeben.', 422, 'PROVIDER_REFUND_ID_REQUIRED');
+      }
+      const clash = await Payment.findOne({ 'refunds.reference': refundId }).select('_id').lean();
+      if (clash && String(clash._id) !== String(payment._id)) {
+        throw buildFinancialError('Diese PayPal-Erstattungs-ID ist bereits einer anderen Zahlung zugeordnet.', 409, 'PROVIDER_REFUND_ID_IN_USE');
+      }
+      await Payment.updateOne(
+        { _id: payment._id, refunds: { $elemMatch: { _id: entry._id, status: 'pending' } } },
+        { $set: { 'refunds.$.reference': refundId, 'refunds.$.unresolved': false, 'refunds.$.error': `Per Abgleich bestätigt (${who})`, refundGatewayReference: refundId } }
+      );
+      const completed = await FinancialService.completeRefundEntry(payment._id, entry._id, refundId);
+      if (completed.applied) await FinancialService.syncAfterRefund(payment._id);
+    } else if (resolution === 'not-executed') {
+      await Payment.updateOne(
+        { _id: payment._id, refunds: { $elemMatch: { _id: entry._id, status: 'pending' } } },
+        { $set: { 'refunds.$.status': 'failed', 'refunds.$.unresolved': false, 'refunds.$.error': `Laut Prüfung im PayPal-Konto nicht ausgeführt (${who})` } }
+      );
+      await FinancialService.syncAfterRefund(payment._id);
+    } else {
+      throw buildFinancialError('Unbekannte Abgleich-Entscheidung.', 422, 'INVALID_RESOLUTION');
+    }
+
+    const fresh = await Payment.findById(payment._id);
+    const freshEntry = (fresh?.refunds || []).find((item) => String(item._id) === String(entry._id));
+    return FinancialService.describeRefund(fresh, freshEntry, { duplicate: false });
+  }
+
+  // Einheitliche Antwort fuer Route/Client.
+  static describeRefund(payment, entry, { duplicate = false } = {}) {
+    return {
+      _id: entry?._id ? String(entry._id) : '',
+      paymentId: String(payment?._id || ''),
+      amount: CalculationHelper.round(Number(entry?.amount || 0)),
+      reason: entry?.reason || '',
+      mode: entry?.mode || 'manual',
+      status: entry?.status || 'pending',
+      // true = PayPal hat nicht eindeutig geantwortet; der Vorgang wird per Webhook
+      // oder Wiederholung abgeglichen und zaehlt bis dahin nicht als erstattet.
+      indeterminate: isUnresolvedGatewayRefund(entry),
+      gatewayProvider: entry?.provider || 'manual',
+      gatewayReference: entry?.reference || '',
+      processedAt: entry?.completedAt || entry?.createdAt || null,
+      refundedTotal: CalculationHelper.round(Number(payment?.refundAmount || 0)),
+      duplicate,
+    };
+  }
+
+  /**
+   * Schliesst einen ausstehenden Erstattungseintrag GENAU EINMAL ab: nur wenn der
+   * Eintrag noch nicht 'completed' ist, wird sein Betrag auf refundAmount addiert.
+   */
+  static async completeRefundEntry(paymentId, entryId, reference = '') {
+    const now = new Date();
+    const updated = await Payment.findOneAndUpdate(
+      { _id: paymentId, refunds: { $elemMatch: { _id: entryId, status: { $ne: 'completed' } } } },
+      [
+        {
+          $set: {
+            refundAmount: {
+              $round: [{
+                $add: [
+                  { $ifNull: ['$refundAmount', 0] },
+                  {
+                    $sum: {
+                      $map: {
+                        input: { $filter: { input: '$refunds', as: 'r', cond: { $eq: ['$$r._id', entryId] } } },
+                        as: 'r',
+                        in: '$$r.amount',
+                      },
+                    },
+                  },
+                ],
+              }, 2],
+            },
+            refunds: {
+              $map: {
+                input: '$refunds',
+                as: 'r',
+                in: {
+                  $cond: [
+                    { $eq: ['$$r._id', entryId] },
+                    { $mergeObjects: ['$$r', { status: 'completed', completedAt: now, unresolved: false, ...(reference ? { reference } : {}) }] },
+                    '$$r',
+                  ],
+                },
+              },
+            },
+            refundedAt: now,
+            updatedAt: now,
+          },
+        },
+      ],
+      { new: true }
+    );
+    if (!updated) return { applied: false };
+
+    if (CalculationHelper.round(Number(updated.refundAmount || 0)) >= CalculationHelper.round(Number(updated.amount || 0)) - 0.01) {
+      await Payment.updateOne({ _id: updated._id, status: 'completed' }, { $set: { status: 'refunded' } });
+    }
+    return { applied: true };
+  }
+
+  /**
+   * Status einer Anbieter-Erstattung fortschreiben (Webhook oder Abgleich).
+   * Idempotent ueber die Refund-ID des Anbieters: wiederholte oder verspaetete
+   * Webhooks buchen denselben Betrag nie zweimal, und ein 'PENDING' zaehlt nie.
+   */
+  static async applyGatewayRefundUpdate({ provider = 'paypal', captureId = '', refundId = '', amount = 0, status = '', reason = '' } = {}) {
+    const cleanRefundId = String(refundId || '').trim();
+    const cleanCaptureId = String(captureId || '').trim();
+    const normalizedStatus = (() => {
+      const raw = String(status || '').toUpperCase();
+      if (raw === 'COMPLETED') return 'completed';
+      if (['FAILED', 'CANCELLED', 'DENIED'].includes(raw)) return 'failed';
+      return 'pending';
+    })();
+
+    let payment = cleanRefundId ? await Payment.findOne({ 'refunds.reference': cleanRefundId }) : null;
+    if (!payment && cleanCaptureId) {
+      payment = await Payment.findOne({
+        $or: [
+          { 'metadata.providerDetails.captureId': cleanCaptureId },
+          { 'metadata.providerReference': cleanCaptureId },
+          { transactionId: cleanCaptureId },
+        ],
+      });
+    }
+    if (!payment) return { applied: false, reason: 'payment_not_found' };
+
+    let entry = cleanRefundId ? (payment.refunds || []).find((item) => item.reference === cleanRefundId) : null;
+    // Eigener, noch ohne Refund-ID ausstehender Eintrag mit demselben Betrag?
+    if (!entry) {
+      entry = (payment.refunds || []).find((item) => item.status === 'pending' && !item.reference
+        && Math.abs(Number(item.amount || 0) - Number(amount || 0)) < 0.01);
+      if (entry && cleanRefundId) {
+        // PayPal kennt den Vorgang jetzt eindeutig: der Eintrag ist nicht mehr ungeklaert.
+        await Payment.updateOne({ _id: payment._id, 'refunds._id': entry._id }, { $set: { 'refunds.$.reference': cleanRefundId, 'refunds.$.unresolved': false } });
+      }
+    }
+
+    let applied = false;
+    if (!entry) {
+      // Erstattung wurde direkt beim Anbieter ausgeloest: als eigener Eintrag
+      // uebernehmen (atomar gegen doppelte Zustellung ueber die Referenz).
+      const value = CalculationHelper.round(Math.min(
+        Math.max(0, Number(amount || 0)),
+        Math.max(0, Number(payment.amount || 0) - Number(payment.refundAmount || 0))
+      ));
+      if (!(value > 0)) return { applied: false, reason: 'nothing_to_refund', paymentId: String(payment._id) };
+      const newEntryId = new Types.ObjectId();
+      const inserted = await Payment.findOneAndUpdate(
+        { _id: payment._id, 'refunds.reference': { $ne: cleanRefundId || `__none_${newEntryId}` } },
+        {
+          $push: {
+            refunds: {
+              _id: newEntryId,
+              amount: value,
+              status: normalizedStatus === 'completed' ? 'pending' : normalizedStatus,
+              mode: 'gateway',
+              provider,
+              reference: cleanRefundId,
+              reason: String(reason || 'Erstattung beim Zahlungsanbieter').slice(0, 500),
+              createdAt: new Date(),
+            },
+          },
+          $set: { refundMode: 'gateway', refundGatewayProvider: provider, refundGatewayReference: cleanRefundId },
+        },
+        { new: true }
+      );
+      if (!inserted) return { applied: false, duplicate: true, paymentId: String(payment._id) };
+      if (normalizedStatus === 'completed') {
+        applied = (await FinancialService.completeRefundEntry(payment._id, newEntryId, cleanRefundId)).applied;
+      }
+    } else if (normalizedStatus === 'completed' && entry.status !== 'completed') {
+      applied = (await FinancialService.completeRefundEntry(payment._id, entry._id, cleanRefundId)).applied;
+    } else if (normalizedStatus === 'failed' && entry.status === 'pending') {
+      await Payment.updateOne(
+        { _id: payment._id, 'refunds._id': entry._id, 'refunds.status': 'pending' },
+        { $set: { 'refunds.$.status': 'failed', 'refunds.$.unresolved': false, 'refunds.$.error': 'Vom Zahlungsanbieter abgelehnt' } }
+      );
+    }
+
+    if (applied) await FinancialService.syncAfterRefund(payment._id);
+    const refreshed = await Payment.findById(payment._id).lean();
+    return {
+      applied,
+      duplicate: !applied && normalizedStatus === 'completed',
+      paymentId: String(payment._id),
+      refundAmount: CalculationHelper.round(Number(refreshed?.refundAmount || 0)),
+    };
+  }
+
+  // Nach einer Erstattung: Belegstaende aus den Zuordnungen neu ableiten und den
+  // Zahlungsstand der Buchung fortschreiben. Nicht fatal - das Geld ist gebucht.
+  static async syncAfterRefund(paymentId) {
+    try {
+      const payment = await Payment.findById(paymentId).select('_id bookingId').lean();
+      const invoiceIds = (await PaymentAllocation.find({ paymentId }).select('invoiceId').lean())
+        .map((entry) => entry.invoiceId);
+      if (invoiceIds.length > 0) await FinancialService.recalculateInvoicePaidAmounts(invoiceIds);
+      if (payment?.bookingId) await FinancialService.applyBookingPaymentState(payment.bookingId);
+    } catch (error) {
+      console.error('FinancialService: derived state after refund not updated:', error);
+    }
+  }
+
+  // Einheitlicher Zahlungsstand-Satz fuer Liste, Detail und Client.
+  static toBalancePayload(balance) {
+    if (!balance) {
+      return { total: 0, credited: 0, receivable: 0, allocated: 0, open: 0, overpaid: 0, received: 0, refundPending: 0, refunded: 0, refundsInProgress: 0 };
+    }
+    return {
+      total: balance.total,
+      credited: balance.credited,
+      receivable: balance.receivable,
+      allocated: balance.allocated,
+      open: balance.open,
+      overpaid: balance.overpaid,
+      received: balance.received,
+      refundPending: balance.refundPending,
+      refunded: balance.refunded,
+      refundsInProgress: balance.refundsInProgress,
+    };
   }
 
   // Invoice Management
@@ -827,24 +1714,14 @@ class FinancialService {
       // Liste denselben Satz (total / allocated / open / overpaid) zeigt wie Detail-
       // und Auftragsansicht und der Client nichts nachrechnen muss.
       const rawInvoices = (invoiceSummary?.items || []).map((invoice) => ({ ...invoice }));
-      const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(
-        rawInvoices.map((invoice) => invoice._id)
-      );
+      const balancesByInvoice = await PaymentService.getInvoiceBalances(rawInvoices);
       const invoices = rawInvoices.map((invoice) => {
-        const balance = PaymentService.buildInvoiceBalance(
-          invoice,
-          Number(allocatedByInvoice.get(String(invoice._id)) || 0)
-        );
+        const balance = balancesByInvoice.get(String(invoice._id));
         return {
           ...invoice,
           // status = Beleglebenslauf, paymentState = Zahlungsstand. Nie vermischen.
-          paymentState: balance.paymentState,
-          balance: {
-            total: balance.total,
-            allocated: balance.allocated,
-            open: balance.open,
-            overpaid: balance.overpaid,
-          },
+          paymentState: balance?.paymentState || 'open',
+          balance: FinancialService.toBalancePayload(balance),
         };
       });
       const totalInvoices = invoiceSummary?.totalCount?.[0]?.count || 0;
@@ -888,11 +1765,15 @@ class FinancialService {
 
       console.log('FinancialService: Cleaned invoice data:', cleanedInvoiceData);
 
+      // Der Anspruch auf Auftrag/Buchung wird ausschliesslich serverseitig gesetzt.
+      delete cleanedInvoiceData.activeBillingKeys;
+
       // If orderId is provided, validate order exists
+      let linkedOrder = null;
       if (cleanedInvoiceData.orderId) {
-        const order = await Order.findById(cleanedInvoiceData.orderId);
-        if (!order) {
-          throw new Error('Order not found');
+        linkedOrder = await Order.findById(cleanedInvoiceData.orderId);
+        if (!linkedOrder) {
+          throw buildFinancialError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
         }
       }
 
@@ -904,7 +1785,7 @@ class FinancialService {
       if (cleanedInvoiceData.customerId) {
         const customer = financialProfile.customer || await User.findById(cleanedInvoiceData.customerId);
         if (!customer) {
-          throw new Error('Customer not found');
+          throw buildFinancialError('Kunde wurde nicht gefunden.', 404, 'CUSTOMER_NOT_FOUND');
         }
 
         // Use customer info from database if not provided in request
@@ -955,14 +1836,11 @@ class FinancialService {
       }
 
       if (cleanedInvoiceData.bookingId) {
-        const existingInvoice = await Invoice.findOne({ bookingId: cleanedInvoiceData.bookingId })
-          .select('_id invoiceNumber')
-          .lean();
-        if (existingInvoice) {
-          const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
-          duplicateError.statusCode = 409;
-          throw duplicateError;
-        }
+        await assertBookingNotYetInvoiced(cleanedInvoiceData.bookingId);
+      }
+      // Dieselbe Regel wie createInvoiceFromOrder: je Auftrag hoechstens eine aktive Rechnung.
+      if (linkedOrder) {
+        await assertOrdersNotYetInvoiced([linkedOrder]);
       }
 
       // Belegnummern sind nicht vom Aufrufer setzbar - sie kommen aus DocumentSequence.
@@ -972,16 +1850,16 @@ class FinancialService {
       if (!cleanedInvoiceData.dueDate && cleanedInvoiceData.dueDate !== false) {
         const dueDays = normalizePaymentDueDays(financialProfile.paymentDueDays);
         cleanedInvoiceData.dueDate = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+        cleanedInvoiceData.paymentDueDays = dueDays;
       }
+      // Zahlungsziel-Text wird im Modell aus der Frist bzw. dem Datum abgeleitet; ein
+      // mitgeschickter Freitext darf dem Datum nicht widersprechen.
+      delete cleanedInvoiceData.paymentTerms;
 
       if (cleanedInvoiceData.dueDate) {
         cleanedInvoiceData.originalDueDate = new Date(cleanedInvoiceData.dueDate);
       }
       
-      if (!cleanedInvoiceData.paymentTerms) {
-        cleanedInvoiceData.paymentTerms = financialProfile.paymentTerms;
-      }
-
       const isReverseCharge = Boolean(
         cleanedInvoiceData.isReverseCharge ||
         financialProfile.taxMode === 'reverse_charge'
@@ -1023,7 +1901,34 @@ class FinancialService {
       }
 
       if ((cleanedInvoiceData.discount === undefined || cleanedInvoiceData.discount === null) && itemsGrossTotal > 0) {
-        cleanedInvoiceData.discount = calculateDiscountAmount(itemsGrossTotal, financialProfile.defaultDiscountPercent);
+        if (cleanedInvoiceData.orderId || cleanedInvoiceData.bookingId) {
+          // Rechnung zu einem Auftrag/einer Buchung: der Kundenrabatt ist dort bereits
+          // ausgerechnet und festgehalten (order.discount bzw. booking.discount). Der
+          // HEUTIGE Profilprozentsatz darf nicht erneut angewandt werden - das waere
+          // dieselbe Fehlerklasse wie Sophies 36,06 statt 42,42.
+          // Der festgehaltene Rabatt gehoert zu den POSITIONEN des Auftrags/der Buchung.
+          // Nur wenn die uebergebenen Positionen genau diese sind (Listenbrutto =
+          // festgehaltener Wert + Rabatt), wird er uebernommen. Andere Positionen (z.B.
+          // eine Bearbeitungsgebuehr zum Auftrag) bekommen keinen automatischen Rabatt.
+          let recordedDiscount = 0;
+          let recordedListGross = 0;
+          if (cleanedInvoiceData.orderId) {
+            const orderForDiscount = await Order.findById(cleanedInvoiceData.orderId).setOptions({ skipAutoPopulate: true }).select('discount totalCost').lean();
+            recordedDiscount = Number(orderForDiscount?.discount || 0);
+            recordedListGross = CalculationHelper.round(Number(orderForDiscount?.totalCost || 0) + recordedDiscount);
+          } else {
+            const bookingForDiscount = await Booking.findById(cleanedInvoiceData.bookingId).setOptions({ skipAutoPopulate: true }).select('discount totalCost').lean();
+            recordedDiscount = Number(bookingForDiscount?.discount || 0);
+            recordedListGross = CalculationHelper.round(Number(bookingForDiscount?.totalCost || 0) + recordedDiscount);
+          }
+          const itemsAreRecordedPositions = Math.abs(itemsGrossTotal - recordedListGross) <= 0.01;
+          cleanedInvoiceData.discount = itemsAreRecordedPositions
+            ? CalculationHelper.round(Math.min(itemsGrossTotal, Math.max(0, recordedDiscount)))
+            : 0;
+        } else {
+          // Freistehende manuelle Rechnung (Listenpreise von Hand): Profilprozentsatz.
+          cleanedInvoiceData.discount = calculateDiscountAmount(itemsGrossTotal, financialProfile.defaultDiscountPercent);
+        }
       }
 
       if (isReverseCharge) {
@@ -1039,7 +1944,7 @@ class FinancialService {
 
       // Create invoice
       const invoice = new Invoice(cleanedInvoiceData);
-      await invoice.save();
+      await saveClaimedInvoice(invoice, { orders: linkedOrder ? [linkedOrder] : [] });
       const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
       console.log('FinancialService: Invoice created successfully with defaults applied');
@@ -1050,103 +1955,144 @@ class FinancialService {
     }
   }
 
-  static async sendInvoice(invoiceId, email, message) {
+  /**
+   * Kontrollierter Versand eines Belegs per E-Mail.
+   *  - Ein Entwurf wird dabei EINMAL ausgestellt (Status 'sent'), danach archiviert.
+   *  - Angehaengt wird das ARCHIVIERTE PDF (dieselbe Fassung wie beim Download).
+   *  - Ein E-Mail-Fehler erzeugt keinen neuen Beleg und aendert weder Betrag noch Status;
+   *    er wird in der Revisionsspur vermerkt und kann erneut ausgeloest werden.
+   *  - Ein erneuter Versand (z.B. einer bezahlten Rechnung) aendert den Status NICHT.
+   *  - Die persoenliche Nachricht wird als {{customMessage}} gerendert (auch bei
+   *    gespeicherten Vorlagen ohne Platzhalter, siehe NotificationTemplateService).
+   */
+  static async sendInvoice(invoiceId, email, message, options = {}) {
     console.log('FinancialService: Sending invoice:', invoiceId);
 
+    let invoice = await Invoice.findById(invoiceId);
+    if (!invoice) {
+      throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    }
+
+    const recipientEmail = String(email || invoice.customerEmail || '').trim();
+    if (!recipientEmail) {
+      throw buildFinancialError('Für den Versand wird eine E-Mail-Adresse benötigt.', 400, 'RECIPIENT_REQUIRED');
+    }
+    if (invoice.cancellation?.kind === 'draft_discarded') {
+      throw buildFinancialError('Ein verworfener Entwurf wird nicht versendet.', 409, 'INVOICE_DISCARDED');
+    }
+    if (['cancelled'].includes(invoice.status) && !invoice.isCreditNote) {
+      throw buildFinancialError('Eine stornierte Rechnung wird nicht mehr versendet. Bitte die Storno-Gutschrift bzw. die neue Rechnung senden.', 409, 'INVOICE_CANCELLED');
+    }
+
+    const actorId = options.actorId || undefined;
+    const actorName = String(options.actorName || '').slice(0, 80);
+
+    // Entwurf: jetzt ausstellen (einmalig). Danach ist das Dokument unveraenderlich.
+    if (!isIssuedStatus(invoice.status)) {
+      await Invoice.updateOne(
+        { _id: invoice._id, status: invoice.status },
+        { $set: { status: 'sent' }, $push: { auditTrail: { at: new Date(), action: 'issued', actorId, actorName, detail: 'Beim Versand ausgestellt.' } } }
+      );
+      invoice = await Invoice.findById(invoice._id);
+      await FinancialService.syncPaymentDerivedState(invoice, 'sendInvoice:issued');
+    }
+
+    const archived = await FinancialService.ensureInvoiceDocument(invoice._id, { reason: 'Versand', actorId, actorName });
+
+    let referenceNumber = '-';
+    if (invoice.bookingId) {
+      const booking = await Booking.findById(invoice.bookingId).select('bookingNumber').lean();
+      referenceNumber = booking?.bookingNumber || String(invoice.bookingId);
+    } else if (invoice.orderId?.orderNumber) {
+      referenceNumber = String(invoice.orderId.orderNumber);
+    } else if (invoice.orderId) {
+      const order = await Order.findById(invoice.orderId).select('orderNumber').lean();
+      referenceNumber = order?.orderNumber || String(invoice.orderId);
+    }
+
+    const InvoicePdfService = require('./invoicePdfService');
+    const customerName = String(invoice.customerName || '').trim() || 'Kunde';
+    const invoiceAmount = Number(invoice.total || 0);
+    const invoiceUrl = await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`);
+    const safeInvoiceNumber = String(invoice.invoiceNumber || invoice._id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const composedMessage = String(message || '').trim().slice(0, 5000);
+    const methodLabel = InvoicePdfService.paymentMethodLabel(invoice.issueSnapshot?.paymentMethod || invoice.paymentMethod) || 'Überweisung';
+
+    let emailResult;
     try {
-      const invoice = await Invoice.findById(invoiceId);
-
-      if (!invoice) {
-        throw new Error('Invoice not found');
-      }
-
-      const recipientEmail = String(email || invoice.customerEmail || '').trim();
-      if (!recipientEmail) {
-        throw new Error('Invoice recipient email is required');
-      }
-
-      let referenceNumber = '-';
-      if (invoice.bookingId) {
-        const booking = await Booking.findById(invoice.bookingId).select('bookingNumber').lean();
-        referenceNumber = booking?.bookingNumber || String(invoice.bookingId);
-      } else if (invoice.orderId?.orderNumber) {
-        referenceNumber = String(invoice.orderId.orderNumber);
-      } else if (invoice.orderId) {
-        const order = await Order.findById(invoice.orderId).select('orderNumber').lean();
-        referenceNumber = order?.orderNumber || String(invoice.orderId);
-      }
-
-      const customerName = String(invoice.customerName || '').trim() || 'Kunde';
-      const invoiceAmount = Number(invoice.total || 0);
-      const invoiceUrl = await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`);
-      const InvoicePdfService = require('./invoicePdfService');
-      const invoicePdf = await InvoicePdfService.generate(invoice);
-      const safeInvoiceNumber = String(invoice.invoiceNumber || invoice._id).replace(/[^a-zA-Z0-9_-]/g, '_');
-
-      const emailResult = await EmailService.sendTriggerEmail('invoice_created', recipientEmail, {
+      emailResult = await EmailService.sendTriggerEmail('invoice_created', recipientEmail, {
         companyName: process.env.COMPANY_NAME || 'McRepair.de',
         customerName,
         invoiceNumber: invoice.invoiceNumber,
         orderNumber: referenceNumber,
         invoiceAmount: `EUR ${invoiceAmount.toFixed(2)}`,
         dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('de-DE') : '-',
-        paymentMethod: invoice.paymentMethod || 'Ueberweisung',
+        paymentMethod: methodLabel,
         invoiceUrl,
-        customMessage: String(message || '').trim(),
+        customMessage: composedMessage,
         supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
         supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
       }, {
         attachments: [{
-          filename: `Rechnung_${safeInvoiceNumber}.pdf`,
-          content: invoicePdf,
+          filename: `${invoice.isCreditNote ? 'Gutschrift' : 'Rechnung'}_${safeInvoiceNumber}.pdf`,
+          content: archived.buffer,
           contentType: 'application/pdf'
         }]
       });
+    } catch (error) {
+      emailResult = { success: false, error: error.message };
+    }
 
-      if (!emailResult?.success) {
-        throw new Error(emailResult?.error || 'Failed to send invoice email');
-      }
+    if (!emailResult?.success) {
+      await Invoice.updateOne({ _id: invoice._id }, {
+        $push: { auditTrail: { at: new Date(), action: 'send_failed', actorId, actorName, detail: `E-Mail an ${recipientEmail} fehlgeschlagen: ${String(emailResult?.error || 'unbekannt').slice(0, 300)}` } }
+      });
+      const sendError = buildFinancialError(
+        'Die Rechnung wurde NICHT versendet, weil der E-Mail-Versand fehlgeschlagen ist. '
+        + 'Der Beleg bleibt unverändert; der Versand kann erneut ausgelöst werden.',
+        502,
+        'INVOICE_EMAIL_FAILED'
+      );
+      sendError.detail = String(emailResult?.error || '');
+      throw sendError;
+    }
 
-      // Update invoice status
-      invoice.status = 'sent';
-      invoice.sentAt = new Date();
-      await invoice.save();
-      await FinancialService.syncPaymentDerivedState(invoice, 'sendInvoice');
+    // Nur Versanddatum und Revisionsspur - der Status wird NICHT zurueckgesetzt
+    // (eine bezahlte oder ueberfaellige Rechnung bleibt, was sie ist).
+    const sentAt = new Date();
+    await Invoice.updateOne({ _id: invoice._id }, {
+      $set: { sentAt },
+      $push: { auditTrail: { at: sentAt, action: 'sent', actorId, actorName, detail: `E-Mail an ${recipientEmail}${composedMessage ? ' mit persönlicher Nachricht' : ''} (PDF-Fassung ${archived.version}).` } }
+    });
 
+    try {
       await NotificationService.createNotification({
         userId: invoice.customerId,
-        title: 'Neue Rechnung verfuegbar',
-        message: `Ihre Rechnung ${invoice.invoiceNumber} wurde versendet.`,
+        title: invoice.isCreditNote ? 'Neue Gutschrift verfügbar' : 'Neue Rechnung verfügbar',
+        message: `Ihr Beleg ${invoice.invoiceNumber} wurde versendet.`,
         type: 'system',
         orderId: invoice.orderId || undefined,
-        actionUrl: '/customer/invoices',
+        actionUrl: `/invoices?invoiceId=${invoice._id}`,
         metadata: {
           isInvoice: true,
           invoiceId: String(invoice._id),
           invoiceNumber: invoice.invoiceNumber
         }
       }, { sendEmail: false });
-
-      console.log('FinancialService: Invoice sent successfully');
-
-      // Ehrliche Rueckmeldung: die Vorlage 'Neue Rechnung verfuegbar' enthaelt derzeit
-      // KEINEN Platzhalter {{customMessage}}, die im Dialog verfasste persoenliche
-      // Nachricht wird daher nicht mitgesendet. Das wird gemeldet statt verschwiegen.
-      const composedMessage = String(message || '').trim();
-      return {
-        success: true,
-        message: 'Rechnung wurde versendet.',
-        recipientEmail,
-        providerMessageId: emailResult?.messageId || '',
-        customMessageDelivered: false,
-        ...(composedMessage
-          ? { warning: 'Die persönliche Nachricht wurde NICHT mitgesendet: die E-Mail-Vorlage "Neue Rechnung verfuegbar" enthält keinen Platzhalter dafür.' }
-          : {}),
-      };
     } catch (error) {
-      console.error('FinancialService: Error sending invoice:', error);
-      throw error;
+      console.error('FinancialService: In-App-Benachrichtigung zum Rechnungsversand fehlgeschlagen:', error.message);
     }
+
+    console.log('FinancialService: Invoice sent successfully');
+    return {
+      success: true,
+      message: 'Rechnung wurde versendet.',
+      recipientEmail,
+      providerMessageId: emailResult?.messageId || '',
+      customMessageDelivered: Boolean(composedMessage),
+      documentVersion: archived.version,
+      documentSha256: archived.sha256,
+    };
   }
 
   // Financial Reports
@@ -1617,7 +2563,7 @@ class FinancialService {
       const order = await Order.findById(orderId).populate('customerId');
 
       if (!order) {
-        throw new Error('Order not found');
+        throw buildFinancialError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
       }
 
       const financialProfile = await FinancialService.resolveFinancialProfile({ customer: order.customerId });
@@ -1655,24 +2601,14 @@ class FinancialService {
       const order = await Order.findById(orderId).populate('customerId');
 
       if (!order) {
-        throw new Error('Order not found');
+        throw buildFinancialError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
       }
 
       if (order.bookingId) {
-        const existingInvoice = await Invoice.findOne({ bookingId: order.bookingId })
-          .select('_id invoiceNumber')
-          .lean();
-        if (existingInvoice) {
-          const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
-          duplicateError.statusCode = 409;
-          duplicateError.code = 'INVOICE_ALREADY_EXISTS';
-          duplicateError.existingInvoice = {
-            _id: String(existingInvoice._id),
-            invoiceNumber: existingInvoice.invoiceNumber || null,
-          };
-          throw duplicateError;
-        }
+        await assertBookingNotYetInvoiced(order.bookingId);
       }
+
+      await assertOrdersNotYetInvoiced([order]);
 
       const financialProfile = await FinancialService.resolveFinancialProfile({ customer: order.customerId });
 
@@ -1711,15 +2647,18 @@ class FinancialService {
         Boolean(order.customerId?.vatId && order.customerId?.country && order.customerId.country !== 'DE')
       );
       const itemsGrossTotal = CalculationHelper.round(items.reduce((sum, item) => sum + Number(item.total || 0), 0));
-      const discount = CalculationHelper.round(
-        orderDiscount
-        + calculateDiscountAmount(
-          CalculationHelper.round(itemsGrossTotal - orderDiscount),
-          financialProfile.defaultDiscountPercent
-        )
-      );
-      const dueDays = financialProfile.paymentDueDays || 30;
-      const paymentTerms = composePaymentTerms(financialProfile);
+      // order.discount IST bereits der ausgerechnete Kundengruppenrabatt: der Checkout
+      // hat ihn aus dem Kundenprofil ermittelt und in order.totalCost verrechnet.
+      // Er darf hier NICHT erneut prozentual angewandt werden, sonst wird er doppelt
+      // gerechnet - genau der Fehler aus Sophies Test vom 24.09.2026:
+      //   richtig:  49,90 - 7,48  = 42,42
+      //   falsch:   49,90 - 13,84 = 36,06   (7,48 + 15 % auf 42,42 = 6,36)
+      // Invariante: Rechnungsbrutto === Auftragswert (order.totalCost).
+      const discount = CalculationHelper.round(Math.min(itemsGrossTotal, orderDiscount));
+      // Frist aus dem Kundenprofil; Datum und Zahlungsziel-Text leitet das Modell
+      // daraus gemeinsam ab.
+      const dueDays = normalizePaymentDueDays(financialProfile.paymentDueDays);
+      const paymentTerms = composePaymentTerms({ paymentDueDays: dueDays });
 
       const invoice = new Invoice({
         orderId: order._id,
@@ -1740,12 +2679,13 @@ class FinancialService {
         // brutto-first aus den Positionen und dem Rabatt abgeleitet.
         discount,
         dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
+        paymentDueDays: dueDays,
         paymentTerms,
         status: 'sent',
         sentAt: new Date(),
       });
 
-      await invoice.save();
+      await saveClaimedInvoice(invoice, { orders: [order] });
       const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
       console.log('FinancialService: Invoice created from order successfully with resolved tax rate:', financialProfile.taxRate + '%');
@@ -1760,20 +2700,22 @@ class FinancialService {
     console.log('FinancialService: Generating invoice from repair orders:', repairOrderIds);
 
     if (!repairOrderIds || repairOrderIds.length === 0) {
-      throw new Error('At least one repair order ID is required');
+      throw buildFinancialError('Bitte mindestens einen Auftrag auswählen.', 400, 'ORDER_IDS_REQUIRED');
     }
 
     const orders = await Order.find({ _id: { $in: repairOrderIds } }).populate('customerId');
 
     if (orders.length === 0) {
-      throw new Error('No repair orders found for the given IDs');
+      throw buildFinancialError('Zu den gewählten Angaben wurden keine Aufträge gefunden.', 404, 'ORDERS_NOT_FOUND');
     }
 
     // All orders must belong to the same customer
     const customerIds = [...new Set(orders.map(o => String(o.customerId._id)))];
     if (customerIds.length > 1) {
-      throw new Error('All repair orders must belong to the same customer');
+      throw buildFinancialError('Alle Aufträge einer Sammelrechnung müssen zum selben Kunden gehören.', 400, 'ORDERS_DIFFERENT_CUSTOMERS');
     }
+
+    await assertOrdersNotYetInvoiced(orders);
 
     const customer = orders[0].customerId;
     const financialProfile = await FinancialService.resolveFinancialProfile({ customer });
@@ -1809,18 +2751,19 @@ class FinancialService {
     // options.taxRate ist ein PROZENTWERT (z.B. 19), kein Faktor.
     const itemsGrossTotal = CalculationHelper.round(items.reduce((s, i) => s + Number(i.total || 0), 0));
     const taxRate  = isReverseCharge ? 0 : normalizeTaxRatePercent(options.taxRate, financialProfile.taxRate);
-    // Zwei unabhaengige Rabattquellen, die sich ADDIEREN und einander nie ersetzen:
-    //  1. ordersDiscount: der Warenkorb-/Promo-Rabatt der Auftraege. Er steckt nicht in
-    //     den Positionspreisen (die sind Listen-Brutto) und muss immer durchgereicht
-    //     werden, sonst wird der Kunde um genau diesen Betrag zu hoch belastet.
-    //  2. Der manuelle Rabatt des Aufrufers (options.discount) bzw. - wenn keiner
-    //     uebergeben wurde - der Kundengruppenrabatt auf den bereits gemindertem Brutto.
-    const manualDiscount = options.discount != null
-      ? CalculationHelper.round(Math.max(0, Number(options.discount) || 0))
-      : calculateDiscountAmount(
-        CalculationHelper.round(itemsGrossTotal - ordersDiscount),
-        financialProfile.defaultDiscountPercent
-      );
+    // Zwei Rabattquellen, die sich ADDIEREN und einander nie ersetzen:
+    //  1. ordersDiscount: der bereits ausgerechnete Rabatt der Auftraege (order.discount).
+    //     Er steckt nicht in den Positionspreisen (die sind Listen-Brutto) und muss
+    //     durchgereicht werden, sonst wird der Kunde um genau diesen Betrag zu hoch belastet.
+    //  2. options.discount: ein vom Bearbeiter AUSDRUECKLICH eingegebener Zusatzrabatt.
+    //
+    // Der Kundengruppenrabatt wird hier NICHT erneut prozentual angewandt - er ist in
+    // ordersDiscount bereits enthalten. Genau diese doppelte Anwendung war der Fehler
+    // aus Sophies Test vom 24.09.2026:
+    //   richtig:  49,90 - 7,48  = 42,42
+    //   falsch:   49,90 - 13,84 = 36,06   (7,48 + 15 % auf 42,42 = 6,36)
+    // Invariante ohne Zusatzrabatt: Rechnungsbrutto === Summe der Auftragswerte.
+    const manualDiscount = CalculationHelper.round(Math.max(0, Number(options.discount) || 0));
     const discount = CalculationHelper.round(
       Math.min(itemsGrossTotal, ordersDiscount + manualDiscount)
     );
@@ -1829,14 +2772,7 @@ class FinancialService {
     const bookingId = bookingIds.length === 1 ? bookingIds[0] : undefined;
 
     if (bookingId) {
-      const existingInvoice = await Invoice.findOne({ bookingId })
-        .select('_id invoiceNumber')
-        .lean();
-      if (existingInvoice) {
-        const duplicateError = new Error(`An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id})`);
-        duplicateError.statusCode = 409;
-        throw duplicateError;
-      }
+      await assertBookingNotYetInvoiced(bookingId);
     }
 
     const invoiceData = {
@@ -1857,15 +2793,18 @@ class FinancialService {
       // subtotal (Netto), tax und total (Brutto) leitet das Invoice-Modell ab.
       taxRate,
       discount,
-      dueDate:       options.dueDate || new Date(Date.now() + (financialProfile.paymentDueDays || 30) * 24 * 60 * 60 * 1000),
-      paymentTerms:  options.paymentTerms || composePaymentTerms(financialProfile),
+      // Ein ausdruecklich gewaehltes Faelligkeitsdatum gewinnt, sonst die Frist aus dem
+      // Kundenprofil. Den Zahlungsziel-Text leitet das Modell aus derselben Bedingung
+      // ab - ein abweichender Freitext (options.paymentTerms) wird nicht uebernommen.
+      dueDate:       options.dueDate ? new Date(options.dueDate) : new Date(Date.now() + normalizePaymentDueDays(financialProfile.paymentDueDays) * 24 * 60 * 60 * 1000),
+      paymentDueDays: options.dueDate ? undefined : normalizePaymentDueDays(financialProfile.paymentDueDays),
       notes:         options.notes || '',
       status:        'sent',
       sentAt:        new Date()
     };
 
     const invoice = new Invoice(invoiceData);
-    await invoice.save();
+    await saveClaimedInvoice(invoice, { orders });
     const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
     console.log('FinancialService: Invoice generated from repair orders:', invoice.invoiceNumber);
@@ -1878,6 +2817,27 @@ class FinancialService {
 
     const invoice = await Invoice.findById(invoiceId);
     if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+
+    // "Storniert" ist KEIN reiner Statuswechsel: ein ausgestellter Beleg bekommt eine
+    // Storno-Gutschrift (cancelInvoice), ein Entwurf wird verworfen (discardDraftInvoice).
+    // Beide Wege laufen ueber dieselben Funktionen wie die eigenen Endpunkte.
+    if (newStatus === 'cancelled' && invoice.status !== 'cancelled') {
+      if (isIssuedStatus(invoice.status)) {
+        const result = await FinancialService.cancelInvoice(invoice._id, {
+          reason: data.notes,
+          confirmPaidCancellation: data.confirmPaidCancellation === true,
+          actorId: data.recordedBy,
+          actorName: data.actorName,
+        });
+        return result.invoice;
+      }
+      const result = await FinancialService.discardDraftInvoice(invoice._id, {
+        reason: data.notes,
+        actorId: data.recordedBy,
+        actorName: data.actorName,
+      });
+      return result.invoice;
+    }
 
     const allowed = INVOICE_STATUS_TRANSITIONS[invoice.status] || [];
     if (!allowed.includes(newStatus)) {
@@ -1908,27 +2868,86 @@ class FinancialService {
       }
     }
 
+    // "Bezahlt" ist KEIN reiner Statuswechsel: der Zahlungsstand wird aus echten
+    // Zahlungen abgeleitet. Frueher wurde hier nur paidAmount = total gesetzt - der
+    // Beleg sah bezahlt aus, Auftrag/Buchung (die die Zuordnungen lesen) blieben
+    // teilbezahlt, und die naechste Neuableitung kippte den Beleg zurueck.
+    // Jetzt: bereits zugeordnetes Geld zaehlt, nur der TATSAECHLICH fehlende Betrag
+    // wird genau einmal als Zahlung erfasst und zugeordnet. Ein bereits voll
+    // bezahlter Beleg bekommt kein zusaetzliches Geld.
+    if (newStatus === 'paid') {
+      const balance = await PaymentService.computeInvoiceBalance(invoice);
+      const missing = CalculationHelper.round(Number(balance?.open || 0));
+      let recordedPayment = null;
+
+      if (missing > 0.009) {
+        // Der Schluessel beschreibt den STAND, den er schuetzt: offener Betrag plus die
+        // Summe ALLER bisherigen Zuordnungszeilen des Belegs (auch die erstatteter
+        // Zahlungen; Zuordnungen werden nie geloescht, die Summe waechst also mit jeder
+        // Buchung). Ein Doppelklick sieht denselben Stand -> dieselbe Zahlung. Wurde die
+        // Restzahlung spaeter erstattet und der Beleg erneut auf "bezahlt" gesetzt, ist
+        // der Stand ein anderer -> neue Zahlung statt Kollision mit der erstatteten.
+        const allocationRows = await PaymentAllocation.find({ invoiceId: invoice._id }).select('allocatedAmount').lean();
+        const allocationState = CalculationHelper.round(allocationRows.reduce((sum, row) => sum + Number(row.allocatedAmount || 0), 0));
+        const result = await FinancialService.addInvoicePayment(invoice._id, {
+          amount: missing,
+          paymentMethod: normalizedPaymentMethod,
+          paymentDate: normalizedPaidAt,
+          note: data.notes || 'Beim Setzen auf "bezahlt" erfasster Restbetrag',
+          paymentReference: invoice.invoiceNumber ? `Rechnung ${invoice.invoiceNumber}` : '',
+          recordedBy: data.recordedBy,
+          // Doppelklick/Retry: derselbe Beleg, derselbe offene Betrag -> dieselbe Zahlung.
+          idempotencyKey: `mark-paid:${toIdString(invoice._id)}:${missing.toFixed(2)}:${allocationState.toFixed(2)}`,
+        });
+        recordedPayment = result?.payment || null;
+      }
+
+      const refreshed = await Invoice.findById(invoice._id);
+      const after = await PaymentService.computeInvoiceBalance(refreshed);
+      if (!after || after.open > 0.009) {
+        throw buildFinancialError(
+          'Der Beleg konnte nicht als bezahlt verbucht werden, weil der Restbetrag nicht zugeordnet werden konnte.',
+          409,
+          'MARK_PAID_INCOMPLETE'
+        );
+      }
+
+      // Nur den BELEG fortschreiben - der Betrag steht bereits in den Zuordnungen.
+      await Invoice.updateOne(
+        { _id: refreshed._id },
+        {
+          $set: {
+            status: 'paid',
+            paidAt: normalizedPaidAt,
+            paymentMethod: normalizedPaymentMethod,
+            paidAmount: CalculationHelper.round(after.allocated),
+            dunningLevel: 0,
+            dunningStage: 'none',
+            ...(data.notes ? { notes: data.notes } : {}),
+          },
+        }
+      );
+      const finalInvoice = await Invoice.findById(invoice._id);
+      await FinancialService.syncPaymentDerivedState(finalInvoice, 'changeInvoiceStatus');
+      if (recordedPayment) finalInvoice.$locals.recordedPayment = recordedPayment;
+      return finalInvoice;
+    }
+
     invoice.status = newStatus;
 
     if (newStatus === 'sent') {
       invoice.sentAt = new Date();
     } else if (newStatus === 'pending_approval') {
       // no extra field
-    } else if (newStatus === 'paid') {
-      invoice.paidAt = normalizedPaidAt;
-      invoice.paymentMethod = normalizedPaymentMethod;
-      invoice.paidAmount = invoice.total;
     } else if (newStatus === 'cancelled') {
       invoice.cancelledAt = new Date();
     } else if (newStatus === 'approved') {
       invoice.approvedAt = new Date();
     }
 
-    if (newStatus !== 'paid') {
-      invoice.paymentMethod = normalizedPaymentMethod;
-      if (normalizedPaidAt) {
-        invoice.paidAt = normalizedPaidAt;
-      }
+    invoice.paymentMethod = normalizedPaymentMethod;
+    if (normalizedPaidAt) {
+      invoice.paidAt = normalizedPaidAt;
     }
 
     if (data.notes) invoice.notes = data.notes;
@@ -1955,6 +2974,7 @@ class FinancialService {
     if (ids.length === 0) return [];
 
     const allocated = await PaymentService.getAllocatedTotalsByInvoice(ids);
+    const credited = await PaymentService.getValueCreditedByInvoice(ids);
     const updated = [];
 
     for (const invoiceId of ids) {
@@ -1962,25 +2982,22 @@ class FinancialService {
       if (!invoice) continue;
 
       const paidAmount = CalculationHelper.round(Number(allocated.get(invoiceId) || 0));
-      const total = CalculationHelper.round(Number(invoice.total || 0));
       const update = { paidAmount };
 
       // Der BETRAG wird immer geschrieben, der BELEGSTATUS nur bei freigegebenen
       // Belegen: ein Entwurf oder ein Beleg in Freigabe darf auch ueber diesen Weg
       // nicht nach 'paid'/'partially_paid' gedraengt werden (denselben Schutz hat
       // PaymentService.allocateAtomically). Storniert/gutgeschrieben bleibt ebenfalls
-      // unberuehrt.
+      // unberuehrt. Die Statusregel ist dieselbe wie bei der Zuordnung.
       if (PAYMENT_DERIVED_STATUS_WRITABLE.includes(String(invoice.status || ''))) {
-        if (total > 0 && paidAmount >= total - 0.01) {
-          update.status = 'paid';
-          update.paidAt = invoice.paidAt || new Date();
-        } else if (paidAmount > 0.009) {
-          update.status = 'partially_paid';
-          update.paidAt = null;
-        } else if (['paid', 'partially_paid'].includes(invoice.status)) {
-          update.status = invoice.dueDate && new Date(invoice.dueDate) < new Date() ? 'overdue' : 'sent';
-          update.paidAt = null;
-        }
+        Object.assign(update, PaymentService.resolvePaymentDerivedStatus({
+          status: invoice.status,
+          total: invoice.total,
+          credited: Number(credited.get(invoiceId) || 0),
+          paidAmount,
+          paidAt: invoice.paidAt,
+          dueDate: invoice.dueDate,
+        }));
       }
 
       await Invoice.updateOne({ _id: invoice._id }, { $set: update });
@@ -2018,7 +3035,199 @@ class FinancialService {
 
     const refreshed = await Invoice.findById(invoice._id);
     await FinancialService.syncPaymentDerivedState(refreshed || invoice, 'invoiceCreated');
+
+    // Ausgestellter Beleg: Stand bei Rechnungsstellung festhalten und das PDF einmalig
+    // archivieren. Nicht fatal - der Beleg existiert bereits; scheitert die Archivierung,
+    // holt der erste Abruf/Versand sie nach (dann mit Stichtag im PDF).
+    if (refreshed && isIssuedStatus(refreshed.status)) {
+      try {
+        await FinancialService.ensureInvoiceDocument(refreshed._id, { reason: 'created' });
+      } catch (error) {
+        console.error('FinancialService: PDF-Archivierung nach Rechnungserstellung fehlgeschlagen:', error.message);
+      }
+    }
     return refreshed || invoice;
+  }
+
+  /**
+   * Stand bei Rechnungsstellung: offener Betrag, bereits zugeordnetes Geld, die bis
+   * dahin bekannten Zahlungen (Datum/Zahlart/Betrag) und die Zahlart. Wird genau einmal
+   * mit dem ersten archivierten PDF festgehalten und danach nie fortgeschrieben.
+   */
+  static async captureIssueSnapshot(invoice) {
+    const balance = await PaymentService.computeInvoiceBalance(invoice);
+    const allocations = await PaymentAllocation.find({ invoiceId: invoice._id }).select('paymentId allocatedAmount').lean();
+    const byPayment = new Map();
+    allocations.forEach((row) => {
+      const key = toIdString(row.paymentId);
+      byPayment.set(key, CalculationHelper.round(Number(byPayment.get(key) || 0) + Number(row.allocatedAmount || 0)));
+    });
+    const payments = byPayment.size > 0
+      ? await Payment.find({ _id: { $in: [...byPayment.keys()] } })
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id paymentMethod processedAt createdAt status')
+        .lean()
+      : [];
+    const snapshotPayments = payments
+      .filter((payment) => PaymentService.isCountablePayment(payment))
+      .map((payment) => ({
+        date: payment.processedAt || payment.createdAt,
+        method: payment.paymentMethod || '',
+        amount: CalculationHelper.round(Number(byPayment.get(toIdString(payment._id)) || 0)),
+      }))
+      .filter((entry) => entry.amount > 0.009)
+      .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+
+    let paymentMethod = invoice.paymentMethod || (snapshotPayments[0] && snapshotPayments[0].method) || '';
+    if (!paymentMethod && invoice.orderId) {
+      const order = await Order.findById(toIdString(invoice.orderId)).setOptions({ skipAutoPopulate: true }).select('paymentMethod').lean();
+      paymentMethod = order?.paymentMethod || '';
+    }
+    if (!paymentMethod && invoice.bookingId) {
+      const booking = await Booking.findById(toIdString(invoice.bookingId)).setOptions({ skipAutoPopulate: true }).select('paymentMethod').lean();
+      paymentMethod = ({ card: 'credit_card', paypal: 'paypal', invoice: 'invoice' })[booking?.paymentMethod] || '';
+    }
+
+    return {
+      capturedAt: new Date(),
+      openAmount: CalculationHelper.round(Number(balance?.open ?? Math.abs(Number(invoice.total || 0)))),
+      paidAmount: CalculationHelper.round(Number(balance?.allocated || 0)),
+      paymentMethod,
+      payments: snapshotPayments,
+    };
+  }
+
+  /**
+   * Liefert das archivierte PDF eines AUSGESTELLTEN Belegs (erzeugt und speichert es beim
+   * ersten Aufruf). Das gespeicherte Dokument wird nie ueberschrieben:
+   *  - spaetere Zahlungen/Statuswechsel aendern es nicht (nicht im Fingerabdruck),
+   *  - aendert sich der betragsrelevante Inhalt (Altweg syncOrderAndBookingValue), wird
+   *    eine NEUE Fassung erzeugt; die bisherige bleibt unveraendert erhalten.
+   * Speicherort (Aufbewahrungsregel, siehe models/InvoiceDocumentArchive.js): die Bytes
+   * JEDER Fassung liegen als eigenes Dokument in InvoiceDocumentArchive; das
+   * Invoice-Dokument traegt nur Metadaten (aktuelle Fassung + begrenzte Historie, deren
+   * erster Eintrag - die ausgestellte Fassung - immer erhalten bleibt). Altbelege mit
+   * Inline-Bytes werden unveraendert gelesen und erst bei einer Neufassung ausgelagert.
+   * Zwei gleichzeitige Erstabrufe: nur einer speichert, beide liefern dieselbe Fassung.
+   * Entwuerfe werden nicht archiviert (Vorschau, siehe renderDraftPdf).
+   */
+  static async ensureInvoiceDocument(invoiceId, { reason = '', actorId = null, actorName = '' } = {}) {
+    const InvoicePdfService = require('./invoicePdfService');
+    const load = () => Invoice.findById(toIdString(invoiceId)).select('+documentArchive.data +documentHistory');
+    let invoice = await load();
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    if (!isIssuedStatus(invoice.status) || invoice.cancellation?.kind === 'draft_discarded') {
+      throw buildFinancialError('Ein Entwurf wird nicht archiviert.', 409, 'INVOICE_NOT_ISSUED');
+    }
+
+    const fingerprint = InvoicePdfService.buildDocumentFingerprint(invoice);
+    const archive = invoice.documentArchive || {};
+    const currentBytes = await readArchivedDocumentBytes(archive);
+    if (currentBytes && archive.fingerprint === fingerprint) {
+      return { buffer: currentBytes, sha256: archive.sha256, version: archive.version || 1, created: false, invoice };
+    }
+
+    const previous = currentBytes ? archive : null;
+    const hasSnapshot = invoice.issueSnapshot && Number.isFinite(Number(invoice.issueSnapshot.openAmount));
+    const snapshot = (!hasSnapshot || previous) && !invoice.isCreditNote
+      ? await FinancialService.captureIssueSnapshot(invoice)
+      : null;
+    if (snapshot) invoice.issueSnapshot = snapshot;
+
+    const buffer = await InvoicePdfService.generate(invoice);
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+    const now = new Date();
+    const version = previous ? Number(previous.version || 1) + 1 : 1;
+
+    // 1) Bytes zuerst in die Archivsammlung; die Rechnung verweist erst im atomaren
+    //    Update (Schritt 2) darauf. Scheitert Schritt 2, war die Fassung nie ausgeliefert.
+    const createdArchiveIds = [];
+    const storeBytes = async (entry) => {
+      const stored = await InvoiceDocumentArchive.create(entry);
+      createdArchiveIds.push(stored._id);
+      return stored._id;
+    };
+    const documentId = await storeBytes({
+      invoiceId: invoice._id, version, sha256, size: buffer.length, fingerprint, generatedAt: now, data: buffer, source: 'generated',
+    });
+    const newArchive = { documentId, sha256, size: buffer.length, fingerprint, generatedAt: now, version };
+
+    let nextHistory = null;
+    if (previous) {
+      // Altbestand: Inline-Bytes (aktuelle Fassung und Historie) unveraendert auslagern,
+      // bevor sie aus dem Rechnungsdokument verschwinden.
+      nextHistory = [];
+      for (const entry of (invoice.documentHistory || [])) {
+        const plain = typeof entry.toObject === 'function' ? entry.toObject() : entry;
+        const inline = plain.data ? toBufferValue(plain.data) : null;
+        const externalId = inline && inline.length > 0
+          ? await storeBytes({
+            invoiceId: invoice._id, version: Number(plain.version || 1), sha256: plain.sha256 || crypto.createHash('sha256').update(inline).digest('hex'),
+            size: inline.length, fingerprint: plain.fingerprint, generatedAt: plain.generatedAt, data: inline, source: 'legacy_inline',
+          })
+          : (plain.documentId || undefined);
+        nextHistory.push({
+          documentId: externalId, sha256: plain.sha256, size: plain.size || (inline ? inline.length : undefined),
+          fingerprint: plain.fingerprint, generatedAt: plain.generatedAt, supersededAt: plain.supersededAt, version: plain.version,
+        });
+      }
+      const previousDocumentId = previous.documentId || await storeBytes({
+        invoiceId: invoice._id, version: Number(previous.version || 1), sha256: previous.sha256 || crypto.createHash('sha256').update(currentBytes).digest('hex'),
+        size: currentBytes.length, fingerprint: previous.fingerprint, generatedAt: previous.generatedAt, data: currentBytes, source: 'legacy_inline',
+      });
+      nextHistory.push({
+        documentId: previousDocumentId, sha256: previous.sha256, size: previous.size || currentBytes.length,
+        fingerprint: previous.fingerprint, generatedAt: previous.generatedAt, supersededAt: now, version: previous.version || 1,
+      });
+      // Begrenzt: die erste (ausgestellte) Fassung bleibt immer vermerkt, dazu die juengsten.
+      if (nextHistory.length > DOCUMENT_HISTORY_INLINE_LIMIT) {
+        nextHistory = [nextHistory[0], ...nextHistory.slice(-(DOCUMENT_HISTORY_INLINE_LIMIT - 1))];
+      }
+    }
+
+    const audit = {
+      at: now,
+      action: previous ? 'document_regenerated' : 'document_archived',
+      actorId: actorId || undefined,
+      actorName: actorName || '',
+      detail: previous
+        ? `Betragsrelevanter Inhalt geändert – neue Fassung ${version}, Fassung ${previous.version || 1} bleibt im Archiv (${reason || 'Abruf'}).`
+        : `PDF archiviert (${reason || 'Abruf'}).`,
+    };
+
+    // 2) Atomar umstellen. Bewusst KEIN lockedAt: der Belegbetrag wird von
+    //    syncOrderAndBookingValue noch fortgeschrieben (fachliche Entscheidung offen); das
+    //    PDF selbst bleibt unveraendert. documentArchive wird als Ganzes gesetzt - damit
+    //    entfallen auch etwaige Inline-Bytes eines Altbelegs (sie liegen jetzt im Archiv).
+    const set = {
+      documentArchive: newArchive,
+      ...(snapshot ? { issueSnapshot: snapshot } : {}),
+      ...(nextHistory ? { documentHistory: nextHistory } : {}),
+    };
+    const filter = previous
+      ? { _id: invoice._id, 'documentArchive.sha256': previous.sha256 }
+      : { _id: invoice._id, $or: [{ 'documentArchive.sha256': { $exists: false } }, { 'documentArchive.sha256': null }] };
+    const result = await Invoice.updateOne(filter, { $set: set, $push: { auditTrail: audit } });
+    if (result.modifiedCount === 1) {
+      return { buffer, sha256, version, created: true, invoice };
+    }
+    // Paralleler Abruf hat gewonnen: die eigenen, nie referenzierten Archivdatensaetze
+    // entfernen und dessen Fassung ausliefern.
+    await InvoiceDocumentArchive.deleteMany({ _id: { $in: createdArchiveIds } }).catch(() => {});
+    invoice = await load();
+    const storedBytes = await readArchivedDocumentBytes(invoice?.documentArchive || {});
+    if (storedBytes) {
+      return { buffer: storedBytes, sha256: invoice.documentArchive.sha256, version: invoice.documentArchive.version || 1, created: false, invoice };
+    }
+    throw buildFinancialError('Das Rechnungsdokument konnte nicht archiviert werden.', 500, 'DOCUMENT_ARCHIVE_FAILED');
+  }
+
+  /** Entwurfsvorschau (nur Admin/Mitarbeiter): wird nicht archiviert. */
+  static async renderDraftPdf(invoiceId) {
+    const InvoicePdfService = require('./invoicePdfService');
+    const invoice = await Invoice.findById(toIdString(invoiceId));
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    return InvoicePdfService.generate(invoice);
   }
 
   static async syncOrderPaymentTracking(invoiceInput) {
@@ -2054,20 +3263,25 @@ class FinancialService {
         { repairOrderIds: { $in: orderObjectIds } },
       ],
     })
-      .select('_id orderId repairOrderIds total status isCreditNote')
+      .select('_id orderId repairOrderIds total status isCreditNote bookingId createdAt invoiceNumber')
       .lean();
 
+    // Forderung je Beleg aus DERSELBEN Berechnung wie Liste/Detail/Buchung: Brutto
+    // minus wertmindernde Gutschriften, gegen gueltige Zuordnungen. Eine
+    // Ueberzahlungsrueckgabe (Altbestand 'partial_refund') mindert die Forderung
+    // nicht und setzt den Auftrag deshalb auch nicht mehr auf "erstattet".
     const receivables = relatedInvoices.filter((entry) => !entry.isCreditNote && entry.status !== 'cancelled');
-    const creditNotes = relatedInvoices.filter((entry) => entry.isCreditNote && entry.status !== 'cancelled');
-    const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(receivables.map((entry) => entry._id));
+    const balances = await PaymentService.getInvoiceBalances(receivables, { bookingCap: false });
 
-    // Auch direkt auf den Auftrag gestempeltes Geld zaehlt: eine Vorauszahlung ohne
-    // Beleg darf den Auftrag nicht als 'pending' erscheinen lassen.
+    // Direkt auf den Auftrag gestempeltes Geld zaehlt nur, wenn es KEIN Buchungsgeld
+    // ist: der Checkout stempelt die Zahlung einer ganzen Buchung auf den ersten
+    // Auftrag (orderId = orders[0]). Diese Summe gehoert der Buchung und darf nicht
+    // einem einzelnen Auftrag als eigene Zahlung gutgeschrieben werden.
     const orderPayments = await Payment.find({
       orderId: { $in: orderObjectIds },
       status: { $in: PaymentService.COUNTABLE_PAYMENT_STATUSES },
     })
-      .select('_id orderId amount refundAmount status paymentDate processedAt paymentMethod')
+      .select('_id orderId bookingId amount refundAmount status paymentDate processedAt paymentMethod')
       .lean();
 
     const invoiceOrderKeys = (entry) => {
@@ -2077,38 +3291,31 @@ class FinancialService {
       return [...new Set(keys.filter((key) => uniqueOrderIds.includes(key)))];
     };
 
-    const emptyState = () => ({ invoiced: 0, allocated: 0, credited: 0, received: 0, paidAt: null, paymentMethod: null });
+    const emptyState = () => ({ invoiced: 0, gross: 0, allocated: 0, received: 0, paidAt: null, paymentMethod: null });
     const stateByOrder = new Map(uniqueOrderIds.map((id) => [id, emptyState()]));
 
     receivables.forEach((entry) => {
-      const allocated = Number(allocatedByInvoice.get(toIdString(entry._id)) || 0);
-      const total = CalculationHelper.round(Math.abs(Number(entry.total || 0)));
+      const balance = balances.get(toIdString(entry._id));
+      if (!balance) return;
       invoiceOrderKeys(entry).forEach((key) => {
         const state = stateByOrder.get(key);
         if (!state) return;
-        state.invoiced = CalculationHelper.round(state.invoiced + total);
-        state.allocated = CalculationHelper.round(state.allocated + allocated);
-      });
-    });
-
-    creditNotes.forEach((entry) => {
-      const total = CalculationHelper.round(Math.abs(Number(entry.total || 0)));
-      invoiceOrderKeys(entry).forEach((key) => {
-        const state = stateByOrder.get(key);
-        if (!state) return;
-        state.credited = CalculationHelper.round(state.credited + total);
+        state.invoiced = CalculationHelper.round(state.invoiced + balance.receivable);
+        state.gross = CalculationHelper.round(state.gross + balance.total);
+        state.allocated = CalculationHelper.round(state.allocated + balance.allocated);
       });
     });
 
     orderPayments.forEach((payment) => {
       const state = stateByOrder.get(toIdString(payment.orderId));
       if (!state) return;
-      state.received = CalculationHelper.round(state.received + PaymentService.effectivePaymentAmount(payment));
       const stamp = normalizeTrackedPaidAt(payment.processedAt || payment.paymentDate);
       if (stamp && (!state.paidAt || stamp > state.paidAt)) {
         state.paidAt = stamp;
         state.paymentMethod = normalizeTrackedPaymentMethod(payment.paymentMethod) || state.paymentMethod;
       }
+      if (payment.bookingId) return;
+      state.received = CalculationHelper.round(state.received + PaymentService.effectivePaymentAmount(payment));
     });
 
     const fallbackPaymentMethod = normalizeTrackedPaymentMethod(invoice.paymentMethod);
@@ -2123,7 +3330,8 @@ class FinancialService {
       const moneyHeld = Math.max(state.allocated, state.received);
 
       let paymentStatus = 'pending';
-      if (state.invoiced > 0.009 && state.credited >= state.invoiced - 0.009) paymentStatus = 'refunded';
+      // Voll gutgeschrieben (Forderung 0 bei vorhandenem Brutto) = Wert erstattet.
+      if (state.gross > 0.009 && state.invoiced <= 0.009) paymentStatus = 'refunded';
       else if (state.invoiced > 0.009 && open <= 0.009) paymentStatus = 'paid';
       else if (moneyHeld > 0.009) paymentStatus = 'partial';
 
@@ -2296,7 +3504,10 @@ class FinancialService {
     if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
 
     const allowedStatuses = ['draft', 'pending_approval', 'sent', 'viewed', 'partially_paid', 'overdue'];
-    if (!allowedStatuses.includes(invoice.status)) {
+    // Beim Anbieter bereits eingezogenes Geld wird auch fuer eine inzwischen bezahlte
+    // Rechnung erfasst (als Ueberzahlung) - es darf nicht verloren gehen.
+    const capturedOnPaidInvoice = paymentData.allowOverpayment === true && invoice.status === 'paid';
+    if (!allowedStatuses.includes(invoice.status) && !capturedOnPaidInvoice) {
       throw buildFinancialError(
         `Für eine Rechnung im Status "${invoiceStatusLabelDe(invoice.status)}" kann keine Zahlung erfasst werden.`,
         409,
@@ -2337,9 +3548,14 @@ class FinancialService {
 
     const balanceBefore = await PaymentService.computeInvoiceBalance(invoice);
     const remaining = CalculationHelper.round(balanceBefore ? balanceBefore.open : Number(invoice.total || 0) - Number(invoice.paidAmount || 0));
-    if (amount > remaining + 0.01) {
+    // allowOverpayment: bereits beim Anbieter eingezogenes Geld (PayPal-Capture) MUSS
+    // erfasst werden, auch wenn es den offenen Betrag uebersteigt - sonst waere es
+    // eingezogen, aber nirgends verbucht. Der Ueberhang bleibt nicht zugeordnet und
+    // erscheint als "Erstattung offen". Manuelle Erfassung bleibt streng begrenzt.
+    const allowOverpayment = paymentData.allowOverpayment === true;
+    if (!allowOverpayment && amount > remaining + 0.01) {
       throw buildFinancialError(
-        `Der Zahlungsbetrag (${amount.toFixed(2)} €) übersteigt den offenen Rechnungsbetrag (${remaining.toFixed(2)} €).`,
+        `Der Zahlungsbetrag (${formatEuroDe(amount)}) übersteigt den offenen Rechnungsbetrag (${formatEuroDe(remaining)}).`,
         400,
         'AMOUNT_EXCEEDS_OPEN'
       );
@@ -2390,22 +3606,38 @@ class FinancialService {
     // Zuordnung + Rechnungsstand atomar fortschreiben. Schlaegt das fehl, wird die
     // eben angelegte Zahlung wieder entfernt: keine halbe Buchung.
     let allocationResult = null;
+    const allocatable = allowOverpayment ? CalculationHelper.round(Math.min(amount, Math.max(0, remaining))) : amount;
     try {
-      allocationResult = await PaymentService.allocateAtomically({
-        payment,
-        invoice,
-        amount,
-        note: paymentData.note || `Zahlung zu Rechnung ${invoice.invoiceNumber || invoice._id}`,
-        orderId: toIdString(invoice.orderId) || undefined,
-      });
+      allocationResult = allocatable > 0.009
+        ? await PaymentService.allocateAtomically({
+          payment,
+          invoice,
+          amount: allocatable,
+          note: paymentData.note || `Zahlung zu Rechnung ${invoice.invoiceNumber || invoice._id}`,
+          orderId: toIdString(invoice.orderId) || undefined,
+          // Eingezogenes Anbietergeld: ist der Beleg inzwischen weiter bezahlt, wird nur
+          // der dann noch offene Teil zugeordnet (Rest = Erstattung offen).
+          allowPartial: allowOverpayment,
+        })
+        : { allocation: null, invoice, allocatedAmount: 0 };
     } catch (allocError) {
-      await Payment.deleteOne({ _id: payment._id }).catch(() => {});
-      console.error('FinancialService: allocation failed, payment rolled back:', allocError);
-      throw buildFinancialError(
-        'Die Zahlung konnte der Rechnung nicht zugeordnet werden und wurde nicht gebucht.',
-        500,
-        'ALLOCATION_FAILED'
-      );
+      if (allowOverpayment) {
+        // Eingezogenes Geld wird nie zurueckgedreht - es bleibt als nicht zugeordnet stehen.
+        console.error('FinancialService: allocation of captured payment failed, kept unallocated:', allocError);
+        allocationResult = { allocation: null, invoice, allocatedAmount: 0 };
+      } else {
+        await Payment.deleteOne({ _id: payment._id }).catch(() => {});
+        console.error('FinancialService: allocation failed, payment rolled back:', allocError);
+        throw buildFinancialError(
+          'Die Zahlung konnte der Rechnung nicht zugeordnet werden und wurde nicht gebucht.',
+          500,
+          'ALLOCATION_FAILED'
+        );
+      }
+    }
+
+    if (!allocationResult && allowOverpayment) {
+      allocationResult = { allocation: null, invoice, allocatedAmount: 0 };
     }
 
     if (!allocationResult) {
@@ -2426,9 +3658,15 @@ class FinancialService {
     // damit er den Beleg nicht faelschlich fuer erledigt haelt.
     const approvalPending = !PaymentService.ALLOCATABLE_INVOICE_STATUSES
       .includes(String(updatedInvoice?.status || invoice.status || ''));
-    const warning = approvalPending
-      ? `Der Beleg ist noch nicht freigegeben (Status "${invoiceStatusLabelDe(updatedInvoice?.status || invoice.status)}"). Der Zahlungseingang wurde erfasst, der Belegstatus bleibt bis zur Freigabe unverändert.`
-      : '';
+    const warningParts = [];
+    if (approvalPending) {
+      warningParts.push(`Der Beleg ist noch nicht freigegeben (Status "${invoiceStatusLabelDe(updatedInvoice?.status || invoice.status)}"). Der Zahlungseingang wurde erfasst, der Belegstatus bleibt bis zur Freigabe unverändert.`);
+    }
+    const excess = CalculationHelper.round(amount - Number(allocationResult?.allocatedAmount || 0));
+    if (allowOverpayment && excess > 0.009) {
+      warningParts.push(`${formatEuroDe(excess)} übersteigen den offenen Betrag und stehen als Überzahlung (Erstattung offen) an der Rechnung.`);
+    }
+    const warning = warningParts.join(' ');
 
     return { payment, invoice: updatedInvoice, duplicate: false, warnings, ...(warning ? { warning } : {}) };
   }
@@ -2508,7 +3746,7 @@ class FinancialService {
     if (!isRefundNote && creditGrossMagnitude > remainingCreditable + 0.01) {
       throw buildFinancialError(
         `Die Gutschrift übersteigt den noch gutschreibbaren Betrag der Rechnung ${original.invoiceNumber} `
-        + `(offen: ${remainingCreditable.toFixed(2)} €, angefordert: ${creditGrossMagnitude.toFixed(2)} €).`,
+        + `(offen: ${formatEuroDe(remainingCreditable)}, angefordert: ${formatEuroDe(creditGrossMagnitude)}).`,
         400,
         'CREDIT_NOTE_EXCEEDS_INVOICE'
       );
@@ -2532,7 +3770,7 @@ class FinancialService {
       if (creditGrossMagnitude > remainingRefundable + 0.01) {
         throw buildFinancialError(
           `Die Erstattungsgutschrift übersteigt den tatsächlich eingegangenen Betrag `
-          + `(erstattbar: ${Math.max(0, remainingRefundable).toFixed(2)} €, angefordert: ${creditGrossMagnitude.toFixed(2)} €).`,
+          + `(erstattbar: ${formatEuroDe(Math.max(0, remainingRefundable))}, angefordert: ${formatEuroDe(creditGrossMagnitude)}).`,
           400,
           'REFUND_EXCEEDS_RECEIVED'
         );
@@ -2540,6 +3778,9 @@ class FinancialService {
     }
 
     const creditNote = new Invoice({
+      // Vorab vergebene ID (Storno): ein wiederholter Anlageversuch derselben
+      // Storno-Gutschrift scheitert am _id statt eine zweite anzulegen.
+      ...(options.creditNoteId ? { _id: options.creditNoteId } : {}),
       creditNoteOf:       original._id,
       creditNoteOfNumber: original.invoiceNumber || '',
       isCreditNote:   true,
@@ -2566,10 +3807,17 @@ class FinancialService {
       dueDate:        options.dueDate ? new Date(options.dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       paymentTerms:   'Sofort',
       notes:          options.reason || `Gutschrift für Rechnung ${original.invoiceNumber}`,
-      status:         'draft'
+      // Eine Storno-Gutschrift ist sofort ein ausgestellter Beleg; sonstige Gutschriften
+      // entstehen wie bisher als Entwurf und werden beim Versand ausgestellt.
+      status:         options.issue ? 'sent' : 'draft'
     });
 
     await creditNote.save();
+
+    if (options.skipOriginalStatusUpdate) {
+      console.log('FinancialService: Credit note created (original status handled by caller)');
+      return creditNote;
+    }
 
     // Nur eine vollstaendige Gutschrift schliesst die Ursprungsrechnung ab. Bei einer
     // Teilgutschrift bleibt der Status erhalten, sonst waere der Restbetrag weder
@@ -2588,6 +3836,464 @@ class FinancialService {
     return creditNote;
   }
 
+  /**
+   * RECHNUNGSSTORNO eines AUSGESTELLTEN Belegs (T09).
+   *
+   *  - Der Originalbeleg (Daten, Nummer, archiviertes PDF) bleibt unveraendert; er wird
+   *    nur als 'cancelled' markiert und traegt den Storno-Datensatz (Grund, Bearbeiter,
+   *    Zeitpunkt, Gegenbeleg) plus Revisionsspur.
+   *  - Gegenbeleg ist eine ausgestellte Storno-Gutschrift (INV-CN-..., correctionType
+   *    'full_cancellation') ueber den noch nicht gutgeschriebenen Rest. Dadurch sinkt die
+   *    Forderung ueber die bestehende Saldo-Logik auf 0 - keine zweite Rechenregel.
+   *  - Bereits zugeordnetes Geld bleibt gebucht und erscheint als "Erstattung offen";
+   *    es wird NIE automatisch erstattet. Dafuer ist eine ausdrueckliche Bestaetigung
+   *    noetig (confirmPaidCancellation).
+   *  - Genau einmal: atomare Reservierung am Beleg und eine vorab vergebene ID der
+   *    Gutschrift. Wiederholung -> { alreadyCancelled: true }, paralleler Aufruf -> 409.
+   *  - Ein Entwurf wird nicht storniert, sondern verworfen (discardDraftInvoice).
+   *  - Fortsetzung nach Absturz: steht der Beleg noch in cancellation.state 'processing',
+   *    wird ZUERST dieser Vorgang abgeschlossen - vor jeder Rest-/Statuspruefung. Die
+   *    bereits ausgestellte Storno-Gutschrift wird an ihrer vorab vergebenen _id erkannt
+   *    und nie ein zweites Mal erzeugt; bei der Restberechnung zaehlt sie nicht mit.
+   *  - Kein Storno parallel zu einem laufenden Mahnschritt (frische dunningLock).
+   */
+  static async cancelInvoice(invoiceId, options = {}) {
+    const id = toIdString(invoiceId);
+    if (!Types.ObjectId.isValid(id)) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    const reason = String(options.reason || '').trim().slice(0, 500);
+    const actorId = options.actorId || undefined;
+    const actorName = String(options.actorName || '').slice(0, 80);
+
+    let invoice = await Invoice.findById(id);
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+
+    const loadResult = async (alreadyCancelled) => {
+      const fresh = await Invoice.findById(id);
+      const creditNote = fresh?.cancellation?.creditNoteId ? await Invoice.findById(fresh.cancellation.creditNoteId) : null;
+      const balance = await PaymentService.computeInvoiceBalance(fresh);
+      return {
+        alreadyCancelled,
+        invoice: fresh,
+        creditNote,
+        allocatedAtCancellation: CalculationHelper.round(Number(fresh?.cancellation?.allocatedAtCancellation || 0)),
+        balance: FinancialService.toBalancePayload(balance),
+      };
+    };
+    const inProgressError = () => buildFinancialError('Das Storno dieser Rechnung wird gerade ausgeführt. Bitte die Ansicht in einem Moment neu laden.', 409, 'CANCELLATION_IN_PROGRESS');
+    const dunningInProgressError = () => buildFinancialError('Für diese Rechnung wird gerade ein Mahnschritt versendet. Bitte das Storno in einem Moment erneut auslösen.', 409, 'DUNNING_IN_PROGRESS');
+    const hasFreshDunningLock = (doc, at) => Boolean(doc?.dunningLock?.token && doc.dunningLock.at
+      && (at.getTime() - new Date(doc.dunningLock.at).getTime()) < DUNNING_LOCK_STALE_MS);
+
+    if (invoice.cancellation?.kind === 'storno' && invoice.cancellation?.state === 'completed') {
+      return loadResult(true);
+    }
+    if (invoice.isCreditNote) {
+      throw buildFinancialError('Eine Gutschrift wird nicht storniert. Bei Bedarf bitte eine neue Rechnung erstellen.', 409, 'CREDIT_NOTE_NOT_CANCELLABLE');
+    }
+
+    // Unterbrochenes Storno fortsetzen - VOR den Rest-/Statuspruefungen: die bereits
+    // ausgestellte Storno-Gutschrift wuerde dort sonst als "schon gutgeschrieben" zaehlen.
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - 2 * 60 * 1000);
+    if (invoice.cancellation?.kind === 'storno' && invoice.cancellation?.state === 'processing') {
+      return FinancialService.resumeInterruptedCancellation(invoice, {
+        now, staleBefore, actorId, actorName, options, loadResult, inProgressError,
+      });
+    }
+
+    if (!isIssuedStatus(invoice.status)) {
+      throw buildFinancialError('Ein Entwurf wird nicht storniert, sondern verworfen („Entwurf verwerfen“).', 409, 'INVOICE_NOT_ISSUED');
+    }
+    if (invoice.status === 'cancelled') {
+      throw buildFinancialError('Diese Rechnung ist bereits storniert.', 409, 'INVOICE_ALREADY_CANCELLED');
+    }
+    if (!reason) {
+      throw buildFinancialError('Bitte einen Grund für das Storno angeben.', 400, 'REASON_REQUIRED');
+    }
+
+    const originalGross = Math.abs(CalculationHelper.round(Number(invoice.total || 0)));
+    const alreadyCredited = await FinancialService.getCreditedTotal(invoice._id, { valueAdjustmentsOnly: true });
+    const remaining = CalculationHelper.round(originalGross - alreadyCredited);
+    if (invoice.status === 'credited' || remaining <= 0.009) {
+      throw buildFinancialError('Diese Rechnung ist bereits vollständig gutgeschrieben – ein Storno ist nicht mehr nötig.', 409, 'INVOICE_ALREADY_CREDITED');
+    }
+    if (hasFreshDunningLock(invoice, now)) throw dunningInProgressError();
+
+    const requiresConfirmation = (allocated) => {
+      const error = buildFinancialError(
+        `Auf diese Rechnung sind bereits ${allocated.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € gebucht. `
+        + 'Beim Storno bleibt die Zahlung erhalten und wird als Guthaben bzw. offene Erstattung ausgewiesen – '
+        + 'es wird nichts automatisch erstattet. Bitte das Storno ausdrücklich bestätigen.',
+        409,
+        'CANCELLATION_REQUIRES_CONFIRMATION'
+      );
+      error.allocated = allocated;
+      return error;
+    };
+    const balanceBefore = await PaymentService.computeInvoiceBalance(invoice);
+    const allocatedBefore = CalculationHelper.round(Number(balanceBefore?.allocated || 0));
+    if (allocatedBefore > 0.009 && options.confirmPaidCancellation !== true) {
+      throw requiresConfirmation(allocatedBefore);
+    }
+
+    // Reservieren (genau einmal). Bedingung ist der FACHLICHE Zustand (ausgestellt, nicht
+    // storniert/gutgeschrieben, kein laufender Mahnschritt) - nicht der zuvor gelesene
+    // Status: ein Zahlungseingang dazwischen (sent -> partially_paid) darf das Storno
+    // nicht mit einer irrefuehrenden Meldung scheitern lassen.
+    const creditNoteId = new Types.ObjectId();
+    const dunningStaleBefore = new Date(now.getTime() - DUNNING_LOCK_STALE_MS);
+    const claim = await Invoice.updateOne(
+      {
+        _id: invoice._id,
+        isCreditNote: { $ne: true },
+        status: { $in: CANCELLABLE_INVOICE_STATUSES },
+        'cancellation.state': { $exists: false },
+        $or: [
+          { 'dunningLock.token': { $exists: false } },
+          { 'dunningLock.token': null },
+          { 'dunningLock.at': { $lt: dunningStaleBefore } },
+        ],
+      },
+      {
+        $set: {
+          cancellation: {
+            kind: 'storno', state: 'processing', reason, requestedAt: now,
+            actorId, actorName, previousStatus: invoice.status, creditNoteId,
+            allocatedAtCancellation: allocatedBefore,
+          },
+        },
+      }
+    );
+    if (claim.modifiedCount !== 1) {
+      // Den ECHTEN Grund melden: neu lesen und den aktuellen Zustand auswerten.
+      invoice = await Invoice.findById(id);
+      const state = invoice?.cancellation;
+      if (state?.kind === 'storno' && state?.state === 'completed') return loadResult(true);
+      if (state?.kind === 'storno' && state?.state === 'processing') throw inProgressError();
+      if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+      if (invoice.status === 'credited') {
+        throw buildFinancialError('Diese Rechnung wurde inzwischen vollständig gutgeschrieben – ein Storno ist nicht mehr nötig.', 409, 'INVOICE_ALREADY_CREDITED');
+      }
+      if (invoice.status === 'cancelled') throw buildFinancialError('Diese Rechnung ist bereits storniert.', 409, 'INVOICE_ALREADY_CANCELLED');
+      if (!isIssuedStatus(invoice.status)) {
+        throw buildFinancialError('Ein Entwurf wird nicht storniert, sondern verworfen („Entwurf verwerfen“).', 409, 'INVOICE_NOT_ISSUED');
+      }
+      if (hasFreshDunningLock(invoice, new Date())) throw dunningInProgressError();
+      throw buildFinancialError('Die Rechnung wurde soeben parallel geändert. Bitte die Ansicht neu laden und das Storno erneut auslösen.', 409, 'INVOICE_CONFLICT');
+    }
+
+    const releaseClaim = () => Invoice.updateOne(
+      { _id: invoice._id, 'cancellation.state': 'processing', 'cancellation.creditNoteId': creditNoteId },
+      { $unset: { cancellation: '' } }
+    );
+
+    // Nach der Reservierung neu pruefen: zwischen Lesen und Reservieren kann Geld
+    // eingegangen oder eine Gutschrift entstanden sein.
+    let allocated = allocatedBefore;
+    try {
+      invoice = await Invoice.findById(id);
+      const balanceNow = await PaymentService.computeInvoiceBalance(invoice);
+      allocated = CalculationHelper.round(Number(balanceNow?.allocated || 0));
+      if (allocated > 0.009 && options.confirmPaidCancellation !== true) {
+        await releaseClaim();
+        throw requiresConfirmation(allocated);
+      }
+      const creditedNow = await FinancialService.getCreditedTotal(invoice._id, { valueAdjustmentsOnly: true });
+      if (CalculationHelper.round(originalGross - creditedNow) <= 0.009) {
+        await releaseClaim();
+        throw buildFinancialError('Diese Rechnung wurde inzwischen vollständig gutgeschrieben – ein Storno ist nicht mehr nötig.', 409, 'INVOICE_ALREADY_CREDITED');
+      }
+      if (allocated !== allocatedBefore) {
+        await Invoice.updateOne(
+          { _id: invoice._id, 'cancellation.state': 'processing', 'cancellation.creditNoteId': creditNoteId },
+          { $set: { 'cancellation.allocatedAtCancellation': allocated } }
+        );
+      }
+    } catch (error) {
+      if (!error?.statusCode) await releaseClaim();
+      throw error;
+    }
+
+    return FinancialService.issueAndCompleteCancellation(invoice, {
+      creditNoteId, reason, allocated, previousStatus: invoice.cancellation?.previousStatus || invoice.status,
+      actorId, actorName, options, loadResult, releaseOnFailure: releaseClaim,
+    });
+  }
+
+  /**
+   * Fortsetzung eines unterbrochenen Stornos (cancellation.state 'processing').
+   *  - Existiert die Storno-Gutschrift mit der vorab vergebenen _id bereits, wird nur noch
+   *    der Abschluss nachgeholt (idempotent) - aber erst nach CANCELLATION_COMPLETION_GRACE_MS
+   *    seit requestedAt. Davor laeuft der urspruengliche Vorgang vermutlich noch (zweiter
+   *    Klick zwischen Gutschrift und Abschluss): 409 "wird gerade ausgefuehrt", damit der
+   *    erste Aufruf selbst abschliesst (inkl. seines E-Mail-Versands).
+   *  - Fehlt sie, darf erst nach 2 Minuten uebernommen werden (ein paralleler Vorgang
+   *    koennte sie gerade anlegen); die Uebernahme ist atomar (requestedAt als Marke).
+   *  - Der Revisionseintrag 'cancellation_resumed' entsteht erst MIT dem Abschluss.
+   * Grund, Bearbeiter und Ausgangsstatus bleiben die des urspruenglichen Vorgangs.
+   */
+  static async resumeInterruptedCancellation(invoice, { now, staleBefore, actorId, actorName, options, loadResult, inProgressError }) {
+    const state = invoice.cancellation || {};
+    let creditNoteId = state.creditNoteId || null;
+    const existingNote = creditNoteId ? await Invoice.findById(creditNoteId) : null;
+    if (existingNote) {
+      const graceBefore = new Date(now.getTime() - CANCELLATION_COMPLETION_GRACE_MS);
+      const inFlight = !state.requestedAt || new Date(state.requestedAt) > graceBefore;
+      if (inFlight) throw inProgressError();
+    } else {
+      const resumable = state.requestedAt && new Date(state.requestedAt) < staleBefore;
+      if (!resumable) throw inProgressError();
+      const takeoverSet = { 'cancellation.requestedAt': now };
+      if (!creditNoteId) {
+        creditNoteId = new Types.ObjectId();
+        takeoverSet['cancellation.creditNoteId'] = creditNoteId;
+      }
+      const takeover = await Invoice.updateOne(
+        { _id: invoice._id, 'cancellation.state': 'processing', 'cancellation.requestedAt': state.requestedAt },
+        { $set: takeoverSet }
+      );
+      if (takeover.modifiedCount !== 1) throw inProgressError();
+    }
+    const resumeAuditEntry = { at: now, action: 'cancellation_resumed', actorId: actorId || undefined, actorName: actorName || '', detail: `Unterbrochenes Storno fortgesetzt (${existingNote ? 'Storno-Gutschrift war bereits ausgestellt' : 'Storno-Gutschrift noch nicht ausgestellt'}).` };
+    const fresh = await Invoice.findById(invoice._id);
+    return FinancialService.issueAndCompleteCancellation(fresh, {
+      creditNoteId,
+      reason: String(state.reason || '').trim() || String(options.reason || '').trim() || 'Storno',
+      allocated: CalculationHelper.round(Number(state.allocatedAtCancellation || 0)),
+      previousStatus: state.previousStatus || invoice.status,
+      actorId: state.actorId || actorId,
+      actorName: state.actorName || actorName,
+      options,
+      loadResult,
+      resumeAuditEntry,
+      // Nur wenn noch KEINE Gutschrift existiert, wird bei einem Fehler freigegeben -
+      // dann ist nichts ausgestellt und ein neuer, normaler Storno-Versuch moeglich.
+      releaseOnFailure: existingNote ? null : () => Invoice.updateOne(
+        { _id: invoice._id, 'cancellation.state': 'processing', 'cancellation.creditNoteId': creditNoteId },
+        { $unset: { cancellation: '' } }
+      ),
+    });
+  }
+
+  /**
+   * Gemeinsamer zweiter Teil von Storno und Fortsetzung: Storno-Gutschrift (vorab
+   * vergebene _id) ausstellen - falls noch nicht vorhanden - und das Original abschliessen.
+   * Der Rest wird OHNE die eigene Storno-Gutschrift berechnet.
+   */
+  static async issueAndCompleteCancellation(invoice, { creditNoteId, reason, allocated, previousStatus, actorId, actorName, options = {}, loadResult, releaseOnFailure, resumeAuditEntry = null }) {
+    let creditNote = await Invoice.findById(creditNoteId);
+    if (!creditNote) {
+      const originalGross = Math.abs(CalculationHelper.round(Number(invoice.total || 0)));
+      const alreadyCredited = await FinancialService.getCreditedTotal(invoice._id, { valueAdjustmentsOnly: true, excludeIds: [creditNoteId] });
+      const remaining = CalculationHelper.round(originalGross - alreadyCredited);
+      const stornoText = `Storno der Rechnung ${invoice.invoiceNumber}: ${reason}`;
+      // Ohne vorherige Gutschrift: exaktes Spiegelbild aller Positionen (inkl. Rabatt).
+      // Nach einer Teilgutschrift: eine Position ueber den verbleibenden Rest.
+      const mirrorAll = alreadyCredited <= 0.009;
+      try {
+        if (remaining <= 0.009) {
+          throw buildFinancialError('Diese Rechnung ist bereits vollständig gutgeschrieben – ein Storno ist nicht mehr nötig.', 409, 'INVOICE_ALREADY_CREDITED');
+        }
+        creditNote = await FinancialService.createCreditNote(invoice._id, {
+          creditNoteId,
+          correctionType: 'full_cancellation',
+          reason: stornoText,
+          issue: true,
+          skipOriginalStatusUpdate: true,
+          ...(mirrorAll
+            ? { discount: CalculationHelper.round(Number(invoice.discount || 0)) }
+            : {
+              items: [{
+                serviceName: 'Storno Restbetrag',
+                description: `Storno des nicht gutgeschriebenen Restbetrags der Rechnung ${invoice.invoiceNumber}`,
+                quantity: 1,
+                unitPrice: remaining,
+                total: remaining,
+                type: 'fee',
+              }],
+            }),
+        });
+      } catch (error) {
+        if (error?.code === 11000) {
+          creditNote = await Invoice.findById(creditNoteId);
+        } else {
+          // Reservierung freigeben: nichts ist passiert, ein neuer Versuch ist moeglich.
+          if (releaseOnFailure) await releaseOnFailure();
+          throw error;
+        }
+      }
+    }
+
+    // Zum Abschluss den tatsaechlich gebuchten Betrag festhalten (es kann waehrend des
+    // Vorgangs Geld eingegangen sein; es bleibt als Guthaben/offene Erstattung stehen).
+    try {
+      const balanceAtCompletion = await PaymentService.computeInvoiceBalance(await Invoice.findById(invoice._id));
+      allocated = Math.max(allocated, CalculationHelper.round(Number(balanceAtCompletion?.allocated || 0)));
+    } catch (error) {
+      console.error('FinancialService: Saldo beim Storno-Abschluss nicht ermittelbar:', error.message);
+    }
+    const completedAt = new Date();
+    const completion = await Invoice.updateOne(
+      { _id: invoice._id, 'cancellation.state': 'processing', 'cancellation.creditNoteId': creditNote._id },
+      {
+        $set: {
+          status: 'cancelled',
+          cancelledAt: completedAt,
+          'cancellation.state': 'completed',
+          'cancellation.completedAt': completedAt,
+          'cancellation.creditNoteNumber': creditNote.invoiceNumber || '',
+          'cancellation.allocatedAtCancellation': allocated,
+          nextDunningDueDate: null,
+        },
+        // Eine Mahnsperre gehoert dem Mahnschritt, der sie gesetzt hat - sie wird hier
+        // nicht entfernt (der Schritt gibt sie selbst frei; storniert wird nicht gemahnt).
+        $push: {
+          auditTrail: {
+            $each: [
+              ...(resumeAuditEntry ? [resumeAuditEntry] : []),
+              {
+                at: completedAt,
+                action: 'cancelled',
+                actorId,
+                actorName,
+                detail: `Storniert (vorher: ${invoiceStatusLabelDe(previousStatus)}). Grund: ${reason}. Storno-Gutschrift ${creditNote.invoiceNumber || creditNote._id}`
+                  + `${allocated > 0.009 ? `; bereits gebuchte ${formatEuroDe(allocated)} bleiben als Guthaben/offene Erstattung erhalten` : ''}.`,
+              },
+            ],
+          },
+        },
+      }
+    );
+    if (completion.modifiedCount !== 1) {
+      // Ein paralleler Fortsetzer hat den Abschluss bereits geschrieben.
+      const current = await Invoice.findById(invoice._id).select('cancellation').lean();
+      if (current?.cancellation?.state === 'completed') return loadResult(true);
+      throw buildFinancialError('Das Storno dieser Rechnung konnte nicht abgeschlossen werden. Bitte die Ansicht neu laden und das Storno erneut auslösen.', 409, 'CANCELLATION_INCOMPLETE');
+    }
+    await Invoice.updateOne(
+      { _id: creditNote._id },
+      { $push: { auditTrail: { at: completedAt, action: 'issued', actorId, actorName, detail: `Storno-Gutschrift zu Rechnung ${invoice.invoiceNumber} ausgestellt.` } } }
+    );
+
+    // Gegenbeleg archivieren (unveraenderliches PDF). Nicht fatal: der erste Abruf holt es nach.
+    try {
+      await FinancialService.ensureInvoiceDocument(creditNote._id, { reason: 'Storno', actorId, actorName });
+    } catch (error) {
+      console.error('FinancialService: Storno-Gutschrift konnte nicht archiviert werden:', error.message);
+    }
+    await FinancialService.syncPaymentDerivedState(await Invoice.findById(invoice._id), 'cancelInvoice');
+
+    const result = await loadResult(false);
+    if (options.sendEmail === true && creditNote.customerEmail) {
+      try {
+        await FinancialService.sendInvoice(creditNote._id, creditNote.customerEmail, options.message || '', { actorId, actorName });
+        result.emailSent = true;
+      } catch (error) {
+        result.emailSent = false;
+        result.warning = 'Das Storno ist gebucht, die Storno-Gutschrift konnte aber nicht per E-Mail versendet werden. Der Versand kann erneut ausgelöst werden.';
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Entwurf verwerfen (getrennt vom Storno eines ausgestellten Belegs). Der Datensatz
+   * bleibt mit seiner Nummer erhalten (lueckenlose Nummernkreise), wird als 'cancelled'
+   * mit cancellation.kind 'draft_discarded' markiert und erzeugt keine Gutschrift.
+   */
+  static async discardDraftInvoice(invoiceId, options = {}) {
+    const id = toIdString(invoiceId);
+    if (!Types.ObjectId.isValid(id)) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    const invoice = await Invoice.findById(id);
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    if (invoice.cancellation?.kind === 'draft_discarded') return { alreadyDiscarded: true, invoice };
+    if (isIssuedStatus(invoice.status)) {
+      throw buildFinancialError('Ein ausgestellter Beleg kann nicht verworfen werden – bitte stattdessen stornieren.', 409, 'INVOICE_ALREADY_ISSUED');
+    }
+    const allocationCount = await PaymentAllocation.countDocuments({ invoiceId: invoice._id });
+    if (allocationCount > 0) {
+      throw buildFinancialError('Auf diesen Entwurf sind Zahlungen gebucht – er kann nicht verworfen werden.', 409, 'DRAFT_HAS_PAYMENTS');
+    }
+    // Ein Gutschrift-Entwurf, der seine Ursprungsrechnung vollstaendig gutschreibt, darf
+    // nicht verworfen werden, wenn fuer denselben Auftrag/dieselbe Buchung inzwischen eine
+    // NEUE Rechnung aktiv ist: das Original muesste wieder aufleben (zwei aktive Rechnungen).
+    if (invoice.isCreditNote && invoice.creditNoteOf) {
+      const creditedOriginal = await Invoice.findById(invoice.creditNoteOf).setOptions({ skipAutoPopulate: true })
+        .select('_id status total cancellation orderId repairOrderIds bookingId').lean();
+      let originalKeys = null;
+      if (creditedOriginal && creditedOriginal.status === 'credited' && !creditedOriginal.cancellation?.state) {
+        const creditedWithout = await FinancialService.getCreditedTotal(creditedOriginal._id, { valueAdjustmentsOnly: true, excludeIds: [invoice._id] });
+        if (creditedWithout < Math.abs(Number(creditedOriginal.total || 0)) - 0.01) {
+          originalKeys = Invoice.buildActiveBillingKeys(creditedOriginal);
+        }
+      }
+      if (originalKeys) {
+        const successor = await Invoice.findOne({ _id: { $ne: creditedOriginal._id }, activeBillingKeys: { $in: originalKeys } })
+          .setOptions({ skipAutoPopulate: true }).select('_id invoiceNumber').lean();
+        if (successor) {
+          throw buildFinancialError(
+            `Dieser Gutschrift-Entwurf kann nicht verworfen werden: Für denselben Auftrag bzw. dieselbe Buchung besteht inzwischen die Rechnung ${successor.invoiceNumber || successor._id}. `
+            + 'Bitte den Entwurf ausstellen oder die neue Rechnung zuerst stornieren.',
+            409,
+            'CREDIT_NOTE_DISCARD_BLOCKED'
+          );
+        }
+      }
+    }
+    const reason = String(options.reason || '').trim().slice(0, 500) || 'Entwurf verworfen';
+    const now = new Date();
+    const actorId = options.actorId || undefined;
+    const actorName = String(options.actorName || '').slice(0, 80);
+    const result = await Invoice.updateOne(
+      { _id: invoice._id, status: invoice.status },
+      {
+        $set: {
+          status: 'cancelled',
+          cancelledAt: now,
+          cancellation: { kind: 'draft_discarded', state: 'completed', reason, requestedAt: now, completedAt: now, actorId, actorName, previousStatus: invoice.status },
+        },
+        $push: { auditTrail: { at: now, action: 'draft_discarded', actorId, actorName, detail: `Entwurf verworfen. Grund: ${reason}` } },
+      }
+    );
+    if (result.modifiedCount !== 1) {
+      const fresh = await Invoice.findById(id);
+      if (fresh?.cancellation?.kind === 'draft_discarded') return { alreadyDiscarded: true, invoice: fresh };
+      throw buildFinancialError('Der Entwurf wurde parallel geändert. Bitte die Ansicht neu laden.', 409, 'INVOICE_CONFLICT');
+    }
+
+    // Ein verworfener Gutschrift-Entwurf mindert die Forderung nicht mehr: hatte er die
+    // Ursprungsrechnung auf "gutgeschrieben" gesetzt, wird deren Status neu abgeleitet.
+    if (invoice.isCreditNote && invoice.creditNoteOf) {
+      const original = await Invoice.findById(invoice.creditNoteOf);
+      if (original && original.status === 'credited' && !original.cancellation?.state) {
+        const credited = await FinancialService.getCreditedTotal(original._id, { valueAdjustmentsOnly: true });
+        if (credited < Math.abs(Number(original.total || 0)) - 0.01) {
+          const reopenedStatus = original.dueDate && new Date(original.dueDate) < now ? 'overdue' : 'sent';
+          // Mit dem Wiedereroeffnen beansprucht die Rechnung ihren Auftrag/ihre Buchung
+          // erneut. Ist dafuer inzwischen eine NEUE Rechnung aktiv, bleibt das Original
+          // gutgeschrieben - sonst stuenden zwei aktive Rechnungen fuer dieselbe Leistung.
+          const reopenKeys = Invoice.buildActiveBillingKeys({
+            orderId: original.orderId, repairOrderIds: original.repairOrderIds, bookingId: original.bookingId,
+          });
+          try {
+            await Invoice.updateOne(
+              { _id: original._id, status: 'credited' },
+              { $set: { status: reopenedStatus, ...(reopenKeys ? { activeBillingKeys: reopenKeys } : {}) } }
+            );
+            await FinancialService.recalculateInvoicePaidAmounts([original._id]);
+          } catch (error) {
+            if (!Invoice.isActiveBillingKeyConflict(error)) throw error;
+            await Invoice.updateOne(
+              { _id: original._id },
+              { $push: { auditTrail: { at: now, action: 'reopen_blocked', actorId, actorName, detail: `Gutschrift-Entwurf verworfen; die Rechnung bleibt gutgeschrieben, weil für denselben Auftrag bzw. dieselbe Buchung inzwischen eine neue Rechnung besteht.` } } }
+            );
+          }
+        }
+      }
+    }
+    return { alreadyDiscarded: false, invoice: await Invoice.findById(id) };
+  }
+
   // Summe aller bereits zu einer Rechnung erstellten Gutschriften (positiver Betrag).
   // options.valueAdjustmentsOnly: nur WERTMINDERNDE Gutschriften (Preiskorrektur,
   // Storno und Altbelege ohne correctionType). Ueberzahlungsrueckgaben
@@ -2595,6 +4301,12 @@ class FinancialService {
   // die beiden Toepfe duerfen nie vermischt werden.
   static async getCreditedTotal(invoiceId, options = {}) {
     const query = { creditNoteOf: invoiceId };
+    // Verworfene (stornierte) Gutschrift-Entwuerfe mindern nichts - wie in der Saldo-Logik.
+    query.status = { $ne: 'cancelled' };
+    // options.excludeIds: Belege, die nicht mitzaehlen (z.B. die eigene Storno-Gutschrift
+    // bei der Fortsetzung eines unterbrochenen Stornos).
+    const excludeIds = (options.excludeIds || []).map((entry) => toIdString(entry)).filter((entry) => Types.ObjectId.isValid(entry));
+    if (excludeIds.length > 0) query._id = { $nin: excludeIds.map((entry) => new Types.ObjectId(entry)) };
     if (options.valueAdjustmentsOnly) {
       // $nin trifft auch Dokumente ohne correctionType (Altbestand = Wertminderung).
       query.correctionType = { $nin: REFUND_CORRECTION_TYPES };
@@ -2615,7 +4327,7 @@ class FinancialService {
       .populate('creditNoteOf', 'invoiceNumber status total createdAt isCreditNote')
       .populate('repairOrderIds', 'orderNumber status deviceType deviceBrand deviceModel')
       .populate('orderId', 'orderNumber status deviceType deviceBrand deviceModel');
-    if (!invoice) throw new Error('Invoice not found');
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
 
     // Hydrate missing addresses for legacy invoices or paths that stored incomplete address data.
     const hasBillingAddress = normalizeBillingAddress(invoice.billingAddress);
@@ -2695,179 +4407,628 @@ class FinancialService {
       .select('_id invoiceNumber status total createdAt isCreditNote notes correctionType')
       .sort({ createdAt: -1 });
 
-    // Verbindlicher Zahlungsstand des Belegs: total / allocated / open / overpaid.
-    const balance = await PaymentService.computeInvoiceBalance(invoice);
+    // Verbindlicher Zahlungsstand des Belegs - dieselbe Berechnung wie die Liste.
+    const computed = await PaymentService.computeInvoiceBalance(invoice);
+    const balance = computed ? { ...FinancialService.toBalancePayload(computed), paymentState: computed.paymentState } : null;
 
     return { invoice, payments, creditNotes, balance };
   }
 
   // Get all overdue invoices, preserving the original customer payment deadline.
-  static async getOverdueInvoices() {
-    const now = new Date();
-    return Invoice.find({
-      dueDate: { $lt: now },
-      status:  { $nin: ['paid', 'cancelled', 'credited', 'draft'] }
-    }).sort({ dueDate: 1 });
+  /**
+   * Mahnstand EINES Belegs aus Beleg + Saldo (reine Berechnung, schreibt nichts).
+   * inList = ueberfaellig mit echter offener Forderung; eligible = jetzt mahnbar.
+   */
+  static describeDunningState(invoice, balance, now = new Date()) {
+    const stage = String(invoice?.dunningStage || 'none');
+    const level = Number(invoice?.dunningLevel || 0);
+    const originalDueDate = invoice?.originalDueDate || invoice?.dueDate || null;
+    const openAmount = CalculationHelper.round(Number(balance?.open || 0));
+    const today = startOfLocalDay(now);
+    const daysOverdue = originalDueDate
+      ? Math.round((today.getTime() - startOfLocalDay(originalDueDate).getTime()) / (24 * 60 * 60 * 1000))
+      : 0;
+    const lastFailure = invoice?.dunningLastFailure?.error ? {
+      at: invoice.dunningLastFailure.at || null,
+      stage: invoice.dunningLastFailure.stage || '',
+      stageLabel: DUNNING_STAGE_LABELS[invoice.dunningLastFailure.stage] || '',
+      error: invoice.dunningLastFailure.error,
+    } : null;
+    const base = {
+      originalDueDate,
+      daysOverdue: Math.max(0, daysOverdue),
+      openAmount,
+      currentStage: stage,
+      currentStageLabel: DUNNING_STAGE_LABELS[stage] || stage,
+      currentLevel: level,
+      nextStage: DUNNING_STAGES[level]?.stage || null,
+      nextStageLabel: DUNNING_STAGES[level]?.label || null,
+      nextEligibleDate: null,
+      lastFailure,
+      inList: false,
+      eligible: false,
+      reason: '',
+    };
+
+    if (!invoice || invoice.isCreditNote) return { ...base, reason: 'Gutschriften werden nicht gemahnt.' };
+    // Ein eingeleitetes (auch ein noch laufendes) Storno beendet das Mahnverfahren.
+    if (invoice.cancellation?.state) {
+      return { ...base, reason: 'Für diese Rechnung ist ein Storno eingeleitet bzw. abgeschlossen – sie wird nicht gemahnt.' };
+    }
+    if (!DUNNING_RECEIVABLE_STATUSES.includes(String(invoice.status || ''))) {
+      return { ...base, reason: `Beleg im Status "${invoiceStatusLabelDe(invoice.status)}" wird nicht gemahnt.` };
+    }
+    if (openAmount <= 0.009) return { ...base, reason: 'Keine offene Forderung.' };
+    if (daysOverdue <= 0) return { ...base, reason: 'Noch nicht fällig.' };
+
+    const listed = { ...base, inList: true };
+    if (stage === 'collection') return { ...listed, reason: 'An Inkasso übergeben – keine automatische Weiterführung.' };
+    if (level >= DUNNING_STAGES.length) {
+      return { ...listed, reason: 'Letzte Mahnung versendet – eine Übergabe an das Inkasso erfolgt nur manuell.' };
+    }
+    const nextEligibleDate = invoice.nextDunningDueDate
+      ? new Date(invoice.nextDunningDueDate)
+      : addDays(startOfLocalDay(originalDueDate), DUNNING_INTERVAL_DAYS);
+    const withNext = { ...listed, nextEligibleDate };
+    const lock = invoice.dunningLock;
+    if (lock?.token && lock.at && (now.getTime() - new Date(lock.at).getTime()) < DUNNING_LOCK_STALE_MS) {
+      return { ...withNext, reason: 'Wird gerade bearbeitet.' };
+    }
+    if (now.getTime() < nextEligibleDate.getTime()) {
+      return { ...withNext, reason: `Nächste Mahnstufe erst ab ${nextEligibleDate.toLocaleDateString('de-DE')} möglich.` };
+    }
+    if (lock?.token) {
+      return { ...withNext, reason: 'Ein früherer Mahnschritt wurde nicht abgeschlossen (Versandergebnis unklar). Bitte prüfen und den Schritt einzeln erneut auslösen.', staleLock: true };
+    }
+    return { ...withNext, eligible: true };
   }
 
-  // Marks expired invoices overdue, then advances a case only after its current 7-day dunning deadline.
-  static async runDunningJob() {
-    console.log('FinancialService: Running dunning job');
-
+  /**
+   * Mahnliste: ueberfaellige Belege mit ECHTER offener Forderung (Saldo aus dem
+   * PaymentService, nicht total - paidAmount). Bezahlte, stornierte, gutgeschriebene,
+   * nur-ueberzahlte Belege und Gutschriften erscheinen nicht. Jeder Eintrag traegt
+   * `dunning` (Faelligkeit, Tage, offener Betrag, Stufe, naechster Termin, faellig, Grund).
+   */
+  static async getOverdueInvoices() {
     const now = new Date();
-    const openInvoices = await Invoice.find({
-      dueDate: { $lt: now },
-      status: { $nin: ['paid', 'cancelled', 'credited', 'draft'] }
+    const candidates = await Invoice.find({
+      isCreditNote: { $ne: true },
+      status: { $in: DUNNING_RECEIVABLE_STATUSES },
+      $or: [{ originalDueDate: { $lt: now } }, { dueDate: { $lt: now } }],
+    }).sort({ dueDate: 1 });
+    if (candidates.length === 0) return [];
+    const balances = await PaymentService.getInvoiceBalances(candidates);
+    const result = [];
+    candidates.forEach((invoice) => {
+      const balance = balances.get(toIdString(invoice._id));
+      const dunning = FinancialService.describeDunningState(invoice, balance, now);
+      if (!dunning.inList) return;
+      const plain = invoice.toObject();
+      delete plain.dunningLock;
+      result.push({ ...plain, balance: FinancialService.toBalancePayload(balance), paymentState: balance?.paymentState || 'open', dunning });
     });
+    return result;
+  }
 
-    for (const invoice of openInvoices) {
-      if (invoice.status !== 'overdue') {
-        invoice.status = 'overdue';
+  /**
+   * Stand eines Belegs NACH dem Versand eines Mahn-/Inkassoschreibens (nur lesend).
+   * reason: 'open' (Stufe darf gelten), 'paid', 'cancelled', 'lock_lost' (eigene Sperre
+   * nicht mehr vorhanden) oder 'unknown' (Lesefehler, readFailed = true).
+   */
+  static async readDunningStateAfterSend(invoiceId, token) {
+    try {
+      const current = await Invoice.findById(invoiceId);
+      if (!current) return { readFailed: false, stillOpen: false, reason: 'cancelled' };
+      const balance = await PaymentService.computeInvoiceBalance(current);
+      const cancelled = Boolean(current.cancellation?.state) || ['cancelled', 'credited'].includes(String(current.status || ''));
+      const open = DUNNING_RECEIVABLE_STATUSES.includes(String(current.status || ''))
+        && CalculationHelper.round(Number(balance?.open || 0)) > 0.009;
+      const ownsLock = String(current.dunningLock?.token || '') === String(token);
+      let reason = 'open';
+      if (cancelled) reason = 'cancelled';
+      else if (!open) reason = 'paid';
+      else if (!ownsLock) reason = 'lock_lost';
+      return { readFailed: false, stillOpen: !cancelled && open, reason };
+    } catch (error) {
+      console.error('FinancialService: Stand nach dem Mahnversand nicht lesbar:', error.message);
+      return { readFailed: true, stillOpen: false, reason: 'unknown' };
+    }
+  }
+
+  /**
+   * EIN Mahnschritt fuer EINEN Beleg - die einzige Stelle, die eine Mahnstufe setzt.
+   * Cron (runDunningJob), der vom Bearbeiter gestartete Lauf, ein gespeicherter Lauf
+   * (executeDunningRun) und der Einzelschritt aus der Mahnliste laufen alle hierueber.
+   *
+   *  - Nur faellige Belege (describeDunningState.eligible) gehen genau EINE Stufe weiter.
+   *  - Atomare Sperre am Beleg, gebunden an den gelesenen Stand (Stufe + Termin): ein
+   *    paralleler Ausloeser findet einen veraenderten Stand vor und tut nichts -> nie zwei
+   *    Mails, nie zwei Stufen.
+   *  - Erfolg: Stufe, naechster Termin = heute + 7 Tage (das Faelligkeitsdatum bleibt
+   *    eingefroren), Protokoll (Datum, Stufe, Empfaenger, Vorlage, Ergebnis, Betrag).
+   *  - Fehler: protokolliert und am Beleg sichtbar (dunningLastFailure), Stufe und
+   *    Termin bleiben -> der Schritt kann kontrolliert wiederholt werden.
+   *
+   * @returns {{outcome: 'sent'|'failed'|'skipped', message: string, invoiceId, invoiceNumber, stage?, stageLabel?}}
+   */
+  static async processDunningStep(invoiceId, options = {}) {
+    const source = options.source === 'automatic' ? 'automatic' : 'manual';
+    const now = options.now ? new Date(options.now) : new Date();
+    const id = toIdString(invoiceId);
+    const invoice = Types.ObjectId.isValid(id) ? await Invoice.findById(id) : null;
+    if (!invoice) {
+      return { outcome: 'skipped', message: 'Rechnung wurde nicht gefunden.', invoiceId: id, invoiceNumber: '' };
+    }
+    const skip = (message) => ({ outcome: 'skipped', message, invoiceId: id, invoiceNumber: invoice.invoiceNumber || '' });
+
+    let balance = await PaymentService.computeInvoiceBalance(invoice);
+    let state = FinancialService.describeDunningState(invoice, balance, now);
+    const takeOverStaleLock = source === 'manual' && state.staleLock === true && now.getTime() >= new Date(state.nextEligibleDate || 0).getTime();
+    if (!state.eligible && !takeOverStaleLock) return skip(state.reason || 'Nicht mahnbar.');
+
+    const level = Number(invoice.dunningLevel || 0);
+    const token = crypto.randomBytes(12).toString('hex');
+    const lockFilter = {
+      _id: invoice._id,
+      status: { $in: DUNNING_RECEIVABLE_STATUSES },
+      'cancellation.state': { $exists: false },
+      dunningLevel: level === 0 ? { $in: [0, null] } : level,
+      dunningStage: invoice.dunningStage && invoice.dunningStage !== 'none' ? invoice.dunningStage : { $in: ['none', null] },
+      nextDunningDueDate: invoice.nextDunningDueDate ? invoice.nextDunningDueDate : { $in: [null] },
+      ...(takeOverStaleLock
+        ? { 'dunningLock.token': invoice.dunningLock.token }
+        : { $or: [{ 'dunningLock.token': { $exists: false } }, { 'dunningLock.token': null }] }),
+    };
+    const locked = await Invoice.updateOne(lockFilter, { $set: { dunningLock: { token, at: now } } });
+    if (locked.modifiedCount !== 1) return skip('Der Beleg wurde parallel bearbeitet – kein weiterer Mahnschritt.');
+
+    const release = () => Invoice.updateOne({ _id: invoice._id, 'dunningLock.token': token }, { $unset: { dunningLock: '' } });
+    let fresh;
+    try {
+      // Nach der Sperre neu lesen: eine Zahlung kann soeben eingegangen sein.
+      fresh = await Invoice.findById(invoice._id);
+      balance = await PaymentService.computeInvoiceBalance(fresh);
+      state = FinancialService.describeDunningState({ ...fresh.toObject(), dunningLock: null }, balance, now);
+      if (!state.eligible) {
+        await release();
+        return skip(state.reason || 'Nicht mehr mahnbar.');
       }
-      if (!invoice.originalDueDate) invoice.originalDueDate = invoice.dueDate;
-      if (!invoice.nextDunningDueDate && invoice.dunningStage !== 'collection') {
-        invoice.nextDunningDueDate = addDays(invoice.dueDate, 7);
-      }
-      await invoice.save();
+    } catch (error) {
+      await release();
+      throw error;
     }
 
-    const eligibleInvoices = openInvoices.filter((invoice) => (
-      invoice.dunningStage !== 'collection'
-      && invoice.nextDunningDueDate
-      && new Date(invoice.nextDunningDueDate) < now
-      && Number(invoice.dunningLevel || 0) < DUNNING_STAGES.length
-    ));
+    const stage = DUNNING_STAGES[level];
+    // Empfaenger: die E-Mail am Beleg; ein Bearbeiter darf im Einzelschritt eine andere
+    // Adresse angeben (z.B. Buchhaltung des Kunden) - sie wird protokolliert.
+    const overrideRecipient = source === 'manual' ? String(options.recipientEmail || '').trim() : '';
+    const recipient = (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(overrideRecipient) ? overrideRecipient : '') || String(fresh.customerEmail || '').trim();
+    const templateName = EmailService.TRIGGER_TEMPLATE_MAP?.[stage.trigger] || stage.label;
+    const nextDueDate = addDays(startOfLocalDay(now), DUNNING_INTERVAL_DAYS);
+    const originalDueDate = fresh.originalDueDate || fresh.dueDate;
+    const openAmount = CalculationHelper.round(Number(balance?.open || 0));
+    const actorId = options.actorId || undefined;
+    const actorName = String(options.actorName || '').slice(0, 80);
 
-    if (eligibleInvoices.length === 0) {
-      return { processed: openInvoices.length, actions: [], run: null };
+    let emailResult;
+    if (!recipient) {
+      emailResult = { success: false, error: 'Keine E-Mail-Adresse am Beleg hinterlegt.' };
+    } else {
+      try {
+        emailResult = await EmailService.sendTriggerEmail(stage.trigger, recipient, {
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
+          customerName: fresh.customerName || 'Kunde',
+          invoiceNumber: fresh.invoiceNumber,
+          invoiceAmount: formatEuroDe(Math.abs(Number(fresh.total || 0))),
+          amountOpen: formatEuroDe(openAmount),
+          originalDueDate: new Date(originalDueDate).toLocaleDateString('de-DE'),
+          dueDate: nextDueDate.toLocaleDateString('de-DE'),
+          dunningStage: stage.label,
+          invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${fresh._id}`),
+          customMessage: String(options.customMessage || '').trim().slice(0, 5000),
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+          supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+        });
+      } catch (error) {
+        emailResult = { success: false, error: error.message };
+      }
+    }
+
+    const historyBase = {
+      stage: stage.stage,
+      executedAt: now,
+      previousDueDate: fresh.nextDunningDueDate || originalDueDate,
+      dunningRunId: options.runId || undefined,
+      recipient,
+      templateName,
+      trigger: stage.trigger,
+      amountOpen: openAmount,
+      source,
+      actorId,
+    };
+
+    if (emailResult?.success) {
+      // Waehrend des Versands kann eine Zahlung eingegangen oder ein Storno eingeleitet
+      // worden sein. Die Stufe wird deshalb nur uebernommen, wenn der Beleg JETZT noch
+      // eine offene Forderung hat - geprueft im Lesezugriff UND in der Update-Bedingung.
+      // Der Status wird nie aus dem vor dem Versand gelesenen Stand gesetzt.
+      // Scheitert der Lesezugriff, wird die Stufe trotzdem ueber das bedingte Update
+      // versucht (Status mahnbar, kein Storno, eigene Sperre): die Mail IST raus und muss
+      // vermerkt werden, sonst verschickt der naechste Lauf dieselbe Stufe noch einmal.
+      const afterSendState = await FinancialService.readDunningStateAfterSend(fresh._id, token);
+      let advanced = { modifiedCount: 0 };
+      let advanceError = null;
+      if (afterSendState.readFailed || afterSendState.stillOpen) {
+        try {
+          advanced = await Invoice.updateOne(
+            {
+              _id: fresh._id,
+              'dunningLock.token': token,
+              status: { $in: DUNNING_RECEIVABLE_STATUSES },
+              'cancellation.state': { $exists: false },
+            },
+            {
+              $set: {
+                dunningLevel: stage.level,
+                dunningStage: stage.stage,
+                dunningNotifiedAt: now,
+                nextDunningDueDate: nextDueDate,
+                originalDueDate,
+              },
+              $unset: { dunningLock: '', dunningLastFailure: '' },
+              $push: {
+                dunningHistory: { ...historyBase, nextDueDate, emailSentAt: now, result: 'sent' },
+                auditTrail: { at: now, action: 'dunning_sent', actorId, actorName, detail: `${stage.label} an ${recipient} versendet (offen ${formatEuroDe(openAmount)}).` },
+              },
+            }
+          );
+        } catch (error) {
+          advanceError = error;
+        }
+      }
+
+      if (advanced.modifiedCount === 1) {
+        // Nur ein noch nicht als ueberfaellig markierter Beleg wird es jetzt - bedingt auf
+        // den AKTUELLEN Status, damit eine soeben verbuchte Zahlung nicht ueberschrieben wird.
+        await Invoice.updateOne(
+          { _id: fresh._id, status: { $in: ['sent', 'viewed'] }, 'cancellation.state': { $exists: false } },
+          { $set: { status: 'overdue' } }
+        );
+        return {
+          outcome: 'sent',
+          message: `${stage.label} versendet.`,
+          invoiceId: id,
+          invoiceNumber: fresh.invoiceNumber || '',
+          stage: stage.stage,
+          stageLabel: stage.label,
+          nextDunningDueDate: nextDueDate,
+          amountOpen: openAmount,
+        };
+      }
+
+      // Die Mail ist raus, die Stufe wurde nicht uebernommen. Den ECHTEN Grund ermitteln
+      // (bezahlt, storniert, Sperre verloren) - ist er nicht feststellbar, bleibt die
+      // eigene Sperre bestehen: der automatische Lauf uebernimmt sie nie, die Mahnliste
+      // zeigt den Fall als "nicht abgeschlossen" zur Pruefung durch einen Bearbeiter.
+      const reasonState = advanceError
+        ? { reason: 'unknown' }
+        : await FinancialService.readDunningStateAfterSend(fresh._id, token);
+      // 'open' trotz nicht angewandter Stufe heisst: der Stand hat sich zwischen Lesen und
+      // Schreiben erneut geaendert - nicht eindeutig, also wie 'unknown' behandeln.
+      const reason = reasonState.reason === 'open' ? 'unknown' : reasonState.reason;
+      const notApplied = {
+        paid: 'Die Rechnung wurde während des Versands bezahlt.',
+        cancelled: 'Die Rechnung wurde während des Versands storniert bzw. gutgeschrieben.',
+        lock_lost: 'Die Bearbeitungssperre wurde während des Versands von einem anderen Vorgang übernommen.',
+        unknown: 'Der Rechnungsstand konnte nach dem Versand nicht ermittelt werden. Die Sperre bleibt bestehen; bitte prüfen, bevor der Schritt erneut ausgelöst wird.',
+      }[reason] || 'Die Rechnung wurde während des Versands bezahlt oder storniert.';
+      try {
+        await Invoice.updateOne(
+          { _id: fresh._id },
+          {
+            $push: {
+              dunningHistory: { ...historyBase, emailSentAt: now, result: 'sent', note: `Stufe nicht übernommen: ${notApplied}` },
+              auditTrail: { at: now, action: 'dunning_sent', actorId, actorName, detail: `${stage.label} an ${recipient} versendet; Mahnstufe nicht erhöht. ${notApplied}` },
+            },
+          }
+        );
+      } catch (error) {
+        console.error('FinancialService: Mahnversand konnte nicht protokolliert werden:', error.message);
+      }
+      // Nur bei eindeutigem Grund und nur die EIGENE Sperre freigeben.
+      if (reason === 'paid' || reason === 'cancelled') {
+        await Invoice.updateOne({ _id: fresh._id, 'dunningLock.token': token }, { $unset: { dunningLock: '' } });
+      }
+      return {
+        outcome: 'sent',
+        message: `${stage.label} wurde versendet, die Mahnstufe aber nicht erhöht: ${notApplied}`,
+        invoiceId: id,
+        invoiceNumber: fresh.invoiceNumber || '',
+        stage: null,
+        stageLabel: stage.label,
+        stageApplied: false,
+        ...(reason === 'unknown' ? { requiresReview: true } : {}),
+        amountOpen: openAmount,
+      };
+    }
+
+    const errorText = String(emailResult?.error || 'E-Mail-Versand fehlgeschlagen').slice(0, 500);
+    await Invoice.updateOne(
+      { _id: fresh._id, 'dunningLock.token': token },
+      {
+        $set: { dunningLastFailure: { at: now, stage: stage.stage, error: errorText }, originalDueDate },
+        $unset: { dunningLock: '' },
+        $push: {
+          dunningHistory: { ...historyBase, emailError: errorText, result: 'failed' },
+          auditTrail: { at: now, action: 'dunning_failed', actorId, actorName, detail: `${stage.label} an ${recipient || '-'} NICHT versendet: ${errorText}` },
+        },
+      }
+    );
+    return {
+      outcome: 'failed',
+      message: `${stage.label} wurde nicht versendet (E-Mail-Versand fehlgeschlagen). Die Mahnstufe wurde nicht erhöht; der Schritt kann erneut ausgelöst werden.`,
+      error: errorText,
+      invoiceId: id,
+      invoiceNumber: fresh.invoiceNumber || '',
+      stage: stage.stage,
+      stageLabel: stage.label,
+    };
+  }
+
+  /**
+   * Mahnlauf ueber alle faelligen Belege. Einstieg fuer den Cron (server.js,
+   * DUNNING_CRON_ENABLED) UND den vom Bearbeiter gestarteten Lauf - beide nutzen
+   * processDunningStep, ein zweiter Lauf am selben Tag findet deshalb nichts mehr vor.
+   */
+  static async runDunningJob(options = {}) {
+    console.log('FinancialService: Running dunning job');
+    const source = options.source === 'manual' ? 'manual' : 'automatic';
+    const now = new Date();
+
+    const overdue = await FinancialService.getOverdueInvoices();
+    // Faellige, noch nicht als ueberfaellig markierte Belege kennzeichnen (Faelligkeit
+    // bleibt unveraendert; die Folgefrist steht separat in nextDunningDueDate).
+    for (const entry of overdue) {
+      if (['sent', 'viewed'].includes(entry.status) || !entry.originalDueDate) {
+        await Invoice.updateOne(
+          { _id: entry._id, status: entry.status },
+          { $set: { ...(['sent', 'viewed'].includes(entry.status) ? { status: 'overdue' } : {}), originalDueDate: entry.originalDueDate || entry.dueDate } }
+        );
+      }
+    }
+
+    const eligible = overdue.filter((entry) => entry.dunning?.eligible);
+    if (eligible.length === 0) {
+      return { processed: overdue.length, actions: [], run: null, sent: 0, failed: 0, skipped: 0 };
     }
 
     const run = new DunningRun({
-      name: `Mahnlauf ${now.toLocaleDateString('de-DE')}`,
+      name: `Mahnlauf ${now.toLocaleDateString('de-DE')}${source === 'automatic' ? ' (automatisch)' : ''}`,
       status: 'running',
       defaultStatus: 'overdue',
-      defaultNote: 'Automatischer fristbasierter Mahnlauf',
-      items: eligibleInvoices.map((invoice) => ({
-        invoiceId: invoice._id,
-        invoiceNumber: invoice.invoiceNumber,
-        customerName: invoice.customerName,
-        customerEmail: invoice.customerEmail,
-        dueDate: invoice.nextDunningDueDate,
-        amountOpen: Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)),
-        dunningLevel: Number(invoice.dunningLevel || 0),
+      defaultNote: source === 'automatic' ? 'Automatischer fristbasierter Mahnlauf' : 'Vom Bearbeiter gestarteter Mahnlauf',
+      items: eligible.map((entry) => ({
+        invoiceId: entry._id,
+        invoiceNumber: entry.invoiceNumber,
+        customerName: entry.customerName || '-',
+        customerEmail: entry.customerEmail,
+        dueDate: entry.dunning.originalDueDate,
+        amountOpen: entry.dunning.openAmount,
+        dunningLevel: Number(entry.dunningLevel || 0),
         status: 'processing'
       })),
-      logs: [{ type: 'started', message: `Mahnlauf mit ${eligibleInvoices.length} faelligen Faellen gestartet`, at: now }]
+      logs: [{ type: 'started', message: `Mahnlauf mit ${eligible.length} fälligen Fällen gestartet`, at: now, actorId: options.actorId || undefined }],
+      createdBy: options.actorId || undefined
     });
     await run.save();
 
-    const actions = [];
-    for (const invoice of eligibleInvoices) {
-      const stage = DUNNING_STAGES[Number(invoice.dunningLevel || 0)];
-      const previousDueDate = invoice.nextDunningDueDate;
-      const nextDueDate = addDays(now, 7);
-      const emailResult = await EmailService.sendTriggerEmail(stage.trigger, invoice.customerEmail, {
-        companyName: process.env.COMPANY_NAME || 'McRepair.de',
-        customerName: invoice.customerName || 'Kunde',
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceAmount: `EUR ${Number(invoice.total || 0).toFixed(2)}`,
-        amountOpen: `EUR ${Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)).toFixed(2)}`,
-        originalDueDate: new Date(invoice.originalDueDate || invoice.dueDate).toLocaleDateString('de-DE'),
-        dueDate: nextDueDate.toLocaleDateString('de-DE'),
-        dunningStage: stage.label,
-        invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`),
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
-        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-      });
-
-      invoice.status = 'overdue';
-      invoice.dunningLevel = stage.level;
-      invoice.dunningStage = stage.stage;
-      invoice.dunningNotifiedAt = now;
-      invoice.nextDunningDueDate = nextDueDate;
-      invoice.dunningHistory.push({
-        stage: stage.stage,
-        executedAt: now,
-        previousDueDate,
-        nextDueDate,
-        dunningRunId: run._id,
-        ...(emailResult?.success ? { emailSentAt: now } : { emailError: emailResult?.error || 'E-Mail-Versand fehlgeschlagen' })
-      });
-      await invoice.save();
-
-      const item = run.items.find((entry) => String(entry.invoiceId) === String(invoice._id));
-      if (item) {
-        item.dunningLevel = stage.level;
-        item.status = emailResult?.success ? 'sent' : 'failed';
-        item.lastActionAt = now;
-      }
-      actions.push({
-        invoiceId: invoice._id,
-        invoiceNumber: invoice.invoiceNumber,
-        customerName: invoice.customerName,
-        customerEmail: invoice.customerEmail,
-        dunningLevel: stage.level,
-        dunningStage: stage.stage,
-        daysPastDue: Math.floor((now - new Date(invoice.originalDueDate || invoice.dueDate)) / 86400000),
-        amount: invoice.total,
-        action: `${stage.label} ${emailResult?.success ? 'versendet' : 'nicht versendet'}`
-      });
-    }
-
-    run.status = 'completed';
-    run.logs.push({ type: 'completed', message: `${actions.length} Faelle verarbeitet`, at: new Date() });
-    await run.save();
-    return { processed: openInvoices.length, actions, run };
+    const summary = await FinancialService.processDunningRunItems(run, { source, actorId: options.actorId, actorName: options.actorName });
+    return { processed: overdue.length, run: summary.run, actions: summary.actions, sent: summary.sent, failed: summary.failed, skipped: summary.skipped };
   }
 
-  static async activateCollection(invoiceId, userId) {
-    const invoice = await Invoice.findById(invoiceId);
-    if (!invoice) throw new Error('Invoice not found');
-    if (!['overdue', 'partially_paid'].includes(invoice.status)) throw new Error('Only overdue invoices can be transferred to collection');
+  // Gemeinsamer Teil fuer runDunningJob und executeDunningRun.
+  static async processDunningRunItems(run, { source, actorId, actorName, customMessage = '' } = {}) {
+    const actions = [];
+    let sent = 0;
+    let failed = 0;
+    let skipped = 0;
+    for (const item of run.items) {
+      if (['sent', 'escalated'].includes(item.status) && run.$locals?.onlyOpen) continue;
+      const result = await FinancialService.processDunningStep(item.invoiceId, { source, actorId, actorName, runId: run._id, customMessage });
+      item.status = result.outcome === 'sent' ? 'sent' : (result.outcome === 'failed' ? 'failed' : 'skipped');
+      item.note = result.message;
+      item.lastActionAt = new Date();
+      item.lastActionBy = actorId || undefined;
+      if (result.outcome === 'sent') {
+        sent += 1;
+        item.dunningLevel = DUNNING_STAGES.find((entry) => entry.stage === result.stage)?.level || item.dunningLevel;
+        item.amountOpen = result.amountOpen ?? item.amountOpen;
+      } else if (result.outcome === 'failed') {
+        failed += 1;
+      } else {
+        skipped += 1;
+      }
+      run.logs.push({ type: 'item_update', message: `${item.invoiceNumber}: ${result.message}`, invoiceId: item.invoiceId, actorId: actorId || undefined, at: new Date() });
+      if (result.outcome !== 'skipped') {
+        const invoice = await Invoice.findById(item.invoiceId).select('customerName customerEmail total').lean();
+        actions.push({
+          invoiceId: item.invoiceId,
+          invoiceNumber: item.invoiceNumber,
+          customerName: invoice?.customerName || item.customerName,
+          customerEmail: invoice?.customerEmail || item.customerEmail,
+          dunningLevel: item.dunningLevel,
+          dunningStage: result.stage,
+          outcome: result.outcome,
+          amount: invoice?.total,
+          amountOpen: result.amountOpen,
+          action: result.message,
+        });
+      }
+    }
+    run.status = 'completed';
+    run.logs.push({ type: 'completed', message: `${sent} versendet, ${failed} fehlgeschlagen, ${skipped} übersprungen`, at: new Date(), actorId: actorId || undefined });
+    await run.save();
+    return { run, actions, sent, failed, skipped };
+  }
+
+  /**
+   * Gespeicherten Mahnlauf (Run-Builder) ausfuehren: jeder noch offene Fall geht ueber
+   * processDunningStep - nicht faellige Faelle werden mit Grund uebersprungen, bereits
+   * versendete nicht erneut angefasst. Wiederholbar (fehlgeschlagene Faelle).
+   */
+  static async executeDunningRun(runId, { actorId, actorName, customMessage = '' } = {}) {
+    if (!Types.ObjectId.isValid(String(runId || ''))) throw buildFinancialError('Mahnlauf wurde nicht gefunden.', 404, 'DUNNING_RUN_NOT_FOUND');
+    const run = await DunningRun.findById(runId);
+    if (!run) throw buildFinancialError('Mahnlauf wurde nicht gefunden.', 404, 'DUNNING_RUN_NOT_FOUND');
+    if (run.status === 'cancelled') throw buildFinancialError('Ein abgebrochener Mahnlauf kann nicht ausgeführt werden.', 409, 'DUNNING_RUN_CANCELLED');
+    if (run.status === 'paused') throw buildFinancialError('Der Mahnlauf ist pausiert. Bitte zuerst fortsetzen.', 409, 'DUNNING_RUN_PAUSED');
+    run.status = 'running';
+    run.logs.push({ type: 'started', message: 'Mahnlauf ausgeführt', actorId: actorId || undefined, at: new Date() });
+    run.$locals.onlyOpen = true;
+    return FinancialService.processDunningRunItems(run, { source: 'manual', actorId, actorName, customMessage });
+  }
+
+  /**
+   * Manuelle Uebergabe an das Inkasso - nur nach der Letzten Mahnung und nur mit echter
+   * offener Forderung. Es wird KEIN externes Inkasso gestartet: nur Stufe, Mitteilung an
+   * den Kunden und Protokoll. Scheitert die Mitteilung, bleibt die Stufe unveraendert.
+   */
+  static async activateCollection(invoiceId, userId, options = {}) {
+    const id = toIdString(invoiceId);
+    const invoice = Types.ObjectId.isValid(id) ? await Invoice.findById(id) : null;
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
     if (invoice.dunningStage === 'collection') return invoice;
+    const balance = await PaymentService.computeInvoiceBalance(invoice);
+    const state = FinancialService.describeDunningState(invoice, balance);
+    if (!state.inList) {
+      throw buildFinancialError(`Nur überfällige Rechnungen mit offener Forderung können an das Inkasso übergeben werden (${state.reason || 'nicht mahnbar'}).`, 409, 'COLLECTION_NOT_ALLOWED');
+    }
+    if (invoice.dunningStage !== 'final_notice') {
+      throw buildFinancialError('Die Übergabe an das Inkasso ist erst nach der Letzten Mahnung möglich.', 409, 'COLLECTION_TOO_EARLY');
+    }
 
     const now = new Date();
-    const previousDueDate = invoice.nextDunningDueDate;
-    const emailResult = await EmailService.sendTriggerEmail('collection_notice', invoice.customerEmail, {
-      companyName: process.env.COMPANY_NAME || 'McRepair.de',
-      customerName: invoice.customerName || 'Kunde',
-      invoiceNumber: invoice.invoiceNumber,
-      invoiceAmount: `EUR ${Number(invoice.total || 0).toFixed(2)}`,
-      amountOpen: `EUR ${Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)).toFixed(2)}`,
-      originalDueDate: new Date(invoice.originalDueDate || invoice.dueDate).toLocaleDateString('de-DE'),
-      dueDate: '-',
-      dunningStage: 'Inkasso',
-      invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`),
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
-      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-    });
-    invoice.dunningLevel = 4;
-    invoice.dunningStage = 'collection';
-    invoice.nextDunningDueDate = undefined;
-    invoice.dunningHistory.push({
-      stage: 'collection',
-      executedAt: now,
-      previousDueDate,
-      ...(emailResult?.success ? { emailSentAt: now } : { emailError: emailResult?.error || 'E-Mail-Versand fehlgeschlagen' })
-    });
-    await invoice.save();
-    return invoice;
+    const token = crypto.randomBytes(12).toString('hex');
+    const locked = await Invoice.updateOne(
+      { _id: invoice._id, dunningStage: 'final_notice', 'cancellation.state': { $exists: false }, $or: [{ 'dunningLock.token': { $exists: false } }, { 'dunningLock.token': null }] },
+      { $set: { dunningLock: { token, at: now } } }
+    );
+    if (locked.modifiedCount !== 1) {
+      throw buildFinancialError('Der Beleg wird gerade bearbeitet. Bitte die Ansicht neu laden.', 409, 'DUNNING_IN_PROGRESS');
+    }
+    const recipient = String(invoice.customerEmail || '').trim();
+    const openAmount = CalculationHelper.round(Number(balance?.open || 0));
+    let emailResult;
+    try {
+      emailResult = recipient
+        ? await EmailService.sendTriggerEmail('collection_notice', recipient, {
+          companyName: process.env.COMPANY_NAME || 'McRepair.de',
+          customerName: invoice.customerName || 'Kunde',
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceAmount: formatEuroDe(Math.abs(Number(invoice.total || 0))),
+          amountOpen: formatEuroDe(openAmount),
+          originalDueDate: new Date(invoice.originalDueDate || invoice.dueDate).toLocaleDateString('de-DE'),
+          dueDate: '-',
+          dunningStage: 'Inkasso',
+          invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${invoice._id}`),
+          customMessage: String(options.customMessage || '').trim().slice(0, 5000),
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+          supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+        })
+        : { success: false, error: 'Keine E-Mail-Adresse am Beleg hinterlegt.' };
+    } catch (error) {
+      emailResult = { success: false, error: error.message };
+    }
+    const historyBase = {
+      stage: 'collection', executedAt: now, previousDueDate: invoice.nextDunningDueDate, recipient,
+      templateName: EmailService.TRIGGER_TEMPLATE_MAP?.collection_notice || 'Inkasso', trigger: 'collection_notice',
+      amountOpen: openAmount, source: 'manual', actorId: userId || undefined,
+    };
+    if (!emailResult?.success) {
+      const errorText = String(emailResult?.error || 'E-Mail-Versand fehlgeschlagen').slice(0, 500);
+      await Invoice.updateOne({ _id: invoice._id, 'dunningLock.token': token }, {
+        $set: { dunningLastFailure: { at: now, stage: 'collection', error: errorText } },
+        $unset: { dunningLock: '' },
+        $push: { dunningHistory: { ...historyBase, emailError: errorText, result: 'failed' } },
+      });
+      throw buildFinancialError('Die Inkasso-Mitteilung konnte nicht versendet werden – die Stufe wurde nicht geändert. Bitte erneut versuchen.', 502, 'COLLECTION_NOTICE_FAILED');
+    }
+    // Wie im Mahnschritt: waehrend des Versands kann eine Zahlung oder ein Storno
+    // eingegangen sein. Die Inkasso-Stufe gilt nur, wenn JETZT noch eine offene Forderung
+    // besteht - geprueft im Lesezugriff UND in der Update-Bedingung. Bei einem Lesefehler
+    // entscheidet allein das bedingte Update.
+    const afterSendState = await FinancialService.readDunningStateAfterSend(invoice._id, token);
+    let applied = { modifiedCount: 0 };
+    let applyError = null;
+    if (afterSendState.readFailed || afterSendState.stillOpen) {
+      try {
+        applied = await Invoice.updateOne({
+          _id: invoice._id,
+          'dunningLock.token': token,
+          dunningStage: 'final_notice',
+          status: { $in: DUNNING_RECEIVABLE_STATUSES },
+          'cancellation.state': { $exists: false },
+        }, {
+          $set: { dunningLevel: 4, dunningStage: 'collection', nextDunningDueDate: null, dunningNotifiedAt: now },
+          $unset: { dunningLock: '', dunningLastFailure: '' },
+          $push: {
+            dunningHistory: { ...historyBase, emailSentAt: now, result: 'sent' },
+            auditTrail: { at: now, action: 'dunning_collection', actorId: userId || undefined, actorName: String(options.actorName || ''), detail: `An Inkasso übergeben (intern vermerkt, kein externer Auftrag). Offen ${formatEuroDe(openAmount)}.` },
+          },
+        });
+      } catch (error) {
+        applyError = error;
+      }
+    }
+    if (applied.modifiedCount === 1) return Invoice.findById(invoice._id);
+
+    // Mitteilung ist raus, die Stufe gilt nicht (mehr): protokollieren, eigene Sperre nur
+    // bei eindeutigem Grund freigeben (sonst bleibt der Fall zur Pruefung gesperrt).
+    const reasonState = applyError ? { reason: 'unknown' } : await FinancialService.readDunningStateAfterSend(invoice._id, token);
+    const reason = reasonState.reason === 'open' ? 'unknown' : reasonState.reason;
+    const notApplied = {
+      paid: 'Die Rechnung wurde während des Versands bezahlt.',
+      cancelled: 'Die Rechnung wurde während des Versands storniert bzw. gutgeschrieben.',
+      lock_lost: 'Die Bearbeitungssperre wurde während des Versands von einem anderen Vorgang übernommen.',
+      unknown: 'Der Rechnungsstand konnte nach dem Versand nicht ermittelt werden. Bitte den Beleg prüfen.',
+    }[reason] || 'Die Rechnung wurde während des Versands bezahlt oder storniert.';
+    try {
+      await Invoice.updateOne({ _id: invoice._id }, {
+        $push: {
+          dunningHistory: { ...historyBase, emailSentAt: now, result: 'sent', note: `Stufe nicht übernommen: ${notApplied}` },
+          auditTrail: { at: now, action: 'dunning_collection', actorId: userId || undefined, actorName: String(options.actorName || ''), detail: `Inkasso-Mitteilung an ${recipient} versendet; Übergabe nicht vermerkt. ${notApplied}` },
+        },
+      });
+    } catch (error) {
+      console.error('FinancialService: Inkasso-Mitteilung konnte nicht protokolliert werden:', error.message);
+    }
+    if (reason === 'paid' || reason === 'cancelled') {
+      await Invoice.updateOne({ _id: invoice._id, 'dunningLock.token': token }, { $unset: { dunningLock: '' } });
+    }
+    throw buildFinancialError(
+      `Die Inkasso-Mitteilung wurde versendet, die Übergabe an das Inkasso aber nicht vermerkt: ${notApplied}`,
+      409,
+      'COLLECTION_NOT_APPLIED'
+    );
   }
 
   static async createDunningRun(payload = {}, userId) {
     const invoiceIds = Array.isArray(payload.invoiceIds) ? payload.invoiceIds : [];
-    if (invoiceIds.length === 0) throw new Error('At least one invoiceId is required');
+    if (invoiceIds.length === 0) throw buildFinancialError('Bitte mindestens eine Rechnung für den Mahnlauf auswählen.', 400, 'DUNNING_RUN_EMPTY');
 
-    const invoices = await Invoice.find({ _id: { $in: invoiceIds } });
-    if (invoices.length === 0) throw new Error('No invoices found for provided invoiceIds');
+    const validIds = invoiceIds.map((id) => toIdString(id)).filter((id) => Types.ObjectId.isValid(id));
+    const invoices = await Invoice.find({ _id: { $in: validIds } });
+    if (invoices.length === 0) throw buildFinancialError('Die ausgewählten Rechnungen wurden nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    // Offener Betrag aus dem Saldo (nicht total - paidAmount).
+    const balances = await PaymentService.getInvoiceBalances(invoices);
 
     const items = invoices.map((invoice) => ({
       invoiceId: invoice._id,
       invoiceNumber: invoice.invoiceNumber,
-      customerName: invoice.customerName,
+      customerName: invoice.customerName || '-',
       customerEmail: invoice.customerEmail,
-      dueDate: invoice.dueDate,
-      amountOpen: Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)),
+      dueDate: invoice.originalDueDate || invoice.dueDate,
+      amountOpen: CalculationHelper.round(Number(balances.get(toIdString(invoice._id))?.open || 0)),
       dunningLevel: invoice.dunningLevel || 0,
       status: 'pending',
       note: ''
@@ -2882,7 +5043,7 @@ class FinancialService {
       logs: [
         {
           type: 'created',
-          message: `Mahnlauf mit ${items.length} Faellen erstellt`,
+          message: `Mahnlauf mit ${items.length} Fällen erstellt`,
           actorId: userId || undefined
         }
       ],
@@ -2901,13 +5062,13 @@ class FinancialService {
 
   static async getDunningRunById(runId) {
     const run = await DunningRun.findById(runId);
-    if (!run) throw new Error('Dunning run not found');
+    if (!run) throw buildFinancialError('Mahnlauf wurde nicht gefunden.', 404, 'DUNNING_RUN_NOT_FOUND');
     return run;
   }
 
   static async updateDunningRun(runId, updates = {}, userId) {
     const run = await DunningRun.findById(runId);
-    if (!run) throw new Error('Dunning run not found');
+    if (!run) throw buildFinancialError('Mahnlauf wurde nicht gefunden.', 404, 'DUNNING_RUN_NOT_FOUND');
 
     if (typeof updates.name === 'string') run.name = updates.name;
     if (typeof updates.defaultNote === 'string') run.defaultNote = updates.defaultNote;
@@ -2929,10 +5090,10 @@ class FinancialService {
 
   static async updateDunningRunItem(runId, invoiceId, updates = {}, userId) {
     const run = await DunningRun.findById(runId);
-    if (!run) throw new Error('Dunning run not found');
+    if (!run) throw buildFinancialError('Mahnlauf wurde nicht gefunden.', 404, 'DUNNING_RUN_NOT_FOUND');
 
     const item = run.items.find((entry) => String(entry.invoiceId) === String(invoiceId));
-    if (!item) throw new Error('Invoice not found in dunning run');
+    if (!item) throw buildFinancialError('Die Rechnung ist nicht Teil dieses Mahnlaufs.', 404, 'DUNNING_ITEM_NOT_FOUND');
 
     if (typeof updates.status === 'string') item.status = updates.status;
     if (typeof updates.note === 'string') item.note = updates.note;
@@ -2955,21 +5116,22 @@ class FinancialService {
 
   static async addDunningRunItem(runId, invoiceId, userId) {
     const run = await DunningRun.findById(runId);
-    if (!run) throw new Error('Dunning run not found');
+    if (!run) throw buildFinancialError('Mahnlauf wurde nicht gefunden.', 404, 'DUNNING_RUN_NOT_FOUND');
 
     const alreadyExists = run.items.some((entry) => String(entry.invoiceId) === String(invoiceId));
     if (alreadyExists) return run;
 
-    const invoice = await Invoice.findById(invoiceId);
-    if (!invoice) throw new Error('Invoice not found');
+    const invoice = Types.ObjectId.isValid(toIdString(invoiceId)) ? await Invoice.findById(invoiceId) : null;
+    if (!invoice) throw buildFinancialError('Rechnung wurde nicht gefunden.', 404, 'INVOICE_NOT_FOUND');
+    const balance = await PaymentService.computeInvoiceBalance(invoice);
 
     run.items.push({
       invoiceId: invoice._id,
       invoiceNumber: invoice.invoiceNumber,
-      customerName: invoice.customerName,
+      customerName: invoice.customerName || '-',
       customerEmail: invoice.customerEmail,
-      dueDate: invoice.dueDate,
-      amountOpen: Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)),
+      dueDate: invoice.originalDueDate || invoice.dueDate,
+      amountOpen: CalculationHelper.round(Number(balance?.open || 0)),
       dunningLevel: invoice.dunningLevel || 0,
       status: 'pending',
       note: 'Manuell hinzugefuegt',
@@ -3134,12 +5296,12 @@ class FinancialService {
 
       // Offener Betrag je Rechnung aus den GUELTIGEN Zuordnungen, nicht aus dem
       // denormalisierten paidAmount - sonst wuerde ein Altbestands-Fehler fortgeschrieben.
-      const allocatedByInvoice = await PaymentService.getAllocatedTotalsByInvoice(
-        openInvoices.map((invoice) => invoice._id)
-      );
+      // Dieselbe Berechnung wie ueberall: Forderung (Brutto minus wertmindernde
+      // Gutschriften) minus gueltige Zuordnungen.
+      const openBalances = await PaymentService.getInvoiceBalances(openInvoices, { bookingCap: false });
       const openAmountByInvoice = new Map(openInvoices.map((invoice) => [
         String(invoice._id),
-        CalculationHelper.round(Math.max(0, Number(invoice.total || 0) - Number(allocatedByInvoice.get(String(invoice._id)) || 0))),
+        CalculationHelper.round(Number(openBalances.get(String(invoice._id))?.open || 0)),
       ]));
 
       const touchedInvoiceIds = new Set();
@@ -3181,6 +5343,7 @@ class FinancialService {
             amount: allocatable,
             note: `Automatische Zuordnung (${invoice.invoiceNumber || invoice._id})`,
             orderId: toIdString(invoice.orderId) || toIdString(payment.orderId) || undefined,
+            allowPartial: true,
           });
 
           if (!result) {
@@ -3280,7 +5443,7 @@ class FinancialService {
         }
       }
 
-      if (!bookingId && !orderId) return;
+      if (!bookingId && !orderId) return { ok: true, skipped: 'target_not_found' };
 
       let booking = null;
       if (bookingId) {
@@ -3300,7 +5463,7 @@ class FinancialService {
       if (orderId) invoiceQuery.push({ orderId }, { repairOrderIds: orderId });
 
       const invoices = await Invoice.find({ $or: invoiceQuery }).sort({ createdAt: -1 });
-      if (!invoices || invoices.length === 0) return;
+      if (!invoices || invoices.length === 0) return { ok: true, invoiceUpdated: false };
 
       const mainInvoice = invoices.find(inv => !inv.isCreditNote) || invoices[0];
       let newOrderValue = booking ? Number(booking.totalCost || 0) : null;
@@ -3338,28 +5501,31 @@ class FinancialService {
         // Autoritatives BRUTTO; Netto und MwSt rechnet das Invoice-Modell heraus.
         mainInvoice.total = CalculationHelper.round(newOrderValue);
 
-        const allocations = await PaymentAllocation.find({ invoiceId: mainInvoice._id }).lean();
-        const paidAmount = CalculationHelper.round(allocations.reduce((sum, a) => sum + Number(a.allocatedAmount || 0), 0));
+        // Gueltige Zuordnungen (erstattetes Geld gekappt), nicht die rohe Zeilensumme.
+        const allocatedTotals = await PaymentService.getAllocatedTotalsByInvoice([mainInvoice._id]);
+        const paidAmount = CalculationHelper.round(Number(allocatedTotals.get(String(mainInvoice._id)) || 0));
+        const creditedTotals = await PaymentService.getValueCreditedByInvoice([mainInvoice._id]);
         mainInvoice.paidAmount = paidAmount;
 
         // Betrag und Positionen werden auch im Entwurf fortgeschrieben, der
         // BELEGSTATUS aber nur, wenn der Beleg die Freigabe hinter sich hat -
-        // 'draft'/'pending_approval' bleiben, wo sie sind (gleicher Schutz wie in
-        // recalculateInvoicePaidAmounts und PaymentService.allocateAtomically).
+        // 'draft'/'pending_approval' bleiben, wo sie sind (gleicher Schutz und dieselbe
+        // Regel wie in recalculateInvoicePaidAmounts und PaymentService.allocateAtomically).
         if (PAYMENT_DERIVED_STATUS_WRITABLE.includes(String(mainInvoice.status || ''))) {
-          if (paidAmount >= mainInvoice.total - 0.01 && mainInvoice.total > 0) {
-            mainInvoice.status = 'paid';
-            mainInvoice.paidAt = mainInvoice.paidAt || new Date();
-            mainInvoice.dunningLevel = 0;
-            mainInvoice.dunningStage = 'none';
-            mainInvoice.nextDunningDueDate = undefined;
-          } else if (paidAmount > 0) {
-            mainInvoice.status = 'partially_paid';
-            mainInvoice.paidAt = null;
-          } else {
-            mainInvoice.status = mainInvoice.dueDate && new Date(mainInvoice.dueDate) < new Date() ? 'overdue' : 'sent';
-            mainInvoice.paidAt = null;
+          const derived = PaymentService.resolvePaymentDerivedStatus({
+            status: mainInvoice.status,
+            total: mainInvoice.total,
+            credited: Number(creditedTotals.get(String(mainInvoice._id)) || 0),
+            paidAmount,
+            paidAt: mainInvoice.paidAt,
+            dueDate: mainInvoice.dueDate,
+          });
+          if (derived.status === 'paid') mainInvoice.nextDunningDueDate = undefined;
+          else if (!derived.status && paidAmount <= 0.009) {
+            derived.status = mainInvoice.dueDate && new Date(mainInvoice.dueDate) < new Date() ? 'overdue' : 'sent';
+            derived.paidAt = null;
           }
+          Object.assign(mainInvoice, derived);
         }
 
         await mainInvoice.save();
@@ -3387,113 +5553,198 @@ class FinancialService {
           });
         }
       }
+      return { ok: true, invoiceUpdated: true };
     } catch (error) {
-      console.error('FinancialService: Error in syncOrderAndBookingValue:', error.message);
+      // NICHT verschlucken: die Aufrufer (Auftragsbearbeitung, Geraetewechsel, Route)
+      // machen daraus eine sichtbare deutsche Warnung. Frueher blieb ein echter
+      // Abgleichsfehler unsichtbar und Rechnung/Buchung liefen still auseinander.
+      console.error('FinancialService: Error in syncOrderAndBookingValue:', error);
+      return { ok: false, error: String(error?.message || 'unbekannter Fehler') };
     }
   }
 
   /**
-   * Verarbeitet Überzahlungen (Erstellung Korrekturrechnung & optional Erstattung)
+   * Ueberzahlung einer Buchung bearbeiten.
+   *
+   * DREI GETRENNTE VORGAENGE, die hier nie vermischt werden:
+   *   1. Erstattung      - Geld geht an den Kunden zurueck (processRefund).
+   *   2. Belegkorrektur  - eine Gutschrift mindert die Forderung (createCreditNote).
+   *   3. Zuordnung       - Geld wird einer Rechnung zugeordnet oder davon geloest.
+   *
+   * Frueher erzeugte der Ueberzahlungsausgleich IMMER eine Gutschrift und erstattete
+   * zusaetzlich: eine korrekte 50-EUR-Rechnung bekam eine 50-EUR-Gutschrift, der
+   * Auftrag sprang auf "erstattet" - dieselbe Differenz wurde zweimal abgezogen.
+   * Eine Ueberzahlung aendert keinen Beleg; sie wird erstattet oder bleibt als
+   * Guthaben (nicht zugeordnet, "Erstattung offen") sichtbar stehen.
+   *
+   * Der Betrag ist immer auf die tatsaechliche Ueberzahlung gekappt - ein zweiter
+   * Klick mit dem vorbelegten Betrag erstattet nichts mehr.
    */
   static async handleOverpayment(bookingId, options = {}) {
     const BookingPaymentService = require('./bookingPaymentService');
     const overview = await BookingPaymentService.getOverview(bookingId);
-    // overpaidTotal ist bereits gegen die richtige Bezugsgroesse (gestellte Rechnungen,
-    // ersatzweise Auftragswert) gerechnet und nie negativ.
-    const calculatedOverpaid = CalculationHelper.round(Math.max(0, Number(overview.summary.overpaidTotal || 0)));
-    const specifiedAmount = options.amount != null ? Number(options.amount) : null;
-    const overpaidAmount = (specifiedAmount && specifiedAmount > 0) ? CalculationHelper.round(specifiedAmount) : calculatedOverpaid;
+    // overpaidTotal ist bereits gegen die richtige Bezugsgroesse (Forderungen plus
+    // noch nicht berechnete Auftraege, ersatzweise Auftragswert) gerechnet.
+    // Bereits beim Anbieter angestossene (noch ausstehende) Erstattungen werden
+    // abgezogen, damit dieselbe Ueberzahlung nicht zweimal erstattet wird.
+    const calculatedOverpaid = CalculationHelper.round(Math.max(0, Number(
+      overview.summary.refundPendingTotal ?? overview.summary.overpaidTotal ?? 0
+    )));
 
-    if (!overview.summary.isOverpaid && overpaidAmount <= 0) {
-      return { isOverpaid: false, overpaidAmount: 0, message: 'Keine Überzahlung für diese Buchung vorhanden.' };
+    if (calculatedOverpaid <= 0.009) {
+      return {
+        isOverpaid: false,
+        overpaidAmount: 0,
+        creditNote: null,
+        refundResult: null,
+        message: 'Für diese Buchung besteht keine (weitere) Überzahlung – es wurde nichts erstattet.',
+      };
     }
 
-    const mainInvoice = overview.invoices.find(inv => !inv.isCreditNote);
-    let creditNote = null;
-    if (mainInvoice) {
-      creditNote = await FinancialService.createCreditNote(mainInvoice._id, {
-        reason: options.reason || `Überzahlungsgutschrift (${overpaidAmount.toFixed(2)} €)`,
-        correctionType: 'partial_refund',
-        items: [{
-          serviceName: 'Überzahlung',
-          description: 'Gutschrift für Überzahlung',
-          quantity: 1,
-          unitPrice: overpaidAmount,
-          total: overpaidAmount,
-          type: 'fee'
-        }]
-      });
-    }
-
-    let refundResult = null;
-    if (options.processRefund && overview.payments.length > 0) {
-      const eligiblePayment = overview.payments.find(p => p.status === 'completed' && p.amount > 0);
-      if (eligiblePayment) {
-        refundResult = await FinancialService.processRefund(eligiblePayment._id, overpaidAmount, options.reason || 'Erstattung Überzahlung', {
-          mode: options.refundMode || 'manual'
-        });
+    let overpaidAmount = calculatedOverpaid;
+    if (options.amount != null && String(options.amount).trim() !== '') {
+      const requested = CalculationHelper.round(Number(options.amount));
+      if (!Number.isFinite(requested) || requested <= 0) {
+        throw buildFinancialError('Der Erstattungsbetrag muss größer als 0 sein.', 400, 'INVALID_AMOUNT');
       }
+      if (requested > calculatedOverpaid + 0.01) {
+        throw buildFinancialError(
+          `Der Betrag (${formatEuroDe(requested)}) übersteigt die tatsächliche Überzahlung (${formatEuroDe(calculatedOverpaid)}).`,
+          400,
+          'AMOUNT_EXCEEDS_OVERPAYMENT'
+        );
+      }
+      overpaidAmount = requested;
     }
 
+    if (!options.processRefund) {
+      return {
+        isOverpaid: true,
+        overpaidAmount: calculatedOverpaid,
+        creditNote: null,
+        refundResult: null,
+        message: `Überzahlung von ${formatEuroDe(calculatedOverpaid)} bleibt als Guthaben stehen (Erstattung offen). `
+          + 'Es wurde weder eine Gutschrift erstellt noch Geld erstattet.',
+      };
+    }
+
+    // Erstattet wird ausschliesslich NICHT zugeordnetes Geld - so bleibt jede
+    // Rechnung, die korrekt bezahlt ist, bezahlt. Groesster freier Rest zuerst.
+    const candidates = (overview.payments || [])
+      .filter((payment) => payment.status === 'completed' && Number(payment.unallocatedAmount || 0) > 0.009)
+      .sort((a, b) => Number(b.unallocatedAmount || 0) - Number(a.unallocatedAmount || 0));
+
+    const refundMode = options.refundMode === 'gateway' ? 'gateway' : 'manual';
+    const reason = String(options.reason || '').trim() || `Erstattung Überzahlung (${formatEuroDe(overpaidAmount)})`;
+    const refunds = [];
+    let remaining = overpaidAmount;
+    for (const candidate of candidates) {
+      if (remaining <= 0.009) break;
+      const part = CalculationHelper.round(Math.min(remaining, Number(candidate.unallocatedAmount || 0)));
+      if (part <= 0.009) continue;
+      const refund = await FinancialService.processRefund(String(candidate._id), part, reason, {
+        mode: refundMode,
+        recordedBy: options.recordedBy,
+        // Ein wiederholter Klick mit demselben Stand trifft denselben Schluessel.
+        idempotencyKey: `overpayment:${toIdString(overview.booking?._id)}:${toIdString(candidate._id)}:${part.toFixed(2)}:${CalculationHelper.round(Number(candidate.refundAmount || 0)).toFixed(2)}`,
+      });
+      refunds.push(refund);
+      if (refund.status === 'completed' || refund.status === 'pending') remaining = CalculationHelper.round(remaining - part);
+    }
+
+    if (refunds.length === 0 || remaining > 0.009) {
+      const refundedSoFar = CalculationHelper.round(overpaidAmount - remaining);
+      throw buildFinancialError(
+        refunds.length === 0
+          ? 'Es gibt keine Zahlung mit nicht zugeordnetem Betrag, aus der erstattet werden kann. '
+            + 'Bitte prüfen Sie die Zuordnungen der Buchung.'
+          : `Es konnten nur ${formatEuroDe(refundedSoFar)} aus nicht zugeordneten Zahlungen erstattet werden.`,
+        409,
+        'NO_REFUNDABLE_PAYMENT'
+      );
+    }
+
+    const pending = refunds.some((refund) => refund.status === 'pending');
     return {
       isOverpaid: true,
       overpaidAmount,
-      creditNote,
-      refundResult
+      creditNote: null,
+      refundResult: refunds.length === 1 ? refunds[0] : refunds,
+      refunds,
+      refundStatus: pending ? 'pending' : 'completed',
+      message: pending
+        ? `Erstattung über ${formatEuroDe(overpaidAmount)} wurde beim Zahlungsanbieter angestoßen und ist noch ausstehend. Sie zählt erst nach Bestätigung.`
+        : `Erstattung über ${formatEuroDe(overpaidAmount)} wurde erfasst. Die Rechnung bleibt unverändert.`,
     };
   }
 
   /**
-   * Sendet eine Zahlungsaufforderung fuer offene Restforderungen.
+   * Ziel einer Zahlungsaufforderung aufloesen. Reihenfolge:
+   *   1. Rechnungsnummer (auch Altformate/weiche Trennzeichen) bzw. Rechnungs-ID ->
+   *      genau diese Rechnung, offener Betrag dieser Rechnung. Funktioniert auch fuer
+   *      Rechnungen OHNE Buchung.
+   *   2. Buchungs-/Auftragsnummer bzw. -ID -> die Buchung, offener Vorgangsbetrag.
+   */
+  static async resolvePaymentRequestTarget(identifier) {
+    const BookingPaymentService = require('./bookingPaymentService');
+    const invoice = await BookingPaymentService.findInvoiceByIdentifier(identifier);
+    if (invoice && !invoice.isCreditNote) {
+      const booking = invoice.bookingId
+        ? await Booking.findById(invoice.bookingId).setOptions({ skipAutoPopulate: true }).lean()
+        : null;
+      return { targetType: 'invoice', invoice, booking, invoices: [invoice] };
+    }
+    const { booking, invoices } = await BookingPaymentService.loadContext(identifier);
+    return { targetType: 'booking', invoice: null, booking, invoices };
+  }
+
+  /**
+   * Sendet eine Zahlungsaufforderung fuer eine offene Restforderung.
    *
-   * KANAL: ausschliesslich E-MAIL. Es gibt keine PayPal-Zahlungsanforderung in diesem
-   * System (paypalService kann nur lesen: getOrder / listTransactions). PayPal kommt
-   * erst ins Spiel, wenn der Kunde die Rechnung oeffnet und dort bezahlt.
+   * KANAL: ausschliesslich E-MAIL. Es gibt keine PayPal-Zahlungsanforderung ueber die
+   * PayPal-API in diesem System. Die E-Mail enthaelt den Link zur Rechnung; dort kann
+   * der Kunde (angemeldet) u.a. per PayPal bezahlen. Das wird in Antwort und Historie
+   * ausdruecklich so benannt.
+   *
+   * Der im Dialog geschriebene Hinweistext wird ueber die Vorlage
+   * 'Allgemeine Systemnachricht' versendet, die einen Platzhalter fuer freien Text hat
+   * ({{notificationBody}}). Nur wenn diese Vorlage fehlt, wird ersatzweise die
+   * Zahlungserinnerung ohne Hinweistext versendet - und das ehrlich protokolliert.
    *
    * Es wird NIEMALS Erfolg gemeldet, ohne dass der Mailserver die Nachricht
-   * tatsaechlich angenommen hat - und Annahme ist keine Zustellbestaetigung.
-   * Jeder Versuch (auch der fehlgeschlagene und der ohne Empfaenger) wird als
-   * PaymentRequest protokolliert und ist ueber
-   * GET /api/admin/financial/bookings/:bookingId/payment-requests abrufbar.
+   * tatsaechlich angenommen hat - und Annahme ist keine Zustellbestaetigung. Eine
+   * versendete Aufforderung ist auch kein Zahlungseingang. Jeder Versuch (auch der
+   * fehlgeschlagene und der ohne Empfaenger) wird als PaymentRequest protokolliert.
    */
-  static async requestAdditionalPayment(bookingId, options = {}, actor = null) {
+  static async requestAdditionalPayment(identifier, options = {}, actor = null) {
     const PaymentRequest = require('../models/PaymentRequest');
     const BookingPaymentService = require('./bookingPaymentService');
 
-    // loadContext ist hier NICHT redundant: getOverview liefert eine projizierte
-    // Buchung ohne customerId/guestInfo, der Empfaenger waere sonst nie aufloesbar.
-    const { booking, invoices } = await BookingPaymentService.loadContext(bookingId);
-    const overview = await BookingPaymentService.getOverview(bookingId);
-    const openBalance = CalculationHelper.round(Number(overview.summary.openOrderBalance || 0));
+    const target = await FinancialService.resolvePaymentRequestTarget(identifier);
+    const { booking, targetType } = target;
 
-    const mainInvoice = PaymentService.sortOpenInvoicesFifo(invoices || [])[0]
-      || (invoices || []).find((invoice) => !invoice.isCreditNote)
-      || null;
+    let openBalance = 0;
+    let mainInvoice = null;
+    if (targetType === 'invoice') {
+      mainInvoice = target.invoice;
+      const balance = await PaymentService.computeInvoiceBalance(mainInvoice);
+      openBalance = CalculationHelper.round(Number(balance?.open || 0));
+    } else {
+      const overview = await BookingPaymentService.getOverview(String(booking._id));
+      openBalance = CalculationHelper.round(Number(overview.summary.openOrderBalance || 0));
+      mainInvoice = PaymentService.sortOpenInvoicesFifo(target.invoices || [])[0]
+        || (target.invoices || []).find((invoice) => !invoice.isCreditNote)
+        || null;
+    }
 
-    const customer = booking.customerId ? await User.findById(booking.customerId).lean() : null;
-    const recipientEmail = String(customer?.email || booking.guestInfo?.email || '').trim();
+    const customerId = toIdString(booking?.customerId) || toIdString(mainInvoice?.customerId);
+    const customer = customerId ? await User.findById(customerId).lean() : null;
+    const recipientEmail = String(customer?.email || booking?.guestInfo?.email || mainInvoice?.customerEmail || '').trim();
     const recipientName = customer
       ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.name || ''
-      : `${booking.guestInfo?.firstName || ''} ${booking.guestInfo?.lastName || ''}`.trim();
+      : `${booking?.guestInfo?.firstName || ''} ${booking?.guestInfo?.lastName || ''}`.trim() || mainInvoice?.customerName || '';
 
-    const note = String(options.note || '').trim();
-
-    const baseRecord = {
-      bookingId: booking._id,
-      bookingNumber: booking.bookingNumber || '',
-      invoiceId: mainInvoice?._id,
-      invoiceNumber: mainInvoice?.invoiceNumber || '',
-      orderId: toIdString(mainInvoice?.orderId) || undefined,
-      openBalanceAtRequest: Math.max(0, openBalance),
-      channel: 'email',
-      recipientEmail,
-      recipientName,
-      note,
-      requestedBy: actor?._id || undefined,
-      requestedByName: actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.email || '' : '',
-      requestedAt: new Date(),
-      resendOfId: options.resendOfId || undefined,
-    };
+    const note = String(options.note || '').trim().slice(0, 2000);
 
     if (openBalance <= 0.009) {
       // Kein Fehler, aber auch kein Versand - und deshalb auch kein "erfolgreich".
@@ -3501,13 +5752,14 @@ class FinancialService {
         success: false,
         status: 'no_open_balance',
         openBalance: 0,
-        message: 'Keine offene Restforderung vorhanden.',
+        targetType,
+        message: targetType === 'invoice'
+          ? `Für Rechnung ${mainInvoice?.invoiceNumber || ''} ist kein Betrag mehr offen.`
+          : 'Keine offene Restforderung vorhanden.',
       };
     }
 
-    // Angeforderter Betrag: der Client schickt seit jeher options.amount, der Server
-    // hat ihn bisher ignoriert. Er wird jetzt honoriert und gegen den offenen Betrag
-    // geprueft.
+    // Angeforderter Betrag: honoriert und gegen den offenen Betrag geprueft.
     let amount = openBalance;
     if (options.amount != null && String(options.amount).trim() !== '') {
       const requested = CalculationHelper.round(Number(options.amount));
@@ -3516,13 +5768,36 @@ class FinancialService {
       }
       if (requested > openBalance + 0.01) {
         throw buildFinancialError(
-          `Der angeforderte Betrag (${requested.toFixed(2)} €) übersteigt die offene Restforderung (${openBalance.toFixed(2)} €).`,
+          `Der angeforderte Betrag (${formatEuroDe(requested)}) übersteigt den offenen Betrag (${formatEuroDe(openBalance)}).`,
           400,
           'AMOUNT_EXCEEDS_OPEN'
         );
       }
       amount = requested;
     }
+
+    const paymentLink = mainInvoice
+      ? await EmailService.buildSystemUrl(`/invoices?invoiceId=${mainInvoice._id}`)
+      : await EmailService.buildSystemUrl('/invoices');
+
+    const baseRecord = {
+      bookingId: booking?._id || undefined,
+      bookingNumber: booking?.bookingNumber || '',
+      targetType,
+      invoiceId: mainInvoice?._id,
+      invoiceNumber: mainInvoice?.invoiceNumber || '',
+      orderId: toIdString(mainInvoice?.orderId) || undefined,
+      openBalanceAtRequest: Math.max(0, openBalance),
+      channel: 'email',
+      paymentLink,
+      recipientEmail,
+      recipientName,
+      note,
+      requestedBy: actor?._id || undefined,
+      requestedByName: actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || actor.email || '' : '',
+      requestedAt: new Date(),
+      resendOfId: options.resendOfId || undefined,
+    };
 
     if (!recipientEmail) {
       // Laut scheitern statt still "erfolgreich" zu melden.
@@ -3538,54 +5813,70 @@ class FinancialService {
         requestId: String(record._id),
         openBalance,
         amount,
+        targetType,
         recipientEmail: '',
-        message: 'Für diese Buchung ist keine E-Mail-Adresse hinterlegt - es wurde nichts gesendet.',
+        message: 'Es ist keine E-Mail-Adresse hinterlegt – es wurde nichts gesendet.',
       };
     }
 
+    const documentLabel = mainInvoice?.invoiceNumber || booking?.bookingNumber || '-';
     const dueDateLabel = mainInvoice?.dueDate ? new Date(mainInvoice.dueDate).toLocaleDateString('de-DE') : 'sofort';
     const amountLabel = `EUR ${amount.toFixed(2)}`;
-    const invoiceUrl = mainInvoice
-      ? await EmailService.buildSystemUrl(`/invoices?invoiceId=${mainInvoice._id}`)
-      : await EmailService.buildSystemUrl('/invoices');
+    const escapedNote = note
+      ? note.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '<br />')
+      : '';
+    const notificationBody = [
+      `Für ${mainInvoice?.invoiceNumber ? `die Rechnung ${mainInvoice.invoiceNumber}` : 'Ihren Auftrag'} ist noch ein Betrag von <strong>${amountLabel}</strong> offen (fällig: ${dueDateLabel}).`,
+      escapedNote,
+      'Über den Button gelangen Sie zu Ihrer Rechnung und können den Betrag dort begleichen.',
+    ].filter(Boolean).join('<br /><br />');
 
     const variables = {
       companyName: process.env.COMPANY_NAME || 'McRepair.de',
       customerName: recipientName || 'Kunde',
-      invoiceNumber: mainInvoice?.invoiceNumber || booking.bookingNumber || '-',
+      invoiceNumber: documentLabel,
       openAmount: amountLabel,
-      // Variablennamen der Mahnvorlage, damit der Ersatzweg unten validiert.
+      // Vorlage 'Allgemeine Systemnachricht' (traegt den Hinweistext).
+      notificationTitle: `Zahlungsaufforderung zu ${mainInvoice?.invoiceNumber ? `Rechnung ${mainInvoice.invoiceNumber}` : `Auftrag ${documentLabel}`}`,
+      notificationPreview: `Offener Betrag ${amountLabel}`,
+      notificationTopic: `${mainInvoice?.invoiceNumber ? `Rechnung ${mainInvoice.invoiceNumber}` : `Auftrag ${documentLabel}`} – offener Betrag ${amountLabel}`,
+      notificationBody,
+      notificationDate: new Date().toLocaleDateString('de-DE'),
+      effectiveDate: dueDateLabel,
+      ctaLabel: 'Rechnung ansehen und bezahlen',
+      ctaUrl: paymentLink,
+      // Variablennamen der Zahlungserinnerung (Ersatzweg ohne Hinweistext).
       amountOpen: amountLabel,
       originalDueDate: dueDateLabel,
       dunningStage: 'Zahlungsaufforderung',
       dueDate: dueDateLabel,
-      invoiceUrl,
+      invoiceUrl: paymentLink,
       supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
-      customNote: note || 'Bitte begleichen Sie den offenen Restbetrag.',
     };
 
     const record = await PaymentRequest.create({ ...baseRecord, amount, status: 'pending' });
+
+    const NOTE_TEMPLATE = 'Allgemeine Systemnachricht';
+    const FALLBACK_TEMPLATE = 'Zahlungserinnerung';
+    const isTemplateProblem = (result) => /not found|inactive|Missing required variables|Vorlage/i.test(String(result?.error || ''));
 
     let emailResult = null;
     let templateName = '';
     let attempts = 0;
     try {
-      // Erst der fachlich richtige Trigger. Sobald die Vorlage
-      // 'Zahlungsaufforderung' im E-Mail-Service hinterlegt ist, greift dieser Weg.
       attempts += 1;
-      emailResult = await EmailService.sendTriggerEmail('payment_request', recipientEmail, variables);
-      templateName = 'payment_request';
-
-      if (!emailResult?.success) {
-        // Ersatzweg ueber die vorhandene Mahnvorlage, damit der Kunde ueberhaupt eine
-        // Information bekommt. Der freie Hinweistext hat dort KEINEN Platzhalter und
-        // wird daher nicht mitgesendet - siehe noteDelivered.
+      emailResult = await EmailService.sendTemplateEmail(NOTE_TEMPLATE, recipientEmail, variables);
+      templateName = NOTE_TEMPLATE;
+      // Nur bei einem VORLAGEN-Problem auf die Ersatzvorlage wechseln. Ein Fehler des
+      // Mailservers wuerde dort genauso scheitern und nur die Wartezeit verdoppeln.
+      if (!emailResult?.success && isTemplateProblem(emailResult)) {
         attempts += 1;
-        const fallback = await EmailService.sendTemplateEmail('Zahlungserinnerung', recipientEmail, variables);
+        // Die Zahlungserinnerung traegt den Hinweistext ueber {{customMessage}}.
+        const fallback = await EmailService.sendTemplateEmail(FALLBACK_TEMPLATE, recipientEmail, { ...variables, customMessage: note });
         if (fallback?.success) {
           emailResult = fallback;
-          templateName = 'Zahlungserinnerung';
+          templateName = FALLBACK_TEMPLATE;
         } else {
           emailResult = { success: false, error: fallback?.error || emailResult?.error || 'E-Mail konnte nicht gesendet werden.' };
         }
@@ -3596,8 +5887,9 @@ class FinancialService {
 
     record.attempts = attempts;
     record.templateName = templateName;
-    // Der Hinweistext erreicht den Kunden nur ueber eine Vorlage mit {{customNote}}.
-    record.noteDelivered = Boolean(note) && emailResult?.success === true && templateName === 'payment_request';
+    // Beide Vorlagen transportieren den Hinweistext: die Systemnachricht im Text, die
+    // Zahlungserinnerung ueber {{customMessage}} (auch bei gespeicherten Altvorlagen).
+    record.noteDelivered = Boolean(note) && emailResult?.success === true;
 
     if (emailResult?.success) {
       record.status = 'accepted_by_provider';
@@ -3609,10 +5901,6 @@ class FinancialService {
     }
     await record.save();
 
-    const noteWarning = note && !record.noteDelivered
-      ? 'Hinweis: Der persönliche Text konnte nicht mitgesendet werden, weil die verwendete E-Mail-Vorlage keinen Platzhalter dafür enthält.'
-      : '';
-
     if (!emailResult?.success) {
       return {
         success: false,
@@ -3620,11 +5908,17 @@ class FinancialService {
         requestId: String(record._id),
         openBalance,
         amount,
+        targetType,
+        channel: 'email',
         recipientEmail,
         error: record.error,
-        message: `Die Zahlungsaufforderung konnte nicht gesendet werden: ${record.error}`,
+        message: `Die Zahlungsaufforderung konnte nicht per E-Mail gesendet werden: ${record.error}`,
       };
     }
+
+    const noteWarning = note && !record.noteDelivered
+      ? ' Hinweis: Der persönliche Text wurde NICHT mitgesendet.'
+      : '';
 
     return {
       success: true,
@@ -3632,30 +5926,45 @@ class FinancialService {
       requestId: String(record._id),
       openBalance,
       amount,
+      targetType,
+      invoiceNumber: mainInvoice?.invoiceNumber || '',
       recipientEmail,
       channel: 'email',
+      paymentLink,
       templateName,
       providerMessageId: record.providerMessageId,
       noteDelivered: record.noteDelivered,
-      // Bewusste Wortwahl: uebergeben, nicht zugestellt.
-      message: `Zahlungsaufforderung an ${recipientEmail} übergeben (eine Zustellung wird dadurch nicht garantiert).`
-        + (noteWarning ? ` ${noteWarning}` : ''),
+      // Bewusste Wortwahl: per E-Mail uebergeben, nicht zugestellt, kein PayPal-Auftrag.
+      message: `Zahlungsaufforderung über ${formatEuroDe(amount)} per E-Mail an ${recipientEmail} übergeben `
+        + '(kein PayPal-Zahlungsauftrag; eine Zustellung wird dadurch nicht garantiert).'
+        + noteWarning,
     };
   }
 
-  /** Historie der Zahlungsaufforderungen einer Buchung, neueste zuerst. */
-  static async getPaymentRequests(bookingId, filters = {}) {
+  /** Historie der Zahlungsaufforderungen einer Buchung oder Rechnung, neueste zuerst. */
+  static async getPaymentRequests(identifier, filters = {}) {
     const PaymentRequest = require('../models/PaymentRequest');
-    const BookingPaymentService = require('./bookingPaymentService');
-    const { booking } = await BookingPaymentService.loadContext(bookingId);
+    const target = await FinancialService.resolvePaymentRequestTarget(identifier);
+
+    const conditions = [];
+    if (target.booking?._id) conditions.push({ bookingId: target.booking._id });
+    const invoiceIds = (target.invoices || []).map((invoice) => invoice._id).filter(Boolean);
+    if (invoiceIds.length > 0) conditions.push({ invoiceId: { $in: invoiceIds } });
+    if (conditions.length === 0) return { bookingId: '', bookingNumber: '', requests: [] };
 
     const limit = Math.min(Math.max(parseInt(filters.limit, 10) || 50, 1), 200);
-    const requests = await PaymentRequest.find({ bookingId: booking._id })
+    const requests = await PaymentRequest.find({ $or: conditions })
       .sort({ requestedAt: -1 })
       .limit(limit)
       .lean();
 
-    return { bookingId: String(booking._id), bookingNumber: booking.bookingNumber || '', requests };
+    return {
+      bookingId: target.booking ? String(target.booking._id) : '',
+      bookingNumber: target.booking?.bookingNumber || '',
+      invoiceId: target.invoice ? String(target.invoice._id) : '',
+      invoiceNumber: target.invoice?.invoiceNumber || '',
+      requests,
+    };
   }
 
   /**
@@ -3668,21 +5977,25 @@ class FinancialService {
   static async resendPaymentRequest(requestId, options = {}, actor = null) {
     const PaymentRequest = require('../models/PaymentRequest');
 
+    if (!Types.ObjectId.isValid(String(requestId || ''))) {
+      throw buildFinancialError('Ungültige ID der Zahlungsaufforderung.', 400, 'INVALID_PAYMENT_REQUEST_ID');
+    }
     const original = await PaymentRequest.findById(requestId);
     if (!original) throw buildFinancialError('Zahlungsaufforderung wurde nicht gefunden.', 404, 'PAYMENT_REQUEST_NOT_FOUND');
 
+    const byInvoice = original.targetType === 'invoice' || !original.bookingId;
     const cooldownHours = Number.isFinite(Number(options.cooldownHours)) ? Number(options.cooldownHours) : 24;
     if (!options.force && cooldownHours > 0) {
       const since = new Date(Date.now() - cooldownHours * 60 * 60 * 1000);
       const recent = await PaymentRequest.findOne({
-        bookingId: original.bookingId,
+        ...(byInvoice ? { invoiceId: original.invoiceId } : { bookingId: original.bookingId }),
         status: 'accepted_by_provider',
         requestedAt: { $gte: since },
       }).sort({ requestedAt: -1 });
 
       if (recent) {
         throw buildFinancialError(
-          `Für diesen Auftrag wurde bereits am ${new Date(recent.requestedAt).toLocaleString('de-DE')} eine Zahlungsaufforderung versendet. `
+          `Hierfür wurde bereits am ${new Date(recent.requestedAt).toLocaleString('de-DE')} eine Zahlungsaufforderung versendet. `
           + `Ein erneuter Versand ist erst nach ${cooldownHours} Stunden möglich.`,
           429,
           'PAYMENT_REQUEST_COOLDOWN'
@@ -3691,7 +6004,7 @@ class FinancialService {
     }
 
     return FinancialService.requestAdditionalPayment(
-      String(original.bookingId),
+      byInvoice ? String(original.invoiceId) : String(original.bookingId),
       {
         note: options.note != null ? options.note : original.note,
         amount: options.amount != null ? options.amount : undefined,

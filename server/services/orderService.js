@@ -10,6 +10,8 @@ const WorkflowService = require('./workflowService');
 const NotificationService = require('./notificationService');
 const OrderRevisionService = require('./orderRevisionService');
 const FinancialService = require('./financialService');
+const CalculationHelper = require('./calculationHelper');
+const AddOnService = require('../models/AddOnService');
 const mongoose = require('mongoose');
 
 // Projection used by OrderService.getById. This is an explicit ALLOW list on a
@@ -28,17 +30,29 @@ const ORDER_DETAIL_SELECT_FIELDS = [
   // Money (gross-first): totalCost is the GROSS total AFTER discount, discount is
   // the gross discount already contained in it, netAmount/taxAmount/taxRate are the
   // extracted net and VAT (taxRate is a PERCENT, e.g. 19).
-  'totalCost discount appliedPromoCode originalGrossAmount dealerDiscountPercent dealerDiscountAmount',
+  'totalCost discount appliedPromoCode pricingConditions originalGrossAmount dealerDiscountPercent dealerDiscountAmount',
   'netAmount taxAmount taxRate paymentStatus estimatedCompletion estimatedDelivery actualDelivery',
   'billingAddress shippingAddress',
-  // Inbound shipment (customer -> McRepair)
-  'trackingNumber carrier shippingStatus shippingStatusDescription shippingLabelUrl shippingCost trackingEvents',
-  // Return shipment. returnLabelUrl/returnQRCodeUrl are deliberately NOT here:
-  // they hold full base64 PDFs. Use getById(id, { includeLabelData: true }).
+  // AUSLIEFERUNG (McRepair -> Kunde) - NOT the inbound shipment. The label PDF itself
+  // (shippingLabelUrl, full base64) is deliberately NOT in this list: it is projected only
+  // with { includeLabelData: true } (LABEL_DATA_FIELDS below), which is what the two label
+  // downloads in orderRoutes.js pass (GET /:id/shipping-label and GET /:id/return-label).
+  // Every other caller gets hasShippingLabel, computed from an existence probe.
+  'trackingNumber carrier shippingStatus shippingStatusDescription shippingCost trackingEvents',
+  // Einsendung/Retoure (Kunde -> McRepair, return*). returnLabelUrl/returnQRCodeUrl are
+  // deliberately NOT here either (base64 PDFs); same includeLabelData rule.
   'bookingId returnTrackingNumber returnShipmentId returnShipmentStatus returnShipmentStatusDescription returnCreatedAt returnReceivedAt',
   'timeline customerEmail customerName',
   'hasComplaint complaintReason isComplaintFollowup parentOrderId sourceComplaintId'
 ].join(' ');
+
+// Label PDFs (base64), projected by getById only with { includeLabelData: true }. The
+// guard below keeps hasShippingLabel correct should shippingLabelUrl ever be added back
+// to the default projection.
+const SHIPPING_LABEL_IN_DEFAULT_PROJECTION = ORDER_DETAIL_SELECT_FIELDS.split(' ').includes('shippingLabelUrl');
+const LABEL_DATA_FIELDS = ['shippingLabelUrl', 'returnLabelUrl', 'returnQRCodeUrl']
+  .filter((field) => !ORDER_DETAIL_SELECT_FIELDS.split(' ').includes(field))
+  .join(' ');
 
 const toIdString = (value) => {
   if (!value) return '';
@@ -50,9 +64,11 @@ const toIdString = (value) => {
     return String(value);
   }
   if (typeof value === 'object') {
-    if (value._id) return toIdString(value._id);
-    if (value.id) return toIdString(value.id);
+    // ObjectId zuerst: ein ObjectId einer anderen bson-Instanz liefert auf `_id`
+    // sich selbst zurueck (Endlosrekursion, vgl. orderServiceManagementService).
     if (typeof value.toHexString === 'function') return String(value.toHexString());
+    if (value._id != null && value._id !== value) return toIdString(value._id);
+    if (value.id != null && value.id !== value) return toIdString(value.id);
     return '';
   }
   return String(value).trim();
@@ -135,6 +151,36 @@ const ensureOrderStaffAssignments = (order, staffMembers = []) => {
   }
 };
 
+// Geldfelder, die NIE aus einem Request-Body uebernommen werden: der Auftragswert
+// wird ausschliesslich serverseitig ueber OrderService.applyOrderPricing gebildet.
+// (trustedPricing steht hier, damit niemand ein "vertrauenswuerdig"-Flag im Body
+// einschmuggeln kann - die Checkout-Preisbildung kommt nur ueber das zweite Argument.)
+const ORDER_MONEY_FIELDS = [
+  'totalCost', 'discount', 'originalGrossAmount', 'dealerDiscountPercent', 'dealerDiscountAmount',
+  'netAmount', 'taxAmount', 'pricingConditions', 'revisionCount', 'trustedPricing', 'editRevision'
+];
+// Zusaetzlich bei Anlage OHNE interne Option (POST /api/orders): Zahl- und
+// Aktionsfelder darf ein Kunde nicht selbst setzen.
+const ORDER_UNTRUSTED_EXTRA_FIELDS = ['appliedPromoCode', 'paymentStatus', 'paymentMethod', 'paidAt', 'taxRate'];
+
+const buildOrderValueError = (message, statusCode = 400, code = 'ORDER_VALUE_INVALID') => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  return error;
+};
+
+// Gleichzeitige Bearbeitungen: so oft wird eine Aenderung auf dem jeweils frisch
+// geladenen Stand wiederholt, bevor der Aufrufer eine deutsche 409-Meldung bekommt.
+const ORDER_EDIT_MAX_ATTEMPTS = 6;
+// Toleranz beim Abgleich "Positionen - Rabatt = Auftragswert" (Rundung).
+const ORDER_VALUE_TOLERANCE = 0.02;
+// Eine bestaetigte Abweichung gilt nur, wenn gespeicherter Wert und Positionen-minus-Rabatt
+// noch auf den Cent den bei der Bestaetigung gezeigten Werten entsprechen.
+const REPRICING_BASIS_TOLERANCE = 0.005;
+
+const formatEuroDe = (value) => `${CalculationHelper.round(Number(value) || 0).toFixed(2).replace('.', ',')} €`;
+
 class OrderService {
   static getStatusLabel(status) {
     const normalized = String(status || '').toLowerCase();
@@ -171,56 +217,511 @@ class OrderService {
     }
   }
 
+  // ------------------------------------------------------------------------
+  // Auftragswert: EINE serverseitige Preisregel fuer jeden Schreiber
+  // ------------------------------------------------------------------------
+
+  // Geschaetzte Zeit in Minuten. Katalogservices speichern sie als Text ('', '60',
+  // '2 hours', '30 Minuten'); ohne diese Umrechnung landete parseFloat('') = NaN in
+  // der Position und das Speichern scheiterte.
+  static parseEstimatedMinutes(value) {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) && value >= 0 ? value : 0;
+    }
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return 0;
+    const match = text.match(/(\d+(?:[.,]\d+)?)/);
+    if (!match) return 0;
+    const amount = Number(match[1].replace(',', '.'));
+    if (!Number.isFinite(amount) || amount < 0) return 0;
+    return /hour|stunde|std/.test(text) ? Math.round(amount * 60) : amount;
+  }
+
+  // Summe der LISTEN-Bruttopreise aller Positionen (Services, Zusatzleistungen,
+  // Produkte x Menge) - dieselben Positionen, die auch auf der Rechnung stehen.
+  static calculatePositionsGross(order) {
+    const sum = (list, pick) => (Array.isArray(list) ? list : []).reduce(
+      (acc, entry) => acc + (Number(pick(entry)) || 0),
+      0
+    );
+    return CalculationHelper.round(
+      sum(order?.services, (service) => (service && typeof service === 'object' ? service.price : 0))
+      + sum(order?.addOns, (addOn) => addOn?.price)
+      + sum(order?.shopProducts, (product) => (Number(product?.priceAtOrder) || 0) * (Number(product?.quantity) || 0))
+    );
+  }
+
+  // Aktuelle Konditionen des Kunden (gleiche Quelle wie der Warenkorb:
+  // FinancialService.resolveFinancialProfile) als zeitgebundener Snapshot.
+  static async resolveCustomerPricingConditions(customerId, appliedAt = new Date()) {
+    const profile = await FinancialService.resolveFinancialProfile({ customerId: customerId || null });
+    const percent = Math.min(100, Math.max(0, Number(profile?.defaultDiscountPercent) || 0));
+    const customerPercent = Number(profile?.customer?.discount) || 0;
+    const groupPercent = Number(profile?.group?.financeProfile?.discountPercent) || 0;
+
+    let source = 'none';
+    if (percent > 0) {
+      if (customerPercent > 0) source = 'customer';
+      else if (groupPercent > 0) source = 'customer_group';
+      else source = 'settings_default';
+    }
+
+    return {
+      groupDiscountPercent: percent,
+      promoDiscountAmount: 0,
+      source,
+      customerGroupId: profile?.group?._id || null,
+      customerGroupName: profile?.group?.name || '',
+      appliedAt,
+    };
+  }
+
+  // Altauftrag ohne Snapshot: die Kondition wird aus den EIGENEN gespeicherten Werten
+  // des Auftrags abgeleitet (nie aus dem heutigen Kundenstamm). MUSS vor einer
+  // Positionsaenderung aufgerufen werden.
+  //
+  // Als gespeicherter Rabatt zaehlt discount PLUS der alte, separat abgezogene
+  // Haendlerrabatt (dealerDiscountAmount aus dealerDiscountPercent) - applyOrderPricing
+  // setzt dealerDiscountPercent anschliessend auf 0, der Rabatt steckt dann allein in
+  // order.discount und geht so nicht verloren.
+  //  - kein Rabatt                          -> 0 %
+  //  - Rabatt mit Aktionscode oder Positionen passen nicht zur Summe
+  //                                         -> Rabatt bleibt FESTER Betrag
+  //  - sonst                                -> Prozentsatz = Rabatt / Positionen
+  //                                            (auf 0,5 %-Schritte gerundet, wenn das
+  //                                            den gespeicherten Rabatt exakt ergibt)
+  // Ob ein nicht aufgehender Auftrag ueberhaupt neu berechnet werden darf, entscheidet
+  // getPricingConditionsForEdit (Bestaetigung erforderlich).
+  static deriveLegacyPricingConditions(order) {
+    const check = OrderService.checkOrderValueReconciles(order);
+    const recordedDiscount = CalculationHelper.round(check.discount + check.dealerDiscountAmount);
+    const positionsGross = check.positionsGross;
+    const conditions = {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: order?.createdAt || new Date(),
+    };
+
+    if (recordedDiscount <= 0) return conditions;
+
+    if (order?.appliedPromoCode || !check.reconciles || positionsGross <= 0) {
+      conditions.promoDiscountAmount = recordedDiscount;
+      return conditions;
+    }
+
+    const rawPercent = (recordedDiscount / positionsGross) * 100;
+    const snapped = Math.round(rawPercent * 2) / 2;
+    const snappedDiscount = CalculationHelper.round((positionsGross * snapped) / 100);
+    conditions.groupDiscountPercent = Math.abs(snappedDiscount - recordedDiscount) <= 0.01
+      ? snapped
+      : Number(rawPercent.toFixed(4));
+    return conditions;
+  }
+
+  // Passt der gespeicherte Auftragswert zu den gespeicherten Positionen?
+  //   Positionen (Listenbrutto) - discount === totalCost   (Toleranz 0,02 EUR)
+  // Der alte Haendlerrabatt (dealerDiscountAmount) wird zusaetzlich zu totalCost
+  // abgezogen (siehe buildOrderPricingSummary) und kuerzt sich deshalb heraus.
+  static checkOrderValueReconciles(order) {
+    const positionsGross = OrderService.calculatePositionsGross(order);
+    const discount = CalculationHelper.round(Math.max(0, Number(order?.discount) || 0));
+    const dealerDiscountAmount = CalculationHelper.round(Math.max(0, Number(order?.dealerDiscountAmount) || 0));
+    const totalCost = CalculationHelper.round(Number(order?.totalCost) || 0);
+    const expectedTotal = CalculationHelper.round(positionsGross - discount);
+    const difference = CalculationHelper.round(totalCost - expectedTotal);
+    return {
+      reconciles: Math.abs(difference) <= ORDER_VALUE_TOLERANCE,
+      positionsGross,
+      discount,
+      dealerDiscountAmount,
+      totalCost,
+      expectedTotal,
+      difference,
+    };
+  }
+
+  // Kondition fuer eine PREISRELEVANTE Bearbeitung (Service, Zusatzleistung, Produkt,
+  // Geraetewechsel). Passt der gespeicherte Auftragswert nicht zu den Positionen
+  // (Altauftrag, Reklamationsgebuehr direkt auf totalCost, fruehere Bearbeitung ohne
+  // Neuberechnung), ist unklar, welcher Wert stimmt: eine automatische Neuberechnung
+  // wuerde die Differenz STILL verwerfen (oder dazugewinnen). Deshalb wird sie ohne
+  // ausdrueckliche Bestaetigung (options.confirmRepricing === true) mit einer deutschen
+  // 409-Meldung abgelehnt. error.details beschreibt die Abweichung fuer die Oberflaeche.
+  //
+  // Bindung an die GEZEIGTE Abweichung: schickt die Oberflaeche mit der Bestaetigung
+  // options.repricingBasis = { storedTotal, expectedTotal } (die details der 409) zurueck,
+  // gilt die Bestaetigung nur, solange der Auftrag noch genau diese Abweichung hat. Hat
+  // ein anderer Vorgang den Auftrag zwischen 409 und Bestaetigung geaendert, kommt eine
+  // FRISCHE 409 mit der neuen Abweichung (details.confirmationOutdated = true) - es wird
+  // nichts gespeichert. Eine unlesbare Grundlage gilt nicht als Bestaetigung. Aufrufer
+  // ohne repricingBasis (bisheriger Vertrag, z. B. Reparaturpositionen ueber
+  // orderServiceRoutes) bleiben bei der reinen Ja/Nein-Bestaetigung.
+  static getPricingConditionsForEdit(order, options = {}) {
+    const reconciliation = OrderService.checkOrderValueReconciles(order);
+    const confirmed = options.confirmRepricing === true || options.confirmRepricing === 'true';
+    const basis = OrderService.readRepricingBasis(options.repricingBasis);
+    const basisOutdated = confirmed && basis.provided && (
+      !basis.valid
+      || Math.abs(basis.storedTotal - reconciliation.totalCost) > REPRICING_BASIS_TOLERANCE
+      || Math.abs(basis.expectedTotal - reconciliation.expectedTotal) > REPRICING_BASIS_TOLERANCE
+    );
+    if (!reconciliation.reconciles && (!confirmed || basisOutdated)) {
+      const describeGap = `Der gespeicherte Auftragswert (${formatEuroDe(reconciliation.totalCost)}) passt nicht zu den Positionen `
+        + `(${formatEuroDe(reconciliation.positionsGross)} abzüglich ${formatEuroDe(reconciliation.discount)} Rabatt = `
+        + `${formatEuroDe(reconciliation.expectedTotal)}). Eine automatische Neuberechnung würde die Differenz von `
+        + `${formatEuroDe(Math.abs(reconciliation.difference))} ${reconciliation.difference > 0 ? 'verwerfen' : 'aufschlagen'}. `;
+      const error = buildOrderValueError(
+        basisOutdated
+          ? 'Der Auftrag wurde seit Ihrer Prüfung geändert, die bestätigte Abweichung gilt nicht mehr. '
+            + `${describeGap}Bitte prüfen Sie die neue Abweichung und bestätigen Sie die Neuberechnung erneut.`
+          : `${describeGap}Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.`,
+        409,
+        'ORDER_VALUE_NOT_RECONCILED'
+      );
+      error.details = {
+        storedTotal: reconciliation.totalCost,
+        positionsGross: reconciliation.positionsGross,
+        discount: reconciliation.discount,
+        expectedTotal: reconciliation.expectedTotal,
+        difference: reconciliation.difference,
+        ...(basisOutdated ? { confirmationOutdated: true } : {}),
+      };
+      throw error;
+    }
+    return {
+      conditions: OrderService.getPricingConditions(order),
+      reconciliation,
+      repricingConfirmed: !reconciliation.reconciles && confirmed,
+    };
+  }
+
+  // Grundlage einer Bestaetigung (details der 409): { storedTotal, expectedTotal }. Nicht
+  // angegeben -> { provided: false }; angegeben, aber unlesbar -> { provided, valid: false }.
+  static readRepricingBasis(rawBasis) {
+    if (rawBasis === undefined || rawBasis === null || rawBasis === '') return { provided: false };
+    let basis = rawBasis;
+    if (typeof basis === 'string') {
+      try { basis = JSON.parse(basis); } catch (parseError) { return { provided: true, valid: false }; }
+    }
+    const readAmount = (value) => {
+      if (value === undefined || value === null || value === '' || typeof value === 'boolean') return NaN;
+      return Number(value);
+    };
+    const storedTotal = readAmount(basis?.storedTotal);
+    const expectedTotal = readAmount(basis?.expectedTotal);
+    if (!Number.isFinite(storedTotal) || !Number.isFinite(expectedTotal)) return { provided: true, valid: false };
+    return {
+      provided: true,
+      valid: true,
+      storedTotal: CalculationHelper.round(storedTotal),
+      expectedTotal: CalculationHelper.round(expectedTotal),
+    };
+  }
+
+  // Historientext, wenn ein nicht aufgehender Auftrag nach Bestaetigung neu berechnet wurde.
+  static describeConfirmedRepricing(reconciliation) {
+    if (!reconciliation || reconciliation.reconciles) return '';
+    return `Neuberechnung trotz Abweichung bestätigt: gespeicherter Auftragswert ${formatEuroDe(reconciliation.totalCost)}, `
+      + `Positionen abzüglich Rabatt ${formatEuroDe(reconciliation.expectedTotal)}`;
+  }
+
+  // Speichert einen Auftrag NUR, wenn er seit dem Laden nicht von einem anderen Vorgang
+  // geaendert wurde (Bearbeitungsstand editRevision), und zaehlt den Stand hoch. Ein
+  // Konflikt wirft einen Fehler mit code 'ORDER_EDIT_CONFLICT_RETRY'.
+  // Voraussetzung: das Dokument wurde mit editRevision geladen (keine Projektion ohne
+  // dieses Feld) und ist kein neues Dokument.
+  static async saveOrderGuarded(order, saveOptions = {}) {
+    if (!order || order.isNew) {
+      throw new Error('saveOrderGuarded: nur fuer bereits gespeicherte Auftraege');
+    }
+    if (order.$locals?.editRevisionLoaded === false) {
+      throw new Error('saveOrderGuarded: editRevision wurde nicht mitgeladen');
+    }
+    const loadedRevision = Number(order.$locals?.loadedEditRevision) || 0;
+    order.editRevision = loadedRevision + 1;
+    order.$where = loadedRevision > 0
+      ? { editRevision: loadedRevision }
+      : { editRevision: { $in: [null, 0] } };
+    try {
+      const saved = await order.save(saveOptions);
+      order.$locals.loadedEditRevision = loadedRevision + 1;
+      return saved;
+    } catch (error) {
+      if (error && error.name === 'DocumentNotFoundError') {
+        const conflict = new Error('Der Auftrag wurde zwischenzeitlich geändert.');
+        conflict.code = 'ORDER_EDIT_CONFLICT_RETRY';
+        throw conflict;
+      }
+      throw error;
+    } finally {
+      order.$where = undefined;
+    }
+  }
+
+  // Fuehrt eine Positions-/Wertaenderung konfliktsicher aus:
+  //   laden -> mutate(order) -> bedingt speichern (saveOrderGuarded)
+  // Hat ein anderer Vorgang den Auftrag inzwischen geaendert, wird auf dem FRISCH
+  // geladenen Stand wiederholt (mutate prueft und rechnet dann erneut - z. B. greift
+  // die Doppelt-Pruefung eines Katalogservices). Positionen und Auftragswert stammen
+  // so immer aus demselben Stand. mutate darf deutsche Fehler (statusCode) werfen;
+  // die werden sofort weitergereicht. Rueckgabe: { order, context } (context =
+  // Rueckgabewert von mutate des erfolgreichen Durchlaufs).
+  static async runGuardedOrderEdit(orderId, mutate, options = {}) {
+    const loadOrder = typeof options.load === 'function'
+      ? options.load
+      : () => Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+
+    for (let attempt = 1; attempt <= ORDER_EDIT_MAX_ATTEMPTS; attempt += 1) {
+      const order = await loadOrder();
+      if (!order) {
+        throw buildOrderValueError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+      }
+      const context = await mutate(order, { attempt });
+      try {
+        await OrderService.saveOrderGuarded(order, (context && context.saveOptions) || {});
+        return { order, context };
+      } catch (error) {
+        if (error?.code !== 'ORDER_EDIT_CONFLICT_RETRY') throw error;
+        console.warn(`OrderService: gleichzeitige Aenderung an Auftrag ${order._id} erkannt (Versuch ${attempt}/${ORDER_EDIT_MAX_ATTEMPTS}) - wird auf frischem Stand wiederholt.`);
+        const stillExists = await Order.exists({ _id: order._id });
+        if (!stillExists) {
+          throw buildOrderValueError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+        }
+        // kurze, zufaellige Wartezeit, damit parallele Vorgaenge nicht im Gleichschritt kollidieren
+        await new Promise((resolve) => setTimeout(resolve, 5 + Math.floor(Math.random() * 20 * attempt)));
+      }
+    }
+
+    throw buildOrderValueError(
+      'Der Auftrag wurde gerade gleichzeitig von jemand anderem geändert. Bitte laden Sie die Seite neu und prüfen Sie die Änderung.',
+      409,
+      'ORDER_EDIT_CONFLICT'
+    );
+  }
+
+  // Kondition, mit der dieser Auftrag gerechnet wird: der gespeicherte Snapshot, sonst
+  // (Altauftrag) die aus den eigenen Werten abgeleitete Kondition.
+  static getPricingConditions(order) {
+    const snapshot = order?.pricingConditions;
+    if (snapshot && snapshot.appliedAt) {
+      const plain = typeof snapshot.toObject === 'function' ? snapshot.toObject() : { ...snapshot };
+      return {
+        groupDiscountPercent: Number(plain.groupDiscountPercent) || 0,
+        promoDiscountAmount: Number(plain.promoDiscountAmount) || 0,
+        source: plain.source || 'none',
+        customerGroupId: plain.customerGroupId || null,
+        customerGroupName: plain.customerGroupName || '',
+        appliedAt: plain.appliedAt,
+      };
+    }
+    return OrderService.deriveLegacyPricingConditions(order);
+  }
+
+  // Schreibt order.discount / order.totalCost nach DER Preisregel
+  // (CalculationHelper.calculateOrderPricing) und haelt den Snapshot fest.
+  // netAmount/taxAmount leitet der Order-pre('save')-Hook aus totalCost ab; der alte
+  // separate Haendlerrabatt (dealerDiscountPercent) wird auf 0 gesetzt, weil der
+  // Rabatt ausschliesslich in order.discount steckt - sonst zoege der Hook ihn ein
+  // zweites Mal ab.
+  static applyOrderPricing(order, conditions) {
+    const pricing = CalculationHelper.calculateOrderPricing({
+      positionsGross: OrderService.calculatePositionsGross(order),
+      groupDiscountPercent: conditions?.groupDiscountPercent,
+      promoDiscountAmount: conditions?.promoDiscountAmount,
+      taxRatePercent: Number.isFinite(Number(order?.taxRate)) ? Number(order.taxRate) : CalculationHelper.DEFAULT_TAX_RATE,
+    });
+
+    order.pricingConditions = {
+      groupDiscountPercent: pricing.groupDiscountPercent,
+      promoDiscountAmount: pricing.promoDiscountAmount,
+      source: conditions?.source || 'none',
+      customerGroupId: conditions?.customerGroupId || null,
+      customerGroupName: conditions?.customerGroupName || '',
+      appliedAt: conditions?.appliedAt || new Date(),
+    };
+    order.discount = pricing.discount;
+    order.totalCost = pricing.totalCost;
+    order.dealerDiscountPercent = 0;
+
+    return pricing;
+  }
+
+  // Positionen einer Anlage OHNE interne Option (POST /api/orders) gegen den Katalog
+  // aufloesen: Preise, Namen und Zeiten kommen aus Service/AddOnService/Product, nie
+  // aus dem Request.
+  static async resolveUntrustedPositions(orderData) {
+    const services = Array.isArray(orderData.services) ? orderData.services : [];
+    const resolvedServices = [];
+    for (const entry of services) {
+      if (entry && typeof entry === 'object' && entry.isManual === true) {
+        throw buildOrderValueError(
+          'Manuelle Reparaturpositionen können nur vom Personal am Auftrag angelegt werden.',
+          400,
+          'MANUAL_LINE_NOT_ALLOWED'
+        );
+      }
+      const serviceId = toIdString(typeof entry === 'object' && entry !== null ? entry.serviceId || entry._id : entry);
+      if (!serviceId || !mongoose.Types.ObjectId.isValid(serviceId)) {
+        throw buildOrderValueError('Ein ausgewählter Reparaturservice ist ungültig.', 400, 'SERVICE_INVALID');
+      }
+      const catalogService = await Service.findOne({ _id: serviceId, isActive: { $ne: false } }).lean();
+      if (!catalogService) {
+        throw buildOrderValueError('Ein ausgewählter Reparaturservice wurde nicht gefunden.', 400, 'SERVICE_NOT_FOUND');
+      }
+      resolvedServices.push({
+        serviceId: catalogService._id,
+        name: catalogService.name || '',
+        price: CalculationHelper.round(Number(catalogService.price) || 0),
+        estimatedTime: OrderService.parseEstimatedMinutes(catalogService.estimatedTime),
+        notes: typeof entry === 'object' && entry !== null ? String(entry.notes || '') : '',
+      });
+    }
+
+    const addOns = Array.isArray(orderData.addOns) ? orderData.addOns : [];
+    const resolvedAddOns = [];
+    for (const entry of addOns) {
+      const addOnId = toIdString(entry?._id || entry?.addOnId);
+      let catalogAddOn = null;
+      if (addOnId && mongoose.Types.ObjectId.isValid(addOnId)) {
+        catalogAddOn = await AddOnService.findOne({ _id: addOnId, isActive: { $ne: false } }).lean();
+      }
+      if (!catalogAddOn && entry?.name) {
+        const escapedName = String(entry.name).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        catalogAddOn = await AddOnService.findOne({
+          name: new RegExp(`^${escapedName}$`, 'i'),
+          isActive: { $ne: false },
+        }).lean();
+      }
+      if (!catalogAddOn) {
+        throw buildOrderValueError(
+          `Die Zusatzleistung „${String(entry?.name || '').trim() || 'unbekannt'}“ wurde im Katalog nicht gefunden.`,
+          400,
+          'ADDON_NOT_FOUND'
+        );
+      }
+      resolvedAddOns.push({
+        name: catalogAddOn.name,
+        description: catalogAddOn.description || '',
+        price: CalculationHelper.round(Number(catalogAddOn.price) || 0),
+        status: 'pending',
+        estimatedTime: String(catalogAddOn.estimatedTime || ''),
+        progress: 0,
+      });
+    }
+
+    const shopProducts = Array.isArray(orderData.shopProducts) ? orderData.shopProducts : [];
+    const resolvedProducts = [];
+    for (const entry of shopProducts) {
+      const productId = toIdString(entry?.productId);
+      const product = productId && mongoose.Types.ObjectId.isValid(productId)
+        ? await Product.findById(productId).lean()
+        : null;
+      if (!product) {
+        throw buildOrderValueError('Ein ausgewähltes Produkt wurde nicht gefunden.', 400, 'PRODUCT_NOT_FOUND');
+      }
+      resolvedProducts.push({
+        productId: product._id,
+        quantity: Math.max(1, Math.floor(Number(entry?.quantity) || 1)),
+        priceAtOrder: CalculationHelper.round(Number(product.price) || 0),
+        addedBy: orderData.customerId || undefined,
+      });
+    }
+
+    return { services: resolvedServices, addOns: resolvedAddOns, shopProducts: resolvedProducts };
+  }
+
   // Create a new order
-  static async create(orderData) {
+  //
+  // options.trustedPricing (NUR fuer interne Aufrufer, z.B. den Checkout):
+  //   { totalCost, discount, promoDiscountAmount, groupDiscountPercent }
+  //   Der Checkout verteilt den Warenkorb-Rabatt (Aktion + Gruppe) auf mehrere
+  //   Auftraege - das kann eine Rechnung pro Auftrag nicht exakt nachbilden, deshalb
+  //   wird diese Preisbildung unveraendert uebernommen und als Snapshot festgehalten.
+  // Ohne diese Option (POST /api/orders) werden alle vom Client gelieferten Summen,
+  // Rabatte und Positionspreise IGNORIERT und serverseitig neu berechnet.
+  static async create(orderData, options = {}) {
     console.log('OrderService: Creating new order with data:', orderData);
 
     try {
+      const trustedPricing = options && typeof options.trustedPricing === 'object' && options.trustedPricing
+        ? options.trustedPricing
+        : null;
+      const data = { ...(orderData || {}) };
+      ORDER_MONEY_FIELDS.forEach((field) => { delete data[field]; });
+      if (!trustedPricing) {
+        ORDER_UNTRUSTED_EXTRA_FIELDS.forEach((field) => { delete data[field]; });
+      }
+
       // Validate customer exists (skip for guest orders)
-      if (orderData.customerId) {
-        const customer = await User.findById(orderData.customerId);
+      if (data.customerId) {
+        const customer = mongoose.Types.ObjectId.isValid(String(toIdString(data.customerId) || ''))
+          ? await User.findById(toIdString(data.customerId))
+          : null;
         if (!customer) {
-          throw new Error('Customer not found');
+          throw buildOrderValueError('Der Kunde wurde nicht gefunden.', 400, 'CUSTOMER_NOT_FOUND');
         }
       }
 
-      // Transform services array if it contains just IDs
-      if (orderData.services && Array.isArray(orderData.services)) {
-        console.log('OrderService: Processing services array:', orderData.services);
-
-        // Check if services are just IDs (strings) or already full objects
-        const processedServices = await Promise.all(
-          orderData.services.map(async (service) => {
-            // If it's already an object with serviceId, price, and estimatedTime, use as-is
-            if (typeof service === 'object' && service.serviceId && service.price !== undefined && service.estimatedTime !== undefined) {
-              console.log('OrderService: Service already in correct format:', service);
-              return service;
+      if (!trustedPricing) {
+        const resolved = await OrderService.resolveUntrustedPositions(data);
+        data.services = resolved.services;
+        data.addOns = resolved.addOns;
+        data.shopProducts = resolved.shopProducts;
+      } else if (Array.isArray(data.services)) {
+        // Interner Aufrufer: Positionspreise sind bereits aus dem Katalog gebildet.
+        // Nur reine IDs aufloesen und den Namens-Snapshot ergaenzen.
+        data.services = await Promise.all(data.services.map(async (service) => {
+          if (typeof service === 'string') {
+            const serviceObj = mongoose.Types.ObjectId.isValid(service) ? await Service.findById(service) : null;
+            if (!serviceObj) {
+              throw buildOrderValueError('Ein ausgewählter Reparaturservice wurde nicht gefunden.', 400, 'SERVICE_NOT_FOUND');
             }
-
-            // If it's a string (ID), fetch the service and create proper object
-            if (typeof service === 'string') {
-              console.log('OrderService: Converting service ID to object:', service);
-              const serviceObj = await Service.findById(service);
-              if (!serviceObj) {
-                throw new Error(`Service not found: ${service}`);
-              }
-              return {
-                serviceId: serviceObj._id,
-                price: serviceObj.price,
-                estimatedTime: serviceObj.estimatedTime || 60, // Default to 60 minutes if not set
-                notes: ''
-              };
-            }
-
-            return service;
-          })
-        );
-
-        orderData.services = processedServices;
-        console.log('OrderService: Transformed services:', orderData.services);
+            return {
+              serviceId: serviceObj._id,
+              name: serviceObj.name || '',
+              price: serviceObj.price,
+              estimatedTime: OrderService.parseEstimatedMinutes(serviceObj.estimatedTime),
+              notes: ''
+            };
+          }
+          if (service && typeof service === 'object' && service.serviceId && !service.name) {
+            const serviceObj = await Service.findById(service.serviceId).select('name').lean();
+            return {
+              ...service,
+              name: serviceObj?.name || '',
+              estimatedTime: OrderService.parseEstimatedMinutes(service.estimatedTime),
+            };
+          }
+          return service;
+        }));
       }
 
-      const order = new Order(orderData);
+      const order = new Order(data);
+      const now = new Date();
+      const conditions = await OrderService.resolveCustomerPricingConditions(data.customerId, now);
+
+      if (trustedPricing) {
+        conditions.groupDiscountPercent = Math.min(100, Math.max(0,
+          Number(trustedPricing.groupDiscountPercent ?? conditions.groupDiscountPercent) || 0));
+        conditions.promoDiscountAmount = CalculationHelper.round(Math.max(0, Number(trustedPricing.promoDiscountAmount) || 0));
+        if (conditions.groupDiscountPercent <= 0 && conditions.source !== 'none') {
+          conditions.source = 'none';
+        }
+        const ruleCheck = OrderService.applyOrderPricing(order, conditions);
+        order.totalCost = CalculationHelper.round(Math.max(0, Number(trustedPricing.totalCost) || 0));
+        order.discount = CalculationHelper.round(Math.max(0, Number(trustedPricing.discount) || 0));
+        if (Math.abs(ruleCheck.totalCost - order.totalCost) > 0.02) {
+          console.warn(
+            `OrderService: Checkout-Preisbildung weicht von der Preisregel ab (Checkout ${order.totalCost}, Regel ${ruleCheck.totalCost}).`
+          );
+        }
+      } else {
+        OrderService.applyOrderPricing(order, conditions);
+      }
+
       const savedOrder = await order.save();
 
       // Historize initial order creation
@@ -228,7 +729,8 @@ class OrderService {
         await OrderRevisionService.recordRevision(savedOrder, {
           triggerReason: 'initial_creation',
           previousGrossAmount: 0,
-          notes: `Initial order created with total gross amount EUR ${savedOrder.totalCost}`
+          notes: `Auftrag angelegt: Positionen ${OrderService.calculatePositionsGross(savedOrder).toFixed(2)} EUR, `
+            + `Rabatt ${Number(savedOrder.discount || 0).toFixed(2)} EUR, Auftragswert ${Number(savedOrder.totalCost || 0).toFixed(2)} EUR (brutto)`
         });
       } catch (revError) {
         console.warn('OrderService: Warning recording initial revision:', revError.message);
@@ -414,7 +916,7 @@ class OrderService {
             // Handle populated service objects
             if (typeof service === 'object' && service !== null) {
               if (service.serviceId && typeof service.serviceId === 'object') {
-                return service.serviceId.name || 'Unknown Service';
+                return service.serviceId.name || service.name || 'Unknown Service';
               }
               return service.name || 'Unknown Service';
             }
@@ -473,6 +975,11 @@ class OrderService {
 
     const positionsGross = round2(servicesGross + addOnsGross + shopProductsGross);
     const discount = round2(order?.discount);
+    // Konditionen, mit denen der Rabatt gebildet wurde (Snapshot bzw. bei Altauftraegen
+    // aus den eigenen Werten abgeleitet) - fuer die Anzeige "Listenpreis / Rabatt % /
+    // Endpreis". Der Rabatt selbst wird hier NICHT neu gerechnet.
+    const conditions = OrderService.getPricingConditions(order);
+    const promoDiscountAmount = round2(Math.min(discount, Number(conditions.promoDiscountAmount) || 0));
     const dealerDiscountPercent = Math.max(0, Number(order?.dealerDiscountPercent) || 0);
     const dealerDiscountAmount = round2(order?.dealerDiscountAmount);
     // totalCost still carries the Haendlerrabatt; the stored netAmount/taxAmount do
@@ -489,6 +996,11 @@ class OrderService {
       shopProductsGross: round2(shopProductsGross),
       discount,
       appliedPromoCode: order?.appliedPromoCode || '',
+      groupDiscountPercent: Number(conditions.groupDiscountPercent) || 0,
+      groupDiscountAmount: round2(discount - promoDiscountAmount),
+      promoDiscountAmount,
+      conditionsSource: conditions.source || 'none',
+      conditionsAppliedAt: conditions.appliedAt || null,
       dealerDiscountPercent,
       dealerDiscountAmount,
       grossTotal,
@@ -504,15 +1016,19 @@ class OrderService {
   // Get order by ID
   //
   // options.includeLabelData: also project the stored base64 label PDFs
-  // (returnLabelUrl / returnQRCodeUrl). Keep this OFF for the normal detail and
-  // polling endpoints - a DHL return label is a `data:application/pdf;base64,...`
+  // (shippingLabelUrl / returnLabelUrl / returnQRCodeUrl). Keep this OFF for the normal
+  // detail and polling endpoints - a DHL label is a `data:application/pdf;base64,...`
   // string of several hundred KB. The download routes ask for it explicitly.
+  // options.audience: 'customer' (default, safe) strips the internal parts of the
+  // conditions snapshot (customer group id/name, source) - the percent stays visible in
+  // `pricing`. 'staff' keeps the full snapshot (admin/staff routes only).
   static async getById(orderId, options = {}) {
     console.log('OrderService: Getting order by ID:', orderId);
 
     try {
       const includeLabelData = options.includeLabelData === true;
-      const selectFields = `${ORDER_DETAIL_SELECT_FIELDS}${includeLabelData ? ' returnLabelUrl returnQRCodeUrl' : ''}`;
+      const staffAudience = options.audience === 'staff';
+      const selectFields = `${ORDER_DETAIL_SELECT_FIELDS}${includeLabelData ? ` ${LABEL_DATA_FIELDS}` : ''}`;
 
       const order = await Order.findById(orderId)
         .select(selectFields)
@@ -533,7 +1049,7 @@ class OrderService {
         getUniqueQueryObjectIds(Array.isArray(order.shopProducts) ? order.shopProducts.map((product) => product?.productId) : [])
       )];
 
-      const [serviceDocs, productDocs, linkedComplaint, storedReturnLabel] = await Promise.all([
+      const [serviceDocs, productDocs, linkedComplaint, storedReturnLabel, storedShippingLabel] = await Promise.all([
         serviceIds.length ? Service.find({ _id: { $in: serviceIds } }).select('_id name').lean() : [],
         productIds.length ? Product.find({ _id: { $in: productIds } }).select('_id name').lean() : [],
         Complaint.findOne({ orderId: order._id })
@@ -547,7 +1063,12 @@ class OrderService {
         // (indexed _id lookup, returns only the _id).
         includeLabelData
           ? null
-          : Order.exists({ _id: order._id, returnLabelUrl: { $exists: true, $nin: [null, ''] } })
+          : Order.exists({ _id: order._id, returnLabelUrl: { $exists: true, $nin: [null, ''] } }),
+        // Same exact probe for the Auslieferungslabel (McRepair -> Kunde) whenever the PDF
+        // itself was not projected.
+        includeLabelData || SHIPPING_LABEL_IN_DEFAULT_PROJECTION
+          ? null
+          : Order.exists({ _id: order._id, shippingLabelUrl: { $exists: true, $nin: [null, ''] } })
       ]);
 
       const serviceNameMap = new Map(serviceDocs.map((service) => [String(service._id), service.name]));
@@ -581,6 +1102,19 @@ class OrderService {
       plain.hasReturnLabel = includeLabelData
         ? Boolean(order.returnLabelUrl)
         : Boolean(storedReturnLabel);
+      plain.hasShippingLabel = includeLabelData || SHIPPING_LABEL_IN_DEFAULT_PROJECTION
+        ? Boolean(order.shippingLabelUrl)
+        : Boolean(storedShippingLabel);
+
+      // Konditionen-Snapshot: Kunden sehen nur Prozent/Aktionsbetrag/Zeitpunkt, nicht
+      // die internen Angaben (Kundengruppe, Herkunft).
+      if (plain.pricingConditions && !staffAudience) {
+        plain.pricingConditions = {
+          groupDiscountPercent: Number(plain.pricingConditions.groupDiscountPercent) || 0,
+          promoDiscountAmount: Number(plain.pricingConditions.promoDiscountAmount) || 0,
+          appliedAt: plain.pricingConditions.appliedAt || null,
+        };
+      }
 
       // Authoritative, self-consistent money breakdown for the order detail screen.
       // Gross-first: totalCost is the GROSS after discount, net is derived from it.
@@ -1065,54 +1599,60 @@ class OrderService {
   }
 
   // Add add-on service to order
+  // addonData.confirmRepricing: ausdrueckliche Bestaetigung, einen Auftrag neu zu
+  // berechnen, dessen gespeicherter Wert nicht zu den Positionen passt (siehe
+  // getPricingConditionsForEdit).
   static async addAddonToOrder(orderId, addonData, staffId) {
     console.log('OrderService: Adding add-on to order:', { orderId, addonData, staffId });
 
     try {
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
+      const staff = staffId ? await User.findById(staffId) : null;
+      const staffName = staff ? staff.name : 'Mitarbeiter';
 
-      // Create new add-on with the provided data
-      const newAddon = {
-        name: addonData.name,
-        description: addonData.description || '',
-        price: addonData.price,
-        status: addonData.status || 'pending',
-        estimatedTime: addonData.estimatedTime || '',
-        progress: 0
-      };
+      // Konfliktsicher: Positionen und Auftragswert werden auf demselben (bei Bedarf
+      // frisch geladenen) Stand gebildet und nur gemeinsam gespeichert.
+      const { order: updatedOrder, context } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        const newAddon = {
+          name: addonData.name,
+          description: addonData.description || '',
+          price: addonData.price,
+          status: addonData.status || 'pending',
+          estimatedTime: addonData.estimatedTime || '',
+          progress: 0
+        };
 
-      const prevGrossAmount = order.totalCost;
-      order.addOns.push(newAddon);
+        const prevGrossAmount = order.totalCost;
+        // Kondition VOR der Aenderung festhalten (Altauftraege leiten sie aus ihren
+        // eigenen Werten ab; passt der Wert nicht, nur nach Bestaetigung), dann mit DER
+        // Preisregel neu rechnen.
+        const { conditions, reconciliation } = OrderService.getPricingConditionsForEdit(order, addonData);
+        order.addOns.push(newAddon);
+        OrderService.applyOrderPricing(order, conditions);
 
-      // Update total cost
-      order.totalCost += addonData.price;
+        await OrderService._autoAssignStaff(order, staffId);
+        order.timeline.push({
+          status: 'Add-on Service Added',
+          description: `Zusatzleistung „${addonData.name}“ hinzugefügt (${formatEuroDe(addonData.price)})`,
+          completedAt: new Date(),
+          staffId: staffId || 'system',
+          staffName
+        });
 
-      // Add timeline entry
-      const staff = await User.findById(staffId);
-      await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Add-on Service Added',
-        description: `${addonData.name} added to order (+$${addonData.price})`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        // validateModifiedOnly: bestehende unvollstaendige Altpositionen nicht erneut validieren
+        return { prevGrossAmount, reconciliation, saveOptions: { validateModifiedOnly: true } };
       });
-
-      // Use validateModifiedOnly to avoid validating unmodified services array
-      // This prevents validation errors on existing incomplete service objects
-      const updatedOrder = await order.save({ validateModifiedOnly: true });
 
       // Historize order change
       try {
         await OrderRevisionService.recordRevision(updatedOrder, {
           triggerReason: 'addon_added',
-          previousGrossAmount: prevGrossAmount,
+          previousGrossAmount: context.prevGrossAmount,
           changedBy: staffId || undefined,
-          changedByName: staff ? staff.name : 'Staff Member',
-          notes: `Added addon "${addonData.name}" (+EUR ${addonData.price})`
+          changedByName: staffName,
+          notes: [
+            `Zusatzleistung „${addonData.name}“ hinzugefügt (${formatEuroDe(addonData.price)})`,
+            OrderService.describeConfirmedRepricing(context.reconciliation),
+          ].filter(Boolean).join(' | ')
         });
         await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
       } catch (revErr) {
@@ -1132,54 +1672,56 @@ class OrderService {
     console.log('OrderService: Updating add-on in order:', { orderId, addonId, updateData, staffId });
 
     try {
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
+      const staff = staffId ? await User.findById(staffId) : null;
+      const staffName = staff ? staff.name : 'Mitarbeiter';
 
-      const addon = order.addOns.id(addonId);
-      if (!addon) {
-        throw new Error('Add-on not found in order');
-      }
+      const { order: updatedOrder, context } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        const addon = order.addOns.id(addonId);
+        if (!addon) {
+          throw buildOrderValueError('Die Zusatzleistung wurde in diesem Auftrag nicht gefunden.', 404, 'ADDON_NOT_FOUND');
+        }
 
-      // Store old price for total cost adjustment
-      const oldPrice = addon.price;
-      const prevTotalCost = order.totalCost;
+        const oldPrice = addon.price;
+        const prevTotalCost = order.totalCost;
+        const priceChanged = updateData.price !== undefined && Number(updateData.price) !== Number(oldPrice);
+        // Nur bei einer Preisaenderung neu rechnen (Status-/Fortschrittsupdates duerfen
+        // den Auftragswert nicht anfassen) - dann mit DER Preisregel, Rabatt bleibt.
+        const edit = priceChanged ? OrderService.getPricingConditionsForEdit(order, updateData) : null;
 
-      // Update add-on fields
-      if (updateData.name !== undefined) addon.name = updateData.name;
-      if (updateData.description !== undefined) addon.description = updateData.description;
-      if (updateData.price !== undefined) addon.price = updateData.price;
-      if (updateData.status !== undefined) addon.status = updateData.status;
-      if (updateData.estimatedTime !== undefined) addon.estimatedTime = updateData.estimatedTime;
-      if (updateData.progress !== undefined) addon.progress = updateData.progress;
+        if (updateData.name !== undefined) addon.name = updateData.name;
+        if (updateData.description !== undefined) addon.description = updateData.description;
+        if (updateData.price !== undefined) addon.price = updateData.price;
+        if (updateData.status !== undefined) addon.status = updateData.status;
+        if (updateData.estimatedTime !== undefined) addon.estimatedTime = updateData.estimatedTime;
+        if (updateData.progress !== undefined) addon.progress = updateData.progress;
 
-      // Update total cost if price changed
-      if (updateData.price !== undefined && updateData.price !== oldPrice) {
-        order.totalCost = order.totalCost - oldPrice + updateData.price;
-      }
+        if (edit) {
+          OrderService.applyOrderPricing(order, edit.conditions);
+        }
 
-      // Add timeline entry
-      const staff = await User.findById(staffId);
-      await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Add-on Service Updated',
-        description: `${addon.name} updated`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        await OrderService._autoAssignStaff(order, staffId);
+        order.timeline.push({
+          status: 'Add-on Service Updated',
+          description: `Zusatzleistung „${addon.name}“ geändert`,
+          completedAt: new Date(),
+          staffId: staffId || 'system',
+          staffName
+        });
+
+        return { oldPrice, newPrice: addon.price, addonName: addon.name, prevTotalCost, reconciliation: edit?.reconciliation };
       });
-
-      const updatedOrder = await order.save();
 
       // Historize order change if price changed or data updated
       try {
         await OrderRevisionService.recordRevision(updatedOrder, {
           triggerReason: 'addon_updated',
-          previousGrossAmount: prevTotalCost,
+          previousGrossAmount: context.prevTotalCost,
           changedBy: staffId || undefined,
-          changedByName: staff ? staff.name : 'Staff Member',
-          notes: `Updated addon "${addon.name}" (EUR ${oldPrice} -> EUR ${addon.price})`
+          changedByName: staffName,
+          notes: [
+            `Zusatzleistung „${context.addonName}“ geändert (${formatEuroDe(context.oldPrice)} → ${formatEuroDe(context.newPrice)})`,
+            OrderService.describeConfirmedRepricing(context.reconciliation),
+          ].filter(Boolean).join(' | ')
         });
         await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
       } catch (revErr) {
@@ -1195,52 +1737,53 @@ class OrderService {
   }
 
   // Remove add-on service from order
-  static async removeAddonFromOrder(orderId, addonId, staffId) {
+  // options.confirmRepricing: siehe addAddonToOrder
+  static async removeAddonFromOrder(orderId, addonId, staffId, options = {}) {
     console.log('OrderService: Removing add-on from order:', { orderId, addonId, staffId });
 
     try {
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
+      const staff = staffId ? await User.findById(staffId) : null;
+      const staffName = staff ? staff.name : 'Mitarbeiter';
 
-      const addon = order.addOns.id(addonId);
-      if (!addon) {
-        throw new Error('Add-on not found in order');
-      }
+      const { order: updatedOrder, context } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        const addon = order.addOns.id(addonId);
+        if (!addon) {
+          throw buildOrderValueError('Die Zusatzleistung wurde in diesem Auftrag nicht gefunden.', 404, 'ADDON_NOT_FOUND');
+        }
 
-      // Store add-on details before removing
-      const addonName = addon.name;
-      const addonPrice = addon.price;
-      const prevTotalCost = order.totalCost;
+        const addonName = addon.name;
+        const addonPrice = addon.price;
+        const prevTotalCost = order.totalCost;
+        const { conditions, reconciliation } = OrderService.getPricingConditionsForEdit(order, options);
 
-      // Remove add-on from order
-      order.addOns.pull(addonId);
+        order.addOns.pull(addonId);
 
-      // Update total cost
-      order.totalCost -= addonPrice;
+        // Auftragswert mit DER Preisregel neu rechnen (Rabatt bleibt erhalten).
+        OrderService.applyOrderPricing(order, conditions);
 
-      // Add timeline entry
-      const staff = await User.findById(staffId);
-      await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Add-on Service Removed',
-        description: `${addonName} removed from order (-$${addonPrice})`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        await OrderService._autoAssignStaff(order, staffId);
+        order.timeline.push({
+          status: 'Add-on Service Removed',
+          description: `Zusatzleistung „${addonName}“ entfernt (${formatEuroDe(addonPrice)})`,
+          completedAt: new Date(),
+          staffId: staffId || 'system',
+          staffName
+        });
+
+        return { addonName, addonPrice, prevTotalCost, reconciliation };
       });
-
-      const updatedOrder = await order.save();
 
       // Historize order change
       try {
         await OrderRevisionService.recordRevision(updatedOrder, {
           triggerReason: 'addon_removed',
-          previousGrossAmount: prevTotalCost,
+          previousGrossAmount: context.prevTotalCost,
           changedBy: staffId || undefined,
-          changedByName: staff ? staff.name : 'Staff Member',
-          notes: `Removed addon "${addonName}" (-EUR ${addonPrice})`
+          changedByName: staffName,
+          notes: [
+            `Zusatzleistung „${context.addonName}“ entfernt (${formatEuroDe(context.addonPrice)})`,
+            OrderService.describeConfirmedRepricing(context.reconciliation),
+          ].filter(Boolean).join(' | ')
         });
         await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
       } catch (revErr) {
@@ -1256,55 +1799,69 @@ class OrderService {
   }
 
   // Assign staff to add-on service
+  // Konfliktsicher wie alle Positionsschreiber (runGuardedOrderEdit): die Zuweisung wird
+  // auf dem frisch geladenen Stand ueber die _id der Zusatzleistung gesetzt. Frueher
+  // schrieb ein normales save() ueber den beim Laden gueltigen Array-Index
+  // (addOns.N.assignedStaff) - entfernte ein paralleler Vorgang eine andere
+  // Zusatzleistung, landete die Zuweisung an der falschen Stelle oder ging verloren.
+  // Kein Einfluss auf den Auftragswert.
   static async assignStaffToAddon(orderId, addonId, staffId, assigningStaffId) {
     console.log('OrderService: Assigning staff to add-on:', { orderId, addonId, staffId, assigningStaffId });
 
     try {
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
-
-      const addon = order.addOns.id(addonId);
-      if (!addon) {
-        throw new Error('Add-on not found in order');
-      }
-
-      // Get staff details
-      const staff = await User.findById(staffId);
+      // Get staff details (einmal, vor dem ggf. wiederholten Speichern)
+      const staff = mongoose.Types.ObjectId.isValid(String(staffId || '')) ? await User.findById(staffId) : null;
       if (!staff || !['staff', 'admin'].includes(staff.role)) {
-        throw new Error('Staff member not found or invalid role');
+        throw buildOrderValueError('Der ausgewählte Mitarbeiter wurde nicht gefunden oder ist kein Mitarbeiterkonto.', 400, 'INVALID_STAFF');
       }
+      const assigningStaff = assigningStaffId ? await User.findById(assigningStaffId) : null;
 
-      // Add assignedStaff field to add-on if it doesn't exist
-      if (!addon.assignedStaff) {
-        addon.assignedStaff = [];
-      }
+      // Deutsche Fehler mit statusCode/code: adminOrderRoutes (PUT /:id/addons/:addonId/assign)
+      // reicht sie ueber respondOrderEditError an die Oberflaeche weiter.
+      const loadOrder = async () => {
+        const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+        if (!order) {
+          throw buildOrderValueError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+        }
+        return order;
+      };
 
-      // Check if staff is already assigned
-      const isAlreadyAssigned = addon.assignedStaff.some(
-        s => s.staffId.toString() === staffId
-      );
+      const { order: updatedOrder } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        const addon = order.addOns.id(addonId);
+        if (!addon) {
+          throw buildOrderValueError('Die Zusatzleistung wurde in diesem Auftrag nicht gefunden.', 404, 'ADDON_NOT_FOUND');
+        }
 
-      if (!isAlreadyAssigned) {
-        addon.assignedStaff.push({
-          staffId: staff._id,
-          name: staff.name,
-          avatar: staff.avatar || ''
+        // Add assignedStaff field to add-on if it doesn't exist
+        if (!addon.assignedStaff) {
+          addon.assignedStaff = [];
+        }
+
+        // Check if staff is already assigned
+        const isAlreadyAssigned = addon.assignedStaff.some(
+          (s) => toIdString(s.staffId) === toIdString(staff._id)
+        );
+
+        if (!isAlreadyAssigned) {
+          addon.assignedStaff.push({
+            staffId: staff._id,
+            name: staff.name,
+            avatar: staff.avatar || ''
+          });
+        }
+
+        // Add timeline entry
+        order.timeline.push({
+          status: 'Add-on Staff Assigned',
+          description: `${staff.name} der Zusatzleistung „${addon.name}“ zugewiesen`,
+          completedAt: new Date(),
+          staffId: assigningStaffId || 'system',
+          staffName: assigningStaff ? assigningStaff.name : 'System'
         });
-      }
 
-      // Add timeline entry
-      const assigningStaff = await User.findById(assigningStaffId);
-      order.timeline.push({
-        status: 'Add-on Staff Assigned',
-        description: `${staff.name} assigned to ${addon.name}`,
-        completedAt: new Date(),
-        staffId: assigningStaffId || 'system',
-        staffName: assigningStaff ? assigningStaff.name : 'System'
-      });
-
-      const updatedOrder = await order.save();
+        // validateModifiedOnly: unvollstaendige Altpositionen nicht erneut validieren
+        return { saveOptions: { validateModifiedOnly: true } };
+      }, { load: loadOrder });
 
       console.log('OrderService: Staff assigned to add-on successfully');
       return updatedOrder;
@@ -2535,52 +3092,62 @@ class OrderService {
   }
 
   // Add shop product to order
-  static async addShopProduct(orderId, productId, quantity, userId) {
+  // options.confirmRepricing: siehe getPricingConditionsForEdit
+  static async addShopProduct(orderId, productId, quantity, userId, options = {}) {
     console.log('OrderService: Adding shop product to order:', orderId, 'Product:', productId, 'Quantity:', quantity);
 
     try {
-      // Validate order exists
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
-
       // Validate product exists and has stock
-      const product = await Product.findById(productId);
+      const product = mongoose.Types.ObjectId.isValid(String(productId || '')) ? await Product.findById(productId) : null;
       if (!product) {
-        throw new Error('Product not found');
+        throw buildOrderValueError('Das Produkt wurde nicht gefunden.', 404, 'PRODUCT_NOT_FOUND');
       }
 
       if (product.stock < quantity) {
-        throw new Error(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
+        throw buildOrderValueError(
+          `Nicht genügend Bestand: verfügbar ${product.stock}, angefragt ${quantity}.`,
+          400,
+          'INSUFFICIENT_STOCK'
+        );
       }
 
-      // Check if product already exists in order
-      const existingProductIndex = order.shopProducts.findIndex(
-        p => p.productId && p.productId.toString() === productId.toString()
-      );
+      // Konfliktsicher (siehe runGuardedOrderEdit): Menge/Position und Auftragswert
+      // stammen aus demselben Stand.
+      const { order: updatedOrder, context } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        const prevTotalCost = order.totalCost;
+        const { conditions, reconciliation, repricingConfirmed } = OrderService.getPricingConditionsForEdit(order, options);
 
-      if (existingProductIndex !== -1) {
-        // Update quantity
-        order.shopProducts[existingProductIndex].quantity += quantity;
-        console.log('OrderService: Updated quantity for existing product in order');
-      } else {
-        // Add new product
-        order.shopProducts.push({
-          productId: productId,
-          quantity: quantity,
-          priceAtOrder: product.price,
-          addedBy: userId,
-          addedAt: new Date()
-        });
-        console.log('OrderService: Added new product to order');
-      }
+        // Check if product already exists in order
+        const existingProductIndex = order.shopProducts.findIndex(
+          p => p.productId && p.productId.toString() === productId.toString()
+        );
 
-      // Recalculate total cost
-      await this.recalculateOrderTotal(order);
+        if (existingProductIndex !== -1) {
+          // Update quantity
+          order.shopProducts[existingProductIndex].quantity += quantity;
+          console.log('OrderService: Updated quantity for existing product in order');
+        } else {
+          // Add new product
+          order.shopProducts.push({
+            productId: productId,
+            quantity: quantity,
+            priceAtOrder: product.price,
+            addedBy: userId,
+            addedAt: new Date()
+          });
+          console.log('OrderService: Added new product to order');
+        }
 
-      const updatedOrder = await order.save();
+        // Recalculate total cost
+        await OrderService.recalculateOrderTotal(order, conditions);
+        return { prevTotalCost, reconciliation, repricingConfirmed };
+      });
       console.log('OrderService: Shop product added successfully to order:', orderId);
+      await OrderService.recordConfirmedShopRepricing(updatedOrder, context, {
+        triggerReason: 'scope_change',
+        note: `Produkt „${product.name || 'Produkt'}“ ×${quantity} hinzugefügt (${formatEuroDe(product.price)} je Stück)`,
+        userId,
+      });
 
       return updatedOrder;
     } catch (error) {
@@ -2589,34 +3156,63 @@ class OrderService {
     }
   }
 
+  // Bestaetigte Neuberechnung eines nicht aufgehenden Auftrags bei einer Produktaenderung in
+  // der Auftragshistorie festhalten - wie bei Services, Zusatzleistungen und
+  // Geraetewechsel (die Oberflaeche sagt das bei der Bestaetigung zu). Ohne bestaetigte
+  // Abweichung wird hier nichts geschrieben (bisheriges Verhalten).
+  static async recordConfirmedShopRepricing(order, context, { triggerReason, note, userId }) {
+    if (!context || !context.repricingConfirmed) return;
+    try {
+      const staff = userId ? await User.findById(userId).select('name') : null;
+      await OrderRevisionService.recordRevision(order, {
+        triggerReason,
+        previousGrossAmount: context.prevTotalCost,
+        changedBy: userId || undefined,
+        changedByName: staff?.name || 'Mitarbeiter',
+        notes: [note, OrderService.describeConfirmedRepricing(context.reconciliation)].filter(Boolean).join(' | '),
+      });
+    } catch (revErr) {
+      console.warn('OrderService: Warning recording revision on confirmed product repricing:', revErr.message);
+    }
+  }
+
   // Remove shop product from order
-  static async removeShopProduct(orderId, productItemId, userId) {
+  static async removeShopProduct(orderId, productItemId, userId, options = {}) {
     console.log('OrderService: Removing shop product from order:', orderId, 'Product item:', productItemId);
 
     try {
-      // Validate order exists
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
+      const { order: updatedOrder, context } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        // Find and remove the product
+        const productIndex = order.shopProducts.findIndex(
+          p => p._id && p._id.toString() === productItemId.toString()
+        );
 
-      // Find and remove the product
-      const productIndex = order.shopProducts.findIndex(
-        p => p._id && p._id.toString() === productItemId.toString()
-      );
+        if (productIndex === -1) {
+          throw buildOrderValueError('Das Produkt wurde in diesem Auftrag nicht gefunden.', 404, 'PRODUCT_NOT_IN_ORDER');
+        }
 
-      if (productIndex === -1) {
-        throw new Error('Product not found in order');
-      }
+        const prevTotalCost = order.totalCost;
+        const removedItem = order.shopProducts[productIndex];
+        const { conditions, reconciliation, repricingConfirmed } = OrderService.getPricingConditionsForEdit(order, options);
+        order.shopProducts.splice(productIndex, 1);
+        console.log('OrderService: Shop product removed from order');
 
-      order.shopProducts.splice(productIndex, 1);
-      console.log('OrderService: Shop product removed from order');
-
-      // Recalculate total cost
-      await this.recalculateOrderTotal(order);
-
-      const updatedOrder = await order.save();
+        // Recalculate total cost
+        await OrderService.recalculateOrderTotal(order, conditions);
+        return {
+          prevTotalCost,
+          reconciliation,
+          repricingConfirmed,
+          removedQuantity: Number(removedItem?.quantity) || 0,
+          removedPrice: Number(removedItem?.priceAtOrder) || 0,
+        };
+      });
       console.log('OrderService: Shop product removed successfully from order:', orderId);
+      await OrderService.recordConfirmedShopRepricing(updatedOrder, context, {
+        triggerReason: 'scope_change',
+        note: `Produkt ×${context.removedQuantity} entfernt (${formatEuroDe(context.removedPrice)} je Stück)`,
+        userId,
+      });
 
       return updatedOrder;
     } catch (error) {
@@ -2626,44 +3222,51 @@ class OrderService {
   }
 
   // Update shop product quantity in order
-  static async updateShopProductQuantity(orderId, productItemId, quantity, userId) {
+  static async updateShopProductQuantity(orderId, productItemId, quantity, userId, options = {}) {
     console.log('OrderService: Updating shop product quantity in order:', orderId, 'Product item:', productItemId, 'New quantity:', quantity);
 
     try {
-      // Validate order exists
-      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
-      if (!order) {
-        throw new Error('Order not found');
-      }
+      const { order: updatedOrder, context } = await OrderService.runGuardedOrderEdit(orderId, async (order) => {
+        // Find the product
+        const productItem = order.shopProducts.find(
+          p => p._id && p._id.toString() === productItemId.toString()
+        );
 
-      // Find the product
-      const productItem = order.shopProducts.find(
-        p => p._id && p._id.toString() === productItemId.toString()
-      );
+        if (!productItem) {
+          throw buildOrderValueError('Das Produkt wurde in diesem Auftrag nicht gefunden.', 404, 'PRODUCT_NOT_IN_ORDER');
+        }
 
-      if (!productItem) {
-        throw new Error('Product not found in order');
-      }
+        // Validate product stock
+        const product = await Product.findById(productItem.productId);
+        if (!product) {
+          throw buildOrderValueError('Das Produkt existiert nicht mehr im Katalog.', 404, 'PRODUCT_NOT_FOUND');
+        }
 
-      // Validate product stock
-      const product = await Product.findById(productItem.productId);
-      if (!product) {
-        throw new Error('Product not found in database');
-      }
+        if (product.stock < quantity) {
+          throw buildOrderValueError(
+            `Nicht genügend Bestand: verfügbar ${product.stock}, angefragt ${quantity}.`,
+            400,
+            'INSUFFICIENT_STOCK'
+          );
+        }
 
-      if (product.stock < quantity) {
-        throw new Error(`Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`);
-      }
+        // Update quantity
+        const prevTotalCost = order.totalCost;
+        const previousQuantity = Number(productItem.quantity) || 0;
+        const { conditions, reconciliation, repricingConfirmed } = OrderService.getPricingConditionsForEdit(order, options);
+        productItem.quantity = quantity;
+        console.log('OrderService: Shop product quantity updated');
 
-      // Update quantity
-      productItem.quantity = quantity;
-      console.log('OrderService: Shop product quantity updated');
-
-      // Recalculate total cost
-      await this.recalculateOrderTotal(order);
-
-      const updatedOrder = await order.save();
+        // Recalculate total cost
+        await OrderService.recalculateOrderTotal(order, conditions);
+        return { prevTotalCost, reconciliation, repricingConfirmed, previousQuantity, productName: product.name || 'Produkt' };
+      });
       console.log('OrderService: Shop product quantity updated successfully in order:', orderId);
+      await OrderService.recordConfirmedShopRepricing(updatedOrder, context, {
+        triggerReason: 'scope_change',
+        note: `Menge „${context.productName}“ geändert (${context.previousQuantity} → ${quantity})`,
+        userId,
+      });
 
       return updatedOrder;
     } catch (error) {
@@ -2673,40 +3276,16 @@ class OrderService {
   }
 
   // Helper method to recalculate order total
-  static async recalculateOrderTotal(order) {
+  //
+  // Delegiert an DIE Preisregel (applyOrderPricing): Positionen zu Listen-Brutto,
+  // Kunden-/Haendlerrabatt genau einmal auf Auftragsebene, Aktionsrabatt fest.
+  // pricingConditions sollte VOR der Positionsaenderung ermittelt worden sein;
+  // fehlt sie, gilt der gespeicherte Snapshot bzw. die Altauftrags-Ableitung.
+  static async recalculateOrderTotal(order, pricingConditions = null) {
     console.log('OrderService: Recalculating order total for order:', order._id);
 
-    let total = 0;
-
-    // Add services cost
-    if (order.services && order.services.length > 0) {
-      order.services.forEach(service => {
-        const price = Number(service.price) || 0;
-        total += price;
-      });
-    }
-
-    // Add add-ons cost
-    if (order.addOns && order.addOns.length > 0) {
-      order.addOns.forEach(addon => {
-        const price = Number(addon.price) || 0;
-        total += price;
-      });
-    }
-
-    // Add shop products cost
-    if (order.shopProducts && order.shopProducts.length > 0) {
-      order.shopProducts.forEach(product => {
-        const price = Number(product.priceAtOrder) || 0;
-        const quantity = Number(product.quantity) || 0;
-        total += price * quantity;
-      });
-    }
-
-    // Keep any previously applied cart/promo discount intact so it doesn't silently
-    // disappear from the order total when services/add-ons/products are edited.
-    const discount = Number(order.discount || 0);
-    order.totalCost = Number(Math.max(0, total - discount).toFixed(2));
+    const conditions = pricingConditions || OrderService.getPricingConditions(order);
+    OrderService.applyOrderPricing(order, conditions);
     console.log('OrderService: Total cost recalculated:', order.totalCost);
   }
 

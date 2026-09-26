@@ -29,21 +29,21 @@ import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatEUR } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
-import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, createOrderReturnLabel, downloadOrderReturnLabel, getCustomerInvoicesForOrder, downloadCustomerInvoicePdf, CustomerOrderInvoice } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, buildRepricingConfirmation, isRepricingConfirmationOutdated, type OrderRepricingOptions, createOrderReturnLabel, downloadOrderReturnLabel, getCustomerInvoicesForOrder, downloadCustomerInvoicePdf, CustomerOrderInvoice, reconcileOrderInboundShipment, summarizeInvoicePayment, splitRefundPendingByScope, INVOICE_PAYMENT_TONE_CLASSES } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
 import { createInvoiceFromOrder, getInvoices, getInvoiceDetails, Invoice as FinancialInvoice } from "@/api/financial"
-import { createShippingLabel } from "@/api/shipping"
+import { createOutboundShippingLabel, getOrderShipments, reconcileOrderShipment, type OrderShipmentsView } from "@/api/shipping"
 import { getUserProfile, UserProfile } from "@/api/user"
-import { getAddOnServices, AddOnService as AddOnServiceType, getServices } from "@/api/services"
+import { getAddOnServices, AddOnService as AddOnServiceType } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
 import { initializeRepairWorkflow, getRepairWorkflow } from "@/api/repairWorkflow"
-import { getOrderServices, addServiceToOrder, updateOrderService, removeServiceFromOrder } from "@/api/orderServices"
+import { getOrderServices, getAvailableServicesForOrder, addRepairServiceFromForm, updateRepairServiceFromForm, removeServiceFromOrder, getOrderServiceWarnings, ORDER_VALUE_NOT_RECONCILED, readOrderServiceErrorCode, readReconciliationDetails, describeRepricingConsequence, type OrderValueReconciliationDetails } from "@/api/orderServices"
 import { searchDevices, SearchResult } from "@/api/devices"
 import EPartSelectionDialog from "@/components/admin/EPartSelectionDialog"
 import { ShopProductSelectionDialog } from "@/components/admin/ShopProductSelectionDialog"
-import { RepairServiceDialog } from "@/components/inspection/RepairServiceDialog"
+import { RepairServiceDialog, type RepairServiceFormData } from "@/components/inspection/RepairServiceDialog"
 import { DeviceInspectionForm } from "@/components/inspection/DeviceInspectionForm"
 import { WorkflowExecutionView } from "@/components/workflow/WorkflowExecutionView"
 import { WorkflowCard } from "@/components/admin/WorkflowCard"
@@ -55,7 +55,7 @@ import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
-import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel, createReturnLabel } from "@/api/bookings"
+import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel, createBookingShippingLabel } from "@/api/bookings"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -138,6 +138,15 @@ import {
   Receipt,
 } from "lucide-react"
 
+// Zusatzfelder der Versandrichtung, die der Server für Sperre/Abgleich liefert
+// (DHLService.getOrderShipmentState). Fehlen sie (ältere Antwort), gilt "kein Abgleich".
+type ReconcilableShipmentView = OrderShipmentsView['outbound'] & {
+  reconciliationReason?: string
+  lockStale?: boolean
+  lockStartedAt?: string | null
+  reconcileUrl?: string
+}
+
 export function OrderDetails() {
   const SPECIAL_REPAIR_WORKFLOW_NAME_MARKERS = [
     'reparatur-workflow',
@@ -191,6 +200,24 @@ export function OrderDetails() {
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
+  // Entfernen einer Reparaturposition mit Rückfrage und optionalem Grund (Auftragshistorie)
+  const [serviceToDelete, setServiceToDelete] = useState<any | null>(null)
+  const [deleteServiceReason, setDeleteServiceReason] = useState('')
+  // 409 ORDER_VALUE_NOT_RECONCILED beim Entfernen: Meldung + Abweichung; der Dialog bietet
+  // dann die ausdrückliche Bestätigung der Neuberechnung an.
+  const [deleteServiceRepricing, setDeleteServiceRepricing] = useState<{ message: string; details: OrderValueReconciliationDetails | null } | null>(null)
+  const [deletingService, setDeletingService] = useState(false)
+  // 409 ORDER_VALUE_NOT_RECONCILED bei Zusatzleistungen und Shop-Produkten: dieselbe
+  // Rückfrage wie bei Reparaturpositionen. retry wiederholt GENAU die abgelehnte Änderung mit
+  // der Bestätigung der gezeigten Abweichung (buildRepricingConfirmation).
+  const [pendingRepricing, setPendingRepricing] = useState<{
+    title: string
+    message: string
+    details: OrderValueReconciliationDetails | null
+    outdated: boolean
+    retry: (confirmation: OrderRepricingOptions) => Promise<void>
+  } | null>(null)
+  const [confirmingRepricing, setConfirmingRepricing] = useState(false)
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false)
   const [expandedServiceDescriptions, setExpandedServiceDescriptions] = useState<Set<string>>(new Set())
   const [editingService, setEditingService] = useState<any>(null)
@@ -214,6 +241,12 @@ export function OrderDetails() {
   const [downloadingOrderShippingLabel, setDownloadingOrderShippingLabel] = useState(false)
   const [creatingOrderReturnLabel, setCreatingOrderReturnLabel] = useState(false)
   const [downloadingOrderReturnLabel, setDownloadingOrderReturnLabel] = useState(false)
+  // Versandstand getrennt nach Einsendung / Auslieferung (GET /api/orders/:id/shipments).
+  const [orderShipments, setOrderShipments] = useState<OrderShipmentsView | null>(null)
+  const [reconcilingOutbound, setReconcilingOutbound] = useState(false)
+  const [reconcileTrackingNumber, setReconcileTrackingNumber] = useState('')
+  const [reconcilingInbound, setReconcilingInbound] = useState(false)
+  const [reconcileInboundTrackingNumber, setReconcileInboundTrackingNumber] = useState('')
   const [orderInvoices, setOrderInvoices] = useState<FinancialInvoice[]>([])
   const [loadingOrderInvoices, setLoadingOrderInvoices] = useState(false)
   // Customer-facing invoice list (owner-scoped endpoint, drafts excluded server-side).
@@ -552,6 +585,17 @@ export function OrderDetails() {
     loadLinkedBooking()
   }, [order?.bookingId])
 
+  // Der Versandstand wird bei jedem neu geladenen Auftrag mitgeladen (auch nach
+  // refreshOrder), damit Buttons und Anzeige nie einen veralteten Stand zeigen.
+  useEffect(() => {
+    if (!order?._id) {
+      setOrderShipments(null)
+      return
+    }
+    void loadOrderShipments(String(order._id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order])
+
   useEffect(() => {
     if (!id || user?.role !== 'admin' || !linkedBooking?._id) {
       return
@@ -619,19 +663,13 @@ export function OrderDetails() {
     fetchAvailableAddons()
   }, [user])
 
-  // Fetch available repair services and repair services for order
+  // Fetch repair services for order
   useEffect(() => {
     const fetchRepairServices = async () => {
       if (!id || !user) return
 
       try {
         console.log("Fetching repair services for order:", id)
-
-        // Fetch available services (only for admin/staff)
-        if (user.role === 'admin' || user.role === 'staff') {
-          const servicesResponse = await getServices()
-          setAvailableServices((servicesResponse as any).services || [])
-        }
 
         // Fetch repair services for this order (for all users)
         const orderServicesResponse = await getOrderServices(id)
@@ -645,6 +683,27 @@ export function OrderDetails() {
 
     fetchRepairServices()
   }, [id, user])
+
+  // Auswählbare Services (nur Admin/Staff): der SERVER filtert vollständig nach dem
+  // aktuellen Gerät des Auftrags (Marke, Modell, Gerätetyp) - keine erste Seite des
+  // Gesamtkatalogs, kein Nachfiltern hier. Nach einem Gerätewechsel neu laden.
+  useEffect(() => {
+    if (!id || !user || (user.role !== 'admin' && user.role !== 'staff')) return
+    let cancelled = false
+
+    getAvailableServicesForOrder(id)
+      .then((response) => {
+        if (!cancelled) setAvailableServices(response.services || [])
+      })
+      .catch((error) => {
+        console.error("Error fetching available services for order:", error)
+        if (!cancelled) setAvailableServices([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, user, order?.deviceBrand, order?.deviceModel, order?.deviceType])
 
   // Fetch workflows for order
   useEffect(() => {
@@ -1025,7 +1084,7 @@ export function OrderDetails() {
       console.error("OrderDetails: Error updating order status:", error)
       toast({
         title: "Fehler",
-        description: error.message || "Failed to update order status",
+        description: error.message || "Der Auftragsstatus konnte nicht geändert werden.",
         variant: "destructive"
       })
     } finally {
@@ -1059,7 +1118,12 @@ export function OrderDetails() {
       setInvoiceDetailPayments(result.payments || [])
       setInvoiceDetailCreditNotes(result.creditNotes || [])
       if (result.invoice) {
-        setSelectedInvoiceDetails(result.invoice as FinancialInvoice)
+        // Der Zahlungsstand kommt im Detail als eigenes Feld `balance` (inkl. paymentState).
+        setSelectedInvoiceDetails({
+          ...(result.invoice as FinancialInvoice),
+          balance: result.balance || (result.invoice as FinancialInvoice).balance || invoice.balance,
+          paymentState: result.balance?.paymentState || (result.invoice as FinancialInvoice).paymentState || invoice.paymentState,
+        } as FinancialInvoice)
       }
     } catch {
       // silently keep the invoice data already in state
@@ -1123,30 +1187,43 @@ export function OrderDetails() {
     }
   }
 
-  const handleCreateOrderShippingLabel = async () => {
-    if (!id || !order || creatingOrderShippingLabel || order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created') return
+  // --- Versand: zwei getrennte Richtungen -----------------------------------
+  // Einsendung   = Kunde -> McRepair (Einsendelabel: an der Buchung bzw. per DHL-Retoure)
+  // Auslieferung = McRepair -> Kunde ("An Kunden versenden": DHL Paket, Absender Shop,
+  //                Empfänger Lieferadresse - beides bestimmt ausschließlich der Server)
+  // Ob eine Aktion möglich ist, entscheidet ebenfalls der SERVER (orderShipments.*Action),
+  // mit derselben Funktion, die die Label-Erstellung prüft. Die Buttons spiegeln nur das.
+  const loadOrderShipments = async (orderId?: string) => {
+    if (!orderId) return
+    try {
+      setOrderShipments(await getOrderShipments(orderId))
+    } catch (error) {
+      console.error('OrderDetails: Failed to load shipment state:', error)
+      setOrderShipments(null)
+    }
+  }
+
+  const handleCreateOutboundLabel = async () => {
+    if (!id || !order || creatingOrderShippingLabel || !orderShipments?.outboundAction?.allowed) return
 
     try {
       setCreatingOrderShippingLabel(true)
-      const response = await createShippingLabel(id, {
-        receiverName: customer?.name,
-        receiverEmail: customer?.email,
-        receiverPhone: customer?.phone,
-        shippingCost: safeToNumber(order.shippingCost),
-      })
+      const response = await createOutboundShippingLabel(id)
 
       await refreshOrder()
 
       toast({
-        title: 'Einsendelabel erstellt',
+        title: response?.alreadyExists ? 'Versandlabel bereits vorhanden' : 'Versandlabel für den Kunden erstellt',
         description: response?.trackingNumber
-          ? `Trackingnummer: ${response.trackingNumber}`
-          : 'Das Einsendelabel wurde erfolgreich erstellt.',
+          ? `Sendungsnummer: ${response.trackingNumber}. Das Gerät gilt erst nach Übergabe an DHL als versendet.`
+          : 'Das Versandlabel wurde erstellt. Das Gerät gilt erst nach Übergabe an DHL als versendet.',
       })
     } catch (error: any) {
+      // Auch nach einem Fehler neu laden: eine unklare DHL-Antwort setzt den Abgleich-Zustand.
+      await loadOrderShipments(order._id)
       toast({
-        title: 'Einsendelabel konnte nicht erstellt werden',
-        description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
+        title: 'Versandlabel konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Lieferadresse und die DHL-Integrationseinstellungen.',
         variant: 'destructive',
       })
     } finally {
@@ -1169,7 +1246,7 @@ export function OrderDetails() {
       })
 
       if (!response.ok) {
-        throw new Error('Einsendelabel konnte nicht geladen werden.')
+        throw new Error('Versandlabel konnte nicht geladen werden.')
       }
 
       const labelBlob = await response.blob()
@@ -1177,7 +1254,7 @@ export function OrderDetails() {
 
       const link = document.createElement('a')
       link.href = labelUrl
-      link.download = `einsendelabel-${order.orderNumber || order._id}.pdf`
+      link.download = `versandlabel-${order.orderNumber || order._id}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -1187,7 +1264,7 @@ export function OrderDetails() {
       }, 60000)
     } catch (error: any) {
       toast({
-        title: 'Einsendelabel konnte nicht heruntergeladen werden',
+        title: 'Versandlabel konnte nicht heruntergeladen werden',
         description: error?.message || 'Bitte versuchen Sie es erneut.',
         variant: 'destructive',
       })
@@ -1196,80 +1273,51 @@ export function OrderDetails() {
     }
   }
 
-  const handleCreateOrderReturnLabel = async () => {
-    if (creatingOrderReturnLabel) return
-
-    // Prefer the linked booking's return flow; otherwise create the label directly on the order.
-    if (linkedBooking?._id) {
-      if (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created') {
-        toast({
-          title: 'Rücksendelabel bereits erstellt',
-          description: 'Für die zugehörige Buchung existiert bereits ein Rücksendelabel.',
-          variant: 'destructive',
-        })
-        return
-      }
-
-      try {
-        setCreatingOrderReturnLabel(true)
-        const response = await createReturnLabel(linkedBooking._id)
-
-        if (!response?.success) {
-          throw new Error(response?.message || 'Rücksendelabel konnte nicht erstellt werden.')
-        }
-
-        setLinkedBooking((prev: any) => (prev ? { ...prev, ...(response.booking || {}) } : prev))
-
-        toast({
-          title: 'Rücksendelabel erstellt',
-          description: response?.returnTrackingNumber || response?.booking?.returnTrackingNumber
-            ? `Trackingnummer: ${response.returnTrackingNumber || response.booking.returnTrackingNumber}`
-            : 'Das Rücksendelabel wurde erfolgreich erstellt.',
-        })
-      } catch (error: any) {
-        toast({
-          title: 'Rücksendelabel konnte nicht erstellt werden',
-          description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
-          variant: 'destructive',
-        })
-      } finally {
-        setCreatingOrderReturnLabel(false)
-      }
-      return
-    }
-
-    if (order?.hasReturnLabel || order?.returnLabelUrl || order?.returnShipmentStatus === 'label-created') {
-      toast({
-        title: 'Rücksendelabel bereits erstellt',
-        description: 'Für diesen Auftrag existiert bereits ein Rücksendelabel.',
-        variant: 'destructive',
-      })
-      return
-    }
+  const handleCreateInboundLabel = async () => {
+    const action = orderShipments?.inboundAction
+    if (!order || creatingOrderReturnLabel || !action?.allowed) return
 
     try {
       setCreatingOrderReturnLabel(true)
-      const response = await createOrderReturnLabel(order._id)
+      let trackingNumber = ''
 
-      if (!response?.success) {
-        throw new Error(response?.message || 'Rücksendelabel konnte nicht erstellt werden.')
+      if (action.target === 'booking' && action.bookingId) {
+        // Einsendelabel der Buchung: Absender Kunde, Empfänger McRepair (Adresse vom Server).
+        const response = await createBookingShippingLabel(String(action.bookingId), {
+          labelDirection: 'inbound',
+          receiverFromConfiguration: true,
+        })
+        trackingNumber = response?.trackingNumber || ''
+        try {
+          const refreshedBooking = await getBooking(String(action.bookingId))
+          setLinkedBooking((refreshedBooking as any)?.booking || null)
+        } catch (bookingError) {
+          console.error('OrderDetails: Failed to reload booking after inbound label:', bookingError)
+        }
+      } else {
+        // Auftrag ohne Buchung: DHL-Retoure - der Kunde ist Absender, McRepair Empfänger.
+        const response = await createOrderReturnLabel(order._id)
+        if (!response?.success) {
+          throw new Error(response?.error || response?.message || 'Einsendelabel konnte nicht erstellt werden.')
+        }
+        trackingNumber = response?.returnTrackingNumber || ''
       }
 
-      // Re-read through the normal detail endpoint: the raw mongoose document in
-      // `response.order` has a different services/shopProducts shape than the read
-      // layer returns and would corrupt the positions card if merged in.
+      // Re-read through the normal detail endpoint: the raw mongoose document in a label
+      // response has a different services/shopProducts shape than the read layer returns.
       await refreshOrder()
 
       toast({
-        title: 'Rücksendelabel erstellt',
-        description: response?.returnTrackingNumber
-          ? `Trackingnummer: ${response.returnTrackingNumber}`
-          : 'Das Rücksendelabel wurde erfolgreich erstellt.',
+        title: 'Einsendelabel erstellt',
+        description: trackingNumber
+          ? `Sendungsnummer: ${trackingNumber} (Kunde → McRepair)`
+          : 'Das Einsendelabel (Kunde → McRepair) wurde erstellt.',
       })
     } catch (error: any) {
+      await loadOrderShipments(order._id)
       toast({
-        title: 'Rücksendelabel konnte nicht erstellt werden',
-        description: error?.message || 'Bitte prüfen Sie die Versanddaten und Integrationseinstellungen.',
+        title: 'Einsendelabel konnte nicht erstellt werden',
+        description: error?.message || 'Bitte prüfen Sie die Kundenadresse und die DHL-Integrationseinstellungen.',
         variant: 'destructive',
       })
     } finally {
@@ -1277,31 +1325,104 @@ export function OrderDetails() {
     }
   }
 
-  const handleDownloadOrderReturnLabel = async () => {
-    if (downloadingOrderReturnLabel) return
+  const handleDownloadInboundLabel = async () => {
+    const inbound = orderShipments?.inboundLabels?.find((entry) => entry.hasLabel)
+    if (!order || downloadingOrderReturnLabel || !inbound) return
 
     try {
       setDownloadingOrderReturnLabel(true)
-      // Download from whichever side actually holds the label. Preferring the booking
-      // unconditionally would 404 for an order-level label created before the order
-      // was linked to a booking.
-      if (linkedBooking?._id && linkedBooking?.returnLabelUrl) {
-        await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
-      } else if (order?.hasReturnLabel || order?.returnLabelUrl) {
-        await downloadOrderReturnLabel(order._id, `ruecksendeetikett-${order.orderNumber || order._id}.pdf`)
-      } else if (linkedBooking?._id) {
-        await downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)
+      const bookingId = String(inbound.bookingId || linkedBooking?._id || '')
+      const bookingRef = inbound.bookingNumber || linkedBooking?.bookingNumber || bookingId
+      if (inbound.source === 'booking' && bookingId) {
+        await downloadBookingShippingLabel(bookingId, `einsendelabel-${bookingRef}.pdf`)
+      } else if (inbound.source === 'booking-retoure' && bookingId) {
+        await downloadBookingReturnLabel(bookingId, `einsendelabel-retoure-${bookingRef}.pdf`)
       } else {
-        throw new Error('Für diesen Auftrag ist kein Rücksendelabel hinterlegt.')
+        await downloadOrderReturnLabel(order._id, `einsendelabel-${order.orderNumber || order._id}.pdf`)
       }
     } catch (error: any) {
       toast({
-        title: 'Rücksendelabel konnte nicht heruntergeladen werden',
+        title: 'Einsendelabel konnte nicht heruntergeladen werden',
         description: error?.message || 'Bitte versuchen Sie es erneut.',
         variant: 'destructive',
       })
     } finally {
       setDownloadingOrderReturnLabel(false)
+    }
+  }
+
+  // Abgleich nach unklarer DHL-Antwort (nur Administratoren): erst im DHL-Geschäftskunden-
+  // portal nach der Referenz suchen, dann hier das Ergebnis eintragen.
+  const handleReconcileOutbound = async (resolution: 'not-created' | 'created') => {
+    if (!order?._id || reconcilingOutbound) return
+    const trackingNumber = reconcileTrackingNumber.replace(/\s+/g, '')
+    if (resolution === 'created' && !trackingNumber) {
+      toast({
+        title: 'Sendungsnummer fehlt',
+        description: 'Bitte die Sendungsnummer aus dem DHL-Geschäftskundenportal eintragen.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setReconcilingOutbound(true)
+      const response = await reconcileOrderShipment(order._id, { resolution, trackingNumber: trackingNumber || undefined })
+      setOrderShipments(response?.shipments || null)
+      setReconcileTrackingNumber('')
+      await refreshOrder()
+      toast({
+        title: 'Abgleich abgeschlossen',
+        description: resolution === 'created'
+          ? 'Die Sendungsnummer wurde übernommen. Das PDF-Label bitte im DHL-Geschäftskundenportal abrufen.'
+          : 'Es wurde keine Sendung angelegt. Das Versandlabel kann jetzt neu erstellt werden.',
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Abgleich fehlgeschlagen',
+        description: error?.message || 'Bitte erneut versuchen.',
+        variant: 'destructive',
+      })
+    } finally {
+      setReconcilingOutbound(false)
+    }
+  }
+
+  // Abgleich der Einsendung (Kunde -> McRepair) am Auftrag - gleiche Logik wie oben.
+  const handleReconcileInbound = async (resolution: 'not-created' | 'created') => {
+    if (!order?._id || reconcilingInbound) return
+    const trackingNumber = reconcileInboundTrackingNumber.replace(/\s+/g, '')
+    if (resolution === 'created' && !trackingNumber) {
+      toast({
+        title: 'Sendungsnummer fehlt',
+        description: 'Bitte die Sendungsnummer aus dem DHL-Geschäftskundenportal eintragen.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setReconcilingInbound(true)
+      const reconcileUrl = String((orderShipments?.inbound as ReconcilableShipmentView | undefined)?.reconcileUrl || '')
+      const response = await reconcileOrderInboundShipment(order._id, { resolution, trackingNumber: trackingNumber || undefined }, reconcileUrl)
+      if (response?.shipments) setOrderShipments(response.shipments)
+      setReconcileInboundTrackingNumber('')
+      await refreshOrder()
+      toast({
+        title: 'Abgleich abgeschlossen',
+        description: resolution === 'created'
+          ? 'Die Sendungsnummer der Einsendung wurde übernommen. Das PDF-Label bitte im DHL-Geschäftskundenportal abrufen.'
+          : 'Es wurde kein Einsendelabel angelegt. Das Einsendelabel kann jetzt neu erstellt werden.',
+      })
+    } catch (error: any) {
+      await loadOrderShipments(order._id)
+      toast({
+        title: 'Abgleich fehlgeschlagen',
+        description: error?.message || 'Bitte erneut versuchen.',
+        variant: 'destructive',
+      })
+    } finally {
+      setReconcilingInbound(false)
     }
   }
 
@@ -1343,9 +1464,50 @@ export function OrderDetails() {
       console.error("Error removing EPart:", error)
       toast({
         title: "Fehler",
-        description: error.message || "Failed to remove EPart",
+        description: error.message || "Das Ersatzteil konnte nicht entfernt werden.",
         variant: "destructive"
       })
+    }
+  }
+
+  // Bietet bei 409 ORDER_VALUE_NOT_RECONCILED die Bestätigung der Neuberechnung an (true),
+  // sonst false - der Aufrufer zeigt den Fehler dann wie bisher.
+  const offerRepricingConfirmation = (
+    error: any,
+    title: string,
+    retry: (confirmation: OrderRepricingOptions) => Promise<void>
+  ) => {
+    if (readOrderServiceErrorCode(error) !== ORDER_VALUE_NOT_RECONCILED) return false
+    setPendingRepricing({
+      title,
+      message: error?.message || "Der gespeicherte Auftragswert passt nicht zu den Positionen.",
+      details: readReconciliationDetails(error),
+      outdated: isRepricingConfirmationOutdated(error),
+      retry
+    })
+    return true
+  }
+
+  const confirmPendingRepricing = async () => {
+    if (!pendingRepricing || confirmingRepricing) return
+    const { retry, details, title } = pendingRepricing
+    try {
+      setConfirmingRepricing(true)
+      await retry(buildRepricingConfirmation(details))
+      setPendingRepricing(null)
+    } catch (error: any) {
+      console.error("Error confirming repricing:", error)
+      // Hat sich der Auftrag inzwischen geändert, zeigt der Dialog die NEUE Abweichung.
+      if (!offerRepricingConfirmation(error, title, retry)) {
+        setPendingRepricing(null)
+        toast({
+          title: "Fehler",
+          description: error?.message || "Die Änderung konnte nicht gespeichert werden.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setConfirmingRepricing(false)
     }
   }
 
@@ -1395,19 +1557,28 @@ export function OrderDetails() {
         }
       }
 
-      await addAddonToOrder(id, addonData)
+      const submitAddon = async (repricing?: OrderRepricingOptions) => {
+        await addAddonToOrder(id, addonData, repricing)
 
-      toast({
-        title: "Erfolg",
-        description: "Zusatzservice wurde erfolgreich hinzugefügt."
-      })
+        toast({
+          title: "Erfolg",
+          description: "Zusatzservice wurde erfolgreich hinzugefügt."
+        })
 
-      // Reset form
-      resetAddOnForm()
-      setAddAddonDialogOpen(false)
+        // Reset form
+        resetAddOnForm()
+        setAddAddonDialogOpen(false)
 
-      // Refresh order data
-      await refreshOrder()
+        // Refresh order data
+        await refreshOrder()
+      }
+
+      try {
+        await submitAddon()
+      } catch (error: any) {
+        if (offerRepricingConfirmation(error, "Zusatzleistung hinzufügen", submitAddon)) return
+        throw error
+      }
     } catch (error: any) {
       console.error("Error adding add-on:", error)
       toast({
@@ -1450,28 +1621,38 @@ export function OrderDetails() {
         updateData.estimatedTime = customAddonTime
       }
 
-      await updateOrderAddon(id, editingAddon._id, updateData)
+      const addonId = editingAddon._id
+      const submitAddonUpdate = async (repricing?: OrderRepricingOptions) => {
+        await updateOrderAddon(id, addonId, updateData, repricing)
 
-      toast({
-        title: "Erfolg",
-        description: "Die Zusatzleistung wurde aktualisiert."
-      })
+        toast({
+          title: "Erfolg",
+          description: "Die Zusatzleistung wurde aktualisiert."
+        })
 
-      // Reset form
-      setEditingAddon(null)
-      setCustomAddonName("")
-      setCustomAddonPrice("")
-      setCustomAddonDescription("")
-      setCustomAddonTime("")
-      setEditAddonDialogOpen(false)
+        // Reset form
+        setEditingAddon(null)
+        setCustomAddonName("")
+        setCustomAddonPrice("")
+        setCustomAddonDescription("")
+        setCustomAddonTime("")
+        setEditAddonDialogOpen(false)
 
-      // Refresh order data
-      await refreshOrder()
+        // Refresh order data
+        await refreshOrder()
+      }
+
+      try {
+        await submitAddonUpdate()
+      } catch (error: any) {
+        if (offerRepricingConfirmation(error, "Zusatzleistung ändern", submitAddonUpdate)) return
+        throw error
+      }
     } catch (error: any) {
       console.error("Error updating add-on:", error)
       toast({
         title: "Fehler",
-        description: error.message || "Failed to update add-on service",
+        description: error.message || "Der Zusatzservice konnte nicht aktualisiert werden.",
         variant: "destructive"
       })
     }
@@ -1480,8 +1661,8 @@ export function OrderDetails() {
   const handleRemoveAddon = async (addonId: string) => {
     if (!id) return
 
-    try {
-      await removeAddonFromOrder(id, addonId)
+    const submitAddonRemoval = async (repricing?: OrderRepricingOptions) => {
+      await removeAddonFromOrder(id, addonId, repricing)
 
       toast({
         title: "Erfolg",
@@ -1490,11 +1671,16 @@ export function OrderDetails() {
 
       // Refresh order data
       await refreshOrder()
+    }
+
+    try {
+      await submitAddonRemoval()
     } catch (error: any) {
       console.error("Error removing add-on:", error)
+      if (offerRepricingConfirmation(error, "Zusatzleistung entfernen", submitAddonRemoval)) return
       toast({
         title: "Fehler",
-        description: error.message || "Failed to remove add-on service",
+        description: error.message || "Der Zusatzservice konnte nicht entfernt werden.",
         variant: "destructive"
       })
     }
@@ -1522,7 +1708,7 @@ export function OrderDetails() {
       console.error("Error assigning staff to add-on:", error)
       toast({
         title: "Fehler",
-        description: error.message || "Failed to assign staff to add-on service",
+        description: error.message || "Der Mitarbeiter konnte der Zusatzleistung nicht zugewiesen werden.",
         variant: "destructive"
       })
     }
@@ -1541,8 +1727,8 @@ export function OrderDetails() {
   const handleAddShopProduct = async (productId: string, quantity: number) => {
     if (!id) return
 
-    try {
-      await addShopProductToOrder(id, productId, quantity)
+    const submitShopProduct = async (repricing?: OrderRepricingOptions) => {
+      await addShopProductToOrder(id, productId, quantity, repricing)
 
       toast({
         title: "Erfolg",
@@ -1551,8 +1737,17 @@ export function OrderDetails() {
 
       // Refresh order data
       await refreshOrder()
+    }
+
+    try {
+      await submitShopProduct()
     } catch (error: any) {
       console.error("Error adding shop product:", error)
+      if (offerRepricingConfirmation(error, "Produkt hinzufügen", submitShopProduct)) {
+        // Die Auswahl schließen, die Rückfrage übernimmt; der Auswahldialog zeigt die
+        // Servermeldung (nicht gespeichert) als Hinweis.
+        setShopProductDialogOpen(false)
+      }
       throw error
     }
   }
@@ -1560,8 +1755,8 @@ export function OrderDetails() {
   const handleRemoveShopProduct = async (productItemId: string) => {
     if (!id) return
 
-    try {
-      await removeShopProductFromOrder(id, productItemId)
+    const submitShopProductRemoval = async (repricing?: OrderRepricingOptions) => {
+      await removeShopProductFromOrder(id, productItemId, repricing)
 
       toast({
         title: "Erfolg",
@@ -1570,11 +1765,16 @@ export function OrderDetails() {
 
       // Refresh order data
       await refreshOrder()
+    }
+
+    try {
+      await submitShopProductRemoval()
     } catch (error: any) {
       console.error("Error removing shop product:", error)
+      if (offerRepricingConfirmation(error, "Produkt entfernen", submitShopProductRemoval)) return
       toast({
         title: "Fehler",
-        description: error.message || "Failed to remove product",
+        description: error.message || "Das Produkt konnte nicht entfernt werden.",
         variant: "destructive"
       })
     }
@@ -1583,8 +1783,8 @@ export function OrderDetails() {
   const handleUpdateShopProductQuantity = async (productItemId: string, newQuantity: number) => {
     if (!id) return
 
-    try {
-      await updateShopProductQuantity(id, productItemId, newQuantity)
+    const submitShopProductQuantity = async (repricing?: OrderRepricingOptions) => {
+      await updateShopProductQuantity(id, productItemId, newQuantity, repricing)
 
       toast({
         title: "Erfolg",
@@ -1593,109 +1793,139 @@ export function OrderDetails() {
 
       // Refresh order data
       await refreshOrder()
+    }
+
+    try {
+      await submitShopProductQuantity()
     } catch (error: any) {
       console.error("Error updating product quantity:", error)
+      if (offerRepricingConfirmation(error, "Produktmenge ändern", submitShopProductQuantity)) return
       toast({
         title: "Fehler",
-        description: error.message || "Failed to update product quantity",
+        description: error.message || "Die Produktmenge konnte nicht geändert werden.",
         variant: "destructive"
       })
     }
   }
 
   // Repair Service Handlers
-  const handleAddRepairService = async (formData: any) => {
+  // Nach jeder Änderung: Positionen und Auftrag (inkl. Server-Preisaufstellung) neu laden.
+  const reloadRepairServicesAndOrder = async () => {
     if (!id) return
-
     try {
-      console.log("Adding repair service:", formData)
-      await addServiceToOrder(id, formData.serviceId, {
-        price: formData.price,
-        estimatedTime: formData.estimatedTime,
-        notes: formData.notes
-      })
-
-      toast({
-        title: "Erfolg",
-        description: "Die Reparaturleistung wurde hinzugefügt."
-      })
-
-      // Refresh repair services
       const orderServicesResponse = await getOrderServices(id)
       setRepairServices((orderServicesResponse as any).services || [])
-
-      // Refresh order data
-      await refreshOrder()
-    } catch (error: any) {
-      console.error("Error adding repair service:", error)
-      toast({
-        title: "Fehler",
-        description: error.message || "Failed to add repair service",
-        variant: "destructive"
-      })
+    } catch (error) {
+      console.error("Error reloading repair services:", error)
     }
+    await refreshOrder()
   }
 
-  const handleEditRepairService = async (formData: any) => {
+  // Warnungen des Servers (z. B. "Rechnung konnte nicht angepasst werden") dürfen nie
+  // hinter einer Erfolgsmeldung verschwinden: gibt es welche, erscheint NUR die Warnung.
+  const notifyOrderServiceResult = (successText: string, response?: { warnings?: string[] } | null) => {
+    const list = getOrderServiceWarnings(response)
+    if (list.length > 0) {
+      toast({
+        title: "Gespeichert – bitte prüfen",
+        description: list.join(' '),
+        variant: "destructive"
+      })
+      return
+    }
+    toast({
+      title: "Erfolg",
+      description: successText
+    })
+  }
+
+  // Fehler werden an RepairServiceDialog weitergereicht (throw): der Dialog bleibt
+  // offen und zeigt die Serverfehlermeldung, statt sich trotz Fehler zu schließen.
+  const handleAddRepairService = async (formData: RepairServiceFormData) => {
+    if (!id) return
+
+    console.log("Adding repair service:", formData)
+    const response = await addRepairServiceFromForm(id, formData)
+
+    await reloadRepairServicesAndOrder()
+    notifyOrderServiceResult(
+      formData.isManual ? "Die manuelle Reparaturposition wurde hinzugefügt." : "Die Reparaturleistung wurde hinzugefügt.",
+      response
+    )
+  }
+
+  const handleEditRepairService = async (formData: RepairServiceFormData) => {
     if (!id || !editingService) return
 
-    try {
-      console.log("Updating repair service:", editingService._id, formData)
-      await updateOrderService(id, editingService._id, {
-        price: formData.price,
-        estimatedTime: formData.estimatedTime,
-        notes: formData.notes
-      })
+    console.log("Updating repair service:", editingService._id, formData)
+    const response = await updateRepairServiceFromForm(id, editingService._id, formData, {
+      // Nur das gespeicherte Kennzeichen: eine Katalogposition mit gelöschtem Service ist nicht manuell.
+      isManualLine: editingService.isManual === true
+    })
 
-      toast({
-        title: "Erfolg",
-        description: "Die Reparaturleistung wurde aktualisiert."
-      })
+    setEditingService(null)
+    setServiceDialogOpen(false)
 
-      setEditingService(null)
-      setServiceDialogOpen(false)
-
-      // Refresh repair services
-      const orderServicesResponse = await getOrderServices(id)
-      setRepairServices((orderServicesResponse as any).services || [])
-
-      // Refresh order data
-      await refreshOrder()
-    } catch (error: any) {
-      console.error("Error updating repair service:", error)
-      toast({
-        title: "Fehler",
-        description: error.message || "Failed to update repair service",
-        variant: "destructive"
-      })
-    }
+    await reloadRepairServicesAndOrder()
+    notifyOrderServiceResult("Die Reparaturleistung wurde aktualisiert.", response)
   }
 
-  const handleDeleteRepairService = async (serviceId: string) => {
-    if (!id) return
+  const handleDeleteRepairService = async (serviceId: string, reason?: string, options: OrderRepricingOptions = {}) => {
+    if (!id) return false
 
     try {
       console.log("Removing repair service:", serviceId)
-      await removeServiceFromOrder(id, serviceId)
-
-      toast({
-        title: "Erfolg",
-        description: "Die Reparaturleistung wurde entfernt."
+      // Bestätigung an die GEZEIGTE Abweichung gebunden (repricingBasis), wie bei Zusatzleistungen,
+      // Shop-Produkten und Gerätewechsel - kein nackter confirmRepricing-Boolean.
+      const repricing: OrderRepricingOptions = options.confirmRepricing === true
+        ? { confirmRepricing: true, ...(options.repricingBasis ? { repricingBasis: options.repricingBasis } : {}) }
+        : {}
+      const response = await removeServiceFromOrder(id, serviceId, {
+        reason: reason || '',
+        ...repricing
       })
 
-      // Refresh repair services
-      const orderServicesResponse = await getOrderServices(id)
-      setRepairServices((orderServicesResponse as any).services || [])
-
-      // Refresh order data
-      await refreshOrder()
+      await reloadRepairServicesAndOrder()
+      notifyOrderServiceResult("Die Reparaturleistung wurde entfernt.", response)
+      return true
     } catch (error: any) {
       console.error("Error removing repair service:", error)
+      if (readOrderServiceErrorCode(error) === ORDER_VALUE_NOT_RECONCILED
+        && (!options.confirmRepricing || isRepricingConfirmationOutdated(error))) {
+        // Auftragswert passt nicht zu den Positionen: nicht still neu berechnen, sondern im
+        // Dialog die Abweichung zeigen und die Bestätigung anbieten. Hat sich der Auftrag seit
+        // der Anzeige geändert (confirmationOutdated), zeigt der Dialog die NEUE Abweichung.
+        setDeleteServiceRepricing({
+          message: error.message || "Der gespeicherte Auftragswert passt nicht zu den Positionen.",
+          details: readReconciliationDetails(error)
+        })
+        return false
+      }
       toast({
         title: "Fehler",
-        description: error.message || "Failed to remove repair service",
+        description: error.message || "Die Reparaturposition konnte nicht entfernt werden.",
         variant: "destructive"
       })
+      return false
+    }
+  }
+
+  const confirmDeleteRepairService = async (confirmRepricing = false) => {
+    if (!serviceToDelete?._id || deletingService) return
+    try {
+      setDeletingService(true)
+      const removed = await handleDeleteRepairService(
+        String(serviceToDelete._id),
+        deleteServiceReason.trim(),
+        confirmRepricing ? buildRepricingConfirmation(deleteServiceRepricing?.details) : {}
+      )
+      if (removed) {
+        setServiceToDelete(null)
+        setDeleteServiceReason('')
+        setDeleteServiceRepricing(null)
+      }
+    } finally {
+      setDeletingService(false)
     }
   }
 
@@ -1704,7 +1934,7 @@ export function OrderDetails() {
     setServiceDialogOpen(true)
   }
 
-  const handleSaveService = async (formData: any) => {
+  const handleSaveService = async (formData: RepairServiceFormData) => {
     if (editingService) {
       await handleEditRepairService(formData)
     } else {
@@ -1839,7 +2069,7 @@ export function OrderDetails() {
       console.error("OrderDetails: Error updating device:", error)
       toast({
         title: "Fehler",
-        description: error.message || "Failed to update device information",
+        description: error.message || "Die Geräteinformationen konnten nicht aktualisiert werden.",
         variant: "destructive"
       })
     } finally {
@@ -2252,7 +2482,7 @@ export function OrderDetails() {
       case 'paid': return 'Bezahlt'
       case 'pending': return 'Ausstehend'
       case 'refunded': return 'Erstattet'
-      case 'partial': return 'Teilweise bezahlt'
+      case 'partial': return 'Teilbezahlt'
       case 'unpaid': return 'Nicht bezahlt'
       case 'overdue': return 'Überfällig'
       default: return status
@@ -2273,7 +2503,48 @@ export function OrderDetails() {
       credited: 'Gutgeschrieben',
     }
 
-    return statusMap[normalizedStatus] || (status || 'Unbekannt')
+    return statusMap[normalizedStatus] || 'Unbekannt'
+  }
+
+  // Rechnungsdetails: Positionsart, Zahlungsstatus und Zahlungsart deutsch (nie der rohe
+  // englische Enum-Wert aus Invoice.items[].type / Payment.status / Payment.paymentMethod).
+  const translateInvoiceItemType = (type?: string) => {
+    const map: Record<string, string> = {
+      service: 'Reparaturleistung',
+      addon: 'Zusatzleistung',
+      product: 'Produkt',
+      fee: 'Gebühr',
+      discount: 'Rabatt',
+    }
+    return map[String(type || '').toLowerCase()] || 'Position'
+  }
+
+  const translatePaymentRecordStatus = (status?: string) => {
+    const map: Record<string, string> = {
+      pending: 'Ausstehend',
+      processing: 'In Bearbeitung',
+      completed: 'Eingegangen',
+      failed: 'Fehlgeschlagen',
+      refunded: 'Erstattet',
+      disputed: 'Angefochten',
+    }
+    return map[String(status || '').toLowerCase()] || 'Unbekannt'
+  }
+
+  const translatePaymentMethodLabel = (method?: string) => {
+    const map: Record<string, string> = {
+      credit_card: 'Kreditkarte',
+      debit_card: 'Debitkarte',
+      paypal: 'PayPal',
+      stripe: 'Kartenzahlung',
+      bank_transfer: 'Überweisung',
+      invoice: 'Rechnung',
+      sepa: 'SEPA-Lastschrift',
+      cash: 'Barzahlung',
+      apple_pay: 'Apple Pay',
+      google_pay: 'Google Pay',
+    }
+    return map[String(method || '').toLowerCase()] || 'Zahlung'
   }
 
   const getInvoiceStatusBadgeClass = (status?: string) => {
@@ -2706,8 +2977,6 @@ export function OrderDetails() {
   const addonPreviewTime = addonInputMode === 'catalog'
     ? selectedAddonService?.estimatedTime
     : customAddonTime
-  const orderTotalBeforeAddon = safeToNumber((order as any)?.totalCost)
-  const orderTotalAfterAddon = orderTotalBeforeAddon + addonPreviewPrice
   const canSubmitAddon = addonInputMode === 'catalog'
     ? Boolean(selectedAddonService)
     : Boolean(customAddonName.trim() && safeToNumber(customAddonPrice) > 0)
@@ -2744,6 +3013,11 @@ export function OrderDetails() {
       'Completed': 'Abgeschlossen',
       'Ready for Pickup': 'Abholbereit',
       'Shipping Label Created': 'Versandetikett erstellt',
+      'Shipping Label Reconciliation Required': 'Abgleich des Versandlabels erforderlich',
+      'Shipping Label Reconciled': 'Versandlabel abgeglichen',
+      'Legacy Inbound Label Moved': 'Einsendelabel (Altbestand) getrennt',
+      'Inbound Label Created': 'Einsendelabel erstellt',
+      'Inbound Label Reconciliation Required': 'Abgleich des Einsendelabels erforderlich',
       'Return Label Created': 'Rückgabeetikett erstellt',
       'Return Status Updated': 'Rückgabestatus aktualisiert',
       'cancelled': 'Storniert',
@@ -2781,43 +3055,87 @@ export function OrderDetails() {
   const estimatedCompletionText = order.estimatedCompletion
     ? new Date(order.estimatedCompletion).toLocaleDateString('de-DE')
     : 'Wird aktualisiert'
-  const bookingShippingStatus = String(linkedBooking?.shippingStatus || '').toLowerCase()
-  const bookingReturnStatus = String(linkedBooking?.returnShipmentStatus || '').toLowerCase()
-  const bookingShippingStatusDescription = String(linkedBooking?.shippingStatusDescription || '').trim()
-  const bookingReturnStatusDescription = String(linkedBooking?.returnShipmentStatusDescription || '').trim()
-  const orderShippingStatus = String(order.shippingStatus || '').toLowerCase()
-  const orderShippingStatusDescription = String(order.shippingStatusDescription || '').trim()
 
-  // --- Rücksendung (McRepair -> Kunde) -------------------------------------
-  // A return may live on the linked booking (one parcel back per booking) or, for
-  // an order without a booking, on the order itself. `hasReturnLabel` comes from the
-  // read layer: the stored base64 PDF is not part of the detail payload.
-  const returnLabelExists = Boolean(
-    linkedBooking?._id
-      ? (linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus === 'label-created')
-      : (order.hasReturnLabel || order.returnLabelUrl || order.returnShipmentStatus === 'label-created')
-  )
-  // A return label may be downloaded whenever either side has one - never make the
-  // two mutually exclusive, or an order-level label created before the order was
-  // linked to a booking disappears from the screen.
-  const returnLabelDownloadable = Boolean(
-    linkedBooking?.returnLabelUrl || order.hasReturnLabel || order.returnLabelUrl
-  )
-  // The repair has to be far enough along. Note that 'completed' means "pickup
-  // confirmed" (adminOrderRoutes confirm-pickup), i.e. AFTER the device left us -
-  // gating the action on it made the return unreachable in exactly the moment it is
-  // needed. 'completed' stays in the list so a later re-shipment is still possible.
-  const returnReadyStatuses = ['quality-check', 'ready-for-pickup', 'completed']
-  const canStartReturn = returnReadyStatuses.includes(String(order.status)) && !returnLabelExists
-  const returnActionHint = returnLabelExists
-    ? 'Für diesen Auftrag wurde bereits ein Rücksendelabel erstellt.'
-    : canStartReturn
-      ? 'Erstellt ein DHL-Rücksendeetikett für den Versand an den Kunden.'
-      : 'Die Rücksendung ist erst nach Abschluss der Reparatur möglich (ab Qualitätsprüfung).'
+  // --- Versand: Einsendung (Kunde -> McRepair) / Auslieferung (McRepair -> Kunde) ---
+  // Beide Richtungen kommen getrennt vom Server (orderShipments), ebenso die Entscheidung,
+  // ob "An Kunden versenden" bzw. "Einsendelabel erstellen" möglich ist - dieselbe
+  // Funktion, die der POST-Endpunkt durchsetzt. Hier wird nur gerendert.
+  const outboundShipment = orderShipments?.outbound
+  const inboundShipment = orderShipments?.inbound
+  const outboundAction = orderShipments?.outboundAction
+  const inboundAction = orderShipments?.inboundAction
+  const outboundLabelExists = Boolean(outboundShipment?.hasLabel || outboundShipment?.trackingNumber)
+  const inboundLabelExists = Boolean(inboundShipment?.hasLabel || inboundShipment?.trackingNumber)
+  const outboundReconciliationRequired = Boolean(outboundShipment?.reconciliationRequired)
+  const outboundActionHint = !orderShipments
+    ? 'Versandstand wird geladen…'
+    : outboundAction?.reason || ''
+  const inboundDownloadable = Boolean(orderShipments?.inboundLabels?.some((entry) => entry.hasLabel))
 
-  const inboundLabelExists = Boolean(
-    order.shippingLabelUrl || order.trackingNumber || order.shippingStatus === 'label-created'
-  )
+  // Sperre/Abgleich je Richtung, so wie der Server sie meldet: 'reconciliationRequired'
+  // (unklare DHL-Antwort ODER verwaiste Sperre, lockStale) zeigt die Abgleich-Bedienung,
+  // eine gerade laufende Erstellung (inProgress) einen Hinweis mit "Neu laden" - nie nur
+  // einen dauerhaft deaktivierten Button ohne Erklärung.
+  const renderShipmentLockPanel = (direction: 'inbound' | 'outbound') => {
+    const shipment = (direction === 'outbound' ? outboundShipment : inboundShipment) as ReconcilableShipmentView | undefined
+    if (!shipment) return null
+    const directionLabel = direction === 'outbound' ? 'Auslieferung (McRepair → Kunde)' : 'Einsendung (Kunde → McRepair)'
+    const labelName = direction === 'outbound' ? 'Versandlabel' : 'Einsendelabel'
+
+    if (!shipment.reconciliationRequired) {
+      if (!shipment.inProgress) return null
+      return (
+        <div className="sm:col-span-2 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-1">
+          <p className="text-xs font-semibold text-blue-900 dark:text-blue-200">
+            {directionLabel}: {labelName} wird gerade bei DHL erstellt.
+          </p>
+          <p className="text-xs text-blue-900 dark:text-blue-200">
+            Bitte nicht erneut erstellen. Bleibt die Erstellung hängen, bietet die Seite nach kurzer Zeit automatisch den Abgleich an.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => void loadOrderShipments(order?._id)}>
+            Versandstand neu laden
+          </Button>
+        </div>
+      )
+    }
+
+    const busy = direction === 'outbound' ? reconcilingOutbound : reconcilingInbound
+    const trackingValue = direction === 'outbound' ? reconcileTrackingNumber : reconcileInboundTrackingNumber
+    const setTrackingValue = direction === 'outbound' ? setReconcileTrackingNumber : setReconcileInboundTrackingNumber
+    const reconcile = direction === 'outbound' ? handleReconcileOutbound : handleReconcileInbound
+    return (
+      <div className="sm:col-span-2 rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+        <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+          <AlertTriangle className="inline h-3.5 w-3.5 mr-1" />
+          {directionLabel} – Abgleich erforderlich: {shipment.lockStale
+            ? 'Eine frühere Label-Erstellung wurde gestartet, aber nie abgeschlossen.'
+            : 'DHL hat nicht eindeutig geantwortet.'}
+        </p>
+        <p className="text-xs text-amber-900 dark:text-amber-200">
+          Ob bei DHL bereits ein {labelName} angelegt wurde, ist unklar. Bitte im DHL-Geschäftskundenportal
+          {shipment.reference ? <> nach der Referenz „{shipment.reference}“</> : null} suchen und erst danach hier das Ergebnis eintragen – so entsteht kein zweites, bezahltes Label.
+        </p>
+        {user?.role === 'admin' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={trackingValue}
+              onChange={(event) => setTrackingValue(event.target.value)}
+              placeholder="Sendungsnummer aus dem DHL-Portal"
+              className="h-8 w-56 text-xs"
+            />
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void reconcile('created')}>
+              Sendung existiert – übernehmen
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void reconcile('not-created')}>
+              Bei DHL nicht angelegt
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-amber-900 dark:text-amber-200">Den Abgleich schließt ein Administrator ab.</p>
+        )}
+      </div>
+    )
+  }
 
   // --- Preisaufstellung (Brutto-first) --------------------------------------
   // SINGLE AUTHORITY: the server computes this once in
@@ -2832,9 +3150,17 @@ export function OrderDetails() {
 
     if (serverPricing && Number.isFinite(Number(serverPricing.grossTotal))) {
       const positionsGross = round2(safeToNumber(serverPricing.positionsGross))
+      const discount = round2(safeToNumber(serverPricing.discount))
+      // Aufteilung des EINEN Rabatts, so wie der Server ihn gebildet hat. Fehlt sie
+      // (ältere Antwort), wird der Gesamtrabatt als eine Zeile gezeigt.
+      const hasSplit = serverPricing.groupDiscountAmount !== undefined || serverPricing.promoDiscountAmount !== undefined
       return {
         positionsGross,
-        discount: round2(safeToNumber(serverPricing.discount)),
+        discount,
+        groupDiscountPercent: safeToNumber(serverPricing.groupDiscountPercent),
+        groupDiscountAmount: hasSplit ? round2(safeToNumber(serverPricing.groupDiscountAmount)) : discount,
+        promoDiscountAmount: hasSplit ? round2(safeToNumber(serverPricing.promoDiscountAmount)) : 0,
+        conditionsSource: String(serverPricing.conditionsSource || ''),
         dealerDiscountAmount: round2(safeToNumber(serverPricing.dealerDiscountAmount)),
         grossTotal: round2(safeToNumber(serverPricing.grossTotal)),
         netTotal: round2(safeToNumber(serverPricing.netTotal)),
@@ -2872,6 +3198,10 @@ export function OrderDetails() {
     return {
       positionsGross,
       discount,
+      groupDiscountPercent: 0,
+      groupDiscountAmount: discount,
+      promoDiscountAmount: 0,
+      conditionsSource: '',
       dealerDiscountAmount,
       grossTotal,
       netTotal,
@@ -2886,6 +3216,61 @@ export function OrderDetails() {
   // eine ganze Zahl runden - sonst steht '8 %' neben einem mit 7,5 % gerechneten Betrag.
   const formatTaxRate = (rate: number) =>
     new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(safeToNumber(rate))
+  // Rabattzeilen der Preisübersicht (Kopf, Admin-Block und Kundenansicht lesen dieselbe
+  // Liste): Aktionsrabatt (fester Betrag) und Kunden-/Händlerkondition (Prozent + EUR).
+  // Die Summe der Zeilen ist immer pricing.discount (+ Händlerrabatt aus Altbestand).
+  const orderDiscountLines = (() => {
+    const lines: Array<{ key: string; label: string; amount: number }> = []
+    if (orderPriceBreakdown.promoDiscountAmount > 0) {
+      lines.push({
+        key: 'promo',
+        label: `Aktionsrabatt${order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}`,
+        amount: orderPriceBreakdown.promoDiscountAmount,
+      })
+    }
+    if (orderPriceBreakdown.groupDiscountAmount > 0) {
+      const sourceLabel = orderPriceBreakdown.conditionsSource === 'customer_group'
+        ? 'Kundengruppenrabatt'
+        : orderPriceBreakdown.conditionsSource === 'customer'
+          ? 'Kundenrabatt'
+          : orderPriceBreakdown.conditionsSource === 'settings_default'
+            ? 'Standardrabatt'
+            : 'Rabatt'
+      const percent = orderPriceBreakdown.groupDiscountPercent
+      lines.push({
+        key: 'group',
+        label: `${sourceLabel}${percent > 0 ? ` (${formatTaxRate(percent)} %)` : ''}${!percent && order.appliedPromoCode && orderPriceBreakdown.promoDiscountAmount === 0 ? ` (${order.appliedPromoCode})` : ''}`,
+        amount: orderPriceBreakdown.groupDiscountAmount,
+      })
+    }
+    if (orderPriceBreakdown.dealerDiscountAmount > 0) {
+      lines.push({
+        key: 'dealer',
+        label: `Händlerrabatt${order.dealerDiscountPercent ? ` (${formatTaxRate(order.dealerDiscountPercent)} %)` : ''}`,
+        amount: orderPriceBreakdown.dealerDiscountAmount,
+      })
+    }
+    return lines
+  })()
+  const orderDiscountTotal = orderDiscountLines.reduce((sum, line) => sum + line.amount, 0)
+
+  // Zahlungsstand aus den SERVER-Salden der Rechnungen (Admin: Finanzliste, Kunde:
+  // eigene Rechnungen). Order.paymentStatus kennt kein "überzahlt" - eine offene
+  // Erstattung ist nur am Rechnungssaldo sichtbar.
+  const selectedInvoiceDetailsPayment = summarizeInvoicePayment(selectedInvoiceDetails)
+  // Nur Rechnungen DIESES Auftrags zählen als seine Überzahlung; eine Buchungs-/Sammelrechnung
+  // über mehrere Aufträge wird als Beleg-Betrag ausgewiesen (sonst zeigte jeder Auftrag der
+  // Buchung den vollen Betrag der Buchungsrechnung als eigene Überzahlung).
+  const orderRefundPendingScope = splitRefundPendingByScope(
+    (isStaffOrAdmin ? orderInvoices : customerInvoices) as any[],
+    String(order?._id || id || '')
+  )
+  const orderRefundPendingTotal = orderRefundPendingScope.orderAmount
+  // Erfüllung (Auslieferung) und Zahlung sind getrennte Dimensionen: "Versendet" und
+  // "Teilbezahlt" werden nebeneinander angezeigt.
+  const outboundFulfilmentStatus = String(orderShipments?.outbound?.status || '').toLowerCase()
+  const showOutboundFulfilmentBadge = ['label-created', 'shipped', 'in-transit', 'out-for-delivery', 'delivered'].includes(outboundFulfilmentStatus)
+    && Boolean(orderShipments?.outbound?.trackingNumber || orderShipments?.outbound?.hasLabel)
   const buildDhlTrackingUrl = (trackingNumber: string) => `https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(trackingNumber)}`
   const getShipmentStatusMeta = (status: string) => {
     switch (String(status || '').toLowerCase()) {
@@ -3716,21 +4101,23 @@ export function OrderDetails() {
           </div>
           <div className={`details flex-1 ${!isStaffOrAdmin ? 'customer-device-details' : ''}`}>
             <h3>{order.deviceBrand} {order.deviceModel}</h3>
-            <p>Repair Services</p>
+            <p>Reparaturleistungen</p>
             <div className="services-tags">
-              {order.services && order.services.filter((s) => s && s._id).length > 0 ? (
-                order.services.filter((s) => s && s._id).map((service) => {
-                  const serviceName = typeof service.serviceId === 'object'
-                    ? service.serviceId?.name
-                    : service.serviceName || `Service #${String(service._id).substring(0, 8)}`;
-                  const servicePrice = typeof service.serviceId === 'object'
-                    ? service.serviceId?.price || service.price
-                    : service.price;
+              {/* Positionen aus /api/order-services (vollständige Objekte inkl. manueller
+                  Positionen); order.services der Detailantwort enthält nur Namen. Angezeigt
+                  wird der gespeicherte Standardpreis der Position, nicht der Katalogpreis. */}
+              {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
+                repairServices.filter((s) => s && s._id).map((service) => {
+                  const serviceName = service.serviceId?.name
+                    || service.name
+                    || service.serviceName
+                    || `Service #${String(service._id).substring(0, 8)}`;
+                  const servicePrice = service.price;
 
                   return (
                     <span key={service._id} className="service-tag">
                       {serviceName}
-                      {servicePrice && <span className="ml-0.5 font-semibold">{formatEUR(servicePrice)}</span>}
+                      {safeToNumber(servicePrice) > 0 && <span className="ml-0.5 font-semibold">{formatEUR(servicePrice)}</span>}
                     </span>
                   );
                 })
@@ -4093,11 +4480,16 @@ export function OrderDetails() {
           {repairServices.filter((s) => s && s._id).map((service, index) => (
             <div key={service._id || `service-${index}`} className="service-list-item">
               <div className="service-info flex-1">
-                <h4>{service.serviceId?.name || 'Service'}</h4>
-                {service.serviceId?.description && (() => {
+                <h4>
+                  {service.serviceId?.name || service.name || 'Reparaturposition'}
+                  {service.isManual === true && (
+                    <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-[10px] font-medium align-middle">Manuell</Badge>
+                  )}
+                </h4>
+                {(service.serviceId?.description || service.description) && (() => {
                   const id = service._id || `service-${index}`;
                   const isExpanded = expandedServiceDescriptions.has(id);
-                  const desc = service.serviceId.description;
+                  const desc = String(service.serviceId?.description || service.description);
                   const isLong = desc.length > 80;
                   return (
                     <div className="text-xs text-muted-foreground mt-0.5">
@@ -4146,7 +4538,13 @@ export function OrderDetails() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => service._id && handleDeleteRepairService(service._id)}
+                    onClick={() => {
+                      if (!service._id) return
+                      setDeleteServiceReason('')
+                      setDeleteServiceRepricing(null)
+                      setServiceToDelete(service)
+                    }}
+                    title="Reparaturposition entfernen"
                     className="order-btn-icon text-red-500 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -4288,28 +4686,17 @@ export function OrderDetails() {
       <div className="repair-info-subsection-body mt-2 rounded-lg border bg-muted/20 p-3 text-sm">
         {orderPriceBreakdown.hasPositions && (
           <div className="flex items-center justify-between py-1">
-            <span className="text-muted-foreground">Zwischensumme (Brutto)</span>
+            <span className="text-muted-foreground">Listenpreis (Brutto)</span>
             <span className="font-medium">{formatEUR(orderPriceBreakdown.positionsGross)}</span>
           </div>
         )}
 
-        {orderPriceBreakdown.discount > 0 && (
-          <div className="flex items-center justify-between py-1">
-            <span className="text-muted-foreground">
-              Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
-            </span>
-            <span className="font-medium text-green-600">−{formatEUR(orderPriceBreakdown.discount)}</span>
+        {orderDiscountLines.map((line) => (
+          <div key={line.key} className="flex items-center justify-between py-1">
+            <span className="text-muted-foreground">{line.label}</span>
+            <span className="font-medium text-green-600">−{formatEUR(line.amount)}</span>
           </div>
-        )}
-
-        {orderPriceBreakdown.dealerDiscountAmount > 0 && (
-          <div className="flex items-center justify-between py-1">
-            <span className="text-muted-foreground">
-              Händlerrabatt{order.dealerDiscountPercent ? ` (${formatTaxRate(order.dealerDiscountPercent)} %)` : ''}
-            </span>
-            <span className="font-medium text-green-600">−{formatEUR(orderPriceBreakdown.dealerDiscountAmount)}</span>
-          </div>
-        )}
+        ))}
 
         <div className="flex items-center justify-between border-t pt-2 mt-1 py-1">
           <span className="font-semibold">Gesamtbetrag (Brutto)</span>
@@ -5069,25 +5456,30 @@ export function OrderDetails() {
             <span>Zahlung</span>
             <strong>{translatePaymentStatus(order.paymentStatus)}</strong>
           </div>
-          {orderPriceBreakdown.hasPositions
-            && (orderPriceBreakdown.discount > 0 || orderPriceBreakdown.dealerDiscountAmount > 0) && (
+          {orderRefundPendingTotal > 0.009 && (
             <div className="customer-summary-row">
-              <span>Zwischensumme (Brutto)</span>
+              <span>Überzahlt · Erstattung offen</span>
+              <strong className="text-violet-700">{formatEUR(orderRefundPendingTotal)}</strong>
+            </div>
+          )}
+          {orderRefundPendingScope.bookingLevel.map((entry) => (
+            <div key={`refund-${entry.invoiceId}`} className="customer-summary-row">
+              <span>Rechnung {entry.invoiceNumber || '–'} (mehrere Aufträge) überzahlt · Erstattung offen</span>
+              <strong className="text-violet-700">{formatEUR(entry.amount)}</strong>
+            </div>
+          ))}
+          {orderPriceBreakdown.hasPositions && orderDiscountLines.length > 0 && (
+            <div className="customer-summary-row">
+              <span>Listenpreis (Brutto)</span>
               <strong>{formatEUR(orderPriceBreakdown.positionsGross)}</strong>
             </div>
           )}
-          {orderPriceBreakdown.discount > 0 && (
-            <div className="customer-summary-row">
-              <span>Rabatt{order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}</span>
-              <strong className="text-green-600">−{formatEUR(orderPriceBreakdown.discount)}</strong>
+          {orderDiscountLines.map((line) => (
+            <div key={line.key} className="customer-summary-row">
+              <span>{line.label}</span>
+              <strong className="text-green-600">−{formatEUR(line.amount)}</strong>
             </div>
-          )}
-          {orderPriceBreakdown.dealerDiscountAmount > 0 && (
-            <div className="customer-summary-row">
-              <span>Händlerrabatt{order.dealerDiscountPercent ? ` (${formatTaxRate(order.dealerDiscountPercent)} %)` : ''}</span>
-              <strong className="text-green-600">−{formatEUR(orderPriceBreakdown.dealerDiscountAmount)}</strong>
-            </div>
-          )}
+          ))}
           <div className="customer-summary-row">
             <span>Gesamtbetrag (Brutto)</span>
             <strong>{formatEUR(orderPriceBreakdown.grossTotal)}</strong>
@@ -5127,6 +5519,15 @@ export function OrderDetails() {
                       {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('de-DE') : 'Ohne Datum'}
                       {typeof invoice.total === 'number' ? ` · ${formatEUR(invoice.total)}` : ''}
                     </p>
+                    {(() => {
+                      // Zahlungsstand nur, wenn der Server ihn liefert - nie eine erfundene 0.
+                      const payment = summarizeInvoicePayment(invoice)
+                      return payment.known ? (
+                        <span className={`mt-1 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
+                          {payment.label}
+                        </span>
+                      ) : null
+                    })()}
                   </div>
                   <Button
                     size="sm"
@@ -5148,40 +5549,47 @@ export function OrderDetails() {
           )}
         </div>
 
-        {/* Die Rueckversand-Felder des Auftrags gehoeren mit in diese Bedingung: sonst
-            bleibt die Karte - und damit der Block "Ruecksendung" weiter unten - bei
-            einem Auftrag ohne Buchung und ohne Hinweg-Daten komplett unsichtbar. */}
-        {(order.shippingAddress || order.trackingNumber || order.shippingLabelUrl || order.shippingStatus || order.hasReturnLabel || order.returnTrackingNumber || order.returnShipmentStatus || linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.returnLabelUrl || linkedBooking?.shippingStatus || linkedBooking?.returnShipmentStatus) && (
+        {/* Versand in ZWEI getrennten Richtungen. Die Daten kommen vom Server
+            (orderShipments), der Einsendung und Auslieferung auseinanderhält - auch für
+            Altbestand, in dem ein Einsendelabel im Versandfeld des Auftrags steht. */}
+        {(order.shippingAddress || inboundShipment?.trackingNumber || inboundShipment?.status || inboundDownloadable || outboundShipment?.trackingNumber || outboundShipment?.hasLabel || outboundReconciliationRequired) && (
           <div className="customer-summary-subcard">
             <div className="customer-summary-subcard-title">
               <MapPin className="h-4 w-4" />
-              Versand & Rücksendung
+              Versand
             </div>
             {order.shippingAddress && (
               <div className="customer-summary-address">
-                <p>{order.shippingAddress.street}</p>
+                {String((order.shippingAddress as any).deliveryType || '') === 'packstation' ? (
+                  <>
+                    <p>Packstation {(order.shippingAddress as any).packstationNumber}</p>
+                    <p>Postnummer {(order.shippingAddress as any).postNumber}</p>
+                  </>
+                ) : (
+                  <p>{order.shippingAddress.street}</p>
+                )}
                 <p>{order.shippingAddress.zipCode} {order.shippingAddress.city}</p>
                 <p>{order.shippingAddress.country}</p>
               </div>
             )}
-            {(linkedBooking?.trackingNumber || linkedBooking?.shippingLabelUrl || linkedBooking?.shippingStatus) && (
+
+            {(inboundShipment?.trackingNumber || inboundShipment?.status || inboundDownloadable) && (
               <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Hinsendung zur Buchung</div>
-                {linkedBooking?.shippingStatus && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(bookingShippingStatus).className}`}>
-                    {getShipmentStatusMeta(bookingShippingStatus).label}
+                <div className="customer-summary-logistics-title">Versand zum Reparaturbetrieb (Kunde → McRepair)</div>
+                {inboundShipment?.status && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(inboundShipment.status).toLowerCase()).className}`}>
+                    {getShipmentStatusMeta(String(inboundShipment.status).toLowerCase()).label}
                   </Badge>
                 )}
-                {bookingShippingStatusDescription && (
-                  <p className="customer-shipping-status-description">{bookingShippingStatusDescription}</p>
+                {inboundShipment?.statusDescription && (
+                  <p className="customer-shipping-status-description">{inboundShipment.statusDescription}</p>
                 )}
-                {linkedBooking?.trackingNumber && (
+                {inboundShipment?.trackingNumber && (
                   <div className="customer-summary-tracking">
-                    <span>Buchungstracking</span>
-                    <strong>{linkedBooking.trackingNumber}</strong>
-                    {linkedBooking.carrier && <p>{linkedBooking.carrier}</p>}
+                    <span>Sendungsnummer Einsendung</span>
+                    <strong>{inboundShipment.trackingNumber}</strong>
                     <a
-                      href={buildDhlTrackingUrl(linkedBooking.trackingNumber)}
+                      href={buildDhlTrackingUrl(inboundShipment.trackingNumber)}
                       target="_blank"
                       rel="noreferrer"
                       className="customer-summary-tracking-link"
@@ -5191,70 +5599,39 @@ export function OrderDetails() {
                     </a>
                   </div>
                 )}
-
-                {!linkedBooking?.shippingLabelUrl && linkedBooking?.shippingStatus && (
-                  <div className={`customer-summary-shipping-note ${bookingShippingStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
-                    {bookingShippingStatus === 'failed'
-                      ? 'Das DHL-Versandlabel für die Buchung konnte noch nicht erstellt werden. Das Team prüft die Versanddaten.'
-                      : bookingShippingStatus === 'label-created'
-                        ? 'Das DHL-Versandlabel für die Buchung wurde erstellt und wird in Kürze hier zum Download bereitgestellt.'
-                        : 'Für die Buchung wird ein DHL-Versandlabel vorbereitet. Sobald es vorliegt, erscheint es hier zum Download.'}
-                  </div>
-                )}
-              </div>
-            )}
-            {(linkedBooking?.returnLabelUrl || linkedBooking?.returnShipmentStatus) && (
-              <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Rücksendung</div>
-                {linkedBooking?.returnShipmentStatus && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(bookingReturnStatus).className}`}>
-                    {getShipmentStatusMeta(bookingReturnStatus).label}
-                  </Badge>
-                )}
-                {bookingReturnStatusDescription && (
-                  <p className="customer-shipping-status-description">{bookingReturnStatusDescription}</p>
-                )}
-                {linkedBooking?.returnLabelUrl && (
+                {inboundDownloadable && (
                   <div className="customer-summary-shipping-label">
-                    <span>Rücksendeetikett</span>
+                    <span>Einsendelabel</span>
                     <button
-                      onClick={() => downloadBookingReturnLabel(linkedBooking._id, `ruecksendeetikett-${linkedBooking.bookingNumber || linkedBooking._id}.pdf`)}
+                      onClick={handleDownloadInboundLabel}
+                      disabled={downloadingOrderReturnLabel}
                       className="customer-summary-label-download"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Rücksendelabel herunterladen
+                      {downloadingOrderReturnLabel ? 'Einsendelabel wird geladen…' : 'Einsendelabel herunterladen'}
                     </button>
-                  </div>
-                )}
-                {!linkedBooking?.returnLabelUrl && linkedBooking?.returnShipmentStatus && (
-                  <div className={`customer-summary-shipping-note ${bookingReturnStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
-                    {bookingReturnStatus === 'failed'
-                      ? 'Das Rücksendelabel konnte noch nicht bereitgestellt werden. Bitte nutzen Sie vorerst den Nachrichtenbereich.'
-                      : bookingReturnStatus === 'label-created'
-                        ? 'Das Rücksendelabel wurde erzeugt und wird in Kürze hier zum Download angezeigt.'
-                        : 'Wenn eine Rücksendung erforderlich ist, wird das passende DHL-Rücksendeetikett hier eingeblendet.'}
                   </div>
                 )}
               </div>
             )}
-            {(order.trackingNumber || order.shippingLabelUrl || order.shippingStatus) && (
+
+            {(outboundShipment?.trackingNumber || outboundShipment?.hasLabel || outboundReconciliationRequired) && (
               <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Versand dieses Auftrags</div>
-                {order.shippingStatus && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(orderShippingStatus).className}`}>
-                    {getShipmentStatusMeta(orderShippingStatus).label}
+                <div className="customer-summary-logistics-title">Auslieferung an den Kunden (McRepair → Kunde)</div>
+                {outboundShipment?.status && (
+                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(outboundShipment.status).toLowerCase()).className}`}>
+                    {getShipmentStatusMeta(String(outboundShipment.status).toLowerCase()).label}
                   </Badge>
                 )}
-                {orderShippingStatusDescription && (
-                  <p className="customer-shipping-status-description">{orderShippingStatusDescription}</p>
+                {outboundShipment?.statusDescription && (
+                  <p className="customer-shipping-status-description">{outboundShipment.statusDescription}</p>
                 )}
-                {order.trackingNumber && (
+                {outboundShipment?.trackingNumber && (
                   <div className="customer-summary-tracking">
-                    <span>Sendungsverfolgungsnummer</span>
-                    <strong>{order.trackingNumber}</strong>
-                    {order.carrier && <p>{order.carrier}</p>}
+                    <span>Sendungsnummer Auslieferung</span>
+                    <strong>{outboundShipment.trackingNumber}</strong>
                     <a
-                      href={buildDhlTrackingUrl(order.trackingNumber)}
+                      href={buildDhlTrackingUrl(outboundShipment.trackingNumber)}
                       target="_blank"
                       rel="noreferrer"
                       className="customer-summary-tracking-link"
@@ -5264,7 +5641,7 @@ export function OrderDetails() {
                     </a>
                   </div>
                 )}
-                {order.shippingLabelUrl && (
+                {outboundShipment?.hasLabel && (
                   <div className="customer-summary-shipping-label">
                     <span>Versandlabel</span>
                     <button
@@ -5277,51 +5654,9 @@ export function OrderDetails() {
                     </button>
                   </div>
                 )}
-                {!order.shippingLabelUrl && order.shippingStatus && (
-                  <div className={`customer-summary-shipping-note ${orderShippingStatus === 'failed' ? 'is-error' : 'is-pending'}`}>
-                    {orderShippingStatus === 'failed'
-                      ? 'Das Versandlabel konnte noch nicht bereitgestellt werden. Bitte nutzen Sie den Nachrichtenbereich für Rückfragen.'
-                      : 'Das Versandlabel wird vorbereitet und erscheint hier, sobald es verfügbar ist.'}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Rücksendung direkt am Auftrag (Aufträge ohne zugehörige Buchung). */}
-            {!linkedBooking?._id && (order.hasReturnLabel || order.returnTrackingNumber || order.returnShipmentStatus) && (
-              <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Rücksendung</div>
-                {order.returnShipmentStatus && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(order.returnShipmentStatus)).className}`}>
-                    {getShipmentStatusMeta(String(order.returnShipmentStatus)).label}
-                  </Badge>
-                )}
-                {order.returnTrackingNumber && (
-                  <div className="customer-summary-tracking">
-                    <span>Rücksende-Sendungsnummer</span>
-                    <strong>{order.returnTrackingNumber}</strong>
-                    <a
-                      href={buildDhlTrackingUrl(String(order.returnTrackingNumber))}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="customer-summary-tracking-link"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Sendung verfolgen
-                    </a>
-                  </div>
-                )}
-                {order.hasReturnLabel && (
-                  <div className="customer-summary-shipping-label">
-                    <span>Rücksendelabel</span>
-                    <button
-                      onClick={handleDownloadOrderReturnLabel}
-                      disabled={downloadingOrderReturnLabel}
-                      className="customer-summary-label-download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {downloadingOrderReturnLabel ? 'Rücksendelabel wird geladen…' : 'Rücksendelabel herunterladen'}
-                    </button>
+                {String(outboundShipment?.status || '') === 'label-created' && (
+                  <div className="customer-summary-shipping-note is-pending">
+                    Das Versandlabel ist erstellt. Als versendet gilt das Gerät erst, wenn DHL das Paket übernommen hat.
                   </div>
                 )}
               </div>
@@ -5555,9 +5890,9 @@ export function OrderDetails() {
                   {repairServices.filter((s) => s && s._id).map((service, index) => (
                     <div key={service._id || `popup-service-${index}`} className="customer-repair-services-popup-item">
                       <div>
-                        <p className="title">{service.serviceId?.name || 'Reparaturdienst'}</p>
-                        {service.serviceId?.description && (
-                          <p className="description">{service.serviceId.description}</p>
+                        <p className="title">{service.serviceId?.name || service.name || 'Reparaturdienst'}</p>
+                        {(service.serviceId?.description || service.description) && (
+                          <p className="description">{service.serviceId?.description || service.description}</p>
                         )}
                         {service.notes && (
                           <p className="notes">Hinweis: {service.notes}</p>
@@ -5834,6 +6169,29 @@ export function OrderDetails() {
               <CreditCard className="h-3 w-3 mr-1" />
               {translatePaymentStatus(order.paymentStatus)}
             </span>
+            {orderRefundPendingTotal > 0.009 && (
+              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${INVOICE_PAYMENT_TONE_CLASSES.overpaid}`}>
+                Überzahlt · Erstattung offen {formatEUR(orderRefundPendingTotal)}
+              </span>
+            )}
+            {orderRefundPendingScope.bookingLevel.map((entry) => (
+              <span
+                key={`refund-badge-${entry.invoiceId}`}
+                className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${INVOICE_PAYMENT_TONE_CLASSES.overpaid}`}
+                title="Die Rechnung umfasst mehrere Aufträge der Buchung; der Betrag gilt für die ganze Rechnung."
+              >
+                Rechnung {entry.invoiceNumber || '–'} (mehrere Aufträge) überzahlt · Erstattung offen {formatEUR(entry.amount)}
+              </span>
+            ))}
+            {showOutboundFulfilmentBadge && (
+              <span
+                className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
+                title="Auslieferung an den Kunden (McRepair → Kunde)"
+              >
+                <Truck className="h-3 w-3 mr-1" />
+                Auslieferung: {getShipmentStatusMeta(outboundFulfilmentStatus).label}
+              </span>
+            )}
             {guestTrackingUrl && (
               <a
                 href={guestTrackingUrl}
@@ -5875,9 +6233,10 @@ export function OrderDetails() {
               <div className="order-total-cost">
                 <div className="amount">{formatEUR(orderPriceBreakdown.grossTotal)}</div>
                 <div className="label">Gesamt (Brutto)</div>
-                {(orderPriceBreakdown.discount + orderPriceBreakdown.dealerDiscountAmount) > 0 && (
+                {orderDiscountTotal > 0 && (
                   <div className="label text-green-600">
-                    inkl. −{formatEUR(orderPriceBreakdown.discount + orderPriceBreakdown.dealerDiscountAmount)} Rabatt
+                    inkl. −{formatEUR(orderDiscountTotal)} Rabatt
+                    {orderPriceBreakdown.groupDiscountPercent > 0 ? ` (${formatTaxRate(orderPriceBreakdown.groupDiscountPercent)} %)` : ''}
                     {orderPriceBreakdown.dealerDiscountAmount === 0 && order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
                   </div>
                 )}
@@ -5983,18 +6342,20 @@ export function OrderDetails() {
                           {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
                         </Button>
 
-                        {/* Einsendung (Kunde -> McRepair) und Rücksendung (McRepair -> Kunde)
-                            sind zwei getrennte Vorgänge und dürfen sich nicht gegenseitig
-                            verdrängen: sonst ist nach abgeschlossener Reparatur nur noch der
-                            deaktivierte Einsendelabel-Button sichtbar. */}
+                        {/* Zwei getrennte Vorgänge, die sich nicht gegenseitig verdrängen:
+                            Einsendung  = Kunde -> McRepair (Einsendelabel)
+                            Auslieferung = McRepair -> Kunde ("An Kunden versenden").
+                            Ob ein Button aktiv ist, entscheidet der Server (identische Regel
+                            wie beim Erstellen); Admin und Staff sehen dieselben Bedingungen. */}
                         <Button
                           size="sm"
-                          onClick={handleCreateOrderShippingLabel}
-                          disabled={creatingOrderShippingLabel || inboundLabelExists}
+                          onClick={handleCreateInboundLabel}
+                          disabled={creatingOrderReturnLabel || !inboundAction?.allowed}
+                          title={inboundAction?.reason || ''}
                           className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
                         >
                           <Send className="h-4 w-4 mr-1.5" />
-                          {creatingOrderShippingLabel
+                          {creatingOrderReturnLabel
                             ? 'Einsendelabel wird erstellt…'
                             : inboundLabelExists
                               ? 'Einsendelabel bereits erstellt'
@@ -6003,22 +6364,34 @@ export function OrderDetails() {
 
                         <Button
                           size="sm"
-                          onClick={handleCreateOrderReturnLabel}
-                          disabled={creatingOrderReturnLabel || !canStartReturn}
-                          title={returnActionHint}
+                          onClick={handleCreateOutboundLabel}
+                          disabled={creatingOrderShippingLabel || !outboundAction?.allowed}
+                          title={outboundActionHint}
                           className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45] font-semibold border-0"
                         >
                           <Truck className="h-4 w-4 mr-1.5" />
-                          {creatingOrderReturnLabel
-                            ? 'Rücksendelabel wird erstellt…'
-                            : returnLabelExists
-                              ? 'Rücksendelabel bereits erstellt'
-                              : 'Rücksendung starten'}
+                          {creatingOrderShippingLabel
+                            ? 'Versandlabel wird erstellt…'
+                            : outboundLabelExists
+                              ? 'Versandlabel bereits erstellt'
+                              : 'An Kunden versenden'}
                         </Button>
 
                         <p className="sm:col-span-2 text-xs text-muted-foreground -mt-1">
-                          {returnActionHint}
+                          <span className="font-medium">Einsendung (Kunde → McRepair):</span> {inboundAction?.reason || (orderShipments ? '' : 'Versandstand wird geladen…')}
+                          <br />
+                          <span className="font-medium">Auslieferung (McRepair → Kunde):</span> {outboundActionHint}
                         </p>
+
+                        {orderShipments?.legacy?.bookingOutboundLabel && (
+                          <p className="sm:col-span-2 text-xs text-amber-800 dark:text-amber-300 -mt-1">
+                            <AlertTriangle className="inline h-3 w-3 mr-1" />
+                            An der Buchung existiert bereits ein älteres Rückweg-Label (Sendungsnummer {orderShipments.legacy.bookingOutboundLabel.trackingNumber}). Bitte prüfen, ob dieses Gerät damit schon verschickt wurde.
+                          </p>
+                        )}
+
+                        {renderShipmentLockPanel('inbound')}
+                        {renderShipmentLockPanel('outbound')}
 
                         <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
                           <div>
@@ -6047,6 +6420,14 @@ export function OrderDetails() {
                                           <Badge className={`h-5 px-1.5 text-[10px] font-medium leading-none ${getInvoiceStatusBadgeClass(invoice.status)}`}>
                                             {translateInvoiceStatus(invoice.status)}
                                           </Badge>
+                                          {(() => {
+                                            const payment = summarizeInvoicePayment(invoice)
+                                            return payment.known ? (
+                                              <Badge className={`h-5 px-1.5 text-[10px] font-medium leading-none ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
+                                                {payment.label}
+                                              </Badge>
+                                            ) : null
+                                          })()}
                                           <span>Datum: {formatInvoiceDate(invoice.createdAt)}</span>
                                         </span>
                                       </span>
@@ -6063,8 +6444,32 @@ export function OrderDetails() {
                           </div>
 
                           <div className="border-t pt-2 space-y-2">
-                            {order.shippingLabelUrl ? (
-                              <div className="flex flex-wrap gap-2">
+                            {inboundDownloadable ? (
+                              <div className="space-y-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleDownloadInboundLabel}
+                                  disabled={downloadingOrderReturnLabel}
+                                >
+                                  <Download className="h-4 w-4 mr-1.5" />
+                                  {downloadingOrderReturnLabel ? 'Einsendelabel wird heruntergeladen…' : 'Einsendelabel herunterladen (Kunde → McRepair)'}
+                                </Button>
+                                {inboundShipment?.trackingNumber && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Einsendung, Sendungsnummer:{' '}
+                                    <a href={buildDhlTrackingUrl(inboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="underline">
+                                      {inboundShipment.trackingNumber}
+                                    </a>
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
+                            )}
+
+                            {outboundShipment?.hasLabel ? (
+                              <div className="space-y-1">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -6072,45 +6477,23 @@ export function OrderDetails() {
                                   disabled={downloadingOrderShippingLabel}
                                 >
                                   <Download className="h-4 w-4 mr-1.5" />
-                                  {downloadingOrderShippingLabel ? 'Einsendelabel wird heruntergeladen…' : 'Einsendelabel herunterladen'}
+                                  {downloadingOrderShippingLabel ? 'Versandlabel wird heruntergeladen…' : 'Versandlabel herunterladen (McRepair → Kunde)'}
                                 </Button>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
-                            )}
-
-                            {/* Beide Quellen prüfen: ein auftragsbezogenes Label darf nicht
-                                verschwinden, nur weil der Auftrag inzwischen zu einer Buchung
-                                gehört. Die Erstellung liegt oben in den Schnellaktionen. */}
-                            {returnLabelDownloadable ? (
-                              <div className="space-y-1">
-                                <div className="flex flex-wrap gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleDownloadOrderReturnLabel}
-                                    disabled={downloadingOrderReturnLabel}
-                                  >
-                                    <Download className="h-4 w-4 mr-1.5" />
-                                    {downloadingOrderReturnLabel ? 'Rücksendelabel wird heruntergeladen…' : 'Rücksendelabel herunterladen'}
-                                  </Button>
-                                </div>
-                                {(linkedBooking?.returnTrackingNumber || order.returnTrackingNumber) && (
+                                {outboundShipment.trackingNumber && (
                                   <p className="text-xs text-muted-foreground">
-                                    Rücksende-Sendungsnummer:{' '}
-                                    <a
-                                      href={buildDhlTrackingUrl(String(linkedBooking?.returnTrackingNumber || order.returnTrackingNumber))}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="underline"
-                                    >
-                                      {linkedBooking?.returnTrackingNumber || order.returnTrackingNumber}
+                                    Auslieferung, Sendungsnummer:{' '}
+                                    <a href={buildDhlTrackingUrl(outboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="underline">
+                                      {outboundShipment.trackingNumber}
                                     </a>
                                   </p>
                                 )}
                               </div>
+                            ) : outboundShipment?.trackingNumber ? (
+                              <p className="text-xs text-muted-foreground">
+                                Auslieferung angelegt (Sendungsnummer {outboundShipment.trackingNumber}), das PDF-Label bitte im DHL-Geschäftskundenportal abrufen.
+                              </p>
                             ) : (
-                              <p className="text-xs text-muted-foreground">Noch kein Rücksendelabel verfügbar.</p>
+                              <p className="text-xs text-muted-foreground">Noch kein Versandlabel an den Kunden erstellt.</p>
                             )}
                           </div>
                         </div>
@@ -6646,10 +7029,15 @@ export function OrderDetails() {
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
-                    <div className="mt-1">
+                    <div className="mt-1 flex flex-wrap gap-1">
                       <Badge variant="outline" className="text-[10px] font-medium leading-none">
-                        {selectedInvoiceDetails.status}
+                        {translateInvoiceStatus(selectedInvoiceDetails.status)}
                       </Badge>
+                      {selectedInvoiceDetailsPayment.known && (
+                        <Badge className={`text-[10px] font-medium leading-none ${INVOICE_PAYMENT_TONE_CLASSES[selectedInvoiceDetailsPayment.tone]}`}>
+                          {selectedInvoiceDetailsPayment.label}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
@@ -6658,9 +7046,19 @@ export function OrderDetails() {
                   </div>
                   <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
-                    <div className="mt-1 font-semibold text-red-700">
-                      {formatEUR(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
-                    </div>
+                    {selectedInvoiceDetailsPayment.known ? (
+                      <>
+                        <div className={`mt-1 font-semibold ${(selectedInvoiceDetailsPayment.open ?? 0) > 0 ? 'text-red-700' : 'text-[#1a2a5e]'}`}>
+                          {formatEUR(selectedInvoiceDetailsPayment.open ?? 0)}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">Eingegangen: {formatEUR(selectedInvoiceDetailsPayment.received ?? 0)}</div>
+                        {(selectedInvoiceDetailsPayment.refundPending ?? 0) > 0 && (
+                          <div className="text-[11px] font-medium text-violet-700">Überzahlt · Erstattung offen {formatEUR(selectedInvoiceDetailsPayment.refundPending ?? 0)}</div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="mt-1 text-xs text-muted-foreground">{invoiceDetailLoading ? 'Wird geladen…' : 'Zahlungsstand nicht verfügbar'}</div>
+                    )}
                   </div>
                 </div>
 
@@ -6690,7 +7088,7 @@ export function OrderDetails() {
                         <div key={item._id} className="flex items-center justify-between gap-3 border-b border-[#e5e7eb] pb-2 last:border-b-0 last:pb-0">
                           <div>
                             <div className="font-medium text-slate-800">{item.description}</div>
-                            <div className="text-xs text-muted-foreground">{item.type} • {item.quantity}x</div>
+                            <div className="text-xs text-muted-foreground">{translateInvoiceItemType(item.type)} • {item.quantity}×</div>
                           </div>
                           <div className="font-medium text-slate-800">{formatEUR(item.total || 0)}</div>
                         </div>
@@ -6708,8 +7106,8 @@ export function OrderDetails() {
                       {invoiceDetailPayments.map((payment) => (
                         <div key={payment._id} className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
                           <div>
-                            <div className="font-medium text-slate-800">{payment.paymentMethod || 'Zahlung'}</div>
-                            <div className="text-xs text-muted-foreground">{payment.status}</div>
+                            <div className="font-medium text-slate-800">{translatePaymentMethodLabel(payment.paymentMethod)}</div>
+                            <div className="text-xs text-muted-foreground">{translatePaymentRecordStatus(payment.status)}</div>
                           </div>
                           <div className="font-semibold text-slate-800">{formatEUR(Number(payment.amount || 0))}</div>
                         </div>
@@ -6728,146 +7126,7 @@ export function OrderDetails() {
                         <div key={String(note._id)} className="flex items-center justify-between gap-3 rounded border border-violet-200 bg-violet-50 px-3 py-2">
                           <div>
                             <div className="font-medium text-violet-800">{note.invoiceNumber || 'Gutschrift'}</div>
-                            <div className="text-xs text-violet-700">{note.status}</div>
-                          </div>
-                          <div className="font-semibold text-violet-800">{formatEUR(Number(note.total || 0))}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground">Keine Rechnungsdetails verfügbar.</div>
-            )}
-          </div>
-
-          <DialogFooter className="bg-[#f8f9fc] border-t border-[#d8dce6] px-6 py-3 flex-wrap gap-2 rounded-b-lg">
-            <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] border border-[#1a2a5e]" onClick={() => setInvoiceDetailsDialogOpen(false)}>
-              Schließen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={invoiceDetailsDialogOpen} onOpenChange={(open) => {
-        setInvoiceDetailsDialogOpen(open)
-        if (!open) {
-          setSelectedInvoiceDetails(null)
-        }
-      }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
-          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45]">
-            <DialogTitle className="flex items-center gap-2 text-xl" style={{ color: '#f5c800' }}>
-              <FileText className="h-5 w-5" />
-              Rechnungsdetails
-              {selectedInvoiceDetails?.invoiceNumber && (
-                <span className="text-base font-normal text-[#c8d0e7]">· {selectedInvoiceDetails.invoiceNumber}</span>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-[#c8d0e7]">
-              Vollständige Detailansicht inklusive Zahlungen und zugehöriger Gutschriften.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="px-6 py-4">
-            {invoiceDetailLoading ? (
-              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Lade Rechnungsdetails…
-              </div>
-            ) : selectedInvoiceDetails ? (
-              <div className="space-y-5">
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsnummer</div>
-                    <div className="mt-1 font-semibold text-[#1a2a5e]">{selectedInvoiceDetails.invoiceNumber}</div>
-                  </div>
-                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
-                    <div className="mt-1">
-                      <Badge variant="outline" className="text-[10px] font-medium leading-none">
-                        {selectedInvoiceDetails.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamt</div>
-                    <div className="mt-1 font-semibold text-[#1a2a5e]">{formatEUR(selectedInvoiceDetails.total)}</div>
-                  </div>
-                  <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Offen</div>
-                    <div className="mt-1 font-semibold text-red-700">
-                      {formatEUR(Math.max(0, Number(selectedInvoiceDetails.total || 0) - Number(selectedInvoiceDetails.paidAmount || 0)))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
-                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Kunde</div>
-                    <div className="space-y-1 text-sm">
-                      <div>{selectedInvoiceDetails.customerName || '-'}</div>
-                      <div className="text-muted-foreground">{selectedInvoiceDetails.customerEmail || '-'}</div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
-                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Rechnung</div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <div>Erstellt: {selectedInvoiceDetails.createdAt ? new Date(selectedInvoiceDetails.createdAt).toLocaleDateString('de-DE') : '-'}</div>
-                      <div>Fällig: {selectedInvoiceDetails.dueDate ? new Date(selectedInvoiceDetails.dueDate).toLocaleDateString('de-DE') : '-'}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Positionen</div>
-                  {selectedInvoiceDetails.items && selectedInvoiceDetails.items.length > 0 ? (
-                    <div className="space-y-2 text-sm">
-                      {selectedInvoiceDetails.items.map((item) => (
-                        <div key={item._id} className="flex items-center justify-between gap-3 border-b border-[#e5e7eb] pb-2 last:border-b-0 last:pb-0">
-                          <div>
-                            <div className="font-medium text-slate-800">{item.description}</div>
-                            <div className="text-xs text-muted-foreground">{item.type} • {item.quantity}x</div>
-                          </div>
-                          <div className="font-medium text-slate-800">{formatEUR(item.total || 0)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Keine Positionen vorhanden.</div>
-                  )}
-                </div>
-
-                <div className="rounded-md border border-[#d8dce6] bg-white p-3">
-                  <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Zahlungen</div>
-                  {invoiceDetailPayments.length > 0 ? (
-                    <div className="space-y-2 text-sm">
-                      {invoiceDetailPayments.map((payment) => (
-                        <div key={payment._id} className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
-                          <div>
-                            <div className="font-medium text-slate-800">{payment.paymentMethod || 'Zahlung'}</div>
-                            <div className="text-xs text-muted-foreground">{payment.status}</div>
-                          </div>
-                          <div className="font-semibold text-slate-800">{formatEUR(Number(payment.amount || 0))}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Noch keine Zahlungen verzeichnet.</div>
-                  )}
-                </div>
-
-                {invoiceDetailCreditNotes.length > 0 && (
-                  <div className="rounded-md border border-[#d8dce6] bg-white p-3">
-                    <div className="mb-2 text-sm font-semibold text-[#1a2a5e]">Gutschriften</div>
-                    <div className="space-y-2 text-sm">
-                      {invoiceDetailCreditNotes.map((note) => (
-                        <div key={String(note._id)} className="flex items-center justify-between gap-3 rounded border border-violet-200 bg-violet-50 px-3 py-2">
-                          <div>
-                            <div className="font-medium text-violet-800">{note.invoiceNumber || 'Gutschrift'}</div>
-                            <div className="text-xs text-violet-700">{note.status}</div>
+                            <div className="text-xs text-violet-700">{translateInvoiceStatus(note.status)}</div>
                           </div>
                           <div className="font-semibold text-violet-800">{formatEUR(Number(note.total || 0))}</div>
                         </div>
@@ -7382,8 +7641,11 @@ export function OrderDetails() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-slate-900">{addonPreviewPrice.toFixed(2)} €</p>
-                  <p className="text-xs text-slate-600">Auftragsgesamt nach Hinzufügen: {orderTotalAfterAddon.toFixed(2)} €</p>
+                  <p className="text-lg font-bold text-slate-900">{formatEUR(addonPreviewPrice)}</p>
+                  <p className="text-xs text-slate-600">Listenpreis (Brutto) · Auftragswert aktuell: {formatEUR(orderPriceBreakdown.grossTotal)}</p>
+                  {orderPriceBreakdown.groupDiscountPercent > 0 && (
+                    <p className="text-xs text-slate-600">Der Kundenrabatt ({formatTaxRate(orderPriceBreakdown.groupDiscountPercent)} %) wird automatisch auf Auftragsebene abgezogen.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -7805,8 +8067,157 @@ export function OrderDetails() {
           mode={editingService ? 'edit' : 'add'}
           availableServices={availableServices}
           onSave={handleSaveService}
+          discountPercent={safeToNumber(order.pricing?.groupDiscountPercent)}
         />
       )}
+
+      {/* Reparaturposition entfernen: Rückfrage mit optionalem Grund für die Auftragshistorie */}
+      <Dialog
+        open={Boolean(serviceToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingService) {
+            setServiceToDelete(null)
+            setDeleteServiceReason('')
+            setDeleteServiceRepricing(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reparaturposition entfernen?</DialogTitle>
+            <DialogDescription>
+              „{serviceToDelete?.serviceId?.name || serviceToDelete?.name || 'Reparaturposition'}“
+              {serviceToDelete ? ` (${formatEUR(safeToNumber(serviceToDelete.price))} Standardpreis brutto)` : ''} wird aus dem Auftrag entfernt.
+              Der Auftragswert und eine offene Rechnung werden vom Server neu berechnet.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <label htmlFor="delete-service-reason" className="text-sm font-medium">
+              Grund der Änderung <span className="font-normal text-muted-foreground">(optional, wird in der Auftragshistorie gespeichert)</span>
+            </label>
+            <Textarea
+              id="delete-service-reason"
+              value={deleteServiceReason}
+              onChange={(event) => setDeleteServiceReason(event.target.value)}
+              rows={3}
+              placeholder="z. B. Kunde hat die Reparatur abgelehnt"
+            />
+          </div>
+          {deleteServiceRepricing && (
+            <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p className="font-semibold">Nicht entfernt</p>
+              <p>{deleteServiceRepricing.message}</p>
+              {deleteServiceRepricing.details && (
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                  <dt>Gespeicherter Auftragswert</dt>
+                  <dd className="text-right font-semibold">{formatEUR(deleteServiceRepricing.details.storedTotal)}</dd>
+                  <dt>Positionen (Standardpreise brutto)</dt>
+                  <dd className="text-right">{formatEUR(deleteServiceRepricing.details.positionsGross)}</dd>
+                  <dt>Rabatt</dt>
+                  <dd className="text-right">−{formatEUR(deleteServiceRepricing.details.discount)}</dd>
+                  <dt>Positionen abzüglich Rabatt</dt>
+                  <dd className="text-right">{formatEUR(deleteServiceRepricing.details.expectedTotal)}</dd>
+                  <dt>Abweichung</dt>
+                  <dd className="text-right font-semibold">
+                    {deleteServiceRepricing.details.difference > 0 ? '+' : deleteServiceRepricing.details.difference < 0 ? '−' : ''}
+                    {formatEUR(Math.abs(deleteServiceRepricing.details.difference))}
+                  </dd>
+                </dl>
+              )}
+              <p className="text-xs">{describeRepricingConsequence(deleteServiceRepricing.details)}</p>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              disabled={deletingService}
+              onClick={() => {
+                setServiceToDelete(null)
+                setDeleteServiceReason('')
+                setDeleteServiceRepricing(null)
+              }}
+            >
+              Abbrechen
+            </Button>
+            {deleteServiceRepricing ? (
+              <Button
+                variant="destructive"
+                disabled={deletingService}
+                onClick={() => void confirmDeleteRepairService(true)}
+              >
+                {deletingService ? 'Wird entfernt…' : 'Neuberechnung bestätigen'}
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                disabled={deletingService}
+                onClick={() => void confirmDeleteRepairService()}
+              >
+                {deletingService ? 'Wird entfernt…' : 'Position entfernen'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Neuberechnung bestätigen (Zusatzleistungen, Shop-Produkte): gleiche Rückfrage wie bei Reparaturpositionen */}
+      <Dialog
+        open={Boolean(pendingRepricing)}
+        onOpenChange={(open) => {
+          if (!open && !confirmingRepricing) setPendingRepricing(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{pendingRepricing?.title || 'Änderung'}: Neuberechnung bestätigen?</DialogTitle>
+            <DialogDescription>
+              Die Änderung wurde noch nicht gespeichert. Der gespeicherte Auftragswert passt nicht zu den Positionen.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingRepricing && (
+            <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p className="font-semibold">
+                {pendingRepricing.outdated ? 'Der Auftrag wurde inzwischen geändert – bitte die neue Abweichung prüfen' : 'Nicht gespeichert'}
+              </p>
+              <p>{pendingRepricing.message}</p>
+              {pendingRepricing.details && (
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                  <dt>Gespeicherter Auftragswert</dt>
+                  <dd className="text-right font-semibold">{formatEUR(pendingRepricing.details.storedTotal)}</dd>
+                  <dt>Positionen (Standardpreise brutto)</dt>
+                  <dd className="text-right">{formatEUR(pendingRepricing.details.positionsGross)}</dd>
+                  <dt>Rabatt</dt>
+                  <dd className="text-right">−{formatEUR(pendingRepricing.details.discount)}</dd>
+                  <dt>Positionen abzüglich Rabatt</dt>
+                  <dd className="text-right">{formatEUR(pendingRepricing.details.expectedTotal)}</dd>
+                  <dt>Abweichung</dt>
+                  <dd className="text-right font-semibold">
+                    {pendingRepricing.details.difference > 0 ? '+' : pendingRepricing.details.difference < 0 ? '−' : ''}
+                    {formatEUR(Math.abs(pendingRepricing.details.difference))}
+                  </dd>
+                </dl>
+              )}
+              <p className="text-xs">{describeRepricingConsequence(pendingRepricing.details)}</p>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              disabled={confirmingRepricing}
+              onClick={() => setPendingRepricing(null)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={confirmingRepricing}
+              onClick={() => void confirmPendingRepricing()}
+            >
+              {confirmingRepricing ? 'Wird gespeichert…' : 'Neuberechnung bestätigen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Shop Product Selection Dialog */}
       {id && (
@@ -7815,7 +8226,7 @@ export function OrderDetails() {
           onClose={() => setShopProductDialogOpen(false)}
           onAddProduct={handleAddShopProduct}
           orderId={id}
-          currentOrderTotal={safeToNumber((order as any)?.totalCost)}
+          currentOrderTotal={orderPriceBreakdown.grossTotal}
         />
       )}
 
@@ -7878,13 +8289,16 @@ export function OrderDetails() {
             model: order.deviceModel,
             type: order.deviceType,
           }}
-          currentServices={(Array.isArray((order as any).services) ? (order as any).services : [])
+          // Positionen aus /api/order-services: order.services der Detailantwort enthält nur
+          // Namen (ohne _id), damit wäre die Liste im Dialog immer leer.
+          currentServices={(Array.isArray(repairServices) ? repairServices : [])
             .filter((service: any) => service && service._id)
             .map((service: any) => {
               const serviceName =
-                typeof service.serviceId === 'object'
-                  ? service.serviceId?.name
-                  : service.serviceName || `Service #${String(service._id).substring(0, 8)}`
+                service.serviceId?.name
+                || service.name
+                || service.serviceName
+                || `Service #${String(service._id).substring(0, 8)}`
 
               return {
                 id: String(service._id),
@@ -7893,12 +8307,17 @@ export function OrderDetails() {
               }
             })}
           onDeviceChanged={(updatedOrder) => {
-            console.log('[OrderDetails] Device changed, updating order:', updatedOrder)
-            setOrder(updatedOrder)
-            toast({
-              title: "Erfolg",
-              description: "Das Gerät wurde gewechselt.",
-            })
+            // Die Rohantwort von /change-device hat nicht die Form der Detailansicht
+            // (u. a. Positionen, Preisaufstellung, Versandstand) - daher neu laden statt
+            // sie einzusetzen. Die Meldung zeigt der Dialog selbst (auch beim Abbrechen
+            // nach bereits gespeichertem Wechsel darf hier kein "Erfolg" erscheinen).
+            console.log('[OrderDetails] Device change saved, reloading order:', updatedOrder?._id)
+            void reloadRepairServicesAndOrder()
+          }}
+          // Wechsel bereits bei "Neu berechnen" gespeichert, Dialog ohne Bestätigung
+          // geschlossen (Abbrechen, X, Escape, Klick daneben): gespeicherten Stand neu laden.
+          onRefreshRequested={() => {
+            void reloadRepairServicesAndOrder()
           }}
         />
       )}

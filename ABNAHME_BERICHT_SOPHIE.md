@@ -1,5 +1,12 @@
 # Abnahmebericht — Rückmeldungen aus Sophies Test
 
+> **⚠ Überholt — Stand 22.09.2026.** Sophies Nachtest vom 24.09.2026 hat mehrere „Behoben"-Aussagen
+> dieses Berichts widerlegt: Die Rechnung zog den Händlerrabatt doppelt ab (36,06 € statt 42,42 €),
+> und der Versand an den Kunden fehlte bzw. lief in die falsche Richtung (G1). Beides ist inzwischen
+> behoben. Aktuell gelten [`TECHNISCHER_AENDERUNGSBERICHT_2026-09-26.md`](TECHNISCHER_AENDERUNGSBERICHT_2026-09-26.md)
+> und für den Nachtest [`ABNAHMETEST_SOPHIE.md`](ABNAHMETEST_SOPHIE.md). Dieser Text bleibt zur
+> Nachvollziehbarkeit unverändert stehen.
+
 **Branch:** `adars` · **Stand:** 22.09.2026 · **Status:** umgesetzt, noch nicht committet
 
 Dieser Bericht beantwortet jeden Punkt aus Sophies Testprotokoll. Der zugehörige technische

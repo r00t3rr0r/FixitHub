@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
-import { getInspection, generateInspectionReport } from '@/api/deviceInspection';
+import { getInspection, generateInspectionReport, getKnownRepairCost } from '@/api/deviceInspection';
 import {
   CheckCircle2,
   AlertCircle,
@@ -74,9 +74,10 @@ export function InspectionResultsDisplay({
     try {
       setGeneratingReport(true);
       const result = await generateInspectionReport(orderId);
-      if (result.reportUrl) {
+      const reportUrl = typeof result.reportUrl === 'string' ? result.reportUrl : '';
+      if (reportUrl) {
         const link = document.createElement('a');
-        link.href = result.reportUrl;
+        link.href = reportUrl;
         link.download = `inspection-report-${orderId}.pdf`;
         document.body.appendChild(link);
         link.click();
@@ -92,6 +93,7 @@ export function InspectionResultsDisplay({
 
   const conditionLabel = (status: string) => {
     const map: Record<string, string> = {
+      '--': 'Keine Auffälligkeiten',
       'OK': 'OK',
       'Not OK': 'Nicht OK',
       'Not tested': 'Tests nicht durchgeführt',
@@ -102,14 +104,66 @@ export function InspectionResultsDisplay({
       'working': 'Funktioniert',
       'not-working': 'Defekt',
       'not-applicable': 'Nicht zutreffend',
+      'not-testable': 'Nicht testbar',
       'defective': 'Defekt',
     };
     return map[status] || status;
   };
 
+  const verificationStatusLabel = (status?: string) => {
+    const map: Record<string, string> = {
+      correct: 'Modell stimmt überein',
+      'incorrect-more-expensive': 'Abweichend – teureres Modell',
+      'incorrect-same-cheaper': 'Abweichend – gleichwertig oder günstiger',
+      unverifiable: 'Nicht verifizierbar',
+    };
+    return status ? (map[status] || 'Unbekannter Prüfstatus') : 'Nicht geprüft';
+  };
+
+  const approvalStatusLabel = (status?: string) => {
+    const map: Record<string, string> = {
+      pending: 'Ausstehend',
+      approved: 'Freigegeben',
+      rejected: 'Abgelehnt',
+      'awaiting-customer': 'Wartet auf Freigabe durch den Kunden',
+    };
+    return status ? (map[status] || 'Unbekannt') : '';
+  };
+
+  const deviceTypeLabel = (identification: any) => {
+    if (identification?.deviceTypeLabel) return identification.deviceTypeLabel;
+    const map: Record<string, string> = {
+      Smartphone: 'Smartphone',
+      Laptop: 'Laptop',
+      Tablet: 'Tablet',
+      Watch: 'Smartwatch',
+      Headphones: 'Kopfhörer',
+      Other: 'Sonstiges',
+    };
+    return map[identification?.deviceType] || identification?.deviceType || 'Nicht angegeben';
+  };
+
+  const reportedModelSourceNote = (source?: string) => {
+    if (source === 'order-timeline') return 'aus dem Auftragsverlauf ermittelt';
+    if (source === 'order-current-unverified' || source === 'order-snapshot-unverified') {
+      return 'ursprüngliche Kundenangabe nicht gesichert erfasst';
+    }
+    return '';
+  };
+
+  const formatEuro = (value: number) =>
+    value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+  const actionLabel = (action?: string) => {
+    const map: Record<string, string> = {
+      'Inspection completed': 'Inspektion abgeschlossen',
+    };
+    return action ? (map[action] || action) : '';
+  };
+
   const conditionColor = (status: string) => {
-    if (['OK', 'working', 'light-wear'].includes(status)) return 'emerald';
-    if (['scratches-wear', 'heavy-scratches-wear', 'not-applicable', 'not-testable'].includes(status)) return 'amber';
+    if (['--', 'OK', 'working', 'light-wear'].includes(status)) return 'emerald';
+    if (['scratches-wear', 'heavy-scratches-wear', 'not-applicable', 'not-testable', 'Not tested'].includes(status)) return 'amber';
     return 'red';
   };
 
@@ -149,31 +203,39 @@ export function InspectionResultsDisplay({
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+  // Steps 1-6 are saved individually (completedSteps); step 7 is the completion itself.
+  // (modelVerification exists from initialisation on, so "subdocument present" is no progress.)
+  const recordedStepNumbers: number[] = Array.isArray(inspection.completedSteps)
+    ? inspection.completedSteps.map((entry: any) => Number(entry?.step)).filter((value: number) => Number.isFinite(value))
+    : [];
+  // Older inspections were saved before completedSteps was written: fall back to the step
+  // subdocuments that only a saved step creates (steps 2-6). Step 1 then counts as done once a
+  // later step was saved, because its subdocument alone proves nothing.
+  const legacyStepNumbers: number[] = (() => {
+    if (recordedStepNumbers.length > 0) return [];
+    const savedLaterSteps = [
+      [2, inspection.identification],
+      [3, inspection.accessories],
+      [4, inspection.externalInspection],
+      [5, inspection.deviceTest],
+      [6, inspection.appleSpecific],
+    ]
+      .filter(([, subdocument]) => Boolean(subdocument))
+      .map(([step]) => step as number);
+    return savedLaterSteps.length > 0 ? [1, ...savedLaterSteps] : [];
+  })();
+  const completedStepNumbers: number[] = recordedStepNumbers.length > 0 ? recordedStepNumbers : legacyStepNumbers;
+
   const calculateProgress = (): number => {
-    const steps = [
-      inspection.modelVerification,
-      inspection.identification,
-      inspection.accessories,
-      inspection.externalInspection,
-      inspection.deviceTest,
-      inspection.appleSpecific,
-    ];
-    return Math.round((steps.filter(Boolean).length / 6) * 100);
+    const done = [1, 2, 3, 4, 5, 6].filter((step) => completedStepNumbers.includes(step)).length;
+    return Math.round((done / 7) * 100);
   };
 
   const getCurrentStep = (): number => {
-    const steps = [
-      inspection.modelVerification,
-      inspection.identification,
-      inspection.accessories,
-      inspection.externalInspection,
-      inspection.deviceTest,
-      inspection.appleSpecific,
-    ];
-    for (let i = 0; i < steps.length; i++) {
-      if (!steps[i]) return i + 1;
+    for (let step = 1; step <= 6; step++) {
+      if (!completedStepNumbers.includes(step)) return step;
     }
-    return 6;
+    return 7;
   };
 
   const stepLabel = (step: number) => {
@@ -184,6 +246,7 @@ export function InspectionResultsDisplay({
       4: t('deviceInspection.externalInspection'),
       5: t('deviceInspection.deviceTesting'),
       6: t('deviceInspection.appleSpecificChecks'),
+      7: 'Abschluss & Zusammenfassung',
     };
     return labels[step] ?? '';
   };
@@ -227,7 +290,7 @@ export function InspectionResultsDisplay({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-[#1a2a5e]">
-                  Schritt {currentStep} von 6
+                  Schritt {currentStep} von 7
                 </span>
                 <span className="font-semibold text-[#1a2a5e]">{progress}%</span>
               </div>
@@ -279,6 +342,16 @@ export function InspectionResultsDisplay({
   const sc = statusConfig(inspection.status);
   const currentDeviceName = [currentDevice?.brand, currentDevice?.model].filter(Boolean).join(' ');
   const verifiedModelName = inspection.modelVerification?.actualModel || currentDeviceName;
+  const reportedModelName = inspection.modelVerification?.reportedModel || '';
+  const reportedSourceNote = reportedModelSourceNote(inspection.modelVerification?.reportedModelSource);
+  // T16a: only a real, explicitly given price is shown; a missing price is "nicht angegeben",
+  // never 0 EUR. The deprecated "reparierbar" assessment is not shown at all (legacy values were
+  // client defaults nobody chose).
+  const knownRepairCost = getKnownRepairCost(inspection);
+  const repairTimeframe = String(inspection.repairOffer?.timeframe || '').trim();
+  const repairDescription = String(inspection.repairOffer?.description || '').trim();
+  const hasRepairOffer = knownRepairCost !== null || Boolean(repairTimeframe) || Boolean(repairDescription);
+  const isStaffView = canAccessInspectionWorkflow;
   const latestModelChange = [...orderTimeline]
     .reverse()
     .find((entry) => entry.status === 'Device Changed' && entry.description);
@@ -307,17 +380,10 @@ export function InspectionResultsDisplay({
       label: 'Notiz Gerätetest',
       value: inspection.deviceTest.notes,
     },
-    inspection.completionAction && {
-      label: 'Abschluss',
-      value: {
-        repairable: 'Reparierbar',
-        'not-repairable': 'Nicht reparierbar',
-        'inform-customer': 'Kunde informieren',
-      }[inspection.completionAction] || inspection.completionAction,
-    },
-    inspection.approvalStatus && {
+    // Freigabe only belongs to a real price (legacy records carry it for a default 0).
+    knownRepairCost !== null && inspection.approvalStatus && {
       label: 'Freigabe',
-      value: inspection.approvalStatus.replace(/-/g, ' '),
+      value: approvalStatusLabel(inspection.approvalStatus),
     },
     inspection.customerInformation?.shouldInform && {
       label: 'Kundeninformation',
@@ -325,11 +391,13 @@ export function InspectionResultsDisplay({
         .filter(Boolean)
         .join(' - ') || 'Erforderlich',
     },
-    inspection.customerInformation?.suggestedStatus && {
+    isStaffView && inspection.customerInformation?.suggestedStatus && {
       label: 'Vorgeschlagener Status',
-      value: inspection.customerInformation.suggestedStatus,
+      value: inspection.customerInformation.suggestedStatus === 'awaiting-customer'
+        ? 'Wartet auf Rückmeldung des Kunden'
+        : inspection.customerInformation.suggestedStatus,
     },
-    inspection.customerInformation?.mailTemplate && {
+    isStaffView && inspection.customerInformation?.shouldInform && inspection.customerInformation?.mailTemplate && {
       label: 'E-Mail-Vorlage',
       value: inspection.customerInformation.mailTemplate,
     },
@@ -373,23 +441,21 @@ export function InspectionResultsDisplay({
       <div className="bg-white divide-y divide-[#1a2a5e]/08">
 
         {/* Summary grid */}
-        {(inspection.modelVerification || inspection.identification || inspection.deviceTest || typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
+        {(inspection.modelVerification || inspection.identification || inspection.deviceTest || hasRepairOffer) && (
           <div className="grid grid-cols-2 gap-px bg-[#1a2a5e]/08 p-px">
             {inspection.modelVerification && (
               <div className="bg-white p-3 space-y-1">
                 <div className="flex items-center gap-1.5">
                   <Smartphone className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
-                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Modell</span>
+                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Tatsächliches Modell</span>
                 </div>
                 <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
-                  {verifiedModelName}
+                  {verifiedModelName || 'Nicht angegeben'}
                 </p>
-                {inspection.modelVerification.reportedModel &&
-                  inspection.modelVerification.reportedModel !== verifiedModelName && (
-                    <p className="text-[10px] text-muted-foreground break-words">
-                      Gemeldet: {inspection.modelVerification.reportedModel}
-                    </p>
-                )}
+                <p className="text-[10px] text-muted-foreground break-words">
+                  Gemeldetes Modell: {reportedModelName || 'nicht erfasst'}
+                  {reportedSourceNote ? ` (${reportedSourceNote})` : ''}
+                </p>
                 {latestModelChange && (
                   <p className="text-[10px] text-amber-700 break-words">
                     Modellwechsel: {latestModelChange.description}
@@ -401,14 +467,14 @@ export function InspectionResultsDisplay({
                   ) : (
                     <AlertCircle className="h-3 w-3 text-red-500 flex-shrink-0" />
                   )}
-                  <span className="text-[10px] text-muted-foreground capitalize">
-                    {inspection.modelVerification.verificationStatus?.replace(/-/g, ' ')}
+                  <span className="text-[10px] text-muted-foreground">
+                    {verificationStatusLabel(inspection.modelVerification.verificationStatus)}
                   </span>
                 </div>
-                {inspection.modelVerification.costDifference != null &&
-                  (
+                {typeof inspection.modelVerification.costDifference === 'number' &&
+                  inspection.modelVerification.costDifference !== 0 && (
                     <p className="text-[10px] text-amber-600">
-                      Preisdifferenz: {inspection.modelVerification.costDifference > 0 ? '+' : ''}{inspection.modelVerification.costDifference} €
+                      Preisdifferenz: {inspection.modelVerification.costDifference > 0 ? '+' : ''}{formatEuro(inspection.modelVerification.costDifference)}
                     </p>
                 )}
                 {inspection.modelVerification.notes && (
@@ -424,7 +490,7 @@ export function InspectionResultsDisplay({
                   <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Gerätetyp</span>
                 </div>
                 <p className="text-xs font-semibold text-[#1a2a5e] break-words leading-tight">
-                  {inspection.identification.deviceType}
+                  {deviceTypeLabel(inspection.identification)}
                 </p>
                 {inspection.identification.imei && (
                   <p className="text-[10px] text-muted-foreground break-all">IMEI: {inspection.identification.imei}</p>
@@ -473,35 +539,22 @@ export function InspectionResultsDisplay({
               </div>
             )}
 
-            {(typeof inspection.isRepairable === 'boolean' || inspection.repairOffer) && (
+            {hasRepairOffer && (
               <div className="bg-white p-3 space-y-1">
-                {typeof inspection.isRepairable === 'boolean' && (
-                  <>
-                    <div className="flex items-center gap-1.5">
-                      <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
-                      <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Reparierbar</span>
-                    </div>
-                    {inspection.isRepairable ? (
-                      <div className="flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-emerald-600">Ja</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-                        <span className="text-xs font-semibold text-red-600">Nein</span>
-                      </div>
-                    )}
-                  </>
+                <div className="flex items-center gap-1.5">
+                  <Wrench className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
+                  <span className="text-[10px] uppercase tracking-wide text-[#1a2a5e]/50 font-medium">Reparaturangaben</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Kosten: {knownRepairCost === null
+                    ? 'nicht angegeben'
+                    : `${formatEuro(knownRepairCost)}${knownRepairCost === 0 ? ' (kostenlos)' : ''}`}
+                </p>
+                {repairTimeframe && (
+                  <p className="text-[10px] text-muted-foreground">Zeitrahmen: {repairTimeframe}</p>
                 )}
-                {inspection.repairOffer?.cost != null && (
-                  <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.cost} €</p>
-                )}
-                {inspection.repairOffer?.timeframe && (
-                  <p className="text-[10px] text-muted-foreground">{inspection.repairOffer.timeframe}</p>
-                )}
-                {inspection.repairOffer?.description && (
-                  <p className="text-[10px] text-muted-foreground italic break-words">{inspection.repairOffer.description}</p>
+                {repairDescription && (
+                  <p className="text-[10px] text-muted-foreground italic break-words">{repairDescription}</p>
                 )}
               </div>
             )}
@@ -756,7 +809,7 @@ export function InspectionResultsDisplay({
           </div>
         )}
 
-        {(inspectionDetails.length > 0 || Array.isArray(inspection.actionLogs) && inspection.actionLogs.length > 0) && (
+        {(inspectionDetails.length > 0 || (isStaffView && Array.isArray(inspection.actionLogs) && inspection.actionLogs.length > 0)) && (
           <div className="px-4 py-3 space-y-2">
             <div className="flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5 text-[#1a2a5e]/50" />
@@ -772,7 +825,7 @@ export function InspectionResultsDisplay({
                 ))}
               </div>
             )}
-            {Array.isArray(inspection.actionLogs) && inspection.actionLogs.length > 0 && (
+            {isStaffView && Array.isArray(inspection.actionLogs) && inspection.actionLogs.length > 0 && (
               <div className="space-y-1 border-t border-[#1a2a5e]/10 pt-2">
                 {inspection.actionLogs.map((entry: {
                   _id?: string;
@@ -783,11 +836,9 @@ export function InspectionResultsDisplay({
                   details?: unknown;
                 }, index: number) => (
                   <p key={entry._id || index} className="text-[10px] text-muted-foreground break-words">
-                    <span className="font-medium text-[#1a2a5e]">{entry.action}</span>
-                    {entry.technicianName ? ` - ${entry.technicianName}` : ''}
-                    {entry.resultStatus ? ` [${entry.resultStatus}]` : ''}
+                    <span className="font-medium text-[#1a2a5e]">{actionLabel(entry.action)}</span>
+                    {entry.technicianName && entry.technicianName !== 'Unknown' ? ` - ${entry.technicianName}` : ''}
                     {entry.timestamp ? ` (${new Date(entry.timestamp).toLocaleString('de-DE')})` : ''}
-                    {entry.details ? `: ${JSON.stringify(entry.details)}` : ''}
                   </p>
                 ))}
               </div>

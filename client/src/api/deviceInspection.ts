@@ -9,7 +9,7 @@ type InspectionApiPayload = {
 
 const unwrapInspectionResponse = (response: AxiosResponse<InspectionApiPayload>) => {
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(response.data?.error || response.data?.message || 'Inspection request failed');
+    throw new Error(response.data?.error || response.data?.message || 'Die Anfrage zur Geräteinspektion ist fehlgeschlagen.');
   }
 
   return response.data;
@@ -34,6 +34,22 @@ const toInspectionError = (error: any): Error => {
         ? `Anfrage fehlgeschlagen (HTTP ${status})`
         : 'Server nicht erreichbar. Bitte erneut versuchen.')
   );
+};
+
+// The only repair cost that may be displayed: the server's repairOfferKnownCost (number | null).
+// Fallback for responses without that field (older server): an explicitly specified cost, or a
+// positive legacy cost. A legacy 0 without costSpecified was a client default and is UNKNOWN.
+export const getKnownRepairCost = (inspection: any): number | null => {
+  if (!inspection) return null;
+  if (inspection.repairOfferKnownCost === null) return null;
+  if (typeof inspection.repairOfferKnownCost === 'number' && Number.isFinite(inspection.repairOfferKnownCost)) {
+    return inspection.repairOfferKnownCost;
+  }
+  const offer = inspection.repairOffer;
+  const cost = offer?.cost;
+  if (typeof cost !== 'number' || !Number.isFinite(cost) || cost < 0) return null;
+  if (offer?.costSpecified === true) return cost;
+  return cost > 0 ? cost : null;
 };
 
 // Description: Initialize device inspection for an order
@@ -188,12 +204,14 @@ export const updateAppleSpecific = async (orderId: string, appleData: any) => {
 
 // Description: Complete inspection
 // Endpoint: PUT /api/device-inspections/:orderId/complete
-// Request: { isRepairable?, repairOffer?, completionAction?, customerInformation? }
-// Response: { inspection: DeviceInspection }
+// Request: { repairOffer?: { cost?, costSpecified?, timeframe?, description? }, customerInformation? }
+//   isRepairable / completionAction are DEPRECATED and ignored by the server (never written).
+//   repairOffer.cost is taken only when given; 0 only together with costSpecified: true.
+// Response: { inspection: DeviceInspection } (inspection.repairOfferKnownCost: number | null)
 export const completeInspection = async (
   orderId: string,
   isRepairable?: boolean | null,
-  repairOffer?: any,
+  repairOffer?: { cost?: number; costSpecified?: boolean; timeframe?: string; description?: string },
   completionAction?: 'repairable' | 'not-repairable' | 'inform-customer',
   customerInformation?: {
     shouldInform?: boolean;

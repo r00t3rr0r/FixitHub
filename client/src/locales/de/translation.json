@@ -2392,6 +2392,10 @@
     "noProductsDesc": "Versuchen Sie, Ihre Such- oder Filterkriterien anzupassen"
   },
   "orderDetails": {
+    "servicesAndProducts": {
+      "title": "Reparaturleistungen & Produkte",
+      "description": "Gebuchte Reparaturdienste, Zusatzleistungen und Produkte für diesen Auftrag"
+    },
     "backToOrders": "Zurück zu Aufträgen",
     "orderHeader": "Auftrag",
     "customerInformation": "Kundeninformationen",

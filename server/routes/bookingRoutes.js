@@ -1084,6 +1084,24 @@ router.post('/:id/shipping/create-label', requireStaff, async (req, res) => {
   }
 });
 
+// Description: Offenen Abgleich des Einsendelabels nach unklarer DHL-Antwort abschliessen
+// Endpoint: POST /api/bookings/:id/shipping/reconcile (nur Administratoren)
+// Request: { resolution: 'not-created' | 'created', trackingNumber?: string }
+router.post('/:id/shipping/reconcile', requireAdmin, async (req, res) => {
+  try {
+    const booking = await BookingService.reconcileBookingInboundLabel(
+      req.params.id,
+      { resolution: req.body?.resolution, trackingNumber: req.body?.trackingNumber },
+      req.user
+    );
+    return res.status(200).json({ success: true, booking, message: 'Der Abgleich wurde abgeschlossen.' });
+  } catch (error) {
+    console.error('BookingRoutes: Error reconciling inbound label:', error.message);
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return res.status(status).json({ success: false, error: error.message || 'Der Abgleich konnte nicht abgeschlossen werden.', code: error.code || 'RECONCILIATION_FAILED' });
+  }
+});
+
 // Description: Lookup DHL pickup locations
 // Endpoint: POST /api/bookings/:id/shipping/pickup-locations
 // Request: { postalCode?: string, city?: string, street?: string, houseNumber?: string, countryCode?: string, radius?: number, limit?: number, locationType?: string }
@@ -1091,18 +1109,14 @@ router.post('/:id/shipping/create-label', requireStaff, async (req, res) => {
 router.post('/:id/shipping/pickup-locations', requireStaff, async (req, res) => {
   console.log('BookingRoutes: Pickup location lookup request received for booking:', req.params.id);
 
-  try {
-    const DHLService = require('../services/dhlService');
-    const result = await DHLService.lookupPickupLocations(req.body || {});
-
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error('BookingRoutes: Error looking up pickup locations:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to lookup pickup locations'
-    });
-  }
+  // DHLService hat keine Funktion lookupPickupLocations - der Aufruf endete bisher immer in
+  // einem 500 "is not a function". Die Standortsuche laeuft ueber GET /api/dhl/locations
+  // (DHL Location Finder); dieser Endpunkt meldet das jetzt ausdruecklich.
+  return res.status(501).json({
+    success: false,
+    error: 'Die Standortsuche ist über diese Schnittstelle nicht verfügbar. Bitte die DHL-Standortsuche (Packstation/Filiale) verwenden.',
+    code: 'PICKUP_LOOKUP_NOT_AVAILABLE'
+  });
 });
 
 // Description: Download shipping label PDF for a booking

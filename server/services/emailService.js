@@ -160,7 +160,8 @@ class EmailService {
     }
 
     for (const [key, rawValue] of Object.entries(normalizedVariables)) {
-      if (typeof rawValue !== 'string') {
+      // Persoenliche Nachricht ist Freitext - nie als Link umschreiben.
+      if (typeof rawValue !== 'string' || key === 'customMessage') {
         continue;
       }
 

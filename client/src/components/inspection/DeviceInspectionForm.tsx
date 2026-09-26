@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
   updateDeviceTests,
   updateAppleSpecific,
   completeInspection,
+  getKnownRepairCost,
 } from '@/api/deviceInspection';
 import { createQuickAction } from '@/api/inspectionCommunication';
 import {
@@ -130,6 +131,9 @@ interface DeviceInspectionFormProps {
   forceStartAtStepOne?: boolean;
   onRequestDeviceChange?: () => void;
   onComplete?: () => void;
+  // Reports the loaded or freshly initialised inspection (e.g. so a page can hand its _id to the
+  // communication panel on a first visit, before any inspection existed).
+  onInspectionLoaded?: (inspection: any) => void;
 }
 
 export function DeviceInspectionForm({
@@ -146,6 +150,7 @@ export function DeviceInspectionForm({
   forceStartAtStepOne = false,
   onRequestDeviceChange,
   onComplete,
+  onInspectionLoaded,
 }: DeviceInspectionFormProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -219,11 +224,11 @@ export function DeviceInspectionForm({
   const [defectActionNote, setDefectActionNote] = useState('');
 
   // Step 7: Summary & Completion
-  // DEPRECATED: the "Abschlussentscheidung" control was removed from step 7, so these two
-  // must not be invented any more. They are still hydrated from an existing inspection so a
-  // historical decision is preserved when such an inspection is completed again.
+  // The "Abschlussentscheidung" control was removed from step 7; completionAction is only
+  // hydrated for the legacy "inform-customer" follow-up and never sent back. There is no
+  // "reparierbar" state any more.
   const [completionAction, setCompletionAction] = useState<CompletionAction | null>(null);
-  const [isRepairable, setIsRepairable] = useState<boolean | null>(null);
+  // Known price of an existing quote (never a default): '' = unknown.
   const [repairCost, setRepairCost] = useState('');
   const [repairTimeframe, setRepairTimeframe] = useState('');
   const [repairDescription, setRepairDescription] = useState('');
@@ -234,6 +239,20 @@ export function DeviceInspectionForm({
 
   const [submitting, setSubmitting] = useState(false);
   const [submittingStep, setSubmittingStep] = useState<number | null>(null);
+  // Where "Gemeldetes Modell" came from (server: modelVerification.reportedModelSource).
+  const [reportedModelSource, setReportedModelSource] = useState<string | undefined>(undefined);
+
+  // T15: the resume position is taken from the server ONCE per mount. Later re-syncs (e.g. the
+  // order's device props arriving after "Gerät ändern") must never move the wizard - they used
+  // to pull a technician on step 4 back to step 1 and unmount the step's form.
+  const initialLoadDoneRef = useRef(false);
+  // Counts completed step saves. A background re-sync whose GET started before a save finished
+  // carries an OLDER server state and must not overwrite the saved one.
+  const saveSequenceRef = useRef(0);
+  // The newest server state returned by a step save (see applySavedInspection).
+  const latestSavedInspectionRef = useRef<any>(null);
+  const stepCardRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const [scrollToStep, setScrollToStep] = useState<number | null>(null);
 
   const canonicalDeviceType = normalizeInspectionDeviceType(deviceType);
   // The order's CURRENT device - i.e. the corrected/actual model after "Geraet aendern".
@@ -523,13 +542,35 @@ export function DeviceInspectionForm({
 
   const getConditionLabel = (value: ConditionStatus) => {
     const labels: Record<ConditionStatus, string> = {
-      '--': 'Keine optischen Auffaelligkeiten',
-      'light-wear': 'Leichte Gebrauchspuren',
-      'scratches-wear': 'Kratzer und Gebrauchspuren',
-      'heavy-scratches-wear': 'Schwere Kratzer und Gebrauchspuren',
-      'damaged': 'Beschaedigt',
+      '--': 'Keine optischen Auffälligkeiten',
+      'light-wear': 'Leichte Gebrauchsspuren',
+      'scratches-wear': 'Kratzer und Gebrauchsspuren',
+      'heavy-scratches-wear': 'Schwere Kratzer und Gebrauchsspuren',
+      'damaged': 'Beschädigt',
     };
     return labels[value];
+  };
+
+  const getAppleStatusLabel = (value: string) => {
+    const labels: Record<string, string> = {
+      working: 'funktioniert',
+      defective: 'defekt',
+      'not-testable': 'nicht testbar',
+      'not-applicable': 'nicht vorhanden',
+    };
+    return labels[value] || value;
+  };
+
+  // Legacy orders without a booking snapshot: say how "Gemeldetes Modell" was determined
+  // instead of presenting it as the customer's original statement.
+  const getReportedModelSourceNote = (source?: string) => {
+    if (source === 'order-timeline') {
+      return 'Aus dem Auftragsverlauf ermittelt (keine gespeicherte Buchungsangabe)';
+    }
+    if (source === 'order-current-unverified' || source === 'order-snapshot-unverified') {
+      return 'Ursprüngliche Kundenangabe nicht gesichert erfasst – entspricht dem damaligen Auftragsstand';
+    }
+    return '';
   };
 
   const getVerificationStatusLabel = (
@@ -571,13 +612,15 @@ export function DeviceInspectionForm({
     setChargingCurrent('');
   };
 
-  const hydrateFromInspection = (insp: any) => {
+  // Device/model fields only. Safe to run again whenever the order's device props change.
+  const hydrateModelFromInspection = (insp: any, options: { keepLocalNotes?: boolean } = {}) => {
     if (!insp) return;
 
     // "Gemeldetes Modell" is what the CUSTOMER originally booked. The server snapshot
-    // (Order.reportedDevice) is authoritative and survives a correction via "Geraet aendern";
+    // (Order.reportedDevice) is authoritative and survives a correction via "Gerät ändern";
     // the order's current device is only a fallback for records that have no snapshot.
     setReportedModel(insp.modelVerification?.reportedModel || orderCurrentModel || '');
+    setReportedModelSource(insp.modelVerification?.reportedModelSource);
 
     if (insp.modelVerification) {
       const persistedActual = insp.modelVerification.actualModel || '';
@@ -596,7 +639,10 @@ export function DeviceInspectionForm({
           : (insp.modelVerification.verificationStatus || 'correct') as VerificationStatus
       );
       setCostDifference(Number(insp.modelVerification.costDifference || 0));
-      setModelNotes(insp.modelVerification.notes || '');
+      // A re-sync (device props changed) must not wipe notes the technician is typing in step 1.
+      if (!options.keepLocalNotes) {
+        setModelNotes(insp.modelVerification.notes || '');
+      }
     } else {
       if (orderCurrentModel) {
         setActualModel(orderCurrentModel);
@@ -604,6 +650,12 @@ export function DeviceInspectionForm({
         setActualModelUserConfirmed(false);
       }
     }
+  };
+
+  const hydrateFromInspection = (insp: any, options: { applyPosition: boolean }) => {
+    if (!insp) return;
+
+    hydrateModelFromInspection(insp);
 
     if (insp.identification) {
       setImei(insp.identification.imei || initialImei || '');
@@ -669,20 +721,18 @@ export function DeviceInspectionForm({
       setDefectActionNote(insp.appleSpecific.customerInfoAction?.note || '');
     }
 
-    // DELIBERATE: the "Abschlussentscheidung" control is gone, so these two are never
-    // chosen here any more - but completeInspection() on the server UNSETS whatever it is
-    // not given. Hydrating therefore writes the STORED value back unchanged (a no-op for
-    // the data) instead of erasing a genuine historical "Nicht reparierbar" assessment on
-    // re-completion. Nothing new is ever created: without a stored value both stay null.
-    if (typeof insp.isRepairable === 'boolean') {
-      setIsRepairable(insp.isRepairable);
-    }
+    // The "Abschlussentscheidung" control is gone: isRepairable is neither shown nor sent any
+    // more (the server ignores it and keeps stored history untouched). completionAction is only
+    // read for the legacy "inform-customer" follow-up below.
     if (insp.completionAction) {
       setCompletionAction(insp.completionAction);
     }
 
     if (insp.repairOffer) {
-      setRepairCost(insp.repairOffer.cost ? String(insp.repairOffer.cost) : '');
+      // Only a KNOWN price is carried over - a legacy default 0 stays empty (= unknown), an
+      // explicitly free quote stays "0".
+      const knownCost = getKnownRepairCost(insp);
+      setRepairCost(knownCost === null ? '' : String(knownCost));
       setRepairTimeframe(insp.repairOffer.timeframe || '');
       setRepairDescription(insp.repairOffer.description || '');
     }
@@ -706,6 +756,7 @@ export function DeviceInspectionForm({
       firstOpenStep += 1;
     }
 
+    if (!options.applyPosition) return;
     const nextStep = forceStartAtStepOne ? 1 : Math.min(7, Math.max(1, firstOpenStep));
     setCurrentStep(nextStep);
     setExpandedSteps([nextStep]);
@@ -716,8 +767,9 @@ export function DeviceInspectionForm({
     // reportedModel / actualModel are deliberately NOT restored from the draft: they are
     // owned by the server snapshot and by the order's current device. Restoring them used
     // to post a pre-change model back to the API and overwrite the corrected device.
-    setVerificationStatus(draft.verificationStatus ?? verificationStatus);
-    setCostDifference(Number(draft.costDifference ?? costDifference));
+    // verificationStatus / costDifference are NOT restored either: a draft "Modell stimmt
+    // nicht überein" survived the device correction and blocked "Speichern & Weiter" in step 1
+    // (a non-matching status can never be saved anyway - it only leads to "Gerät ändern").
     setModelNotes(draft.modelNotes ?? modelNotes);
     setImei(draft.imei ?? imei);
     setSerialNumber(draft.serialNumber ?? serialNumber);
@@ -767,8 +819,9 @@ export function DeviceInspectionForm({
     );
     setDefectActionNote(draft.defectActionNote ?? defectActionNote);
     // completionAction / isRepairable are no longer part of the UI - a stale draft must not
-    // re-inject a "Reparatureinschaetzung" nobody chose.
-    setRepairCost(draft.repairCost ?? repairCost);
+    // re-inject a "Reparatureinschaetzung" nobody chose. repairCost is NOT restored either: step 7
+    // has no price input, so a draft value can only be stale (e.g. a default '0' of an older
+    // client) and would be re-sent as an explicit quote. Only the server's known cost counts.
     setRepairTimeframe(draft.repairTimeframe ?? repairTimeframe);
     setRepairDescription(draft.repairDescription ?? repairDescription);
     setInformCustomer(typeof draft.informCustomer === 'boolean' ? draft.informCustomer : informCustomer);
@@ -804,15 +857,24 @@ export function DeviceInspectionForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, draftKey]);
 
-  // Initialize inspection
+  // Initialize inspection. The first run loads, hydrates everything and sets the resume position.
+  // A later run (the order's device props changed, e.g. after "Gerät ändern" the reload arrives
+  // after the dialog reopened) only re-syncs the model fields - silently, without the loading
+  // screen, without the local draft and WITHOUT touching the current step.
   useEffect(() => {
+    let cancelled = false;
+    const isInitialLoad = !initialLoadDoneRef.current;
+    const saveSequenceAtStart = saveSequenceRef.current;
+
     const init = async () => {
       try {
-        setInitializing(true);
-        setLoading(true);
+        if (isInitialLoad) {
+          setInitializing(true);
+          setLoading(true);
+        }
 
         // First, try to get existing inspection
-        let existingInspection = null;
+        let existingInspection: any = null;
         try {
           const result = await getInspection(orderId);
           existingInspection = result.inspection;
@@ -826,10 +888,26 @@ export function DeviceInspectionForm({
           existingInspection = result.inspection;
         }
 
+        if (cancelled) return;
+
+        if (!isInitialLoad) {
+          // A step was saved while this GET was in flight: the save's response is newer (it has
+          // the new completedSteps entry) - drop the stale GET result instead of overwriting it.
+          // The device change that triggered this re-sync still has to reach the model fields,
+          // so they are re-hydrated from the NEWEST saved state (notes stay local).
+          if (saveSequenceRef.current !== saveSequenceAtStart) {
+            hydrateModelFromInspection(latestSavedInspectionRef.current || existingInspection, { keepLocalNotes: true });
+            return;
+          }
+          setInspection(existingInspection);
+          hydrateModelFromInspection(existingInspection, { keepLocalNotes: true });
+          return;
+        }
+
         setInspection(existingInspection);
 
         if (existingInspection) {
-          hydrateFromInspection(existingInspection);
+          hydrateFromInspection(existingInspection, { applyPosition: true });
         }
 
         try {
@@ -841,21 +919,71 @@ export function DeviceInspectionForm({
           console.warn('Unable to parse inspection draft', draftError);
         }
 
+        initialLoadDoneRef.current = true;
         setLoading(false);
-      } catch (error) {
+      } catch (error: any) {
+        if (cancelled) return;
         console.error('Error initializing inspection:', error);
-        toast({
-          title: t('inspection.toast.errorTitle', 'Fehler'),
-          description: t('inspection.toast.initError', 'Inspektion konnte nicht initialisiert werden'),
-        });
-        setLoading(false);
+        if (isInitialLoad) {
+          toast({
+            variant: 'destructive',
+            title: t('inspection.toast.errorTitle', 'Fehler'),
+            description:
+              (typeof error?.message === 'string' && error.message.trim())
+                ? error.message
+                : t('inspection.toast.initError', 'Inspektion konnte nicht initialisiert werden'),
+          });
+          setLoading(false);
+        }
       } finally {
-        setInitializing(false);
+        if (!cancelled && isInitialLoad) {
+          setInitializing(false);
+        }
       }
     };
 
     init();
+    return () => {
+      cancelled = true;
+    };
   }, [orderId, customerId, deviceBrand, deviceModel, forceStartAtStepOne, initialImei, initialSerialNumber]);
+
+  // A successful "Speichern & Weiter" opens the next step AND brings it into view, so the
+  // transition is visible even when the previous step was long or the dialog was scrolled.
+  useEffect(() => {
+    if (scrollToStep === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = stepCardRefs.current[scrollToStep];
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setScrollToStep(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [scrollToStep]);
+
+  const loadedInspectionId = inspection?._id ? String(inspection._id) : '';
+  useEffect(() => {
+    if (loadedInspectionId) {
+      onInspectionLoaded?.(inspection);
+    }
+    // Only when the inspection identity changes, not on every step save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedInspectionId]);
+
+  // Every successful save goes through here so a concurrent background re-sync can tell that
+  // its GET result is outdated.
+  const applySavedInspection = (saved: any) => {
+    saveSequenceRef.current += 1;
+    latestSavedInspectionRef.current = saved;
+    setInspection(saved);
+  };
+
+  const advanceToStep = (step: number) => {
+    setCurrentStep(step);
+    setExpandedSteps([step]);
+    setScrollToStep(step);
+  };
 
   useEffect(() => {
     // Only use the order's device fields as a fallback before the reportedModel has been
@@ -974,7 +1102,6 @@ export function DeviceInspectionForm({
       touchIdFaceIdStatus,
       defectActionRequested,
       defectActionNote,
-      repairCost,
       repairTimeframe,
       repairDescription,
       informCustomer,
@@ -1019,7 +1146,6 @@ export function DeviceInspectionForm({
     touchIdFaceIdStatus,
     defectActionRequested,
     defectActionNote,
-    repairCost,
     repairTimeframe,
     repairDescription,
     informCustomer,
@@ -1198,7 +1324,7 @@ export function DeviceInspectionForm({
         toast({
           variant: 'destructive',
           title: t('inspection.toast.errorTitle', 'Fehler'),
-          description: 'Bitte zuerst ueber "Geraet aendern" das Modell im Auftrag aktualisieren.',
+          description: 'Bitte zuerst über „Gerät ändern“ das Modell im Auftrag aktualisieren.',
         });
         return;
       }
@@ -1216,7 +1342,7 @@ export function DeviceInspectionForm({
         actualModelUserConfirmed
       );
       const savedInspection = assertSaved(result);
-      setInspection(savedInspection);
+      applySavedInspection(savedInspection);
       // The server replaces an unconfirmed actual model that merely echoes a pre-change
       // draft. It reports that back instead of doing it silently - show it to the technician.
       const serverWarnings: string[] = Array.isArray((result as any)?.warnings)
@@ -1239,8 +1365,7 @@ export function DeviceInspectionForm({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.modelSaved', 'Modellprüfung gespeichert'),
       });
-      setCurrentStep(2);
-      setExpandedSteps([2]);
+      advanceToStep(2);
     } catch (error: any) {
       showErrorToast(error);
     } finally {
@@ -1266,14 +1391,13 @@ export function DeviceInspectionForm({
       setSubmittingStep(2);
       const result = await updateIdentification(orderId, deviceType, imei.trim() || undefined, serialNumber.trim() || undefined);
       const savedInspection = assertSaved(result);
-      setInspection(savedInspection);
+      applySavedInspection(savedInspection);
       setImeiRequiredAtCompletion(Boolean(savedInspection?.identification?.imeiRequired));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.identificationSaved', 'Identifikation gespeichert'),
       });
-      setCurrentStep(3);
-      setExpandedSteps([3]);
+      advanceToStep(3);
     } catch (error: any) {
       showErrorToast(error);
     } finally {
@@ -1297,13 +1421,12 @@ export function DeviceInspectionForm({
         otherAccessories: [],
         description: accessoriesNotes,
       });
-      setInspection(assertSaved(result));
+      applySavedInspection(assertSaved(result));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.accessoriesSaved', 'Zubehör gespeichert'),
       });
-      setCurrentStep(4);
-      setExpandedSteps([4]);
+      advanceToStep(4);
     } catch (error: any) {
       showErrorToast(error);
     } finally {
@@ -1326,13 +1449,12 @@ export function DeviceInspectionForm({
         visibleDamages: { hasDamage, description: damageDescription },
         uniqueNotes: externalNotes,
       });
-      setInspection(assertSaved(result));
+      applySavedInspection(assertSaved(result));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.externalSaved', 'Äußere Inspektion gespeichert'),
       });
-      setCurrentStep(5);
-      setExpandedSteps([5]);
+      advanceToStep(5);
     } catch (error: any) {
       showErrorToast(error);
     } finally {
@@ -1349,7 +1471,7 @@ export function DeviceInspectionForm({
         toast({
           variant: 'destructive',
           title: t('inspection.toast.errorTitle', 'Fehler'),
-          description: 'Stromstaerke bitte im Format 1.7A eingeben.',
+          description: 'Stromstärke bitte im Format 1.7A eingeben.',
         });
         return;
       }
@@ -1365,13 +1487,12 @@ export function DeviceInspectionForm({
         buttons: { status: buttonsStatus, notes: buttonsDescription },
         notes: deviceTestNotes.trim(),
       });
-      setInspection(assertSaved(result));
+      applySavedInspection(assertSaved(result));
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.testsSaved', 'Gerätetests gespeichert'),
       });
-      setCurrentStep(6);
-      setExpandedSteps([6]);
+      advanceToStep(6);
     } catch (error: any) {
       showErrorToast(error);
     } finally {
@@ -1401,13 +1522,12 @@ export function DeviceInspectionForm({
           note: defectActionNote,
         },
       });
-      setInspection(assertSaved(result));
+      applySavedInspection(assertSaved(result));
 
-      setCurrentStep(7);
-      setExpandedSteps([7]);
+      advanceToStep(7);
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
-        description: 'Apple-spezifische Pruefungen gespeichert',
+        description: 'Apple-spezifische Prüfungen gespeichert',
       });
     } catch (error: any) {
       showErrorToast(error);
@@ -1420,21 +1540,19 @@ export function DeviceInspectionForm({
   const handleCompleteInspection = async () => {
     if (submitting) return;
 
-    const resolvedRepairable = typeof isRepairable === 'boolean' ? isRepairable : undefined;
-
     const shouldSendCustomerInfo = informCustomer || completionAction === 'inform-customer' || defectActionRequested;
     const generatedTemplate = customerInfoMailTemplate.trim() || [
       'Betreff: Wichtige Information zu Ihrer Reparatur',
       '',
       'Guten Tag,',
       '',
-      `bei der Geraeteinspektion zu Auftrag ${orderId} wurden zusaetzliche Auffaelligkeiten festgestellt.`,
+      `bei der Geräteinspektion zu Auftrag ${orderId} wurden zusätzliche Auffälligkeiten festgestellt.`,
       customerInfoReason ? `Grund: ${customerInfoReason}` : '',
       customerInfoNote ? `Hinweis: ${customerInfoNote}` : '',
       '',
       'Bitte teilen Sie uns mit, wie wir weiter vorgehen sollen.',
       '',
-      'Viele Gruesse',
+      'Viele Grüße',
       'Ihr McRepair.de Team',
     ].filter(Boolean).join('\n');
 
@@ -1447,31 +1565,39 @@ export function DeviceInspectionForm({
         setImeiRequiredAtCompletion(false);
       }
 
-      const repairOfferPayload = (repairTimeframe || repairDescription || (repairCost && Number(repairCost) > 0))
+      // A price is sent only when one is actually known (hydrated from a real quote). A missing
+      // price stays unknown - it used to become "0 EUR" via Number('') || 0.
+      const trimmedCost = repairCost.trim();
+      const parsedCost = trimmedCost ? Number(trimmedCost.replace(',', '.')) : NaN;
+      const hasKnownCost = Number.isFinite(parsedCost) && parsedCost >= 0;
+      const repairOfferPayload = (repairTimeframe.trim() || repairDescription.trim() || hasKnownCost)
         ? {
-            cost: Number(repairCost) || 0,
+            ...(hasKnownCost ? { cost: parsedCost, costSpecified: true } : {}),
             timeframe: repairTimeframe,
             description: repairDescription,
           }
         : undefined;
 
+      // isRepairable / completionAction are deliberately not sent: the "Reparatureinschätzung"
+      // no longer exists and the server ignores both.
       const completionResult = await completeInspection(
         orderId,
-        resolvedRepairable,
+        undefined,
         repairOfferPayload,
-        completionAction || undefined,
+        undefined,
         {
           shouldInform: shouldSendCustomerInfo,
           reason: customerInfoReason,
           note: customerInfoNote,
           suggestedStatus: completionAction === 'inform-customer' ? 'awaiting-customer' : '',
-          mailTemplate: generatedTemplate,
+          // Only stored when the customer is actually to be informed.
+          mailTemplate: shouldSendCustomerInfo ? generatedTemplate : '',
         }
       );
       // Step 7 is held to the same rule as steps 1-6: a 2xx without an inspection in the
       // body is NOT a successful completion and must not fire the success toast/onComplete.
       const completedInspection = assertSaved(completionResult);
-      setInspection(completedInspection);
+      applySavedInspection(completedInspection);
 
       if (shouldSendCustomerInfo && inspection?._id) {
         try {
@@ -1479,7 +1605,7 @@ export function DeviceInspectionForm({
             orderId,
             inspection._id,
             'customer_defect_info',
-            customerInfoNote || customerInfoReason || 'Kunde ueber technischen Defekt informieren',
+            customerInfoNote || customerInfoReason || 'Kunde über technischen Defekt informieren',
             {
               completionAction,
               reason: customerInfoReason,
@@ -1540,7 +1666,7 @@ export function DeviceInspectionForm({
       )}
 
       {/* Step 1: Model Verification */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[1] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(1)}
@@ -1565,7 +1691,7 @@ export function DeviceInspectionForm({
                     {reportedModelImage ? (
                       <img
                         src={reportedModelImage}
-                        alt={reportedModel || 'Reported model'}
+                        alt={reportedModel || 'Gemeldetes Modell'}
                         className="h-12 w-12 rounded-md border border-slate-200 object-cover"
                         onError={() => setReportedModelImage('')}
                       />
@@ -1576,7 +1702,7 @@ export function DeviceInspectionForm({
                     )}
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{reportedModel || '-'}</p>
-                      <p className="text-xs text-slate-500">Ursprünglich vom Kunden gemeldet</p>
+                      <p className="text-xs text-slate-500">{getReportedModelSourceNote(reportedModelSource) || 'Ursprünglich vom Kunden gemeldet'}</p>
                     </div>
                   </div>
                 </div>
@@ -1593,10 +1719,10 @@ export function DeviceInspectionForm({
                     />
                     <div>
                       <Label htmlFor="verification-match" className="text-sm font-medium">
-                        Uebereinstimmung OK
+                        Übereinstimmung OK
                       </Label>
                       <p className="text-xs text-slate-500">
-                        Aktiv lassen, wenn das Geraet mit dem Auftrag uebereinstimmt.
+                        Aktiv lassen, wenn das Gerät mit dem Auftrag übereinstimmt.
                       </p>
                     </div>
                   </div>
@@ -1604,10 +1730,10 @@ export function DeviceInspectionForm({
                   {verificationStatus !== 'correct' && (
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                       <p className="mb-2">
-                        Modell stimmt nicht ueberein. Bitte den Auftrag ueber "Geraet aendern" aktualisieren.
+                        Modell stimmt nicht überein. Bitte den Auftrag über „Gerät ändern“ aktualisieren.
                       </p>
                       <Button type="button" variant="outline" size="sm" onClick={onRequestDeviceChange}>
-                        Geraet aendern
+                        Gerät ändern
                       </Button>
                     </div>
                   )}
@@ -1645,7 +1771,7 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 2: Identification */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[2] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(2)}
@@ -1690,7 +1816,7 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 3: Accessories */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[3] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(3)}
@@ -1740,7 +1866,7 @@ export function DeviceInspectionForm({
                   onValueChange={(value) => setSimTrayPresent(value === 'yes')}
                 >
                   <SelectTrigger id="sim-tray">
-                    <SelectValue placeholder="Bitte waehlen" />
+                    <SelectValue placeholder="Bitte wählen" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="yes">Ja</SelectItem>
@@ -1750,7 +1876,7 @@ export function DeviceInspectionForm({
               </div>
 
               <div>
-                <Label htmlFor="additional-accessories">Weiteres Zubehoer (z. B. Stift, Ladekabel)</Label>
+                <Label htmlFor="additional-accessories">Weiteres Zubehör (z. B. Stift, Ladekabel)</Label>
                 <Input
                   id="additional-accessories"
                   value={additionalAccessories}
@@ -1778,7 +1904,7 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 4: External Inspection */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[4] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(4)}
@@ -1861,7 +1987,7 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 5: Device Tests */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[5] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(5)}
@@ -1952,7 +2078,7 @@ export function DeviceInspectionForm({
             )}
 
             <div>
-              <Label htmlFor="charging-current">Stromstaerke beim Laden (optional)</Label>
+              <Label htmlFor="charging-current">Stromstärke beim Laden (optional)</Label>
               <Input
                 id="charging-current"
                 value={chargingCurrent}
@@ -1979,7 +2105,7 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 6: Apple-Specific */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[6] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(6)}
@@ -2034,13 +2160,13 @@ export function DeviceInspectionForm({
                       checked={defectActionRequested}
                       onCheckedChange={(checked) => setDefectActionRequested(checked as boolean)}
                     />
-                    <Label htmlFor="defect-action">Zusatzaktion aktivieren: Kunde ueber Defekt informieren</Label>
+                    <Label htmlFor="defect-action">Zusatzaktion aktivieren: Kunde über Defekt informieren</Label>
                   </div>
                   {defectActionRequested && (
                     <Textarea
                       value={defectActionNote}
                       onChange={(e) => setDefectActionNote(e.target.value)}
-                      placeholder="Hinweis fuer Kommunikation/Statusnotiz"
+                      placeholder="Hinweis für Kommunikation/Statusnotiz"
                     />
                   )}
                 </div>
@@ -2060,7 +2186,7 @@ export function DeviceInspectionForm({
       </Card>
 
       {/* Step 7: Summary & Completion */}
-      <Card className="inspection-step-card">
+      <Card className="inspection-step-card" ref={(element) => { stepCardRefs.current[7] = element; }}>
         <CardHeader
           className="inspection-step-header cursor-pointer"
           onClick={() => toggleStep(7)}
@@ -2080,14 +2206,17 @@ export function DeviceInspectionForm({
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
               <p className="font-semibold text-slate-800 mb-1">Zusammenfassung</p>
               <p><strong>Gemeldetes Modell (Kunde):</strong> {reportedModel || '-'}</p>
+              {getReportedModelSourceNote(reportedModelSource) && (
+                <p className="text-xs text-slate-600">{getReportedModelSourceNote(reportedModelSource)}</p>
+              )}
               <p><strong>Tatsächliches Modell:</strong> {actualModel || '-'}</p>
               {reportedModel && actualModel && reportedModel.trim().toLowerCase() !== actualModel.trim().toLowerCase() && (
                 <p className="text-xs text-amber-700">Korrigiert von "{reportedModel}" auf "{actualModel}".</p>
               )}
               <p><strong>Identifikation:</strong> {imei || serialNumber || 'Noch nicht erfasst'}</p>
-              <p><strong>Aeusserer Zustand:</strong> Display {getConditionLabel(displayStatus)}, Rahmen {getConditionLabel(frameStatus)}, Rueckseite {getConditionLabel(backCoverStatus)}</p>
+              <p><strong>Äußerer Zustand:</strong> Display {getConditionLabel(displayStatus)}, Rahmen {getConditionLabel(frameStatus)}, Rückseite {getConditionLabel(backCoverStatus)}</p>
               <p><strong>Tasten:</strong> {buttonsStatus === 'working' ? 'Funktionieren' : 'Nicht funktionierend'}</p>
-              <p><strong>Defekt-Hinweise:</strong> Modem {modemFirmwareStatus}, Touch/Face {touchIdFaceIdStatus}</p>
+              <p><strong>Defekt-Hinweise:</strong> Modem-Firmware {getAppleStatusLabel(modemFirmwareStatus)}, Touch ID / Face ID {getAppleStatusLabel(touchIdFaceIdStatus)}</p>
             </div>
 
             {canonicalDeviceType === 'Smartphone' && (!imei || imeiRequiredAtCompletion) && (
@@ -2134,7 +2263,7 @@ export function DeviceInspectionForm({
                   checked={informCustomer}
                   onCheckedChange={(checked) => setInformCustomer(checked as boolean)}
                 />
-                <Label htmlFor="inform-customer">Kunde direkt ueber Defekt/Auffaelligkeiten informieren</Label>
+                <Label htmlFor="inform-customer">Kunde direkt über Defekt/Auffälligkeiten informieren</Label>
               </div>
 
               {informCustomer && (

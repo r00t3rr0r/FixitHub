@@ -167,6 +167,12 @@ export function GuestOrderTracking() {
 
   const detailOrder = activeOrder || order;
 
+  // Altaufträge mit separat abgezogenem Händlerrabatt: totalCost enthält ihn noch, der
+  // geschuldete Betrag ist totalCost − dealerDiscountAmount (gleiche Regel wie
+  // OrderService.buildOrderPricingSummary). Neue Aufträge haben dealerDiscountAmount 0.
+  const dealerDiscountOf = (value: any) => Math.max(0, Number(value?.dealerDiscountAmount || 0));
+  const payableTotalOf = (value: any) => Math.max(0, Number(value?.totalCost || 0) - dealerDiscountOf(value));
+
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
       <SEO
@@ -296,7 +302,7 @@ export function GuestOrderTracking() {
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 max-[480px]:p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("orderTracking.totalCost")}</p>
-                  <p className="mt-1 text-sm font-bold text-[#1a2a5e]">{formatPrice(order.totalCost)}</p>
+                  <p className="mt-1 text-sm font-bold text-[#1a2a5e]">{formatPrice(payableTotalOf(order))}</p>
                 </div>
 
                 <div className="sm:col-span-3">
@@ -442,7 +448,7 @@ export function GuestOrderTracking() {
                       {detailOrder.services.map((service: any, index: number) => (
                         <div key={`${detailOrder._id || "detail"}-service-${index}`} className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
                           <div>
-                            <p className="text-sm font-medium text-slate-800">{service?.serviceId?.name || t("common.service")}</p>
+                            <p className="text-sm font-medium text-slate-800">{service?.serviceId?.name || service?.name || t("common.service")}</p>
                             {service?.serviceId?.description && <p className="text-xs text-slate-500">{service.serviceId.description}</p>}
                           </div>
                           <span className="text-sm font-semibold text-[#1a2a5e]">{formatPrice(Number(service?.price || 0))}</span>
@@ -485,9 +491,28 @@ export function GuestOrderTracking() {
                   )}
 
                   <div className="rounded-xl bg-[#1a2a5e] p-3 sm:p-4 text-white">
+                    {/* Positionen stehen zum Listenpreis (brutto); der Rabatt ist nur im Gesamtbetrag
+                        enthalten - ohne diese Zeile gehen Positionen und Summe nicht auf. */}
+                    {Number(detailOrder.discount || 0) > 0 && (
+                      <div className="mb-1 flex items-center justify-between gap-2 text-sm text-slate-200">
+                        <span>{t("cart.discount")}{detailOrder.appliedPromoCode ? ` (${detailOrder.appliedPromoCode})` : ""}</span>
+                        <span>−{formatPrice(Number(detailOrder.discount || 0))}</span>
+                      </div>
+                    )}
+                    {dealerDiscountOf(detailOrder) > 0 && (
+                      <div className="mb-1 flex items-center justify-between gap-2 text-sm text-slate-200">
+                        <span>
+                          {t("cart.discount")}
+                          {Number(detailOrder.dealerDiscountPercent || 0) > 0
+                            ? ` (${Number(detailOrder.dealerDiscountPercent).toLocaleString("de-DE")} %)`
+                            : ""}
+                        </span>
+                        <span>−{formatPrice(dealerDiscountOf(detailOrder))}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-slate-100">{t("orderTracking.totalCost")}</span>
-                      <span className="text-lg sm:text-xl font-bold text-[#f5b800]">{formatPrice(detailOrder.totalCost || 0)}</span>
+                      <span className="text-lg sm:text-xl font-bold text-[#f5b800]">{formatPrice(payableTotalOf(detailOrder))}</span>
                     </div>
                   </div>
 

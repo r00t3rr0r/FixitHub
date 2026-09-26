@@ -8,6 +8,11 @@ const DHLService = require('./dhlService');
 /**
  * DHL Parcel DE Returns Service
  * Handles return label generation and tracking for German domestic and international returns
+ *
+ * RICHTUNG: Bei der DHL-Retoure ist der KUNDE der Absender (`shipper`) und McRepair der
+ * Empfaenger (`receiverId`). Jedes hier erzeugte Label ist also eine EINSENDUNG
+ * (Kunde -> McRepair) - niemals der Versand des reparierten Geraets an den Kunden. Die
+ * Auslieferung (McRepair -> Kunde) erstellt DHLService.createShipment (Parcel DE Shipping v2).
  * API Documentation: https://developer.dhl.com/api-reference/dhl-parcel-de-returns-post-parcel-germany
  */
 class DHLReturnsService {
@@ -110,6 +115,9 @@ class DHLReturnsService {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        // Ohne Timeout (axios-Standard: unendlich) koennte eine haengende Anmeldung die
+        // Reservierungsfrist des Einsendelabels ueberdauern.
+        timeout: 15000,
       });
 
       console.log('DHLReturnsService: OAuth2 token obtained successfully');
@@ -352,7 +360,7 @@ class DHLReturnsService {
         labelUrl,
         qrCodeUrl,
         qrLink,
-        message: 'Return label created successfully',
+        message: 'Das DHL-Retourenlabel (Kunde → McRepair) wurde erstellt.',
       };
     } catch (error) {
       console.error('DHLReturnsService: Error creating return label:', error.response?.data || error.message);
@@ -384,13 +392,35 @@ class DHLReturnsService {
    */
   static async createReturnLabelForOrder(orderId, options = {}) {
     console.log('DHLReturnsService: Creating return label for order:', orderId);
+    // Atomare Reservierung des Einsendeplatzes (siehe DHLService.inboundClaimFilter):
+    // zwei gleichzeitige Klicks bzw. zwei Mitarbeiter erzeugen nie zwei bezahlte Retouren.
+    let claimed = false;
+    let keepClaim = false;
+    // Startzeit DIESER Reservierung: jeder spaetere Schreibzugriff ist an sie gebunden
+    // (DHLService.inboundClaimFence) - eine abgelaufene, inzwischen uebernommene Anfrage kann
+    // so nichts mehr ueberschreiben, freigeben oder markieren.
+    let claimedAt = null;
 
     try {
       const order = await Order.findById(orderId);
 
       if (!order) {
         console.error('DHLReturnsService: Order not found:', orderId);
-        throw new Error('Auftrag nicht gefunden.');
+        const notFound = new Error('Auftrag nicht gefunden.');
+        notFound.status = 404;
+        throw notFound;
+      }
+
+      // Sendung existiert (z. B. per Abgleich uebernommen), aber das PDF fehlt: kein neues,
+      // zweites bezahltes Label erzeugen.
+      if (!order.returnLabelUrl && order.returnTrackingNumber && order.returnShipmentStatus !== 'pending') {
+        const missing = new Error(
+          `Das Einsendelabel wurde bei DHL bereits angelegt (Sendungsnummer ${order.returnTrackingNumber}), das PDF liegt aber nicht vor. `
+          + 'Bitte das Label im DHL-Geschäftskundenportal abrufen, statt ein neues zu erstellen.'
+        );
+        missing.status = 409;
+        missing.code = 'EXISTING_SHIPMENT_LABEL_MISSING';
+        throw missing;
       }
 
       if (order.returnLabelUrl || order.returnShipmentStatus === 'label-created') {
@@ -400,9 +430,19 @@ class DHLReturnsService {
           returnTrackingNumber: order.returnTrackingNumber,
           labelUrl: order.returnLabelUrl,
           qrCodeUrl: order.returnQRCodeUrl,
-          message: 'Return label already exists',
+          alreadyExists: true,
+          message: 'Für diesen Auftrag ist bereits ein Einsendelabel vorhanden.',
           order,
         };
+      }
+
+      // 'pending' am Auftrag = ein anderes Einsendelabel (Parcel DE, z. B. Reklamation) wird
+      // gerade erstellt oder wartet nach einer unklaren DHL-Antwort auf den Abgleich.
+      if (order.returnShipmentStatus === 'pending') {
+        const error = new Error('Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden.');
+        error.status = 409;
+        error.code = 'LABEL_CREATION_IN_PROGRESS';
+        throw error;
       }
 
       console.log('DHLReturnsService: Order found:', order.orderNumber);
@@ -452,6 +492,26 @@ class DHLReturnsService {
         );
       }
 
+      claimedAt = new Date();
+      const claimResult = await Order.findOneAndUpdate(
+        DHLService.inboundClaimFilter(order._id),
+        {
+          $set: {
+            returnShipmentStatus: 'pending',
+            returnShipmentStatusDescription: 'Einsendelabel (DHL-Retoure) wird erstellt',
+            returnLabelCreationStartedAt: claimedAt,
+          },
+        },
+        { new: true, projection: { _id: 1 }, ...DHLService.LOCK_WRITE_OPTIONS }
+      );
+      if (!claimResult) {
+        const busy = new Error('Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden.');
+        busy.status = 409;
+        busy.code = 'LABEL_CREATION_IN_PROGRESS';
+        throw busy;
+      }
+      claimed = true;
+
       const config = await this.getDHLReturnsConfig();
       const accessToken = await this.getAccessToken();
       const labelType = options.labelType || 'BOTH';
@@ -484,21 +544,60 @@ class DHLReturnsService {
       const returnLabelEndpoint = `${config.apiEndpoint}/parcel/de/shipping/returns/v1/orders`;
       const queryParams = labelType !== 'PDF' ? `?labelType=${labelType}` : '';
 
-      const response = await axios.post(
-        returnLabelEndpoint + queryParams,
-        returnRequest,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        }
+      // Frist durchsetzen, BEVOR das bezahlte Label angefordert wird: die Reservierung muss
+      // noch dieser Anfrage gehoeren und die Restfrist den DHL-Timeout abdecken. Sonst wurde
+      // bei DHL nichts angelegt; die eigene Reservierung wird im catch freigegeben.
+      await DHLService.assertLabelClaimActive(
+        DHLService.inboundClaimFence(order._id, claimedAt),
+        claimedAt,
+        { requestTimeoutMs: this.RETURNS_REQUEST_TIMEOUT_MS }
       );
+
+      let response;
+      try {
+        response = await axios.post(
+          returnLabelEndpoint + queryParams,
+          returnRequest,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            // Ohne Timeout koennte die Anfrage die Reservierungsfrist ueberdauern.
+            timeout: this.RETURNS_REQUEST_TIMEOUT_MS,
+          }
+        );
+      } catch (sendError) {
+        if (DHLService.isIndeterminateTransportError(sendError)) {
+          // Die Anfrage ist raus, eine Antwort kam nicht: ob DHL die Retoure angelegt hat,
+          // ist unklar. Reservierung behalten, Abgleich verlangen, NICHT erneut senden.
+          keepClaim = true;
+          await DHLService.markInboundReconciliationRequired(order._id, {
+            reference: order.orderNumber || String(order._id),
+            kind: 'timeout',
+            product: 'DHL-Retoure-Einsendelabel',
+            claimedAt,
+          });
+          throw this.resultUnknownError();
+        }
+        throw sendError;
+      }
 
       console.log('DHLReturnsService: Return label created successfully for order');
 
-      const returnData = response.data;
+      const returnData = response.data || {};
       const returnId = returnData.returnId || returnData.shipmentNo;
+      if (!returnId) {
+        // DHL hat geantwortet, aber ohne Sendungsnummer: die Retoure kann trotzdem existieren.
+        keepClaim = true;
+        await DHLService.markInboundReconciliationRequired(order._id, {
+          reference: order.orderNumber || String(order._id),
+          kind: 'tracking-missing',
+          product: 'DHL-Retoure-Einsendelabel',
+          claimedAt,
+        });
+        throw this.resultUnknownError();
+      }
 
       let labelUrl = '';
       if (returnData.label && returnData.label.b64) {
@@ -520,23 +619,64 @@ class DHLReturnsService {
         returnTrackingNumber: returnId,
         returnShipmentId: returnId,
         returnShipmentStatus: 'label-created',
-        returnShipmentStatusDescription: 'DHL-Rücksendeetikett wurde erstellt',
+        returnShipmentStatusDescription: 'DHL-Retourenlabel (Kunde → McRepair) erstellt',
         returnCreatedAt: new Date(),
       };
 
       try {
-        await Order.updateOne({ _id: order._id }, { $set: returnUpdate });
+        // Nur schreiben, solange die Reservierung noch DIESER Anfrage gehoert (Fencing):
+        // ein verspaetetes Ergebnis ueberschreibt nie das Label einer spaeteren Anfrage.
+        const persisted = await Order.updateOne(
+          DHLService.inboundClaimFence(order._id, claimedAt),
+          {
+            $set: returnUpdate,
+            $unset: { returnLabelCreationStartedAt: '' },
+            $push: {
+              timeline: {
+                status: 'Inbound Label Created',
+                description: `DHL-Retourenlabel für die Einsendung (Kunde → McRepair) erstellt. Sendungsnummer: ${returnId}`,
+                completedAt: new Date(),
+                staffId: 'system',
+                staffName: 'DHL Parcel Integration',
+              },
+            },
+          },
+          DHLService.LOCK_WRITE_OPTIONS
+        );
+        if (!persisted || persisted.matchedCount === 0) {
+          const lost = new Error('Die Reservierung gehört inzwischen einer anderen Anfrage bzw. wurde abgeglichen.');
+          lost.claimLost = true;
+          throw lost;
+        }
+        claimed = false;
         Object.assign(order, returnUpdate);
         console.log('DHLReturnsService: Order updated with return information');
       } catch (persistError) {
+        keepClaim = true;
         console.error(
           'DHLReturnsService: Return label was created at DHL but could not be stored on the order:',
           persistError.message
         );
-        throw new Error(
-          `Das Rücksendeetikett wurde bei DHL erstellt (Sendungsnummer ${returnId}), konnte aber nicht `
-          + 'am Auftrag gespeichert werden. Bitte die Sendungsnummer notieren und den Vorgang nicht wiederholen.'
+        await DHLService.markInboundReconciliationRequired(order._id, {
+          reference: order.orderNumber || String(order._id),
+          trackingNumber: returnId,
+          kind: 'persist-failed',
+          product: 'DHL-Retoure-Einsendelabel',
+          claimedAt,
+        }).catch((markError) => {
+          console.error('DHLReturnsService: Could not record reconciliation marker:', markError.message);
+        });
+        const persistFailed = new Error(
+          persistError.claimLost
+            ? `Das Rücksendeetikett wurde bei DHL erstellt (Sendungsnummer ${returnId}), aber nicht am Auftrag gespeichert, weil diese `
+              + 'Label-Erstellung inzwischen abgeglichen bzw. von einer anderen Anfrage übernommen wurde. Bitte das überzählige Label '
+              + 'im DHL-Geschäftskundenportal stornieren und den Vorgang nicht wiederholen.'
+            : `Das Rücksendeetikett wurde bei DHL erstellt (Sendungsnummer ${returnId}), konnte aber nicht `
+              + 'am Auftrag gespeichert werden. Bitte die Sendungsnummer notieren und den Vorgang nicht wiederholen.'
         );
+        persistFailed.status = 500;
+        persistFailed.code = 'LABEL_PERSIST_FAILED';
+        throw persistFailed;
       }
 
       return {
@@ -546,17 +686,26 @@ class DHLReturnsService {
         labelUrl,
         qrCodeUrl,
         qrLink,
-        message: 'Return label created successfully',
+        message: 'Das Einsendelabel (DHL-Retoure, Kunde → McRepair) wurde erstellt.',
         order,
       };
     } catch (error) {
+      if (claimed && !keepClaim) {
+        // Eindeutiger Fehler (Adresse, Anmeldung, DHL-400 ...): bei DHL wurde nichts angelegt.
+        await DHLService.releaseInboundClaim(orderId, claimedAt).catch((releaseError) => {
+          console.error('DHLReturnsService: Could not release return label claim:', releaseError.message);
+        });
+      }
       console.error('DHLReturnsService: Error creating return label for order:', error.response?.data || error.message);
 
       // Die rohe DHL-Diagnose gehoert ins Log, nicht in die Oberflaeche.
       if (error.response?.status === 400) {
         const errorDetails = error.response.data?.detail || error.response.data?.message || 'Invalid request parameters';
         console.error('DHLReturnsService: DHL rejected the return order:', errorDetails);
-        throw new Error('DHL hat die Rücksendung abgelehnt. Bitte die Absenderadresse (Straße, Hausnummer, PLZ, Ort) prüfen.');
+        const rejected = new Error('DHL hat die Rücksendung abgelehnt. Bitte die Absenderadresse (Straße, Hausnummer, PLZ, Ort) prüfen.');
+        rejected.status = 422;
+        rejected.code = 'DHL_VALIDATION_ERROR';
+        throw rejected;
       }
 
       if (error.response?.status === 401) {
@@ -569,6 +718,22 @@ class DHLReturnsService {
 
       throw error;
     }
+  }
+
+  /** Timeout der DHL-Retouren-Anfrage (Teil der Fristpruefung vor dem Aufruf). */
+  static RETURNS_REQUEST_TIMEOUT_MS = 30000;
+
+  /** Unklares Ergebnis der DHL-Retoure: kein automatischer neuer Versuch, Abgleich noetig. */
+  static resultUnknownError() {
+    const unknown = new Error(
+      'DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. '
+      + 'Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.'
+    );
+    unknown.status = 409;
+    unknown.code = 'DHL_RESULT_UNKNOWN';
+    unknown.retryable = false;
+    unknown.indeterminate = true;
+    return unknown;
   }
 
   /**

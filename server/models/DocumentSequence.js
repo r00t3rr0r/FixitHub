@@ -47,13 +47,31 @@ documentSequenceSchema.statics.formatNumber = function formatNumber(documentType
   return `${prefix}-${year}-${String(sequence).padStart(4, '0')}`;
 };
 
+// Der Unique-Index ist die Voraussetzung fuer den atomaren Upsert: ohne ihn legen zwei
+// gleichzeitige ALLERERSTE Vergaben eines Jahres zwei Zaehler an und vergeben dieselbe
+// Nummer doppelt. Mongoose baut Indizes nur asynchron beim Start - deshalb wird der
+// Index vor der ersten Vergabe im Prozess einmal sichergestellt (idempotent).
+let counterIndexReady = null;
+function ensureCounterIndex(model) {
+  if (!counterIndexReady) {
+    counterIndexReady = model.collection
+      .createIndex({ documentType: 1, year: 1 }, { unique: true, name: 'documentType_1_year_1' })
+      .catch((error) => {
+        counterIndexReady = null;
+        throw error;
+      });
+  }
+  return counterIndexReady;
+}
+
 /**
  * Reserviert atomar die nächste Sequenznummer. Wirft bei Fehlschlag - es wird
  * bewusst KEINE Ersatznummer erfunden.
  */
 documentSequenceSchema.statics.allocate = async function allocate(documentType, year) {
+  await ensureCounterIndex(this);
   let lastError = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const counter = await this.findOneAndUpdate(
         { documentType, year },

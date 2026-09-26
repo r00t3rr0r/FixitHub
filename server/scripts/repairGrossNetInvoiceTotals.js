@@ -22,9 +22,20 @@
  * werden. Dieses Skript ruehrt sie nicht an, sondern listet sie auf. Der korrekte
  * Weg dort ist eine formale Gutschrift plus Neuausstellung.
  *
+ * Verhalten (Stand 25.09.2026, nach Pruefung):
+ *  - Geschrieben werden AUSSCHLIESSLICH nicht ausgestellte Belege (Status 'draft' oder
+ *    'pending_approval') ohne lockedAt, ohne sentAt und ohne archiviertes PDF. Frueher
+ *    galt ein Beleg nur mit gesetztem sentAt als "versendet": eine ausgestellte Rechnung
+ *    im Status 'sent'/'viewed'/'overdue'/'partially_paid' OHNE sentAt (z.B. aus
+ *    createInvoiceFromOrder oder Altbestand) wurde mit --confirm still umgeschrieben.
+ *  - Jeder ausgestellte Beleg (alle anderen Status, auch Gutschriften) wird nur
+ *    GEMELDET - Korrektur nur per Storno-Gutschrift + Neuausstellung.
+ *  - Der Status wird nie geaendert (frueher setzte --confirm ihn aus paidAmount neu und
+ *    konnte so einen Entwurf faktisch ausstellen).
+ *
  * Aufruf:
  *   node server/scripts/repairGrossNetInvoiceTotals.js            # Dry-Run (Standard)
- *   node server/scripts/repairGrossNetInvoiceTotals.js --confirm  # schreibt
+ *   node server/scripts/repairGrossNetInvoiceTotals.js --confirm  # schreibt (nur Entwuerfe)
  */
 
 const path = require('path');
@@ -70,15 +81,17 @@ function computeCorrection(invoice) {
   return { total, subtotal, tax, taxRate };
 }
 
-// Ein Beleg gilt als ausgeliefert, wenn er eingefroren wurde oder nachweislich
-// beim Kunden ist. Solche Dokumente werden nur gemeldet, nie geaendert.
+// Nur ein NICHT ausgestellter Beleg darf korrigiert werden. Alles andere ist ein
+// Rechnungsdokument (ausgestellt, ggf. beim Kunden) und wird nur gemeldet.
+const EDITABLE_STATUSES = ['draft', 'pending_approval'];
 function isProtected(invoice) {
-  if (invoice.lockedAt) return { protected: true, reason: 'lockedAt gesetzt' };
-  if (invoice.sentAt && ['sent', 'viewed', 'partially_paid', 'paid', 'overdue'].includes(invoice.status)) {
-    return { protected: true, reason: `bereits versendet (status: ${invoice.status})` };
+  if (!EDITABLE_STATUSES.includes(String(invoice.status || ''))) {
+    return { protected: true, reason: `ausgestellt (Status: ${invoice.status || 'unbekannt'}) – wird nicht geändert, Korrektur nur per Storno-Gutschrift + Neuausstellung` };
   }
-  if (['paid', 'credited', 'cancelled'].includes(invoice.status)) {
-    return { protected: true, reason: `abgeschlossen (status: ${invoice.status})` };
+  if (invoice.lockedAt) return { protected: true, reason: 'lockedAt gesetzt – wird nicht geändert' };
+  if (invoice.sentAt) return { protected: true, reason: 'bereits versendet (sentAt) – wird nicht geändert' };
+  if (invoice.documentArchive && invoice.documentArchive.sha256) {
+    return { protected: true, reason: 'PDF bereits archiviert – wird nicht geändert' };
   }
   return { protected: false, reason: '' };
 }
@@ -95,7 +108,7 @@ async function run() {
       projection: {
         invoiceNumber: 1, items: 1, subtotal: 1, tax: 1, total: 1, discount: 1,
         taxRate: 1, isReverseCharge: 1, isCreditNote: 1, status: 1, sentAt: 1,
-        lockedAt: 1, paidAmount: 1
+        lockedAt: 1, paidAmount: 1, 'documentArchive.sha256': 1
       }
     }).toArray();
 
@@ -139,8 +152,6 @@ async function run() {
 
     let written = 0;
     for (const { invoice, correction } of repairable) {
-      const paidAmount = Number(invoice.paidAmount || 0);
-      const balance = CalculationHelper.calculateBalance(correction.total, paidAmount);
       const update = {
         subtotal: correction.subtotal,
         tax: correction.tax,
@@ -150,11 +161,16 @@ async function run() {
         invoiceGrossTotal: correction.total,
         updatedAt: new Date()
       };
-      // Status nur dort nachziehen, wo er rein zahlungsabhaengig ist.
-      if (['draft', 'sent', 'viewed', 'partially_paid', 'overdue'].includes(invoice.status)) {
-        update.status = balance.status;
+      // Bedingung wiederholt den Schutz atomar: wurde der Entwurf inzwischen ausgestellt,
+      // wird nichts geschrieben. Der Status bleibt unveraendert.
+      const result = await Invoice.collection.updateOne(
+        { _id: invoice._id, status: { $in: EDITABLE_STATUSES }, lockedAt: { $in: [null] }, sentAt: { $in: [null] }, 'documentArchive.sha256': { $in: [null] } },
+        { $set: update }
+      );
+      if (result.modifiedCount !== 1) {
+        console.log(`${invoice.invoiceNumber}: inzwischen ausgestellt/gesperrt – nicht geändert.`);
+        continue;
       }
-      await Invoice.collection.updateOne({ _id: invoice._id }, { $set: update });
       written += 1;
     }
     console.log(`\nGeschrieben: ${written} Rechnungen.`);
