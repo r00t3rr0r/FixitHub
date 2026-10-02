@@ -101,6 +101,9 @@ async function main() {
     sentEmails.push({ to, data });
     return { success: true, mocked: true };
   };
+  // Seit NOTIF-4 sendet der Abschluss der Eingangspruefung den Trigger 'inspection_completed'
+  // (EmailService.sendInspectionCompletedEmail) statt der Diagnose-E-Mail - gleicher Mitschnitt.
+  EmailService.sendInspectionCompletedEmail = EmailService.sendDiagnosisCompletedEmail;
   const flushAsync = () => new Promise((resolve) => setTimeout(resolve, 100));
 
   const customer = await User.create({

@@ -141,6 +141,8 @@ export const getDashboardSummary = async () => {
       staffStatus: (staffStatusSection.data || rawData.staffStatus || []),
       assignedOrders: (assignedOrdersSection.data || rawData.assignedOrders || []),
       systemOverview: (rawData.systemOverview || {}),
+      // Serverseitige KPI-Zaehler mit Link der gefilterten Zielliste ({ count: number|null, link }).
+      kpis: (rawData.kpis || null) as Record<string, { count: number | null; link: string }> | null,
       notificationMeta: {
         unreadCount: Number(notificationsSection.unreadCount || 0),
         urgentCount: Number(notificationsSection.urgentCount || 0),

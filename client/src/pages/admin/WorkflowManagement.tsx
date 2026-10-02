@@ -937,8 +937,16 @@ export function WorkflowManagement() {
                                 <Badge className={`text-xs h-4 px-1 ${getCategoryColor(step.category)}`}>
                                   {step.category}
                                 </Badge>
-                                {step.isRequired && (
-                                  <Badge variant="destructive" className="text-xs h-4 px-1">Required</Badge>
+                                {/* Wie im Visual Builder: Pflicht/Freigabe/Formular werden nicht ausgewertet -
+                                    gedämpfter Hinweis statt rotem "Required". */}
+                                {(step.isRequired || step.requiresApproval || step.requiresFormCompletion) && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs h-4 px-1 text-muted-foreground"
+                                    title="Pflichtschritt, Freigabe und Formular werden derzeit nicht ausgewertet."
+                                  >
+                                    {[step.isRequired && 'Pflicht', step.requiresApproval && 'Freigabe', step.requiresFormCompletion && 'Formular'].filter(Boolean).join(' · ')} (ohne Wirkung)
+                                  </Badge>
                                 )}
                               </div>
                               <h4 className="text-xs font-semibold">{step.name}</h4>

@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -136,6 +137,11 @@ interface DeviceChangeDialogProps {
   // Stand NEU LADEN (keine Erfolgsmeldung, keine Rohantwort von /change-device
   // einsetzen - die hat nicht die Form der Detailansicht).
   onRefreshRequested?: () => void
+  /**
+   * Herkunft der Korrektur für den Verlauf (HIST-9), z. B. "Inspektion Schritt 1" oder
+   * "Gerätekarte". Der Server kürzt auf 80 Zeichen und speichert sie im Verlaufseintrag.
+   */
+  source?: string
 }
 
 export function DeviceChangeDialog({
@@ -146,6 +152,7 @@ export function DeviceChangeDialog({
   currentServices,
   onDeviceChanged,
   onRefreshRequested,
+  source = 'Gerätekarte',
 }: DeviceChangeDialogProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -180,6 +187,8 @@ export function DeviceChangeDialog({
     outdated: boolean
   } | null>(null)
   const [densityMode, setDensityMode] = useState<'standard' | 'kompakt'>('kompakt')
+  // Grund der Korrektur (optional): erscheint im Auftragsverlauf.
+  const [changeReason, setChangeReason] = useState('')
   const searchRequestIdRef = useRef(0)
   const wasOpenRef = useRef(false)
 
@@ -198,6 +207,7 @@ export function DeviceChangeDialog({
       setSavedOrder(null)
       setRepricingPrompt(null)
       setDensityMode('kompakt')
+      setChangeReason('')
     }
 
     wasOpenRef.current = open
@@ -408,6 +418,8 @@ export function DeviceChangeDialog({
               }
             : {}),
           ...(repricing || {}),
+          source,
+          reason: changeReason.trim() || undefined,
         }
       )
 
@@ -566,7 +578,7 @@ export function DeviceChangeDialog({
           </div>
         </div>
 
-        <div className="order-device-change-body">
+        <DialogBody className="order-device-change-body">
           {/* Current Device Info */}
           <Card className="order-device-change-current-card">
             <CardHeader className="pb-2">
@@ -1094,7 +1106,24 @@ export function DeviceChangeDialog({
               <p className="text-xs">{describeRepricingConsequence(repricingPrompt.details)}</p>
             </div>
           )}
-        </div>
+          {step === 'select' && (
+            <div className="mt-3 space-y-1">
+              <Label htmlFor="device-change-reason" className="order-device-change-label">
+                Grund der Korrektur (erscheint im Verlauf, optional)
+              </Label>
+              <textarea
+                id="device-change-reason"
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                rows={2}
+                maxLength={500}
+                placeholder="z. B. Bei der Eingangsprüfung festgestellt: anderes Modell als gebucht"
+                value={changeReason}
+                onChange={(event) => setChangeReason(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Herkunft im Verlauf: {source}</p>
+            </div>
+          )}
+        </DialogBody>
 
         <DialogFooter className="order-device-change-footer">
           <Button

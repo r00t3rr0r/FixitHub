@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,9 +13,11 @@ import { getRepairWorkflow } from "@/api/repairWorkflow"
 import { getManufacturersByDeviceType, getModelsByTypeAndManufacturer } from "@/api/devices"
 import { getRepairRequests, updateRepairRequestStatus } from "@/api/repairRequests"
 import { startWorkflow, updateWorkflowStatus } from "@/api/workflow"
-import { Calendar, Eye, Loader2, MessageSquare, RefreshCw, Search, Smartphone, Workflow } from "lucide-react"
+import { Calendar, ExternalLink, Eye, Inbox, Loader2, MessageSquare, RefreshCw, Search, Smartphone, Workflow } from "lucide-react"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -92,26 +94,28 @@ type DragItem =
   | { type: "workflow"; id: string; orderId: string; workflowId: string; fromStatus: WorkflowStatus }
 
 const ORDER_COLUMNS: Array<{ key: OrderStatus; title: string }> = [
-  { key: "pending", title: "Pending" },
-  { key: "in-progress", title: "In Progress" },
-  { key: "quality-check", title: "Quality Check" },
-  { key: "ready-for-pickup", title: "Ready Pickup" },
-  { key: "completed", title: "Completed" },
+  { key: "pending", title: "Ausstehend" },
+  { key: "in-progress", title: "In Bearbeitung" },
+  { key: "quality-check", title: "Qualitätsprüfung" },
+  { key: "ready-for-pickup", title: "Reparatur abgeschlossen" },
+  { key: "completed", title: "Abgeschlossen" },
 ]
 
 const REPAIR_COLUMNS: Array<{ key: RepairRequestStatus; title: string }> = [
-  { key: "pending", title: "Pending" },
-  { key: "reviewing", title: "Reviewing" },
-  { key: "approved", title: "Approved" },
-  { key: "converted", title: "Converted" },
-  { key: "rejected", title: "Rejected" },
+  { key: "pending", title: "Neu" },
+  { key: "reviewing", title: "In Prüfung" },
+  // Der Server entscheidet: "angenommen" setzt nur der Kunde (Annahme des Kostenvoranschlags).
+  // Ein Ziehen in diese Spalte wird mit einer deutschen Servermeldung abgelehnt (Toast).
+  { key: "approved", title: "Kostenvoranschlag angenommen" },
+  { key: "converted", title: "In Auftrag umgewandelt" },
+  { key: "rejected", title: "Abgelehnt" },
 ]
 
 const WORKFLOW_COLUMNS: Array<{ key: WorkflowStatus; title: string }> = [
-  { key: "not-started", title: "Not Started" },
-  { key: "in-progress", title: "In Progress" },
-  { key: "on-hold", title: "On Hold" },
-  { key: "completed", title: "Completed" },
+  { key: "not-started", title: "Nicht gestartet" },
+  { key: "in-progress", title: "In Bearbeitung" },
+  { key: "on-hold", title: "Angehalten" },
+  { key: "completed", title: "Abgeschlossen" },
 ]
 
 const safeArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : [])
@@ -231,27 +235,29 @@ const getStatusCardBackgroundColor = (status?: string) => {
 const getOrderStatusLabel = (status?: string) => {
   switch (String(status || "").toLowerCase()) {
     case "pending":
-      return "Pending"
+      return "Ausstehend"
     case "in-progress":
-      return "In Progress"
+      return "In Bearbeitung"
     case "quality-check":
-      return "Quality Check"
+      return "Qualitätsprüfung"
     case "ready-for-pickup":
-      return "Ready Pickup"
+      return "Reparatur abgeschlossen"
     case "completed":
-      return "Completed"
+      return "Abgeschlossen"
     case "approved":
-      return "Approved"
+      return "Kostenvoranschlag angenommen"
     case "converted":
-      return "Converted"
+      return "In Auftrag umgewandelt"
     case "reviewing":
-      return "Reviewing"
+      return "In Prüfung"
     case "on-hold":
-      return "On Hold"
+      return "Angehalten"
     case "rejected":
-      return "Rejected"
+      return "Abgelehnt"
+    case "not-started":
+      return "Nicht gestartet"
     default:
-      return String(status || "Unknown")
+      return String(status || "Unbekannt")
   }
 }
 
@@ -347,6 +353,7 @@ const getPendingCustomerResponseCount = (communication: { messages?: Array<{ mes
 
 export function Schedule() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -810,13 +817,13 @@ export function Schedule() {
         prev.map((order) => (order._id === dragItem.id ? { ...order, status: toStatus } : order))
       )
       await updateOrderStatus(dragItem.id, toStatus)
-      toast({ title: "Order-Status aktualisiert", description: `Neuer Status: ${toStatus}` })
+      toast({ title: "Auftragsstatus aktualisiert", description: `Neuer Status: ${getOrderStatusLabel(toStatus)}` })
     } catch (error: unknown) {
       await fetchData()
       toast({
         variant: "destructive",
         title: "Statusänderung fehlgeschlagen",
-        description: error instanceof Error ? error.message : "Order-Status konnte nicht aktualisiert werden.",
+        description: error instanceof Error ? error.message : "Der Auftragsstatus konnte nicht aktualisiert werden.",
       })
     } finally {
       setDragItem(null)
@@ -837,13 +844,13 @@ export function Schedule() {
         prev.map((request) => (request._id === dragItem.id ? { ...request, status: toStatus } : request))
       )
       await updateRepairRequestStatus(dragItem.id, toStatus)
-      toast({ title: "Repair-Request Status aktualisiert", description: `Neuer Status: ${toStatus}` })
+      toast({ title: "Status der Reparaturanfrage aktualisiert", description: `Neuer Status: ${getOrderStatusLabel(toStatus)}` })
     } catch (error: unknown) {
       await fetchData()
       toast({
         variant: "destructive",
         title: "Statusänderung fehlgeschlagen",
-        description: error instanceof Error ? error.message : "Repair-Request Status konnte nicht aktualisiert werden.",
+        description: error instanceof Error ? error.message : "Der Status der Reparaturanfrage konnte nicht aktualisiert werden.",
       })
     } finally {
       setDragItem(null)
@@ -893,7 +900,7 @@ export function Schedule() {
         }))
       )
 
-      toast({ title: "Workflow-Status aktualisiert", description: `Neuer Status: ${toStatus}` })
+      toast({ title: "Workflow-Status aktualisiert", description: `Neuer Status: ${getOrderStatusLabel(toStatus)}` })
     } catch (error: unknown) {
       await fetchData()
       toast({
@@ -991,8 +998,8 @@ export function Schedule() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Assigned Orders</CardTitle>
-          <CardDescription>Kanban nach Order-Status</CardDescription>
+          <CardTitle>Zugewiesene Aufträge</CardTitle>
+          <CardDescription>Kanban nach Auftragsstatus</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1457,46 +1464,53 @@ export function Schedule() {
           }
         }}
       >
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-6 pb-0">
-            <DialogTitle className="sr-only">Kundenkommunikation</DialogTitle>
-            <DialogDescription className="sr-only">
-              Kundenkommunikation des ausgewählten Auftrags einsehen und verwalten.
+        {/* ADMUX-3: ein Dialog, feste Kopfzeile, Verlauf scrollt, Eingabe bleibt sichtbar.
+            COMMS-13: keine Auftrags-ID als inspectionId (der Server ordnet die echte Inspektion zu). */}
+        <DialogContent className="max-w-4xl h-[min(780px,calc(100dvh-2rem))] gap-0 p-0 overflow-clip">
+          <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
+              <MessageSquare className="h-4 w-4 text-[#1a2a5e]" aria-hidden="true" />
+              Kundenkommunikation{selectedCommunicationOrder?.orderNumber ? ` · ${selectedCommunicationOrder.orderNumber}` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Nachrichten an den Kunden erscheinen im Kundenkonto und werden per E-Mail angekündigt. Interne Notizen sieht nur das Team.
             </DialogDescription>
+            {selectedCommunicationOrder && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+                <Link
+                  to={getOrderDetailsPath(selectedCommunicationOrder.orderId)}
+                  state={buildOrderDetailsState(location, { label: 'Zurück zum Terminplan' })}
+                  className="inline-flex items-center gap-1 font-semibold text-[#1a2a5e] underline underline-offset-2"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Im Auftrag öffnen
+                </Link>
+                <Link
+                  to={`/messages?thread=order:${selectedCommunicationOrder.orderId}`}
+                  className="inline-flex items-center gap-1 font-semibold text-[#1a2a5e] underline underline-offset-2"
+                >
+                  <Inbox className="h-3.5 w-3.5" aria-hidden="true" /> Im Postfach öffnen
+                </Link>
+              </div>
+            )}
           </DialogHeader>
 
           {selectedCommunicationOrder && (
-            <div className="px-6 pb-6">
-              <div className="border-t pt-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-blue-600" />
-                    <h4 className="font-medium text-sm">Kundenkommunikation</h4>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {selectedCommunicationOrder.orderNumber}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Kundenfeedback, Anfragen und Rückfragen zentral verwalten.
-                </p>
-                <div className="rounded-lg border p-2 bg-background">
-                  <CommunicationPanel
-                    orderId={selectedCommunicationOrder.orderId}
-                    inspectionId={selectedCommunicationOrder.orderId}
-                    entityType="order"
-                  />
-                </div>
-              </div>
-            </div>
+            <DialogBody className="flex flex-col px-6 py-4">
+              <CommunicationPanel
+                orderId={selectedCommunicationOrder.orderId}
+                entityType="order"
+                layout="fill"
+                hideTitle
+              />
+            </DialogBody>
           )}
         </DialogContent>
       </Dialog>
 
       <Card>
         <CardHeader>
-          <CardTitle>Assigned Repair Requests</CardTitle>
-          <CardDescription>Kanban nach Request-Status</CardDescription>
+          <CardTitle>Zugewiesene Reparaturanfragen</CardTitle>
+          <CardDescription>Kanban nach Status der Reparaturanfrage</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

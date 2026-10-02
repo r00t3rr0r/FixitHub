@@ -35,6 +35,7 @@ import {
   Activity,
   Megaphone,
   Radio,
+  ClipboardList,
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { getNotifications } from "@/api/notifications"
@@ -77,7 +78,9 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
     return () => clearInterval(pollInterval)
   }, [])
 
+  // Unterseiten (z. B. /admin/orders/:id) markieren den Hauptpunkt mit; /admin nur exakt.
   const isActive = (path: string) => location.pathname === path
+    || (path !== '/admin' && location.pathname.startsWith(`${path}/`))
 
   const NavItem = ({ 
     to, 
@@ -173,11 +176,15 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       <NavItem to="/admin/users" icon={Users}>
         Kunden
       </NavItem>
+      {/* Benennung 01.10.2026: Buchung (BKG-…) = Kundenbuchung, Reparaturauftrag (ORD-…) = je Gerät */}
       <NavItem to="/admin/bookings" icon={BookMarked}>
-        Aufträge
+        Buchungen
+      </NavItem>
+      <NavItem to="/admin/orders" icon={ClipboardList}>
+        Reparaturaufträge
       </NavItem>
       <NavItem to="/admin/legacy-orders" icon={Archive}>
-        Altauftraege
+        Altaufträge
       </NavItem>
       <NavItem to="/admin/financial" icon={DollarSign}>
         Rechnungen
@@ -201,7 +208,7 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       <GroupDivider />
 
       <NavItem to="/admin/epart-orders" icon={Boxes}>
-        Erstzteilbestellungen
+        Ersatzteilbestellungen
       </NavItem>
       <NavItem to="/admin/parts" icon={Package2}>
         Teileverwaltung
@@ -219,7 +226,7 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       <GroupDivider />
 
       <CollapsibleSection
-        title="Sytem Management"
+        title="Systemverwaltung"
         icon={Settings}
         isOpen={systemManagementOpen}
         onToggle={() => setSystemManagementOpen(!systemManagementOpen)}
@@ -320,7 +327,7 @@ export function AdminSidebar({ isCollapsed }: AdminSidebarProps) {
       </NavItem>
 
       <NavItem to="/notifications" icon={Bell} badge={unreadNotifications}>
-        Benachrichttigungen
+        Benachrichtigungen
       </NavItem>
 
       <NavItem to="/profile" icon={User}>

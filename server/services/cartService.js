@@ -5,7 +5,99 @@ const PromoCodeRedemption = require('../models/PromoCodeRedemption');
 const FinancialService = require('./financialService');
 const CalculationHelper = require('./calculationHelper');
 
+const createCatalogError = (message) => {
+  const error = new Error(message);
+  error.status = 400;
+  error.code = 'CART_CATALOG_INVALID';
+  return error;
+};
+
+const uniqueIdStrings = (values) => {
+  const seen = new Set();
+  const ids = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const id = String(value?._id || value || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+};
+
 class CartService {
+  /**
+   * EINZIGE Preisgrundlage eines Geraets (Warenkorb, Gast-Warenkorb, PayPal-Betrag, Checkout):
+   * Leistungen und Zusatzleistungen werden aus dem KATALOG aufgeloest, nie aus Client-Werten.
+   *  - Leistungs-IDs werden dedupliziert (dieselbe Leistung zaehlt einmal - wie der Checkout
+   *    mit Service.find({$in}) sie anlegt); unbekannte/ungueltige IDs -> 400.
+   *  - Zusatzleistungen: per Katalog-ID (_id / addOnServiceId), sonst per Name, nur aktive
+   *    Eintraege; Preis, Beschreibung und Dauer kommen aus AddOnService. Unbekannt -> 400.
+   *    Gleicher Katalogeintrag doppelt -> einmal.
+   * Rueckgabe: { serviceDocs, serviceIds, addOns, servicesTotal, addOnsTotal, rawTotal }.
+   */
+  static async resolveRepairOrderCatalog({ services, addOns } = {}) {
+    const mongoose = require('mongoose');
+    const Service = require('../models/Service');
+    const AddOnService = require('../models/AddOnService');
+
+    const serviceIds = uniqueIdStrings(services);
+    if (serviceIds.length === 0) {
+      // Auch: Bestandswarenkorb, dessen Leistungen geloescht wurden (populate entfernt sie).
+      throw createCatalogError('Für das Gerät ist keine verfügbare Reparaturleistung ausgewählt. Bitte stellen Sie das Gerät neu zusammen.');
+    }
+    if (serviceIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      throw createCatalogError('Eine ausgewählte Reparaturleistung ist ungültig. Bitte stellen Sie das Gerät neu zusammen.');
+    }
+    const found = await Service.find({ _id: { $in: serviceIds } });
+    const byId = new Map(found.map((doc) => [String(doc._id), doc]));
+    if (serviceIds.some((id) => !byId.has(id))) {
+      throw createCatalogError('Eine ausgewählte Reparaturleistung ist nicht mehr verfügbar. Bitte stellen Sie das Gerät neu zusammen.');
+    }
+    const serviceDocs = serviceIds.map((id) => byId.get(id));
+    const servicesTotal = serviceDocs.reduce((sum, doc) => sum + (Number(doc.price) || 0), 0);
+
+    const resolvedAddOns = [];
+    const seenAddOns = new Set();
+    for (const requested of Array.isArray(addOns) ? addOns : []) {
+      if (!requested) continue;
+      const requestedId = String(requested.addOnServiceId || requested._id || '').trim();
+      const requestedName = String(requested.name || '').trim();
+      let candidates = [];
+      if (requestedId && mongoose.Types.ObjectId.isValid(requestedId)) {
+        candidates = await AddOnService.find({ _id: requestedId, isActive: true }).lean();
+      }
+      if (candidates.length === 0 && requestedName) {
+        candidates = await AddOnService.find({ name: requestedName, isActive: true }).sort({ createdAt: 1, _id: 1 }).lean();
+      }
+      if (candidates.length === 0) {
+        throw createCatalogError(`Die Zusatzleistung „${requestedName || requestedId || 'unbekannt'}“ ist nicht verfügbar. Bitte stellen Sie das Gerät neu zusammen.`);
+      }
+      // Gleichnamige Katalogeintraege: der zum angezeigten Preis passende, sonst der erste.
+      // Der Preis ist in jedem Fall ein Katalogpreis.
+      const requestedPrice = Number(requested.price);
+      const catalog = candidates.find((c) => Math.abs(Number(c.price) - requestedPrice) < 0.005) || candidates[0];
+      const catalogId = String(catalog._id);
+      if (seenAddOns.has(catalogId)) continue;
+      seenAddOns.add(catalogId);
+      resolvedAddOns.push({
+        name: catalog.name,
+        description: catalog.description || '',
+        price: Number(catalog.price) || 0,
+        estimatedTime: catalog.estimatedTime || '',
+      });
+    }
+    const addOnsTotal = resolvedAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
+
+    return {
+      serviceDocs,
+      serviceIds,
+      addOns: resolvedAddOns,
+      servicesTotal: Number(servicesTotal.toFixed(2)),
+      addOnsTotal: Number(addOnsTotal.toFixed(2)),
+      rawTotal: Number((servicesTotal + addOnsTotal).toFixed(2)),
+    };
+  }
+
   static async buildPricing({ cart, userId }) {
     const financialProfile = await FinancialService.resolveFinancialProfile({ customerId: userId });
     const subtotal = Number((cart?.subtotal || this.calculateCartSubtotal(cart)).toFixed(2));
@@ -163,6 +255,31 @@ class CartService {
         });
         await cart.save();
         console.log('CartService: Created new empty cart');
+      } else {
+        // Bestandswarenkorb mit einem vom Client gesetzten (oder veralteten) Geraetebetrag
+        // bzw. Zusatzleistungspreis: Zusatzleistungen aus dem Katalog uebernehmen, speichern
+        // rechnet den Betrag aus dem Katalog neu (Cart pre-save) - damit haben Warenkorb,
+        // Rabattgrundlage und Checkout-Auftraege dieselbe Grundlage.
+        let needsSave = false;
+        for (const order of cart.repairOrders || []) {
+          if (Array.isArray(order.addOns) && order.addOns.length > 0) {
+            try {
+              const catalog = await this.resolveRepairOrderCatalog({ services: order.services, addOns: order.addOns });
+              const stored = order.addOns.map((addOn) => `${addOn.name}|${Number(addOn.price)}`).join(';');
+              const fresh = catalog.addOns.map((addOn) => `${addOn.name}|${addOn.price}`).join(';');
+              if (stored !== fresh) {
+                order.addOns = catalog.addOns;
+                needsSave = true;
+              }
+            } catch (catalogError) {
+              // Nicht aufloesbar (Leistung/Zusatzleistung entfernt): Anzeige bleibt, der
+              // Checkout weist den Warenkorb mit 400 ab.
+            }
+          }
+          const catalogTotal = Cart.catalogRepairOrderTotal(order);
+          if (catalogTotal !== null && Math.abs(catalogTotal - Number(order.totalCost || 0)) > 0.004) needsSave = true;
+        }
+        if (needsSave) await cart.save();
       }
 
       console.log('CartService: Found cart with', cart.items.length, 'product items and', cart.repairOrders?.length || 0, 'repair orders');
@@ -388,6 +505,10 @@ class CartService {
         throw new Error('Missing required repair order fields');
       }
 
+      // Leistungen/Zusatzleistungen und Betrag aus dem Katalog (Client-Preise, doppelte
+      // Leistungs-IDs und frei gewaehlte Zusatzleistungspreise werden nicht uebernommen).
+      const catalog = await this.resolveRepairOrderCatalog({ services, addOns });
+
       let cart = await this.getCart(userId);
 
       // Add repair order to cart
@@ -396,12 +517,12 @@ class CartService {
         deviceBrand,
         deviceModel,
         deviceImage: deviceImage || '',
-        services,
-        serviceNames: serviceNames || [],
-        addOns: addOns || [],
+        services: catalog.serviceIds,
+        serviceNames: catalog.serviceDocs.map((service) => service.name).filter(Boolean),
+        addOns: catalog.addOns,
         customerNotes: customerNotes || '',
         photos: photos || [],
-        totalCost,
+        totalCost: catalog.rawTotal,
         unlockPattern: unlockPattern || [],
         unlockCode: unlockCode || '',
         noLock: noLock || false,

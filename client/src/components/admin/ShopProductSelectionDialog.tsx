@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Package, DollarSign, SlidersHorizontal, Boxes } from 'lucide-react';
+import { Search, Package, Euro, SlidersHorizontal, Boxes } from 'lucide-react';
 import { getProducts } from '@/api/shop';
 import { useToast } from '@/hooks/useToast';
 import { Checkbox } from '@/components/ui/checkbox';
+import { formatEUR } from '@/lib/utils'
 
 interface Product {
   _id: string;
@@ -274,7 +275,7 @@ export function ShopProductSelectionDialog({
                             {product.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            ${product.price} • {productIsInStock ? `${productStock} verfuegbar` : 'Nicht verfuegbar'}
+                            {formatEUR(product.price)} • {productIsInStock ? `${productStock} verfuegbar` : 'Nicht verfuegbar'}
                           </p>
                         </div>
                         <Button
@@ -356,7 +357,7 @@ export function ShopProductSelectionDialog({
                           <Badge variant={productStock > 10 ? 'default' : productIsInStock ? 'secondary' : 'destructive'}>
                             {productIsInStock ? `Bestand: ${productStock}` : 'Nicht verfuegbar'}
                           </Badge>
-                          <span className="text-sm font-medium">${product.price}</span>
+                          <span className="text-sm font-medium">{formatEUR(product.price)}</span>
                         </div>
                       </div>
                     </SelectItem>
@@ -386,7 +387,7 @@ export function ShopProductSelectionDialog({
                   </div>
                   <div className="flex items-center gap-4 mt-2">
                     <div className="flex items-center gap-1 text-sm font-medium">
-                      <DollarSign className="h-4 w-4" />
+                      <Euro className="h-4 w-4" />
                       {selectedProduct.price}
                     </div>
                     <Badge variant={getProductStock(selectedProduct) > 10 ? 'default' : isProductInStock(selectedProduct) ? 'secondary' : 'destructive'}>
@@ -446,11 +447,11 @@ export function ShopProductSelectionDialog({
             <div className="space-y-2 p-3 border rounded-lg bg-primary/5">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Zwischensumme:</span>
-                <span className="text-lg font-bold">${subtotal.toFixed(2)}</span>
+                <span className="text-lg font-bold">{formatEUR(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Auftragsgesamt nach Hinzufuegen:</span>
-                <span className="font-semibold text-foreground">${projectedOrderTotal.toFixed(2)}</span>
+                <span className="font-semibold text-foreground">{formatEUR(projectedOrderTotal)}</span>
               </div>
             </div>
           )}

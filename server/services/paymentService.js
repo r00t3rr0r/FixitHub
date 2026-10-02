@@ -113,6 +113,78 @@ class PaymentService {
   static effectivePaymentAmount = effectivePaymentAmount;
   static isCountablePayment = isCountablePayment;
 
+  /**
+   * Kundenprojektion der Zahlungsuebersicht einer Buchung (CUSTUX-7). Reine
+   * Lese-/Filterfunktion ueber BookingPaymentService.getOverview - es wird nichts
+   * neu gerechnet, damit Kunde und Team dieselben Zahlen sehen.
+   *
+   * Enthalten: Summen (Gesamt, Bezahlt, Offen, Ueberzahlt/Erstattung offen) und die
+   * tatsaechlichen Geldbewegungen (abgeschlossen/erstattet) mit Rechnungsbezug.
+   * NICHT enthalten: PayPal-Order-/Capture-IDs, Metadaten, Gateway-Antworten, interne
+   * Notizen, Bearbeiter, Idempotenzschluessel, Erstattungsinterna, Entwuerfe.
+   *
+   * Mehrgeraete-Buchung: alle Betraege gelten fuer die GESAMTE Buchung (orderCount).
+   */
+  static toCustomerPaymentOverview(overview = {}, { orderCount = null } = {}) {
+    const r2 = (value) => round2(Number(value) || 0);
+    const summary = overview.summary || {};
+    const visibleInvoices = (overview.invoices || [])
+      .filter((invoice) => !['draft', 'pending_approval'].includes(String(invoice.status || '')));
+    const visibleInvoiceIds = new Set(visibleInvoices.map((invoice) => toIdString(invoice._id)));
+    const customerPaymentStatuses = ['completed', 'refunded'];
+    const count = Number.isFinite(Number(orderCount)) && Number(orderCount) > 0
+      ? Number(orderCount)
+      : null;
+
+    return {
+      booking: {
+        _id: toIdString(overview.booking?._id),
+        bookingNumber: overview.booking?.bookingNumber || '',
+      },
+      currency: 'EUR',
+      appliesToWholeBooking: true,
+      orderCount: count,
+      summary: {
+        referenceTotal: r2(summary.referenceTotal),
+        receivedTotal: r2(summary.receivedTotal),
+        openOrderBalance: r2(summary.openOrderBalance),
+        overpaidTotal: r2(summary.overpaidTotal),
+        refundPendingTotal: r2(summary.refundPendingTotal),
+        refundsInProgressTotal: r2(summary.refundsInProgressTotal),
+        notInvoicedTotal: r2(summary.notInvoicedTotal),
+        isFullyPaid: Boolean(summary.isFullyPaid),
+      },
+      invoices: visibleInvoices.map((invoice) => ({
+        _id: toIdString(invoice._id),
+        invoiceNumber: invoice.invoiceNumber || '',
+        isCreditNote: Boolean(invoice.isCreditNote),
+        status: invoice.status,
+        statusLabel: invoiceStatusLabel(invoice.status),
+        total: r2(invoice.total),
+        openAmount: r2(invoice.openAmount),
+        dueDate: invoice.dueDate || null,
+      })),
+      payments: (overview.payments || [])
+        .filter((payment) => customerPaymentStatuses.includes(String(payment.status || '')))
+        .map((payment) => ({
+          _id: toIdString(payment._id),
+          paymentDate: payment.paymentDate || payment.createdAt || null,
+          amount: r2(payment.amount),
+          refundedAmount: r2(payment.refundAmount),
+          effectiveAmount: r2(payment.effectiveAmount),
+          paymentMethod: payment.paymentMethod || '',
+          status: payment.status,
+          currency: payment.currency || 'EUR',
+          allocations: (payment.allocations || [])
+            .filter((allocation) => visibleInvoiceIds.has(toIdString(allocation.invoiceId)))
+            .map((allocation) => ({
+              invoiceNumber: allocation.invoiceNumber || '',
+              allocatedAmount: r2(allocation.allocatedAmount),
+            })),
+        })),
+    };
+  }
+
   // Delete all payments
   static async deleteAllPayments() {
     try {

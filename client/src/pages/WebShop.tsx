@@ -24,7 +24,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  DollarSign,
+  Euro,
   CheckCircle2,
   Layers3,
   Shield,
@@ -569,7 +569,7 @@ export function WebShop() {
                   {/* Price Range Filter */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                      <DollarSign className="h-3 w-3 text-yellow-600" />
+                      <Euro className="h-3 w-3 text-yellow-600" />
                       Price Range
                     </Label>
                     <div className="pt-1.5">
@@ -582,8 +582,8 @@ export function WebShop() {
                         className="mb-1.5"
                       />
                       <div className="flex justify-between text-xs text-gray-600 font-medium">
-                        <span>${priceRange[0]}</span>
-                        <span>${priceRange[1]}</span>
+                        <span>{formatEUR(priceRange[0])}</span>
+                        <span>{formatEUR(priceRange[1])}</span>
                       </div>
                     </div>
                   </div>
@@ -612,7 +612,7 @@ export function WebShop() {
                     )}
                     {(priceRange[0] !== 0 || priceRange[1] !== maxPrice) && (
                       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs px-2 py-0.5">
-                        Price: ${priceRange[0]} - ${priceRange[1]}
+                        Preis: {formatEUR(priceRange[0])} – {formatEUR(priceRange[1])}
                         <X className="h-3 w-3 ml-1 cursor-pointer" onClick={() => setPriceRange([0, maxPrice])} />
                       </Badge>
                     )}

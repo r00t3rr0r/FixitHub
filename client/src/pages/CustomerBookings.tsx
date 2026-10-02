@@ -1,44 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { SEO } from '@/components/SEO'
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router-dom";
 import "./CustomerBookings.css";
 import {
   Package,
   Smartphone,
-  Calendar,
   Clock,
-  ChevronDown,
-  ChevronUp,
-  Eye,
   Search,
-  Filter,
   ExternalLink,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
-  Mail,
-  Phone,
   CheckCircle,
   Truck,
   QrCode,
-  FileText,
   Download,
+  Printer,
   MessageSquare,
   X,
-  TrendingUp,
-  Hash,
   CreditCard,
   Home,
-  Wrench,
   Receipt,
   AlertCircle,
   Euro,
+  Loader2,
+  RotateCcw,
+  ShoppingBag,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -49,38 +41,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getBookings, getBookingOrders, getBooking, downloadBookingShippingLabel, downloadBookingReturnLabel, getBookingInvoices } from "@/api/bookings";
+import {
+  getBookings,
+  getBookingOrders,
+  getBooking,
+  downloadBookingShippingLabel,
+  getBookingInvoices,
+  getBookingInboundLabel,
+  createBookingInboundLabel,
+  downloadInboundLabel,
+  printInboundLabel,
+  type InboundLabelView,
+} from "@/api/bookings";
+import { getCustomerBookingPayments, type CustomerBookingPaymentOverview } from "@/api/bookingPayments";
 import { downloadInvoicePdf } from "@/api/invoices";
 import { attachInvoiceBalances, summarizeInvoicePayment, INVOICE_PAYMENT_TONE_CLASSES } from "@/api/orders";
 import { createOrderComplaint } from "@/api/orders";
-import { searchDevices, SearchResult } from "@/api/devices";
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication";
 import { useToast } from "@/hooks/useToast";
-import { CommunicationPanel } from "@/components/inspection/CommunicationPanel";
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation";
+import { formatEUR } from "@/lib/utils";
+import { READY_NEUTRAL_LABEL } from "@/lib/returnMethod";
 
 interface AddressFields {
   street?: string;
@@ -88,6 +78,43 @@ interface AddressFields {
   state?: string;
   zipCode?: string;
   country?: string;
+}
+
+interface BookingItem {
+  _id?: string;
+  type: string;
+  device?: string;
+  orderId: string;
+  orderNumber?: string;
+  services?: Array<{
+    name: string;
+    price: number;
+    estimatedTime?: number;
+  }>;
+  products?: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    totalPrice: number;
+  }>;
+  cost: number;
+  status?: string;
+  progress?: number;
+  hasComplaint?: boolean;
+  // Reklamations-Folgeauftrag (vom Server zur Lesezeit angehaengt, nicht in booking.items gespeichert)
+  isComplaintFollowup?: boolean;
+  parentOrderId?: string | null;
+  parentOrderNumber?: string;
+  readTimeItem?: boolean;
+}
+
+interface PaymentBalance {
+  total?: number;
+  reference?: number;
+  open?: number;
+  received?: number;
+  overpaid?: number;
+  refundPending?: number;
 }
 
 interface Booking {
@@ -118,34 +145,13 @@ interface Booking {
       shippingAddress?: AddressFields;
     };
   }>;
-  items: Array<{
-    _id?: string;
-    type: string;
-    device?: string;
-    orderId: string;
-    orderNumber?: string;
-    services?: Array<{
-      name: string;
-      price: number;
-      estimatedTime?: number;
-    }>;
-    products?: Array<{
-      name: string;
-      quantity: number;
-      price: number;
-      totalPrice: number;
-    }>;
-    cost: number;
-    status?: string;
-    progress?: number;
-    hasComplaint?: boolean;
-  }>;
+  items: BookingItem[];
   totalCost: number;
   status: string;
   billingStatus: string;
   paymentStatus?: string;
   // Zahlungsstand vom Server (gleiche Berechnung wie in der Adminliste); null = unbekannt
-  paymentBalance?: { open?: number; received?: number; overpaid?: number; refundPending?: number } | null;
+  paymentBalance?: PaymentBalance | null;
   overallProgress: number;
   createdAt: string;
   updatedAt: string;
@@ -171,10 +177,9 @@ interface Booking {
   timeline?: Array<{
     _id?: string;
     status: string;
+    title?: string;
     description: string;
     completedAt: string;
-    staffName?: string;
-    staffId?: string;
   }>;
   liveShippingTracking?: {
     status?: string;
@@ -193,8 +198,12 @@ interface Booking {
   };
 }
 
-// Rechnungsstatus-Darstellung wird sowohl in der Buchungsliste als auch im
-// Detaildialog gebraucht und liegt deshalb im Modulscope.
+type DialogTab = 'payments' | 'shipping' | 'items' | 'timeline' | 'contact';
+
+// ---------------------------------------------------------------------------------------
+// Gemeinsame Anzeige-Regeln (Liste + Dialog)
+// ---------------------------------------------------------------------------------------
+
 /**
  * Sprungziel fuer "Rechnung oeffnen".
  * Das Ziel steht in der URL, damit ein kopierter Link und ein harter Reload
@@ -232,269 +241,528 @@ const getInvoiceStatusBadgeClass = (status: string): string => {
   }
 };
 
+// Deutsche Bezeichnungen fuer die Status-Enums von Buchung UND Auftrag. Dient als
+// defaultValue fuer t('status.<wert>') - es erscheint nie ein roher i18n-Schluessel
+// wie "status.diagnostic-assessment" (CUSTUX-4).
+const STATUS_LABELS_DE: Record<string, string> = {
+  pending: 'Ausstehend',
+  'payment-pending': 'Zahlung ausstehend',
+  processing: 'In Bearbeitung',
+  completed: 'Abgeschlossen',
+  cancelled: 'Storniert',
+  'diagnostic-assessment': 'Diagnosebewertung',
+  diagnosed: 'Diagnose abgeschlossen',
+  'awaiting-parts': 'Wartet auf Teile',
+  'in-progress': 'Reparatur läuft',
+  paused: 'Pausiert',
+  'on-hold': 'Angehalten',
+  'quality-check': 'Qualitätsprüfung',
+  // Liste ohne Versandstand: neutral (Abholung/Versand zeigt die Auftragsansicht, lib/returnMethod).
+  'ready-for-pickup': READY_NEUTRAL_LABEL,
+};
+
+const statusBadgeClass = (status: string): string => {
+  switch (status) {
+    case 'pending': return 'bg-yellow-100 text-yellow-900 border border-yellow-300';
+    case 'payment-pending': return 'bg-orange-100 text-orange-900 border border-orange-300';
+    case 'processing':
+    case 'in-progress': return 'bg-blue-100 text-blue-900 border border-blue-300';
+    case 'diagnostic-assessment': return 'bg-purple-100 text-purple-900 border border-purple-300';
+    case 'diagnosed': return 'bg-indigo-100 text-indigo-900 border border-indigo-300';
+    case 'awaiting-parts': return 'bg-orange-100 text-orange-900 border border-orange-300';
+    case 'paused':
+    case 'on-hold': return 'bg-gray-100 text-gray-800 border border-gray-300';
+    case 'quality-check': return 'bg-cyan-100 text-cyan-900 border border-cyan-300';
+    case 'ready-for-pickup': return 'bg-teal-100 text-teal-900 border border-teal-300';
+    case 'completed': return 'bg-green-100 text-green-900 border border-green-300';
+    case 'cancelled': return 'bg-red-100 text-red-900 border border-red-300';
+    default: return 'bg-gray-100 text-gray-800 border border-gray-300';
+  }
+};
+
+// Versandstatus ist ein englischer Enum-Wert aus der Datenbank.
+const getShippingStatusLabel = (status?: string) => {
+  switch (status) {
+    case 'pending': return 'Ausstehend';
+    case 'label-created': return 'Label erstellt';
+    case 'shipped': return 'Versendet';
+    case 'in-transit': return 'Unterwegs';
+    case 'out-for-delivery': return 'In Zustellung';
+    case 'delivered': return 'Zugestellt';
+    case 'failed': return 'Fehlgeschlagen';
+    default: return status || 'Unbekannt';
+  }
+};
+
+const getBillingStatusLabel = (status: string) => {
+  switch (status) {
+    case 'draft': return 'Vorlage';
+    case 'sent': return 'Gesendet';
+    case 'viewed': return 'Angesehen';
+    case 'partially_paid':
+    case 'partially-paid': return 'Teilbezahlt';
+    case 'overdue': return 'Überfällig';
+    case 'unpaid': return 'Offen';
+    case 'overpaid': return 'Überzahlt';
+    case 'paid': return 'Bezahlt';
+    default: return status || 'Unbekannt';
+  }
+};
+
+const getPaymentMethodLabel = (method?: string) => {
+  switch (method) {
+    case 'stripe':
+    case 'card': return 'Karte';
+    case 'paypal': return 'PayPal';
+    case 'bank_transfer': return 'Überweisung';
+    case 'cash': return 'Bar';
+    case 'invoice': return 'Rechnung';
+    case 'manual': return 'Manuell erfasst';
+    default: return method || 'Unbekannt';
+  }
+};
+
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return '–';
+  return new Date(dateString).toLocaleDateString('de-DE', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const formatDateTime = (dateString?: string | null) => {
+  if (!dateString) return '–';
+  return new Date(dateString).toLocaleString('de-DE', {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+};
+
+const dhlTrackingUrl = (trackingNumber: string) =>
+  `https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(trackingNumber)}`;
+
+/** Gebuchte Geraete (ohne Shop-Artikel und ohne Reklamations-Folgeauftraege - die zaehlen nicht als weiteres Geraet). */
+const repairItemsOf = (booking: Pick<Booking, 'items'>) => (booking.items || [])
+  .filter((item) => item.type !== 'product' && !item.isComplaintFollowup);
+
+/** Hinweis fuer Buchungen mit mehreren Positionen: alle Betraege gelten fuer die ganze Buchung. */
+const wholeBookingHint = (booking: Pick<Booking, 'items'>): string | null => {
+  const items = (booking.items || []).filter((item) => !item.isComplaintFollowup);
+  if (items.length <= 1) return null;
+  const devices = repairItemsOf(booking).length;
+  return devices > 1
+    ? `Beträge gelten für die gesamte Buchung (${devices} Geräte).`
+    : `Beträge gelten für die gesamte Buchung (${items.length} Positionen).`;
+};
+
+type MoneyView =
+  | { known: true; total: number; received: number; open: number; overpaid: number }
+  | { known: false; total: number };
+
+/** Gesamt / Bezahlt / Offen aus dem Server-Zahlungsstand - nie erfunden (null = unbekannt). */
+const moneyFromBalance = (booking: Pick<Booking, 'paymentBalance' | 'totalCost'>): MoneyView => {
+  const balance = booking.paymentBalance;
+  if (!balance) return { known: false, total: Number(booking.totalCost || 0) };
+  const total = Number(balance.total ?? balance.reference ?? booking.totalCost ?? 0);
+  const received = Number(balance.received ?? 0);
+  const open = Math.max(0, Number(balance.open ?? 0));
+  const overpaid = Math.max(0, Number(balance.refundPending ?? balance.overpaid ?? 0));
+  return { known: true, total, received, open, overpaid };
+};
+
+const RESTORE_KEY = 'customerBookings:return';
+const PAGE_SIZES = [10, 20, 50, 100];
+const STATUS_FILTERS = ['pending', 'payment-pending', 'processing', 'completed', 'cancelled'];
+
+// ---------------------------------------------------------------------------------------
+// Bausteine
+// ---------------------------------------------------------------------------------------
+
+function MoneySummary({
+  total,
+  received,
+  open,
+  overpaid,
+  known,
+  compact = false,
+}: {
+  total: number;
+  received?: number;
+  open?: number;
+  overpaid?: number;
+  known: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <dl className={`cb-money${compact ? ' cb-money--compact' : ''}`}>
+      <div className="cb-money-item">
+        <dt>Gesamt (brutto)</dt>
+        <dd>{formatEUR(total)}</dd>
+      </div>
+      {known ? (
+        <>
+          <div className="cb-money-item">
+            <dt>Bezahlt</dt>
+            <dd className={Number(received) > 0 ? 'cb-money-positive' : ''}>{formatEUR(received || 0)}</dd>
+          </div>
+          {Number(overpaid) > 0.009 ? (
+            <div className="cb-money-item">
+              <dt>Überzahlt · Erstattung offen</dt>
+              <dd className="cb-money-refund">{formatEUR(overpaid || 0)}</dd>
+            </div>
+          ) : (
+            <div className="cb-money-item">
+              <dt>Offen</dt>
+              <dd className={Number(open) > 0.009 ? 'cb-money-open' : 'cb-money-positive'}>
+                {Number(open) > 0.009 ? formatEUR(open || 0) : (
+                  <span className="inline-flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />{formatEUR(0)}</span>
+                )}
+              </dd>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="cb-money-item cb-money-item--wide">
+          <dt>Zahlungsstand</dt>
+          <dd className="cb-money-unknown">derzeit nicht verfügbar</dd>
+        </div>
+      )}
+    </dl>
+  );
+}
+
+/**
+ * Einsendelabel (Kunde -> McRepair) einer Buchung: Text vom Server (GET .../inbound-label),
+ * Herunterladen/Drucken/Erstellen ueber die DHL-Helfer mit deutscher Fehlermeldung im Toast.
+ */
+function InboundLabelBlock({
+  bookingId,
+  bookingNumber,
+  view,
+  onViewChange,
+  variant = 'card',
+}: {
+  bookingId: string;
+  bookingNumber?: string;
+  view: InboundLabelView;
+  onViewChange: (view: InboundLabelView) => void;
+  variant?: 'card' | 'dialog';
+}) {
+  const { toast } = useToast();
+  const [busy, setBusy] = useState<'' | 'download' | 'print' | 'create'>('');
+  const inbound = view.inbound;
+  const headingId = `inbound-${variant}-${bookingId}`;
+
+  const run = async (kind: 'download' | 'print' | 'create') => {
+    setBusy(kind);
+    try {
+      if (kind === 'download') {
+        await downloadInboundLabel(inbound);
+      } else if (kind === 'print') {
+        await printInboundLabel(inbound);
+      } else {
+        const next = await createBookingInboundLabel(bookingId);
+        onViewChange(next);
+        toast({
+          title: next.alreadyExists ? 'Einsendelabel liegt bereits vor' : 'Einsendelabel erstellt',
+          description: next.inbound?.message || 'Sie können das DHL-Einsendelabel jetzt herunterladen.',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: kind === 'create' ? 'Einsendelabel konnte nicht erstellt werden' : 'Einsendelabel konnte nicht geladen werden',
+        description: error instanceof Error ? error.message : 'Bitte versuchen Sie es später erneut.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const showTracking = Boolean(inbound.trackingNumber) && !inbound.placeholder;
+  const statusText = inbound.shippingStatus && !['pending', 'label-created', ''].includes(inbound.shippingStatus)
+    ? getShippingStatusLabel(inbound.shippingStatus)
+    : '';
+
+  return (
+    <section className={`cb-inbound cb-inbound--${variant} cb-inbound--${inbound.state}`} aria-labelledby={headingId}>
+      <div className="cb-inbound-head">
+        <Truck className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+        <h4 id={headingId} className="cb-inbound-title">
+          {variant === 'card' ? 'Gerät an McRepair senden' : 'DHL-Einsendelabel (Sie → McRepair)'}
+        </h4>
+        {inbound.placeholder && <span className="cb-testlabel">Testlabel</span>}
+        {statusText && <span className="cb-inbound-status">Einsendung: {statusText}</span>}
+      </div>
+      {inbound.message && <p className="cb-inbound-message">{inbound.message}</p>}
+      {(inbound.state === 'creating' || inbound.state === 'review') && (
+        <p className="cb-inbound-wait"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Bitte warten – Sie müssen nichts weiter tun.</p>
+      )}
+      <div className="cb-inbound-actions">
+        {inbound.state === 'ready' && inbound.downloadUrl && (
+          <>
+            <Button
+              type="button"
+              className="cb-btn-primary"
+              onClick={() => void run('download')}
+              disabled={Boolean(busy)}
+              aria-label={`DHL-Einsendelabel herunterladen (PDF)${bookingNumber ? ` für Buchung ${bookingNumber}` : ''}`}
+            >
+              {busy === 'download' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="mr-2 h-4 w-4" aria-hidden="true" />}
+              Einsendelabel herunterladen (PDF)
+            </Button>
+            <Button type="button" variant="outline" className="cb-btn-secondary" onClick={() => void run('print')} disabled={Boolean(busy)}>
+              {busy === 'print' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Printer className="mr-2 h-4 w-4" aria-hidden="true" />}
+              Label drucken
+            </Button>
+          </>
+        )}
+        {inbound.canCreate && inbound.state !== 'ready' && (
+          <Button type="button" className="cb-btn-primary" onClick={() => void run('create')} disabled={Boolean(busy)}>
+            {busy === 'create' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Truck className="mr-2 h-4 w-4" aria-hidden="true" />}
+            {busy === 'create' ? 'Einsendelabel wird erstellt …' : 'DHL-Einsendelabel erstellen'}
+          </Button>
+        )}
+        {showTracking && (
+          <a className="cb-inbound-tracking" href={dhlTrackingUrl(inbound.trackingNumber)} target="_blank" rel="noopener noreferrer">
+            Sendung {inbound.trackingNumber} verfolgen <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// Seite "Meine Buchungen"
+// ---------------------------------------------------------------------------------------
+
+type InboundEntry = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; view: InboundLabelView };
+
 export function CustomerBookings() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // Filter, Suche, Seite und Seitengroesse stehen in der URL (CUSTUX-2): "Zurück" aus dem
+  // Auftragsdetail (backTarget.search) und die Browser-Zurück-Taste stellen sie wieder her.
+  const rawStatus = searchParams.get('status') || 'all';
+  const statusFilter = STATUS_FILTERS.includes(rawStatus) ? rawStatus : 'all';
+  const query = (searchParams.get('q') || '').trim();
+  const currentPage = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+  const perPageParam = parseInt(searchParams.get('perPage') || '20', 10);
+  const itemsPerPage = PAGE_SIZES.includes(perPageParam) ? perPageParam : 20;
+
+  const [searchInput, setSearchInput] = useState(query);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+  const [totalBookings, setTotalBookings] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
-  const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({});
-  // Rechnungen je aufgeklappter Buchung: EINE Anfrage pro Buchung, danach aus dem Cache.
-  const [bookingInvoicesByBooking, setBookingInvoicesByBooking] = useState<Record<string, any[]>>({});
-  const [loadingBookingInvoiceIds, setLoadingBookingInvoiceIds] = useState<Set<string>>(new Set());
-  const [downloadingInvoicePdfId, setDownloadingInvoicePdfId] = useState<string | null>(null);
-  const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set());
-  const [calculatedProgress, setCalculatedProgress] = useState<Record<string, number>>({});
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const requestSeq = useRef(0);
+
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({});
+  const [inboundByBooking, setInboundByBooking] = useState<Record<string, InboundEntry>>({});
+
+  const [dialogBooking, setDialogBooking] = useState<Booking | null>(null);
+  const [dialogTab, setDialogTab] = useState<DialogTab>('payments');
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [complaintOrder, setComplaintOrder] = useState<Booking['items'][number] | null>(null);
+
+  const [complaintOrder, setComplaintOrder] = useState<BookingItem | null>(null);
   const [complaintReason, setComplaintReason] = useState("");
   const [complaintDescription, setComplaintDescription] = useState("");
   const [submittingComplaint, setSubmittingComplaint] = useState(false);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [totalBookings, setTotalBookings] = useState(0);
+  const restoreDoneRef = useRef(false);
 
-  // Unread message counts state
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({});
-  const [loadingUnreadCounts, setLoadingUnreadCounts] = useState(false);
+  const updateParams = useCallback((patch: Record<string, string | number | null>) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      Object.entries(patch).forEach(([key, value]) => {
+        const isDefault = value === null || value === '' || (key === 'status' && value === 'all')
+          || (key === 'page' && Number(value) === 1) || (key === 'perPage' && Number(value) === 20);
+        if (isDefault) next.delete(key);
+        else next.set(key, String(value));
+      });
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
-  // Communication panel state
-  const [showCommunicationPanel, setShowCommunicationPanel] = useState(false);
-  const [selectedOrderForCommunication, setSelectedOrderForCommunication] = useState<string | null>(null);
+  // Suche: Eingabe sofort sichtbar, Anfrage 300 ms verzoegert (serverseitig, alle Seiten).
+  useEffect(() => {
+    if (searchInput.trim() === query) return undefined;
+    const timer = window.setTimeout(() => updateParams({ q: searchInput.trim(), page: null }), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, query, updateParams]);
+
+  // Zurueck/Vor im Browser aendert q - Eingabefeld nachziehen.
+  useEffect(() => {
+    setSearchInput((current) => (current.trim() === query ? current : query));
+  }, [query]);
 
   useEffect(() => {
-    fetchBookings();
-  }, [statusFilter, currentPage, itemsPerPage]);
-
-  useEffect(() => {
-    const reopenBookingId = (location.state as { reopenBookingDialog?: string } | null)?.reopenBookingDialog;
-    if (!reopenBookingId) {
-      return;
-    }
-
-    const reopenBookingDialog = async () => {
+    const seq = ++requestSeq.current;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
-        const response = await getBooking(reopenBookingId);
-        setSelectedBooking(response.booking);
-        setShowDetailDialog(true);
+        const response = await getBookings({
+          limit: itemsPerPage,
+          skip: (currentPage - 1) * itemsPerPage,
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(query ? { search: query } : {}),
+        });
+        if (seq !== requestSeq.current) return;
+        const bookingsData: Booking[] = response?.bookings || [];
+        setBookings(bookingsData);
+        setTotalBookings(Number(response?.total ?? bookingsData.length) || 0);
       } catch (error) {
-        console.error("CustomerBookings: Error reopening booking dialog:", error);
+        if (seq !== requestSeq.current) return;
+        console.error('CustomerBookings: Error fetching bookings:', error);
+        setBookings([]);
+        setTotalBookings(0);
+        setLoadError(error instanceof Error && error.message ? error.message : 'Unbekannter Fehler');
+      } finally {
+        if (seq === requestSeq.current) setLoading(false);
       }
     };
+    void load();
+  }, [statusFilter, query, currentPage, itemsPerPage, reloadKey]);
 
-    reopenBookingDialog();
-  }, [location.state]);
-
-  // Fetch unread counts when bookings change
+  // Ungelesene Nachrichten je Auftrag (nicht kritisch: Fehler nur im Log).
   useEffect(() => {
-    if (bookings.length > 0) {
-      fetchUnreadCounts();
+    const orderIds = bookings.flatMap((booking) => (booking.items || []).map((item) => item.orderId).filter(Boolean));
+    if (orderIds.length === 0) {
+      setUnreadCounts({});
+      return;
     }
+    let cancelled = false;
+    getUnreadMessageCounts(orderIds)
+      .then((counts) => { if (!cancelled) setUnreadCounts(counts || {}); })
+      .catch((error) => console.error("CustomerBookings: Error fetching unread counts:", error));
+    return () => { cancelled = true; };
   }, [bookings]);
 
-  const fetchBookings = async () => {
+  // Einsendestatus nur fuer Buchungen, in denen noch ein Geraet eingesendet werden muss
+  // (Reparaturauftrag 'pending'); eine Anfrage je Buchung, Ergebnis zwischengespeichert.
+  const needsInbound = (booking: Booking) => booking.status !== 'cancelled'
+    && repairItemsOf(booking).some((item) => (item.status || 'pending') === 'pending');
+
+  const loadInbound = useCallback(async (bookingId: string) => {
+    setInboundByBooking((prev) => ({ ...prev, [bookingId]: { status: 'loading' } }));
     try {
-      setLoading(true);
-      console.log('CustomerBookings: Fetching bookings with status filter:', statusFilter);
-
-      const filters: any = {
-        limit: itemsPerPage,
-        skip: (currentPage - 1) * itemsPerPage
-      };
-      if (statusFilter !== "all") {
-        filters.status = statusFilter;
-      }
-
-      const response = await getBookings(filters);
-      console.log('CustomerBookings: Received bookings:', response.bookings?.length);
-
-      const bookingsData = response.bookings || [];
-      const total = response.total || bookingsData.length;
-
-      setBookings(bookingsData);
-      setTotalBookings(total);
-      setFilteredBookings(bookingsData);
-    } catch (error: any) {
-      console.error('CustomerBookings: Error fetching bookings:', error);
-      toast({
-        title: t('common.error'),
-        description: error.message || t('bookings.errorFetchingBookings'),
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch unread message counts for all visible bookings
-  const fetchUnreadCounts = async () => {
-    try {
-      setLoadingUnreadCounts(true);
-
-      // Collect all order IDs from all bookings' items
-      const allOrderIds: string[] = [];
-      bookings.forEach((booking) => {
-        booking.items.forEach(item => {
-          if (item.orderId) {
-            allOrderIds.push(item.orderId);
-          }
-        });
-      });
-
-      if (allOrderIds.length === 0) {
-        return;
-      }
-
-      console.log(`CustomerBookings: Fetching unread counts for ${allOrderIds.length} orders`);
-      const counts = await getUnreadMessageCounts(allOrderIds);
-      console.log('CustomerBookings: Received unread counts:', counts);
-      setUnreadCounts(counts || {});
+      const view = await getBookingInboundLabel(bookingId);
+      setInboundByBooking((prev) => ({ ...prev, [bookingId]: { status: 'ready', view } }));
     } catch (error) {
-      console.error("CustomerBookings: Error fetching unread counts:", error);
-      // Don't show error toast as this is a non-critical feature
-    } finally {
-      setLoadingUnreadCounts(false);
+      setInboundByBooking((prev) => ({
+        ...prev,
+        [bookingId]: { status: 'error', message: error instanceof Error ? error.message : 'Einsendestatus konnte nicht geladen werden.' },
+      }));
     }
-  };
+  }, []);
 
-  // Client-side search filtering
   useEffect(() => {
-    let filtered = bookings;
-
-    if (searchTerm) {
-      filtered = filtered.filter(booking =>
-        booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking._id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredBookings(filtered);
-  }, [bookings, searchTerm]);
-
-  const loadInvoicesForBooking = async (bookingId: string) => {
-    if (!bookingId) return;
-    if (bookingInvoicesByBooking[bookingId]) return;
-    setLoadingBookingInvoiceIds((prev) => new Set(prev).add(bookingId));
-    try {
-      const data = await getBookingInvoices(bookingId);
-      // Der Buchungsendpunkt liefert balance/paymentState je Beleg selbst; attachInvoiceBalances
-      // lädt nur noch nach, falls ein Beleg ohne Saldo ankommt (älterer Server / Ausfall).
-      const invoices = await attachInvoiceBalances(data?.invoices || []);
-      setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: invoices }));
-    } catch (error) {
-      console.error('CustomerBookings: Rechnungen konnten nicht geladen werden:', error);
-      setBookingInvoicesByBooking((prev) => ({ ...prev, [bookingId]: [] }));
-    } finally {
-      setLoadingBookingInvoiceIds((prev) => {
-        const next = new Set(prev);
-        next.delete(bookingId);
-        return next;
-      });
-    }
-  };
-
-  const handleDownloadInvoicePdf = async (invoiceId: string, invoiceNumber?: string) => {
-    setDownloadingInvoicePdfId(invoiceId);
-    try {
-      await downloadInvoicePdf(invoiceId, invoiceNumber);
-    } catch (error) {
-      toast({
-        title: 'Fehler',
-        description: error instanceof Error ? error.message : 'Rechnungs-PDF konnte nicht geladen werden.',
-        variant: 'destructive',
-      });
-    } finally {
-      setDownloadingInvoicePdfId(null);
-    }
-  };
-
-  const toggleExpandBooking = async (bookingId: string) => {
-    const newExpanded = new Set(expandedBookings);
-
-    if (newExpanded.has(bookingId)) {
-      // Collapse
-      newExpanded.delete(bookingId);
-      setExpandedBookings(newExpanded);
-    } else {
-      // Expand - fetch fresh orders data from API
-      try {
-        const newLoading = new Set(loadingOrders);
-        newLoading.add(bookingId);
-        setLoadingOrders(newLoading);
-
-        console.log(`Fetching orders for booking: ${bookingId}`);
-        void loadInvoicesForBooking(bookingId);
-        const response = await getBookingOrders(bookingId);
-        const ordersData = response.orders || [];
-
-        console.log(`Retrieved ${ordersData.length} orders with repair progress status`);
-
-        // Calculate actual progress from fresh order data
-        let totalProgress = 0;
-        ordersData.forEach((order: any) => {
-          totalProgress += (order.progress || 0);
-        });
-        const averageProgress = ordersData.length > 0 ? Math.round(totalProgress / ordersData.length) : 0;
-
-        console.log(`Calculated progress for booking ${bookingId}: ${averageProgress}%`);
-
-        setExpandedOrdersData(prev => ({
-          ...prev,
-          [bookingId]: ordersData
-        }));
-
-        setCalculatedProgress(prev => ({
-          ...prev,
-          [bookingId]: averageProgress
-        }));
-
-        newExpanded.add(bookingId);
-        setExpandedBookings(newExpanded);
-
-        const newLoading2 = new Set(loadingOrders);
-        newLoading2.delete(bookingId);
-        setLoadingOrders(newLoading2);
-      } catch (error) {
-        console.error("Error loading orders:", error);
-        toast({
-          title: t('common.error'),
-          description: "Die zugehörigen Aufträge konnten nicht geladen werden.",
-          variant: "destructive"
-        });
-        const newLoading = new Set(loadingOrders);
-        newLoading.delete(bookingId);
-        setLoadingOrders(newLoading);
-      }
-    }
-  };
-
-  const handleViewOrder = (orderId: string) => {
-    navigate(getOrderDetailsPath(orderId), {
-      state: buildOrderDetailsState(location, {
-        label: t('common.back'),
-      }),
+    bookings.filter(needsInbound).forEach((booking) => {
+      if (!inboundByBooking[booking._id]) void loadInbound(booking._id);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings]);
+
+  // Rueckkehr aus dem Auftragsdetail: denselben "Details ansehen"-Link fokussieren und die
+  // Scrollposition wiederherstellen (nach dem globalen ScrollToTop, der bis 220 ms laeuft).
+  useEffect(() => {
+    if (restoreDoneRef.current || loading) return undefined;
+    const state = (location.state || {}) as { restoreFocusOrderId?: string; reopenBookingDialog?: string; reopenBookingTab?: DialogTab };
+    let saved: { orderId?: string; scrollY?: number; ts?: number; key?: string } | null = null;
+    try {
+      saved = JSON.parse(window.sessionStorage.getItem(RESTORE_KEY) || 'null');
+    } catch {
+      saved = null;
+    }
+    // Nur der Verlaufseintrag, von dem aus "Details ansehen" geklickt wurde (gleicher
+    // location.key), stellt wieder her - ein Reload eines spaeter ueber die Navigation
+    // geoeffneten /bookings springt nicht an eine alte Position.
+    const savedFresh = saved && saved.orderId && Date.now() - Number(saved.ts || 0) < 30 * 60 * 1000 ? saved : null;
+    const savedForPop = savedFresh && (!savedFresh.key || savedFresh.key === location.key) ? savedFresh : null;
+    const focusOrderId = state.restoreFocusOrderId || (navigationType === 'POP' ? savedForPop?.orderId : undefined);
+    if (!focusOrderId) {
+      restoreDoneRef.current = true;
+      try { window.sessionStorage.removeItem(RESTORE_KEY); } catch { /* ohne Speicher nichts aufzuraeumen */ }
+      return undefined;
+    }
+    const scrollY = savedFresh && savedFresh.orderId === focusOrderId && typeof savedFresh.scrollY === 'number' ? savedFresh.scrollY : null;
+    const timer = window.setTimeout(() => {
+      restoreDoneRef.current = true;
+      try { window.sessionStorage.removeItem(RESTORE_KEY); } catch { /* ohne Speicher kein Wiederherstellen */ }
+      const link = document.querySelector<HTMLElement>(`[data-order-link="${focusOrderId}"]`);
+      if (scrollY !== null) window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+      if (link) {
+        link.focus({ preventScroll: scrollY !== null });
+        const rect = link.getBoundingClientRect();
+        if (rect.top < 0 || rect.bottom > window.innerHeight) link.scrollIntoView({ block: 'center' });
+      }
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [loading, bookings, location.state, location.key, navigationType]);
+
+  // Aelterer Ruecksprung (Dialog wieder oeffnen), z. B. aus gespeicherten Verlaufseintraegen.
+  useEffect(() => {
+    const state = (location.state || {}) as { reopenBookingDialog?: string; reopenBookingTab?: DialogTab };
+    if (!state.reopenBookingDialog) return;
+    let cancelled = false;
+    getBooking(state.reopenBookingDialog)
+      .then((response) => {
+        if (cancelled || !response?.booking?._id) return;
+        setDialogBooking(response.booking);
+        setDialogTab(state.reopenBookingTab || 'payments');
+        setShowDetailDialog(true);
+      })
+      .catch((error) => console.error("CustomerBookings: Error reopening booking dialog:", error));
+    return () => { cancelled = true; };
+  }, [location.state]);
+
+  const rememberReturnPosition = (orderId: string) => {
+    try {
+      window.sessionStorage.setItem(RESTORE_KEY, JSON.stringify({ orderId, scrollY: window.scrollY, ts: Date.now(), key: location.key }));
+    } catch {
+      /* privater Modus: Ruecksprung funktioniert dann nur ueber den Zurück-Button */
+    }
   };
 
-  const openComplaintDialog = (booking: Booking) => {
-    const eligibleOrder = booking.items.find((item) => item.orderId && item.status === 'completed' && !item.hasComplaint);
-    if (!eligibleOrder) return;
+  // Ruecksprungziel mit dem EINGEGEBENEN Suchbegriff - auch wenn die 300-ms-Verzoegerung
+  // ihn noch nicht in die URL geschrieben hat (schneller Klick direkt nach dem Tippen).
+  const backSearch = (() => {
+    const typed = searchInput.trim();
+    if (typed === query) return location.search;
+    const next = new URLSearchParams(location.search);
+    if (typed) next.set('q', typed); else next.delete('q');
+    next.delete('page');
+    const text = next.toString();
+    return text ? `?${text}` : '';
+  })();
+  const orderLinkState = (orderId: string) => buildOrderDetailsState({ ...location, search: backSearch }, {
+    label: 'Zurück zu meinen Buchungen',
+    restoreState: { restoreFocusOrderId: orderId },
+  });
 
-    openOrderComplaintDialog(eligibleOrder);
+  const openBookingDialog = (booking: Booking, tab: DialogTab) => {
+    setDialogBooking(booking);
+    setDialogTab(tab);
+    setShowDetailDialog(true);
+    // Vollstaendige Buchung (Verlauf, Adressen, Versandfelder) nachladen; bis dahin zeigt der
+    // Dialog die Daten aus der Liste.
+    getBooking(booking._id)
+      .then((response) => {
+        if (response?.booking?._id === booking._id) {
+          setDialogBooking((current) => (current && current._id === booking._id
+            ? { ...response.booking, paymentBalance: booking.paymentBalance, items: booking.items }
+            : current));
+        }
+      })
+      .catch((error) => console.error("CustomerBookings: Failed to load full booking for detail dialog:", error));
   };
 
-  const openOrderComplaintDialog = (order: Booking['items'][number]) => {
+  const openOrderComplaintDialog = (order: BookingItem) => {
     if (!order.orderId || order.status !== 'completed' || order.hasComplaint) return;
-
     setComplaintOrder(order);
     setComplaintReason("");
     setComplaintDescription("");
@@ -520,10 +788,10 @@ export function CustomerBookings() {
       });
       toast({
         title: "Reklamation eingereicht",
-        description: "Deine Reklamation wurde erfolgreich an das Admin-Team gesendet."
+        description: "Ihre Reklamation wurde an unser Team gesendet."
       });
       setComplaintOrder(null);
-      await fetchBookings();
+      setReloadKey((key) => key + 1);
     } catch (error: unknown) {
       toast({
         title: "Reklamation fehlgeschlagen",
@@ -535,1445 +803,621 @@ export function CustomerBookings() {
     }
   };
 
-  const bookingDialogTabTriggerClass = "booking-detail-tab-trigger";
-
-  const handleOpenCommunication = (orderId: string) => {
-    console.log('Opening communication panel for order:', orderId);
-    setSelectedOrderForCommunication(orderId);
-    setShowCommunicationPanel(true);
+  // Die Seite ist deutsch: zuerst die eigene deutsche Bezeichnung, sonst der deutsche
+  // Locale-Text (nie gemischte Sprachen, nie ein roher Schluessel).
+  const statusLabel = (status?: string) => {
+    const value = status || 'pending';
+    return STATUS_LABELS_DE[value] || t(`status.${value}`, { lng: 'de', defaultValue: value });
   };
 
-  const getBookingProgress = (bookingId: string, fallbackProgress: number = 0) => {
-    if (calculatedProgress[bookingId] !== undefined) {
-      return calculatedProgress[bookingId];
-    }
-    return fallbackProgress;
+  const filterActive = statusFilter !== 'all' || Boolean(query);
+  const totalPages = Math.max(1, Math.ceil(totalBookings / itemsPerPage));
+
+  // Seitennummer hinter der letzten Seite (alter Link, Liste inzwischen kuerzer): auf die
+  // letzte vorhandene Seite springen statt "noch keine Buchungen" zu zeigen.
+  useEffect(() => {
+    if (loading || loadError || bookings.length > 0 || totalBookings === 0) return;
+    if (currentPage > totalPages) updateParams({ page: totalPages });
+  }, [loading, loadError, bookings.length, totalBookings, currentPage, totalPages, updateParams]);
+  const resetFilters = () => {
+    setSearchInput('');
+    updateParams({ status: null, q: null, page: null });
   };
 
-  // Helper function to get total unread count for a booking
-  const getBookingUnreadCount = (booking: Booking) => {
-    let totalUnread = 0;
-    let hasCustomerMessages = false;
-    let hasStaffMessages = false;
+  const renderDeviceRow = (booking: Booking, item: BookingItem, index: number) => {
+    const repairItems = repairItemsOf(booking);
+    const isProduct = item.type === 'product';
+    const isFollowup = Boolean(item.isComplaintFollowup);
+    const repairIndex = repairItems.indexOf(item);
+    const deviceName = isProduct
+      ? `Shop-Artikel: ${(item.products || []).map((product) => product.name).filter(Boolean).join(', ') || 'Produkte'}`
+      : (item.device || 'Gerät');
+    const orderLabel = item.orderNumber ? `Auftrag ${item.orderNumber}` : (item.orderId ? `Auftrag ${String(item.orderId).slice(-8).toUpperCase()}` : '');
+    const progress = Math.max(0, Math.min(100, Number(item.progress || 0)));
+    const unread = item.orderId ? Number(unreadCounts[item.orderId]?.unread || 0) : 0;
+    const complaintEligible = Boolean(item.orderId) && item.status === 'completed' && !item.hasComplaint;
+    const services = (item.services || []).map((service) => service.name).filter(Boolean).join(', ');
+    const status = item.status || 'pending';
 
-    // Check all items in the booking
-    booking.items.forEach((item) => {
-      if (item.orderId && unreadCounts[item.orderId]) {
-        totalUnread += unreadCounts[item.orderId].unread;
-        if (unreadCounts[item.orderId].senderType === 'customer') {
-          hasCustomerMessages = true;
-        } else {
-          hasStaffMessages = true;
-        }
-      }
-    });
-
-    return {
-      total: totalUnread,
-      hasCustomerMessages,
-      hasStaffMessages
-    };
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'badge badge-pending';
-      case 'payment-pending':
-        return 'badge badge-payment-pending';
-      case 'processing':
-        return 'badge badge-processing';
-      case 'completed':
-        return 'badge badge-completed';
-      case 'cancelled':
-        return 'badge badge-cancelled';
-      default:
-        return 'badge';
-    }
-  };
-
-  const getOrderStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'badge badge-pending';
-      case 'in-progress':
-        return 'badge badge-processing';
-      case 'quality-check':
-        return 'badge badge-processing';
-      case 'ready-for-pickup':
-        return 'badge badge-payment-pending';
-      case 'completed':
-        return 'badge badge-completed';
-      case 'cancelled':
-        return 'badge badge-cancelled';
-      default:
-        return 'badge';
-    }
-  };
-
-  const getBillingStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return 'badge badge-pending';
-      case 'sent':
-        return 'badge badge-processing';
-      case 'viewed':
-        return 'badge badge-processing';
-      case 'overdue':
-        return 'badge badge-unpaid';
-      case 'partially_paid':
-        return 'badge badge-partially-paid';
-      case 'unpaid':
-        return 'badge badge-unpaid';
-      case 'partially-paid':
-        return 'badge badge-partially-paid';
-      case 'paid':
-        return 'badge badge-paid';
-      default:
-        return 'badge';
-    }
-  };
-
-  const getEffectivePaymentStatus = (booking: Booking) => {
-    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
-    const candidate = String(booking.paymentStatus || '');
-    return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus;
-  };
-
-  const getBillingStatusLabel = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return 'Vorlage';
-      case 'sent':
-        return 'Gesendet';
-      case 'viewed':
-        return 'Angesehen';
-      case 'partially_paid':
-        return 'Teilbezahlt';
-      case 'overdue':
-        return 'Überfällig';
-      case 'unpaid':
-        return 'Offen';
-      case 'partially-paid':
-        return 'Teilbezahlt';
-      case 'paid':
-        return 'Bezahlt';
-      default:
-        return status;
-    }
-  };
-
-  const getReturnShipmentStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'badge badge-pending';
-      case 'label-created':
-        return 'badge badge-processing';
-      case 'in-transit':
-        return 'badge badge-processing';
-      case 'delivered':
-        return 'badge badge-completed';
-      case 'failed':
-        return 'badge badge-cancelled';
-      default:
-        return 'badge';
-    }
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('de-DE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('de-DE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">{t('common.loading')}</p>
+      <li key={item.orderId || item._id || index} className={`cb-device${isFollowup ? ' cb-device--followup' : ''}`}>
+        <div className="cb-device-icon" aria-hidden="true">
+          {isProduct ? <ShoppingBag className="h-5 w-5" /> : isFollowup ? <AlertCircle className="h-5 w-5" /> : <Smartphone className="h-5 w-5" />}
         </div>
-      </div>
+        <div className="cb-device-main">
+          {isFollowup ? (
+            <span className="cb-device-index cb-device-index--followup">
+              Reklamationsauftrag{item.parentOrderNumber ? ` zu Auftrag ${item.parentOrderNumber}` : ''}
+            </span>
+          ) : !isProduct && repairIndex >= 0 && repairItems.length > 1 && (
+            <span className="cb-device-index">Gerät {repairIndex + 1} von {repairItems.length}</span>
+          )}
+          <span className="cb-device-name">{deviceName}</span>
+          <span className="cb-device-sub">
+            {[orderLabel, services, item.cost ? formatEUR(item.cost) : ''].filter(Boolean).join(' · ')}
+          </span>
+        </div>
+        <div className="cb-device-status">
+          <Badge className={`${statusBadgeClass(status)} cb-status-badge`}>{statusLabel(status)}</Badge>
+          {!isProduct && (
+            <div className="cb-progress" aria-label={`Fortschritt ${progress} %`} role="img">
+              <div className="cb-progress-track"><div className="cb-progress-fill" style={{ width: `${progress}%` }} /></div>
+              <span className="cb-progress-text" aria-hidden="true">{progress} %</span>
+            </div>
+          )}
+        </div>
+        <div className="cb-device-actions">
+          {unread > 0 && item.orderId && (
+            <Link
+              to={`/messages?thread=${encodeURIComponent(`order:${item.orderId}`)}`}
+              className="cb-btn-messages"
+              aria-label={`${unread} ungelesene ${unread === 1 ? 'Nachricht' : 'Nachrichten'} zu ${orderLabel || deviceName} öffnen`}
+            >
+              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+              {unread > 99 ? '99+' : unread} {unread === 1 ? 'neue Nachricht' : 'neue Nachrichten'}
+            </Link>
+          )}
+          {complaintEligible && (
+            <Button type="button" variant="outline" size="sm" className="cb-btn-secondary" onClick={() => openOrderComplaintDialog(item)}>
+              <AlertCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Reklamation anmelden
+            </Button>
+          )}
+          {item.orderId && (
+            <Link
+              to={getOrderDetailsPath(item.orderId)}
+              state={orderLinkState(item.orderId)}
+              onClick={() => rememberReturnPosition(item.orderId)}
+              className="cb-details-link"
+              data-order-link={item.orderId}
+              aria-label={`Details ansehen: ${isFollowup ? 'Reklamationsauftrag, ' : ''}${deviceName}${orderLabel ? `, ${orderLabel}` : ''}`}
+            >
+              Details ansehen
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
+      </li>
     );
-  }
+  };
+
+  const renderInboundForCard = (booking: Booking) => {
+    if (!needsInbound(booking)) return null;
+    const entry = inboundByBooking[booking._id];
+    if (!entry || entry.status === 'loading') {
+      return (
+        <div className="cb-inbound cb-inbound--card cb-inbound--loading" role="status">
+          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          Einsendestatus wird geladen …
+        </div>
+      );
+    }
+    if (entry.status === 'error') {
+      return (
+        <div className="cb-inbound cb-inbound--card cb-inbound--error" role="alert">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <span>Einsendestatus konnte nicht geladen werden.</span>
+          <Button type="button" variant="outline" className="cb-btn-secondary" size="sm" onClick={() => void loadInbound(booking._id)}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Erneut versuchen
+          </Button>
+        </div>
+      );
+    }
+    const { inbound } = entry.view;
+    if (inbound.deviceReceived || ['not-needed', 'cancelled'].includes(inbound.state)) return null;
+    return (
+      <InboundLabelBlock
+        bookingId={booking._id}
+        bookingNumber={booking.bookingNumber}
+        view={entry.view}
+        onViewChange={(view) => setInboundByBooking((prev) => ({ ...prev, [booking._id]: { status: 'ready', view } }))}
+      />
+    );
+  };
+
+  const renderBookingCard = (booking: Booking) => {
+    const bookingLabel = booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`;
+    const money = moneyFromBalance(booking);
+    const hint = wholeBookingHint(booking);
+    const repairCount = repairItemsOf(booking).length;
+    const items = booking.items || [];
+    const shopCount = items.filter((item) => item.type === 'product').length;
+    const followupCount = items.filter((item) => item.isComplaintFollowup).length;
+    const headingId = `booking-${booking._id}`;
+
+    return (
+      <article key={booking._id} className="cb-booking" aria-labelledby={headingId}>
+        <header className="cb-booking-head">
+          <div className="cb-booking-id">
+            <h3 id={headingId} className="cb-booking-title">
+              <Package className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              Buchung {bookingLabel}
+            </h3>
+            <p className="cb-booking-meta">
+              vom {formatDate(booking.createdAt)}
+              {repairCount > 0 && ` · ${repairCount} ${repairCount === 1 ? 'Gerät' : 'Geräte'}`}
+              {shopCount > 0 && ` · ${shopCount} Shop-${shopCount === 1 ? 'Position' : 'Positionen'}`}
+              {followupCount > 0 && ` · ${followupCount} ${followupCount === 1 ? 'Reklamationsauftrag' : 'Reklamationsaufträge'}`}
+            </p>
+            <div className="cb-booking-badges">
+              <Badge className={`${statusBadgeClass(booking.status)} cb-status-badge`}>
+                <span className="sr-only">Buchungsstatus: </span>{statusLabel(booking.status)}
+              </Badge>
+              {!money.known && (
+                <Badge className="bg-gray-100 text-gray-800 border border-gray-300 cb-status-badge">
+                  Zahlung: {getBillingStatusLabel(booking.billingStatus)}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <MoneySummary
+            known={money.known}
+            total={money.total}
+            received={money.known ? money.received : undefined}
+            open={money.known ? money.open : undefined}
+            overpaid={money.known ? money.overpaid : undefined}
+          />
+        </header>
+        {hint && <p className="cb-booking-hint">{hint}</p>}
+
+        {renderInboundForCard(booking)}
+
+        {items.length > 0 ? (
+          <ul className="cb-devices" aria-label={`Geräte und Positionen der Buchung ${bookingLabel}`}>
+            {items.map((item, index) => renderDeviceRow(booking, item, index))}
+          </ul>
+        ) : (
+          <p className="cb-devices-empty">Zu dieser Buchung sind keine Aufträge hinterlegt.</p>
+        )}
+
+        <footer className="cb-booking-foot">
+          <Button type="button" variant="outline" size="sm" className="cb-btn-secondary" onClick={() => openBookingDialog(booking, 'payments')}>
+            <Receipt className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Rechnungen &amp; Zahlungen
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="cb-btn-secondary" onClick={() => openBookingDialog(booking, 'shipping')}>
+            <Truck className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Versand &amp; Verlauf
+          </Button>
+        </footer>
+      </article>
+    );
+  };
+
+  const renderListBody = () => {
+    if (loading) {
+      return (
+        <div className="cb-state" role="status" aria-busy="true">
+          <div className="cb-skeleton" aria-hidden="true" />
+          <div className="cb-skeleton" aria-hidden="true" />
+          <p className="cb-state-text"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Buchungen werden geladen …</p>
+        </div>
+      );
+    }
+    if (loadError) {
+      return (
+        <div className="cb-state cb-state--error" role="alert">
+          <AlertCircle className="h-8 w-8" aria-hidden="true" />
+          <p className="cb-state-title">Buchungen konnten nicht geladen werden.</p>
+          <p className="cb-state-text">Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</p>
+          <Button type="button" className="cb-btn-primary" onClick={() => setReloadKey((key) => key + 1)}>
+            <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" /> Erneut versuchen
+          </Button>
+        </div>
+      );
+    }
+    if (bookings.length === 0 && totalBookings > 0) {
+      return (
+        <div className="cb-state">
+          <Search className="h-8 w-8" aria-hidden="true" />
+          <p className="cb-state-title">Auf dieser Seite gibt es keine Buchungen.</p>
+          <p className="cb-state-text">Insgesamt {totalBookings} {totalBookings === 1 ? 'Buchung' : 'Buchungen'}{filterActive ? ' für diese Auswahl' : ''}.</p>
+          <Button type="button" variant="outline" className="cb-btn-secondary" onClick={() => updateParams({ page: null })}>Zur ersten Seite</Button>
+        </div>
+      );
+    }
+    if (bookings.length === 0) {
+      return filterActive ? (
+        <div className="cb-state">
+          <Search className="h-8 w-8" aria-hidden="true" />
+          <p className="cb-state-title">Keine Buchungen für diese Auswahl.</p>
+          <p className="cb-state-text">Ändern Sie den Suchbegriff oder den Status.</p>
+          <Button type="button" variant="outline" className="cb-btn-secondary" onClick={resetFilters}>Filter zurücksetzen</Button>
+        </div>
+      ) : (
+        <div className="cb-state">
+          <Package className="h-8 w-8" aria-hidden="true" />
+          <p className="cb-state-title">Sie haben noch keine Buchungen.</p>
+          <p className="cb-state-text">Buchen Sie eine Reparatur – hier sehen Sie danach jedes Gerät mit seinem Status.</p>
+          <Button type="button" className="cb-btn-primary" onClick={() => navigate('/#repair-order-configurator')}>
+            Reparatur buchen
+          </Button>
+        </div>
+      );
+    }
+    return <div className="cb-list">{bookings.map(renderBookingCard)}</div>;
+  };
+
+  const firstShown = totalBookings === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const lastShown = Math.min(currentPage * itemsPerPage, totalBookings);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
+    <div className="customer-bookings-page min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
       <SEO
         title="Meine Buchungen – McRepair.de Kundenportal"
         description="Alle Reparaturbuchungen auf einen Blick: Termine, Status und Details im McRepair.de Kundenportal einsehen und verwalten."
         canonical="/bookings"
         noindex={true}
       />
-      <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-8 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
-        {/* Header Section */}
-        <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
-          <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">
-            <Package className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
+      <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-5 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
+        {/* Kopfbereich */}
+        <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-7 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[480px]:py-5">
+          <div className="flex items-start gap-4 sm:items-center max-[480px]:gap-[10px]">
+            <Package className="h-10 w-10 flex-shrink-0 text-[#f5b800] max-sm:h-[30px] max-sm:w-[30px]" aria-hidden="true" />
             <div>
-              <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">{t('bookings.myBookings')}</h1>
-              <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">{t('bookings.manageYourBookings')}</p>
+              <h1 className="m-0 text-[1.75rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1.15rem]">Meine Buchungen</h1>
+              <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.88)] max-[480px]:text-[0.8rem]">
+                Jedes Gerät mit Status – über „Details ansehen“ öffnen Sie die Reparatur.
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <Card className="border-none shadow-lg bg-white">
-          <CardContent className="py-3 px-4">
-            <div className="bookings-filter-bar flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-[#1a2a5e]">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center flex-shrink-0">
-                  <Filter className="h-4 w-4 text-white" />
-                </div>
-                <span className="font-bold text-sm uppercase tracking-wide whitespace-nowrap">{t('common.filter')}</span>
-              </div>
-              <div className="flex-1 min-w-0 w-full sm:min-w-[200px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder={t('bookings.searchByBookingNumber')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]"
-                  />
-                </div>
-              </div>
-              <div className="w-full sm:min-w-[180px]">
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => {
-                    setStatusFilter(value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]">
-                    <SelectValue placeholder={t('common.selectStatus')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('common.all')}</SelectItem>
-                    <SelectItem value="pending">{t('status.pending')}</SelectItem>
-                    <SelectItem value="payment-pending">{t('status.paymentPending')}</SelectItem>
-                    <SelectItem value="processing">{t('status.processing')}</SelectItem>
-                    <SelectItem value="completed">{t('status.completed')}</SelectItem>
-                    <SelectItem value="cancelled">{t('status.cancelled')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* Filter */}
+        <section className="cb-filters" aria-label="Buchungen filtern">
+          <div className="cb-filter-field cb-filter-field--search">
+            <Label htmlFor="cb-search" className="cb-filter-label">Suche</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" aria-hidden="true" />
+              <Input
+                id="cb-search"
+                type="search"
+                placeholder="Buchung, Auftrag oder Gerät suchen …"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                className="pl-10 h-10 text-sm border-slate-300 focus:border-[#f5b800] focus:ring-[#f5b800]"
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="cb-filter-field cb-filter-field--status">
+            <Label htmlFor="cb-status" className="cb-filter-label">Status</Label>
+            <Select value={statusFilter} onValueChange={(value) => updateParams({ status: value, page: null })}>
+              <SelectTrigger id="cb-status" className="h-10 text-sm border-slate-300 focus:border-[#f5b800] focus:ring-[#f5b800]">
+                <SelectValue placeholder="Status wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Status</SelectItem>
+                {STATUS_FILTERS.map((status) => (
+                  <SelectItem key={status} value={status}>{statusLabel(status)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {filterActive && (
+            <Button type="button" variant="ghost" className="cb-filter-reset" onClick={resetFilters}>
+              <X className="mr-1.5 h-4 w-4" aria-hidden="true" /> Filter zurücksetzen
+            </Button>
+          )}
+        </section>
 
-        {/* Bookings List */}
-        {filteredBookings.length === 0 ? (
-          <Card className="border-none shadow-lg bg-white">
-            <CardContent className="py-16">
-              <div className="text-center">
-                <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-6">
-                  <Package className="h-10 w-10 text-slate-400" />
-                </div>
-                <h3 className="text-xl font-bold text-[#1a2a5e] mb-2">{t('bookings.noBookings')}</h3>
-                <p className="text-slate-500 text-base mb-6">Sie haben noch keine Buchungen. Legen Sie zunächst einen neuen Auftrag an.</p>
-                <Button className="bg-gradient-to-r from-[#f5b800] to-[#e5ab00] hover:from-[#e5ab00] hover:to-[#d59a00] text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/#repair-order-configurator')}>
-                  {t('navigation.newOrder')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-none shadow-lg bg-white overflow-hidden">
-            <CardHeader className="pb-4 border-b border-slate-100">
-              <CardTitle className="text-xl font-bold text-[#1a2a5e]">{t('bookings.bookingsList')}</CardTitle>
-              <CardDescription className="text-base text-slate-500">
-                {filteredBookings.length} {t('bookings.bookingsFound')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0 px-0">
-              <div className="bookings-list-table-wrap">
-                <Table className="bookings-list-table">
-                  <TableHeader>
-                    <TableRow className="bg-slate-50 hover:bg-slate-50 border-b-2 border-slate-200">
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3"></TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.bookingID')}</TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('common.status')}</TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.billing')}</TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.progress')}</TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.totalCost')}</TableHead>
-                      <TableHead className="text-center text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.items')}</TableHead>
-                      <TableHead className="text-center text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.messages')}</TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('bookings.created')}</TableHead>
-                      <TableHead className="text-right text-xs font-bold uppercase tracking-normal whitespace-nowrap text-[#1a2a5e] py-3">{t('common.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                  {filteredBookings.map((booking) => (
-                    <React.Fragment key={booking._id}>
-                      <TableRow
-                        className="hover:bg-slate-50 transition-colors cursor-pointer"
-                        onClick={(e) => {
-                          // Don't trigger if clicking on buttons or interactive elements
-                          const target = e.target as HTMLElement;
-                          if (!target.closest('button') && !target.closest('a') && !target.closest('[role="menu"]') && !target.closest('[role="dialog"]')) {
-                            toggleExpandBooking(booking._id);
-                          }
-                        }}
-                      >
-                        <TableCell className="text-center py-5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => toggleExpandBooking(booking._id)}
-                            disabled={loadingOrders.has(booking._id)}
-                          >
-                            {expandedBookings.has(booking._id) ? (
-                              <ChevronUp className="h-5 w-5" />
-                            ) : (
-                              <ChevronDown className="h-5 w-5" />
-                            )}
-                          </Button>
-                        </TableCell>
-                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Buchung">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4" />
-                            <span>{booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-5" data-label="Status">
-                          <Badge className={getStatusColor(booking.status)}>
-                            {t(`status.${booking.status}`)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-5" data-label="Abrechnung">
-                          <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
-                            {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
-                          </Badge>
-                          {Number(booking.paymentBalance?.refundPending ?? booking.paymentBalance?.overpaid ?? 0) > 0.009 && (
-                            <span className="mt-1 block text-[11px] font-semibold text-violet-700">
-                              Überzahlt · Erstattung offen {formatCurrency(Number(booking.paymentBalance?.refundPending ?? booking.paymentBalance?.overpaid ?? 0))}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-5" data-label="Fortschritt">
-                          <div className="progress-container">
-                            <div className="progress-bar">
-                              <div
-                                className="progress-fill"
-                                style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
-                              ></div>
-                            </div>
-                            <span className="progress-text">
-                              {getBookingProgress(booking._id, booking.overallProgress || 0)}%
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-bold text-base text-[#1a2a5e] py-5" data-label="Gesamt">
-                          {formatCurrency(booking.totalCost)}
-                        </TableCell>
-                        <TableCell className="text-center font-medium py-5" data-label="Artikel">
-                          {booking.items.length}
-                        </TableCell>
-                        <TableCell className="text-center py-5" data-label="Nachrichten">
-                          {(() => {
-                            const unreadInfo = getBookingUnreadCount(booking);
-                            if (unreadInfo.total > 0) {
-                              return (
-                                <div className="flex items-center justify-center">
-                                  <div className={`
-                                    message-badge
-                                    ${unreadInfo.hasStaffMessages
-                                      ? 'message-badge-staff'
-                                      : 'message-badge-customer'
-                                    }
-                                  `}
-                                  title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasStaffMessages ? 'staff' : 'you'}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    // Find the first order ID for this booking
-                                    const firstOrderId = booking.items[0]?.orderId;
-                                    if (firstOrderId) {
-                                      handleOpenCommunication(firstOrderId);
-                                    }
-                                  }}
-                                  >
-                                    {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return <span className="text-sm opacity-50">—</span>;
-                          })()}
-                        </TableCell>
-                        <TableCell className="text-base text-slate-600 py-5" data-label="Erstellt">
-                          {formatDate(booking.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-right py-5" data-label="Aktionen">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVertical className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52">
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  try {
-                                    const response = await getBooking(booking._id);
-                                    setSelectedBooking(response?.booking || booking);
-                                  } catch (error) {
-                                    console.error("CustomerBookings: Failed to load full booking for detail dialog:", error);
-                                    setSelectedBooking(booking);
-                                  }
-                                  setShowDetailDialog(true);
-                                }}
-                              >
-                                <Receipt className="h-4 w-4 mr-2" />
-                                Buchungsdetails & Rechnungen
-                              </DropdownMenuItem>
-                              {booking.items.some((item) => item.orderId && item.status === 'completed' && !item.hasComplaint) && (
-                                <DropdownMenuItem onClick={() => openComplaintDialog(booking)}>
-                                  <AlertCircle className="h-4 w-4 mr-2" />
-                                  Reklamation anmelden
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem onClick={() => toggleExpandBooking(booking._id)}>
-                                {expandedBookings.has(booking._id) ? (
-                                  <>
-                                    <ChevronUp className="h-4 w-4 mr-2" />
-                                    {t('common.hide')} Orders
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="h-4 w-4 mr-2" />
-                                    {t('bookings.viewOrders')}
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Expanded Row with Orders/Repair Jobs */}
-                      {expandedBookings.has(booking._id) && (
-                        <TableRow className="expanded-row">
-                          <TableCell colSpan={10}>
-                            <div className="p-2 space-y-2">
-                              {/* Booking Status Summary */}
-                              <div className="expanded-section">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="expanded-section-title">{t('bookings.bookingStatus')}</span>
-                                  <Badge className={getStatusColor(booking.status)}>
-                                    {t(`status.${booking.status}`)}
-                                  </Badge>
-                                </div>
-                                <div className="info-grid">
-                                  <div className="info-item">
-                                    <div className="info-label">{t('bookings.billing')}</div>
-                                    <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
-                                      {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
-                                    </Badge>
-                                  </div>
-                                  {booking.returnShipmentStatus && (
-                                    <div className="info-item">
-                                      <div className="info-label">{t('bookings.returnStatus')}</div>
-                                      <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
-                                        {t(`status.${booking.returnShipmentStatus}`)}
-                                      </Badge>
-                                    </div>
-                                  )}
-                                  <div className="info-item">
-                                    <div className="info-label">{t('bookings.totalCost')}</div>
-                                    <div className="info-value">{formatCurrency(booking.totalCost)}</div>
-                                  </div>
-                                </div>
-                                <div className="mt-2">
-                                  <div className="info-label mb-1.5">{t('bookings.progress')}</div>
-                                  <div className="progress-container">
-                                    <div className="progress-bar">
-                                      <div
-                                        className="progress-fill"
-                                        style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
-                                      ></div>
-                                    </div>
-                                    <span className="progress-text">
-                                      {getBookingProgress(booking._id, booking.overallProgress || 0)}%
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Return Shipping Information */}
-                              {(booking.returnTrackingNumber || booking.returnLabelUrl || booking.returnQRCodeUrl) && (
-                                <div className="bg-blue-50 dark:bg-blue-950/30 p-2 rounded-md border border-blue-200 dark:border-blue-800">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase flex items-center gap-1">
-                                      <Truck className="h-3 w-3" />
-                                      {t('bookings.returnShipping')}
-                                    </span>
-                                    {booking.returnShipmentStatus && (
-                                      <Badge className={getReturnShipmentStatusColor(booking.returnShipmentStatus)}>
-                                        {t(`status.${booking.returnShipmentStatus}`)}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                    {booking.returnTrackingNumber && (
-                                      <div className="flex items-start gap-2">
-                                        <Package className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                          <span className="text-foreground/60 block text-xs">{t('bookings.tracking')}:</span>
-                                          <span className="font-mono font-semibold text-blue-900 dark:text-blue-200 text-xs">{booking.returnTrackingNumber}</span>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {booking.returnLabelUrl && (
-                                      <div className="flex items-start gap-2">
-                                        <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                          <span className="text-foreground/60 block text-xs">{t('bookings.label')}:</span>
-                                          <button
-                                            onClick={() => downloadBookingReturnLabel(booking._id, `ruecksendeetikett-${booking.bookingNumber || booking._id}.pdf`)}
-                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs cursor-pointer"
-                                          >
-                                            {t('common.download')} <Download className="h-2.5 w-2.5" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {booking.returnQRCodeUrl && (
-                                      <div className="flex items-start gap-2">
-                                        <QrCode className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                          <span className="text-foreground/60 block text-xs">{t('bookings.qrCode')}:</span>
-                                          <a
-                                            href={booking.returnQRCodeUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-xs"
-                                          >
-                                            {t('common.view')} <ExternalLink className="h-2.5 w-2.5" />
-                                          </a>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {booking.returnCreatedAt && (
-                                      <div className="flex items-start gap-2">
-                                        <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                          <span className="text-foreground/60 block text-xs">{t('bookings.created')}:</span>
-                                          <span className="font-semibold text-xs">{formatDateTime(booking.returnCreatedAt)}</span>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Rechnungen zu dieser Buchung - eine Buchung kann mehrere haben. */}
-                              <div className="expanded-section">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="expanded-section-title">Rechnungen</span>
-                                </div>
-                                {loadingBookingInvoiceIds.has(booking._id) ? (
-                                  <p className="text-xs text-foreground/60">Rechnungen werden geladen...</p>
-                                ) : (bookingInvoicesByBooking[booking._id] || []).length === 0 ? (
-                                  <p className="text-xs italic text-foreground/60">
-                                    Für diesen Auftrag wurde noch keine Rechnung erstellt.
-                                  </p>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    {(bookingInvoicesByBooking[booking._id] || []).map((inv: any) => (
-                                      <div
-                                        key={inv._id}
-                                        className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5 text-xs"
-                                      >
-                                        <Receipt className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0" />
-                                        <span className="font-semibold">{inv.invoiceNumber}</span>
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${getInvoiceStatusBadgeClass(inv.status)}`}>
-                                          {getInvoiceStatusLabel(inv.status)}
-                                        </span>
-                                        <span className="text-foreground/70">{formatCurrency(inv.total)}</span>
-                                        {(() => {
-                                          const payment = summarizeInvoicePayment(inv);
-                                          return payment.known ? (
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
-                                              {payment.label}
-                                            </span>
-                                          ) : null;
-                                        })()}
-                                        <div className="ml-auto flex items-center gap-1">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 px-2 text-[11px]"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              navigate(buildInvoiceDeepLink(inv._id), { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
-                                            }}
-                                          >
-                                            Rechnung öffnen
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 px-2 text-[11px]"
-                                            disabled={downloadingInvoicePdfId === inv._id}
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              void handleDownloadInvoicePdf(inv._id, inv.invoiceNumber);
-                                            }}
-                                          >
-                                            <Download className="mr-1 h-3 w-3" />
-                                            {downloadingInvoicePdfId === inv._id ? 'Lädt…' : 'PDF'}
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {loadingOrders.has(booking._id) ? (
-                                <div className="text-center py-2">
-                                  <p className="text-xs text-foreground/60">{t('bookings.loadingOrders')}</p>
-                                </div>
-                              ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
-                                <div className="space-y-1.5">
-                                  <h4 className="font-semibold text-xs mb-1.5 text-foreground/70">{t('bookings.ordersAndRepairs')}</h4>
-                                  <div className="border rounded-md overflow-x-auto overflow-y-hidden orders-sub-table-wrap">
-                                    <Table className="text-xs orders-sub-table">
-                                      <TableHeader>
-                                        <TableRow className="bg-muted/40">
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.orderNumber')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.type')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.device')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('bookings.services')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.progressShort')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70">{t('common.status')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-center">{t('bookings.messages')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">{t('bookings.costShort')}</TableHead>
-                                          <TableHead className="h-7 text-xs font-semibold text-foreground/70 text-right">{t('common.actions')}</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {expandedOrdersData[booking._id].map((item: any) => (
-                                          <TableRow
-                                            key={item.orderId || item._id}
-                                            className="hover:bg-muted/30 cursor-pointer transition-colors h-8"
-                                            onClick={() => item.orderId && handleViewOrder(item.orderId)}
-                                          >
-                                            <TableCell className="font-medium py-1 text-xs" data-label="Auftrag">
-                                              {item.orderNumber}
-                                            </TableCell>
-                                            <TableCell className="py-1" data-label="Typ">
-                                              {item.isComplaintFollowup ? (
-                                                <Badge className="text-xs bg-rose-100 text-rose-800 border border-rose-300">
-                                                  {t('bookings.complaintFollowup')}
-                                                </Badge>
-                                              ) : (
-                                                <Badge variant={item.type === 'repair' ? 'default' : 'secondary'} className="text-xs">
-                                                  {item.type === 'repair' ? t('bookings.repair') : 'Prod.'}
-                                                </Badge>
-                                              )}
-                                            </TableCell>
-                                            <TableCell className="py-1" data-label="Gerät">
-                                              <div className="text-xs text-foreground/80">
-                                                {item.type === 'repair' ? (
-                                                  <span>{item.device || t('bookings.device')}</span>
-                                                ) : (
-                                                  <span className="truncate">{item.products?.map((p: any) => p.name).join(', ') || t('bookings.product')}</span>
-                                                )}
-                                              </div>
-                                            </TableCell>
-                                            <TableCell className="py-1" data-label="Services">
-                                              <div className="text-xs space-y-0.5">
-                                                {item.type === 'repair' && item.services && item.services.length > 0 ? (
-                                                  <div>
-                                                    {item.services.slice(0, 2).map((service: any, sidx: number) => (
-                                                      <div key={sidx} className="text-xs text-foreground/70">
-                                                        {service.name}
-                                                      </div>
-                                                    ))}
-                                                    {item.services.length > 2 && (
-                                                      <div className="text-xs text-foreground/60">+{item.services.length - 2}</div>
-                                                    )}
-                                                  </div>
-                                                ) : item.type === 'product' && item.products && item.products.length > 0 ? (
-                                                  <div className="text-xs text-foreground/70">
-                                                    {item.products.length} {t('bookings.items')}
-                                                  </div>
-                                                ) : (
-                                                  <span className="text-xs text-foreground/50">—</span>
-                                                )}
-                                              </div>
-                                            </TableCell>
-                                            <TableCell className="text-center py-1" data-label="Fortschritt">
-                                              <div className="flex items-center justify-center gap-1">
-                                                <div className="w-12 bg-muted rounded-full h-1">
-                                                  <div
-                                                    className="bg-primary h-1 rounded-full transition-all"
-                                                    style={{ width: `${item.progress || 0}%` }}
-                                                  ></div>
-                                                </div>
-                                                <span className="text-xs font-semibold whitespace-nowrap text-foreground/70">
-                                                  {item.progress || 0}%
-                                                </span>
-                                              </div>
-                                            </TableCell>
-                                            <TableCell className="py-1" data-label="Status">
-                                              <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
-                                                {t(`status.${item.status || 'pending'}`)}
-                                              </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-center py-1" data-label="Nachrichten">
-                                              {item.orderId && unreadCounts[item.orderId] ? (
-                                                <div className="flex items-center justify-center">
-                                                  <div className={`
-                                                    relative inline-flex items-center justify-center
-                                                    w-7 h-7 rounded-full
-                                                    ${unreadCounts[item.orderId].senderType === 'staff'
-                                                      ? 'bg-orange-500 dark:bg-orange-600'
-                                                      : 'bg-blue-500 dark:bg-blue-600'
-                                                    }
-                                                    text-white font-semibold text-xs
-                                                    shadow-lg
-                                                    animate-pulse
-                                                    hover:scale-110 transition-transform cursor-pointer
-                                                  `}
-                                                  title={`${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''} from ${unreadCounts[item.orderId].senderType || 'user'}`}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (item.orderId) {
-                                                      handleOpenCommunication(item.orderId);
-                                                    }
-                                                  }}
-                                                  >
-                                                    {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
-                                                  </div>
-                                                </div>
-                                              ) : (
-                                                <span className="text-xs text-foreground/40">—</span>
-                                              )}
-                                            </TableCell>
-                                            <TableCell className="text-right font-medium text-xs py-1" data-label="Kosten">
-                                              {formatCurrency(item.cost || 0)}
-                                            </TableCell>
-                                            <TableCell className="text-right py-1" data-label="Aktionen">
-                                              {item.orderId && item.status === 'completed' && !item.hasComplaint ? (
-                                                <DropdownMenu>
-                                                  <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      className="h-7 w-7 p-0"
-                                                      aria-label="Aktionen"
-                                                      onClick={(event) => event.stopPropagation()}
-                                                    >
-                                                      <MoreVertical className="h-4 w-4" />
-                                                    </Button>
-                                                  </DropdownMenuTrigger>
-                                                  <DropdownMenuContent align="end" className="w-48">
-                                                    <DropdownMenuItem onClick={() => openOrderComplaintDialog(item)}>
-                                                      <AlertCircle className="h-4 w-4 mr-2" />
-                                                      Reklamation anmelden
-                                                    </DropdownMenuItem>
-                                                  </DropdownMenuContent>
-                                                </DropdownMenu>
-                                              ) : (
-                                                <span className="text-xs text-foreground/40">—</span>
-                                              )}
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-
-                                  <div className="orders-sub-cards-mobile">
-                                    {expandedOrdersData[booking._id].map((item: any) => (
-                                      <div
-                                        key={`mobile-${item.orderId || item._id}`}
-                                        className="orders-sub-card"
-                                      >
-                                        <div className="orders-sub-card-head">
-                                          <div className="orders-sub-card-order">{item.orderNumber}</div>
-                                          <Badge className={`${getOrderStatusColor(item.status || 'pending')} text-xs`}>
-                                            {t(`status.${item.status || 'pending'}`)}
-                                          </Badge>
-                                        </div>
-
-                                        <div className="orders-sub-card-grid">
-                                          <div className="orders-sub-card-field">
-                                            <span className="orders-sub-card-label">{t('bookings.type')}</span>
-                                            <span className="orders-sub-card-value">
-                                              {item.isComplaintFollowup
-                                                ? t('bookings.complaintFollowup')
-                                                : item.type === 'repair'
-                                                  ? t('bookings.repair')
-                                                  : 'Prod.'}
-                                            </span>
-                                          </div>
-
-                                          <div className="orders-sub-card-field">
-                                            <span className="orders-sub-card-label">{t('bookings.device')}</span>
-                                            <span className="orders-sub-card-value orders-sub-card-truncate">
-                                              {item.type === 'repair'
-                                                ? (item.device || t('bookings.device'))
-                                                : (item.products?.map((p: any) => p.name).join(', ') || t('bookings.product'))}
-                                            </span>
-                                          </div>
-
-                                          <div className="orders-sub-card-field">
-                                            <span className="orders-sub-card-label">{t('bookings.services')}</span>
-                                            <span className="orders-sub-card-value orders-sub-card-truncate">
-                                              {item.type === 'repair' && item.services && item.services.length > 0
-                                                ? item.services.map((service: any) => service.name).join(', ')
-                                                : item.type === 'product' && item.products && item.products.length > 0
-                                                  ? `${item.products.length} ${t('bookings.items')}`
-                                                  : '—'}
-                                            </span>
-                                          </div>
-
-                                          <div className="orders-sub-card-field">
-                                            <span className="orders-sub-card-label">{t('bookings.costShort')}</span>
-                                            <span className="orders-sub-card-value">{formatCurrency(item.cost || 0)}</span>
-                                          </div>
-                                        </div>
-
-                                        <div className="orders-sub-card-progress-row">
-                                          <span className="orders-sub-card-label">{t('bookings.progressShort')}</span>
-                                          <div className="orders-sub-card-progress">
-                                            <div
-                                              className="orders-sub-card-progress-fill"
-                                              style={{ width: `${item.progress || 0}%` }}
-                                            ></div>
-                                          </div>
-                                          <span className="orders-sub-card-progress-text">{item.progress || 0}%</span>
-                                        </div>
-
-                                        <div className="orders-sub-card-footer">
-                                          <div className="orders-sub-card-messages">
-                                            <span className="orders-sub-card-label">{t('bookings.messages')}</span>
-                                            {item.orderId && unreadCounts[item.orderId] ? (
-                                              <span className="orders-sub-card-message-count">
-                                                {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
-                                              </span>
-                                            ) : (
-                                              <span className="orders-sub-card-message-count orders-sub-card-message-empty">0</span>
-                                            )}
-                                          </div>
-
-                                          <div className="orders-sub-card-actions">
-                                            {item.orderId && item.status === 'completed' && !item.hasComplaint && (
-                                              <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                  <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 w-7 p-0"
-                                                    aria-label="Aktionen"
-                                                  >
-                                                    <MoreVertical className="h-3.5 w-3.5" />
-                                                  </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48">
-                                                  <DropdownMenuItem onClick={() => openOrderComplaintDialog(item)}>
-                                                    <AlertCircle className="h-4 w-4 mr-2" />
-                                                    Reklamation anmelden
-                                                  </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                              </DropdownMenu>
-                                            )}
-
-                                            {item.orderId && (
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-7 text-[11px] px-2"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleOpenCommunication(item.orderId);
-                                                }}
-                                              >
-                                                <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                                                Chat
-                                              </Button>
-                                            )}
-
-                                            {item.orderId && (
-                                              <Button
-                                                size="sm"
-                                                className="h-7 text-[11px] px-2"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleViewOrder(item.orderId);
-                                                }}
-                                              >
-                                                <Eye className="h-3.5 w-3.5 mr-1" />
-                                                {t('common.view')}
-                                              </Button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center py-2">
-                                  <p className="text-xs text-foreground/60">Keine zugehörigen Aufträge gefunden</p>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-              </div>
-
-            {/* Pagination Controls */}
-            {filteredBookings.length > 0 && totalBookings > itemsPerPage && (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-6 py-3 sm:py-4 gap-3 border-t border-slate-100 bg-slate-50">
-                <div className="text-sm text-slate-600">
-                  {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, totalBookings)} of {totalBookings}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-600">Per page:</label>
-                    <Select
-                      value={itemsPerPage.toString()}
-                      onValueChange={(value) => {
-                        setItemsPerPage(parseInt(value));
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="h-9 w-20 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="20">20</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 text-sm border-slate-200 hover:bg-slate-100"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1 || loading}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Prev
-                    </Button>
-
-                    {Array.from({ length: Math.ceil(totalBookings / itemsPerPage) }, (_, i) => i + 1)
-                      .filter(page => {
-                        const totalPages = Math.ceil(totalBookings / itemsPerPage);
-                        return (
-                          page === 1 ||
-                          page === totalPages ||
-                          Math.abs(page - currentPage) <= 1
-                        );
-                      })
-                      .map((page, index, array) => {
-                        const prevPage = array[index - 1];
-                        const showEllipsis = prevPage && page - prevPage > 1;
-
-                        return (
-                          <React.Fragment key={page}>
-                            {showEllipsis && (
-                              <span className="px-2 text-slate-400">…</span>
-                            )}
-                            <Button
-                              variant={currentPage === page ? "default" : "outline"}
-                              size="sm"
-                              className={currentPage === page 
-                                ? "h-9 w-9 p-0 bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7e] text-white" 
-                                : "h-9 w-9 p-0 border-slate-200 hover:bg-slate-100"
-                              }
-                              onClick={() => setCurrentPage(page)}
-                              disabled={loading}
-                            >
-                              {page}
-                            </Button>
-                          </React.Fragment>
-                        );
-                      })}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 text-sm border-slate-200 hover:bg-slate-100"
-                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalBookings / itemsPerPage), prev + 1))}
-                      disabled={currentPage >= Math.ceil(totalBookings / itemsPerPage) || loading}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+        {/* Liste */}
+        <section className="cb-list-section" aria-labelledby="cb-list-heading" aria-busy={loading}>
+          <div className="cb-list-head">
+            <h2 id="cb-list-heading" className="cb-list-heading">Buchungen</h2>
+            {!loading && !loadError && (
+              <p className="cb-list-count" aria-live="polite">
+                {totalBookings} {totalBookings === 1 ? 'Buchung' : 'Buchungen'}{filterActive ? ' für diese Auswahl' : ''}
+              </p>
             )}
-          </CardContent>
-        </Card>
-        )}
-
-      <Dialog open={Boolean(complaintOrder)} onOpenChange={(open) => !open && setComplaintOrder(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reklamation anmelden</DialogTitle>
-            <DialogDescription>
-              Auftrag {complaintOrder?.orderNumber || complaintOrder?.orderId}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="Reklamationsgrund (z. B. Fehler wieder aufgetreten)"
-              value={complaintReason}
-              onChange={(event) => setComplaintReason(event.target.value)}
-            />
-            <Textarea
-              placeholder="Bitte beschreibe den Sachverhalt möglichst konkret"
-              value={complaintDescription}
-              onChange={(event) => setComplaintDescription(event.target.value)}
-              rows={5}
-            />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setComplaintOrder(null)} disabled={submittingComplaint}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleSubmitComplaint} disabled={submittingComplaint}>
-              {submittingComplaint ? 'Wird gesendet...' : 'Reklamation senden'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Booking Detail Dialog */}
-      {selectedBooking && (
-        <BookingDetailDialog
-          booking={selectedBooking}
-          open={showDetailDialog}
-          onClose={() => {
-            setShowDetailDialog(false);
-            setSelectedBooking(null);
-          }}
-          navigate={navigate}
-          location={location}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-          formatDateTime={formatDateTime}
-          getStatusColor={getStatusColor}
-          getBillingStatusColor={getBillingStatusColor}
-          getReturnShipmentStatusColor={getReturnShipmentStatusColor}
-        />
-      )}
+          {renderListBody()}
 
-      {/* Communication Panel Dialog */}
-      {selectedOrderForCommunication && (
-        <Dialog open={showCommunicationPanel} onOpenChange={(open) => {
-          setShowCommunicationPanel(open);
-          if (!open) {
-            setSelectedOrderForCommunication(null);
-          }
-        }}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader className="pb-2">
-              <DialogTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                {t('bookings.orderCommunication')}
-              </DialogTitle>
+          {!loading && !loadError && totalBookings > 0 && (totalBookings > itemsPerPage || itemsPerPage !== 20) && (
+            <nav className="cb-pagination" aria-label="Seiten">
+              <p className="cb-pagination-range">{firstShown}–{lastShown} von {totalBookings}</p>
+              <div className="cb-pagination-controls">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="cb-per-page" className="text-sm text-slate-700">Pro Seite</Label>
+                  <Select value={String(itemsPerPage)} onValueChange={(value) => updateParams({ perPage: Number(value), page: null })}>
+                    <SelectTrigger id="cb-per-page" className="h-9 w-20 text-sm border-slate-300">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZES.map((size) => <SelectItem key={size} value={String(size)}>{size}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="cb-btn-secondary h-9"
+                    onClick={() => updateParams({ page: Math.max(1, currentPage - 1) })}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" aria-hidden="true" /> Zurück
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {index > 0 && page - array[index - 1] > 1 && <span className="px-1 text-slate-500" aria-hidden="true">…</span>}
+                        <Button
+                          type="button"
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          className={currentPage === page ? "h-9 w-9 p-0 bg-[#1a2a5e] text-white" : "h-9 w-9 p-0"}
+                          aria-current={currentPage === page ? 'page' : undefined}
+                          aria-label={`Seite ${page}`}
+                          onClick={() => updateParams({ page })}
+                        >
+                          {page}
+                        </Button>
+                      </React.Fragment>
+                    ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="cb-btn-secondary h-9"
+                    onClick={() => updateParams({ page: Math.min(totalPages, currentPage + 1) })}
+                    disabled={currentPage >= totalPages}
+                  >
+                    Weiter <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
+            </nav>
+          )}
+        </section>
+
+        <Dialog open={Boolean(complaintOrder)} onOpenChange={(open) => !open && setComplaintOrder(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reklamation anmelden</DialogTitle>
               <DialogDescription>
-                {t('bookings.communicateWithSupport')}
+                {complaintOrder?.device ? `${complaintOrder.device} · ` : ''}Auftrag {complaintOrder?.orderNumber || complaintOrder?.orderId}
               </DialogDescription>
             </DialogHeader>
-            <CommunicationPanel orderId={selectedOrderForCommunication} />
+            <DialogBody className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cb-complaint-reason">Reklamationsgrund</Label>
+                <Input
+                  id="cb-complaint-reason"
+                  placeholder="z. B. Fehler wieder aufgetreten"
+                  value={complaintReason}
+                  onChange={(event) => setComplaintReason(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cb-complaint-description">Beschreibung</Label>
+                <Textarea
+                  id="cb-complaint-description"
+                  placeholder="Bitte beschreiben Sie den Sachverhalt möglichst konkret."
+                  value={complaintDescription}
+                  onChange={(event) => setComplaintDescription(event.target.value)}
+                  rows={5}
+                />
+              </div>
+            </DialogBody>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" className="cb-btn-secondary" onClick={() => setComplaintOrder(null)} disabled={submittingComplaint}>
+                Abbrechen
+              </Button>
+              <Button type="button" onClick={handleSubmitComplaint} disabled={submittingComplaint}>
+                {submittingComplaint ? 'Wird gesendet …' : 'Reklamation senden'}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
-      )}
+
+        {dialogBooking && (
+          <BookingDetailDialog
+            booking={dialogBooking}
+            open={showDetailDialog}
+            initialTab={dialogTab}
+            onClose={() => {
+              setShowDetailDialog(false);
+              setDialogBooking(null);
+            }}
+            navigate={navigate}
+            statusLabel={statusLabel}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-// Detailed Booking Dialog Component for Customers
+// ---------------------------------------------------------------------------------------
+// Buchungsdialog "Rechnungen, Zahlungen & Versand" (EIN Container auf Buchungsebene)
+// ---------------------------------------------------------------------------------------
+
 interface BookingDetailDialogProps {
   booking: Booking;
   open: boolean;
+  initialTab: DialogTab;
   onClose: () => void;
-  navigate: any;
-  location: ReturnType<typeof useLocation>;
-  formatCurrency: (value: number) => string;
-  formatDate: (dateString: string) => string;
-  formatDateTime: (dateString: string) => string;
-  getStatusColor: (status: string) => string;
-  getBillingStatusColor: (status: string) => string;
-  getReturnShipmentStatusColor: (status: string) => string;
+  navigate: ReturnType<typeof useNavigate>;
+  statusLabel: (status?: string) => string;
 }
 
 function BookingDetailDialog({
   booking,
   open,
+  initialTab,
   onClose,
   navigate,
-  location,
-  formatCurrency,
-  formatDate,
-  formatDateTime,
-  getStatusColor,
-  getBillingStatusColor,
-  getReturnShipmentStatusColor
+  statusLabel,
 }: BookingDetailDialogProps) {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState("overview");
-  const [repairModelImages, setRepairModelImages] = useState<Record<string, string>>({});
-  const [repairImageLoadErrors, setRepairImageLoadErrors] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<DialogTab>(initialTab);
   const [detailOrders, setDetailOrders] = useState<any[]>([]);
-  const [loadingRepairJobs, setLoadingRepairJobs] = useState(false);;
 
   const [bookingInvoices, setBookingInvoices] = useState<any[]>([]);
-  const [pdfInvoiceId, setPdfInvoiceId] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
   const [loadingBookingInvoices, setLoadingBookingInvoices] = useState(false);
+  const [pdfInvoiceId, setPdfInvoiceId] = useState<string | null>(null);
+
+  const [paymentOverview, setPaymentOverview] = useState<CustomerBookingPaymentOverview | null>(null);
+  const [paymentsState, setPaymentsState] = useState<'loading' | 'ready' | 'error'>('loading');
+
+  const [inboundView, setInboundView] = useState<InboundLabelView | null>(null);
+  const [inboundState, setInboundState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [downloadingOutbound, setDownloadingOutbound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab, booking._id]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     let cancelled = false;
-    const load = async () => {
-      setLoadingBookingInvoices(true);
-      try {
-        const data = await getBookingInvoices(booking._id);
-        const invoices = await attachInvoiceBalances(data.invoices || []);
-        if (!cancelled) setBookingInvoices(invoices);
-      } catch {
-        if (!cancelled) setBookingInvoices([]);
-      } finally {
-        if (!cancelled) setLoadingBookingInvoices(false);
-      }
-    };
-    void load();
-    return () => { cancelled = true; };
-  }, [open, booking._id]);
+    setLoadingBookingInvoices(true);
+    setInvoicesError(null);
+    getBookingInvoices(booking._id)
+      .then((data) => attachInvoiceBalances(data?.invoices || []))
+      .then((invoices) => { if (!cancelled) setBookingInvoices(invoices); })
+      .catch((error) => {
+        if (cancelled) return;
+        setBookingInvoices([]);
+        setInvoicesError(error instanceof Error ? error.message : 'Rechnungen konnten nicht geladen werden.');
+      })
+      .finally(() => { if (!cancelled) setLoadingBookingInvoices(false); });
 
-  const getPaymentMethodLabel = (method?: string) => {
-    switch (method) {
-      case 'stripe': return 'Stripe';
-      case 'paypal': return 'PayPal';
-      case 'bank_transfer': return 'Überweisung';
-      case 'cash': return 'Bar';
-      case 'manual': return 'Manuell';
-      default: return method || 'Unbekannt';
-    }
-  };
+    setPaymentsState('loading');
+    getCustomerBookingPayments(booking._id)
+      .then((overview) => { if (!cancelled) { setPaymentOverview(overview); setPaymentsState('ready'); } })
+      .catch(() => { if (!cancelled) { setPaymentOverview(null); setPaymentsState('error'); } });
 
-  const repairItems = (booking.items || []).filter((item) => item.type === 'repair');
+    setInboundState('loading');
+    getBookingInboundLabel(booking._id)
+      .then((view) => { if (!cancelled) { setInboundView(view); setInboundState('ready'); } })
+      .catch(() => { if (!cancelled) { setInboundView(null); setInboundState('error'); } });
 
-  const getEffectivePaymentStatus = (currentBooking: Booking) => {
-    const invoiceStatuses = ['draft', 'sent', 'viewed', 'paid', 'partially_paid', 'overdue'];
-    const candidate = String(currentBooking.paymentStatus || '');
-    return invoiceStatuses.includes(candidate) ? candidate : currentBooking.billingStatus;
-  };
-
-  const getBillingStatusLabel = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return 'Vorlage';
-      case 'sent':
-        return 'Gesendet';
-      case 'viewed':
-        return 'Angesehen';
-      case 'partially_paid':
-        return 'Teilbezahlt';
-      case 'overdue':
-        return 'Überfällig';
-      case 'unpaid':
-        return 'Offen';
-      case 'partially-paid':
-        return 'Teilbezahlt';
-      case 'paid':
-        return 'Bezahlt';
-      default:
-        return status;
-    }
-  };
-
-  const getRepairImageKey = (item: Booking['items'][number], index: number) => {
-    return String(item.orderId || item._id || `${item.device || 'repair'}-${index}`);
-  };
-
-  const normalizeDeviceText = (value: string = '') => value.toLowerCase().replace(/\s+/g, ' ').trim();
-  const normalizeDeviceTextCompact = (value: string = '') => normalizeDeviceText(value).replace(/[^a-z0-9]/g, '');
-
-  const parseDeviceLabel = (label: string = '') => {
-    const normalized = label.replace(/\s+/g, ' ').trim();
-    if (!normalized) {
-      return { brand: '', model: '' };
-    }
-
-    const parts = normalized.split(' ');
-    if (parts.length < 2) {
-      return { brand: normalized, model: '' };
-    }
-
-    return {
-      brand: parts[0],
-      model: parts.slice(1).join(' '),
-    };
-  };
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const resolveRepairModelImages = async () => {
-      if (!open || !repairItems.length) {
-        setRepairModelImages({});
-        setRepairImageLoadErrors({});
-        return;
-      }
-
-      const nextImages: Record<string, string> = {};
-
-      for (let index = 0; index < repairItems.length; index += 1) {
-        const item = repairItems[index];
-        const imageKey = getRepairImageKey(item, index);
-        const { brand, model } = parseDeviceLabel(item.device || '');
-
-        const queryCandidates = [
-          `${brand} ${model}`.trim(),
-          model,
-          model.replace(/([a-zA-Z])([0-9])/g, '$1 $2').trim(),
-          model.replace(/\s+/g, '').trim(),
-          item.device || '',
-        ]
-          .map((candidate) => candidate.trim())
-          .filter((candidate, candidateIndex, all) => candidate.length > 0 && all.indexOf(candidate) === candidateIndex);
-
-        let devices: SearchResult[] = [];
-        for (const query of queryCandidates) {
-          try {
-            const response = await searchDevices(query);
-            const foundDevices: SearchResult[] = ((response as any)?.devices || []) as SearchResult[];
-            if (foundDevices.length > 0) {
-              devices = foundDevices;
-              break;
-            }
-          } catch (searchError) {
-            console.error('CustomerBookings: Failed to resolve device image from search query:', query, searchError);
-          }
-        }
-
-        const normalizedBrand = normalizeDeviceText(brand);
-        const normalizedModel = normalizeDeviceText(model);
-        const compactModel = normalizeDeviceTextCompact(model);
-
-        const exactBrandAndModel = devices.find((device) => {
-          const name = normalizeDeviceText(device.name);
-          const compactName = normalizeDeviceTextCompact(device.name);
-          const manufacturer = normalizeDeviceText(device.manufacturer);
-          return Boolean(device.image) && (name === normalizedModel || (compactModel && compactName === compactModel)) && (!normalizedBrand || manufacturer === normalizedBrand);
-        });
-
-        const sameModel = devices.find((device) => {
-          const name = normalizeDeviceText(device.name);
-          const compactName = normalizeDeviceTextCompact(device.name);
-          return Boolean(device.image) && (name === normalizedModel || (compactModel && compactName === compactModel));
-        });
-
-        const fuzzyMatch = devices.find((device) => {
-          const name = normalizeDeviceText(device.name);
-          const displayName = normalizeDeviceText(device.displayName);
-          const compactName = normalizeDeviceTextCompact(device.name);
-          const compactDisplayName = normalizeDeviceTextCompact(device.displayName);
-          return Boolean(device.image) && (
-            displayName.includes(normalizedModel) ||
-            normalizedModel.includes(name) ||
-            (compactModel ? compactDisplayName.includes(compactModel) || compactModel.includes(compactName) : false)
-          );
-        });
-
-        const bestMatch = exactBrandAndModel || sameModel || fuzzyMatch || devices.find((device) => Boolean(device.image));
-        if (bestMatch?.image) {
-          nextImages[imageKey] = bestMatch.image;
-        }
-      }
-
-      if (!isCancelled) {
-        setRepairModelImages(nextImages);
-        setRepairImageLoadErrors({});
-      }
-    };
-
-    resolveRepairModelImages();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [open, booking._id, repairItems.length]);
-
-  // Load detailed order data (status + progress) via getBookingOrders
-  useEffect(() => {
-    if (!open) {
-      setDetailOrders([]);
-      return;
-    }
-    let isMounted = true;
-    setLoadingRepairJobs(true);
     getBookingOrders(booking._id)
-      .then((res: any) => {
-        if (isMounted) setDetailOrders(res.orders || []);
-      })
-      .catch(() => {
-        if (isMounted) setDetailOrders([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingRepairJobs(false);
+      .then((res: any) => { if (!cancelled) setDetailOrders(res?.orders || []); })
+      .catch(() => { if (!cancelled) setDetailOrders([]); });
+
+    return () => { cancelled = true; };
+  }, [open, booking._id, reloadKey]);
+
+  const productItems = (booking.items || []).filter((item) => item.type === 'product');
+  const hint = wholeBookingHint(booking);
+  const bookingLabel = booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`;
+
+  // Zahlungssummen: bevorzugt aus der Kundenprojektion von GET /api/bookings/:id/payments,
+  // sonst aus dem Listen-Zahlungsstand (gleiche Berechnung); unbekannt -> keine Zahl erfinden.
+  const listMoney = moneyFromBalance(booking);
+  const summary = paymentOverview?.summary;
+  const money: MoneyView = summary
+    ? {
+        known: true,
+        total: Number(summary.referenceTotal || 0),
+        received: Number(summary.receivedTotal || 0),
+        open: Math.max(0, Number(summary.openOrderBalance || 0)),
+        overpaid: Math.max(0, Number(summary.refundPendingTotal || summary.overpaidTotal || 0)),
+      }
+    : listMoney;
+
+  const isOutboundLegacyLabel = booking.shippingLabelDirection === 'outbound'
+    && Boolean(booking.trackingNumber || booking.shippingLabelUrl);
+  const outboundOrders = detailOrders.filter((entry: any) => entry?.outboundShipment?.trackingNumber);
+  const inboundVisible = inboundView && !['not-needed'].includes(inboundView.inbound.state);
+
+  const handleDownloadOutbound = async () => {
+    setDownloadingOutbound(true);
+    try {
+      await downloadBookingShippingLabel(booking._id);
+    } catch (error) {
+      toast({
+        title: 'Versandlabel konnte nicht geladen werden',
+        description: error instanceof Error ? error.message : 'Bitte versuchen Sie es später erneut.',
+        variant: 'destructive',
       });
-    return () => { isMounted = false; };
-  }, [open, booking._id]);
-
-  const getOrderStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Ausstehend';
-      case 'diagnostic-assessment': return 'Diagnosebewertung';
-      case 'diagnosed': return 'Diagnose abgeschlossen';
-      case 'awaiting-parts': return 'Wartet auf Teile';
-      case 'in-progress': return 'Reparatur läuft';
-      case 'paused': return 'Pausiert';
-      case 'on-hold': return 'Angehalten';
-      case 'quality-check': return 'Qualitätsprüfung';
-      case 'ready-for-pickup': return 'Abholbereit';
-      case 'completed': return 'Abgeschlossen';
-      case 'cancelled': return 'Storniert';
-      default: return status;
+    } finally {
+      setDownloadingOutbound(false);
     }
   };
 
-  const getOrderStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
-      case 'diagnostic-assessment': return 'bg-purple-100 text-purple-800 border border-purple-300';
-      case 'diagnosed': return 'bg-indigo-100 text-indigo-800 border border-indigo-300';
-      case 'awaiting-parts': return 'bg-orange-100 text-orange-800 border border-orange-300';
-      case 'in-progress': return 'bg-blue-100 text-blue-800 border border-blue-300';
-      case 'paused': return 'bg-gray-100 text-gray-700 border border-gray-300';
-      case 'on-hold': return 'bg-gray-100 text-gray-700 border border-gray-300';
-      case 'quality-check': return 'bg-cyan-100 text-cyan-800 border border-cyan-300';
-      case 'ready-for-pickup': return 'bg-teal-100 text-teal-800 border border-teal-300';
-      case 'completed': return 'bg-green-100 text-green-800 border border-green-300';
-      case 'cancelled': return 'bg-red-100 text-red-800 border border-red-300';
-      default: return 'bg-gray-100 text-gray-700 border border-gray-300';
-    }
-  };
+  const tabs: Array<{ value: DialogTab; label: string }> = [
+    { value: 'payments', label: 'Rechnungen & Zahlungen' },
+    { value: 'shipping', label: 'Versand' },
+    ...(productItems.length > 0 ? [{ value: 'items' as DialogTab, label: 'Shop-Artikel' }] : []),
+    { value: 'timeline', label: 'Verlauf' },
+    { value: 'contact', label: 'Adressen' },
+  ];
 
-  const hasOutboundShipping = Boolean(
-    booking.trackingNumber ||
-    booking.shippingLabelUrl ||
-    booking.shippingStatus ||
-    booking.shippingCreatedAt ||
-    booking.estimatedDelivery ||
-    booking.actualDelivery
+  const hasAddressData = (addr?: AddressFields | null) => Boolean(
+    addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
   );
-  const hasReturnShipping = Boolean(
-    booking.returnTrackingNumber ||
-    booking.returnLabelUrl ||
-    booking.returnQRCodeUrl ||
-    booking.returnShipmentStatus ||
-    booking.returnCreatedAt ||
-    booking.returnReceivedAt
+  const firstOrder = Array.isArray(booking.orderIds)
+    ? booking.orderIds.find((order) => order && typeof order === 'object')
+    : undefined;
+  const billAddr = booking.customerId?.invoiceAddress
+    || booking.billingAddress
+    || booking.guestInfo?.billingAddress
+    || firstOrder?.billingAddress
+    || firstOrder?.guestInfo?.billingAddress;
+  const payAddr = booking.customerId?.paymentAddress;
+  const deliveryAddr = payAddr?.sameAsInvoice === false
+    ? payAddr
+    : booking.shippingAddress
+      || booking.guestInfo?.shippingAddress
+      || firstOrder?.shippingAddress
+      || firstOrder?.guestInfo?.shippingAddress;
+  const deliverySameAsInvoice = payAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr);
+  const customer = booking.customerId || ({} as Booking['customerId']);
+
+  const renderAddress = (addr?: AddressFields | null) => (
+    hasAddressData(addr) ? (
+      <div className="text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
+        {addr!.street && <p>{addr!.street}</p>}
+        {(addr!.zipCode || addr!.city) && <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>}
+        {addr!.country && <p className="text-[var(--gray-500,#636e85)] text-xs">{addr!.country}</p>}
+      </div>
+    ) : (
+      <p className="text-sm italic text-[var(--gray-500,#636e85)]">Nicht angegeben</p>
+    )
   );
-
-  // G5: booking.trackingNumber traegt je nach erstelltem Label den Hin- oder den
-  // Rueckweg. Die Ueberschrift folgt der Richtung aus den Daten, nicht einer Annahme.
-  const isOutboundShippingLabel = booking.shippingLabelDirection === 'outbound';
-  const isInboundShippingLabel = booking.shippingLabelDirection === 'inbound';
-  const shippingBlockTitle = isOutboundShippingLabel
-    ? 'Rücksendung an Sie (McRepair → Sie, älteres Buchungslabel)'
-    : isInboundShippingLabel
-      ? 'Versand zum Reparaturbetrieb (Sie → McRepair)'
-      : 'Versand';
-  const shippingLabelCaption = isOutboundShippingLabel
-    ? 'Generiertes Versandlabel an Sie'
-    : isInboundShippingLabel
-      ? 'Generiertes Versandlabel an McRepair'
-      : 'Generiertes Versandlabel';
-
-  // Der Versandstatus ist ein englischer Enum-Wert aus der Datenbank und darf so
-  // nicht im deutschen Badge stehen.
-  const getShippingStatusLabel = (status?: string) => {
-    switch (status) {
-      case 'pending': return 'Ausstehend';
-      case 'label-created': return 'Label erstellt';
-      case 'shipped': return 'Versendet';
-      case 'in-transit': return 'Unterwegs';
-      case 'out-for-delivery': return 'In Zustellung';
-      case 'delivered': return 'Zugestellt';
-      case 'failed': return 'Fehlgeschlagen';
-      default: return status || 'Unbekannt';
-    }
-  };
-
-  const handleViewOrder = (orderId: string) => {
-    if (!orderId) {
-      console.warn("No order ID provided for navigation");
-      return;
-    }
-    navigate(getOrderDetailsPath(orderId), {
-      state: buildOrderDetailsState(location, {
-        label: t('common.back'),
-        restoreState: { reopenBookingDialog: booking._id },
-      }),
-    });
-  };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="booking-detail-dialog-content max-w-[95vw] sm:max-w-2xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col [&>button]:hidden">
         <DialogHeader className="booking-detail-dialog-header">
           <div className="booking-detail-dialog-header-bg-orb booking-detail-dialog-header-bg-orb--top" />
           <div className="booking-detail-dialog-header-bg-orb booking-detail-dialog-header-bg-orb--bottom" />
 
           <div className="booking-detail-dialog-header-content">
-            <button
-              onClick={onClose}
-              className="booking-detail-dialog-close-x"
-              aria-label="Schließen"
-            >
-              <X size={22} />
+            <button type="button" onClick={onClose} className="booking-detail-dialog-close-x" aria-label="Schließen">
+              <X size={22} aria-hidden="true" />
             </button>
             <DialogTitle className="booking-detail-dialog-title">
-              Buchungsdetails
+              Buchung {bookingLabel}
             </DialogTitle>
             <DialogDescription className="booking-detail-dialog-description">
-              {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}
+              Rechnungen, Zahlungen, Versand und Verlauf dieser Buchung. Die Reparatur je Gerät öffnen Sie in der Liste über „Details ansehen“.
             </DialogDescription>
 
             <div className="booking-detail-dialog-meta-grid">
@@ -1982,848 +1426,391 @@ function BookingDetailDialog({
                 <strong>{formatDate(booking.createdAt)}</strong>
               </div>
               <div className="booking-detail-dialog-meta-item">
-                <p>Aktualisiert</p>
-                <strong>{formatDate(booking.updatedAt)}</strong>
+                <p>Status</p>
+                <strong>{statusLabel(booking.status)}</strong>
               </div>
               <div className="booking-detail-dialog-meta-item">
-                <p>Gesamt</p>
-                <strong>{formatCurrency(booking.totalCost)}</strong>
+                <p>Gesamt (brutto)</p>
+                <strong>{formatEUR(money.total)}</strong>
               </div>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="booking-detail-dialog-body">
+        <DialogBody className="booking-detail-dialog-body">
           <div className="booking-detail-dialog-inner">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-0">
-          {(() => {
-            const activeStyle = { background: "linear-gradient(135deg, #f5b800 0%, #e5ab00 100%)", color: "#1a2a5e" } as const;
-            const inactiveStyle = { background: "transparent", color: "rgb(245, 185, 0)" } as const;
-            const tabStyle = (val: string) => activeTab === val ? activeStyle : inactiveStyle;
-            return (
-          <TabsList className="booking-detail-tabs-list">
-            <TabsTrigger value="overview" className="booking-detail-tab-trigger" style={tabStyle("overview")}>
-              Übersicht
-            </TabsTrigger>
-            <TabsTrigger value="repairs" className="booking-detail-tab-trigger" style={tabStyle("repairs")}>
-              Repara&shy;turen
-            </TabsTrigger>
-            <TabsTrigger value="items" className="booking-detail-tab-trigger" style={tabStyle("items")}>
-              Artikel
-            </TabsTrigger>
-            <TabsTrigger value="shipping" className="booking-detail-tab-trigger" style={tabStyle("shipping")}>
-              Versand
-            </TabsTrigger>
-            <TabsTrigger value="timeline" className="booking-detail-tab-trigger" style={tabStyle("timeline")}>
-              {t('bookings.timeline')}
-            </TabsTrigger>
-          </TabsList>
-            );
-          })()}
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DialogTab)} className="w-full mt-0">
+              <TabsList className="booking-detail-tabs-list">
+                {tabs.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value} className="booking-detail-tab-trigger">
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-          <TabsContent value="overview" className="space-y-3 sm:space-y-5 mt-3 sm:mt-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
-              <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-                <h3 className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
-                  <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
-                  Kunde
-                </h3>
-                <div className="space-y-2 sm:space-y-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <Avatar className="h-9 w-9 sm:h-12 sm:w-12 border-2 border-[var(--accent-yellow,#f5b800)] flex-shrink-0">
-                      <AvatarImage src={booking.customerId.avatar} />
-                      <AvatarFallback className="text-xs sm:text-sm font-bold bg-[var(--primary-blue,#1a2a5e)] text-white">
-                        {(booking.customerId.firstName || booking.customerId.name || booking.customerId.email).charAt(0)}
+              {/* ---------------- Rechnungen & Zahlungen ---------------- */}
+              <TabsContent value="payments" className="space-y-4 mt-4">
+                <section className="cb-dialog-card" aria-labelledby="cb-dialog-money">
+                  <h3 id="cb-dialog-money" className="cb-dialog-card-title">Zahlungsstand</h3>
+                  {paymentsState === 'loading' && !listMoney.known ? (
+                    <p className="text-sm text-[var(--gray-600,#4a5568)]">Zahlungsstand wird geladen …</p>
+                  ) : (
+                    <MoneySummary
+                      known={money.known}
+                      total={money.total}
+                      received={money.known ? money.received : undefined}
+                      open={money.known ? money.open : undefined}
+                      overpaid={money.known ? money.overpaid : undefined}
+                    />
+                  )}
+                  {hint && <p className="cb-booking-hint cb-booking-hint--inline">{hint}</p>}
+                  {summary && Number(summary.notInvoicedTotal || 0) > 0.009 && (
+                    <p className="mt-2 text-sm text-[var(--gray-700,#2d3748)]">
+                      Davon noch nicht in Rechnung gestellt: <strong>{formatEUR(summary.notInvoicedTotal)}</strong>
+                    </p>
+                  )}
+                </section>
+
+                <section className="cb-dialog-card" aria-labelledby="cb-dialog-invoices">
+                  <h3 id="cb-dialog-invoices" className="cb-dialog-card-title">Rechnungen</h3>
+                  {loadingBookingInvoices ? (
+                    <p className="flex items-center gap-2 text-sm text-[var(--gray-600,#4a5568)]">
+                      <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Rechnungen werden geladen …
+                    </p>
+                  ) : invoicesError ? (
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-red-700" role="alert">
+                      <AlertCircle className="h-4 w-4" aria-hidden="true" /> Rechnungen konnten nicht geladen werden.
+                      <Button type="button" variant="outline" className="cb-btn-secondary" size="sm" onClick={() => setReloadKey((key) => key + 1)}>Erneut versuchen</Button>
+                    </div>
+                  ) : bookingInvoices.length === 0 ? (
+                    <p className="text-sm text-[var(--gray-600,#4a5568)]">Noch keine Rechnung erstellt. Sie erhalten die Rechnung per E-Mail, sobald sie vorliegt.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {bookingInvoices.map((inv: any) => {
+                        // Zahlungsstand ausschließlich vom Server; ohne ihn keine Beträge erfinden.
+                        const payment = summarizeInvoicePayment(inv);
+                        const openAmount = payment.known ? (payment.open ?? 0) : 0;
+                        const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'paid' && (!payment.known || openAmount > 0);
+                        return (
+                          <li key={inv._id} className="cb-invoice">
+                            <Receipt className="h-4 w-4 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0 mt-0.5" aria-hidden="true" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-bold text-[var(--gray-800,#1a202c)]">Rechnung {inv.invoiceNumber}</span>
+                                <span className={`text-[11px] px-1.5 py-0.5 rounded font-semibold ${getInvoiceStatusBadgeClass(inv.status)}`}>
+                                  {getInvoiceStatusLabel(inv.status)}
+                                </span>
+                                {payment.known && (
+                                  <span className={`text-[11px] px-1.5 py-0.5 rounded font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
+                                    {payment.label}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap text-xs text-[var(--gray-700,#2d3748)]">
+                                <span>Gesamt (brutto): <strong>{formatEUR(inv.total)}</strong></span>
+                                {payment.known && (payment.received ?? 0) > 0 && <span>Bezahlt: <strong>{formatEUR(payment.received ?? 0)}</strong></span>}
+                                {payment.known && openAmount > 0 && (
+                                  <span className={isOverdue ? 'text-red-700 font-semibold' : ''}>Offen: <strong>{formatEUR(openAmount)}</strong></span>
+                                )}
+                                {payment.known && (payment.refundPending ?? 0) > 0 && (
+                                  <span className="font-semibold text-violet-800">Überzahlt · Erstattung offen {formatEUR(payment.refundPending ?? 0)}</span>
+                                )}
+                                {inv.dueDate && (
+                                  <span className={isOverdue ? 'text-red-700 font-semibold' : 'text-[var(--gray-600,#4a5568)]'}>
+                                    {isOverdue && <AlertCircle className="inline h-3 w-3 mr-0.5" aria-hidden="true" />}
+                                    {isOverdue ? 'Überfällig seit' : 'Fällig am'} {formatDate(inv.dueDate)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="cb-invoice-actions">
+                              <Button
+                                type="button"
+                                variant="outline" className="cb-btn-secondary"
+                                size="sm"
+                                onClick={() => {
+                                  onClose();
+                                  navigate(buildInvoiceDeepLink(inv._id), { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
+                                }}
+                              >
+                                {payment.known && openAmount > 0 ? 'Rechnung öffnen & bezahlen' : 'Rechnung öffnen'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline" className="cb-btn-secondary"
+                                size="sm"
+                                disabled={pdfInvoiceId === inv._id}
+                                aria-label={`PDF der Rechnung ${inv.invoiceNumber} herunterladen`}
+                                onClick={async () => {
+                                  setPdfInvoiceId(inv._id);
+                                  try {
+                                    await downloadInvoicePdf(inv._id, inv.invoiceNumber);
+                                  } catch (error) {
+                                    toast({
+                                      title: 'Rechnungs-PDF konnte nicht geladen werden',
+                                      description: error instanceof Error ? error.message : 'Bitte versuchen Sie es später erneut.',
+                                      variant: 'destructive',
+                                    });
+                                  } finally {
+                                    setPdfInvoiceId(null);
+                                  }
+                                }}
+                              >
+                                <Download className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                                {pdfInvoiceId === inv._id ? 'Lädt …' : 'PDF'}
+                              </Button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+
+                <section className="cb-dialog-card" aria-labelledby="cb-dialog-payments">
+                  <h3 id="cb-dialog-payments" className="cb-dialog-card-title">Zahlungseingänge</h3>
+                  {paymentsState === 'loading' ? (
+                    <p className="text-sm text-[var(--gray-600,#4a5568)]">Zahlungen werden geladen …</p>
+                  ) : paymentsState === 'error' ? (
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-red-700" role="alert">
+                      <AlertCircle className="h-4 w-4" aria-hidden="true" /> Zahlungen konnten nicht geladen werden.
+                      <Button type="button" variant="outline" className="cb-btn-secondary" size="sm" onClick={() => setReloadKey((key) => key + 1)}>Erneut versuchen</Button>
+                    </div>
+                  ) : (paymentOverview?.payments || []).length === 0 ? (
+                    <p className="text-sm text-[var(--gray-600,#4a5568)]">Noch keine Zahlung eingegangen.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {(paymentOverview?.payments || []).map((payment) => (
+                        <li key={payment._id} className="cb-payment">
+                          <Euro className="h-4 w-4 text-green-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-bold text-green-800">{formatEUR(payment.effectiveAmount ?? payment.amount)}</span>
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-800 border border-green-200 font-semibold">
+                                {getPaymentMethodLabel(payment.paymentMethod)}
+                              </span>
+                              {Number(payment.refundedAmount || 0) > 0 && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-800 border border-violet-200 font-semibold">
+                                  {payment.status === 'refunded' ? 'Erstattet' : `Teilweise erstattet: ${formatEUR(payment.refundedAmount)}`}
+                                </span>
+                              )}
+                              <span className="text-xs text-[var(--gray-600,#4a5568)]">{formatDateTime(payment.paymentDate)}</span>
+                            </div>
+                            <p className="text-xs text-[var(--gray-700,#2d3748)] mt-0.5">
+                              {(payment.allocations || []).length > 0
+                                ? `Zugeordnet: ${payment.allocations.map((allocation) => `Rechnung ${allocation.invoiceNumber} (${formatEUR(allocation.allocatedAmount)})`).join(', ')}`
+                                : 'Vorauszahlung (noch keiner Rechnung zugeordnet)'}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </TabsContent>
+
+              {/* ---------------- Versand ---------------- */}
+              <TabsContent value="shipping" className="space-y-4 mt-4">
+                {inboundState === 'loading' ? (
+                  <p className="flex items-center gap-2 text-sm text-[var(--gray-600,#4a5568)]"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Versandstand wird geladen …</p>
+                ) : inboundState === 'error' ? (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-red-700" role="alert">
+                    <AlertCircle className="h-4 w-4" aria-hidden="true" /> Versandstand konnte nicht geladen werden.
+                    <Button type="button" variant="outline" className="cb-btn-secondary" size="sm" onClick={() => setReloadKey((key) => key + 1)}>Erneut versuchen</Button>
+                  </div>
+                ) : inboundVisible && inboundView ? (
+                  <InboundLabelBlock
+                    bookingId={booking._id}
+                    bookingNumber={booking.bookingNumber}
+                    view={inboundView}
+                    onViewChange={setInboundView}
+                    variant="dialog"
+                  />
+                ) : null}
+
+                {/* DHL-8: der QR-Code ist eine data:-URL - Browser blockieren das Oeffnen in einem
+                    neuen Tab, daher direkt hier anzeigen (am Schalter vorzeigen). */}
+                {booking.returnQRCodeUrl && /^(data:image\/|https:\/\/)/i.test(booking.returnQRCodeUrl) && (
+                  <figure className="cb-qr">
+                    <img className="cb-qr-image" src={booking.returnQRCodeUrl} alt={`DHL-QR-Code zur Einsendung der Buchung ${bookingLabel}`} />
+                    <figcaption className="cb-qr-caption">
+                      <QrCode className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      QR-Code für die DHL-Filiale – am Schalter vorzeigen, falls Sie das Einsendelabel nicht selbst drucken.
+                    </figcaption>
+                  </figure>
+                )}
+                {(booking.returnCreatedAt || booking.returnReceivedAt) && (
+                  <ul className="cb-dialog-facts">
+                    {booking.returnCreatedAt && <li><Clock className="h-4 w-4" aria-hidden="true" /> Einsendelabel erstellt am {formatDateTime(booking.returnCreatedAt)}</li>}
+                    {booking.returnReceivedAt && <li><CheckCircle className="h-4 w-4" aria-hidden="true" /> Gerät eingegangen am {formatDateTime(booking.returnReceivedAt)}</li>}
+                  </ul>
+                )}
+
+                {outboundOrders.length > 0 && (
+                  <section className="cb-dialog-card" aria-labelledby="cb-dialog-outbound">
+                    <h3 id="cb-dialog-outbound" className="cb-dialog-card-title">Auslieferung an Sie (McRepair → Sie)</h3>
+                    <ul className="space-y-2">
+                      {outboundOrders.map((entry: any, index: number) => (
+                        <li key={entry.orderId || entry._id || index} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--gray-200,#d8dce6)] bg-[var(--gray-50,#f5f6f8)] p-2 text-sm">
+                          <span className="font-semibold">{[entry.device, entry.orderNumber ? `Auftrag ${entry.orderNumber}` : ''].filter(Boolean).join(' · ') || 'Auftrag'}</span>
+                          <span className="font-mono">{entry.outboundShipment.trackingNumber}</span>
+                          {entry.outboundShipment.status && (
+                            <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-xs font-bold">
+                              {getShippingStatusLabel(entry.outboundShipment.status)}
+                            </Badge>
+                          )}
+                          <a href={dhlTrackingUrl(entry.outboundShipment.trackingNumber)} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-700 hover:underline inline-flex items-center gap-1">
+                            Sendung verfolgen <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {isOutboundLegacyLabel && (
+                  <section className="cb-dialog-card" aria-labelledby="cb-dialog-legacy-outbound">
+                    <h3 id="cb-dialog-legacy-outbound" className="cb-dialog-card-title">Versandlabel an Sie (McRepair → Sie, älteres Buchungslabel)</h3>
+                    {booking.trackingNumber && (
+                      <p className="text-sm">Sendungsnummer: <span className="font-mono font-semibold">{booking.trackingNumber}</span>
+                        {booking.shippingStatus && <> · {getShippingStatusLabel(booking.shippingStatus)}</>}
+                      </p>
+                    )}
+                    {booking.shippingLabelUrl && (
+                      <Button type="button" variant="outline" size="sm" className="cb-btn-secondary mt-2" onClick={() => void handleDownloadOutbound()} disabled={downloadingOutbound}>
+                        <Download className="mr-1.5 h-4 w-4" aria-hidden="true" /> {downloadingOutbound ? 'Lädt …' : 'Versandlabel herunterladen (PDF)'}
+                      </Button>
+                    )}
+                  </section>
+                )}
+
+                {booking.liveShippingTracking?.events && booking.liveShippingTracking.events.length > 0 && (
+                  <section className="cb-dialog-card" aria-labelledby="cb-dialog-dhl-events">
+                    <h3 id="cb-dialog-dhl-events" className="cb-dialog-card-title">
+                      Sendungsverlauf DHL {booking.trackingNumber ? `(${booking.trackingNumber})` : ''}
+                    </h3>
+                    <ul className="space-y-2">
+                      {booking.liveShippingTracking.events.slice(0, 10).map((event, idx) => (
+                        <li key={`${event.timestamp || 'no-time'}-${idx}`} className="rounded-lg p-2 bg-[var(--gray-50,#f5f6f8)] border border-[var(--gray-200,#d8dce6)]">
+                          <p className="text-sm font-semibold text-[var(--gray-800,#1a202c)]">{event.description || event.status || 'Statusupdate'}</p>
+                          <p className="text-xs text-[var(--gray-600,#4a5568)] mt-0.5">
+                            {event.timestamp ? formatDateTime(event.timestamp) : 'Zeit unbekannt'}
+                            {event.location ? ` • ${event.location}` : ''}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {inboundView && inboundView.inbound.state === 'ready' && !inboundView.inbound.deviceReceived && (
+                  <section className="cb-dialog-card cb-dialog-card--hint" aria-labelledby="cb-dialog-howto">
+                    <h3 id="cb-dialog-howto" className="cb-dialog-card-title">So senden Sie Ihr Gerät ein</h3>
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-[var(--gray-700,#2d3748)]">
+                      <li>Einsendelabel herunterladen und ausdrucken</li>
+                      <li>Gerät sicher verpacken (ein Paket für alle Geräte dieser Buchung)</li>
+                      <li>Label gut sichtbar auf das Paket kleben</li>
+                      <li>Paket in einer DHL-Filiale oder Packstation abgeben</li>
+                    </ol>
+                  </section>
+                )}
+
+                {inboundState === 'ready' && !inboundVisible && outboundOrders.length === 0 && !isOutboundLegacyLabel && (
+                  <p className="text-sm text-[var(--gray-600,#4a5568)]">Noch keine Versanddaten vorhanden.</p>
+                )}
+              </TabsContent>
+
+              {/* ---------------- Shop-Artikel ---------------- */}
+              {productItems.length > 0 && (
+                <TabsContent value="items" className="space-y-3 mt-4">
+                  {productItems.map((item) => (
+                    <section key={item._id || item.orderId} className="cb-dialog-card">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <h3 className="cb-dialog-card-title !mb-0">
+                          Shop-Artikel{item.orderNumber ? ` · Auftrag ${item.orderNumber}` : ''}
+                        </h3>
+                        <Badge className={`${statusBadgeClass(item.status || 'pending')} cb-status-badge`}>{statusLabel(item.status)}</Badge>
+                      </div>
+                      {item.products && item.products.length > 0 ? (
+                        <ul className="space-y-2">
+                          {item.products.map((product, idx) => (
+                            <li key={idx} className="flex justify-between items-center gap-2 text-sm p-2 bg-[var(--gray-50,#f5f6f8)] rounded-lg">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-[var(--gray-800,#1a202c)]">{product.name}</p>
+                                <p className="text-xs text-[var(--gray-600,#4a5568)]">Menge: {product.quantity} × {formatEUR(product.price)}</p>
+                              </div>
+                              <p className="font-bold text-[var(--primary-blue,#1a2a5e)] flex-shrink-0">{formatEUR(product.totalPrice)}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-[var(--gray-600,#4a5568)]">Keine Produkte</p>
+                      )}
+                    </section>
+                  ))}
+                </TabsContent>
+              )}
+
+              {/* ---------------- Verlauf ---------------- */}
+              <TabsContent value="timeline" className="space-y-3 mt-4">
+                {booking.timeline && booking.timeline.length > 0 ? (
+                  <ol className="space-y-2">
+                    {booking.timeline.map((event, index) => (
+                      <li key={event._id || `${event.completedAt}-${index}`} className="cb-timeline-entry">
+                        <CheckCircle className="h-5 w-5 text-green-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-[var(--primary-blue,#1a2a5e)]">
+                            {event.title || STATUS_LABELS_DE[event.status] || event.status}
+                          </p>
+                          {event.description && <p className="text-sm text-[var(--gray-700,#2d3748)]">{event.description}</p>}
+                          <p className="text-xs text-[var(--gray-600,#4a5568)] mt-0.5">
+                            {event.completedAt ? formatDateTime(event.completedAt) : 'Zeitpunkt nicht erfasst'}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-[var(--gray-600,#4a5568)]">Noch keine Einträge im Verlauf.</p>
+                )}
+              </TabsContent>
+
+              {/* ---------------- Adressen ---------------- */}
+              <TabsContent value="contact" className="space-y-4 mt-4">
+                <section className="cb-dialog-card" aria-labelledby="cb-dialog-contact">
+                  <h3 id="cb-dialog-contact" className="cb-dialog-card-title">Kontakt</h3>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border-2 border-[var(--accent-yellow,#f5b800)] flex-shrink-0">
+                      <AvatarImage src={customer.avatar} alt="" />
+                      <AvatarFallback className="text-sm font-bold bg-[var(--primary-blue,#1a2a5e)] text-white">
+                        {String(customer.firstName || customer.name || customer.email || '?').charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0">
-                      <p className="font-bold text-xs sm:text-sm text-[var(--gray-800,#1a202c)] truncate">
-                        {booking.customerId.firstName ? `${booking.customerId.firstName} ${booking.customerId.lastName || ''}` : (booking.customerId.name || booking.customerId.email)}
+                    <div className="min-w-0 text-sm">
+                      <p className="font-bold text-[var(--gray-800,#1a202c)]">
+                        {customer.firstName ? `${customer.firstName} ${customer.lastName || ''}` : (customer.name || customer.email)}
                       </p>
-                      <p className="text-xs sm:text-sm text-[var(--gray-500,#636e85)] truncate">{booking.customerId.email}</p>
+                      {customer.email && <p className="text-[var(--gray-600,#4a5568)]">{customer.email}</p>}
+                      <p className="text-[var(--gray-600,#4a5568)]">Telefon: {customer.phone || 'nicht angegeben'}</p>
                     </div>
                   </div>
-                  <div className="text-xs sm:text-sm pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                    <span className="text-[var(--gray-600,#4a5568)] font-semibold">Telefon: </span>
-                    <span className="font-semibold text-[var(--gray-800,#1a202c)]">{booking.customerId.phone || 'Nicht verfügbar'}</span>
-                  </div>
-
-                  {/* Billing address */}
-                  {(() => {
-                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
-                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
-                    );
-                    const firstOrder = Array.isArray(booking.orderIds)
-                      ? booking.orderIds.find((order) => order && typeof order === 'object')
-                      : undefined;
-                    const addr = booking.customerId?.invoiceAddress
-                      || booking.billingAddress
-                      || booking.guestInfo?.billingAddress
-                      || firstOrder?.billingAddress
-                      || firstOrder?.guestInfo?.billingAddress;
-                    const hasAddr = hasAddressData(addr);
-                    return (
-                      <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <CreditCard className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
-                          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Rechnungsadresse</p>
-                        </div>
-                        {hasAddr ? (
-                          <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                            {addr!.street && <p>{addr!.street}</p>}
-                            {(addr!.zipCode || addr!.city) && <p>{[addr!.zipCode, addr!.city].filter(Boolean).join(' ')}</p>}
-                            {addr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{addr!.country}</p>}
-                          </div>
-                        ) : (
-                          <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Delivery address */}
-                  {(() => {
-                    const hasAddressData = (addr?: AddressFields | null) => Boolean(
-                      addr && (addr.street || addr.city || addr.zipCode || addr.state || addr.country)
-                    );
-                    const firstOrder = Array.isArray(booking.orderIds)
-                      ? booking.orderIds.find((order) => order && typeof order === 'object')
-                      : undefined;
-                    const payAddr = booking.customerId?.paymentAddress;
-                    const billAddr = booking.customerId?.invoiceAddress
-                      || booking.billingAddress
-                      || booking.guestInfo?.billingAddress
-                      || firstOrder?.billingAddress
-                      || firstOrder?.guestInfo?.billingAddress;
-                    const deliveryAddr = payAddr?.sameAsInvoice === false
-                      ? payAddr
-                      : booking.shippingAddress
-                        || booking.guestInfo?.shippingAddress
-                        || firstOrder?.shippingAddress
-                        || firstOrder?.guestInfo?.shippingAddress;
-                    const hasBillAddr = hasAddressData(billAddr);
-                    const sameAsInvoice = payAddr?.sameAsInvoice !== false && !hasAddressData(deliveryAddr);
-                    if (sameAsInvoice) {
-                      return (
-                        <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
-                            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
-                          </div>
-                          {hasBillAddr ? (
-                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Identisch mit Rechnungsadresse</p>
-                          ) : (
-                            <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
-                          )}
-                        </div>
-                      );
-                    }
-                    const hasPayAddr = hasAddressData(deliveryAddr);
-                    return (
-                      <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Home className="h-3.5 w-3.5 text-[var(--primary-blue,#1a2a5e)]" />
-                          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Lieferadresse</p>
-                        </div>
-                        {hasPayAddr ? (
-                          <div className="text-xs sm:text-sm space-y-0.5 text-[var(--gray-700,#2d3748)]">
-                            {deliveryAddr!.street && <p>{deliveryAddr!.street}</p>}
-                            {(deliveryAddr!.zipCode || deliveryAddr!.city) && <p>{[deliveryAddr!.zipCode, deliveryAddr!.city].filter(Boolean).join(' ')}</p>}
-                            {deliveryAddr!.country && <p className="text-[var(--gray-400,#8892a8)] text-[10px]">{deliveryAddr!.country}</p>}
-                          </div>
-                        ) : (
-                          <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Nicht angegeben</p>
-                        )}
-                      </div>
-                    );
-                  })()}
+                </section>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <section className="cb-dialog-card" aria-labelledby="cb-dialog-billing">
+                    <h3 id="cb-dialog-billing" className="cb-dialog-card-title flex items-center gap-1.5"><CreditCard className="h-4 w-4" aria-hidden="true" /> Rechnungsadresse</h3>
+                    {renderAddress(billAddr)}
+                  </section>
+                  <section className="cb-dialog-card" aria-labelledby="cb-dialog-delivery">
+                    <h3 id="cb-dialog-delivery" className="cb-dialog-card-title flex items-center gap-1.5"><Home className="h-4 w-4" aria-hidden="true" /> Lieferadresse</h3>
+                    {deliverySameAsInvoice
+                      ? <p className="text-sm italic text-[var(--gray-600,#4a5568)]">{hasAddressData(billAddr) ? 'Identisch mit Rechnungsadresse' : 'Nicht angegeben'}</p>
+                      : renderAddress(deliveryAddr)}
+                  </section>
                 </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-                <h3 className="font-bold text-xs sm:text-sm mb-2 sm:mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide flex items-center gap-2">
-                  <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
-                  Status
-                </h3>
-                <div className="space-y-2 sm:space-y-3">
-                  <div>
-                    <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Aktuell</p>
-                    <Badge className={`${getStatusColor(booking.status)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{t(`status.${booking.status}`)}</Badge>
-                  </div>
-                  <div className="pt-2 border-t border-[var(--gray-200,#d8dce6)]">
-                    <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Abrechnung</p>
-                    <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>{getBillingStatusLabel(getEffectivePaymentStatus(booking))}</Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:gap-5">
-              <div className="bg-gradient-to-br from-[var(--primary-blue,#1a2a5e)] to-[var(--primary-blue-light,#2a3f7e)] rounded-lg p-2 sm:p-5 shadow-lg text-white min-w-0 overflow-hidden">
-                <p className="text-[10px] sm:text-sm font-semibold opacity-90 mb-0.5 sm:mb-1">Gesamtkosten</p>
-                <p className="text-base sm:text-3xl font-extrabold tracking-tight truncate">{formatCurrency(booking.totalCost)}</p>
-              </div>
-              <div className="bg-gradient-to-br from-[var(--accent-yellow,#f5b800)] to-[var(--accent-yellow-hover,#e5ab00)] rounded-lg p-2 sm:p-5 shadow-lg text-[var(--primary-blue,#1a2a5e)] min-w-0 overflow-hidden">
-                <p className="text-[10px] sm:text-sm font-semibold opacity-90 mb-0.5 sm:mb-1">Artikel</p>
-                <p className="text-base sm:text-3xl font-extrabold tracking-tight">{booking.items.length}</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-              <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
-                <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
-                Zeitstempel
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
-                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-2 sm:p-3 rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-                  <div className="min-w-0">
-                    <span className="text-[var(--gray-600,#4a5568)]">Erstellt: </span>
-                    <span className="font-bold text-[var(--gray-800,#1a202c)] break-words">{formatDateTime(booking.createdAt)}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-[var(--gray-50,#f5f6f8)] p-2 sm:p-3 rounded-lg">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-                  <div className="min-w-0">
-                    <span className="text-[var(--gray-600,#4a5568)]">Aktualisiert: </span>
-                    <span className="font-bold text-[var(--gray-800,#1a202c)] break-words">{formatDateTime(booking.updatedAt)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Rechnungen */}
-            <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-              <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
-                <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
-                Rechnungen
-              </p>
-              {loadingBookingInvoices ? (
-                <div className="flex items-center gap-2 py-3">
-                  <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary-blue,#1a2a5e)] border-t-transparent" />
-                  <span className="text-xs text-[var(--gray-400,#8892a8)]">Rechnungen werden geladen...</span>
-                </div>
-              ) : bookingInvoices.length === 0 ? (
-                <p className="text-xs italic text-[var(--gray-400,#8892a8)]">Keine Rechnungen vorhanden</p>
-              ) : (
-                <div className="space-y-2">
-                  {bookingInvoices.map((inv: any) => {
-                    // Zahlungsstand ausschließlich vom Server; ohne ihn keine Beträge erfinden.
-                    const payment = summarizeInvoicePayment(inv);
-                    const openAmount = payment.known ? (payment.open ?? 0) : 0;
-                    const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'paid' && (!payment.known || openAmount > 0);
-                    return (
-                      <div
-                        key={inv._id}
-                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)] transition-colors border border-transparent"
-                      >
-                        <Receipt className="h-4 w-4 text-[var(--primary-blue,#1a2a5e)] flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-[var(--gray-800,#1a202c)]">{inv.invoiceNumber}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${getInvoiceStatusBadgeClass(inv.status)}`}>
-                              {getInvoiceStatusLabel(inv.status)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                            <span className="text-xs text-[var(--gray-600,#4a5568)]">
-                              Gesamt: <span className="font-bold text-[var(--gray-800,#1a202c)]">{formatCurrency(inv.total)}</span>
-                            </span>
-                            {payment.known && (payment.received ?? 0) > 0 && (
-                              <span className="text-xs text-green-600 font-semibold">
-                                Eingegangen: {formatCurrency(payment.received ?? 0)}
-                              </span>
-                            )}
-                            {payment.known && openAmount > 0 && (
-                              <span className={`text-xs font-semibold ${isOverdue ? 'text-red-600' : 'text-[var(--gray-600,#4a5568)]'}`}>
-                                Offen: {formatCurrency(openAmount)}
-                              </span>
-                            )}
-                            {payment.known && (payment.refundPending ?? 0) > 0 && (
-                              <span className="text-xs font-semibold text-violet-700">
-                                Überzahlt · Erstattung offen {formatCurrency(payment.refundPending ?? 0)}
-                              </span>
-                            )}
-                            {inv.dueDate && (
-                              <span className={`text-[10px] ${isOverdue ? 'text-red-500 font-semibold' : 'text-[var(--gray-400,#8892a8)]'}`}>
-                                {isOverdue && <AlertCircle className="inline h-3 w-3 mr-0.5" />}
-                                Fällig: {formatDate(inv.dueDate)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 rounded border border-[var(--gray-200,#d8dce6)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--primary-blue,#1a2a5e)] hover:border-[var(--accent-yellow,#f5b800)]"
-                            onClick={() => {
-                              onClose();
-                              navigate(buildInvoiceDeepLink(inv._id), { state: { highlightInvoiceId: inv._id, openInvoiceId: inv._id } });
-                            }}
-                          >
-                            Rechnung öffnen
-                            <ExternalLink className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={pdfInvoiceId === inv._id}
-                            className="inline-flex items-center gap-1 rounded border border-[var(--gray-200,#d8dce6)] bg-white px-2 py-1 text-[11px] font-semibold text-[var(--primary-blue,#1a2a5e)] hover:border-[var(--accent-yellow,#f5b800)] disabled:opacity-60"
-                            onClick={async (event) => {
-                              event.stopPropagation();
-                              setPdfInvoiceId(inv._id);
-                              try {
-                                await downloadInvoicePdf(inv._id, inv.invoiceNumber);
-                              } catch (error) {
-                                console.error('CustomerBookings: PDF-Download fehlgeschlagen:', error);
-                                setPdfError(error instanceof Error ? error.message : 'Rechnungs-PDF konnte nicht geladen werden.');
-                              } finally {
-                                setPdfInvoiceId(null);
-                              }
-                            }}
-                          >
-                            <Download className="h-3 w-3" />
-                            {pdfInvoiceId === inv._id ? 'Lädt…' : 'PDF'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {pdfError && (
-                    <p className="text-xs text-red-600">{pdfError}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Zahlungsprozesse */}
-            {(() => {
-              const allPayments = bookingInvoices.flatMap((inv: any) =>
-                (inv.paymentHistory || []).map((p: any) => ({ ...p, invoiceNumber: inv.invoiceNumber }))
-              ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-              if (loadingBookingInvoices || allPayments.length === 0) return null;
-              return (
-                <div className="bg-white rounded-lg p-3 sm:p-5 shadow-md border border-[var(--gray-200,#d8dce6)]">
-                  <p className="text-xs sm:text-sm text-[var(--primary-blue,#1a2a5e)] mb-2 sm:mb-3 font-bold uppercase tracking-wide flex items-center gap-2">
-                    <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
-                    Zahlungsprozesse
-                  </p>
-                  <div className="space-y-2">
-                    {allPayments.map((p: any, i: number) => (
-                      <div key={p._id || i} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-[var(--gray-50,#f5f6f8)]">
-                        <Euro className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-green-700">{formatCurrency(p.amount)}</span>
-                            {p.method && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 font-semibold">
-                                {getPaymentMethodLabel(p.method)}
-                              </span>
-                            )}
-                            <span className="text-[10px] text-[var(--gray-400,#8892a8)]">{p.invoiceNumber}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-[var(--gray-500,#636e85)]">{formatDateTime(p.date)}</span>
-                            {p.note && <span className="text-[10px] text-[var(--gray-400,#8892a8)] truncate">{p.note}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </TabsContent>
-
-          <TabsContent value="repairs" className="space-y-3 mt-3 sm:mt-5">
-            {loadingRepairJobs ? (
-              <div className="text-center py-12 bg-white rounded-lg border border-[var(--gray-200,#d8dce6)]">
-                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[var(--primary-blue,#1a2a5e)] border-t-transparent mb-2" />
-                <p className="text-[var(--gray-400,#8892a8)] text-sm">Reparaturaufträge werden geladen...</p>
-              </div>
-            ) : (() => {
-              const repairJobs = detailOrders.filter((o: any) => o.type === 'repair');
-              const displayItems: any[] = repairJobs.length > 0 ? repairJobs : repairItems;
-
-              if (displayItems.length === 0) {
-                return (
-                  <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
-                    <Wrench className="h-8 w-8 mx-auto mb-2 text-[var(--gray-300,#c5cad8)]" />
-                    <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Reparaturaufträge</p>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="space-y-3">
-                  {displayItems.map((item: any, index: number) => {
-                    const imageKey = String(item.orderId || item._id || `${item.device || 'repair'}-${index}`);
-                    const modelImage = repairModelImages[imageKey];
-                    const showModelImage = Boolean(modelImage) && !repairImageLoadErrors[imageKey];
-                    const progress = item.progress ?? 0;
-                    const statusLabel = getOrderStatusLabel(item.status || 'pending');
-                    const badgeClass = getOrderStatusBadgeClass(item.status || 'pending');
-
-                    return (
-                      <div
-                        key={item._id || item.orderId || index}
-                        className="bg-white rounded-xl border border-[var(--gray-200,#d8dce6)] overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-                        style={{ borderLeft: '4px solid var(--primary-blue, #1a2a5e)' }}
-                        onClick={() => item.orderId && handleViewOrder(item.orderId)}
-                      >
-                        {/* Header */}
-                        <div className="flex items-start gap-3 p-3 sm:p-4">
-                          {/* Device image / icon */}
-                          <div className="flex-shrink-0">
-                            {showModelImage ? (
-                              <img
-                                src={modelImage}
-                                alt={item.device || 'Gerät'}
-                                className="booking-detail-repair-device-image"
-                                onError={() => setRepairImageLoadErrors((prev) => ({ ...prev, [imageKey]: true }))}
-                              />
-                            ) : (
-                              <div className="booking-detail-repair-device-placeholder" aria-hidden="true">
-                                <Smartphone className="h-5 w-5" />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Main info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                {(item.orderNumber || item.orderId) && (
-                                  <p className="text-[10px] sm:text-xs flex items-center gap-1 text-[var(--gray-400,#8892a8)] mb-0.5">
-                                    <Hash className="h-2.5 w-2.5" />
-                                    {item.orderNumber ? `Auftrag #${item.orderNumber}` : `Auftrag ${item.orderId.slice(-8).toUpperCase()}`}
-                                  </p>
-                                )}
-                                <h4 className="font-bold text-sm sm:text-base text-[var(--gray-800,#1a202c)] truncate">
-                                  {item.device || 'Gerät Reparatur'}
-                                </h4>
-                                {item.services && item.services.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {item.services.map((s: any, si: number) => (
-                                      <span key={si} className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#eef2ff', color: 'var(--primary-blue, #1a2a5e)', border: '1px solid #c7d2fe' }}>
-                                        {s.name}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-shrink-0 text-right">
-                                <Badge className={`${badgeClass} text-[10px] sm:text-xs font-bold px-2 py-0.5`}>
-                                  {statusLabel}
-                                </Badge>
-                                <p className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] mt-1">{formatCurrency(item.cost)}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Progress bar */}
-                        <div className="px-3 sm:px-4 py-2 sm:py-3" style={{ background: '#f8faff', borderTop: '1px solid #eceef3' }}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1.5">
-                              <TrendingUp className="h-3 w-3 text-[var(--primary-blue,#1a2a5e)]" />
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--gray-500,#636e85)]">Fortschritt</span>
-                            </div>
-                            <span className="text-xs font-bold" style={{ color: progress === 100 ? '#38a169' : 'var(--primary-blue, #1a2a5e)' }}>
-                              {progress}%
-                            </span>
-                          </div>
-                          <div className="h-1.5 rounded-full overflow-hidden bg-[var(--gray-200,#d8dce6)]">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{
-                                width: `${progress}%`,
-                                background: progress === 100
-                                  ? '#38a169'
-                                  : progress >= 75
-                                  ? 'var(--primary-blue, #1a2a5e)'
-                                  : progress >= 40
-                                  ? 'var(--accent-yellow, #f5b800)'
-                                  : '#fc8181',
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Footer CTA */}
-                        {item.orderId && (
-                          <div className="px-3 sm:px-4 py-2 flex items-center justify-between" style={{ borderTop: '1px solid #eceef3' }}>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs px-2"
-                              style={{ color: 'var(--primary-blue, #1a2a5e)' }}
-                              onClick={(e) => { e.stopPropagation(); handleViewOrder(item.orderId); }}
-                            >
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              Auftrag öffnen
-                            </Button>
-                            <ExternalLink className="h-3 w-3 text-[var(--gray-400,#8892a8)]" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </TabsContent>
-
-          <TabsContent value="items" className="space-y-3 mt-3 sm:mt-5">
-            {booking.items && booking.items.filter(item => item.type === 'product').length > 0 ? (
-              <div className="space-y-3">
-                {booking.items.filter(item => item.type === 'product').map((item) => (
-                  <div key={item._id || item.orderId} className="booking-detail-order-card bg-white border-2 border-[var(--gray-200,#d8dce6)] rounded-lg p-3 sm:p-4 shadow-md">
-                    <div className="flex items-center justify-between mb-2 sm:mb-3 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)]">Produkt</h4>
-                        {item.orderId && (
-                          <p className="booking-detail-order-number">Auftrag {item.orderId.slice(-8).toUpperCase()}</p>
-                        )}
-                      </div>
-                      <Badge className={`${getStatusColor(item.status || 'pending')} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1`}>
-                        {item.status || 'pending'}
-                      </Badge>
-                    </div>
-                    {item.products && item.products.length > 0 ? (
-                      <div className="space-y-2">
-                        {item.products.map((product, idx) => (
-                          <div key={idx} className="booking-detail-product-row flex justify-between items-center gap-2 text-xs sm:text-sm p-2 sm:p-3 bg-[var(--gray-50,#f5f6f8)] rounded-lg border-l-4 border-[var(--primary-blue,#1a2a5e)]">
-                            <div className="min-w-0">
-                              <p className="font-bold text-[var(--gray-800,#1a202c)] truncate">{product.name}</p>
-                              <p className="text-[11px] sm:text-sm text-[var(--gray-600,#4a5568)] mt-0.5">
-                                Menge: {product.quantity} × {formatCurrency(product.price)}
-                              </p>
-                            </div>
-                            <p className="booking-detail-product-price font-extrabold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] flex-shrink-0">{formatCurrency(product.totalPrice)}</p>
-                          </div>
-                        ))}
-                        <div className="flex justify-between items-center text-xs sm:text-sm mt-3 sm:mt-4 pt-2 sm:pt-3 border-t-2 border-[var(--gray-300,#b0b8c9)] font-bold">
-                          <span className="text-[var(--gray-700,#2d3748)] uppercase tracking-wide">Gesamt:</span>
-                          <span className="text-sm sm:text-lg text-[var(--primary-blue,#1a2a5e)]">{formatCurrency(item.cost)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs sm:text-sm text-[var(--gray-500,#636e85)] text-center py-3">Keine Produkte</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
-                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Produktartikel</p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="shipping" className="space-y-3 sm:space-y-4 mt-3 sm:mt-5">
-            {/* Auslieferung (McRepair → Sie) je Gerät - Richtung und Sendungsnummer liefert der
-                Server getrennt vom Einsendelabel der Buchung (getBookingOrders.outboundShipment). */}
-            {detailOrders.some((entry: any) => entry?.outboundShipment?.trackingNumber) && (
-              <div className="bg-white p-3 sm:p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
-                <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)] mb-2">
-                  <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
-                  Auslieferung an Sie (McRepair → Sie)
-                </h3>
-                <div className="space-y-2">
-                  {detailOrders
-                    .filter((entry: any) => entry?.outboundShipment?.trackingNumber)
-                    .map((entry: any, index: number) => (
-                      <div key={entry.orderId || entry._id || index} className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--gray-200,#d8dce6)] bg-[var(--gray-50,#f5f6f8)] p-2 text-sm">
-                        <span className="font-semibold">{entry.orderNumber || entry.device || 'Auftrag'}</span>
-                        <span className="font-mono">{entry.outboundShipment.trackingNumber}</span>
-                        {entry.outboundShipment.status && (
-                          <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-xs font-bold">
-                            {getShippingStatusLabel(entry.outboundShipment.status)}
-                          </Badge>
-                        )}
-                        <a
-                          href={`https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(entry.outboundShipment.trackingNumber)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
-                        >
-                          Sendung verfolgen <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-            {(hasOutboundShipping || hasReturnShipping) ? (
-              <div className="space-y-4">
-                {hasOutboundShipping && (
-                <div className="bg-white p-3 sm:p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
-                  <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                    <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)]">
-                      <Package className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
-                      {shippingBlockTitle}
-                    </h3>
-                    {booking.shippingStatus && (
-                      <Badge className="bg-blue-100 text-[var(--primary-blue,#1a2a5e)] border border-blue-300 text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0">
-                        {getShippingStatusLabel(booking.shippingStatus)}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {booking.trackingNumber && (
-                      <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-3 sm:p-4 border border-[var(--gray-200,#d8dce6)]">
-                        <p className="text-[10px] sm:text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-1 sm:mb-2 uppercase">Trackingnummer</p>
-                        <p className="font-mono font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] break-all">{booking.trackingNumber}</p>
-                        {booking.carrier && (
-                          <p className="text-sm font-medium text-[var(--gray-600,#4a5568)] mt-2">Versanddienst: {booking.carrier}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {booking.shippingLabelUrl && (
-                      <div className="bg-[var(--gray-50,#f5f6f8)] rounded-lg p-4 border border-[var(--gray-200,#d8dce6)]">
-                        <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">{shippingLabelCaption}</p>
-                        <button
-                          onClick={() => downloadBookingShippingLabel(booking._id, `versandlabel-buchung-${booking.bookingNumber || booking._id}.pdf`)}
-                          className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg cursor-pointer"
-                        >
-                          <Download className="h-4 w-4 flex-shrink-0" />
-                          <span>Versandlabel herunterladen (PDF)</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {(booking.shippingCreatedAt || booking.estimatedDelivery || booking.actualDelivery || booking.shippingStatusDescription) && (
-                    <div className="mt-4 pt-4 border-t border-[var(--gray-200,#d8dce6)] space-y-2">
-                      {booking.shippingStatusDescription && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Statusinfo: </span>
-                          {booking.shippingStatusDescription}
-                        </p>
-                      )}
-                      {booking.liveShippingTracking?.statusCodeRaw && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">DHL Live-Statuscode: </span>
-                          {booking.liveShippingTracking.statusCodeRaw}
-                        </p>
-                      )}
-                      {booking.liveShippingTracking?.service && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Service: </span>
-                          {booking.liveShippingTracking.service}
-                        </p>
-                      )}
-                      {booking.liveShippingTracking?.shipmentId && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Shipment-ID: </span>
-                          {booking.liveShippingTracking.shipmentId}
-                        </p>
-                      )}
-                      {booking.shippingCreatedAt && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Label erstellt: </span>
-                          {formatDateTime(booking.shippingCreatedAt)}
-                        </p>
-                      )}
-                      {booking.estimatedDelivery && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Voraussichtl. Ankunft: </span>
-                          {formatDateTime(booking.estimatedDelivery)}
-                        </p>
-                      )}
-                      {booking.actualDelivery && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-700,#2d3748)] break-words">
-                          <span className="font-semibold text-[var(--gray-600,#4a5568)]">Eingetroffen am: </span>
-                          {formatDateTime(booking.actualDelivery)}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {booking.liveShippingTracking?.events && booking.liveShippingTracking.events.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-[var(--gray-200,#d8dce6)]">
-                      <p className="text-xs sm:text-sm font-semibold text-[var(--gray-600,#4a5568)] mb-2 uppercase">DHL Live-Tracking Events</p>
-                      <div className="space-y-2 max-h-56 overflow-auto">
-                        {booking.liveShippingTracking.events.slice(0, 10).map((event, idx) => (
-                          <div key={`${event.timestamp || 'no-time'}-${idx}`} className="rounded-lg p-2 sm:p-3 bg-[var(--gray-50,#f5f6f8)] border border-[var(--gray-200,#d8dce6)]">
-                            <p className="text-xs sm:text-sm font-semibold text-[var(--gray-800,#1a202c)]">
-                              {event.description || event.status || 'Statusupdate'}
-                            </p>
-                            <p className="text-[11px] sm:text-xs text-[var(--gray-600,#4a5568)] mt-1 break-words">
-                              {event.timestamp ? formatDateTime(event.timestamp) : 'Zeit unbekannt'}
-                              {event.location ? ` • ${event.location}` : ''}
-                              {event.statusCode ? ` • ${event.statusCode}` : ''}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                )}
-
-                {hasReturnShipping && (
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 sm:p-5 rounded-lg border-2 border-[var(--primary-blue,#1a2a5e)] shadow-md">
-                  <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b-2 border-[var(--accent-yellow,#f5b800)]">
-                    <h3 className="font-bold text-sm sm:text-base flex items-center gap-1 sm:gap-2 text-[var(--primary-blue,#1a2a5e)]">
-                      <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-yellow,#f5b800)] flex-shrink-0" />
-                      DHL-Retourenlabel
-                    </h3>
-                    {booking.returnShipmentStatus && (
-                      <Badge className={`${getReturnShipmentStatusColor(booking.returnShipmentStatus)} text-xs sm:text-sm font-bold px-2 sm:px-3 py-0.5 sm:py-1 flex-shrink-0`}>
-                        {t(`status.${booking.returnShipmentStatus}`)}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    {booking.returnTrackingNumber && (
-                      <div className="bg-white rounded-lg p-4 border-l-4 border-[var(--primary-blue,#1a2a5e)]">
-                        <div className="flex items-start gap-3">
-                          <Package className="h-5 w-5 text-[var(--primary-blue,#1a2a5e)] mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Sendungsverfolgung</p>
-                            <p className="font-mono font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] break-all">
-                              {booking.returnTrackingNumber}
-                            </p>
-                            {booking.returnShipmentStatusDescription && (
-                              <p className="text-sm text-[var(--gray-600,#4a5568)] mt-2">
-                                {booking.returnShipmentStatusDescription}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {booking.returnLabelUrl && (
-                      <div className="bg-white rounded-lg p-4 border-l-4 border-[var(--accent-yellow,#f5b800)]">
-                        <div className="flex items-start gap-3">
-                          <FileText className="h-5 w-5 text-[var(--accent-yellow,#f5b800)] mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">Versandetikett</p>
-                            <button
-                              onClick={() => downloadBookingReturnLabel(booking._id, `ruecksendeetikett-${booking.bookingNumber || booking._id}.pdf`)}
-                              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[var(--primary-blue,#1a2a5e)] text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-[var(--primary-blue-dark,#0f1d45)] transition-all hover:shadow-lg cursor-pointer"
-                            >
-                              <FileText className="h-4 w-4 flex-shrink-0" />
-                              <span>PDF Herunterladen</span>
-                              <Download className="h-4 w-4 flex-shrink-0" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {booking.returnQRCodeUrl && (
-                      <div className="bg-white rounded-lg p-4 border-l-4 border-green-500">
-                        <div className="flex items-start gap-3">
-                          <QrCode className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-2 uppercase">QR Code</p>
-                            <a
-                              href={booking.returnQRCodeUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-bold hover:bg-green-700 transition-all hover:shadow-lg"
-                            >
-                              <QrCode className="h-4 w-4 flex-shrink-0" />
-                              <span>Code Anzeigen</span>
-                              <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {(booking.returnCreatedAt || booking.returnReceivedAt) && (
-                      <div className="bg-white rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <Clock className="h-5 w-5 text-[var(--primary-blue,#1a2a5e)] mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="text-xs text-[var(--gray-600,#4a5568)] font-semibold mb-3 uppercase">Zeitlinie</p>
-                            <div className="space-y-2 text-sm">
-                              {booking.returnCreatedAt && (
-                                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 bg-[var(--gray-50,#f5f6f8)] p-2 rounded-lg">
-                                  <div className="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
-                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold text-xs sm:text-sm">Erstellt:</span>
-                                  <span className="font-bold text-[var(--gray-800,#1a202c)] text-xs sm:text-sm break-all">{formatDateTime(booking.returnCreatedAt)}</span>
-                                </div>
-                              )}
-                              {booking.returnReceivedAt && (
-                                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 bg-green-50 p-2 rounded-lg">
-                                  <div className="w-3 h-3 rounded-full bg-green-600 flex-shrink-0"></div>
-                                  <span className="text-[var(--gray-600,#4a5568)] font-semibold text-xs sm:text-sm">Erhalten:</span>
-                                  <span className="font-bold text-[var(--gray-800,#1a202c)] text-xs sm:text-sm break-all">{formatDateTime(booking.returnReceivedAt)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                )}
-
-                <div className="bg-[var(--accent-yellow-light,#ffd54f)]/20 p-5 rounded-lg border-2 border-[var(--accent-yellow,#f5b800)]">
-                  <h4 className="font-bold mb-3 text-[var(--primary-blue,#1a2a5e)] uppercase tracking-wide text-sm flex items-center gap-2">
-                    <span className="w-1 h-4 bg-[var(--accent-yellow,#f5b800)] rounded"></span>
-                    Anweisungen
-                  </h4>
-                  <ol className="list-decimal list-inside space-y-2 text-[var(--gray-700,#2d3748)] text-sm font-medium">
-                    <li>Etikett drucken oder QR-Code speichern</li>
-                    <li>Artikel sicher verpacken</li>
-                    <li>Etikett befestigen oder QR-Code bei DHL vorzeigen</li>
-                    <li>Bei DHL-Standort abgeben</li>
-                    <li>Sendung verfolgen</li>
-                  </ol>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-16 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
-                <Truck className="h-16 w-16 mx-auto mb-4 text-[var(--gray-300,#b0b8c9)]" />
-                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Noch keine Versanddaten vorhanden</p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="timeline" className="space-y-3 mt-3 sm:mt-5">
-            {booking.timeline && booking.timeline.length > 0 ? (
-              <div className="space-y-3">
-                {booking.timeline.map((event) => (
-                  <div key={event._id || event.completedAt} className="bg-white border-2 border-[var(--gray-200,#d8dce6)] p-3 sm:p-4 rounded-lg flex gap-3 sm:gap-4 shadow-md hover:border-[var(--accent-yellow,#f5b800)] transition-all">
-                    <div className="flex-shrink-0">
-                      <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 mt-0.5 sm:mt-1" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-sm sm:text-base text-[var(--primary-blue,#1a2a5e)] mb-1">{event.status}</h4>
-                      <p className="text-xs sm:text-sm text-[var(--gray-600,#4a5568)] mb-1 sm:mb-2">{event.description}</p>
-                      {event.staffName && (
-                        <p className="text-xs sm:text-sm text-[var(--gray-600,#4a5568)] mb-1 sm:mb-2">
-                          <span className="font-semibold">Von:</span> {event.staffName}
-                        </p>
-                      )}
-                      <p className="text-[10px] sm:text-xs text-[var(--gray-500,#636e85)] font-semibold bg-[var(--gray-50,#f5f6f8)] inline-block px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                        {formatDateTime(event.completedAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16 bg-white rounded-lg border-2 border-dashed border-[var(--gray-300,#b0b8c9)]">
-                <p className="text-[var(--gray-500,#636e85)] text-base font-semibold">Keine Zeitlinienereignisse</p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
           </div>
-        </div>
-
-
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

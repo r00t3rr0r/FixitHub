@@ -1,4 +1,6 @@
-const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 17;
+// 18: neue Vorlage 'Eingangspruefung abgeschlossen' (wird bei bestehenden Installationen nur
+//     ERGAENZT - vorhandene/angepasste Vorlagen bleiben unveraendert).
+const DEFAULT_NOTIFICATION_TEMPLATE_VERSION = 18;
 
 const brand = {
   companyName: 'Mc<span style="color:#f5b800;font-weight:800;">Repair</span>.de',
@@ -448,6 +450,51 @@ function getDefaultNotificationTemplates() {
         createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Diagnoseabschlusses', true),
         createVariable('deviceCondition', 'Zustand des Gerätes nach Diagnose'),
         createVariable('recommendedAction', 'Empfohlene Maßnahme (z.B. Kostenvoranschlag folgt, Kundenfreigabe erforderlich)'),
+        createVariable('orderUrl', 'Vollständiger Link zur Auftragsdetailseite im Kundenkonto', true),
+        createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
+        createVariable('supportPhone', 'Service-Telefonnummer')
+      ],
+      isActive: true
+    },
+    {
+      // Eingangspruefung nach Geraeteeingang (Trigger 'inspection_completed'). Gleiche Variablen
+      // wie 'Diagnose abgeschlossen' (Rueckfall); die kostenpflichtige Diagnose bleibt unberuehrt.
+      name: 'Eingangspruefung abgeschlossen',
+      type: 'email',
+      subject: 'Eingangsprüfung abgeschlossen: Auftrag {{orderNumber}} – {{deviceBrand}} {{deviceModel}}',
+      content: renderEmailTemplate({
+        preheader: 'Die Eingangsprüfung Ihres Geräts ist abgeschlossen. Hier finden Sie das Ergebnis auf einen Blick.',
+        eyebrow: 'Eingangsprüfung abgeschlossen',
+        title: 'Ergebnis der Eingangsprüfung',
+        intro: 'Hallo {{customerName}}, wir haben die Eingangsprüfung Ihres Geräts abgeschlossen. Im Folgenden finden Sie das Ergebnis und die nächsten Schritte für Ihren Auftrag.',
+        highlights: [
+          { label: 'Gerät', value: '{{deviceBrand}} {{deviceModel}}' },
+          { label: 'Ergebnis', value: '{{diagnosisResult}}', tone: 'yellow' }
+        ],
+        detailRows: [
+          { label: 'Auftragsnummer', value: '{{orderNumber}}' },
+          { label: 'Gerät', value: '{{orderDeviceVisual}}' },
+          { label: 'Eingangsprüfung abgeschlossen am', value: '{{diagnosisCompletedAt}}' },
+          { label: 'Zustand', value: '{{deviceCondition}}' },
+          { label: 'Empfohlene Maßnahme', value: '{{recommendedAction}}' }
+        ],
+        body: '<p style="margin:0 0 16px 0;">Im Kundenkonto sehen Sie den aktuellen Stand Ihres Auftrags und können uns bei Fragen direkt schreiben.</p><p style="margin:0;">Sollten Sie Fragen zum Ergebnis oder zum weiteren Vorgehen haben, stehen wir Ihnen jederzeit zur Verfügung.</p>',
+        ctaLabel: 'Auftrag online einsehen',
+        ctaUrl: '{{orderUrl}}',
+        closing: 'Wir halten Sie weiterhin über den Fortschritt Ihres Auftrags informiert.<br /><strong>Ihr {{companyName}} Team</strong>',
+        footerNote: 'Diese Nachricht wurde automatisch nach Abschluss der Eingangsprüfung erstellt.'
+      }),
+      variables: [
+        createVariable('companyName', 'Name des Unternehmens', true),
+        createVariable('customerName', 'Vor- und Nachname des Kunden', true),
+        createVariable('orderNumber', 'Auftragsnummer', true),
+        createVariable('deviceBrand', 'Gerätemarke', true),
+        createVariable('deviceModel', 'Gerätemodell', true),
+        createVariable('orderDeviceVisual', 'HTML-Block mit Modellbild (oder Placeholder) und Gerätename'),
+        createVariable('diagnosisResult', 'Kernaussage der Eingangsprüfung', true),
+        createVariable('diagnosisCompletedAt', 'Datum und Uhrzeit des Abschlusses der Eingangsprüfung', true),
+        createVariable('deviceCondition', 'Zustand des Gerätes bei Eingang'),
+        createVariable('recommendedAction', 'Empfohlene Maßnahme / nächster Schritt'),
         createVariable('orderUrl', 'Vollständiger Link zur Auftragsdetailseite im Kundenkonto', true),
         createVariable('supportEmail', 'Service-E-Mail-Adresse', true),
         createVariable('supportPhone', 'Service-Telefonnummer')

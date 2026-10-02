@@ -588,11 +588,29 @@ export function EmailAdministration() {
 
   const formatDuration = (ms: number) => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`)
 
+  // Versandstatus: nur was wir wirklich wissen - "vom Mailserver angenommen" oder
+  // "fehlgeschlagen". Eine Zustellung beim Empfaenger wird nicht geprueft (nie "zugestellt").
   const getStatusBadge = (status: string) => {
-    if (status === "sent") return <Badge variant="outline" className="bg-green-50 text-green-900">{t('emailAdmin.statusSent')}</Badge>
-    if (status === "failed") return <Badge variant="outline" className="bg-red-50 text-red-900">{t('emailAdmin.statusFailed')}</Badge>
+    if (status === "sent") return <Badge variant="outline" className="bg-green-50 text-green-900 gap-1"><CheckCircle2 className="h-3 w-3" />{t('emailAdmin.statusSent')}</Badge>
+    if (status === "failed") return <Badge variant="outline" className="bg-red-50 text-red-900 gap-1"><AlertCircle className="h-3 w-3" />{t('emailAdmin.statusFailed')}</Badge>
     if (status === "queued") return <Badge variant="outline" className="bg-blue-50 text-blue-900">{t('emailAdmin.statusQueued')}</Badge>
     return <Badge>{status}</Badge>
+  }
+
+  const getSmtpStatusBadge = (status: string) => {
+    if (status === "verified") return <Badge variant="outline" className="bg-green-50 text-green-900">{t('emailAdmin.smtpStatusVerified')}</Badge>
+    if (status === "failed") return <Badge variant="outline" className="bg-red-50 text-red-900">{t('emailAdmin.smtpStatusFailed')}</Badge>
+    return <Badge variant="outline" className="bg-blue-50 text-blue-900">{t('emailAdmin.smtpStatusAttempted')}</Badge>
+  }
+
+  const getRecordReference = (record: DeliveryRecord) => {
+    const context = (record.metadata as any)?.logContext
+    return context?.reference || (context?.trigger ? String(context.trigger) : "")
+  }
+
+  const getRejectedRecipients = (record: DeliveryRecord): string[] => {
+    const rejected = (record.metadata as any)?.rejectedRecipients
+    return Array.isArray(rejected) ? rejected.map(String) : []
   }
 
   if (loading) {
@@ -665,7 +683,13 @@ export function EmailAdministration() {
 
         <TabsContent value="logs" className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>{t('emailAdmin.deliveryLog')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('emailAdmin.deliveryLog')}</CardTitle>
+              <CardDescription className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{t('emailAdmin.deliveryLogHint')}</span>
+              </CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="rounded-lg border p-3">
@@ -693,7 +717,6 @@ export function EmailAdministration() {
                     <SelectItem value="all">{t('common.all')}</SelectItem>
                     <SelectItem value="sent">{t('emailAdmin.statusSent')}</SelectItem>
                     <SelectItem value="failed">{t('emailAdmin.statusFailed')}</SelectItem>
-                    <SelectItem value="queued">{t('emailAdmin.statusQueued')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={smtpFilter} onValueChange={(value) => setSmtpFilter(value as typeof smtpFilter)}>
@@ -725,7 +748,7 @@ export function EmailAdministration() {
                         <div><p className="text-xs text-muted-foreground">{t('emailAdmin.duration')}</p><p className="text-sm">{formatDuration(record.duration)}</p></div>
                         <div>
                           <p className="text-xs text-muted-foreground">{t('emailAdmin.time')}</p>
-                          <p className="text-sm whitespace-nowrap">{new Date(record.timestamp).toLocaleTimeString()}</p>
+                          <p className="text-sm whitespace-nowrap">{formatDate(record.timestamp)}</p>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -736,6 +759,18 @@ export function EmailAdministration() {
                           </Button>
                         </div>
                       </div>
+                      {(getRecordReference(record) || record.subject) && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {getRecordReference(record) && <span className="font-medium text-foreground">{t('emailAdmin.reference')}: {getRecordReference(record)}</span>}
+                          {getRecordReference(record) && record.subject ? " · " : ""}
+                          {record.subject && <span>{t('emailAdmin.subject')}: {record.subject}</span>}
+                        </div>
+                      )}
+                      {getRejectedRecipients(record).length > 0 && (
+                        <div className="mt-2 text-xs text-amber-800 bg-amber-50 p-2 rounded">
+                          {t('emailAdmin.rejectedRecipients')}: {getRejectedRecipients(record).join(", ")}
+                        </div>
+                      )}
                       {record.error && <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">{t('common.error')}: {record.error}</div>}
                     </div>
                   ))}
@@ -771,7 +806,7 @@ export function EmailAdministration() {
                             {entry.host || "unknown"}{entry.port ? `:${entry.port}` : ""} ({entry.source})
                           </div>
                           <div className="flex items-center gap-2">
-                            {getStatusBadge(entry.status === "verified" ? "sent" : entry.status === "failed" ? "failed" : "queued")}
+                            {getSmtpStatusBadge(entry.status)}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1062,7 +1097,7 @@ export function EmailAdministration() {
           {selectedSmtpRecord && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.timestamp')}</p><p className="font-medium">{formatDate(selectedSmtpRecord.timestamp)}</p></div>
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('common.status')}</p><div className="mt-1">{getStatusBadge(selectedSmtpRecord.status === 'verified' ? 'sent' : selectedSmtpRecord.status === 'failed' ? 'failed' : 'queued')}</div></div>
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('common.status')}</p><div className="mt-1">{getSmtpStatusBadge(selectedSmtpRecord.status)}</div></div>
               <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.source')}</p><p className="font-medium">{selectedSmtpRecord.source}</p></div>
               <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.hostPort')}</p><p className="font-medium">{selectedSmtpRecord.host || 'unknown'}{selectedSmtpRecord.port ? `:${selectedSmtpRecord.port}` : ''}</p></div>
               <div className="rounded border p-3"><p className="text-xs text-muted-foreground">{t('emailAdmin.tlsRequired')}</p><p className="font-medium">{selectedSmtpRecord.requiresTLS ? t('common.yes') : t('common.no')}</p></div>

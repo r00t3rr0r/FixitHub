@@ -29,7 +29,7 @@ import {
   Phone,
   MapPin,
   Calendar,
-  DollarSign,
+  Euro,
   Package,
   CreditCard,
   Activity,
@@ -47,7 +47,9 @@ import {
   TrendingUp
 } from "lucide-react"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
+import { formatEUR } from "@/lib/utils"
 import "./UserDetailsDialog.css"
+import { READY_NEUTRAL_LABEL } from "@/lib/returnMethod"
 
 interface UserDetailsDialogProps {
   userId: string | null
@@ -190,7 +192,7 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
       case 'paused': return 'Pausiert'
       case 'on-hold': return 'Angehalten'
       case 'quality-check': return 'Qualitätsprüfung'
-      case 'ready-for-pickup': return 'Abholbereit'
+      case 'ready-for-pickup': return READY_NEUTRAL_LABEL
       case 'completed': return 'Abgeschlossen'
       case 'cancelled': return 'Storniert'
       default: return status
@@ -330,10 +332,10 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                 <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-bold uppercase tracking-wide text-[#1a2a5e]">Total Spent</CardTitle>
-                    <DollarSign className="h-5 w-5 text-[#f5b800]" />
+                    <Euro className="h-5 w-5 text-[#f5b800]" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-extrabold text-[#1a2a5e]">${user.orderStats.totalSpent.toFixed(2)}</div>
+                    <div className="text-3xl font-extrabold text-[#1a2a5e]">{formatEUR(user.orderStats.totalSpent)}</div>
                   </CardContent>
                 </Card>
                 <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white">
@@ -342,7 +344,7 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                     <CreditCard className="h-5 w-5 text-[#f5b800]" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-extrabold text-[#1a2a5e]">${user.orderStats.avgOrderValue.toFixed(2)}</div>
+                    <div className="text-3xl font-extrabold text-[#1a2a5e]">{formatEUR(user.orderStats.avgOrderValue)}</div>
                   </CardContent>
                 </Card>
                 <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white">
@@ -457,7 +459,7 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                           </div>
                         </div>
                         <div className="text-right ml-4">
-                          <p className="font-bold text-[#1a2a5e] text-sm md:text-base">${order.totalCost.toFixed(2)}</p>
+                          <p className="font-bold text-[#1a2a5e] text-sm md:text-base">{formatEUR(order.totalCost)}</p>
                           <p className="text-xs text-gray-500">
                             {new Date(order.createdAt).toLocaleDateString()}
                           </p>
@@ -641,7 +643,7 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                             <Badge variant={getInvoiceStatusVariant(invoice.status)} className="font-bold">
                               {invoice.status}
                             </Badge>
-                            <p className="font-bold text-[#1a2a5e] text-sm md:text-base">${invoice.total.toFixed(2)}</p>
+                            <p className="font-bold text-[#1a2a5e] text-sm md:text-base">{formatEUR(invoice.total)}</p>
                           </div>
                         </div>
                       ))}
@@ -677,7 +679,7 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                           <p className={`font-bold uppercase text-sm ${getPaymentStatusColor(payment.status)}`}>
                             {payment.status}
                           </p>
-                          <p className="font-bold text-[#1a2a5e] text-sm md:text-base">${payment.amount.toFixed(2)}</p>
+                          <p className="font-bold text-[#1a2a5e] text-sm md:text-base">{formatEUR(payment.amount)}</p>
                         </div>
                       </div>
                     ))}

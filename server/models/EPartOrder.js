@@ -288,13 +288,80 @@ const ePartOrderSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Bestellnummern (Format unveraendert EPO-NNNNNN) kommen aus dem atomaren
+// DocumentSequence-Zaehler {documentType:'epart_order', year:0}. Frueher:
+// countDocuments()+1 -> doppelte Nummern (E11000) bei parallelen Bestellungen.
+const EPART_ORDER_SEQUENCE_TYPE = 'epart_order';
+const EPART_ORDER_SEQUENCE_YEAR = 0;
+const EPART_ORDER_NUMBER_PATTERN = /^EPO-(\d+)$/;
+
+function formatEPartOrderNumber(sequence) {
+  return `EPO-${String(sequence).padStart(6, '0')}`;
+}
+
+// Hoechste bereits vergebene EPO-Nummer (fuer Seed/Selbstheilung des Zaehlers).
+async function findMaxExistingEPartOrderSequence(EPartOrderModel) {
+  const rows = await EPartOrderModel.find(
+    { orderNumber: { $regex: '^EPO-\\d+$' } },
+    { orderNumber: 1 }
+  ).lean();
+  return rows.reduce((max, row) => {
+    const match = EPART_ORDER_NUMBER_PATTERN.exec(String(row.orderNumber || ''));
+    const value = match ? Number(match[1]) : 0;
+    return Number.isFinite(value) && value > max ? value : max;
+  }, 0);
+}
+
+// Hebt den Zaehler (nie absenken) auf die hoechste vorhandene Nummer an. Idempotent.
+// Wird vor jeder Vergabe einmal pro Prozess ausgefuehrt, damit ein vergessener Seed
+// keine Kollision mit Altbestaenden erzeugt. Der Seed-Schritt in
+// scripts/seedDocumentSequences.js macht dasselbe explizit (Dry-Run per Default).
+let epartCounterAligned = null;
+async function alignEPartOrderCounter(EPartOrderModel) {
+  const DocumentSequence = require('./DocumentSequence');
+  const maxExisting = await findMaxExistingEPartOrderSequence(EPartOrderModel);
+  if (maxExisting > 0) {
+    try {
+      await DocumentSequence.findOneAndUpdate(
+        { documentType: EPART_ORDER_SEQUENCE_TYPE, year: EPART_ORDER_SEQUENCE_YEAR },
+        { $max: { sequence: maxExisting }, $set: { updatedAt: new Date() } },
+        { upsert: true, new: true }
+      );
+    } catch (error) {
+      if (error?.code !== 11000) throw error;
+      // Paralleler Upsert hat den Zaehler angelegt -> erneut anheben.
+      await DocumentSequence.updateOne(
+        { documentType: EPART_ORDER_SEQUENCE_TYPE, year: EPART_ORDER_SEQUENCE_YEAR },
+        { $max: { sequence: maxExisting } }
+      );
+    }
+  }
+  return maxExisting;
+}
+
+async function allocateEPartOrderNumber(EPartOrderModel) {
+  const DocumentSequence = require('./DocumentSequence');
+  if (!epartCounterAligned) {
+    epartCounterAligned = alignEPartOrderCounter(EPartOrderModel).catch((error) => {
+      epartCounterAligned = null;
+      throw error;
+    });
+  }
+  await epartCounterAligned;
+  const sequence = await DocumentSequence.allocate(EPART_ORDER_SEQUENCE_TYPE, EPART_ORDER_SEQUENCE_YEAR);
+  return formatEPartOrderNumber(sequence);
+}
+
 // Generate order number before saving
 ePartOrderSchema.pre('save', async function(next) {
-  if (this.isNew && !this.orderNumber) {
-    const count = await mongoose.model('EPartOrder').countDocuments();
-    this.orderNumber = `EPO-${String(count + 1).padStart(6, '0')}`;
+  try {
+    if (this.isNew && !this.orderNumber) {
+      this.orderNumber = await allocateEPartOrderNumber(mongoose.model('EPartOrder'));
+    }
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 });
 
 // Create indexes for faster queries
@@ -308,4 +375,11 @@ ePartOrderSchema.index({ orderDate: 1 });
 const Supplier = mongoose.model('Supplier', supplierSchema);
 const EPartOrder = mongoose.model('EPartOrder', ePartOrderSchema);
 
-module.exports = { Supplier, EPartOrder };
+module.exports = {
+  Supplier,
+  EPartOrder,
+  EPART_ORDER_SEQUENCE_TYPE,
+  EPART_ORDER_SEQUENCE_YEAR,
+  formatEPartOrderNumber,
+  findMaxExistingEPartOrderSequence,
+};

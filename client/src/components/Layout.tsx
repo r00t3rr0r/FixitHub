@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Outlet, useLocation } from "react-router-dom"
 import { Header } from "./Header"
 import { Footer } from "./Footer"
@@ -6,10 +6,20 @@ import { Sidebar } from "./Sidebar"
 import { useIsMobile } from "@/hooks/useMobile"
 
 export function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  // Schmale Viewports (Tablet, 200 % Zoom): die Seitenleiste liegt als Overlay ueber dem Inhalt und
+  // muss deshalb geschlossen starten und sich nach jeder Navigation schliessen - sonst verdeckt sie
+  // bei jedem Seitenaufruf Tabs und Schaltflaechen. Desktop (>= 768 px) bleibt unveraendert offen.
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 768)
   const isMobile = useIsMobile()
   const location = useLocation()
-  const hideFooter = location.pathname.startsWith('/admin') || location.pathname.startsWith('/staff')
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false)
+  }, [isMobile, location.pathname])
+  // ADMUX-8: Das Backoffice hat genau EINEN Scrollbereich (main). Der Marketing-Footer liegt
+  // unterhalb der vollen Viewport-Hoehe und erzeugte auf /inspection, /repair/workflow und
+  // /messages (Personal) einen zweiten Fenster-Scroll. Er bleibt nur auf der Kunden-Auftragsliste
+  // /orders, die ebenfalls diese Shell nutzt.
+  const hideFooter = !/^\/orders\/?$/.test(location.pathname)
   const isAdminAnalyticsPage = location.pathname.startsWith('/admin/analytics')
 
   const toggleSidebar = () => {
@@ -27,7 +37,9 @@ export function Layout() {
       }}
     >
       <Header onToggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
-      <div className="flex h-[calc(100vh-4rem)] pt-16">
+      {/* ADMUX-8: Die Header-Hoehe (4rem) wird nur EINMAL abgezogen (pt-16 bei border-box);
+          vorher h-[calc(100vh-4rem)] + pt-16 = 64px ungenutzte Flaeche unter main. */}
+      <div className="flex h-screen pt-16" style={{ height: '100dvh' }}>
         <Sidebar 
           isOpen={shouldShowSidebar}
           onRequestClose={() => setSidebarOpen(false)}

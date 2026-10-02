@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { TrendingUp, Target, Award, Clock, Users, DollarSign, Star, Calendar, RefreshCw } from 'lucide-react';
+import { TrendingUp, Target, Award, Clock, Users, Euro, Star, Calendar, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatEUR } from '@/lib/utils';
 
 interface PerformanceMetrics {
   ordersCompleted: number;
@@ -153,12 +154,8 @@ export function Performance() {
     return 'bg-blue-500';
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  // CUSTUX-12: EUR-Daten nie als USD anzeigen - gemeinsamer Formatter.
+  const formatCurrency = (amount: number) => formatEUR(amount);
 
   if (loading) {
     return (
@@ -284,7 +281,7 @@ export function Performance() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t('staffPerformance.revenueGenerated')}</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <Euro className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(performance.metrics.revenue)}</div>

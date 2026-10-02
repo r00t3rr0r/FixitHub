@@ -7,6 +7,18 @@ const { WorkSession } = require('../models/TimeEntry');
 const CustomerGroup = require('../models/CustomerGroup');
 const SystemConfigService = require('./systemConfigService');
 const FinancialService = require('./financialService');
+const PaymentService = require('./paymentService');
+
+// Lazy: OrderService laedt FinancialService/WorkflowService; ein Top-Level-Import ist
+// unnoetig, gebraucht wird nur die reine Preisfunktion buildOrderPricingSummary.
+const getOrderService = () => require('./orderService');
+
+// Steuermodi ohne deutsche Umsatzsteuer (CustomerGroup.financeProfile.taxMode).
+const TAX_EXEMPT_MODES = ['tax_free', 'reverse_charge'];
+// Belegstatus, die (noch) keine ausgestellte Rechnung sind.
+const NOT_ISSUED_INVOICE_STATUSES = ['draft', 'pending_approval'];
+// Hoechstzahl Buchungen je Auswertung. Frueher 500 - aeltere Buchungen fielen still weg.
+const MAX_REPORT_BOOKINGS = 2000;
 
 const DEFAULT_SETTINGS = {
   labor: {
@@ -332,6 +344,130 @@ function normalizeSettings(rawSettings) {
   return deepMerge(DEFAULT_SETTINGS, rawSettings || {});
 }
 
+// Wertebereiche der Einstellungen. Quoten sind BRUCHTEILE (0,02 = 2 %), die Oberflaeche
+// zeigt sie in Prozent. Ungueltige Eingaben werden mit einer deutschen 400 abgelehnt
+// statt still gespeichert (frueher landete "0,02" als 2 = 200 % in der Datenbank).
+const SETTINGS_RULES = [
+  ...['repairMaterialBaseRate', 'repairMaterialPerServiceRate', 'minimumRepairMaterialRate', 'maximumRepairMaterialRate', 'productMaterialRate', 'fallbackShopProductCostRate']
+    .map((key) => ({ path: ['materials', key], min: 0, max: 1, kind: 'rate' })),
+  { path: ['otherCosts', 'packagingRate'], min: 0, max: 1, kind: 'rate', label: 'Verpackungsquote' },
+  { path: ['otherCosts', 'paymentFeeRate'], min: 0, max: 1, kind: 'rate', label: 'Zahlungsgebührenquote' },
+  { path: ['otherCosts', 'warrantyReserveRate'], min: 0, max: 1, kind: 'rate', label: 'Gewährleistungsreserve' },
+  { path: ['otherCosts', 'flatShippingCostPerBooking'], min: 0, max: 500, kind: 'amount', label: 'Versandkostenpauschale pro Buchung' },
+  { path: ['otherCosts', 'paymentFeeFixedAmount'], min: 0, max: 100, kind: 'amount', label: 'Feste Zahlungsgebühr je Zahlung' },
+  { path: ['subcontracting', 'defaultRate'], min: 0, max: 1, kind: 'rate', label: 'Fremdleistungsquote' },
+  { path: ['labor', 'fallbackProgressWeight'], min: 0, max: 1, kind: 'rate', label: 'Fallback-Fortschrittsgewicht' },
+  { path: ['labor', 'minimumProgressFactor'], min: 0, max: 1, kind: 'rate', label: 'Minimaler Fortschrittsfaktor' },
+  { path: ['labor', 'defaultHourlyRate'], min: 0, max: 1000, kind: 'amount', label: 'Stundensatz' },
+  { path: ['labor', 'productHandlingMinutes'], min: 0, max: 600, kind: 'number', label: 'Produkt-Handling in Minuten' },
+  ...['monthlyRent', 'monthlyUtilities', 'monthlyAdminPayroll', 'monthlySoftware', 'monthlyInsurance', 'monthlyMarketing', 'monthlyOtherFixedCosts']
+    .map((key) => ({ path: ['overhead', key], min: 0, max: 10000000, kind: 'amount' })),
+  { path: ['overhead', 'targetMonthlyBillableHours'], min: 1, max: 100000, kind: 'number', label: 'Ziel verrechenbare Stunden pro Monat' },
+  { path: ['depreciation', 'monthlyEquipmentDepreciation'], min: 0, max: 10000000, kind: 'amount', label: 'Abschreibung pro Monat' },
+  { path: ['accounting', 'targetGrossMarginRate'], min: 0, max: 1, kind: 'rate', label: 'Ziel-Deckungsbeitrag' },
+  { path: ['accounting', 'defaultProjectionWorkdays'], min: 1, max: 31, kind: 'number', label: 'Prognose-Arbeitstage' },
+];
+
+function readPath(source, path) {
+  return path.reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), source);
+}
+
+function formatRuleValue(rule, value) {
+  if (rule.kind === 'rate') return `${String(Math.round(value * 10000) / 100).replace('.', ',')} %`;
+  return String(value).replace('.', ',');
+}
+
+/**
+ * Prueft NUR die mitgeschickten Werte (ein Teil-Update laesst den Rest unberuehrt).
+ * Wirft einen Fehler mit statusCode 400 und deutscher, feldgenauer Meldung.
+ */
+function validateSettingsUpdate(updates = {}) {
+  const problems = [];
+  for (const rule of SETTINGS_RULES) {
+    const raw = readPath(updates, rule.path);
+    if (raw === undefined) continue;
+    const label = rule.label || rule.path.join('.');
+    const value = typeof raw === 'string' ? Number(raw.replace(',', '.')) : Number(raw);
+    if (raw === null || raw === '' || !Number.isFinite(value)) {
+      problems.push(`${label}: bitte eine Zahl eingeben.`);
+      continue;
+    }
+    if (value < rule.min || value > rule.max) {
+      problems.push(`${label}: erlaubt ist ${formatRuleValue(rule, rule.min)} bis ${formatRuleValue(rule, rule.max)} (eingegeben: ${formatRuleValue(rule, value)}).`);
+    }
+  }
+  if (problems.length > 0) {
+    const error = new Error(`Einstellungen nicht gespeichert. ${problems.join(' ')}`);
+    error.statusCode = 400;
+    error.code = 'PROFITABILITY_SETTINGS_INVALID';
+    error.problems = problems;
+    throw error;
+  }
+  // Gepruefte Texteingaben ("0,02") als Zahl uebernehmen - sonst machte toNumber() im
+  // Sanitizer aus dem deutschen Dezimalkomma still eine 0.
+  for (const rule of SETTINGS_RULES) {
+    const raw = readPath(updates, rule.path);
+    if (typeof raw !== 'string') continue;
+    const parent = readPath(updates, rule.path.slice(0, -1));
+    if (parent && typeof parent === 'object') parent[rule.path[rule.path.length - 1]] = Number(raw.replace(',', '.'));
+  }
+}
+
+// Brutto -> Netto mit Steuersatz in PROZENT (19), brutto-first wie ueberall.
+function netFromGross(grossAmount, taxRatePercent) {
+  const gross = toNumber(grossAmount);
+  const rate = Number(taxRatePercent);
+  const divisor = 1 + (Number.isFinite(rate) && rate > 0 ? rate : 0) / 100;
+  return roundCurrency(gross / divisor);
+}
+
+function isIssuedInvoiceDocument(invoice) {
+  if (!invoice) return false;
+  if (NOT_ISSUED_INVOICE_STATUSES.includes(String(invoice.status || ''))) return false;
+  if (invoice?.cancellation?.kind === 'draft_discarded') return false;
+  return true;
+}
+
+function isLegacyCancellationWithoutOffset(invoice, offsetInvoiceIds) {
+  if (!invoice || invoice.isCreditNote) return false;
+  if (String(invoice.status || '') !== 'cancelled') return false;
+  if (invoice?.cancellation?.kind === 'storno') return false;
+  if (!(offsetInvoiceIds instanceof Set)) return false;
+  return !offsetInvoiceIds.has(String(invoice._id));
+}
+
+// Ids stornierter Altrechnungen, auf die eine Gutschrift (creditNoteOf) verweist -
+// unabhaengig vom Zeitraum der Gutschrift.
+async function loadOffsetInvoiceIds(invoices = []) {
+  const candidates = safeArray(invoices)
+    .filter((invoice) => invoice && !invoice.isCreditNote && String(invoice.status || '') === 'cancelled'
+      && invoice?.cancellation?.kind !== 'storno')
+    .map((invoice) => invoice._id);
+  if (candidates.length === 0) return new Set();
+  const referenced = await Invoice.distinct('creditNoteOf', { isCreditNote: true, creditNoteOf: { $in: candidates } });
+  return new Set(referenced.map((id) => String(id)));
+}
+
+/**
+ * Fakturierter Betrag eines Belegs (Vorzeichen: Rechnung +, wertmindernde Gutschrift -).
+ * Erstattungsgutschriften (partial_refund) mindern die Forderung nicht und zaehlen nicht.
+ * @returns {{gross:number, net:number} | null}
+ */
+function invoicedContribution(invoice, { offsetInvoiceIds = null } = {}) {
+  if (!isIssuedInvoiceDocument(invoice)) return null;
+  // Alt-Storno ohne Gutschrift (status 'cancelled', kein cancellation.kind 'storno',
+  // keine Gutschrift mit creditNoteOf): es gibt keinen Gegenbeleg, also zaehlt die
+  // Rechnung nicht als fakturiert (sonst bliebe "Fakturiert" dauerhaft zu hoch).
+  if (isLegacyCancellationWithoutOffset(invoice, offsetInvoiceIds)) return null;
+  const gross = Math.abs(toNumber(invoice.total));
+  const net = Math.abs(toNumber(invoice.subtotal));
+  if (invoice.isCreditNote) {
+    if (PaymentService.REFUND_CORRECTION_TYPES.includes(String(invoice.correctionType || ''))) return null;
+    return { gross: -gross, net: -net };
+  }
+  return { gross, net };
+}
+
 function sanitizeSettings(rawSettings) {
   const normalized = normalizeSettings(rawSettings);
 
@@ -342,7 +478,7 @@ function sanitizeSettings(rawSettings) {
   );
   normalized.otherCosts.paymentFeeFixedAmount = clamp(
     toNumber(normalized.otherCosts.paymentFeeFixedAmount),
-    -100,
+    0,
     100
   );
   normalized.accounting.vatRate = clamp(toNumber(normalized.accounting.vatRate), 0, 1);
@@ -486,30 +622,24 @@ function hasMatchingKeyword(texts, regexList) {
   return texts.some((text) => regexList.some((regex) => regex.test(String(text || ''))));
 }
 
-function getBookingNetRevenue(booking, vatRate = 0.19) {
-  const grossRevenue = toNumber(booking.totalCost);
-  const tax = toNumber(booking.tax);
-  const subtotal = toNumber(booking.subtotal);
-  const discount = toNumber(booking.discount);
-
-  if (subtotal > 0) {
-    return roundCurrency(subtotal - discount);
+// FIN-1: Der fruehere getBookingNetRevenue las Booking.subtotal als Netto - es ist
+// aber das BRUTTO vor Rabatt (Warenkorb-Snapshot). "Netto" war damit das Brutto und
+// eine fehlende Steuer (tax 0 ohne Checkout-Snapshot) galt als echte Null.
+// Jetzt: Auftragswert je Auftrag aus DERSELBEN Preisfunktion wie die Auftragsdetailseite
+// (OrderService.buildOrderPricingSummary -> grossTotal) und Netto daraus mit dem
+// Steuersatz der Finanzeinstellungen (0 bei steuerfreiem / Reverse-Charge-Profil).
+function getOrderValue(order, { taxRatePercent, taxExempt }) {
+  const status = String(order?.status || '');
+  if (PaymentService.NON_RECEIVABLE_ORDER_STATUSES.includes(status)) {
+    return { gross: 0, net: 0, cancelled: true };
   }
-
-  if (tax > 0 || grossRevenue >= 0) {
-    const taxDerivedNet = grossRevenue - tax;
-    if (Number.isFinite(taxDerivedNet) && taxDerivedNet !== 0) {
-      return roundCurrency(taxDerivedNet);
-    }
-  }
-
-  return deriveNetFromGross(grossRevenue, vatRate);
-}
-
-function getOrderRevenueShare(order, bookingItem, totalOrderGross) {
-  const gross = toNumber(order?.totalCost) || toNumber(bookingItem?.cost);
-  if (totalOrderGross <= 0) return 0;
-  return gross / totalOrderGross;
+  const pricing = getOrderService().buildOrderPricingSummary(order);
+  const gross = roundCurrency(toNumber(pricing.grossTotal));
+  return {
+    gross,
+    net: taxExempt ? gross : netFromGross(gross, taxRatePercent),
+    cancelled: false,
+  };
 }
 
 function resolvePartUnitCost(partDocument, versionId) {
@@ -737,16 +867,36 @@ function describeGatewayFeeUsage({ bookingPayments, bookingPaymentMethod, gatewa
 class ProfitabilityService {
   static async getSettings() {
     const config = await SystemConfigService.getSystemConfiguration();
-    return sanitizeSettings(config?.profitabilitySettings?.toObject ? config.profitabilitySettings.toObject() : config?.profitabilitySettings);
+    const settings = sanitizeSettings(config?.profitabilitySettings?.toObject ? config.profitabilitySettings.toObject() : config?.profitabilitySettings);
+    // EINE Umsatzsteuer-Einstellung: der Steuersatz der Finanzeinstellungen. Die frueher
+    // eigene "accounting.vatRate" wurde nie gespeichert (fehlte im Schema) und wird nur
+    // noch zur Anzeige daraus abgeleitet.
+    const taxRate = Number(config?.financialSettings?.defaults?.taxRate);
+    settings.accounting.vatRate = Number.isFinite(taxRate) && taxRate >= 0 ? roundCurrency(taxRate / 100 * 10000) / 10000 : 0.19;
+    return settings;
   }
 
+  /**
+   * Speichert NUR den Abschnitt profitabilitySettings (kein Schreiben des ganzen
+   * Konfigurationsdokuments) und liefert die frisch GELESENEN Werte zurueck - frueher
+   * kamen die Werte aus dem Speicher zurueck, auch wenn das Schema sie verwarf.
+   */
   static async updateSettings(updates) {
-    const currentConfig = await SystemConfigService.getSystemConfiguration();
-    const currentSettings = sanitizeSettings(currentConfig?.profitabilitySettings?.toObject ? currentConfig.profitabilitySettings.toObject() : currentConfig?.profitabilitySettings);
-    const nextSettings = sanitizeSettings(deepMerge(currentSettings, updates || {}));
+    const cleanUpdates = isObject(updates) ? JSON.parse(JSON.stringify(updates)) : {};
+    if (isObject(cleanUpdates.accounting)) delete cleanUpdates.accounting.vatRate;
+    validateSettingsUpdate(cleanUpdates);
 
-    await SystemConfigService.updateSystemConfiguration({ profitabilitySettings: nextSettings });
-    return nextSettings;
+    const config = await SystemConfigService.getSystemConfiguration();
+    const currentSettings = sanitizeSettings(config?.profitabilitySettings?.toObject ? config.profitabilitySettings.toObject() : config?.profitabilitySettings);
+    const nextSettings = sanitizeSettings(deepMerge(currentSettings, cleanUpdates));
+    delete nextSettings.accounting.vatRate;
+
+    config.set('profitabilitySettings', nextSettings);
+    config.markModified('profitabilitySettings');
+    // Nur den geaenderten Abschnitt validieren: ein ungueltiger, unberuehrter Altbestand in einem
+    // anderen Abschnitt (z. B. eine Integration ohne apiKey) darf das Speichern nicht blockieren.
+    await config.save({ validateModifiedOnly: true });
+    return this.getSettings();
   }
 
   static async getProfitabilityReport({ limit = 200, startDate = null, endDate = null, projectedWorkdays = null } = {}) {
@@ -773,11 +923,18 @@ class ProfitabilityService {
       if (parsedEndDate) bookingFilter.createdAt.$lte = parsedEndDate;
     }
 
-    const bookings = await Booking.find(bookingFilter)
-      .sort({ createdAt: -1 })
-      .limit(Math.max(1, Math.min(500, toNumber(limit) || 200)))
-      .populate('customerId', 'firstName lastName name email paymentTerms discount paymentMethod primaryCustomerGroupId customerGroup')
-      .lean();
+    const effectiveLimit = Math.max(1, Math.min(MAX_REPORT_BOOKINGS, toNumber(limit) || 200));
+    const [bookings, matchingBookingCount] = await Promise.all([
+      Booking.find(bookingFilter)
+        .sort({ createdAt: -1 })
+        .limit(effectiveLimit)
+        .populate('customerId', 'firstName lastName name email paymentTerms discount paymentMethod primaryCustomerGroupId customerGroup')
+        .lean(),
+      Booking.countDocuments(bookingFilter),
+    ]);
+    const financialTaxRatePercent = Number.isFinite(Number(financialSettings?.defaults?.taxRate))
+      ? Number(financialSettings.defaults.taxRate)
+      : 19;
 
     const groupIds = Array.from(
       new Set(
@@ -827,10 +984,11 @@ class ProfitabilityService {
             { bookingId: { $in: bookings.map((booking) => booking._id).filter(Boolean) } },
           ],
         })
-          .select('_id orderId repairOrderIds bookingId invoiceNumber subtotal tax discount total createdAt updatedAt')
+          .select('_id orderId repairOrderIds bookingId invoiceNumber subtotal tax discount total createdAt updatedAt isCreditNote status correctionType cancellation.kind')
           .lean()
       : [];
 
+    const offsetInvoiceIds = await loadOffsetInvoiceIds(invoices);
     const relatedInvoiceIds = invoices.map((invoice) => String(invoice._id));
     const invoiceToOrderIds = new Map();
     const invoicesByBookingId = new Map();
@@ -907,6 +1065,14 @@ class ProfitabilityService {
         trackedMinutesByOrderId.set(orderId, toNumber(trackedMinutesByOrderId.get(orderId)) + toNumber(workedOrder?.duration));
       }
     }
+    // Zahlungseingang je Buchung aus DERSELBEN Berechnung wie Buchungsliste und
+    // Zahlungsuebersicht (PaymentService): jede Zahlung genau einmal, abgeschlossene
+    // Zahlungen abzueglich Erstattungen - eine auf zwei Rechnungen verteilte Zahlung
+    // zaehlt nicht doppelt.
+    const bookingBalances = bookings.length > 0
+      ? await PaymentService.computeBookingBalancesCore(bookings.map((booking) => booking._id))
+      : new Map();
+
   const resolvedFinancialProfileByCustomerId = new Map();
 
   const rows = await Promise.all(bookings.map(async (booking) => {
@@ -928,8 +1094,6 @@ class ProfitabilityService {
         .map((orderId) => orderMap.get(orderId))
         .filter(Boolean);
 
-      const totalOrderGross = bookingOrders.reduce((sum, order) => sum + toNumber(order?.totalCost), 0) || safeArray(booking.items).reduce((sum, item) => sum + toNumber(item?.cost), 0);
-      const bookingNetRevenue = getBookingNetRevenue(booking);
       const paymentLabel = paymentLabelFromBooking(booking);
       const bookingOrderIdSet = new Set(bookingOrderIds);
       const customer = booking?.customerId || null;
@@ -954,6 +1118,27 @@ class ProfitabilityService {
       const bookingFinancialPaymentTerms = resolvedFinancialProfile?.paymentTerms || financialSettings.defaults.paymentTerms;
       const bookingFinancialDiscountPercent = resolvedFinancialProfile?.defaultDiscountPercent ?? financialSettings.defaults.defaultDiscount;
       const bookingFinancialCreditLimit = resolvedFinancialProfile?.creditLimit ?? 0;
+      const bookingTaxExempt = TAX_EXEMPT_MODES.includes(String(bookingFinancialTaxMode));
+
+      // Auftragswert je Auftrag (brutto/netto) - stornierte Auftraege tragen keinen Wert.
+      const orderValueById = new Map(
+        bookingOrders.map((order) => [
+          String(order._id),
+          getOrderValue(order, { taxRatePercent: financialTaxRatePercent, taxExempt: bookingTaxExempt }),
+        ])
+      );
+      let bookingOrderValueGross = roundCurrency(
+        Array.from(orderValueById.values()).reduce((sum, value) => sum + value.gross, 0)
+      );
+      let bookingOrderValueNet = roundCurrency(
+        Array.from(orderValueById.values()).reduce((sum, value) => sum + value.net, 0)
+      );
+      // Altbestand ohne ladbare Auftraege: Buchungssumme als Brutto, Netto daraus.
+      if (bookingOrders.length === 0) {
+        bookingOrderValueGross = String(booking.status || '') === 'cancelled' ? 0 : roundCurrency(toNumber(booking.totalCost));
+        bookingOrderValueNet = bookingTaxExempt ? bookingOrderValueGross : netFromGross(bookingOrderValueGross, financialTaxRatePercent);
+      }
+      const totalOrderGross = bookingOrderValueGross;
 
       const bookingPayments = [];
       const seenTransactions = new Set();
@@ -1007,27 +1192,51 @@ class ProfitabilityService {
       const hasGatewayTransactions = bookingPayments.length > 0;
       const operatingCostWeights = settings.formula?.operatingCostWeights || {};
       const targetGrossMarginRate = toNumber(settings.accounting?.targetGrossMarginRate);
-      const vatRate = toNumber(settings.accounting?.vatRate);
-      const bookingGrossRevenue = roundCurrency(toNumber(booking.totalCost));
-
       const bookingId = toObjectIdString(booking?._id);
-      const bookingInvoices = bookingId
-        ? safeArray(invoicesByBookingId.get(bookingId))
-        : bookingOrderIds.flatMap((orderId) => safeArray(invoicesByOrderId.get(orderId)));
-      const primaryInvoice = bookingInvoices
-        .slice()
-        .sort((a, b) => {
-          const aTime = parseDate(a?.createdAt || a?.updatedAt)?.getTime() || 0;
-          const bTime = parseDate(b?.createdAt || b?.updatedAt)?.getTime() || 0;
-          return bTime - aTime;
-        })[0] || null;
+      // Belege der Buchung: ueber bookingId UND ueber ihre Auftraege (Altbestand ohne
+      // bookingId), jeder Beleg genau einmal.
+      const bookingInvoiceMap = new Map();
+      [
+        ...(bookingId ? safeArray(invoicesByBookingId.get(bookingId)) : []),
+        ...bookingOrderIds.flatMap((orderId) => safeArray(invoicesByOrderId.get(orderId))),
+      ].forEach((invoice) => bookingInvoiceMap.set(String(invoice._id), invoice));
+      const bookingInvoices = Array.from(bookingInvoiceMap.values());
+      const newestFirst = (a, b) => {
+        const aTime = parseDate(a?.createdAt || a?.updatedAt)?.getTime() || 0;
+        const bTime = parseDate(b?.createdAt || b?.updatedAt)?.getTime() || 0;
+        return bTime - aTime;
+      };
+      // "Rechnung Nr./Datum" nur aus einer echten, ausgestellten Rechnung - nie aus einer
+      // Gutschrift (INV-CN-...) oder einem Entwurf, und ohne Rechnung kein Ersatzdatum.
+      const activeInvoices = bookingInvoices.filter(
+        (invoice) => !invoice.isCreditNote && isIssuedInvoiceDocument(invoice)
+          && !['cancelled', 'credited'].includes(String(invoice.status || ''))
+      );
+      const primaryInvoice = activeInvoices.slice().sort(newestFirst)[0] || null;
+      const sumInvoiced = (list) => list.reduce((acc, invoice) => {
+        const contribution = invoicedContribution(invoice, { offsetInvoiceIds });
+        if (!contribution) return acc;
+        return { gross: acc.gross + contribution.gross, net: acc.net + contribution.net };
+      }, { gross: 0, net: 0 });
+      const bookingInvoiced = sumInvoiced(bookingInvoices);
+      const bookingInvoicedGross = roundCurrency(bookingInvoiced.gross);
+      const bookingInvoicedNet = roundCurrency(bookingInvoiced.net);
+      const bookingCollectedGross = roundCurrency(toNumber(bookingBalances.get(bookingId)?.received));
 
       const orderRows = bookingOrders.map((order, index) => {
         const bookingItem = bookingItemsByOrderId.get(String(order._id));
-        const share = getOrderRevenueShare(order, bookingItem, totalOrderGross) || (bookingOrders.length > 0 ? 1 / bookingOrders.length : 1);
-        const grossAmount = roundCurrency(bookingGrossRevenue * share);
-        const netAmount = roundCurrency(bookingNetRevenue * share);
+        const orderValue = orderValueById.get(String(order._id)) || { gross: 0, net: 0, cancelled: false };
+        const share = totalOrderGross > 0
+          ? orderValue.gross / totalOrderGross
+          : (bookingOrders.length > 0 ? 1 / bookingOrders.length : 1);
+        const grossAmount = orderValue.gross;
+        const netAmount = orderValue.net;
         const netRevenue = netAmount;
+        const orderInvoicesList = safeArray(invoicesByOrderId.get(String(order._id)));
+        const orderPrimaryInvoice = orderInvoicesList
+          .filter((invoice) => !invoice.isCreditNote && isIssuedInvoiceDocument(invoice)
+            && !['cancelled', 'credited'].includes(String(invoice.status || '')))
+          .sort(newestFirst)[0] || null;
         const plannedHours = getPlannedHours(order, settings);
         const trackedHours = getTrackedHours(order._id, trackedMinutesByOrderId);
         const fallbackHours = getFallbackActualHours(order, plannedHours, settings);
@@ -1113,10 +1322,15 @@ class ProfitabilityService {
           orderId: String(order._id),
           orderNumber: String(order.orderNumber || `${bookingNumber}-${index + 1}`),
           internalOrderNumber: String(order.orderNumber || `${bookingNumber}-${index + 1}`),
-          externalOrderNumber: String(primaryInvoice?.invoiceNumber || bookingNumber),
+          externalOrderNumber: String((orderPrimaryInvoice || primaryInvoice)?.invoiceNumber || bookingNumber),
           orderDate: order?.createdAt || booking?.createdAt || booking?.updatedAt,
-          invoiceDate: primaryInvoice?.createdAt || booking?.createdAt || booking?.updatedAt,
-          invoiceNumber: String(primaryInvoice?.invoiceNumber || '-'),
+          // Ohne Rechnung kein Rechnungsdatum (frueher: Buchungsdatum als Ersatz).
+          invoiceDate: (orderPrimaryInvoice || primaryInvoice)?.createdAt || null,
+          invoiceNumber: String((orderPrimaryInvoice || primaryInvoice)?.invoiceNumber || '-'),
+          orderValueGross: grossAmount,
+          orderValueNet: netAmount,
+          isCancelled: orderValue.cancelled,
+          isEstimate: true,
           serviceType: determineOrderType(order, bookingItem),
           status: String(order.status || booking.status || 'pending'),
           progress: toNumber(order.progress),
@@ -1202,7 +1416,7 @@ class ProfitabilityService {
         id: String(booking._id || bookingNumber),
         bookingNumber,
         bookingDate: booking.createdAt || booking.updatedAt,
-        invoiceDate: primaryInvoice?.createdAt || booking.createdAt || booking.updatedAt,
+        invoiceDate: primaryInvoice?.createdAt || null,
         invoiceNumber: String(primaryInvoice?.invoiceNumber || '-'),
         orderDate: primaryOrderDate,
         externalOrderNumber: String(primaryInvoice?.invoiceNumber || bookingNumber),
@@ -1227,9 +1441,21 @@ class ProfitabilityService {
         status: String(booking.status || 'pending'),
         description: itemSummary,
         technician: orderRows.map((order) => order.technician).filter(Boolean).join(', '),
-        grossAmount: bookingContribution.grossAmount,
-        netAmount: bookingContribution.netAmount || deriveNetFromGross(booking.totalCost, vatRate),
-        netRevenue: totals.netRevenue,
+        grossAmount: bookingOrders.length > 0 ? bookingContribution.grossAmount : bookingOrderValueGross,
+        netAmount: bookingOrders.length > 0 ? bookingContribution.netAmount : bookingOrderValueNet,
+        netRevenue: bookingOrders.length > 0 ? totals.netRevenue : bookingOrderValueNet,
+        // Drei getrennte Kennzahlen (Controlling-Definition, siehe calculationMeta.figures):
+        orderValueGross: bookingOrderValueGross,
+        orderValueNet: bookingOrderValueNet,
+        invoicedGross: bookingInvoicedGross,
+        invoicedNet: bookingInvoicedNet,
+        collectedGross: bookingCollectedGross,
+        hasInvoice: Boolean(primaryInvoice),
+        taxExempt: bookingTaxExempt,
+        // Kosten und Deckungsbeitrag sind kalkuliert (Pauschalen/Fallbacks), keine Buchhaltungszahl.
+        isEstimate: true,
+        // Stornierte Buchungen bleiben sichtbar, zaehlen aber in keiner Summe.
+        excludedFromTotals: String(booking.status || '') === 'cancelled',
         directCosts: totals.directCosts,
         materialCost: totals.materialCost,
         subcontractCost: totals.subcontractCost,
@@ -1270,18 +1496,31 @@ class ProfitabilityService {
       ? Math.max(1, Math.round(toNumber(projectedWorkdays)))
       : Math.max(1, Math.round(toNumber(settings.accounting?.defaultProjectionWorkdays) || 22));
 
+    // Stornierte Buchungen bleiben in rows (sichtbar, markiert), zaehlen aber nicht mit.
+    const countedRows = rows.filter((row) => !row.excludedFromTotals);
+    const periodFigures = await ProfitabilityService.computePeriodFigures({
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      rows: countedRows,
+    });
+
     return {
       rows,
-      summary: summarizeBookings(rows),
-      periodSummary: summarizeDeckungsbeitragRows(rows, targetProjectionDays),
-      dailySummary: buildGroupedPeriodSummaries(rows, 'day', targetProjectionDays),
-      monthlySummary: buildGroupedPeriodSummaries(rows, 'month', targetProjectionDays),
+      summary: { ...summarizeBookings(countedRows), excludedBookings: rows.length - countedRows.length },
+      periodFigures,
+      periodSummary: summarizeDeckungsbeitragRows(countedRows, targetProjectionDays),
+      dailySummary: buildGroupedPeriodSummaries(countedRows, 'day', targetProjectionDays),
+      monthlySummary: buildGroupedPeriodSummaries(countedRows, 'month', targetProjectionDays),
       settings,
       settingsMeta,
+      truncated: matchingBookingCount > bookings.length,
+      matchingBookingCount,
       calculationMeta: {
-        vatRate: toNumber(settings.accounting?.vatRate),
+        vatRate: roundCurrency(financialTaxRatePercent / 100 * 10000) / 10000,
+        vatRateSource: 'financialSettings.defaults.taxRate',
         targetGrossMarginRate: toNumber(settings.accounting?.targetGrossMarginRate),
         projectionWorkdays: targetProjectionDays,
+        figures: PERIOD_FIGURE_DEFINITIONS,
         configurableFormulas: {
           paymentFeeModel: 'payment_fee = amount * rate + fixedAmount',
           dynamicAdditionalCosts: 'additionalCost can be customized via settings.formula and booking/order type rules',
@@ -1289,6 +1528,101 @@ class ProfitabilityService {
       },
     };
   }
+
+  /**
+   * Die drei getrennten Controlling-Kennzahlen eines Zeitraums (FIN-7):
+   *  - Auftragswert: aus den Buchungszeilen (Buchungsdatum im Zeitraum, ohne stornierte
+   *    Buchungen und stornierte Auftraege).
+   *  - Fakturiert: ausgestellte Rechnungen mit Rechnungsdatum im Zeitraum, abzueglich
+   *    wertmindernder Gutschriften mit GUTSCHRIFTSDATUM im Zeitraum (Gutschrift zaehlt im
+   *    Zeitraum ihrer Ausstellung, nicht im Zeitraum der Ursprungsrechnung).
+   *  - Zahlungseingang: abgeschlossene Zahlungen (Zahlungsdatum, sonst Anlagedatum) im
+   *    Zeitraum, abzueglich erstatteter Betraege - jede Zahlung genau einmal.
+   */
+  static async computePeriodFigures({ startDate = null, endDate = null, rows = [] } = {}) {
+    const range = {};
+    if (startDate) range.$gte = startDate;
+    if (endDate) range.$lte = endDate;
+    const hasRange = Object.keys(range).length > 0;
+
+    const invoices = await Invoice.find({
+      status: { $nin: NOT_ISSUED_INVOICE_STATUSES },
+      ...(hasRange ? { createdAt: range } : {}),
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id total subtotal isCreditNote status correctionType cancellation.kind')
+      .lean();
+    const periodOffsetInvoiceIds = await loadOffsetInvoiceIds(invoices);
+    let invoicedGross = 0;
+    let invoicedNet = 0;
+    let creditNotesGross = 0;
+    let invoiceCount = 0;
+    let creditNoteCount = 0;
+    for (const invoice of invoices) {
+      const contribution = invoicedContribution(invoice, { offsetInvoiceIds: periodOffsetInvoiceIds });
+      if (!contribution) continue;
+      invoicedGross += contribution.gross;
+      invoicedNet += contribution.net;
+      if (invoice.isCreditNote) {
+        creditNotesGross += contribution.gross;
+        creditNoteCount += 1;
+      } else {
+        invoiceCount += 1;
+      }
+    }
+
+    const paymentFilter = { status: { $in: PaymentService.COUNTABLE_PAYMENT_STATUSES } };
+    if (hasRange) {
+      paymentFilter.$or = [
+        { paymentDate: range },
+        { paymentDate: { $in: [null] }, createdAt: range },
+      ];
+    }
+    const payments = await Payment.find(paymentFilter)
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id amount refundAmount status')
+      .lean();
+    const collectedGross = payments.reduce((sum, payment) => sum + PaymentService.effectivePaymentAmount(payment), 0);
+
+    const orderValueGross = rows.reduce((sum, row) => sum + toNumber(row.orderValueGross), 0);
+    const orderValueNet = rows.reduce((sum, row) => sum + toNumber(row.orderValueNet), 0);
+
+    // Marge auf fakturiertem Netto: nur Buchungen MIT Rechnung, damit Zaehler und
+    // Nenner dieselben Buchungen betreffen. Kosten sind kalkuliert (Schaetzung).
+    const invoicedRows = rows.filter((row) => toNumber(row.invoicedNet) !== 0);
+    const invoicedRowsNet = invoicedRows.reduce((sum, row) => sum + toNumber(row.invoicedNet), 0);
+    const invoicedRowsCosts = invoicedRows.reduce((sum, row) => sum + toNumber(row.totalCosts), 0);
+    const invoicedContributionMargin = invoicedRowsNet - invoicedRowsCosts;
+
+    return {
+      range: {
+        startDate: startDate ? startDate.toISOString() : null,
+        endDate: endDate ? endDate.toISOString() : null,
+      },
+      orderValueGross: roundCurrency(orderValueGross),
+      orderValueNet: roundCurrency(orderValueNet),
+      invoicedGross: roundCurrency(invoicedGross),
+      invoicedNet: roundCurrency(invoicedNet),
+      creditNotesGross: roundCurrency(creditNotesGross),
+      invoiceCount,
+      creditNoteCount,
+      collectedGross: roundCurrency(collectedGross),
+      paymentCount: payments.length,
+      estimatedContributionMargin: roundCurrency(rows.reduce((sum, row) => sum + toNumber(row.contributionMargin), 0)),
+      invoicedContributionMargin: roundCurrency(invoicedContributionMargin),
+      marginPercentOnInvoiced: invoicedRowsNet !== 0
+        ? roundCurrency((invoicedContributionMargin / invoicedRowsNet) * 100)
+        : null,
+      invoicedBookingCount: invoicedRows.length,
+    };
+  }
 }
+
+const PERIOD_FIGURE_DEFINITIONS = {
+  orderValueNet: 'Auftragswert (netto): Summe der Auftragswerte (brutto aus der Auftragsdetail-Preisberechnung, netto mit dem Steuersatz der Finanzeinstellungen; steuerfreie/Reverse-Charge-Kunden netto = brutto) aller Buchungen mit Buchungsdatum im Zeitraum. Stornierte Buchungen und stornierte Aufträge zählen nicht.',
+  invoicedNet: 'Fakturiert (netto): Nettobeträge ausgestellter Rechnungen mit Rechnungsdatum im Zeitraum abzüglich wertmindernder Gutschriften mit Gutschriftsdatum im Zeitraum. Entwürfe und Erstattungsgutschriften zählen nicht.',
+  collectedGross: 'Zahlungseingang (brutto): abgeschlossene Zahlungen mit Zahlungsdatum im Zeitraum abzüglich erstatteter Beträge; jede Zahlung genau einmal, auch wenn sie auf mehrere Rechnungen verteilt ist.',
+  marginPercentOnInvoiced: 'Marge (Schätzung) auf fakturiertem Netto: (fakturiertes Netto − kalkulierte Kosten) ÷ fakturiertes Netto, nur Buchungen mit Rechnung. Kosten sind kalkuliert (Pauschalen/Fallbacks) – keine Buchhaltungszahl.',
+};
 
 module.exports = ProfitabilityService;

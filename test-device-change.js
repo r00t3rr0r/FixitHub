@@ -114,7 +114,7 @@ async function runTests() {
         if (
           Number(updatedOrder.totalCost) === Number(summary.totalCostAfter) &&
           historyEntry &&
-          historyEntry.description.includes(summary.totalCostAfter.toFixed(2) + ' EUR') &&
+          historyEntry.description.includes(require('./server/utils/money').formatEuroDe(summary.totalCostAfter)) &&
           paymentAdjustment &&
           typeof paymentAdjustment.refundAmount === 'number' &&
           typeof paymentAdjustment.additionalPaymentAmount === 'number'

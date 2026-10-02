@@ -26,6 +26,8 @@ class EmailService {
     device_received: 'Geraet eingegangen',
     quote_approval_requested: 'Kostenvoranschlag zur Freigabe',
     diagnosis_completed: 'Diagnose abgeschlossen',
+    // Eingangspruefung nach Geraeteeingang (nicht die kostenpflichtige Diagnose).
+    inspection_completed: 'Eingangspruefung abgeschlossen',
     order_completed: 'Reparatur abgeschlossen und Rueckversand',
     payment_confirmed: 'Zahlung bestaetigt',
     booking_created: 'Buchung angelegt',
@@ -58,7 +60,9 @@ class EmailService {
 
   // Backward compatibility for existing installations that still use older template names.
   static TRIGGER_TEMPLATE_FALLBACKS = {
-    repair_request_created: ['Repair Request eingegangen']
+    repair_request_created: ['Repair Request eingegangen'],
+    // Installationen ohne (oder mit deaktivierter) neuer Vorlage nutzen die bisherige.
+    inspection_completed: ['Diagnose abgeschlossen']
   };
 
   static logger = new Logger('EmailService', { 
@@ -76,6 +80,87 @@ class EmailService {
   });
   
   static deliveryTracker = new EmailDeliveryTracker();
+
+  /**
+   * Wiederholung NUR fuer Fehler in der Verbindungsphase (Server nicht erreichbar). Ein Timeout
+   * nach DATA kann bedeuten, dass der Mailserver die Nachricht bereits angenommen hat - eine
+   * Wiederholung wuerde eine zweite E-Mail erzeugen (NOTIF-15).
+   */
+  static isRetryableSendError(error) {
+    if (!error) return false;
+    // Nur Fehler, die sicher VOR der Uebergabe der Nachricht liegen. nodemailer meldet JEDEN
+    // Socket-Fehler mit command 'CONN' - auch einen Leerlauf-Timeout ('Timeout') oder einen
+    // Verbindungsabbruch NACH DATA, wenn der Server die Mail womoeglich schon angenommen hat.
+    // Ein erneuter Versand koennte dann eine zweite Mail beim Kunden erzeugen (NOTIF-15).
+    const connectionCodes = ['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN'];
+    const command = String(error.command || '').toUpperCase();
+    if (command && command !== 'CONN') {
+      return false;
+    }
+    if (error.code && connectionCodes.includes(error.code)) {
+      return true;
+    }
+    // nodemailer ersetzt den Socket-Code durch Sammelcodes; die Phase erkennt man an syscall/Meldung.
+    if (error.code === 'EDNS') {
+      return true;
+    }
+    if (error.code === 'ESOCKET' && ['connect', 'getaddrinfo'].includes(String(error.syscall || ''))) {
+      return true;
+    }
+    if (error.code === 'ETIMEDOUT' && /^(Connection timeout|Greeting never received)/.test(String(error.message || ''))) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Versand mit Wiederholung. Nach einem NICHT wiederholbaren Fehler (z. B. Timeout nach DATA,
+   * Anmeldung abgelehnt) wird sendMail kein weiteres Mal aufgerufen - der Wiederholungs-Helfer
+   * durchlaeuft seine Schleife sonst auch bei nicht wiederholbaren Fehlern weiter.
+   */
+  static async sendWithRetry(operation, operationName, emailInfo) {
+    let fatalError = null;
+    // Echte SMTP-Versuche zaehlen: der Helfer meldet sonst maxRetries, obwohl nach einem nicht
+    // wiederholbaren Fehler nur EIN Versuch stattfand (irrefuehrend im E-Mail-Protokoll).
+    let realAttempts = 0;
+    const guarded = async () => {
+      if (fatalError) {
+        throw fatalError;
+      }
+      realAttempts += 1;
+      try {
+        return await operation();
+      } catch (error) {
+        if (!this.isRetryableSendError(error)) {
+          fatalError = error;
+        }
+        throw error;
+      }
+    };
+    const result = await this.retryHandler.executeWithRetry(guarded, operationName, emailInfo);
+    if (result && typeof result === 'object' && realAttempts > 0) {
+      result.attempts = realAttempts;
+    }
+    return result;
+  }
+
+  static buildMessageId() {
+    const domain = String(process.env.SMTP_FROM || 'noreply@mcrepair.de').split('@')[1] || 'mcrepair.de';
+    return `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 12)}@${domain.replace(/[^A-Za-z0-9.-]/g, '') || 'mcrepair.de'}>`;
+  }
+
+  /**
+   * Ergebnis des Mailservers auswerten: 'sent' bedeutet ausschliesslich "vom Mailserver
+   * angenommen". Lehnt der Server alle Empfaenger ab, ist der Versand fehlgeschlagen.
+   */
+  static evaluateSmtpAcceptance(info = {}) {
+    const accepted = Array.isArray(info?.accepted) ? info.accepted.map(String) : null;
+    const rejected = Array.isArray(info?.rejected) ? info.rejected.map(String) : [];
+    if (accepted && accepted.length === 0 && rejected.length > 0) {
+      return { status: 'failed', accepted, rejected, error: `Vom Mailserver abgelehnt: ${rejected.join(', ')}` };
+    }
+    return { status: 'sent', accepted, rejected };
+  }
 
   static normalizeBaseUrl(value) {
     const raw = String(value || '').trim();
@@ -650,7 +735,7 @@ class EmailService {
         orderNumbers: orderData.orderNumbers
       });
 
-      const result = await this.retryHandler.executeWithRetry(
+      const result = await this.sendWithRetry(
         operation.bind(this),
         'sendGuestOrderConfirmation',
         emailInfo
@@ -909,7 +994,17 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
 
       emailInfo.subject = rendered.subject;
 
-      // Send email with retry logic
+      // Send email with retry logic. EINE Message-ID je logischem Versand, auch ueber
+      // Wiederholungen hinweg (Empfaenger-Server koennen Duplikate so erkennen).
+      const messageId = this.buildMessageId();
+      const logContext = options.logContext && typeof options.logContext === 'object'
+        ? {
+            trigger: options.logContext.trigger || null,
+            entityType: options.logContext.entityType || null,
+            entityId: options.logContext.entityId ? String(options.logContext.entityId) : null,
+            reference: options.logContext.reference || null,
+          }
+        : null;
       const operation = async () => {
         const transporter = await this.getTransporter();
         const mailOptions = {
@@ -918,7 +1013,8 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
           subject: rendered.subject,
           html: rendered.content,
           text: rendered.text,
-          replyTo: process.env.SUPPORT_EMAIL || 'support@mcrepair.de'
+          replyTo: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+          messageId
         };
 
         if (options.attachments && Array.isArray(options.attachments) && options.attachments.length > 0) {
@@ -928,29 +1024,61 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
         return await transporter.sendMail(mailOptions);
       };
 
-      const result = await this.retryHandler.executeWithRetry(
+      const result = await this.sendWithRetry(
         operation.bind(this),
         `sendTemplateEmail(${templateName})`,
         emailInfo
       );
 
-      if (result.success) {
+      const acceptance = result.success ? this.evaluateSmtpAcceptance(result.result) : null;
+      if (result.success && acceptance.status === 'sent') {
         this.deliveryTracker.recordDelivery({
           to: emailInfo.to,
           templateName: emailInfo.templateName,
           subject: emailInfo.subject,
-          messageId: result.result.messageId,
+          messageId: result.result.messageId || messageId,
           status: 'sent',
           attempts: result.attempts,
           duration: result.duration,
-          metadata: { variables: Object.keys(normalizedVariables) }
+          metadata: {
+            variables: Object.keys(normalizedVariables),
+            smtpAccepted: true,
+            rejectedRecipients: acceptance.rejected,
+            smtpResponse: result.result?.response ? String(result.result.response).slice(0, 200) : null,
+            ...(logContext ? { logContext } : {})
+          }
         });
 
         return {
           success: true,
-          messageId: result.result.messageId,
+          messageId: result.result.messageId || messageId,
           attempts: result.attempts,
-          duration: result.duration
+          duration: result.duration,
+          rejectedRecipients: acceptance.rejected
+        };
+      } else if (result.success) {
+        this.deliveryTracker.recordDelivery({
+          to: emailInfo.to,
+          templateName: emailInfo.templateName,
+          subject: emailInfo.subject,
+          messageId: result.result.messageId || messageId,
+          status: 'failed',
+          attempts: result.attempts,
+          duration: result.duration,
+          error: acceptance.error,
+          metadata: {
+            variables: Object.keys(normalizedVariables),
+            smtpAccepted: false,
+            rejectedRecipients: acceptance.rejected,
+            ...(logContext ? { logContext } : {})
+          }
+        });
+
+        return {
+          success: false,
+          error: acceptance.error,
+          attempts: result.attempts,
+          rejectedRecipients: acceptance.rejected
         };
       } else {
         this.deliveryTracker.recordDelivery({
@@ -960,7 +1088,7 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
           status: 'failed',
           attempts: result.attempts,
           error: result.error?.message,
-          metadata: { variables: Object.keys(normalizedVariables) }
+          metadata: { variables: Object.keys(normalizedVariables), ...(logContext ? { logContext } : {}) }
         });
 
         return {
@@ -1094,6 +1222,30 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
       supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
       supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
     });
+  }
+
+  /**
+   * E-Mail nach abgeschlossener Eingangspruefung (Trigger 'inspection_completed').
+   * Gleiche Variablen wie die Diagnose-Vorlage, damit der Rueckfall auf 'Diagnose abgeschlossen'
+   * funktioniert; die kostenpflichtige Diagnose und ihre Vorlage bleiben unveraendert.
+   */
+  static async sendInspectionCompletedEmail(toEmail, orderData, companyName = 'McRepair.de') {
+    const orderUrl = await this.buildSystemUrl(`/orders/${orderData.orderId}`);
+    return this.sendTriggerEmail('inspection_completed', toEmail, {
+      companyName,
+      customerName: orderData.customerName || 'Geehrter Kunde',
+      orderNumber: orderData.orderNumber,
+      deviceBrand: orderData.deviceBrand,
+      deviceModel: orderData.deviceModel,
+      diagnosisResult: 'Eingangsprüfung abgeschlossen',
+      diagnosisCompletedAt: new Date(orderData.diagnosisCompletedAt || Date.now()).toLocaleString('de-DE'),
+      inspectionCompletedAt: new Date(orderData.diagnosisCompletedAt || Date.now()).toLocaleString('de-DE'),
+      deviceCondition: orderData.deviceCondition || 'Wird im Prüfbericht beschrieben',
+      recommendedAction: orderData.recommendedAction || 'Eingangsprüfung abgeschlossen – wir melden uns mit dem weiteren Vorgehen.',
+      orderUrl,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
+    }, { logContext: { trigger: 'inspection_completed', entityType: 'order', entityId: orderData.orderId, reference: orderData.orderNumber ? `Auftrag ${orderData.orderNumber}` : null } });
   }
 
   /**
@@ -1238,5 +1390,8 @@ Dies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese
     });
   }
 }
+
+// Wiederholungen nur in der Verbindungsphase (siehe EmailService.isRetryableSendError).
+EmailService.retryHandler.isRetryableError = (error) => EmailService.isRetryableSendError(error);
 
 module.exports = EmailService;

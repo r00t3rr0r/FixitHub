@@ -530,7 +530,8 @@ async function main() {
     check(history.length === 1 && history[0].status === 'accepted_by_provider' && history[0].invoiceNumber === invoice.invoiceNumber, 'Historie mit Rechnungsnummer und Status', history.map((h) => h.status).join(','));
 
     emailMode = 'fail';
-    const failed = await FinancialService.requestAdditionalPayment(invoice.invoiceNumber, { note: 'x' });
+    // force: seit FIN-11 gilt eine 24-h-Sperrfrist nach einer uebergebenen Aufforderung.
+    const failed = await FinancialService.requestAdditionalPayment(invoice.invoiceNumber, { note: 'x', force: true });
     check(failed.success === false && failed.status === 'failed', 'Anbieterfehler meldet keinen Erfolg', `${failed.success} / ${failed.status}`);
 
     const guestless = await makeCustomer();

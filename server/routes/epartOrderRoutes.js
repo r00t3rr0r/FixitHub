@@ -36,15 +36,56 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only PDF, images, and office documents are allowed'));
+      const typeError = new Error('Nur PDF-, Bild- und Office-Dateien (PDF, JPG, PNG, DOC, DOCX, XLS, XLSX) sind erlaubt.');
+      typeError.status = 400;
+      cb(typeError);
     }
   }
 });
 
+// Upload-Middleware mit deutscher 400-Antwort statt Express-Standard-500 (HTML).
+function uploadInvoiceFile(req, res, next) {
+  upload.single('invoice')(req, res, (error) => {
+    if (!error) return next();
+    if (error instanceof multer.MulterError) {
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? 'Die Datei ist zu groß (maximal 10 MB).'
+        : 'Die Datei konnte nicht hochgeladen werden. Bitte genau eine Datei im Feld „invoice“ senden.';
+      return res.status(400).json({ error: message });
+    }
+    if (error.status === 400) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error uploading epart invoice file:', error);
+    return res.status(500).json({ error: 'Die Datei konnte nicht gespeichert werden. Bitte erneut versuchen.' });
+  });
+}
+
+// Einheitliche Fehlerantwort: fachliche Fehler tragen error.status (400/404/409) und
+// deutsche Texte; Mongoose-Validierungs-/Cast-Fehler werden zu 400 statt roher 500.
+function sendError(res, error, fallbackStatus = 500) {
+  let status = Number(error && error.status) || fallbackStatus;
+  let message = (error && error.message) || 'Unbekannter Fehler';
+  if (!error?.status) {
+    if (error?.name === 'ValidationError' || error?.name === 'CastError') {
+      status = 400;
+      const field = error?.path || Object.keys(error?.errors || {})[0] || '';
+      message = `Ungültige Eingabe${field ? ` (Feld: ${field})` : ''}.`;
+    } else if (error?.code === 11000) {
+      status = 409;
+      message = 'Ein Eintrag mit diesen Daten existiert bereits. Bitte neu laden und erneut versuchen.';
+    } else if (error?.name === 'VersionError' || error?.name === 'DocumentNotFoundError') {
+      status = 409;
+      message = 'Die Bestellung wurde inzwischen geändert. Bitte neu laden und erneut versuchen.';
+    }
+  }
+  return res.status(status).json({ error: message });
+}
+
 // Middleware to check if user is admin or staff
 const requireAdminOrStaff = (req, res, next) => {
   if (!req.user || !['admin', 'staff'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied. Admin or staff role required.' });
+    return res.status(403).json({ error: 'Zugriff verweigert. Nur für Mitarbeitende oder Administratoren.' });
   }
   next();
 };
@@ -52,7 +93,7 @@ const requireAdminOrStaff = (req, res, next) => {
 // Middleware to check if user is admin
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    return res.status(403).json({ error: 'Zugriff verweigert. Nur für Administratoren.' });
   }
   next();
 };
@@ -74,7 +115,7 @@ router.get('/suppliers', requireUser, requireAdminOrStaff, async (req, res) => {
     res.json({ suppliers });
   } catch (error) {
     console.error('Error fetching suppliers:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 500);
   }
 });
 
@@ -88,7 +129,7 @@ router.get('/suppliers/:id', requireUser, requireAdminOrStaff, async (req, res) 
     res.json({ supplier });
   } catch (error) {
     console.error('Error fetching supplier:', error);
-    res.status(404).json({ error: error.message });
+    sendError(res, error, 404);
   }
 });
 
@@ -102,7 +143,7 @@ router.post('/suppliers', requireUser, requireAdminOrStaff, async (req, res) => 
     res.status(201).json({ supplier });
   } catch (error) {
     console.error('Error creating supplier:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -116,7 +157,7 @@ router.put('/suppliers/:id', requireUser, requireAdminOrStaff, async (req, res) 
     res.json({ supplier });
   } catch (error) {
     console.error('Error updating supplier:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -130,7 +171,7 @@ router.delete('/suppliers/:id', requireUser, requireAdmin, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error deleting supplier:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -151,7 +192,7 @@ router.get('/statistics', requireUser, requireAdminOrStaff, async (req, res) => 
     res.json(statistics);
   } catch (error) {
     console.error('Error fetching order statistics:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 500);
   }
 });
 
@@ -176,7 +217,7 @@ router.get('/', requireUser, requireAdminOrStaff, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error fetching epart orders:', error);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 500);
   }
 });
 
@@ -190,7 +231,7 @@ router.get('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
     res.json({ order });
   } catch (error) {
     console.error('Error fetching epart order:', error);
-    res.status(404).json({ error: error.message });
+    sendError(res, error, 404);
   }
 });
 
@@ -204,7 +245,7 @@ router.post('/', requireUser, requireAdminOrStaff, async (req, res) => {
     res.status(201).json({ order });
   } catch (error) {
     console.error('Error creating epart order:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -218,7 +259,7 @@ router.put('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
     res.json({ order });
   } catch (error) {
     console.error('Error updating epart order:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -236,7 +277,7 @@ router.post('/:id/receive', requireUser, requireAdminOrStaff, async (req, res) =
     res.json({ order });
   } catch (error) {
     console.error('Error receiving order items:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -254,7 +295,7 @@ router.post('/:id/cancel', requireUser, requireAdminOrStaff, async (req, res) =>
     res.json({ order });
   } catch (error) {
     console.error('Error cancelling epart order:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -262,10 +303,10 @@ router.post('/:id/cancel', requireUser, requireAdminOrStaff, async (req, res) =>
 // Endpoint: POST /api/epart-orders/:id/invoice
 // Request: FormData with file
 // Response: { order: EPartOrder }
-router.post('/:id/invoice', requireUser, requireAdminOrStaff, upload.single('invoice'), async (req, res) => {
+router.post('/:id/invoice', requireUser, requireAdminOrStaff, uploadInvoiceFile, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'Bitte eine Datei auswählen.' });
     }
 
     const order = await EPartOrderService.uploadInvoice(
@@ -285,7 +326,7 @@ router.post('/:id/invoice', requireUser, requireAdminOrStaff, upload.single('inv
     if (req.file) {
       await fs.unlink(req.file.path).catch(console.error);
     }
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -298,7 +339,7 @@ router.get('/:id/invoice', requireUser, requireAdminOrStaff, async (req, res) =>
     const order = await EPartOrderService.getEPartOrderById(req.params.id);
 
     if (!order.invoiceFile || !order.invoiceFile.filename) {
-      return res.status(404).json({ error: 'No invoice file found for this order' });
+      return res.status(404).json({ error: 'Zu dieser Bestellung wurde keine Rechnung hochgeladen.' });
     }
 
     const filePath = path.join(__dirname, '../uploads/invoices', order.invoiceFile.filename);
@@ -307,13 +348,13 @@ router.get('/:id/invoice', requireUser, requireAdminOrStaff, async (req, res) =>
     try {
       await fs.access(filePath);
     } catch (error) {
-      return res.status(404).json({ error: 'Invoice file not found on server' });
+      return res.status(404).json({ error: 'Die Rechnungsdatei wurde auf dem Server nicht gefunden.' });
     }
 
     res.download(filePath, order.invoiceFile.originalName);
   } catch (error) {
     console.error('Error downloading invoice:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -326,15 +367,15 @@ router.post('/:id/return-exchange', requireUser, requireAdminOrStaff, async (req
     const { type, reason, description, affectedItems } = req.body;
 
     if (!type || !['return', 'exchange'].includes(type)) {
-      return res.status(400).json({ error: 'Invalid type. Must be "return" or "exchange"' });
+      return res.status(400).json({ error: 'Bitte „Rücksendung“ oder „Umtausch“ auswählen.' });
     }
 
     if (!reason || !description) {
-      return res.status(400).json({ error: 'Reason and description are required' });
+      return res.status(400).json({ error: 'Bitte Grund und Beschreibung angeben.' });
     }
 
     if (!affectedItems || affectedItems.length === 0) {
-      return res.status(400).json({ error: 'At least one affected item is required' });
+      return res.status(400).json({ error: 'Bitte mindestens eine betroffene Position angeben.' });
     }
 
     const order = await EPartOrderService.requestReturnExchange(
@@ -350,7 +391,7 @@ router.post('/:id/return-exchange', requireUser, requireAdminOrStaff, async (req
     res.json({ order });
   } catch (error) {
     console.error('Error requesting return/exchange:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 
@@ -365,7 +406,7 @@ router.put('/:id/return-exchange', requireUser, requireAdminOrStaff, async (req,
     const validStatuses = ['approved', 'in_transit', 'completed', 'rejected'];
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
-        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+        error: 'Ungültiger Status für Rücksendung/Umtausch. Erlaubt: genehmigt, unterwegs, abgeschlossen, abgelehnt.'
       });
     }
 
@@ -378,7 +419,7 @@ router.put('/:id/return-exchange', requireUser, requireAdminOrStaff, async (req,
     res.json({ order });
   } catch (error) {
     console.error('Error updating return/exchange:', error);
-    res.status(400).json({ error: error.message });
+    sendError(res, error, 400);
   }
 });
 

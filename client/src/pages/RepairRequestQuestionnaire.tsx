@@ -6,29 +6,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { AuthRequiredDialog, GuestInfo } from "@/components/auth/AuthRequiredDialog"
 import { createRepairRequest } from "@/api/repairRequests"
 import { createGuestRepairRequest } from "@/api/guestRepairRequest"
-import {
-  getDeviceTypes,
-  getManufacturersByDeviceType,
-  getModelsByTypeAndManufacturer,
-  DeviceType as ApiDeviceType,
-  Manufacturer,
-  DeviceModel
-} from "@/api/devices"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { CatalogDevicePicker, PickedCatalogDevice } from "@/components/repair-request/CatalogDevicePicker"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -46,7 +24,6 @@ import {
   X,
   Droplets,
   Edit2,
-  Database,
   Laptop,
   Tablet,
   Clock3,
@@ -66,7 +43,8 @@ interface SelectedDevice {
   image?: string
 }
 
-const DEVICE_TYPES = ["Smartphone", "Tablet", "Laptop", "Anderes"]
+const MANUAL_DEVICE_TYPES = ["Smartphone", "Tablet", "Laptop", "Anderes"]
+const MAX_IMAGES_TOTAL_BYTES = 8 * 1024 * 1024
 
 /* ─────────────────────────────────────────────
    JSON-LD structured data (rendered in <head>)
@@ -238,24 +216,12 @@ export function RepairRequestQuestionnaire() {
     location.state?.device as SelectedDevice | null
   )
 
-  // Manual device entry
+  // Geräteangabe: Katalog (Standard) oder manuell ("Mein Gerät ist nicht aufgeführt")
+  const [deviceMode, setDeviceMode] = useState<"catalog" | "manual">("catalog")
   const [manualDeviceType, setManualDeviceType] = useState("Smartphone")
-  const [manualDeviceName, setManualDeviceName] = useState("")
+  const [manualBrand, setManualBrand] = useState("")
+  const [manualModel, setManualModel] = useState("")
   const [manualModelNumber, setManualModelNumber] = useState("")
-
-  // Is the device card in edit / entry mode?
-  const [editingDevice, setEditingDevice] = useState(!location.state?.device)
-
-  // DB selection dialog
-  const [showDeviceDialog, setShowDeviceDialog] = useState(false)
-  const [deviceTypes, setDeviceTypes] = useState<ApiDeviceType[]>([])
-  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
-  const [models, setModels] = useState<DeviceModel[]>([])
-  const [selectedDeviceType, setSelectedDeviceType] = useState("")
-  const [selectedManufacturer, setSelectedManufacturer] = useState("")
-  const [selectedModel, setSelectedModel] = useState("")
-  const [loadingManufacturers, setLoadingManufacturers] = useState(false)
-  const [loadingModels, setLoadingModels] = useState(false)
 
   // Request form
   const [issueDescription, setIssueDescription] = useState("")
@@ -339,90 +305,42 @@ export function RepairRequestQuestionnaire() {
       : "none",
   })
 
-  // Confirm manual device entry
-  const confirmManualDevice = () => {
-    if (!manualDeviceName.trim()) {
-      setErrors((prev) => ({ ...prev, manualDeviceName: "Bitte Gerätebezeichnung eingeben" }))
-      return
-    }
-    setSelectedDevice(null)
-    setEditingDevice(false)
+  const clearDeviceError = () =>
     setErrors((prev) => {
       const next = { ...prev }
-      delete next.manualDeviceName
       delete next.device
       return next
     })
+
+  // Katalogmodell gewählt => sofort übernommen
+  const handleCatalogSelect = (device: PickedCatalogDevice) => {
+    setSelectedDevice({
+      _id: device._id,
+      name: device.name,
+      deviceType: device.deviceType,
+      manufacturer: device.manufacturer,
+      manufacturerId: device.manufacturerId,
+      image: device.image,
+    })
+    setDeviceMode("catalog")
+    clearDeviceError()
   }
 
-  // Open DB dialog
-  const openDbDialog = async () => {
-    setShowDeviceDialog(true)
-    setSelectedDeviceType("")
-    setSelectedManufacturer("")
-    setSelectedModel("")
-    setManufacturers([])
-    setModels([])
-    try {
-      const res = await getDeviceTypes()
-      setDeviceTypes((res as any).deviceTypes || [])
-    } catch {
-      toast({ title: "Fehler", description: "Gerätetypen konnten nicht geladen werden", variant: "destructive" })
+  // "Mein Gerät ist nicht aufgeführt": manuelle Felder, vorbelegt mit der bisherigen Auswahl
+  const switchToManual = (prefill: { deviceType?: string; brand?: string }) => {
+    setDeviceMode("manual")
+    setSelectedDevice(null)
+    if (prefill.deviceType) {
+      const match = MANUAL_DEVICE_TYPES.find((t) => t.toLowerCase() === prefill.deviceType!.toLowerCase())
+      setManualDeviceType(match || "Anderes")
     }
+    if (prefill.brand && !manualBrand) setManualBrand(prefill.brand)
+    clearDeviceError()
   }
 
-  const handleDbDeviceTypeChange = async (id: string) => {
-    setSelectedDeviceType(id)
-    setSelectedManufacturer("")
-    setSelectedModel("")
-    setManufacturers([])
-    setModels([])
-    if (!id) return
-    try {
-      setLoadingManufacturers(true)
-      const res = await getManufacturersByDeviceType(id)
-      setManufacturers((res as any).manufacturers || [])
-    } catch {
-      toast({ title: "Fehler", description: "Marken konnten nicht geladen werden", variant: "destructive" })
-    } finally {
-      setLoadingManufacturers(false)
-    }
-  }
-
-  const handleDbManufacturerChange = async (id: string) => {
-    setSelectedManufacturer(id)
-    setSelectedModel("")
-    setModels([])
-    if (!id || !selectedDeviceType) return
-    try {
-      setLoadingModels(true)
-      const res = await getModelsByTypeAndManufacturer(selectedDeviceType, id)
-      setModels((res as any).models || [])
-    } catch {
-      toast({ title: "Fehler", description: "Modelle konnten nicht geladen werden", variant: "destructive" })
-    } finally {
-      setLoadingModels(false)
-    }
-  }
-
-  const confirmDbDevice = () => {
-    if (!selectedModel) return
-    const modelData = models.find((m) => m._id === selectedModel)
-    const mfrData = manufacturers.find((m) => m._id === selectedManufacturer)
-    const typeData = deviceTypes.find((dt) => dt._id === selectedDeviceType)
-    if (modelData && mfrData && typeData) {
-      setSelectedDevice({
-        _id: modelData._id,
-        name: modelData.name,
-        deviceType: typeData.name,
-        manufacturer: mfrData.name,
-        manufacturerId: mfrData._id,
-        image: modelData.image,
-      })
-      setEditingDevice(false)
-      setShowDeviceDialog(false)
-      setErrors((prev) => { const next = { ...prev }; delete next.device; return next })
-    }
+  const backToCatalog = () => {
+    setDeviceMode("catalog")
+    clearDeviceError()
   }
 
   // Image upload
@@ -430,6 +348,17 @@ export function RepairRequestQuestionnaire() {
     const files = Array.from(e.target.files || [])
     if (files.length + images.length > 5) {
       toast({ title: "Zu viele Bilder", description: "Maximal 5 Bilder erlaubt", variant: "destructive" })
+      return
+    }
+    const currentBytes = images.reduce((sum, file) => sum + file.size, 0)
+    const addedBytes = files.reduce((sum, file) => sum + file.size, 0)
+    if (currentBytes + addedBytes > MAX_IMAGES_TOTAL_BYTES) {
+      toast({
+        title: "Fotos zu groß",
+        description: "Die Fotos sind zusammen zu groß (max. 8 MB). Bitte weniger oder kleinere Fotos wählen.",
+        variant: "destructive",
+      })
+      e.target.value = ""
       return
     }
     const valid = files.filter((file) => {
@@ -443,6 +372,7 @@ export function RepairRequestQuestionnaire() {
       }
       return true
     })
+    e.target.value = ""
     setImages((prev) => [...prev, ...valid])
     valid.forEach((file) => {
       const reader = new FileReader()
@@ -457,10 +387,15 @@ export function RepairRequestQuestionnaire() {
   }
 
   // Validation & submit
+  const manualComplete = manualBrand.trim().length > 0 && manualModel.trim().length > 0
+  const deviceReady = deviceMode === "catalog" ? !!selectedDevice : manualComplete
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
-    if (editingDevice || (!selectedDevice && !manualDeviceName.trim())) {
-      newErrors.device = "Bitte Geräteinformationen angeben"
+    if (!deviceReady) {
+      newErrors.device = deviceMode === "catalog"
+        ? "Bitte wählen Sie ein Modell aus oder nutzen Sie „Mein Gerät ist nicht aufgeführt“."
+        : "Bitte geben Sie Marke und Modellbezeichnung Ihres Geräts an."
     }
     if (!issueDescription.trim()) {
       newErrors.issueDescription = "Fehlerbeschreibung ist erforderlich"
@@ -471,32 +406,34 @@ export function RepairRequestQuestionnaire() {
     return Object.keys(newErrors).length === 0
   }
 
-  const doSubmitRequest = async () => {
-    const isDbDevice = !editingDevice && selectedDevice !== null
-    const deviceTypeFinal = isDbDevice ? selectedDevice!.deviceType : manualDeviceType
-    const deviceBrandFinal = isDbDevice ? selectedDevice!.manufacturer : manualDeviceName.split(" ")[0]
-    const deviceModelFinal = isDbDevice ? selectedDevice!.name : manualDeviceName
-    const deviceModelIdFinal = isDbDevice ? selectedDevice!._id : ""
-    const modelNumberFinal = isDbDevice ? "" : manualModelNumber
+  // EIN Vertrag für Mitglied und Gast: Katalog => deviceModelId (Server übernimmt die Katalognamen),
+  // manuell => Marke und Modell exakt wie eingegeben (keine Aufteilung des Textes).
+  const buildPayload = () => {
+    const isCatalog = deviceMode === "catalog" && selectedDevice !== null
+    return {
+      deviceSource: (isCatalog ? "catalog" : "manual") as "catalog" | "manual",
+      deviceType: isCatalog ? selectedDevice!.deviceType : manualDeviceType,
+      deviceBrand: isCatalog ? selectedDevice!.manufacturer : manualBrand.trim(),
+      deviceModel: isCatalog ? selectedDevice!.name : manualModel.trim(),
+      ...(isCatalog ? { deviceModelId: selectedDevice!._id } : {}),
+      modelNumber: isCatalog ? "" : manualModelNumber.trim(),
+      issueDescription,
+      issueOccurredDate: issueOccurredDate || "",
+      repairAttempts: previousRepairAttempts,
+      waterDamage,
+      previousRepairDetails: previousRepairAttempts === "yes" ? previousRepairDetails : "",
+      itemCondition,
+      images: imagePreviewUrls,
+    }
+  }
 
+  const doSubmitRequest = async () => {
+    if (submitting) return
     try {
       setSubmitting(true)
-      await createRepairRequest({
-        deviceType: deviceTypeFinal,
-        deviceBrand: deviceBrandFinal,
-        deviceModel: deviceModelFinal,
-        deviceModelId: deviceModelIdFinal,
-        issueDescription,
-        issueOccurredDate: issueOccurredDate || "",
-        repairAttempts: previousRepairAttempts,
-        modelNumber: modelNumberFinal,
-        waterDamage,
-        previousRepairDetails: previousRepairAttempts === "yes" ? previousRepairDetails : "",
-        itemCondition,
-        images: imagePreviewUrls,
-      })
+      await createRepairRequest(buildPayload())
       toast({
-        title: "Erfolg!",
+        title: "Reparaturanfrage gesendet",
         description: "Ihre Reparaturanfrage wurde erfolgreich übermittelt. Unser Team meldet sich innerhalb von 24 Stunden* bei Ihnen.",
       })
       navigate("/my-repair-requests")
@@ -508,29 +445,10 @@ export function RepairRequestQuestionnaire() {
   }
 
   const doSubmitGuestRequest = async (guestInfo: GuestInfo) => {
-    const isDbDevice = !editingDevice && selectedDevice !== null
-    const deviceTypeFinal = isDbDevice ? selectedDevice!.deviceType : manualDeviceType
-    const deviceBrandFinal = isDbDevice ? selectedDevice!.manufacturer : manualDeviceName.split(" ")[0]
-    const deviceModelFinal = isDbDevice ? selectedDevice!.name : manualDeviceName
-    const deviceModelIdFinal = isDbDevice ? selectedDevice!._id : ""
-    const modelNumberFinal = isDbDevice ? "" : manualModelNumber
-
+    if (submitting) return
     try {
       setSubmitting(true)
-      const result = await createGuestRepairRequest(guestInfo, {
-        deviceType: deviceTypeFinal,
-        deviceBrand: deviceBrandFinal,
-        deviceModel: deviceModelFinal,
-        deviceModelId: deviceModelIdFinal,
-        issueDescription,
-        issueOccurredDate: issueOccurredDate || "",
-        repairAttempts: previousRepairAttempts,
-        modelNumber: modelNumberFinal,
-        waterDamage,
-        previousRepairDetails: previousRepairAttempts === "yes" ? previousRepairDetails : "",
-        itemCondition,
-        images: imagePreviewUrls,
-      })
+      const result = await createGuestRepairRequest(guestInfo, buildPayload())
       toast({
         title: "Reparaturanfrage eingegangen!",
         description: "Wir haben Ihre Anfrage erhalten. Ein Tracking-Link wurde an Ihre E-Mail gesendet.",
@@ -563,7 +481,6 @@ export function RepairRequestQuestionnaire() {
 
   const cardShellClass = "border border-slate-200/90 bg-white/95 shadow-[0_14px_42px_-24px_rgba(15,23,42,0.55)]"
   const formControlClass = "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
-  const deviceReady = !editingDevice && (!!selectedDevice || !!manualDeviceName.trim())
   const descriptionReady = issueDescription.trim().length >= 20
   const uploadReady = images.length > 0
 
@@ -631,9 +548,9 @@ export function RepairRequestQuestionnaire() {
           </CardHeader>
 
           <CardContent className="space-y-5 pt-6">
-            {/* Confirmed DB device display */}
-            {!editingDevice && selectedDevice && (
-              <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            {/* Gewähltes Katalogmodell */}
+            {deviceMode === "catalog" && selectedDevice && (
+              <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                 <div
                   className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                   style={{ color: "var(--primary-blue, #1a2a5e)" }}
@@ -658,19 +575,22 @@ export function RepairRequestQuestionnaire() {
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ausgewähltes Gerät</p>
+                  <p className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" /> Ausgewähltes Gerät
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold normal-case tracking-normal text-emerald-800 ring-1 ring-emerald-200">Aus unserem Katalog</span>
+                  </p>
                   <p className="truncate text-base font-bold" style={{ color: "var(--primary-blue, #1a2a5e)" }}>
                     {selectedDevice.name}
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-600">
                     {selectedDevice.manufacturer} · {selectedDevice.deviceType}
                   </p>
                 </div>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setEditingDevice(true)}
-                  className="shrink-0 rounded-full border-slate-200 text-sm font-semibold"
+                  onClick={() => setSelectedDevice(null)}
+                  className="shrink-0 rounded-full border-slate-300 text-sm font-semibold"
                   style={{ color: "var(--primary-blue, #1a2a5e)" }}
                 >
                   <Edit2 className="mr-1.5 h-4 w-4" /> Ändern
@@ -678,50 +598,46 @@ export function RepairRequestQuestionnaire() {
               </div>
             )}
 
-            {/* Confirmed manual device display */}
-            {!editingDevice && !selectedDevice && manualDeviceName && (
-              <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm"
-                  style={{ color: "var(--primary-blue, #1a2a5e)" }}
-                >
-                  {getDeviceTypeIcon(manualDeviceType)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{manualDeviceType}</p>
-                  <p className="truncate text-base font-bold" style={{ color: "var(--primary-blue, #1a2a5e)" }}>
-                    {manualDeviceName}
+            {/* Katalogauswahl inline (Standard) */}
+            {deviceMode === "catalog" && !selectedDevice && (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">
+                  Wählen Sie Ihr Gerät aus unserem Katalog. Nicht dabei? Kein Problem – nutzen Sie
+                  „Mein Gerät ist nicht aufgeführt“.
+                </p>
+                <CatalogDevicePicker onSelect={handleCatalogSelect} onCantFind={switchToManual} />
+              </div>
+            )}
+
+            {/* Manuelle Angabe */}
+            {deviceMode === "manual" && (
+              <div className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-2 text-sm font-bold text-[#1a2a5e]">
+                    Gerät manuell angeben
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900 ring-1 ring-amber-200">Manuelle Angabe</span>
                   </p>
-                  {manualModelNumber && (
-                    <p className="text-sm text-slate-500">Modellnr.: {manualModelNumber}</p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={backToCatalog}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1a2a5e] underline underline-offset-4"
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Zurück zur Modellauswahl
+                  </button>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditingDevice(true)}
-                  className="shrink-0 rounded-full border-slate-200 text-sm font-semibold"
-                  style={{ color: "var(--primary-blue, #1a2a5e)" }}
-                >
-                  <Edit2 className="mr-1.5 h-4 w-4" /> Ändern
-                </Button>
-              </div>
-            )}
+                <p className="text-sm text-slate-600">Kein Problem – unser Team ordnet Ihr Gerät nach Eingang zu.</p>
 
-            {/* Entry / edit form */}
-            {editingDevice && (
-              <div className="space-y-5">
-                {/* Device type */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">
                     Gerätetyp <span className="text-red-500">*</span>
                   </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {DEVICE_TYPES.map((type) => (
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Gerätetyp">
+                    {MANUAL_DEVICE_TYPES.map((type) => (
                       <button
                         key={type}
                         type="button"
                         onClick={() => setManualDeviceType(type)}
+                        aria-pressed={manualDeviceType === type}
                         className="rounded-full border px-4 py-2 text-sm font-semibold transition"
                         style={toggleStyle(manualDeviceType === type)}
                       >
@@ -731,68 +647,51 @@ export function RepairRequestQuestionnaire() {
                   </div>
                 </div>
 
-                {/* Device name incl. manufacturer */}
-                <div className="space-y-2">
-                  <Label htmlFor="manualDeviceName" className="text-sm font-semibold">
-                    Gerätebezeichnung inkl. Hersteller <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="manualDeviceName"
-                    type="text"
-                    placeholder='z. B. „Microsoft Lumia 650 Dual SIM" oder „Apple iPhone 14 Pro"'
-                    value={manualDeviceName}
-                    onChange={(e) => {
-                      setManualDeviceName(e.target.value)
-                      if (errors.manualDeviceName)
-                        setErrors((prev) => { const next = { ...prev }; delete next.manualDeviceName; return next })
-                    }}
-                    className={`${formControlClass} ${errors.manualDeviceName ? "border-red-500 focus-visible:ring-red-200" : ""}`}
-                  />
-                  {errors.manualDeviceName && (
-                    <p className="flex items-center gap-1.5 text-sm text-red-600">
-                      <AlertCircle className="h-4 w-4" /> {errors.manualDeviceName}
-                    </p>
-                  )}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="manualBrand" className="text-sm font-semibold">
+                      Marke <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="manualBrand"
+                      type="text"
+                      placeholder="z. B. Fairphone, Lenovo, Nokia"
+                      value={manualBrand}
+                      maxLength={80}
+                      onChange={(e) => { setManualBrand(e.target.value); clearDeviceError() }}
+                      className={formControlClass}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manualModel" className="text-sm font-semibold">
+                      Modellbezeichnung <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="manualModel"
+                      type="text"
+                      placeholder="z. B. Fairphone 5, ThinkPad T14s"
+                      value={manualModel}
+                      maxLength={120}
+                      onChange={(e) => { setManualModel(e.target.value); clearDeviceError() }}
+                      className={formControlClass}
+                    />
+                  </div>
                 </div>
 
-                {/* Model number */}
                 <div className="space-y-2">
                   <Label htmlFor="manualModelNumber" className="text-sm font-semibold">
                     Modellnummer
-                    <span className="ml-2 text-xs font-normal text-slate-500">
-                      (besonders wichtig bei Laptops)
-                    </span>
+                    <span className="ml-2 text-xs font-normal text-slate-500">(optional – besonders wichtig bei Laptops)</span>
                   </Label>
                   <Input
                     id="manualModelNumber"
                     type="text"
-                    placeholder="z. B. A2215, SM-G998B, HP 255 G8, ThinkPad T14s …"
+                    placeholder="z. B. A2215, SM-G998B, HP 255 G8 …"
                     value={manualModelNumber}
+                    maxLength={60}
                     onChange={(e) => setManualModelNumber(e.target.value)}
                     className={formControlClass}
                   />
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    onClick={confirmManualDevice}
-                    className="rounded-full font-semibold text-white"
-                    style={{ background: "var(--primary-blue, #1a2a5e)" }}
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Gerät übernehmen
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={openDbDialog}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold transition hover:bg-slate-50"
-                    style={{ color: "var(--primary-blue, #1a2a5e)" }}
-                  >
-                    <Database className="h-4 w-4" />
-                    Aus Datenbank wählen
-                  </button>
                 </div>
               </div>
             )}
@@ -851,7 +750,7 @@ export function RepairRequestQuestionnaire() {
             <div className="space-y-3">
               <Label className="text-sm font-semibold">
                 Bilder hochladen
-                <span className="ml-2 text-xs font-normal text-slate-500">(optional, max. 5 Bilder)</span>
+                <span className="ml-2 text-xs font-normal text-slate-500">(optional, max. 5 Bilder, zusammen max. 8 MB)</span>
               </Label>
               <input
                 id="images"
@@ -877,7 +776,7 @@ export function RepairRequestQuestionnaire() {
                   Fotos hinzufügen
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {images.length}/5 Bilder · JPG, PNG oder GIF · max. 5 MB
+                  {images.length}/5 Bilder · JPG, PNG oder GIF · max. 5 MB je Bild, zusammen max. 8 MB
                 </p>
               </label>
               {imagePreviewUrls.length > 0 && (
@@ -1057,7 +956,11 @@ export function RepairRequestQuestionnaire() {
 
               <div className={`rounded-xl border px-3 py-2.5 text-sm ${deviceReady ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
                 <p className="font-semibold">Gerät</p>
-                <p>{deviceReady ? "Vollständig" : "Bitte Gerät auswählen oder manuell ergänzen"}</p>
+                <p>
+                  {deviceReady
+                    ? (deviceMode === "catalog" ? "Gerät: aus unserem Katalog" : "Gerät: manuell angegeben")
+                    : "Bitte Modell wählen oder „Mein Gerät ist nicht aufgeführt“ nutzen"}
+                </p>
               </div>
 
               <div className={`rounded-xl border px-3 py-2.5 text-sm ${descriptionReady ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
@@ -1243,142 +1146,6 @@ export function RepairRequestQuestionnaire() {
           </dl>
         </div>
       </section>
-
-      {/* DB Selection Dialog */}
-      <Dialog open={showDeviceDialog} onOpenChange={setShowDeviceDialog}>
-        <DialogContent className="border-slate-200 bg-white sm:max-w-[580px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl text-[#1a2a5e]">
-              <Database className="h-5 w-5" />
-              Gerät aus Datenbank wählen
-            </DialogTitle>
-            <DialogDescription className="text-slate-600">
-              Suchen Sie Ihr Gerät in unserer Gerätedatenbank
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700">
-                1. Gerätetyp <span className="text-red-500">*</span>
-              </label>
-              <Select value={selectedDeviceType} onValueChange={handleDbDeviceTypeChange}>
-                <SelectTrigger className={`w-full ${formControlClass}`}>
-                  <SelectValue placeholder="Gerätetyp wählen …" />
-                </SelectTrigger>
-                <SelectContent>
-                  {deviceTypes.map((type) => (
-                    <SelectItem key={type._id} value={type._id}>
-                      <span className="capitalize">{type.name}</span>
-                      <span className="ml-2 text-xs text-gray-500">({type.count})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700">
-                2. Marke <span className="text-red-500">*</span>
-              </label>
-              <Select
-                value={selectedManufacturer}
-                onValueChange={handleDbManufacturerChange}
-                disabled={!selectedDeviceType || loadingManufacturers}
-              >
-                <SelectTrigger className={`w-full ${formControlClass}`}>
-                  <SelectValue
-                    placeholder={
-                      loadingManufacturers ? "Lädt …" : !selectedDeviceType ? "Zuerst Gerätetyp wählen" : "Marke wählen …"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {manufacturers.map((m) => (
-                    <SelectItem key={m._id} value={m._id}>
-                      {m.name}
-                      <span className="ml-2 text-xs text-gray-500">({m.count} Modelle)</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700">
-                3. Modell <span className="text-red-500">*</span>
-              </label>
-              <Select
-                value={selectedModel}
-                onValueChange={setSelectedModel}
-                disabled={!selectedManufacturer || loadingModels}
-              >
-                <SelectTrigger className={`w-full ${formControlClass}`}>
-                  <SelectValue
-                    placeholder={
-                      loadingModels ? "Lädt …" : !selectedManufacturer ? "Zuerst Marke wählen" : "Modell wählen …"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m._id} value={m._id}>
-                      <div className="flex items-center gap-2">
-                        {m.image && (
-                          <img
-                            src={m.image}
-                            alt={m.name}
-                            className="h-6 w-6 object-contain"
-                            onError={(e) => (e.currentTarget.style.display = "none")}
-                          />
-                        )}
-                        <span>{m.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedModel && models.find((m) => m._id === selectedModel) && (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                <div className="flex items-center gap-3">
-                  {models.find((m) => m._id === selectedModel)?.image && (
-                    <img
-                      src={models.find((m) => m._id === selectedModel)?.image}
-                      alt="Ausgewähltes Gerät"
-                      className="h-14 w-14 object-contain"
-                    />
-                  )}
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {models.find((m) => m._id === selectedModel)?.name}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {manufacturers.find((m) => m._id === selectedManufacturer)?.name} ·{" "}
-                      {deviceTypes.find((dt) => dt._id === selectedDeviceType)?.name}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" className="border-slate-300 text-slate-700" onClick={() => setShowDeviceDialog(false)}>
-              Abbrechen
-            </Button>
-            <Button
-              onClick={confirmDbDevice}
-              disabled={!selectedModel}
-              className="bg-[#1a2a5e] hover:bg-[#0f1d45]"
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Gerät übernehmen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Login Dialog */}
       <AuthRequiredDialog

@@ -1,5 +1,6 @@
 import api from './api';
 import { toShippingLabelError, type ShipmentResult } from './shipping';
+import { downloadLabelPdf, labelFilename, printLabelPdf } from './labelPdf';
 
 export const createManualRepairBooking = async (data: {
   repairOrders: Array<Record<string, any>>;
@@ -21,6 +22,8 @@ export const createManualRepairBooking = async (data: {
 export const getBookings = async (filters?: {
   status?: string;
   billingStatus?: string;
+  /** Kundensuche (Buchung, Auftrag oder Geraet) - serverseitig, nur eigene Buchungen. */
+  search?: string;
   limit?: number;
   skip?: number;
 }) => {
@@ -28,6 +31,7 @@ export const getBookings = async (filters?: {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.billingStatus) params.append('billingStatus', filters.billingStatus);
+    if (filters?.search && filters.search.trim()) params.append('search', filters.search.trim());
     if (filters?.limit) params.append('limit', filters.limit.toString());
     if (filters?.skip) params.append('skip', filters.skip.toString());
 
@@ -144,12 +148,17 @@ export const updateBookingBillingStatus = async (
 // Endpoint: DELETE /api/bookings/:id
 // Request: {}
 // Response: { success: boolean, booking: Booking }
-export const cancelBooking = async (bookingId: string) => {
+// Grund ist Pflicht (intern). 409 BOOKING_HAS_OPEN_ORDERS: zuerst die offenen Aufträge
+// einzeln stornieren - die deutsche Servermeldung nennt die Auftragsnummern.
+export const cancelBooking = async (bookingId: string, reason: string) => {
   try {
-    const response = await api.delete(`/api/bookings/${bookingId}`);
+    const response = await api.delete(`/api/bookings/${bookingId}`, { data: { reason } });
     return response.data;
   } catch (error: any) {
-    throw new Error(error?.response?.data?.error || error.message);
+    const wrapped: Error & { openOrders?: Array<{ _id: string; orderNumber: string; status: string }> } =
+      new Error(error?.response?.data?.error || error.message);
+    if (Array.isArray(error?.response?.data?.openOrders)) wrapped.openOrders = error.response.data.openOrders;
+    throw wrapped;
   }
 };
 
@@ -292,41 +301,151 @@ export const getBookingInvoices = async (bookingId: string) => {
 // Description: Download shipping label PDF for a booking
 // Endpoint: GET /api/bookings/:id/shipping-label
 // Response: PDF file blob
-export const downloadBookingShippingLabel = async (bookingId: string, filename?: string) => {
-  const response = await api.get(`/api/bookings/${bookingId}/shipping-label`, {
-    responseType: 'blob',
-    transformResponse: undefined,
-    validateStatus: (status: number) => status === 200,
-  });
-  const blob = new Blob([response.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `versandlabel-buchung-${bookingId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+// Einsendelabel der Buchung (Kunde -> McRepair). Wirft LabelPdfError mit deutscher Meldung
+// (401/403/404/Netzwerk) - Aufrufer zeigen sie im Toast an. Siehe labelPdf.ts (DHL-2).
+export const downloadBookingShippingLabel = async (bookingId: string, filename?: string): Promise<void> => {
+  await downloadLabelPdf(
+    `/api/bookings/${bookingId}/shipping-label`,
+    filename || labelFilename('inbound', bookingId),
+    'inbound'
+  );
 };
 
-// Description: Download return label PDF for a booking
+// Description: Download return label PDF for a booking (DHL-Retoure = ebenfalls Einsendung)
 // Endpoint: GET /api/bookings/:id/return-label
 // Response: PDF file blob
-export const downloadBookingReturnLabel = async (bookingId: string, filename?: string) => {
-  const response = await api.get(`/api/bookings/${bookingId}/return-label`, {
-    responseType: 'blob',
-    transformResponse: undefined,
-    validateStatus: (status: number) => status === 200,
-  });
-  const blob = new Blob([response.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `ruecksendeetikett-${bookingId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+export const downloadBookingReturnLabel = async (bookingId: string, filename?: string): Promise<void> => {
+  await downloadLabelPdf(
+    `/api/bookings/${bookingId}/return-label`,
+    filename || labelFilename('inbound', bookingId),
+    'inbound'
+  );
+};
+
+// ============================================
+// EINSENDESTATUS DER BUCHUNG (Kunde -> McRepair)
+// ============================================
+
+export type InboundLabelState =
+  | 'ready'
+  | 'registered'
+  | 'creating'
+  | 'review'
+  | 'error'
+  | 'none'
+  | 'not-needed'
+  | 'cancelled';
+
+export interface InboundLabelInfo {
+  state: InboundLabelState;
+  /** Inhaber/Team darf "DHL-Einsendelabel erstellen" ausloesen (POST .../inbound-label). */
+  canCreate: boolean;
+  /** Fertiger deutscher Hinweistext fuer den Kunden. */
+  message: string;
+  trackingNumber: string;
+  /** Relative API-Adresse des PDFs (nur bei state 'ready'). */
+  downloadUrl: string;
+  /** Dateiname DHL-Einsendelabel_<BKG|ORD>.pdf bzw. DHL-Testlabel_<BKG>.pdf */
+  filename: string;
+  source: '' | 'booking' | 'booking-retoure' | 'order';
+  /** Dummy-Modus: Testlabel, nicht fuer den Versand. */
+  placeholder: boolean;
+  shippingStatus: string;
+  /** Ein Geraet der Buchung ist bereits bei McRepair eingegangen. */
+  deviceReceived: boolean;
+  /** Nur Team: */
+  lastError?: string;
+  reconcileUrl?: string;
+  reconciliationReason?: string;
+}
+
+export interface InboundLabelBookingSummary {
+  _id: string;
+  bookingNumber: string;
+  createdAt: string | null;
+  status: string;
+  totalCost: number;
+  currency: string;
+  paymentStatus: string;
+  billingStatus: string;
+  paymentMethod: '' | 'card' | 'paypal' | 'invoice';
+  deviceCount: number;
+  isGuest: boolean;
+}
+
+export interface InboundLabelOrderSummary {
+  orderId: string;
+  orderNumber: string;
+  type: 'repair' | 'product';
+  device: string;
+  status: string;
+}
+
+export interface InboundLabelView {
+  success: boolean;
+  /** Nur bei GET /api/orders/:id/inbound-label */
+  scope?: 'booking' | 'order';
+  orderId?: string;
+  booking: InboundLabelBookingSummary | null;
+  orders: InboundLabelOrderSummary[];
+  inbound: InboundLabelInfo;
+  created?: boolean;
+  alreadyExists?: boolean;
+}
+
+export class InboundLabelRequestError extends Error {
+  status?: number;
+  code?: string;
+  constructor(message: string, status?: number, code?: string) {
+    super(message);
+    this.name = 'InboundLabelRequestError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const toInboundLabelRequestError = (error: unknown, fallback: string): InboundLabelRequestError => {
+  const err = error as { status?: number; data?: any; response?: { status?: number; data?: any }; message?: string };
+  const status = err?.status ?? err?.response?.status;
+  const data = err?.data ?? err?.response?.data;
+  const message = status === 401
+    ? 'Bitte melden Sie sich an, um Ihr Einsendelabel abzurufen.'
+    : status === 403 || status === 404
+      ? 'Buchung nicht gefunden.'
+      : (data?.error || data?.message || fallback);
+  return new InboundLabelRequestError(message, status, data?.code);
+};
+
+// Description: Einsendestatus der Buchung (Bestellbestaetigung, Auftragsdetail, Buchungsliste)
+// Endpoint: GET /api/bookings/:id/inbound-label  (Inhaber oder Team; sonst 403)
+export const getBookingInboundLabel = async (bookingId: string): Promise<InboundLabelView> => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/inbound-label`);
+    return response.data as InboundLabelView;
+  } catch (error: unknown) {
+    throw toInboundLabelRequestError(error, 'Der Status des Einsendelabels konnte nicht geladen werden.');
+  }
+};
+
+// Description: "DHL-Einsendelabel erstellen" (Inhaber oder Team), hoechstens ein Label je Buchung
+// Endpoint: POST /api/bookings/:id/inbound-label
+export const createBookingInboundLabel = async (bookingId: string): Promise<InboundLabelView> => {
+  try {
+    const response = await api.post(`/api/bookings/${bookingId}/inbound-label`, {});
+    return response.data as InboundLabelView;
+  } catch (error: unknown) {
+    throw toInboundLabelRequestError(error, 'Das Einsendelabel konnte nicht erstellt werden.');
+  }
+};
+
+// Einsendelabel laut Einsendestatus herunterladen bzw. drucken (nutzt downloadUrl/filename
+// aus der Antwort, dadurch auch fuer Retoure- und Auftragsplatz korrekt).
+export const downloadInboundLabel = async (inbound: Pick<InboundLabelInfo, 'downloadUrl' | 'filename'>): Promise<void> => {
+  await downloadLabelPdf(inbound.downloadUrl, inbound.filename || labelFilename('inbound', 'Buchung'), 'inbound');
+};
+
+export const printInboundLabel = async (inbound: Pick<InboundLabelInfo, 'downloadUrl'>): Promise<void> => {
+  await printLabelPdf(inbound.downloadUrl, 'inbound');
 };
 
 // Description: Create return label for booking (admin/staff only)

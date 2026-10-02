@@ -21,7 +21,9 @@ import {
   type BookingPaymentMethod,
   type BookingPaymentOverview,
 } from "@/api/bookingPayments"
-import { AlertTriangle, ExternalLink, Link2, Loader2, Plus, RefreshCw, Trash2, Unlink } from "lucide-react"
+import { AlertTriangle, ExternalLink, Link2, Loader2, Mail, Plus, RefreshCw, Trash2, Unlink } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { PaymentRequestHistory } from "@/components/admin/PaymentRequestHistory"
 
 interface BookingPaymentsDialogProps {
   open: boolean
@@ -51,6 +53,19 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   failed: "Fehlgeschlagen",
   refunded: "Erstattet",
   disputed: "Strittig",
+}
+
+// Belegstatus deutsch (FIN-11) statt des rohen Statuswerts.
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: "Entwurf",
+  pending_approval: "Freigabe ausstehend",
+  sent: "Versendet",
+  viewed: "Angesehen",
+  partially_paid: "Teilweise bezahlt",
+  paid: "Bezahlt",
+  overdue: "Überfällig",
+  cancelled: "Storniert",
+  credited: "Gutgeschrieben",
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -96,6 +111,8 @@ export function BookingPaymentsDialog({
 }: BookingPaymentsDialogProps) {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const isAdmin = (user as { role?: string } | null)?.role === "admin"
 
   const [overview, setOverview] = useState<BookingPaymentOverview | null>(null)
   const [loading, setLoading] = useState(false)
@@ -208,13 +225,13 @@ export function BookingPaymentsDialog({
       onChanged?.()
       const result = data.importResult
       toast({
-        title: result?.warning ? "PayPal-Import eingeschränkt" : "PayPal-Import abgeschlossen",
+        title: result?.warning ? "PayPal-Abgleich eingeschränkt" : "PayPal-Abgleich abgeschlossen",
         description: result?.warning
           || `${result?.imported || 0} neue, ${result?.updated || 0} aktualisierte und ${result?.linked || 0} verknüpfte Zahlungen.`,
         variant: result?.warning ? "destructive" : undefined,
       })
     } catch (error) {
-      toast({ title: "Fehler", description: errorMessage(error) || "PayPal-Import fehlgeschlagen", variant: "destructive" })
+      toast({ title: "Fehler", description: errorMessage(error) || "PayPal-Abgleich fehlgeschlagen", variant: "destructive" })
     } finally {
       setImporting(false)
     }
@@ -290,15 +307,22 @@ export function BookingPaymentsDialog({
     navigate(`/admin/financial?tab=overview&highlightInvoiceId=${invoiceId}`)
   }
 
+  // FIN-11: Zahlungsaufforderung ueber den Bestaetigungsdialog der Finanzverwaltung
+  // (Empfaenger, Betrag, Rechnung, letzte Aufforderungen, 24-h-Sperre) - kein zweiter Versandweg.
+  const openPaymentRequestInFinance = (invoiceId: string) => {
+    onOpenChange(false)
+    navigate(`/admin/financial?tab=invoices&highlightInvoiceId=${invoiceId}&action=paymentRequest`)
+  }
+
   const summary = overview?.summary
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Zahlungen{bookingNumber ? ` – Auftrag ${bookingNumber}` : ""}</DialogTitle>
+          <DialogTitle>Zahlungen{bookingNumber ? ` – Buchung ${bookingNumber}` : ""}</DialogTitle>
           <DialogDescription>
-            Zahlungen erfassen, PayPal-Zahlungen importieren und Rechnungen zuordnen.
+            Zahlungen erfassen, eingegangene PayPal-Zahlungen abgleichen und Rechnungen zuordnen.
           </DialogDescription>
         </DialogHeader>
 
@@ -357,7 +381,7 @@ export function BookingPaymentsDialog({
                 </Button>
                 <Button variant="outline" size="sm" onClick={handlePaypalImport} disabled={importing || saving}>
                   {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  PayPal-Zahlungen importieren
+                  Eingegangene PayPal-Zahlungen abgleichen
                 </Button>
               </div>
             </div>
@@ -454,7 +478,7 @@ export function BookingPaymentsDialog({
 
             {/* Invoices of the booking with direct link */}
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Rechnungen des Auftrags</h3>
+              <h3 className="mb-2 text-sm font-semibold">Rechnungen der Buchung</h3>
               {overview?.invoices.length ? (
                 <Table>
                   <TableHeader>
@@ -465,7 +489,7 @@ export function BookingPaymentsDialog({
                       <TableHead className="text-right">Summe</TableHead>
                       <TableHead className="text-right">Bezahlt</TableHead>
                       <TableHead className="text-right">Offen</TableHead>
-                      <TableHead className="w-[60px]" />
+                      <TableHead className="w-[120px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -477,18 +501,31 @@ export function BookingPaymentsDialog({
                         </TableCell>
                         <TableCell>
                           <Badge className={statusVariant(invoice.status === "paid" ? "completed" : invoice.status)}>
-                            {invoice.status}
+                            {INVOICE_STATUS_LABELS[invoice.status] || invoice.status}
                           </Badge>
                         </TableCell>
                         <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(invoice.total)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(invoice.paidAmount)}</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(invoice.openAmount)}</TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {!invoice.isCreditNote && Number(invoice.openAmount || 0) > 0.009
+                            && !["cancelled", "credited", "draft"].includes(String(invoice.status || "")) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Zahlungsaufforderung senden … (mit Bestätigung)"
+                              aria-label={`Zahlungsaufforderung zu Rechnung ${invoice.invoiceNumber} senden`}
+                              onClick={() => openPaymentRequestInFinance(invoice._id)}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
                             title="Rechnung in der Finanzverwaltung öffnen"
+                            aria-label={`Rechnung ${invoice.invoiceNumber} in der Finanzverwaltung öffnen`}
                             onClick={() => openInvoiceInFinance(invoice._id)}
                           >
                             <ExternalLink className="h-4 w-4" />
@@ -500,7 +537,7 @@ export function BookingPaymentsDialog({
                 </Table>
               ) : (
                 <p className="rounded-lg border p-4 text-sm text-foreground/60">
-                  Für diesen Auftrag wurden noch keine Rechnungen erstellt.
+                  Für diese Buchung wurden noch keine Rechnungen erstellt.
                 </p>
               )}
             </div>
@@ -640,10 +677,18 @@ export function BookingPaymentsDialog({
                 </div>
               ) : (
                 <p className="rounded-lg border p-4 text-sm text-foreground/60">
-                  Für diesen Auftrag wurden noch keine Zahlungen erfasst.
+                  Für diese Buchung wurden noch keine Zahlungen erfasst.
                 </p>
               )}
             </div>
+
+            {/* FIN-11: Verlauf + "Zahlungsaufforderung erneut senden" (nur Admin, Server-Endpunkt admin-only) */}
+            {isAdmin && (
+              <>
+                <Separator />
+                <PaymentRequestHistory bookingId={bookingId} open={open} />
+              </>
+            )}
           </div>
         )}
 

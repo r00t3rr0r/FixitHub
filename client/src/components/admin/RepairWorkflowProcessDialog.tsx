@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import {
   Dialog,
   DialogContent,
@@ -37,11 +38,20 @@ import { getKnownRepairCost } from "@/api/deviceInspection"
 import {
   approveRepairStart,
   completeRepair,
+  defaultRepairCustomerMessage,
+  describeCustomerNotification,
   pauseRepair,
+  reopenRepair,
   reportIncident,
+  resolveRepairIncident,
   resumeRepair,
+  retryRepairCustomerNotification,
+  syncRepairOrder,
+  type RepairCustomerNotification,
+  type RepairTransitionResult,
 } from "@/api/repairWorkflow"
 import { CorrectionModal } from "@/components/repair/CorrectionModal"
+import { resolveReturnMethod, type ReturnMethodShipments } from "@/lib/returnMethod"
 import {
   AlertTriangle,
   CalendarClock,
@@ -51,9 +61,14 @@ import {
   Edit3,
   Hash,
   Info,
+  Lock,
   MessageSquarePlus,
   Pause,
   Play,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Truck,
   Smartphone,
   ShieldCheck,
   Timer,
@@ -76,6 +91,8 @@ interface RepairWorkflowProcessDialogProps {
   order?: any | null
   inspection?: any | null
   onWorkflowUpdated?: (workflow: any) => void
+  /** Versandstand (GET /api/orders/:id -> shipments) für den Rückgabeweg im Abschlusstext. */
+  shipments?: ReturnMethodShipments | null
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -96,6 +113,56 @@ const INCIDENT_TYPE_LABEL: Record<string, string> = Object.fromEntries(
 // Server-Meldungen (deutsch) bevorzugen, sonst die Axios-Meldung.
 const errorMessage = (error: any, fallback: string) =>
   error?.response?.data?.message || error?.response?.data?.error || error?.message || fallback
+
+// Auftragsstatus nach dem Abgleich (gleiche Bezeichnungen wie im Auftragsverlauf).
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Ausstehend",
+  "diagnostic-assessment": "Diagnosebewertung",
+  "in-progress": "Reparatur in Bearbeitung",
+  paused: "Pausiert",
+  "quality-check": "Qualitätskontrolle",
+  "ready-for-pickup": "Reparatur abgeschlossen – bereit zur Rückgabe",
+  completed: "Abgeschlossen",
+  cancelled: "Storniert",
+}
+const orderStatusLabel = (status?: string | null) => (status ? ORDER_STATUS_LABELS[status] || status : "")
+
+// Ergebnis der letzten Aktion: Speichern, Auftragsstatus und Kundenbenachrichtigung getrennt.
+type NotificationTarget = { target: "approval" | "completion" | "incident"; incidentId?: string }
+interface ActionOutcome {
+  message: string
+  orderStatus?: string | null
+  warnings: string[]
+  notification?: RepairCustomerNotification
+  notificationTarget?: NotificationTarget
+}
+
+// Badges der zwei Zielgruppen - Farbe ist nie das einzige Signal (Text + Symbol).
+const AudienceBadge = ({ audience }: { audience: "customer" | "internal" }) => (
+  audience === "customer" ? (
+    <span className="inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-800">
+      <Send className="h-3 w-3" aria-hidden="true" /> An Kunden
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+      <Lock className="h-3 w-3" aria-hidden="true" /> Intern – nur für das Team
+    </span>
+  )
+)
+
+const notificationLine = (notification?: RepairCustomerNotification | null, sentAtFallback?: string) => {
+  if (notification?.status === "sent" || (!notification && sentAtFallback)) {
+    const channel = notification?.inApp === false && notification?.email === "sent" ? " (E-Mail an Gastkunden)" : ""
+    return `Ja, am ${formatDateTime(notification?.at || sentAtFallback)}${channel}`
+  }
+  if (notification?.status === "failed" && notification.inApp === true && notification.email === "failed") return "Teilweise – im Kundenkonto benachrichtigt, E-Mail fehlgeschlagen"
+  if (notification?.status === "failed") return "Fehlgeschlagen"
+  if (notification?.status === "skipped" && notification.reason === "no_customer_account") return "Nein – Gastauftrag ohne Kundenkonto"
+  if (notification?.status === "skipped" && notification.reason === "no_contact") return "Nein – Gastauftrag ohne E-Mail-Adresse"
+  if (notification?.status === "skipped" && notification.reason === "order_cancelled") return "Nein – Auftrag storniert"
+  if (notification?.status === "skipped" && notification.reason === "preferences") return "Nein – Kunde hat Benachrichtigungen abgeschaltet"
+  return "Nein"
+}
 
 const STATUS_UI: Record<RepairWorkflowStatus, { label: string; dotColor: string; badgeClass: string }> = {
   "pending-confirmation": {
@@ -192,16 +259,34 @@ export function RepairWorkflowProcessDialog({
   order,
   inspection,
   onWorkflowUpdated,
+  shipments,
 }: RepairWorkflowProcessDialogProps) {
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const [loadingAction, setLoadingAction] = useState<"approve" | "pause" | "resume" | "complete" | "incident" | null>(null)
+  const [loadingAction, setLoadingAction] = useState<"approve" | "pause" | "resume" | "complete" | "incident" | "reopen" | "sync" | "notify" | null>(null)
+  const [lastOutcome, setLastOutcome] = useState<ActionOutcome | null>(null)
   const [ticker, setTicker] = useState(() => Date.now())
   const [activeSection, setActiveSection] = useState<SidebarSection>("actions")
 
   // Approve form
   const [internalNotes, setInternalNotes] = useState("")
   const [notifyCustomer, setNotifyCustomer] = useState(false)
+  const [approveCustomerMessage, setApproveCustomerMessage] = useState("")
+
+  // Complete form ("Kunde informieren" ist beim Abschluss vorausgewählt)
+  const [completeNotifyCustomer, setCompleteNotifyCustomer] = useState(true)
+  const [completeCustomerMessage, setCompleteCustomerMessage] = useState("")
+  // Unveränderter Vorschlag => KEIN Text mitschicken: der Server wählt dann den Text nach dem
+  // Rückgabeweg (server/utils/returnMethod.js, dieselbe Regel wie lib/returnMethod). Nur ein von
+  // Hand geänderter Text wird wörtlich übernommen.
+  const [completeMessageEdited, setCompleteMessageEdited] = useState(false)
+  const completeReturnMethod = resolveReturnMethod(shipments)
+
+  // Reopen form
+  const [showReopenDialog, setShowReopenDialog] = useState(false)
+  const [reopenReason, setReopenReason] = useState("")
 
   // Pause form
   const [pauseReason, setPauseReason] = useState("")
@@ -220,6 +305,8 @@ export function RepairWorkflowProcessDialog({
 
   // Incident: notify customer
   const [incidentNotifyCustomer, setIncidentNotifyCustomer] = useState(false)
+  const [incidentCustomerMessage, setIncidentCustomerMessage] = useState("")
+  const [incidentMessageEdited, setIncidentMessageEdited] = useState(false)
 
   // "Wartet auf Kundenrückmeldung" kommt ausschließlich aus der Server-Ableitung
   // (GET /api/repair-workflows/admin/awaiting-customer-feedback) - dieselbe Regel wie in den
@@ -261,12 +348,29 @@ export function RepairWorkflowProcessDialog({
     if (!workflow || !open) return
     setInternalNotes(workflow?.approvalData?.internalNotes || "")
     setNotifyCustomer(Boolean(workflow?.approvalData?.notifyCustomer))
+    setApproveCustomerMessage(workflow?.approvalData?.customerMessage || defaultRepairCustomerMessage("approve", order))
+    setCompleteMessageEdited(false)
   }, [workflow?._id, open])
+
+  // Vorschlag zum Abschluss folgt dem Rückgabeweg (Versand / Abholung), solange er nicht von Hand
+  // geändert wurde - auch wenn der Versandstand erst nach dem Öffnen geladen wird.
+  useEffect(() => {
+    if (!open || completeMessageEdited) return
+    setCompleteCustomerMessage(defaultRepairCustomerMessage("complete", order, undefined, completeReturnMethod))
+  }, [open, workflow?._id, completeMessageEdited, completeReturnMethod, order?.orderNumber])
 
   // Navigate to actions on open/workflow change
   useEffect(() => {
-    if (open) setActiveSection("actions")
+    if (open) {
+      setActiveSection("actions")
+      setLastOutcome(null)
+    }
   }, [open, workflow?._id])
+
+  // Kundentext des Zwischenfalls folgt der Art, solange er nicht von Hand geändert wurde.
+  useEffect(() => {
+    if (!incidentMessageEdited) setIncidentCustomerMessage(defaultRepairCustomerMessage("incident", order, incidentType))
+  }, [incidentType, incidentMessageEdited, order?.orderNumber])
 
   // Live timer tick — only when actively running (not paused/incident)
   useEffect(() => {
@@ -300,6 +404,8 @@ export function RepairWorkflowProcessDialog({
 
   const status = (workflow.status || "pending-confirmation") as RepairWorkflowStatus
   const statusUI = STATUS_UI[status] ?? STATUS_UI["pending-confirmation"]
+  // K09: Storniert -> Arbeitsschritte vorab sperren (der Server lehnt sie ohnehin mit 409 ab).
+  const orderCancelled = order?.status === "cancelled"
   const incidents: any[] = Array.isArray(workflow.incidents) ? workflow.incidents : []
   const incidentCount = incidents.length
   const totalPausedMs = Number(workflow?.timerData?.totalPausedMs || 0)
@@ -324,89 +430,172 @@ export function RepairWorkflowProcessDialog({
     "Nicht zugewiesen"
 
   const deviceLabel = [order?.deviceBrand, order?.deviceModel].filter(Boolean).join(" ") || "—"
-  const isCompleted = status === "completed"
-  const isActionable = !isCompleted
 
   // ── Action helpers ────────────────────────────────────────────────────────
 
-  const applyUpdate = (nextWorkflow: any, successMessage: string) => {
-    if (nextWorkflow) onWorkflowUpdated?.(nextWorkflow)
-    toast({ title: "Erfolg", description: successMessage })
+  // Speichererfolg und Benachrichtigungsergebnis werden GETRENNT gemeldet: ein gespeicherter
+  // Zustandswechsel ist ein Erfolg, auch wenn die Nachricht an den Kunden scheitert.
+  const applyResult = (result: RepairTransitionResult, successMessage: string, notificationTarget?: NotificationTarget) => {
+    if (result?.workflow) onWorkflowUpdated?.(result.workflow)
+    const notification = result?.customerNotification
+    const described = describeCustomerNotification(notification)
+    setLastOutcome({
+      message: result?.message || successMessage,
+      orderStatus: result?.orderStatus,
+      warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+      notification: notification && notification.reason !== "not_requested" ? notification : undefined,
+      notificationTarget,
+    })
+    const statusText = result?.orderStatusChanged && result?.orderStatus ? ` Auftragsstatus: ${orderStatusLabel(result.orderStatus)}.` : ""
+    toast({ title: "Gespeichert", description: `${result?.message || successMessage}${statusText}` })
+    if (described && described.tone !== "success" && described.tone !== "info") {
+      toast({ title: described.title, description: described.description, variant: "destructive" })
+    } else if (described) {
+      toast({ title: described.title, description: described.description })
+    }
   }
 
-  const handleApprove = async () => {
+  const runAction = async (
+    action: NonNullable<typeof loadingAction>,
+    run: () => Promise<RepairTransitionResult>,
+    successMessage: string,
+    fallbackError: string,
+    notificationTarget?: NotificationTarget
+  ) => {
     try {
-      setLoadingAction("approve")
-      const response = await approveRepairStart(orderId, internalNotes, "", notifyCustomer)
-      applyUpdate((response as any)?.data?.workflow, "Reparatur-Workflow wurde gestartet.")
+      setLoadingAction(action)
+      const result = await run()
+      applyResult(result, successMessage, notificationTarget)
+      return result
     } catch (error: any) {
-      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht gestartet werden"), variant: "destructive" })
+      toast({ title: "Nicht gespeichert", description: errorMessage(error, fallbackError), variant: "destructive" })
+      return null
     } finally {
       setLoadingAction(null)
     }
   }
 
+  const handleApprove = async () => {
+    if (notifyCustomer && !approveCustomerMessage.trim()) {
+      toast({ title: "Hinweis", description: "Bitte die Nachricht an den Kunden eingeben oder „Kunde informieren“ ausschalten.", variant: "destructive" })
+      return
+    }
+    await runAction(
+      "approve",
+      () => approveRepairStart(orderId, internalNotes, null, notifyCustomer, approveCustomerMessage.trim()),
+      "Die Reparatur wurde gestartet.",
+      "Die Reparatur konnte nicht gestartet werden.",
+      { target: "approval" }
+    )
+  }
+
   const handlePause = async () => {
-    try {
-      setLoadingAction("pause")
-      const response = await pauseRepair(orderId, pauseReason.trim() || undefined)
-      applyUpdate((response as any)?.data?.workflow, "Workflow wurde pausiert.")
+    const result = await runAction("pause", () => pauseRepair(orderId, pauseReason.trim() || undefined), "Die Reparatur wurde pausiert.", "Die Reparatur konnte nicht pausiert werden.")
+    if (result) {
       setPauseReason("")
       setShowPauseDialog(false)
-    } catch (error: any) {
-      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht pausiert werden"), variant: "destructive" })
-    } finally {
-      setLoadingAction(null)
     }
   }
 
   const handleResume = async () => {
-    try {
-      setLoadingAction("resume")
-      const response = await resumeRepair(orderId)
-      applyUpdate((response as any)?.data?.workflow, "Workflow wurde fortgesetzt.")
-    } catch (error: any) {
-      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht fortgesetzt werden"), variant: "destructive" })
-    } finally {
-      setLoadingAction(null)
-    }
+    await runAction("resume", () => resumeRepair(orderId), "Die Reparatur wurde fortgesetzt.", "Die Reparatur konnte nicht fortgesetzt werden.")
   }
 
   const handleComplete = async () => {
-    try {
-      setLoadingAction("complete")
-      const response = await completeRepair(orderId)
-      applyUpdate((response as any)?.data?.workflow, "Workflow wurde erfolgreich abgeschlossen.")
-      setShowCompleteConfirm(false)
-    } catch (error: any) {
-      toast({ title: "Fehler", description: errorMessage(error, "Workflow konnte nicht abgeschlossen werden"), variant: "destructive" })
-    } finally {
-      setLoadingAction(null)
+    if (completeNotifyCustomer && !completeCustomerMessage.trim()) {
+      toast({ title: "Hinweis", description: "Bitte die Nachricht an den Kunden eingeben oder „Kunde informieren“ ausschalten.", variant: "destructive" })
+      return
     }
+    const result = await runAction(
+      "complete",
+      () => completeRepair(orderId, {
+        notifyCustomer: completeNotifyCustomer,
+        customerMessage: completeMessageEdited ? completeCustomerMessage.trim() : undefined,
+      }),
+      "Die Reparatur wurde abgeschlossen.",
+      "Die Reparatur konnte nicht abgeschlossen werden.",
+      { target: "completion" }
+    )
+    if (result) setShowCompleteConfirm(false)
+  }
+
+  const handleReopen = async () => {
+    if (!reopenReason.trim()) return
+    const result = await runAction("reopen", () => reopenRepair(orderId, reopenReason.trim()), "Die Reparatur wurde wieder aufgenommen.", "Die Reparatur konnte nicht wieder aufgenommen werden.")
+    if (result) {
+      setReopenReason("")
+      setShowReopenDialog(false)
+    }
+  }
+
+  const handleSyncOrder = async () => {
+    await runAction("sync", () => syncRepairOrder(orderId), "Auftragsstatus und Verlauf sind aktuell.", "Der Auftragsstatus konnte nicht abgeglichen werden.")
+  }
+
+  const handleRetryNotification = async (target: NotificationTarget, customerMessage?: string) => {
+    await runAction(
+      "notify",
+      () => retryRepairCustomerNotification(orderId, target.target, target.incidentId, customerMessage),
+      "Benachrichtigung erneut gesendet.",
+      "Die Benachrichtigung konnte nicht gesendet werden.",
+      target
+    )
   }
 
   const handleReportIncident = async () => {
     if (!incidentReason.trim()) {
-      toast({ title: "Hinweis", description: "Bitte gib einen Grund für den Zwischenfall an.", variant: "destructive" })
+      toast({ title: "Hinweis", description: "Bitte eine Kurzbeschreibung des Zwischenfalls angeben.", variant: "destructive" })
       return
     }
-    try {
-      setLoadingAction("incident")
-      const response = await reportIncident(orderId, incidentType, incidentReason.trim(), {
-        notes: incidentNotes.trim() || undefined,
+    if (incidentNotifyCustomer && !incidentCustomerMessage.trim()) {
+      toast({ title: "Hinweis", description: "Bitte die Nachricht an den Kunden eingeben oder „Kunde informieren“ ausschalten.", variant: "destructive" })
+      return
+    }
+    const result = await runAction(
+      "incident",
+      () => reportIncident(orderId, incidentType, incidentReason.trim(), { notes: incidentNotes.trim() || undefined }, {
         notifyCustomer: incidentNotifyCustomer,
-      })
-      applyUpdate((response as any)?.data?.workflow, "Zwischenfall wurde gemeldet.")
+        customerMessage: incidentCustomerMessage.trim(),
+      }),
+      "Der Zwischenfall wurde gemeldet.",
+      "Der Zwischenfall konnte nicht gemeldet werden."
+    )
+    if (result) {
+      const newest = Array.isArray(result.workflow?.incidents) ? result.workflow.incidents[result.workflow.incidents.length - 1] : null
+      if (newest?._id) {
+        setLastOutcome((previous) => (previous ? { ...previous, notificationTarget: { target: "incident", incidentId: String(newest._id) } } : previous))
+      }
       setIncidentReason("")
       setIncidentNotes("")
       setIncidentNotifyCustomer(false)
+      setIncidentMessageEdited(false)
       setShowIncidentDialog(false)
-      setActiveSection("incidents")
-    } catch (error: any) {
-      toast({ title: "Fehler", description: errorMessage(error, "Zwischenfall konnte nicht gemeldet werden"), variant: "destructive" })
-    } finally {
-      setLoadingAction(null)
     }
+  }
+
+  // "Auslieferung vorbereiten": Dialog schließen und im Auftrag den Bereich „Versand“ öffnen
+  // (Personal-Auftragsdetail: ?bereich=versand, Abschnitt #admin-od-shipping mit „An Kunden versenden“).
+  // Gibt es den Abschnitt nicht (Dialog außerhalb des Auftragsdetails), bleibt der Dialog offen
+  // und ein Hinweis erklärt den Weg – kein stilles Schließen.
+  const handlePrepareShipping = () => {
+    const inOrderDetail = Boolean(document.querySelector(".admin-od-tabs"))
+    if (!inOrderDetail) {
+      toast({ title: "Auslieferung vorbereiten", description: "Bitte den Auftrag öffnen und im Bereich „Versand“ das Versandlabel an den Kunden erstellen." })
+      return
+    }
+    onOpenChange(false)
+    const params = new URLSearchParams(location.search)
+    params.set("bereich", "versand")
+    navigate({ pathname: location.pathname, search: `?${params.toString()}` }, { replace: true, state: location.state })
+    window.setTimeout(() => {
+      const target = document.getElementById("admin-od-shipping")
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" })
+        target.focus({ preventScroll: true })
+      } else {
+        toast({ title: "Auslieferung vorbereiten", description: "Bitte im Auftrag den Bereich „Versand“ öffnen und dort das Versandlabel an den Kunden erstellen." })
+      }
+    }, 200)
   }
 
   // Schließen ist KEIN Zustandswechsel: Ansicht und Arbeitszustand sind getrennt.
@@ -419,8 +608,8 @@ export function RepairWorkflowProcessDialog({
   const handleResolveIncident = async (incidentId: string) => {
     try {
       setResolvingIncidentId(incidentId)
-      const response = await api.post(`/api/repair-workflows/${orderId}/incidents/${incidentId}/resolve`, {})
-      applyUpdate((response as any)?.data?.workflow, "Zwischenfall wurde als erledigt markiert.")
+      const result = await resolveRepairIncident(orderId, incidentId)
+      applyResult(result, "Zwischenfall wurde als erledigt markiert.")
     } catch (error: any) {
       toast({ title: "Fehler", description: errorMessage(error, "Zwischenfall konnte nicht als erledigt markiert werden"), variant: "destructive" })
     } finally {
@@ -497,8 +686,8 @@ export function RepairWorkflowProcessDialog({
                   </div>
                 </div>
 
-                {/* Status badge */}
-                <div className="flex-shrink-0 pt-0.5">
+                {/* Status badge (Abstand zum Schließen-X oben rechts) */}
+                <div className="flex-shrink-0 pt-0.5 mr-8">
                   <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusUI.badgeClass}`}>
                     <span className={`h-2 w-2 rounded-full ${statusUI.dotColor}`} />
                     {statusUI.label}
@@ -509,12 +698,12 @@ export function RepairWorkflowProcessDialog({
           </div>
 
           {/* ── Body: sidebar + main ── */}
-          <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden sm:flex-row">
 
-            {/* Left sidebar */}
-            <div className="w-48 flex-shrink-0 border-r border-gray-100 bg-gray-50 flex flex-col overflow-hidden">
+            {/* Left sidebar (auf dem Handy oben als waagerechte Navigation) */}
+            <div className="w-full flex-shrink-0 border-b border-gray-100 bg-gray-50 flex flex-col overflow-hidden sm:w-48 sm:border-b-0 sm:border-r">
               {/* Info summary */}
-              <div className="px-3 py-3 space-y-2 border-b border-gray-100 bg-white">
+              <div className="hidden px-3 py-3 space-y-2 border-b border-gray-100 bg-white sm:block">
                 <div className="flex items-center gap-2 text-xs text-slate-600">
                   <User className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                   <span className="truncate font-medium">{technicianName}</span>
@@ -532,8 +721,8 @@ export function RepairWorkflowProcessDialog({
               </div>
 
               {/* Nav */}
-              <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
-                <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="flex gap-1 overflow-x-auto py-2 px-2 sm:block sm:flex-1 sm:overflow-y-auto sm:space-y-0.5" role="tablist" aria-label="Bereiche des Reparatur-Workflows">
+                <p className="hidden px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:block">
                   Navigation
                 </p>
                 {NAV_ITEMS.map((item) => {
@@ -541,8 +730,10 @@ export function RepairWorkflowProcessDialog({
                   return (
                     <button
                       key={item.id}
+                      role="tab"
+                      aria-selected={isActive}
                       onClick={() => setActiveSection(item.id)}
-                      className={`w-full text-left rounded-lg px-2.5 py-2 flex items-center gap-2 transition-all text-sm ${
+                      className={`flex-shrink-0 whitespace-nowrap sm:w-full text-left rounded-lg px-2.5 py-2 flex items-center gap-2 transition-all text-sm ${
                         isActive
                           ? "bg-[#1a2a5e] text-white shadow-sm"
                           : "hover:bg-white hover:shadow-sm text-gray-600"
@@ -563,7 +754,7 @@ export function RepairWorkflowProcessDialog({
               </div>
 
               {/* Sidebar footer */}
-              <div className="flex-shrink-0 border-t border-gray-100 p-2">
+              <div className="hidden flex-shrink-0 border-t border-gray-100 p-2 sm:block">
                 <Button
                   variant="outline"
                   size="sm"
@@ -588,6 +779,62 @@ export function RepairWorkflowProcessDialog({
               {/* ACTIONS */}
               {activeSection === "actions" && (
                 <div className="p-5 space-y-4">
+
+                  {/* Ergebnis der letzten Aktion: gespeichert / Auftragsstatus / Kunde - getrennt */}
+                  {lastOutcome && (
+                    <div role="status" aria-live="polite" className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm space-y-2">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600 mt-0.5" aria-hidden="true" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-800">Gespeichert: {lastOutcome.message}</p>
+                          {lastOutcome.orderStatus && (
+                            <p className="text-xs text-slate-600 mt-0.5">Auftragsstatus: <span className="font-medium">{orderStatusLabel(lastOutcome.orderStatus)}</span></p>
+                          )}
+                          {lastOutcome.notification && (() => {
+                            const described = describeCustomerNotification(lastOutcome.notification)
+                            if (!described) return null
+                            return (
+                              <p className={`text-xs mt-0.5 ${described.tone === "success" || described.tone === "info" ? "text-emerald-700" : "text-red-700"}`}>
+                                <Send className="inline h-3 w-3 mr-1" aria-hidden="true" />
+                                {described.title}: {described.description}
+                              </p>
+                            )
+                          })()}
+                        </div>
+                        <button type="button" className="text-xs text-slate-400 hover:text-slate-600" onClick={() => setLastOutcome(null)} aria-label="Hinweis schließen">
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {lastOutcome.warnings.length > 0 && (
+                        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1">
+                          {lastOutcome.warnings.map((warning, index) => (
+                            <p key={index} className="flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" aria-hidden="true" />{warning}</p>
+                          ))}
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {lastOutcome.warnings.some((warning) => /Auftragsstatus/.test(warning)) && (
+                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleSyncOrder} disabled={loadingAction !== null}>
+                                <RefreshCw className="h-3.5 w-3.5" /> {loadingAction === "sync" ? "Wird abgeglichen …" : "Auftragsstatus erneut abgleichen"}
+                              </Button>
+                            )}
+                            {lastOutcome.notification?.status === "failed" && lastOutcome.notificationTarget && (
+                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleRetryNotification(lastOutcome.notificationTarget!)} disabled={loadingAction !== null}>
+                                <Send className="h-3.5 w-3.5" /> {loadingAction === "notify" ? "Wird gesendet …" : "Benachrichtigung erneut senden"}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {orderCancelled && (
+                    <div role="status" data-testid="repair-workflow-cancelled-notice" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
+                      <Lock className="h-5 w-5 flex-shrink-0 text-red-700 mt-0.5" aria-hidden="true" />
+                      <p className="text-sm font-medium text-red-900">
+                        Auftrag storniert – Arbeitsschritte sind gesperrt. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Pending: Freigabe */}
                   {status === "pending-confirmation" && (
@@ -811,12 +1058,55 @@ export function RepairWorkflowProcessDialog({
 
                         <Separator />
 
-                        {/* Two primary actions */}
-                        <div className="flex gap-3">
+                        {/* Interne Notiz und Nachricht an Kunden - klar getrennt */}
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="approve-internal-notes" className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-700">
+                              Interne Notiz <AudienceBadge audience="internal" />
+                            </Label>
+                            <Textarea
+                              id="approve-internal-notes"
+                              value={internalNotes}
+                              onChange={(e) => setInternalNotes(e.target.value)}
+                              placeholder="Nur für das Team – wird dem Kunden nie gesendet."
+                              className="min-h-[60px] resize-none text-sm"
+                              disabled={loadingAction !== null}
+                            />
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <MessageSquarePlus className="h-4 w-4 text-[#1a2a5e]" aria-hidden="true" />
+                                <div>
+                                  <p className="text-sm font-medium text-slate-800">Kunde informieren</p>
+                                  <p className="text-[11px] text-slate-500">Benachrichtigung im Kundenkonto und E-Mail beim Start</p>
+                                </div>
+                              </div>
+                              <Switch checked={notifyCustomer} onCheckedChange={setNotifyCustomer} disabled={loadingAction !== null} aria-label="Kunde informieren" />
+                            </div>
+                            {notifyCustomer && (
+                              <div className="space-y-1.5">
+                                <Label htmlFor="approve-customer-message" className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-700">
+                                  Nachricht an Kunden <AudienceBadge audience="customer" />
+                                </Label>
+                                <Textarea
+                                  id="approve-customer-message"
+                                  value={approveCustomerMessage}
+                                  onChange={(e) => setApproveCustomerMessage(e.target.value)}
+                                  className="min-h-[70px] resize-none text-sm bg-white"
+                                  disabled={loadingAction !== null}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Two primary actions - bleiben beim Scrollen unten sichtbar */}
+                        <div className="sticky bottom-0 z-10 -mx-6 -mb-6 flex flex-col gap-3 border-t border-slate-200 bg-white/95 px-6 py-3 backdrop-blur sm:flex-row">
                           <Button
                             variant="outline"
                             onClick={() => setShowCorrectionModal(true)}
-                            disabled={loadingAction !== null}
+                            disabled={loadingAction !== null || orderCancelled}
                             className="flex-1 gap-2 border-[#1a2a5e]/20 text-[#1a2a5e] hover:bg-[#1a2a5e]/05 font-semibold"
                           >
                             <Edit3 className="h-4 w-4" />
@@ -824,7 +1114,7 @@ export function RepairWorkflowProcessDialog({
                           </Button>
                           <Button
                             onClick={handleApprove}
-                            disabled={loadingAction !== null}
+                            disabled={loadingAction !== null || orderCancelled}
                             className="flex-1 gap-2 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
                           >
                             <Play className="h-4 w-4" />
@@ -849,7 +1139,7 @@ export function RepairWorkflowProcessDialog({
                           </div>
                           <Button
                             onClick={handleResume}
-                            disabled={loadingAction !== null}
+                            disabled={loadingAction !== null || orderCancelled}
                             size="sm"
                             className="ml-auto gap-1.5 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white flex-shrink-0"
                           >
@@ -868,7 +1158,7 @@ export function RepairWorkflowProcessDialog({
                           </div>
                           <Button
                             onClick={handleResume}
-                            disabled={loadingAction !== null}
+                            disabled={loadingAction !== null || orderCancelled}
                             size="sm"
                             className="ml-auto gap-1.5 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white flex-shrink-0"
                           >
@@ -884,7 +1174,7 @@ export function RepairWorkflowProcessDialog({
                         {/* Workflow pausieren - wie der Server nur aus laufender Arbeit ("in-progress") */}
                         <button
                           onClick={() => setShowPauseDialog(true)}
-                          disabled={loadingAction !== null || status !== "in-progress"}
+                          disabled={loadingAction !== null || status !== "in-progress" || orderCancelled}
                           className="flex items-center gap-4 rounded-xl border border-blue-200 bg-white p-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
@@ -905,7 +1195,7 @@ export function RepairWorkflowProcessDialog({
                         {/* Zwischenfall melden */}
                         <button
                           onClick={() => setShowIncidentDialog(true)}
-                          disabled={loadingAction !== null}
+                          disabled={loadingAction !== null || orderCancelled}
                           className="flex items-center gap-4 rounded-xl border border-red-200 bg-white p-4 text-left transition-all hover:border-red-300 hover:bg-red-50/50 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-100">
@@ -920,7 +1210,7 @@ export function RepairWorkflowProcessDialog({
                         {/* Reparatur abschliessen */}
                         <button
                           onClick={() => setShowCompleteConfirm(true)}
-                          disabled={loadingAction !== null}
+                          disabled={loadingAction !== null || orderCancelled}
                           className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-white p-4 text-left transition-all hover:border-emerald-300 hover:bg-emerald-50/50 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-100">
@@ -953,6 +1243,65 @@ export function RepairWorkflowProcessDialog({
                             Abgeschlossen am {formatDateTime(workflow.timerData.completedAt)}
                           </p>
                         )}
+                        {order?.status && (
+                          <p className="text-xs text-emerald-800">
+                            Auftragsstatus: <span className="font-semibold">{orderStatusLabel(order.status)}</span>
+                          </p>
+                        )}
+                        <p className="text-xs text-emerald-700">
+                          Kunde benachrichtigt: {notificationLine(workflow?.completionNotification)}
+                        </p>
+                        <div className="mt-2 flex w-full max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
+                          <Button onClick={handlePrepareShipping} className="gap-2 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white">
+                            <Truck className="h-4 w-4" aria-hidden="true" />
+                            Auslieferung vorbereiten
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowReopenDialog(true)} disabled={loadingAction !== null || orderCancelled} className="gap-2">
+                            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                            Reparatur wieder aufnehmen
+                          </Button>
+                        </div>
+                        {/* Kunde nachträglich informieren: immer möglich, solange keine Benachrichtigung gesendet
+                            wurde (z. B. Abschluss durch den Techniker ohne Benachrichtigung, oder Fehler). */}
+                        {!["sent", "duplicate"].includes(String(workflow?.completionNotification?.status || "")) && (
+                          <div className="mt-1 w-full max-w-md space-y-1.5 rounded-lg border border-blue-200 bg-white p-3 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <Label htmlFor="rw-complete-later-message" className="text-xs font-semibold text-slate-800">Nachricht an Kunden</Label>
+                              <AudienceBadge audience="customer" />
+                            </div>
+                            <Textarea
+                              id="rw-complete-later-message"
+                              value={completeCustomerMessage}
+                              onChange={(event) => {
+                                setCompleteCustomerMessage(event.target.value)
+                                setCompleteMessageEdited(true)
+                              }}
+                              rows={3}
+                              className="text-xs"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 text-xs"
+                              onClick={() => {
+                                if (!completeCustomerMessage.trim()) {
+                                  toast({ title: "Hinweis", description: "Bitte die Nachricht an den Kunden eingeben.", variant: "destructive" })
+                                  return
+                                }
+                                // Unveränderter Vorschlag: Server wählt den Text nach dem Rückgabeweg.
+                                void handleRetryNotification({ target: "completion" }, completeMessageEdited ? completeCustomerMessage.trim() : undefined)
+                              }}
+                              disabled={loadingAction !== null}
+                            >
+                              <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                              {workflow?.completionNotification?.status === "failed" ? "Benachrichtigung erneut senden" : "Kunde über Abschluss informieren"}
+                            </Button>
+                            <p className="text-[11px] text-slate-500">Sendet eine Benachrichtigung im Kundenkonto und eine E-Mail (Gastauftrag: nur E-Mail). Interne Notizen werden nie mitgesendet.</p>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-emerald-700/80">
+                          Eine Wiederaufnahme ist möglich, solange noch kein Versandlabel an den Kunden erstellt wurde.
+                        </p>
                       </CardContent>
                     </Card>
                   )}
@@ -1012,7 +1361,7 @@ export function RepairWorkflowProcessDialog({
                           <div className="mt-2 grid grid-cols-1 gap-0.5 text-[11px] text-slate-500 sm:grid-cols-2">
                             <span>Gemeldet von: {incident.reportedByTechnicianName || "—"}</span>
                             <span>
-                              Kunde benachrichtigt: {incident.emailSentAt ? formatDateTime(incident.emailSentAt) : "Nein"}
+                              Kunde benachrichtigt: {notificationLine(incident.customerNotification, incident.emailSentAt)}
                             </span>
                             {incident.status === "resolved" && (
                               <span className="sm:col-span-2">
@@ -1022,6 +1371,19 @@ export function RepairWorkflowProcessDialog({
                               </span>
                             )}
                           </div>
+                          {incident._id && incident.customerNotification?.status === "failed" && !incident.emailSentAt && (
+                            <div className="mt-2 flex justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => handleRetryNotification({ target: "incident", incidentId: String(incident._id) })}
+                                disabled={loadingAction !== null}
+                              >
+                                <Send className="h-3.5 w-3.5" /> Benachrichtigung erneut senden
+                              </Button>
+                            </div>
+                          )}
                           {incident.status !== "resolved" && incident._id && (
                             <div className="mt-2 flex justify-end">
                               <Button
@@ -1213,7 +1575,7 @@ export function RepairWorkflowProcessDialog({
                         </div>
                         {workflow.approvalData.internalNotes && (
                           <div className="sm:col-span-2">
-                            <p className="text-xs text-slate-400 mb-0.5">Interne Notizen</p>
+                            <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-2">Interne Notizen <AudienceBadge audience="internal" /></p>
                             <p className="text-slate-700 text-sm bg-slate-50 rounded-md p-2 border border-slate-200">
                               {workflow.approvalData.internalNotes}
                             </p>
@@ -1222,7 +1584,9 @@ export function RepairWorkflowProcessDialog({
                         <div>
                           <p className="text-xs text-slate-400 mb-0.5">Kunde benachrichtigt</p>
                           <p className="font-medium text-slate-900">
-                            {workflow.approvalData.notifyCustomer ? "Ja" : "Nein"}
+                            {workflow.approvalData.notifyCustomer
+                              ? notificationLine(workflow.approvalData.customerNotification)
+                              : "Nein (nicht gewählt)"}
                           </p>
                         </div>
                       </CardContent>
@@ -1242,13 +1606,40 @@ export function RepairWorkflowProcessDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Reparatur abschließen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Diese Aktion beendet die Zeiterfassung und markiert den Reparatur-Workflow als abgeschlossen. Sie kann nicht rückgängig gemacht werden.
+              Die Zeiterfassung endet. Der Auftrag wechselt auf „Reparatur abgeschlossen – bereit zur Rückgabe“; danach kann die Auslieferung vorbereitet werden.
+              Rechnungen und Zahlungen werden nicht verändert.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-slate-800">Kunde informieren</p>
+                <p className="text-[11px] text-slate-500">Benachrichtigung im Kundenkonto und E-Mail</p>
+              </div>
+              <Switch checked={completeNotifyCustomer} onCheckedChange={setCompleteNotifyCustomer} disabled={loadingAction !== null} aria-label="Kunde über den Abschluss informieren" />
+            </div>
+            {completeNotifyCustomer && (
+              <div className="space-y-1.5">
+                <Label htmlFor="complete-customer-message" className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-700">
+                  Nachricht an Kunden <AudienceBadge audience="customer" />
+                </Label>
+                <Textarea
+                  id="complete-customer-message"
+                  value={completeCustomerMessage}
+                  onChange={(e) => {
+                    setCompleteCustomerMessage(e.target.value)
+                    setCompleteMessageEdited(true)
+                  }}
+                  className="min-h-[70px] resize-none text-sm bg-white"
+                  disabled={loadingAction !== null}
+                />
+              </div>
+            )}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loadingAction !== null}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleComplete}
+              onClick={(event) => { event.preventDefault(); void handleComplete() }}
               disabled={loadingAction !== null}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
@@ -1286,9 +1677,10 @@ export function RepairWorkflowProcessDialog({
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="pause-reason-dialog" className="text-sm font-medium text-slate-700">
-                Pausengrund <span className="text-destructive">*</span>
+              <Label htmlFor="pause-reason-dialog" className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-700">
+                Pausengrund <span className="text-destructive">*</span> <AudienceBadge audience="internal" />
               </Label>
+              <p className="text-[11px] text-slate-500">Der Kunde wird beim Pausieren nicht benachrichtigt.</p>
               <Input
                 id="pause-reason-dialog"
                 value={pauseReason}
@@ -1341,8 +1733,8 @@ export function RepairWorkflowProcessDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-slate-700">
-                Kurzbeschreibung <span className="text-destructive">*</span>
+              <Label className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-700">
+                Kurzbeschreibung <span className="text-destructive">*</span> <AudienceBadge audience="internal" />
               </Label>
               <Input
                 value={incidentReason}
@@ -1352,8 +1744,8 @@ export function RepairWorkflowProcessDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-slate-700">
-                Zusatznotizen <span className="text-slate-400 font-normal">(optional)</span>
+              <Label className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-700">
+                Zusatznotizen <span className="text-slate-400 font-normal">(optional)</span> <AudienceBadge audience="internal" />
               </Label>
               <Textarea
                 value={incidentNotes}
@@ -1370,16 +1762,31 @@ export function RepairWorkflowProcessDialog({
               <div className="flex items-center gap-2.5">
                 <MessageSquarePlus className="h-4 w-4 text-[#1a2a5e]" />
                 <div>
-                  <p className="text-sm font-medium text-slate-800">Kunde informieren?</p>
-                  <p className="text-[11px] text-slate-500">Automatische Benachrichtigung über den Zwischenfall</p>
+                  <p className="text-sm font-medium text-slate-800">Kunde informieren</p>
+                  <p className="text-[11px] text-slate-500">Benachrichtigung im Kundenkonto und E-Mail – Kurzbeschreibung und Notizen bleiben intern</p>
                 </div>
               </div>
               <Switch
                 checked={incidentNotifyCustomer}
                 onCheckedChange={setIncidentNotifyCustomer}
                 disabled={loadingAction !== null}
+                aria-label="Kunde über den Zwischenfall informieren"
               />
             </div>
+            {incidentNotifyCustomer && (
+              <div className="space-y-1.5">
+                <Label htmlFor="incident-customer-message" className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-700">
+                  Nachricht an Kunden <AudienceBadge audience="customer" />
+                </Label>
+                <Textarea
+                  id="incident-customer-message"
+                  value={incidentCustomerMessage}
+                  onChange={(e) => { setIncidentCustomerMessage(e.target.value); setIncidentMessageEdited(true) }}
+                  className="min-h-[80px] resize-none text-sm"
+                  disabled={loadingAction !== null}
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -1389,6 +1796,7 @@ export function RepairWorkflowProcessDialog({
                 setIncidentReason("")
                 setIncidentNotes("")
                 setIncidentNotifyCustomer(false)
+                setIncidentMessageEdited(false)
               }}
               disabled={loadingAction !== null}
             >
@@ -1401,6 +1809,42 @@ export function RepairWorkflowProcessDialog({
             >
               <AlertTriangle className="h-4 w-4" />
               {loadingAction === "incident" ? "Wird gemeldet …" : "Zwischenfall melden"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reopen dialog */}
+      <Dialog open={showReopenDialog} onOpenChange={(value) => { setShowReopenDialog(value); if (!value) setReopenReason("") }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-800">
+              <RotateCcw className="h-5 w-5 text-[#1a2a5e]" />
+              Reparatur wieder aufnehmen
+            </DialogTitle>
+            <DialogDescription>
+              Der Auftrag wechselt zurück auf „Reparatur in Bearbeitung“. Die Zeit seit dem Abschluss zählt als Pause.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label htmlFor="reopen-reason" className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-700">
+              Grund für die Wiederaufnahme <span className="text-destructive">*</span> <AudienceBadge audience="internal" />
+            </Label>
+            <Textarea
+              id="reopen-reason"
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              placeholder="z. B. Fehler beim Endtest festgestellt"
+              className="min-h-[70px] resize-none text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowReopenDialog(false)} disabled={loadingAction !== null}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleReopen} disabled={loadingAction !== null || !reopenReason.trim()} className="gap-2 bg-[#1a2a5e] hover:bg-[#2a3f7e] text-white">
+              <RotateCcw className="h-4 w-4" />
+              {loadingAction === "reopen" ? "Wird gespeichert …" : "Wieder aufnehmen"}
             </Button>
           </div>
         </DialogContent>

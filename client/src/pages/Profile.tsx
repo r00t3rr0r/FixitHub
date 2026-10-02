@@ -28,7 +28,7 @@ import {
   FileText,
   TrendingUp,
   Calendar,
-  DollarSign,
+  Euro,
   Home,
   PackageSearch,
   Truck,
@@ -38,6 +38,7 @@ import {
   MapPinned,
   X,
 } from "lucide-react"
+import { formatEUR } from '@/lib/utils'
 
 const NOTIFICATION_TYPE_KEYS = [
   "order_update",
@@ -119,12 +120,16 @@ export function Profile() {
         setValue("paymentAddress.packstationNumber", profileData.paymentAddress?.packstationNumber || '')
         setValue("paymentAddress.postNumber", profileData.paymentAddress?.postNumber || '')
 
-        // Determine delivery type from saved data
+        // Determine delivery type from saved data.
+        // "Wie Rechnungsadresse" entscheidet das Flag sameAsInvoice (wie Server/Checkout/DHL).
+        // deliveryType ist per Schema-Default immer 'address' und darf "wie Rechnung" nicht
+        // zu einer leeren eigenen Lieferadresse machen (das naechste Speichern setzte sonst
+        // sameAsInvoice=false).
         const savedDeliveryType = profileData.paymentAddress?.deliveryType
         const savedSameAsInvoice = profileData.paymentAddress?.sameAsInvoice !== false
         if (savedDeliveryType === 'packstation') {
           setDeliveryType('packstation')
-        } else if (!savedSameAsInvoice || savedDeliveryType === 'address') {
+        } else if (!savedSameAsInvoice) {
           setDeliveryType('address')
         } else {
           setDeliveryType('same')
@@ -460,11 +465,11 @@ export function Profile() {
         <Card className="profile-stat-card">
           <CardContent className="profile-stat-content">
             <div className="profile-stat-icon profile-stat-icon-yellow">
-              <DollarSign className="h-5 w-5" />
+              <Euro className="h-5 w-5" />
             </div>
             <div className="profile-stat-info">
               <p className="profile-stat-label">{t('profilePage.totalSpent')}</p>
-              <p className="profile-stat-value">${profile.totalSpent.toFixed(2)}</p>
+              <p className="profile-stat-value">{formatEUR(profile.totalSpent)}</p>
             </div>
           </CardContent>
         </Card>

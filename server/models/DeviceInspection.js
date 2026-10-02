@@ -379,10 +379,14 @@ const deviceInspectionSchema = new mongoose.Schema({
       default: false,
     },
     reason: String,
+    // Interne Notiz - nur fuer das Team, erreicht den Kunden nie.
     note: String,
     suggestedStatus: String,
     mailTemplate: String,
     generatedAt: Date,
+    // Ausdruecklicher Text an den Kunden (NOTIF-7) und Zeitpunkt der (einmaligen) Zustellung.
+    customerMessage: String,
+    sentAt: Date,
   },
   approvalStatus: {
     type: String,

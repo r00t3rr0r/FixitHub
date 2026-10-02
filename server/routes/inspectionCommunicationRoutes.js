@@ -1,13 +1,70 @@
 const express = require('express');
 const router = express.Router();
 const InspectionCommunicationService = require('../services/inspectionCommunicationService');
-const { auth, requireUser } = require('./middleware/auth');
+const Order = require('../models/Order');
+const { requireUser, requireStaff } = require('./middleware/auth');
+
+const isStaff = (user) => ['admin', 'staff'].includes(user?.role);
+
+// Jeder erfolgreiche Schreibzugriff (Nachricht, Notiz, Rueckfrage, Aktion, Gelesen) leert den
+// kurzen Zaehler-Cache des Postfachs, damit Seitenleiste/Dashboard sofort stimmen.
+router.use((req, res, next) => {
+  if (req.method !== 'GET' && req.path !== '/unread-counts') {
+    res.on('finish', () => {
+      if (res.statusCode < 400) {
+        require('../services/communicationInboxService').invalidateSummaryCache();
+      }
+    });
+  }
+  next();
+});
+
+// Fehlerantwort: bekannte (deutsche) Fehler mit Status, sonst generische deutsche Meldung.
+const sendError = (res, error, fallback) => {
+  const status = Number(error?.status) || 500;
+  if (status >= 500) {
+    console.error(`InspectionCommunicationRoutes: ${fallback}: ${error?.stack || error}`);
+    return res.status(500).json({ error: fallback });
+  }
+  return res.status(status).json({ error: error.message });
+};
+
+// Zugriffsschutz fuer alle Routen mit :orderId (K04): Personal/Admin duerfen jeden Auftrag
+// sehen; ein Kunde nur Auftraege mit Order.customerId === eigene ID. Fremde, unbekannte und
+// ungueltige IDs bekommen fuer Kunden DIESELBE Antwort (403), damit sich die Existenz eines
+// Auftrags nicht erraten laesst (gleicher Vertrag wie GET /api/orders/:id/shipments).
+const requireOrderAccess = async (req, res, next) => {
+  const privileged = isStaff(req.user);
+  const deny = () => (privileged
+    ? res.status(404).json({ error: 'Auftrag wurde nicht gefunden.' })
+    : res.status(403).json({ error: 'Zugriff verweigert.' }));
+  try {
+    const { orderId } = req.params;
+    if (!/^[a-f0-9]{24}$/i.test(String(orderId || ''))) {
+      return deny();
+    }
+    const order = await Order.findById(orderId)
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id customerId')
+      .lean();
+    if (!order) return deny();
+    if (!privileged && String(order.customerId || '') !== String(req.user._id)) {
+      return deny();
+    }
+    req.communicationOrder = order;
+    return next();
+  } catch (error) {
+    console.error(`InspectionCommunicationRoutes: access check failed: ${error}`);
+    return res.status(500).json({ error: 'Zugriff konnte nicht geprüft werden.' });
+  }
+};
 
 // Description: Get communication threads visible to current user
 // Endpoint: GET /api/inspection-communication
 // Request: { page?: number, limit?: number, search?: string }
 // Response: { communications: Array<Object>, totalPages: number, currentPage: number, totalCount: number }
-// NOTE: This route MUST be defined before /:orderId routes to avoid route collision
+// NOTE: Kunden sehen nur eigene Auftraege (Service). Das zentrale Postfach nutzt
+//       GET /api/communications/inbox (alle Quellen, serverseitig paginiert).
 router.get('/', requireUser, async (req, res) => {
   try {
     const filters = {
@@ -15,8 +72,6 @@ router.get('/', requireUser, async (req, res) => {
       limit: req.query.limit,
       search: req.query.search,
     };
-
-    console.log(`InspectionCommunicationRoutes: GET / - Listing communications for user ${req.user._id}`);
 
     const result = await InspectionCommunicationService.getCommunicationsForUser(
       req.user._id,
@@ -26,100 +81,122 @@ router.get('/', requireUser, async (req, res) => {
 
     res.status(200).json(result);
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error listing communication threads: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Nachrichten konnten nicht geladen werden.');
   }
 });
 
 // Description: Get unread message counts for multiple orders
 // Endpoint: POST /api/inspection-communication/unread-counts
 // Request: { orderIds: Array<string> }
-// Response: { unreadCounts: Record<string, { unread: number, senderType?: string }> }
-// NOTE: This route MUST be defined before /:orderId routes to avoid route collision
+// Response: { unreadCounts: Record<string, { unread: number, senderType?: string, awaitingReply?: boolean }> }
+// Kunden bekommen nur Zaehler eigener Auftraege (fremde IDs werden still ignoriert).
 router.post('/unread-counts', requireUser, async (req, res) => {
   try {
-    const { orderIds } = req.body;
+    const { orderIds } = req.body || {};
 
     if (!orderIds || !Array.isArray(orderIds)) {
-      return res.status(400).json({ error: 'orderIds array is required' });
+      return res.status(400).json({ error: 'orderIds (Liste) ist erforderlich.' });
     }
 
-    console.log(`InspectionCommunicationRoutes: POST /unread-counts - Getting unread counts for ${orderIds.length} orders`);
+    let allowedIds = orderIds.map(String).filter((id) => /^[a-f0-9]{24}$/i.test(id)).slice(0, 500);
+    if (!isStaff(req.user) && allowedIds.length) {
+      const owned = await Order.find({ _id: { $in: allowedIds }, customerId: req.user._id })
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id')
+        .lean();
+      allowedIds = owned.map((order) => String(order._id));
+    }
 
-    const unreadCounts = await InspectionCommunicationService.getUnreadMessageCounts(orderIds, req.user._id, req.user.role);
+    const unreadCounts = await InspectionCommunicationService.getUnreadMessageCounts(allowedIds, req.user._id, req.user.role);
 
     res.status(200).json({ unreadCounts });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error getting unread message counts: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Ungelesene Nachrichten konnten nicht gezählt werden.');
   }
 });
 
 // Description: Get communication thread for an order
 // Endpoint: GET /api/inspection-communication/:orderId
-// Request: {}
-// Response: { communication: Object }
-router.get('/:orderId', requireUser, async (req, res) => {
+// Response: { communication: Object|null, internalNotes?: Array }  (internalNotes NUR fuer Personal)
+router.get('/:orderId', requireUser, requireOrderAccess, async (req, res) => {
   try {
     const { orderId } = req.params;
-
-    console.log(`InspectionCommunicationRoutes: GET /${orderId} - Fetching communication thread`);
-
     const communication = await InspectionCommunicationService.getCommunicationThread(orderId);
-
-    res.status(200).json({ communication });
+    const payload = { communication };
+    if (isStaff(req.user)) {
+      payload.internalNotes = await InspectionCommunicationService.getInternalNotes(orderId);
+    }
+    res.status(200).json(payload);
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error fetching communication thread: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Der Verlauf konnte nicht geladen werden.');
   }
 });
 
-// Description: Send a message in the communication thread
+// Description: Send a message in the communication thread (customer-visible)
 // Endpoint: POST /api/inspection-communication/:orderId/message
-// Request: { content: string }
-// Response: { communication: Object }
-router.post('/:orderId/message', requireUser, async (req, res) => {
+// Request: { content: string, clientMessageId?: string }
+// Response: 201 { communication, created: true } | 200 { communication, created: false } (Wiederholung)
+router.post('/:orderId/message', requireUser, requireOrderAccess, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { content } = req.body;
+    const { content, clientMessageId } = req.body || {};
 
-    if (!content) {
-      return res.status(400).json({ error: 'Message content is required' });
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ error: 'Bitte geben Sie eine Nachricht ein.' });
     }
 
-    console.log(`InspectionCommunicationRoutes: POST /${orderId}/message - Sending message`);
-
-    const communication = await InspectionCommunicationService.sendMessage(
+    const { communication, created } = await InspectionCommunicationService.sendMessageWithResult(
       orderId,
       req.user._id,
       req.user.name || req.user.email,
       content,
-      req.user.role === 'customer' ? 'customer' : 'staff',
-      req.user.role
+      isStaff(req.user) ? 'staff' : 'customer',
+      req.user.role,
+      { clientMessageId }
     );
 
-    res.status(201).json({ communication });
+    res.status(created ? 201 : 200).json({ communication, created });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error sending message: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Die Nachricht konnte nicht gesendet werden.');
   }
 });
 
-// Description: Send a feedback request
-// Endpoint: POST /api/inspection-communication/:orderId/feedback-request
-// Request: { inspectionId: string, question: string, options: Array<{label, value}> }
-// Response: { communication: Object }
-router.post('/:orderId/feedback-request', requireUser, async (req, res) => {
+// Description: Save an internal note (staff only, never visible to the customer)
+// Endpoint: POST /api/inspection-communication/:orderId/internal-note
+// Request: { note: string, clientMessageId?: string }
+// Response: 201|200 { internalNote, internalNotes, created }
+// Speicher: Order.staffNotes (Typ 'internal'); keine Kundenbenachrichtigung, keine E-Mail.
+router.post('/:orderId/internal-note', requireStaff, requireOrderAccess, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { inspectionId, question, options } = req.body;
+    const { note, content, clientMessageId } = req.body || {};
+    const result = await InspectionCommunicationService.addInternalNote(
+      orderId,
+      req.user,
+      note !== undefined ? note : content,
+      clientMessageId
+    );
+    res.status(result.created ? 201 : 200).json(result);
+  } catch (error) {
+    sendError(res, error, 'Die interne Notiz konnte nicht gespeichert werden.');
+  }
+});
 
-    if (!question || !options || options.length === 0) {
-      return res.status(400).json({ error: 'Question and options are required' });
+// Description: Send a feedback request (structured question to the customer) - staff only
+// Endpoint: POST /api/inspection-communication/:orderId/feedback-request
+// Request: { inspectionId?: string, question: string, options: Array<{label, value}>, clientMessageId?: string }
+// Response: { communication: Object }
+// inspectionId wird serverseitig geprueft: nur eine DeviceInspection DIESES Auftrags wird gespeichert.
+router.post('/:orderId/feedback-request', requireStaff, requireOrderAccess, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { inspectionId, question, options, clientMessageId } = req.body || {};
+
+    if (!question || !Array.isArray(options) || options.length === 0) {
+      return res.status(400).json({ error: 'Bitte eine Frage und mindestens zwei Antwortoptionen angeben.' });
     }
 
-    console.log(`InspectionCommunicationRoutes: POST /${orderId}/feedback-request - Sending feedback request`);
-
+    const outcome = {};
     const communication = await InspectionCommunicationService.sendFeedbackRequest(
       orderId,
       inspectionId,
@@ -127,30 +204,32 @@ router.post('/:orderId/feedback-request', requireUser, async (req, res) => {
       req.user.name || req.user.email,
       question,
       options,
-      req.user.role
+      req.user.role,
+      { clientMessageId, result: outcome }
     );
 
-    res.status(201).json({ communication });
+    res.status(outcome.created === false ? 200 : 201).json({ communication, created: outcome.created !== false });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error sending feedback request: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Die Rückfrage konnte nicht gesendet werden.');
   }
 });
 
-// Description: Respond to a feedback request
+// Description: Respond to a feedback request - only the order's customer
 // Endpoint: POST /api/inspection-communication/:orderId/feedback-response
 // Request: { messageId: string, response: {label, value} }
-// Response: { communication: Object }
-router.post('/:orderId/feedback-response', requireUser, async (req, res) => {
+// Response: { communication: Object } | 409 wenn bereits beantwortet
+// Mitarbeiter duerfen NICHT im Namen des Kunden antworten (Produktentscheidung 01.10.2026).
+router.post('/:orderId/feedback-response', requireUser, requireOrderAccess, async (req, res) => {
   try {
+    if (isStaff(req.user)) {
+      return res.status(403).json({ error: 'Rückfragen kann nur der Kunde selbst beantworten.' });
+    }
     const { orderId } = req.params;
-    const { messageId, response } = req.body;
+    const { messageId, response } = req.body || {};
 
     if (!messageId || !response) {
-      return res.status(400).json({ error: 'messageId and response are required' });
+      return res.status(400).json({ error: 'Bitte wählen Sie eine Antwort aus.' });
     }
-
-    console.log(`InspectionCommunicationRoutes: POST /${orderId}/feedback-response - Recording feedback response`);
 
     const communication = await InspectionCommunicationService.respondToFeedback(
       orderId,
@@ -162,31 +241,29 @@ router.post('/:orderId/feedback-response', requireUser, async (req, res) => {
 
     res.status(200).json({ communication });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error responding to feedback: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Die Antwort konnte nicht gespeichert werden.');
   }
 });
 
-// Description: Create a quick action
+// Description: Create a quick action (request an action from the customer) - staff only
 // Endpoint: POST /api/inspection-communication/:orderId/quick-action
-// Request: { inspectionId: string, actionType: string, description?: string, metadata?: object }
+// Request: { inspectionId?: string, actionType: string, description?: string, metadata?: object, clientMessageId?: string }
 // Response: { communication: Object }
-router.post('/:orderId/quick-action', requireUser, async (req, res) => {
+router.post('/:orderId/quick-action', requireStaff, requireOrderAccess, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { inspectionId, actionType, description, metadata } = req.body;
+    const { inspectionId, actionType, description, metadata, clientMessageId } = req.body || {};
 
     if (!actionType) {
-      return res.status(400).json({ error: 'actionType is required' });
+      return res.status(400).json({ error: 'Bitte wählen Sie eine Aktion aus.' });
     }
 
     const validActions = ['part_replacement', 'incorrect_device', 'incorrect_unlock_code', 'additional_costs', 'update_unlock_info', 'customer_defect_info'];
     if (!validActions.includes(actionType)) {
-      return res.status(400).json({ error: `Invalid action type. Must be one of: ${validActions.join(', ')}` });
+      return res.status(400).json({ error: 'Unbekannte Aktion.' });
     }
 
-    console.log(`InspectionCommunicationRoutes: POST /${orderId}/quick-action - Creating quick action ${actionType}`);
-
+    const outcome = {};
     const communication = await InspectionCommunicationService.createQuickAction(
       orderId,
       inspectionId,
@@ -195,85 +272,66 @@ router.post('/:orderId/quick-action', requireUser, async (req, res) => {
       actionType,
       description,
       metadata,
-      req.user.role
+      req.user.role,
+      { clientMessageId, result: outcome }
     );
 
-    res.status(201).json({ communication });
+    res.status(outcome.created === false ? 200 : 201).json({ communication, created: outcome.created !== false });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error creating quick action: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Die Aktion konnte nicht gesendet werden.');
   }
 });
 
-// Description: Complete a quick action
+// Description: Complete a quick action (order customer or staff)
 // Endpoint: PUT /api/inspection-communication/:orderId/quick-action/:messageId/complete
-// Request: {}
 // Response: { communication: Object }
-router.put('/:orderId/quick-action/:messageId/complete', requireUser, async (req, res) => {
+router.put('/:orderId/quick-action/:messageId/complete', requireUser, requireOrderAccess, async (req, res) => {
   try {
     const { orderId, messageId } = req.params;
-
-    console.log(`InspectionCommunicationRoutes: PUT /${orderId}/quick-action/${messageId}/complete - Completing quick action`);
-
-    const communication = await InspectionCommunicationService.completeQuickAction(orderId, messageId);
-
+    const communication = await InspectionCommunicationService.completeQuickAction(orderId, messageId, {
+      userId: req.user._id,
+      role: req.user.role,
+    });
     res.status(200).json({ communication });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error completing quick action: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Die Aktion konnte nicht abgeschlossen werden.');
   }
 });
 
-// Description: Mark all messages as read
+// Description: Mark all messages as read for the current user (per-user read state)
 // Endpoint: PUT /api/inspection-communication/:orderId/mark-read
-// Request: {}
-// Response: { communication: Object }
-router.put('/:orderId/mark-read', requireUser, async (req, res) => {
+// Response: { communication: Object|null }
+router.put('/:orderId/mark-read', requireUser, requireOrderAccess, async (req, res) => {
   try {
     const { orderId } = req.params;
-
-    console.log(`InspectionCommunicationRoutes: PUT /${orderId}/mark-read - Marking messages as read`);
-
     const communication = await InspectionCommunicationService.markMessagesAsRead(orderId, req.user._id);
-
     res.status(200).json({ communication });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error marking messages as read: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Nachrichten konnten nicht als gelesen markiert werden.');
   }
 });
 
 // Description: Get pending feedback count
 // Endpoint: GET /api/inspection-communication/:orderId/pending-feedback
-// Request: {}
 // Response: { count: number }
-router.get('/:orderId/pending-feedback', requireUser, async (req, res) => {
+router.get('/:orderId/pending-feedback', requireUser, requireOrderAccess, async (req, res) => {
   try {
-    const { orderId } = req.params;
-
-    const count = await InspectionCommunicationService.getPendingFeedbackCount(orderId);
-
+    const count = await InspectionCommunicationService.getPendingFeedbackCount(req.params.orderId);
     res.status(200).json({ count });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error getting pending feedback count: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Offene Rückfragen konnten nicht gezählt werden.');
   }
 });
 
 // Description: Get pending actions count
 // Endpoint: GET /api/inspection-communication/:orderId/pending-actions
-// Request: {}
 // Response: { count: number }
-router.get('/:orderId/pending-actions', requireUser, async (req, res) => {
+router.get('/:orderId/pending-actions', requireUser, requireOrderAccess, async (req, res) => {
   try {
-    const { orderId } = req.params;
-
-    const count = await InspectionCommunicationService.getPendingActionsCount(orderId);
-
+    const count = await InspectionCommunicationService.getPendingActionsCount(req.params.orderId);
     res.status(200).json({ count });
   } catch (error) {
-    console.error(`InspectionCommunicationRoutes: Error getting pending actions count: ${error}`);
-    res.status(500).json({ error: error.message });
+    sendError(res, error, 'Offene Aktionen konnten nicht gezählt werden.');
   }
 });
 
@@ -281,12 +339,10 @@ router.get('/:orderId/pending-actions', requireUser, async (req, res) => {
 // Endpoint: POST /api/inspection-communication/:orderId/update-unlock-info
 // Request: { unlockCode?: string, unlockPattern?: string[], noLock?: boolean }
 // Response: { order: Object }
-router.post('/:orderId/update-unlock-info', requireUser, async (req, res) => {
+router.post('/:orderId/update-unlock-info', requireUser, requireOrderAccess, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { unlockCode, unlockPattern, noLock } = req.body;
-
-    console.log(`InspectionCommunicationRoutes: POST /${orderId}/update-unlock-info - Customer updating unlock info`);
+    const { unlockCode, unlockPattern, noLock } = req.body || {};
 
     const order = await InspectionCommunicationService.submitUnlockInfoUpdate(
       orderId,
@@ -299,12 +355,15 @@ router.post('/:orderId/update-unlock-info', requireUser, async (req, res) => {
   } catch (error) {
     console.error(`InspectionCommunicationRoutes: Error updating unlock info: ${error}`);
     if (error.message === 'Order not found') {
-      return res.status(404).json({ error: error.message });
+      return res.status(404).json({ error: 'Auftrag wurde nicht gefunden.' });
     }
     if (error.message === 'Unauthorized') {
-      return res.status(403).json({ error: error.message });
+      return res.status(403).json({ error: 'Zugriff verweigert.' });
     }
-    res.status(500).json({ error: error.message });
+    if (/Ungültige Entsperrinformation/.test(error.message || '')) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Die Entsperrinformation konnte nicht gespeichert werden.' });
   }
 });
 

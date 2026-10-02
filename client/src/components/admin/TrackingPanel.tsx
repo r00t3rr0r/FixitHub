@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { formatEUR } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -300,7 +301,7 @@ export function TrackingPanel({ orderId, orderData, onUpdate }: TrackingPanelPro
                   <Separator />
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">Shipping Cost</p>
-                    <p className="text-sm font-medium">€{orderData.shippingCost.toFixed(2)}</p>
+                    <p className="text-sm font-medium">{formatEUR(orderData.shippingCost)}</p>
                   </div>
                 </>
               )}

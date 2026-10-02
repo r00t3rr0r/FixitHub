@@ -288,6 +288,36 @@ export interface OrderShipmentsView {
     inboundInOutboundSlot: boolean;
     bookingOutboundLabel: { bookingId: string; trackingNumber: string } | null;
   };
+  /** K11, nur Team: Absender/Empfänger je Richtung (gleiche Quellen wie die Label-Erstellung). */
+  parties?: {
+    inbound: ShipmentPartiesView;
+    outbound: ShipmentPartiesView;
+    fromCurrentData?: boolean;
+  } | null;
+}
+
+export interface ShipmentPartyView {
+  role: 'customer' | 'shop';
+  name: string;
+  deliveryType: 'address' | 'packstation';
+  street: string;
+  house: string;
+  packstationNumber?: string;
+  postNumber?: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  source: string;
+  sourceLabel: string;
+  /** Deutsche Namen fehlender Pflichtangaben (leer = vollständig). */
+  missing: string[];
+}
+
+export interface ShipmentPartiesView {
+  direction: 'inbound' | 'outbound';
+  label: string;
+  sender: ShipmentPartyView;
+  recipient: ShipmentPartyView;
 }
 
 // Description: Auslieferung an den Kunden – "An Kunden versenden"

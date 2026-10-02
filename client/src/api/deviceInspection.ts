@@ -219,8 +219,12 @@ export const completeInspection = async (
     note?: string;
     suggestedStatus?: string;
     mailTemplate?: string;
+    // Ausdruecklicher Text an den Kunden; nur damit (und shouldInform) informiert der Server den
+    // Kunden (In-App + E-Mail, einmal je Inspektion). note bleibt intern.
+    customerMessage?: string;
   }
 ) => {
+  // Response zusaetzlich: customerNotification { status: 'sent' | 'duplicate' | 'skipped' | 'failed', reason?, error? }
   try {
     const response = await api.put(`/api/device-inspections/${orderId}/complete`, {
       isRepairable,

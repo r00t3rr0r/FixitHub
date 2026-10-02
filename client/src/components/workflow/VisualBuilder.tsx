@@ -338,21 +338,15 @@ export function VisualBuilder({ workflow, onSave, onClose, services, addOnServic
                           <Badge className={`text-xs h-4 px-1 ${getCategoryColor(step.category)}`}>
                             {step.category}
                           </Badge>
-                          {step.isRequired && (
-                            <Badge variant="destructive" className="text-xs h-4 px-1">
-                              Required
-                            </Badge>
-                          )}
-                          {step.requiresApproval && (
-                            <Badge variant="secondary" className="text-xs h-4 px-1">
-                              <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-                              Approval
-                            </Badge>
-                          )}
-                          {step.requiresFormCompletion && (
-                            <Badge variant="secondary" className="text-xs h-4 px-1">
-                              <FormInput className="h-2.5 w-2.5 mr-0.5" />
-                              Form Required
+                          {/* Pflichtschritt/Freigabe/Formular werden vom Reparatur-Workflow nicht ausgewertet
+                              (im Schritt-Dialog gesperrt) - daher keine Hervorhebung, nur ein gedämpfter Hinweis. */}
+                          {(step.isRequired || step.requiresApproval || step.requiresFormCompletion) && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs h-4 px-1 text-muted-foreground"
+                              title="Pflichtschritt, Freigabe und Formular werden derzeit nicht ausgewertet."
+                            >
+                              {[step.isRequired && 'Pflicht', step.requiresApproval && 'Freigabe', step.requiresFormCompletion && 'Formular'].filter(Boolean).join(' · ')} (ohne Wirkung)
                             </Badge>
                           )}
                         </div>

@@ -254,18 +254,58 @@ const complaintSchema = new mongoose.Schema({
   versionKey: false
 });
 
+// Reklamationsnummern (Format unveraendert CMP-JJJJ-NNNN) kommen aus dem atomaren DocumentSequence-
+// Zaehler {documentType:'complaint', year}. Frueher: countDocuments()+1 -> doppelte Nummern (E11000) bei
+// parallelen Reklamationen oder nach einer Loeschung; die Auftragsroute ueberschrieb die Nummer zudem
+// mit "R<Auftrags-ID>". Der Zaehler wird pro Jahr einmal je Prozess auf die hoechste vorhandene Nummer
+// angehoben (nie abgesenkt), damit Altbestaende nicht kollidieren.
+const COMPLAINT_SEQUENCE_TYPE = 'complaint';
+const complaintCounterAligned = new Map();
+async function alignComplaintCounter(year) {
+  const DocumentSequence = require('./DocumentSequence');
+  const pattern = new RegExp(`^CMP-${year}-(\\d+)$`);
+  const rows = await mongoose.model('Complaint').find({ complaintNumber: { $regex: `^CMP-${year}-\\d+$` } }, { complaintNumber: 1 }).lean();
+  const maxExisting = rows.reduce((max, row) => {
+    const match = pattern.exec(String(row.complaintNumber || ''));
+    const value = match ? Number(match[1]) : 0;
+    return Number.isFinite(value) && value > max ? value : max;
+  }, 0);
+  if (maxExisting > 0) {
+    try {
+      await DocumentSequence.findOneAndUpdate(
+        { documentType: COMPLAINT_SEQUENCE_TYPE, year },
+        { $max: { sequence: maxExisting }, $set: { updatedAt: new Date() } },
+        { upsert: true, new: true }
+      );
+    } catch (error) {
+      if (error?.code !== 11000) throw error;
+      await DocumentSequence.updateOne({ documentType: COMPLAINT_SEQUENCE_TYPE, year }, { $max: { sequence: maxExisting } });
+    }
+  }
+}
+async function allocateComplaintNumber() {
+  const DocumentSequence = require('./DocumentSequence');
+  const year = new Date().getFullYear();
+  if (!complaintCounterAligned.has(year)) {
+    complaintCounterAligned.set(year, alignComplaintCounter(year).catch((error) => {
+      complaintCounterAligned.delete(year);
+      throw error;
+    }));
+  }
+  await complaintCounterAligned.get(year);
+  const sequence = await DocumentSequence.allocate(COMPLAINT_SEQUENCE_TYPE, year);
+  return `CMP-${year}-${String(sequence).padStart(4, '0')}`;
+}
+
 // Generate complaint number before saving
 complaintSchema.pre('save', async function(next) {
   if (this.isNew && !this.complaintNumber) {
     try {
-      console.log('Complaint pre-save: Generating complaint number');
-      const year = new Date().getFullYear();
-      const count = await mongoose.model('Complaint').countDocuments();
-      this.complaintNumber = `CMP-${year}-${String(count + 1).padStart(4, '0')}`;
-      console.log('Complaint pre-save: Generated complaint number:', this.complaintNumber);
+      this.complaintNumber = await allocateComplaintNumber();
     } catch (error) {
-      console.error('Complaint pre-save: Error generating complaint number:', error);
-      this.complaintNumber = `CMP-${Date.now()}`;
+      // Bewusst KEINE Ersatznummer erfinden (wie bei Rechnungen): die Anlage scheitert sichtbar.
+      console.error('Complaint pre-save: Error allocating complaint number:', error);
+      return next(error);
     }
   }
 
@@ -297,6 +337,75 @@ complaintSchema.pre(/^find/, function(next) {
       .populate('resolvedBy', 'firstName lastName email');
   next();
 });
+
+// ---- Ausgabe an Clients ------------------------------------------------------------------
+// Das Versandlabel liegt als base64-PDF in shippingLabelUrl (und in Altdaten zusaetzlich im
+// Protokoll). Es gehoert NIE in normale JSON-Antworten (Listen, Polling, Benachrichtigungen):
+// stattdessen hasShippingLabel + shippingTrackingNumber; das PDF liefert ausschliesslich
+// GET /api/complaints/:id/shipping-label (Besitz- bzw. Rollenpruefung).
+function isEmbeddedData(value) {
+  return typeof value === 'string' && /^data:/i.test(value.trim());
+}
+
+function findLabelTrackingNumber(logs) {
+  if (!Array.isArray(logs)) return null;
+  for (let index = logs.length - 1; index >= 0; index -= 1) {
+    const entry = logs[index];
+    if (entry && entry.action === 'admin_approved' && entry.metadata && entry.metadata.trackingNumber) {
+      return String(entry.metadata.trackingNumber);
+    }
+  }
+  return null;
+}
+
+function projectComplaintLabelData(ret) {
+  if (!ret || typeof ret !== 'object') return ret;
+  const label = typeof ret.shippingLabelUrl === 'string' ? ret.shippingLabelUrl.trim() : '';
+  ret.hasShippingLabel = Boolean(label);
+  if (isEmbeddedData(label)) {
+    delete ret.shippingLabelUrl;
+  }
+  if (Array.isArray(ret.complaintLogs)) {
+    ret.complaintLogs = ret.complaintLogs.map((entry) => {
+      if (!entry || !entry.metadata || typeof entry.metadata !== 'object') return entry;
+      const metadata = { ...entry.metadata };
+      let changed = false;
+      Object.keys(metadata).forEach((key) => {
+        if (isEmbeddedData(metadata[key])) {
+          delete metadata[key];
+          metadata.shippingLabelStored = true;
+          changed = true;
+        }
+      });
+      return changed ? { ...entry, metadata } : entry;
+    });
+  }
+  ret.shippingTrackingNumber = findLabelTrackingNumber(ret.complaintLogs);
+  return ret;
+}
+
+complaintSchema.set('toJSON', {
+  transform(doc, ret) {
+    return projectComplaintLabelData(ret);
+  }
+});
+
+/**
+ * Einheitliche Client-Sicht einer Reklamation (eine Stelle fuer alle Routen).
+ * includeInternal=false (Kunden): interne Kommentare (isInternal) werden entfernt.
+ */
+complaintSchema.statics.toClientView = function toClientView(complaint, { includeInternal = false } = {}) {
+  if (!complaint) return complaint;
+  const view = typeof complaint.toJSON === 'function'
+    ? complaint.toJSON()
+    : projectComplaintLabelData(JSON.parse(JSON.stringify(complaint)));
+  if (!includeInternal && Array.isArray(view.comments)) {
+    view.comments = view.comments.filter((comment) => comment && comment.isInternal !== true);
+  }
+  return view;
+};
+
+complaintSchema.statics.projectComplaintLabelData = projectComplaintLabelData;
 
 const Complaint = mongoose.model('Complaint', complaintSchema);
 

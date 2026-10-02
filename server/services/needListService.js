@@ -472,7 +472,9 @@ class NeedListService {
     }
 
     if (needList.convertedToOrder) {
-      throw new Error('Need list has already been converted to an order');
+      const alreadyConverted = new Error('Diese Bedarfsliste wurde bereits in eine Bestellung umgewandelt.');
+      alreadyConverted.status = 409;
+      throw alreadyConverted;
     }
 
     if (needList.items.length === 0) {
@@ -567,7 +569,30 @@ class NeedListService {
       createdBy: userId
     });
 
-    await order.save();
+    // Atomarer Claim (01.10.2026): Doppelklick / zwei Admins duerfen aus EINER
+    // Bedarfsliste nicht zwei Bestellungen erzeugen. Die Liste wird vor dem Speichern
+    // der Bestellung per bedingtem Update auf die neue Bestell-ID gesetzt.
+    const claimed = await NeedList.findOneAndUpdate(
+      { _id: needList._id, convertedToOrder: null },
+      { $set: { convertedToOrder: order._id } },
+      { new: true }
+    );
+    if (!claimed) {
+      const conflict = new Error('Diese Bedarfsliste wurde bereits in eine Bestellung umgewandelt.');
+      conflict.status = 409;
+      throw conflict;
+    }
+
+    try {
+      await order.save();
+    } catch (saveError) {
+      // Claim zuruecknehmen, damit die Liste erneut umgewandelt werden kann.
+      await NeedList.updateOne(
+        { _id: needList._id, convertedToOrder: order._id },
+        { $set: { convertedToOrder: null } }
+      );
+      throw saveError;
+    }
 
     // Update need list with order reference
     needList.convertedToOrder = order._id;

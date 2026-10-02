@@ -1,5 +1,8 @@
 import api from './api';
 import { toShippingLabelError } from './shipping';
+import { downloadLabelPdf, labelFilename, printLabelPdf, saveBlobAsFile } from './labelPdf';
+import { extractPdfErrorMessage, invoicePdfRequestConfig, toValidPdfBlob } from './invoices';
+import { InboundLabelRequestError, type InboundLabelView } from './bookings';
 import type { OrderValueReconciliationDetails } from './orderServices';
 
 export interface CustomerInfo {
@@ -58,7 +61,7 @@ export interface Order {
   deviceType?: string;
   services: string[];
   addOns: AddOnService[];
-  status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup';
+  status: 'pending' | 'in-progress' | 'paused' | 'quality-check' | 'completed' | 'ready-for-pickup' | 'cancelled';
   estimatedCompletion: string;
   totalCost: number;
   // Money, gross-first: totalCost is the GROSS total AFTER discount, `discount` is
@@ -212,6 +215,9 @@ export interface OrderPricingSummary {
   netTotal: number;
   taxAmount: number;
   taxRate: number;
+  // FIN-13: 'stored' = am Auftrag gespeicherter Satz (auch 0 %), 'default' = kein Satz
+  // gespeichert, gerechnet mit dem Standardsatz der Finanzeinstellungen.
+  taxRateSource?: 'stored' | 'default';
   positionsReconcile: boolean;
 }
 
@@ -484,28 +490,52 @@ export const getOrderById = async (orderId: string) => {
     return response.data;
   } catch (error) {
     console.error('getOrderById API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    // HTTP-Status mitgeben, damit die Detailseite "nicht gefunden/kein Zugriff" (403/404)
+    // von einem Lade-/Netzwerkfehler unterscheiden kann (CUSTUX-8).
+    const wrapped = new Error(error?.response?.data?.error || error.message) as Error & { status?: number };
+    const failure = error as { status?: number; response?: { status?: number } } | null;
+    wrapped.status = failure?.status ?? failure?.response?.status;
+    throw wrapped;
   }
 };
 
 // Description: Download shipping label PDF for an order
 // Endpoint: GET /api/orders/:id/shipping-label
 // Response: PDF file blob
-export const downloadOrderShippingLabel = async (orderId: string, filename?: string) => {
-  const response = await api.get(`/api/orders/${orderId}/shipping-label`, {
-    responseType: 'blob',
-    transformResponse: undefined,
-    validateStatus: (status: number) => status === 200,
-  });
-  const blob = new Blob([response.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `versandlabel-${orderId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+// Auslieferung (McRepair -> Kunde). Wirft LabelPdfError mit deutscher Meldung (DHL-2).
+export const downloadOrderShippingLabel = async (orderId: string, filename?: string): Promise<void> => {
+  await downloadLabelPdf(
+    `/api/orders/${orderId}/shipping-label`,
+    filename || labelFilename('outbound', orderId),
+    'outbound'
+  );
+};
+
+export const printOrderShippingLabel = async (orderId: string): Promise<void> => {
+  await printLabelPdf(`/api/orders/${orderId}/shipping-label`, 'outbound');
+};
+
+// Description: Einsendestatus (Kunde -> McRepair) fuer die Auftragsdetailseite. Mit Buchung
+//   identisch mit GET /api/bookings/:bookingId/inbound-label (scope 'booking'; Erstellung durch
+//   den Inhaber mit createBookingInboundLabel(booking._id)), ohne Buchung scope 'order'.
+// Endpoint: GET /api/orders/:id/inbound-label
+export const getOrderInboundLabel = async (orderId: string): Promise<InboundLabelView> => {
+  try {
+    const response = await api.get(`/api/orders/${orderId}/inbound-label`);
+    return response.data as InboundLabelView;
+  } catch (error: any) {
+    const status = error?.status ?? error?.response?.status;
+    const data = error?.data ?? error?.response?.data;
+    throw new InboundLabelRequestError(
+      status === 401
+        ? 'Bitte melden Sie sich an, um Ihr Einsendelabel abzurufen.'
+        : status === 403 || status === 404
+          ? 'Auftrag nicht gefunden.'
+          : (data?.error || 'Der Status des Einsendelabels konnte nicht geladen werden.'),
+      status,
+      data?.code
+    );
+  }
 };
 
 // Description: Create a return label for an order that has no linked booking
@@ -558,21 +588,13 @@ export const reconcileOrderInboundShipment = async (
 // Description: Download return label PDF for an order
 // Endpoint: GET /api/orders/:id/return-label
 // Response: PDF file blob
-export const downloadOrderReturnLabel = async (orderId: string, filename?: string) => {
-  const response = await api.get(`/api/orders/${orderId}/return-label`, {
-    responseType: 'blob',
-    transformResponse: undefined,
-    validateStatus: (status: number) => status === 200,
-  });
-  const blob = new Blob([response.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `ruecksendelabel-${orderId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+// Einsendung am Auftrag (return*-Platz, Kunde -> McRepair). Wirft LabelPdfError (DHL-2).
+export const downloadOrderReturnLabel = async (orderId: string, filename?: string): Promise<void> => {
+  await downloadLabelPdf(
+    `/api/orders/${orderId}/return-label`,
+    filename || labelFilename('inbound', orderId),
+    'inbound'
+  );
 };
 
 // Description: Load the invoices the AUTHENTICATED CUSTOMER may see for one order.
@@ -647,37 +669,141 @@ export const getCustomerInvoicesForOrder = async (
 //              so a customer can only ever fetch their own finalised documents.
 // Endpoint: GET /api/invoices/:id/pdf
 // Response: PDF file blob
-export const downloadCustomerInvoicePdf = async (invoiceId: string, filename?: string) => {
-  const response = await api.get(`/api/invoices/${invoiceId}/pdf`, {
-    responseType: 'blob',
-    transformResponse: undefined,
-    validateStatus: (status: number) => status === 200,
-  });
-  const blob = new Blob([response.data], { type: 'application/pdf' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `rechnung-${invoiceId}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
+// Dieselbe (korrekte) Abrufkonfiguration wie downloadInvoicePdf - das fruehere Muster
+// `transformResponse: undefined` liess den Download mit einem TypeError scheitern (siehe DHL-2).
+// Wirft einen Fehler mit deutscher Meldung.
+export const downloadCustomerInvoicePdf = async (invoiceId: string, filename?: string): Promise<void> => {
+  let response;
+  try {
+    response = await api.get(`/api/invoices/${invoiceId}/pdf`, invoicePdfRequestConfig());
+  } catch (error: unknown) {
+    throw new Error(extractPdfErrorMessage(error, 'download'));
+  }
+  const blob = await toValidPdfBlob(response.data);
+  saveBlobAsFile(blob, filename || `rechnung-${invoiceId}.pdf`);
+};
+
+// ── Auftragsverlauf und ehrliche Meilensteine (server/utils/orderHistory.js) ─────────
+// state: 'reached' = Ereignis mit (oder ohne erfassten) Zeitpunkt, 'current' = aktueller
+// Schritt, 'skipped' = nie erfasst, obwohl spätere Stufen erreicht sind (NICHT "abgeschlossen"),
+// 'pending' = offen. status ist das Altfeld (completed / in-progress / skipped / pending).
+export type OrderMilestoneState = 'reached' | 'current' | 'skipped' | 'pending';
+
+export interface OrderMilestone {
+  id: 'order-received' | 'diagnostic' | 'repair' | 'quality-check' | 'pickup' | 'return' | string;
+  label: string;
+  state: OrderMilestoneState;
+  status: 'completed' | 'in-progress' | 'skipped' | 'pending';
+  reachedAt: string | null;
+  timeKnown: boolean;
+  date: string | null;
+  detail: string | null;
+  note: string | null;
+  actorName?: string | null;
+  sourceEntryId?: string | null;
+}
+
+export interface OrderMilestones {
+  stages: OrderMilestone[];
+  currentStage: string;
+  orderStatus: string;
+  progress: number;
+  paused: boolean;
+  cancelled: boolean;
+}
+
+export type OrderHistoryType =
+  | 'status' | 'workflow' | 'device' | 'services' | 'pricing' | 'parts' | 'staff' | 'inspection'
+  | 'quote' | 'communication' | 'payment' | 'invoice' | 'shipping' | 'note';
+
+export interface OrderHistoryChange {
+  field: string;
+  label: string;
+  from: unknown;
+  to: unknown;
+  fromText: string;
+  toText: string;
+}
+
+export interface OrderHistoryLink {
+  kind: 'invoice' | 'payment' | 'inspection' | 'revision' | 'communication' | 'tracking' | string;
+  id: string;
+  label: string;
+  href: string | null;
+  apiUrl: string | null;
+}
+
+export interface OrderHistoryEntry {
+  id: string;
+  at: string | null;
+  timeKnown: boolean;
+  timeNote: string | null;
+  key: string;
+  type: OrderHistoryType;
+  typeLabel: string;
+  title: string;
+  description: string;
+  origin: 'timeline' | 'revision' | 'invoice' | 'payment' | 'repair-workflow' | 'inspection' | string;
+  // nur Personal/Admin:
+  actor?: { id: string | null; name: string };
+  source?: string;
+  changes?: OrderHistoryChange[];
+  reason?: string | null;
+  refs?: Record<string, string | number> | null;
+  link?: OrderHistoryLink | null;
+  visibility?: 'customer' | 'staff';
+  eventKey?: string | null;
+}
+
+export interface OrderHistoryGroup {
+  id: string;
+  label: string;
+  types: OrderHistoryType[];
+  count: number;
+}
+
+export interface OrderHistoryResponse {
+  success: boolean;
+  orderId: string;
+  orderNumber: string;
+  entries: OrderHistoryEntry[];
+  total: number;
+  nextCursor: string | null;
+  groups: OrderHistoryGroup[];
+  milestones: OrderMilestones;
+}
+
+// Description: Zusammengeführter Auftragsverlauf (Personal: vollständig mit Akteur, Änderungen,
+//              Grund und Verknüpfungen; Kunde: nur freigegebene Einträge).
+// Endpoint: GET /api/orders/:id/history?types=status,pricing&before=<cursor>&limit=100
+// Response: OrderHistoryResponse
+export const getOrderHistory = async (
+  orderId: string,
+  options: { types?: OrderHistoryType[]; before?: string | null; limit?: number } = {}
+): Promise<OrderHistoryResponse> => {
+  const params: Record<string, string | number> = {};
+  if (options.types && options.types.length) params.types = options.types.join(',');
+  if (options.before) params.before = options.before;
+  if (options.limit) params.limit = options.limit;
+  try {
+    const response = await api.get(`/api/orders/${orderId}/history`, { params });
+    return response.data as OrderHistoryResponse;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.error || 'Der Verlauf konnte nicht geladen werden.');
+  }
 };
 
 // Description: Get order progress timeline with milestone data
 // Endpoint: GET /api/orders/:id/progress-timeline
 // Request: {}
-// Response: { stages: Array<{ id: string, label: string, status: string, date?: string }>, currentStage: string }
-export const getOrderProgressTimeline = async (orderId: string) => {
-  console.log('getOrderProgressTimeline called with ID:', orderId);
-
+// Response: OrderMilestones (ehrliche Meilensteine; siehe OrderMilestone)
+export const getOrderProgressTimeline = async (orderId: string): Promise<OrderMilestones> => {
   try {
     const response = await api.get(`/api/orders/${orderId}/progress-timeline`);
-    console.log('getOrderProgressTimeline API response:', response.data);
-    return response.data;
-  } catch (error) {
+    return response.data as OrderMilestones;
+  } catch (error: any) {
     console.error('getOrderProgressTimeline API error:', error);
-    throw new Error(error?.response?.data?.error || error.message);
+    throw new Error(error?.response?.data?.error || 'Der Fortschritt konnte nicht geladen werden.');
   }
 };
 

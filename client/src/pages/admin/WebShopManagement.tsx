@@ -15,7 +15,7 @@ import {
   Trash2,
   Eye,
   Package,
-  DollarSign,
+  Euro,
   Star,
   TrendingUp,
   X,
@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { formatEUR } from '@/lib/utils'
 
 export function WebShopManagement() {
   const { t } = useTranslation()
@@ -620,11 +621,11 @@ export function WebShopManagement() {
             <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
               Inventory Value
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <Euro className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              ${totalRevenue.toFixed(0)}
+              {formatEUR(totalRevenue)}
             </div>
           </CardContent>
         </Card>
@@ -758,10 +759,10 @@ export function WebShopManagement() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">${product.price.toFixed(2)}</p>
+                        <p className="font-medium">{formatEUR(product.price)}</p>
                         {product.originalPrice && (
                           <p className="text-sm text-muted-foreground line-through">
-                            ${product.originalPrice.toFixed(2)}
+                            {formatEUR(product.originalPrice)}
                           </p>
                         )}
                       </div>
@@ -1674,10 +1675,10 @@ export function WebShopManagement() {
                 <div className="space-y-2">
                   <Label>{t('webShopManagement.price')}</Label>
                   <div>
-                    <p className="text-sm font-medium">${selectedProduct.price.toFixed(2)}</p>
+                    <p className="text-sm font-medium">{formatEUR(selectedProduct.price)}</p>
                     {selectedProduct.originalPrice && (
                       <p className="text-sm text-muted-foreground line-through">
-                        ${selectedProduct.originalPrice.toFixed(2)}
+                        {formatEUR(selectedProduct.originalPrice)}
                       </p>
                     )}
                   </div>

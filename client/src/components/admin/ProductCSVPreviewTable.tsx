@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatEUR } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -172,7 +173,7 @@ const ProductCSVPreviewTable: React.FC<ProductCSVPreviewTableProps> = ({ validat
                         )}
                       </TableCell>
                       <TableCell>{product.data.category}</TableCell>
-                      <TableCell>${product.data.price}</TableCell>
+                      <TableCell>{formatEUR(product.data.price)}</TableCell>
                       <TableCell>{product.data.stockQuantity || 0}</TableCell>
                       <TableCell className="font-mono text-sm">{product.data.sku || '-'}</TableCell>
                     </TableRow>

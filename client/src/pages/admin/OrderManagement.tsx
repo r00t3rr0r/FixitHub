@@ -1,29 +1,29 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Link, useLocation, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
-import { getAdminOrders, updateOrderStatus, AdminOrder } from "@/api/adminOrders"
+import { getAdminOrders, AdminOrder } from "@/api/adminOrders"
 import api from "@/api/api"
+import { formatEUR } from "@/lib/utils"
+import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
+import { rememberListScroll, restoreListScroll } from "@/lib/listScrollMemory"
 import {
   Package,
   Search,
   Filter,
-  Eye,
-  Edit,
   Clock,
   CheckCircle,
   AlertTriangle,
-  Calendar,
-  User,
-  Phone,
-  Mail,
-  Wrench,
-  MessageSquareWarning
+  AlertCircle,
+  MessageSquareWarning,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  X
 } from "lucide-react"
 import {
   Select,
@@ -41,6 +41,21 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+/**
+ * "Reparaturaufträge" (/admin/orders): ein Auftrag (ORD-…) je Gerät.
+ *
+ * 01.10.2026 (ADMUX-6, HIST-2/HIST-18):
+ *  - Gast-Aufträge und Aufträge gelöschter Kunden bringen die Seite nicht mehr zum Absturz
+ *    (customerId ist bei Gästen leer).
+ *  - Die bis zu 100 doppelten "Auftragsdetails"-Karten mit rohem Verlauf (englische Schlüssel)
+ *    unter der Tabelle entfallen: das Auftragsdetail /orders/:id ist die EINE Detailseite und
+ *    zeigt den Verlauf mit deutschen Titeln (GET /api/orders/:id/history).
+ *  - Der tote Bearbeiten-Stift entfällt; "Auftrag öffnen" ist ein echter Link (Tastatur).
+ *  - Statuswechsel nur noch im Auftragsdetail (dort mit Verlauf, Grund und Kundenbenachrichtigung);
+ *    der Inline-Statusumschalter ohne Grund/Rückfrage entfällt.
+ *  - Suche, Filter und Seite stehen in der URL und bleiben beim Zurückkehren erhalten.
+ */
+
 // Antwort von GET /api/repair-workflows/admin/awaiting-customer-feedback
 interface AwaitingFeedbackEntry {
   orderId: string
@@ -49,15 +64,36 @@ interface AwaitingFeedbackEntry {
   reasons: Array<{ type: string; label: string; detail?: string; since?: string | null }>
 }
 
+interface OrderStats {
+  pending?: number
+  inProgress?: number
+  qualityCheck?: number
+  completed?: number
+  // Additiv (OrderService.getOrderStats): alle Aufträge / Priorität Hoch oder Dringend.
+  total?: number
+  highOrUrgent?: number
+}
+
 const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: "Ausstehend",
-  "diagnostic-assessment": "Diagnose",
+  "diagnostic-assessment": "Diagnosebewertung",
   "in-progress": "In Bearbeitung",
   paused: "Pausiert",
   "quality-check": "Qualitätsprüfung",
-  "ready-for-pickup": "Abholbereit",
+  "ready-for-pickup": "Reparatur abgeschlossen",
   completed: "Abgeschlossen",
   cancelled: "Storniert",
+}
+
+const ORDER_STATUS_CLASSES: Record<string, string> = {
+  pending: "bg-slate-100 text-slate-800 border-slate-300",
+  "diagnostic-assessment": "bg-purple-100 text-purple-800 border-purple-300",
+  "in-progress": "bg-blue-100 text-blue-800 border-blue-300",
+  paused: "bg-gray-100 text-gray-700 border-gray-300",
+  "quality-check": "bg-cyan-100 text-cyan-800 border-cyan-300",
+  "ready-for-pickup": "bg-teal-100 text-teal-800 border-teal-300",
+  completed: "bg-green-100 text-green-800 border-green-300",
+  cancelled: "bg-red-100 text-red-800 border-red-300",
 }
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -76,306 +112,304 @@ const PAYMENT_STATUS_LABELS: Record<string, { label: string; className: string }
   refunded: { label: "Erstattet", className: "bg-violet-100 text-violet-800 border-violet-300" },
 }
 
-const formatEuro = (amount: number) =>
-  new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(Number(amount) || 0)
+// Serverseitige Seiten: Suche, Status, Priorität und "Warten auf Kundenrückmeldung" filtern ALLE
+// Aufträge (GET /api/admin/orders), nicht nur die zuletzt geladenen.
+const PAGE_SIZE = 25
+const LIST_SCROLL_KEY = 'adminOrdersListScroll'
+
+type AnyOrder = AdminOrder & {
+  customerId?: (AdminOrder['customerId'] & { firstName?: string; lastName?: string }) | null
+  guestInfo?: { email?: string; firstName?: string; lastName?: string; isGuest?: boolean }
+  customerEmail?: string
+}
+
+/** Kundenanzeige null-sicher: registrierter Kunde, sonst Gastangaben, sonst "Gast". */
+const getOrderCustomer = (order: AnyOrder) => {
+  const customer = order.customerId
+  if (customer && typeof customer === 'object') {
+    const name = customer.name || [customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.email || 'Kunde'
+    return { name, email: customer.email || '', isGuest: false }
+  }
+  const guestName = [order.guestInfo?.firstName, order.guestInfo?.lastName].filter(Boolean).join(' ')
+  const email = order.guestInfo?.email || order.customerEmail || ''
+  return { name: guestName || email || 'Gast', email, isGuest: true }
+}
+
+const getStaffNames = (order: AnyOrder) => (Array.isArray(order.assignedStaff) ? order.assignedStaff : [])
+  .map((staff: any) => staff?.name || (staff?.staffId && typeof staff.staffId === 'object' ? staff.staffId.name : '') || '')
+  .filter(Boolean)
+
+const formatDate = (value?: string) => {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-DE')
+}
 
 export function OrderManagement() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const [orders, setOrders] = useState<AdminOrder[]>([])
-  const [filteredOrders, setFilteredOrders] = useState<AdminOrder[]>([])
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [orders, setOrders] = useState<AnyOrder[]>([])
+  // Treffer der aktuellen Filter laut Server (nicht nur die geladene Seite).
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [serverTotalPages, setServerTotalPages] = useState(1)
+  const [stats, setStats] = useState<OrderStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [priorityFilter, setPriorityFilter] = useState("all")
-  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "awaiting">("all")
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || "")
+  const [debouncedSearch, setDebouncedSearch] = useState(() => (searchParams.get('q') || "").trim())
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || "all")
+  const [priorityFilter, setPriorityFilter] = useState(() => searchParams.get('prio') || "all")
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "awaiting">(() => (searchParams.get('rueckmeldung') === 'offen' ? 'awaiting' : 'all'))
+  const [page, setPage] = useState(() => Math.max(1, parseInt(searchParams.get('seite') || '1', 10) || 1))
   const [awaitingByOrder, setAwaitingByOrder] = useState<Record<string, AwaitingFeedbackEntry>>({})
-  const [updating, setUpdating] = useState<string | null>(null)
+  const [awaitingTotal, setAwaitingTotal] = useState<number | null>(null)
+  const [awaitingState, setAwaitingState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const scrollRestoredRef = useRef(false)
   const { toast } = useToast()
 
+  // Filter-Schluessel: aendert er sich gegenueber dem letzten Abruf, beginnt die Liste bei Seite 1.
+  // Vergleich mit dem VORHERIGEN Wert (statt "erster Lauf"-Ref) - so setzt weder das Wiederherstellen
+  // aus der URL noch der doppelte Effektlauf unter React.StrictMode die gemerkte Seite zurueck.
+  const filterKey = JSON.stringify([debouncedSearch, statusFilter, priorityFilter, feedbackFilter])
+  const lastFilterKeyRef = useRef(filterKey)
+  const awaitingIds = useMemo(() => Object.keys(awaitingByOrder).sort(), [awaitingByOrder])
+  const awaitingIdsKey = feedbackFilter === 'awaiting' ? awaitingIds.join(',') : ''
+  // Der Ladezustand der Rückmeldungsliste löst nur beim Filter "Warten auf Kundenrückmeldung" einen Abruf aus.
+  const awaitingGate = feedbackFilter === 'awaiting' ? awaitingState : 'unused'
+
   useEffect(() => {
+    if (searchTerm.trim() === debouncedSearch) return
+    const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 400)
+    return () => window.clearTimeout(timer)
+  }, [searchTerm])
+
+  // "Warten auf Kundenrückmeldung" kommt vom Server (nur echte Rückfragen, keine normalen
+  // Nachrichten) und gilt für ALLE offenen Aufträge. Ein Fehler hier blockiert die Liste nicht.
+  useEffect(() => {
+    let cancelled = false
+    setAwaitingState('loading')
+    api.get('/api/repair-workflows/admin/awaiting-customer-feedback')
+      .then((awaitingResponse) => {
+        if (cancelled) return
+        const entries: AwaitingFeedbackEntry[] = awaitingResponse.data?.orders || []
+        setAwaitingByOrder(Object.fromEntries(entries.map((entry) => [String(entry.orderId), entry])))
+        setAwaitingTotal(entries.length)
+        setAwaitingState('ready')
+      })
+      .catch((awaitingError) => {
+        console.error("Error fetching awaiting customer feedback:", awaitingError)
+        if (cancelled) return
+        setAwaitingByOrder({})
+        setAwaitingTotal(null)
+        setAwaitingState('error')
+      })
+    return () => { cancelled = true }
+  }, [reloadToken])
+
+  // Aktuelle Seite mit den aktuellen Filtern vom Server laden.
+  useEffect(() => {
+    if (lastFilterKeyRef.current !== filterKey) {
+      lastFilterKeyRef.current = filterKey
+      if (page !== 1) {
+        setPage(1)
+        return
+      }
+    }
+    if (feedbackFilter === 'awaiting' && awaitingState === 'loading') {
+      return
+    }
+    let cancelled = false
     const fetchOrders = async () => {
       try {
-        console.log("Fetching admin orders...")
-        const response = await getAdminOrders({ page: 1, limit: 100 })
-        const ordersData = (response as any).orders || []
-        setOrders(ordersData)
-        setFilteredOrders(ordersData)
-
-        // "Warten auf Kundenrückmeldung" kommt vom Server (nur echte Rückfragen,
-        // keine normalen Nachrichten). Ein Fehler hier darf die Liste nicht blockieren.
-        if (ordersData.length > 0) {
-          try {
-            const awaitingResponse = await api.get('/api/repair-workflows/admin/awaiting-customer-feedback', {
-              params: { orderIds: ordersData.map((order: AdminOrder) => order._id).join(',') },
-            })
-            const entries: AwaitingFeedbackEntry[] = awaitingResponse.data?.orders || []
-            setAwaitingByOrder(Object.fromEntries(entries.map((entry) => [String(entry.orderId), entry])))
-          } catch (awaitingError) {
-            console.error("Error fetching awaiting customer feedback:", awaitingError)
-            setAwaitingByOrder({})
-          }
-        } else {
-          setAwaitingByOrder({})
+        setLoading(true)
+        if (feedbackFilter === 'awaiting' && awaitingState === 'error') {
+          throw new Error('Die Liste „Warten auf Kundenrückmeldung“ konnte nicht geladen werden.')
         }
-      } catch (error) {
+        const response = await getAdminOrders({
+          page,
+          limit: PAGE_SIZE,
+          search: debouncedSearch || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          priority: priorityFilter !== 'all' ? priorityFilter : undefined,
+          ...(feedbackFilter === 'awaiting' ? { ids: awaitingIds } : {}),
+        })
+        if (cancelled) return
+        const ordersData: AnyOrder[] = (response as any).orders || []
+        const totalPages = Math.max(1, Number((response as any).totalPages) || 1)
+        setOrders(ordersData)
+        setTotalOrders(Number((response as any).totalOrders) || 0)
+        setServerTotalPages(totalPages)
+        setStats((response as any).stats || null)
+        setLoadError(null)
+        // Gemerkte Seite gibt es nicht mehr (weniger Treffer): auf die letzte vorhandene Seite.
+        if (page > totalPages) setPage(totalPages)
+      } catch (error: any) {
         console.error("Error fetching orders:", error)
+        if (cancelled) return
+        setOrders([])
+        setLoadError(error?.message && feedbackFilter === 'awaiting' && awaitingState === 'error'
+          ? error.message
+          : "Reparaturaufträge konnten nicht geladen werden.")
         toast({
           title: t('common.error'),
           description: t('orderManagement.failedToLoadOrders'),
           variant: "destructive"
         })
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setInitialLoadDone(true)
+        }
       }
     }
-
     fetchOrders()
-  }, [toast])
+    return () => { cancelled = true }
+  }, [filterKey, page, reloadToken, awaitingIdsKey, awaitingGate])
 
+  // Scrollposition nach dem ersten erfolgreichen Laden wiederherstellen (Rückkehr aus dem Detail).
   useEffect(() => {
-    let filtered = orders
+    if (loading || scrollRestoredRef.current) return
+    scrollRestoredRef.current = true
+    restoreListScroll(LIST_SCROLL_KEY, location.search)
+  }, [loading])
 
-    if (searchTerm) {
-      filtered = filtered.filter(order =>
-        order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.deviceBrand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.deviceModel.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  const currentPage = Math.min(page, serverTotalPages)
+  const visibleOrders = orders
+
+  // Listenzustand -> URL (replace).
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    const put = (key: string, value: string, defaultValue: string) => {
+      if (value && value !== defaultValue) next.set(key, value)
+      else next.delete(key)
     }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(order => order.status === statusFilter)
+    put('q', debouncedSearch, '')
+    put('status', statusFilter, 'all')
+    put('prio', priorityFilter, 'all')
+    put('rueckmeldung', feedbackFilter === 'awaiting' ? 'offen' : '', '')
+    put('seite', String(page), '1')
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
     }
+  }, [debouncedSearch, statusFilter, priorityFilter, feedbackFilter, page])
 
-    if (priorityFilter !== "all") {
-      filtered = filtered.filter(order => order.priority === priorityFilter)
-    }
+  const hasActiveFilters = Boolean(searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || feedbackFilter !== 'all')
+  const detailState = () => buildOrderDetailsState(location, { label: 'Zurück zu den Reparaturaufträgen' })
+  const rememberListPosition = () => rememberListScroll(LIST_SCROLL_KEY, location.search)
 
-    if (feedbackFilter === "awaiting") {
-      filtered = filtered.filter(order => Boolean(awaitingByOrder[order._id]))
-    }
+  const statCards: Array<{ key: string; label: string; value: number | string; icon: any; className: string; onClick?: () => void; active?: boolean }> = [
+    { key: 'all', label: 'Aufträge gesamt', value: stats?.total ?? (hasActiveFilters ? '–' : totalOrders), icon: Package, className: 'from-blue-50 to-blue-100 border-blue-200 text-blue-900' },
+    { key: 'in-progress', label: 'In Bearbeitung', value: stats?.inProgress ?? '–', icon: Clock, className: 'from-orange-50 to-orange-100 border-orange-200 text-orange-900', onClick: () => setStatusFilter(statusFilter === 'in-progress' ? 'all' : 'in-progress'), active: statusFilter === 'in-progress' },
+    { key: 'completed', label: 'Abgeschlossen', value: stats?.completed ?? '–', icon: CheckCircle, className: 'from-green-50 to-green-100 border-green-200 text-green-900', onClick: () => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed'), active: statusFilter === 'completed' },
+    { key: 'awaiting', label: 'Warten auf Kundenrückmeldung', value: awaitingTotal ?? '–', icon: MessageSquareWarning, className: 'from-amber-50 to-amber-100 border-amber-200 text-amber-900', onClick: () => setFeedbackFilter(feedbackFilter === 'awaiting' ? 'all' : 'awaiting'), active: feedbackFilter === 'awaiting' },
+    { key: 'high-urgent', label: 'Hoch und Dringend', value: stats?.highOrUrgent ?? '–', icon: AlertTriangle, className: 'from-red-50 to-red-100 border-red-200 text-red-900', onClick: () => setPriorityFilter(priorityFilter === 'high-urgent' ? 'all' : 'high-urgent'), active: priorityFilter === 'high-urgent' },
+  ]
 
-    setFilteredOrders(filtered)
-  }, [orders, searchTerm, statusFilter, priorityFilter, feedbackFilter, awaitingByOrder])
-
-  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
-    try {
-      setUpdating(orderId)
-      await updateOrderStatus(orderId, newStatus)
-
-      setOrders(orders.map(order =>
-        order._id === orderId ? { ...order, status: newStatus as any } : order
-      ))
-
-      toast({
-        title: "Erfolg",
-        description: "Auftragsstatus wurde aktualisiert."
-      })
-    } catch (error: any) {
-      toast({
-        title: "Fehler",
-        description: error.message || "Auftragsstatus konnte nicht aktualisiert werden.",
-        variant: "destructive"
-      })
-    } finally {
-      setUpdating(null)
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-500 text-white'
-      case 'in-progress':
-        return 'bg-blue-500 text-white'
-      case 'quality-check':
-        return 'bg-yellow-500 text-black'
-      case 'ready-for-pickup':
-        return 'bg-purple-500 text-white'
-      case 'pending':
-        return 'bg-gray-500 text-white'
-      case 'cancelled':
-        return 'bg-red-500 text-white'
-      default:
-        return 'bg-gray-500 text-white'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'bg-red-600 text-white'
-      case 'high':
-        return 'bg-orange-500 text-white'
-      case 'normal':
-        return 'bg-blue-500 text-white'
-      case 'low':
-        return 'bg-gray-500 text-white'
-      default:
-        return 'bg-gray-500 text-white'
-    }
-  }
-
-  if (loading) {
+  // Ganzseitiger Ladezustand nur beim allerersten Laden - spaeter bleiben Filter/Suche stehen
+  // (sonst verliert das Suchfeld bei 0 Treffern beim naechsten Tastendruck den Fokus).
+  if (loading && !initialLoadDone) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-muted rounded w-48 animate-pulse"></div>
-        <Card className="animate-pulse">
-          <CardHeader>
-            <div className="h-6 bg-muted rounded w-1/3"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted rounded"></div>
-              ))}
-            </div>
-          </CardContent>
+      <div className="space-y-6" aria-busy="true">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Package className="h-7 w-7" />
+          Reparaturaufträge
+        </h1>
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">Reparaturaufträge werden geladen …</CardContent>
         </Card>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Package className="h-8 w-8" />
-          Auftragsverwaltung
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Package className="h-7 w-7" />
+          Reparaturaufträge
         </h1>
         <p className="text-muted-foreground">
-          Alle Reparaturaufträge der Plattform überwachen und verwalten
+          Ein Auftrag (ORD-…) je Gerät. Kundenbuchungen mit Zahlung und Einsendung finden Sie unter{' '}
+          <Link to="/admin/bookings" className="font-medium underline underline-offset-2">Buchungen</Link>.
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Aufträge gesamt
-            </CardTitle>
-            <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-              {orders.length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              In Bearbeitung
-            </CardTitle>
-            <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-              {orders.filter(o => o.status === 'in-progress').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
-              Abgeschlossen
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {orders.filter(o => o.status === 'completed').length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-amber-200 dark:border-amber-800"
-          onClick={() => setFeedbackFilter(feedbackFilter === "awaiting" ? "all" : "awaiting")}
-          title="Nach „Warten auf Kundenrückmeldung“ filtern"
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Warten auf Kundenrückmeldung
-            </CardTitle>
-            <MessageSquareWarning className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
-              {orders.filter(o => Boolean(awaitingByOrder[o._id])).length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-red-200 dark:border-red-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
-              Dringende Aufträge
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-900 dark:text-red-100">
-              {orders.filter(o => o.priority === 'urgent').length}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Kennzahlen (klickbar = Filter) */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+        {statCards.map((card) => {
+          const Icon = card.icon
+          const content = (
+            <>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-medium">{card.label}</span>
+                <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              </div>
+              <div className="mt-1 text-2xl font-bold">{card.value}</div>
+            </>
+          )
+          return card.onClick ? (
+            <button
+              key={card.key}
+              type="button"
+              onClick={card.onClick}
+              aria-pressed={Boolean(card.active)}
+              className={`rounded-xl border bg-gradient-to-br p-4 text-left transition-shadow hover:shadow-md ${card.className} ${card.active ? 'ring-2 ring-offset-1 ring-[#1a2a5e]' : ''}`}
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={card.key} className={`rounded-xl border bg-gradient-to-br p-4 ${card.className}`}>{content}</div>
+          )
+        })}
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Aufträge nach Nummer, Kunde oder Gerät suchen …"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+        <CardContent className="pt-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Input
+                placeholder="Auftragsnummer, Kunde, E-Mail oder Gerät suchen …"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                aria-label="Reparaturaufträge durchsuchen"
+              />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-48" aria-label="Reparaturstatus filtern">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Alle Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle Status</SelectItem>
-                  <SelectItem value="pending">Ausstehend</SelectItem>
-                  <SelectItem value="in-progress">In Bearbeitung</SelectItem>
-                  <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
-                  <SelectItem value="ready-for-pickup">Abholbereit</SelectItem>
-                  <SelectItem value="completed">Abgeschlossen</SelectItem>
-                  <SelectItem value="cancelled">Storniert</SelectItem>
+                  {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-48" aria-label="Priorität filtern">
                   <SelectValue placeholder="Alle Prioritäten" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle Prioritäten</SelectItem>
-                  <SelectItem value="low">Niedrig</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
-                  <SelectItem value="urgent">Dringend</SelectItem>
+                  <SelectItem value="high-urgent">Hoch und Dringend</SelectItem>
+                  {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
               <Select value={feedbackFilter} onValueChange={(value) => setFeedbackFilter(value as "all" | "awaiting")}>
-                <SelectTrigger className="w-60">
+                <SelectTrigger className="w-60" aria-label="Kundenrückmeldung filtern">
                   <SelectValue placeholder="Kundenrückmeldung" />
                 </SelectTrigger>
                 <SelectContent>
@@ -383,6 +417,20 @@ export function OrderManagement() {
                   <SelectItem value="awaiting">Warten auf Kundenrückmeldung</SelectItem>
                 </SelectContent>
               </Select>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('')
+                    setStatusFilter('all')
+                    setPriorityFilter('all')
+                    setFeedbackFilter('all')
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" /> Filter zurücksetzen
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -390,307 +438,156 @@ export function OrderManagement() {
 
       {/* Orders Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Auftragsverzeichnis</CardTitle>
-          <CardDescription>
-            Die neuesten 100 Reparaturaufträge mit Verwaltungsfunktionen
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Auftragsverzeichnis</CardTitle>
+          <CardDescription aria-live="polite">
+            {hasActiveFilters
+              ? `${totalOrders} Treffer für diese Filter (alle Aufträge, neueste zuerst).`
+              : `${totalOrders} Aufträge (neueste zuerst).`}
+            {loading ? ' Wird geladen …' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {loadError && orders.length === 0 ? (
+            <div className="py-8 text-center" role="alert">
+              <AlertCircle className="h-10 w-10 mx-auto mb-3 text-red-500" aria-hidden="true" />
+              <p className="text-sm">{loadError}</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => setReloadToken((value) => value + 1)}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Erneut versuchen
+              </Button>
+            </div>
+          ) : (
+          <div className="w-full overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Auftrag</TableHead>
-                <TableHead>Kunde</TableHead>
-                <TableHead>Gerät</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priorität</TableHead>
-                <TableHead>Zugewiesen</TableHead>
-                <TableHead>Gesamt</TableHead>
+                <TableHead>Kunde / Gerät</TableHead>
+                <TableHead>Reparaturstatus</TableHead>
                 <TableHead>Zahlung</TableHead>
-                <TableHead>Erstellt</TableHead>
+                <TableHead className="hidden lg:table-cell">Zugewiesen</TableHead>
                 <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.length === 0 ? (
+              {visibleOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                     <p className="text-muted-foreground">
-                      {feedbackFilter === "awaiting" ? "Keine Aufträge warten auf eine Kundenrückmeldung" : "Keine Aufträge gefunden"}
+                      {loading
+                        ? "Wird geladen …"
+                        : feedbackFilter === "awaiting" && !searchTerm && statusFilter === 'all' && priorityFilter === 'all'
+                        ? "Kein Auftrag wartet auf eine Kundenrückmeldung."
+                        : hasActiveFilters ? "Keine Aufträge für diese Filter gefunden." : "Noch keine Reparaturaufträge vorhanden."}
                     </p>
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOrders.map((order) => (
-                  <TableRow
-                    key={order._id}
-                    onClick={() => {
-                      console.log('Table row clicked, navigating to order details:', order._id);
-                      navigate(`/orders/${order._id}`);
-                    }}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{order.orderNumber}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Fortschritt: {order.progress}%
-                        </p>
-                        {awaitingByOrder[order._id] && (
-                          <Badge
-                            variant="outline"
-                            className="mt-1 border-amber-300 bg-amber-50 text-amber-800"
-                            title={awaitingByOrder[order._id].reasons.map((reason) => reason.detail ? `${reason.label}: ${reason.detail}` : reason.label).join("\n")}
-                          >
-                            Wartet auf Kundenrückmeldung
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={order.customerId.avatar} />
-                          <AvatarFallback>
-                            {order.customerId.name.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{order.customerId.name}</p>
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {order.customerId.email}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{order.deviceBrand} {order.deviceModel}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.services.join(', ')}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) => handleStatusUpdate(order._id, value)}
-                        disabled={updating === order._id}
-                      >
-                        <SelectTrigger className="w-36">
-                          <SelectValue>
-                            <Badge className={getStatusColor(order.status)}>
-                              {ORDER_STATUS_LABELS[order.status] || order.status}
+                visibleOrders.map((order) => {
+                  const customer = getOrderCustomer(order)
+                  const staffNames = getStaffNames(order)
+                  const awaiting = awaitingByOrder[order._id]
+                  const services = Array.isArray(order.services) ? order.services.filter(Boolean) : []
+                  // Storniert ohne Zahlung: kein "Offen" (Rechnungen bleiben beim Storno bestehen, daher neutral) - wie im Auftragsdetail.
+                  const payment = order.status === 'cancelled' && ['pending', 'unpaid'].includes(String(order.paymentStatus || ''))
+                    ? { label: 'Storniert', className: 'bg-slate-50 text-slate-600 border-slate-300' }
+                    : PAYMENT_STATUS_LABELS[order.paymentStatus]
+                  return (
+                    <TableRow key={order._id} className="hover:bg-muted/50 align-top">
+                      <TableCell className="align-top">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-semibold whitespace-nowrap">{order.orderNumber || `#${String(order._id).slice(-8).toUpperCase()}`}</span>
+                          <span className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
+                          {(order.priority === 'urgent' || order.priority === 'high') && (
+                            <Badge variant="outline" className={`w-fit text-xs ${order.priority === 'urgent' ? 'border-red-300 bg-red-50 text-red-800' : 'border-orange-300 bg-orange-50 text-orange-800'}`}>
+                              {PRIORITY_LABELS[order.priority]}
                             </Badge>
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Ausstehend</SelectItem>
-                          <SelectItem value="in-progress">In Bearbeitung</SelectItem>
-                          <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
-                          <SelectItem value="ready-for-pickup">Abholbereit</SelectItem>
-                          <SelectItem value="completed">Abgeschlossen</SelectItem>
-                          <SelectItem value="cancelled">Storniert</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getPriorityColor(order.priority)}>
-                        {PRIORITY_LABELS[order.priority] || order.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex -space-x-2">
-                        {order.assignedStaff.map((staff) => (
-                          <Avatar key={staff._id} className="w-6 h-6 border-2 border-background">
-                            <AvatarImage src={staff.avatar} />
-                            <AvatarFallback className="text-xs">
-                              {staff.name.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{formatEuro(order.totalCost)}</span>
-                    </TableCell>
-                    <TableCell>
-                      {PAYMENT_STATUS_LABELS[order.paymentStatus] ? (
-                        <Badge variant="outline" className={PAYMENT_STATUS_LABELS[order.paymentStatus].className}>
-                          {PAYMENT_STATUS_LABELS[order.paymentStatus].label}
-                        </Badge>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(order.createdAt).toLocaleDateString('de-DE')}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log('Eye button clicked, navigating to order details:', order._id);
-                            navigate(`/orders/${order._id}`);
-                          }}
-                          title="Auftragsdetails anzeigen"
-                        >
-                          <Eye className="h-4 w-4" />
+                          )}
+                          {awaiting && (
+                            <Badge
+                              variant="outline"
+                              className="w-fit border-amber-300 bg-amber-50 text-amber-800 text-xs"
+                              title={awaiting.reasons.map((reason) => reason.detail ? `${reason.label}: ${reason.detail}` : reason.label).join("\n")}
+                            >
+                              Wartet auf Kunde
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top max-w-[260px]">
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="font-medium truncate" title={customer.name}>{customer.name}</span>
+                            {customer.isGuest && <Badge variant="outline" className="text-xs px-1.5 py-0 flex-shrink-0">Gast</Badge>}
+                          </div>
+                          {customer.email && <p className="text-xs text-muted-foreground truncate" title={customer.email}>{customer.email}</p>}
+                          <p className="text-sm mt-1 truncate" title={`${order.deviceBrand || ''} ${order.deviceModel || ''}`}>
+                            {[order.deviceBrand, order.deviceModel].filter(Boolean).join(' ') || order.deviceType || 'Gerät'}
+                          </p>
+                          {services.length > 0 && (
+                            <p className="text-xs text-muted-foreground truncate" title={services.join(', ')}>{services.join(', ')}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className={`w-fit ${ORDER_STATUS_CLASSES[order.status] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+                            {ORDER_STATUS_LABELS[order.status] || order.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Fortschritt {Number(order.progress) || 0} %</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-col gap-1">
+                          {payment ? (
+                            <Badge variant="outline" className={`w-fit ${payment.className}`}>{payment.label}</Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Zahlungsstand unbekannt</span>
+                          )}
+                          <span className="text-sm font-medium whitespace-nowrap">{formatEUR(Number(order.totalCost) || 0)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top hidden lg:table-cell">
+                        {staffNames.length > 0
+                          ? <span className="text-sm">{staffNames.join(', ')}</span>
+                          : <span className="text-xs text-muted-foreground">Nicht zugewiesen</span>}
+                      </TableCell>
+                      <TableCell className="align-top text-right">
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={getOrderDetailsPath(order._id)} state={detailState()} onClick={rememberListPosition} title={`Auftrag ${order.orderNumber || ''} öffnen`}>
+                            Auftrag öffnen
+                          </Link>
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Auftrag bearbeiten"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
+          </div>
+          )}
+
+          {/* Seiten (serverseitig) */}
+          {totalOrders > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+              <p className="text-sm text-muted-foreground">
+                {`Zeige ${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalOrders)} von ${totalOrders}`}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, currentPage - 1))} disabled={loading || currentPage <= 1}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Zurück
+                </Button>
+                <span className="text-sm">Seite {currentPage} von {serverTotalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(Math.min(serverTotalPages, currentPage + 1))} disabled={loading || currentPage >= serverTotalPages}>
+                  Weiter <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      {/* Order Details */}
-      <div className="space-y-6">
-        {filteredOrders.map((order) => (
-          <Card key={order._id}>
-            <CardHeader>
-              <CardTitle>Auftragsdetails {order.orderNumber}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                {/* Customer Info */}
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-6">
-                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Kundeninformationen
-                  </h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={order.customerId.avatar} />
-                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                          {order.customerId.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-semibold">{order.customerId.name}</p>
-                        <p className="text-sm text-slate-500">{order.customerId.email}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-slate-400" />
-                        {order.customerId.phone}
-                      </p>
-                      <p className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-slate-400" />
-                        {order.customerId.email}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Device & Services */}
-                <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-2xl p-6">
-                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <Wrench className="h-5 w-5" />
-                    Gerät &amp; Leistungen
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl">
-                        <Wrench className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-lg">{order.deviceBrand} {order.deviceModel}</p>
-                        <p className="text-slate-600 dark:text-slate-400">{order.deviceType}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="font-semibold mb-2">Leistungen:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {order.services.map((service, index) => (
-                          <Badge key={index} variant="outline" className="bg-white/50">
-                            {service}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Timeline */}
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl p-6">
-                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Auftragsverlauf
-                  </h3>
-                  <div className="space-y-4">
-                    {order.timeline.map((event, index) => (
-                      <div key={event._id} className="flex items-start gap-4">
-                        <div className="flex flex-col items-center">
-                          <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-                          {index < order.timeline.length - 1 && (
-                            <div className="w-px h-8 bg-slate-200 dark:bg-slate-600 mt-2"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold">{event.status}</p>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">{event.description}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {new Date(event.completedAt).toLocaleString('de-DE')} • {event.staffName}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Staff Notes */}
-                {order.staffNotes.length > 0 && (
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6">
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                      <Edit className="h-5 w-5" />
-                      Mitarbeiternotizen
-                    </h3>
-                    <div className="space-y-3">
-                      {order.staffNotes.map((note) => (
-                        <div key={note._id} className="bg-white/50 dark:bg-slate-700/30 rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="font-semibold">{note.staffName}</p>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">{note.type}</Badge>
-                              <span className="text-xs text-slate-500">
-                                {new Date(note.createdAt).toLocaleString('de-DE')}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-slate-700 dark:text-slate-300">{note.note}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   )
 }

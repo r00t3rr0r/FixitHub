@@ -1,4 +1,5 @@
 import api from './api';
+import { invoicePdfRequestConfig } from './invoices';
 
 export type InvoiceStatus =
   | 'draft' | 'pending_approval' | 'sent' | 'viewed'
@@ -37,6 +38,27 @@ export interface Payment {
   unallocatedAmount?: number;
   /** Beim Anbieter angestossene, noch nicht bestaetigte Erstattungen. */
   refundsInProgress?: number;
+  /** FIN-9: verknuepfte Buchung (BKG-…), vom Server aufgeloest. */
+  bookingId?: string;
+  bookingNumber?: string;
+  /** Rechnungsnummer (direkt verknuepft oder erste Zuordnung). */
+  invoiceNumber?: string;
+  /** Zuordnungen dieser Zahlung zu Rechnungen (aufgeteilte Zahlung = mehrere Zeilen). */
+  allocations?: PaymentAllocationRef[];
+  /**
+   * Art des nicht zugeordneten Rests:
+   * 'prepayment' = Vorauszahlung, Rechnung folgt (kein Fehler);
+   * 'overpayment' = mehr eingegangen als berechnet (pruefen/erstatten);
+   * 'unassigned' = keinem Vorgang zuordenbar.
+   */
+  unallocatedKind?: 'prepayment' | 'overpayment' | 'unassigned' | null;
+  paymentDate?: string;
+}
+
+export interface PaymentAllocationRef {
+  invoiceId: string;
+  invoiceNumber: string;
+  allocatedAmount: number;
 }
 
 export interface PaymentRefundEntry {
@@ -242,17 +264,27 @@ export interface DunningRun {
   updatedAt: string;
 }
 
+/**
+ * Finanzbericht (FIN-6). Keine Schaetz-/Mockwerte mehr (kein "Nettogewinn").
+ * collectedGross = Zahlungseingang brutto (abgeschlossene Zahlungen im Zeitraum
+ * abzueglich Erstattungen); totalRevenue ist derselbe Wert (Kompatibilitaet).
+ */
 export interface FinancialReport {
   period: string;
+  periodKey?: 'week' | 'month' | 'year' | 'custom' | string;
+  dateFrom?: string;
+  dateTo?: string;
+  basis?: string;
+  collectedGross?: number;
   totalRevenue: number;
-  totalExpenses: number;
-  netProfit: number;
-  grossMargin: number;
-  orderRevenue: number;
-  addonRevenue: number;
-  productRevenue: number;
+  paymentCount?: number;
   refundAmount: number;
   disputeAmount: number;
+  openInvoiceCount?: number;
+  overdueInvoiceCount?: number;
+  openReceivablesGross?: number;
+  // Zahlungen in Pruefung: pending/disputed + processing der letzten 24 h (serverseitig)
+  paymentsInReviewCount?: number;
   paymentMethodBreakdown: {
     method: string;
     amount: number;
@@ -529,26 +561,100 @@ export const createInvoice = async (invoiceData: Partial<Invoice>) => {
   }
 };
 
+export type RepairInvoiceOptions = Partial<{
+  /** Steuer nur mit overrideTax: true abweichend vom Kundenprofil. */
+  overrideTax: boolean;
+  /** PROZENTWERT (19), niemals ein Bruch (0.19). Nur mit overrideTax. */
+  taxRate: number;
+  /** Nur mit overrideTax. */
+  isReverseCharge: boolean;
+  discount: number;
+  dueDate: string;
+  notes: string;
+  customerVatId: string;
+  sellerVatId: string;
+  reverseChargeNotice: string;
+  /** Nicht abgeschlossene Auftraege ausdruecklich mitberechnen. */
+  confirmIncompleteOrders: boolean;
+}>;
+
+export interface RepairInvoicePreview {
+  customer: { _id: string; name: string; email: string };
+  orders: Array<{
+    _id: string;
+    orderNumber: string;
+    status: string;
+    grossTotal: number;
+    discount: number;
+    alreadyInvoicedBy: { _id: string; invoiceNumber: string } | null;
+  }>;
+  incompleteOrders: Array<{ _id: string; orderNumber: string; status: string }>;
+  items: Array<{ description: string; quantity: number; total: number }>;
+  discount: number;
+  /** Netto */
+  subtotal: number;
+  tax: number;
+  /** Brutto */
+  total: number;
+  taxRate: number;
+  isReverseCharge: boolean;
+  profileTax: { isReverseCharge: boolean; taxRate: number; taxMode: string };
+  dueDate?: string;
+  bookingInvoice: { _id: string; invoiceNumber: string | null } | null;
+  blockers: string[];
+  canCreate: boolean;
+}
+
+/** Fehler mit Server-Code und Zusatzdaten (z. B. 409 ORDERS_NOT_COMPLETED). */
+export class FinancialApiError extends Error {
+  code?: string;
+  status?: number;
+  data?: Record<string, unknown>;
+  constructor(message: string, code?: string, status?: number, data?: Record<string, unknown>) {
+    super(message);
+    this.name = 'FinancialApiError';
+    this.code = code;
+    this.status = status;
+    this.data = data;
+  }
+}
+
+const toFinancialApiError = (error: unknown, fallback: string): FinancialApiError => {
+  const err = error as { status?: number; data?: Record<string, unknown>; response?: { status?: number; data?: Record<string, unknown> } };
+  const data = (err?.response?.data || err?.data || {}) as Record<string, unknown>;
+  const status = err?.response?.status ?? err?.status;
+  return new FinancialApiError(extractErrorMessage(error, fallback), typeof data.code === 'string' ? data.code : undefined, status, data);
+};
+
+/**
+ * "Rechnung aus Aufträgen erstellen". repairOrderIds = Auftragsnummern (ORD-…) oder IDs.
+ * Fehler werfen FinancialApiError (code: ORDER_ALREADY_INVOICED, ORDERS_NOT_COMPLETED, …).
+ */
 export const generateInvoiceFromRepairs = async (
   repairOrderIds: string[],
-  options?: Partial<{
-    /** PROZENTWERT (19), niemals ein Bruch (0.19). */
-    taxRate: number;
-    discount: number;
-    dueDate: string;
-    paymentTerms: string;
-    notes: string;
-    isReverseCharge: boolean;
-    customerVatId: string;
-    sellerVatId: string;
-    reverseChargeNotice: string;
-  }>
+  options?: RepairInvoiceOptions
 ) => {
   try {
     const response = await api.post('/api/admin/financial/invoices/from-repairs', { repairOrderIds, options });
     return response.data;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'Failed to generate invoice from repair orders'));
+    throw toFinancialApiError(error, 'Die Rechnung konnte nicht erstellt werden.');
+  }
+};
+
+/** Vorschau (nichts wird gespeichert): Umfang, Beträge, bereits berechnete Aufträge. */
+export const previewInvoiceFromRepairs = async (
+  repairOrderIds: string[],
+  options?: RepairInvoiceOptions
+): Promise<RepairInvoicePreview> => {
+  try {
+    const response = await api.post('/api/admin/financial/invoices/from-repairs', {
+      repairOrderIds,
+      options: { ...(options || {}), dryRun: true },
+    });
+    return (response.data as { preview: RepairInvoicePreview }).preview;
+  } catch (error: unknown) {
+    throw toFinancialApiError(error, 'Die Vorschau konnte nicht geladen werden.');
   }
 };
 
@@ -824,9 +930,11 @@ export const sendInvoice = async (invoiceId: string, email?: string, message?: s
 
 export const exportPayments = async (filters: Record<string, unknown> = {}, format: 'csv' | 'json' = 'csv') => {
   try {
+    // CSV = Binaerdaten: gemeinsame Blob-Konfiguration (Identitaets-Transform), sonst
+    // ruft der JSON-Transform der Instanz data.trim() auf dem Blob auf.
     const response = await api.get('/api/admin/financial/export/payments', {
       params: { ...filters, format },
-      responseType: format === 'csv' ? 'blob' : 'json'
+      ...(format === 'csv' ? invoicePdfRequestConfig() : { responseType: 'json' as const })
     });
     return response;
   } catch (error: unknown) {
@@ -838,7 +946,7 @@ export const exportInvoicesData = async (filters: Record<string, unknown> = {}, 
   try {
     const response = await api.get('/api/admin/financial/export/invoices', {
       params: { ...filters, format },
-      responseType: format === 'csv' ? 'blob' : 'json'
+      ...(format === 'csv' ? invoicePdfRequestConfig() : { responseType: 'json' as const })
     });
     return response;
   } catch (error: unknown) {
@@ -921,16 +1029,39 @@ export interface RequestAdditionalPaymentResult {
   templateName?: string;
 }
 
+/**
+ * Zahlungsaufforderung per E-Mail. Innerhalb von 24 h nach einer übergebenen
+ * Aufforderung antwortet der Server mit 409 PAYMENT_REQUEST_RECENT (FinancialApiError,
+ * data.recentRequest); erneut senden nur mit force: true.
+ */
 export const requestAdditionalPayment = async (
   bookingId: string,
-  options?: { amount?: number; note?: string }
+  options?: { amount?: number; note?: string; force?: boolean }
 ): Promise<RequestAdditionalPaymentResult> => {
   try {
     // Kennung darf Buchungs-, Auftrags- ODER Rechnungsnummer sein.
     const response = await api.post(`/api/admin/financial/bookings/${encodeURIComponent(bookingId)}/payment-request`, options || {});
     return response.data as RequestAdditionalPaymentResult;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'Zahlungsaufforderung konnte nicht gesendet werden.'));
+    throw toFinancialApiError(error, 'Zahlungsaufforderung konnte nicht gesendet werden.');
+  }
+};
+
+/**
+ * FIN-11: Bestehende Zahlungsaufforderung kontrolliert erneut senden (legt einen NEUEN
+ * Datensatz an). Innerhalb von 24 h nach einer angenommenen Aufforderung antwortet der
+ * Server mit 429 PAYMENT_REQUEST_COOLDOWN; nur mit force: true wird die Sperrfrist übergangen.
+ * Endpoint: POST /api/admin/financial/payment-requests/:id/resend (admin)
+ */
+export const resendPaymentRequest = async (
+  requestId: string,
+  options?: { force?: boolean; note?: string }
+): Promise<RequestAdditionalPaymentResult> => {
+  try {
+    const response = await api.post(`/api/admin/financial/payment-requests/${encodeURIComponent(requestId)}/resend`, options || {});
+    return response.data as RequestAdditionalPaymentResult;
+  } catch (error: unknown) {
+    throw toFinancialApiError(error, 'Die Zahlungsaufforderung konnte nicht erneut gesendet werden.');
   }
 };
 

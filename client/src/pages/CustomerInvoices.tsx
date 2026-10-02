@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -169,10 +170,13 @@ export function CustomerInvoices() {
     if (!pendingHighlightId || loading) return;
     const invoiceId = pendingHighlightId;
     const openId = pendingOpenId;
-    setPendingHighlightId(null);
-    setPendingOpenId(null);
 
+    // Das Zuruecksetzen passiert erst im Timer: Ein setState direkt hier loest sofort
+    // einen neuen Effektlauf aus, dessen Cleanup den Timer loescht - der Sprung lief
+    // dann nie (weder Hervorhebung noch Rechnungsdialog).
     const timer = setTimeout(() => {
+      setPendingHighlightId(null);
+      setPendingOpenId(null);
       void (async () => {
         const row = document.querySelector(`[data-invoice-id="${invoiceId}"]`);
         if (row) {
@@ -1113,7 +1117,7 @@ export function CustomerInvoices() {
             </DialogHeader>
 
             {selectedInvoice && (
-              <div className="overflow-y-auto max-h-[calc(90vh-68px)]">
+              <DialogBody>
                 <div className="p-4 space-y-3">
                   {selectedInvoice.isReverseCharge && (
                     <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3 text-xs text-indigo-900">
@@ -1544,7 +1548,7 @@ export function CustomerInvoices() {
                     )}
                   </div>
                 </div>
-              </div>
+              </DialogBody>
             )}
           </DialogContent>
         </Dialog>

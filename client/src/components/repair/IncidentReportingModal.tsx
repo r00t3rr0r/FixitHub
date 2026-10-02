@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
+import { defaultRepairCustomerMessage, reportIncident, type RepairTransitionResult } from '@/api/repairWorkflow';
 
 interface IncidentReportingModalProps {
   orderId: string;
+  order?: { orderNumber?: string; deviceBrand?: string; deviceModel?: string } | null;
   onClose: () => void;
-  onIncidentReported: (workflow: any) => void;
+  onIncidentReported: (result: RepairTransitionResult) => void;
 }
 
 const INCIDENT_TYPES = [
@@ -18,39 +20,42 @@ const INCIDENT_TYPES = [
   { value: 'needs_time', label: 'Reparatur braucht Zeit', description: 'Die Reparatur benötigt mehr Zeit' },
 ];
 
-export function IncidentReportingModal({ orderId, onClose, onIncidentReported }: IncidentReportingModalProps) {
+export function IncidentReportingModal({ orderId, order, onClose, onIncidentReported }: IncidentReportingModalProps) {
   const { toast } = useToast();
   const [incidentType, setIncidentType] = useState('defective_part');
   const [reason, setReason] = useState('');
   const [additionalData, setAdditionalData] = useState<any>({});
+  const [notifyCustomer, setNotifyCustomer] = useState(false);
+  const [customerMessage, setCustomerMessage] = useState('');
+  const [messageEdited, setMessageEdited] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!messageEdited) setCustomerMessage(defaultRepairCustomerMessage('incident', order, incidentType));
+  }, [incidentType, messageEdited, order?.orderNumber]);
+
+  // Ueber den gemeinsamen API-Client (CSRF-Header, deutsche Servermeldungen) statt rohem fetch (NOTIF-6).
+  // Grund und Zusatzangaben bleiben intern; nur "Nachricht an Kunden" geht bei "Kunde informieren" hinaus.
   const handleSubmit = async () => {
     if (!reason.trim()) {
-      toast({ title: 'Error', description: 'Bitte Grund eingeben' });
+      toast({ title: 'Hinweis', description: 'Bitte eine Beschreibung des Zwischenfalls eingeben.', variant: 'destructive' });
+      return;
+    }
+    if (notifyCustomer && !customerMessage.trim()) {
+      toast({ title: 'Hinweis', description: 'Bitte die Nachricht an den Kunden eingeben oder „Kunde informieren“ ausschalten.', variant: 'destructive' });
       return;
     }
 
     try {
       setLoading(true);
-
-      const response = await fetch(`/api/repair-workflows/${orderId}/incidents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          incidentType,
-          reason,
-          additionalData,
-        }),
+      const result = await reportIncident(orderId, incidentType, reason.trim(), additionalData, {
+        notifyCustomer,
+        customerMessage: customerMessage.trim(),
       });
-
-      if (!response.ok) throw new Error('Failed to report incident');
-
-      const data = await response.json();
-      onIncidentReported(data.workflow);
+      onIncidentReported(result);
     } catch (err: any) {
       console.error('Error reporting incident:', err);
-      toast({ title: 'Error', description: err.message });
+      toast({ title: 'Nicht gespeichert', description: err.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -91,7 +96,7 @@ export function IncidentReportingModal({ orderId, onClose, onIncidentReported }:
 
           <div className="incident-form-fields">
             <div className="incident-form-field">
-              <label className="incident-form-label">Grund / Beschreibung</label>
+              <label className="incident-form-label">Grund / Beschreibung (intern – nur für das Team)</label>
               <textarea
                 className="incident-form-input"
                 style={{ minHeight: '80px', resize: 'vertical' }}
@@ -167,6 +172,30 @@ export function IncidentReportingModal({ orderId, onClose, onIncidentReported }:
                 />
               </div>
             )}
+            <div className="incident-form-field">
+              <label className="incident-form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={notifyCustomer}
+                  onChange={(e) => setNotifyCustomer(e.target.checked)}
+                  disabled={loading}
+                />
+                Kunde informieren (Benachrichtigung im Kundenkonto und E-Mail)
+              </label>
+              {notifyCustomer && (
+                <>
+                  <label className="incident-form-label" htmlFor="incident-customer-message">Nachricht an Kunden (An Kunden)</label>
+                  <textarea
+                    id="incident-customer-message"
+                    className="incident-form-input"
+                    style={{ minHeight: '80px', resize: 'vertical' }}
+                    value={customerMessage}
+                    onChange={(e) => { setCustomerMessage(e.target.value); setMessageEdited(true); }}
+                    disabled={loading}
+                  />
+                </>
+              )}
+            </div>
           </div>
         </div>
 

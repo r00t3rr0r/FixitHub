@@ -1,6 +1,13 @@
-/* BookingsManagement - McRepair Design System Styles */
+/* BookingsManagement - McRepair Design System Styles
+ *
+ * 01.10.2026 (ADMUX-4): Alle Regeln sind auf die Seite (.bookings-management-section) oder
+ * den Buchungsdialog (.bookings-detail-dialog) begrenzt. Vorher wirkten Button-, Tab-,
+ * Badge- und Input-Regeln global auf jede Seite, die nach /admin/bookings besucht wurde
+ * (Vite-Chunk-CSS bleibt im Dokument). Die Tabellen-Mindestbreiten (900/1200/1300/1400px)
+ * und calc(100vw - 72px) erzwangen horizontales Scrollen bzw. Seitenueberlauf; die Liste
+ * passt jetzt in die Inhaltsbreite der Backoffice-Shell (max-w-7xl).
+ */
 
-/* CSS Variables - McRepair Color Palette */
 :root {
   --primary-blue: #1a2a5e;
   --primary-blue-dark: #0f1d45;
@@ -30,12 +37,12 @@
   --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Extended container for wide table */
-
+/* Inhalt bleibt in der Breite der Shell - kein Seitenueberlauf (frueher calc(100vw - 72px)). */
 .bookings-container {
-  max-width: 100vw;
   width: 100%;
+  max-width: 100%;
   margin: 0 auto;
+  min-width: 0;
 }
 
 /* Blue page header and compact text treatment */
@@ -208,92 +215,106 @@
   }
 }
 
-/* Blue dialog header for booking details */
-.bookings-detail-dialog .bookings-detail-header {
-  background: linear-gradient(180deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  margin-top: 2px;
-  box-shadow: var(--shadow-sm);
-}
-
-/* Dense table and controls for space-saving layout */
-.bookings-management-section .TableCell {
-  font-size: 0.8rem;
-  padding: 8px 10px;
-  line-height: 1.2;
-}
-
-.bookings-management-section .TableHead {
-  padding: 8px 10px !important;
-  font-size: 0.72rem !important;
-  letter-spacing: 0.3px;
-}
-
-.bookings-management-section .badge,
-.bookings-management-section [class*="Badge"] {
-  font-size: 0.68rem !important;
-  padding: 2px 7px !important;
-}
-
-.bookings-management-section button {
-  min-height: 30px;
-  min-width: 30px;
-}
-
-.bookings-management-section [class*="Input"],
-.bookings-management-section [class*="SelectTrigger"] {
-  min-height: 34px;
-  font-size: 0.8rem;
-}
-
-.bookings-management-section [class*="Avatar"] {
-  width: 28px;
-  height: 28px;
-}
-
-.bookings-management-section .w-full.overflow-x-auto {
-  scrollbar-width: thin;
-}
-
-/* Dedicated admin bookings list table sizing */
+/* ============================================
+   Buchungsliste (ADMUX-4)
+   ============================================ */
 
 .bookings-management-section .bookings-list-table-wrap {
   width: 100%;
-  max-width: 100vw;
+  /* Nur als Notbremse fuer sehr schmale Fenster (< 1100px Inhaltsbreite). */
   overflow-x: auto;
+  scrollbar-width: thin;
 }
-
-
 
 .bookings-management-section .bookings-list-table {
   width: 100%;
-  min-width: 900px;
-  max-width: 100vw;
+  table-layout: auto;
+  font-size: 0.875rem;
 }
 
-/* Safari only: Verhindere Container-Overflow */
-@media not all and (min-resolution: 0.001dpcm) {
-  @supports (-webkit-touch-callout: none) {
-    .bookings-container,
-    .bookings-management-section .bookings-list-table-wrap,
-    .bookings-management-section .bookings-list-table {
-      max-width: 100vw !important;
-      overflow-x: auto !important;
-    }
-  }
+.bookings-management-section .bookings-list-table th {
+  color: var(--white);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  padding: 10px 8px;
+  height: auto;
 }
 
-
-.bookings-management-section .bookings-list-table .TableCell {
-  white-space: normal !important;
-  line-height: 1.25;
-  word-break: break-word;
+.bookings-management-section .bookings-list-table > tbody > tr > td {
+  padding: 10px 8px;
+  vertical-align: top;
 }
 
+.bookings-management-section .bookings-list-table th.booking-col-toggle,
+.bookings-management-section .bookings-list-table td.booking-col-toggle {
+  width: 40px;
+  padding-left: 4px;
+  padding-right: 0;
+}
 
-.bookings-management-section .bookings-list-table .TableHead {
-  white-space: nowrap !important;
+.bookings-management-section .bookings-list-table .booking-cell-customer {
+  max-width: 180px;
+}
+
+.bookings-management-section .bookings-list-table .booking-cell-devices {
+  max-width: 220px;
+}
+
+.bookings-management-section .booking-device-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  line-height: 1.3;
+}
+
+.bookings-management-section .booking-order-link {
+  color: var(--primary-blue);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.bookings-management-section .booking-order-link:hover {
+  color: var(--primary-blue-light);
+}
+
+.bookings-management-section .booking-order-link:focus-visible,
+.bookings-management-section .booking-row-action:focus-visible,
+.bookings-management-section .booking-unread-chip:focus-visible {
+  outline: 2px solid var(--accent-yellow);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.bookings-management-section .booking-unread-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  border: 1px solid #fca5a5;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bookings-management-section .booking-unread-chip.is-staff {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.bookings-management-section .booking-meta {
+  color: var(--gray-500);
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 
 .bookings-management-section .bookings-list-table .booking-row-highlight {
@@ -302,9 +323,36 @@
   animation: booking-row-pulse 1.4s ease-in-out 2;
 }
 
-.bookings-management-section .bookings-list-table td.booking-order-search-match {
+.bookings-management-section .bookings-list-table .booking-row-last-opened {
+  box-shadow: inset 4px 0 0 var(--primary-blue-light);
+}
+
+.bookings-management-section .booking-order-search-match {
   background: linear-gradient(90deg, rgba(56, 161, 105, 0.2) 0%, rgba(56, 161, 105, 0.08) 100%) !important;
   box-shadow: inset 4px 0 0 var(--success);
+}
+
+/* Aufgeklappte Buchung: Auftraege als umbrechende Zeilen statt einer 1400px-Untertabelle. */
+.bookings-management-section .booking-orders-list {
+  display: grid;
+  gap: 8px;
+}
+
+.bookings-management-section .booking-order-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(160px, 1.6fr) minmax(130px, 1fr) minmax(110px, auto);
+  gap: 6px 14px;
+  align-items: start;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  padding: 10px 12px;
+}
+
+@media (max-width: 1100px) {
+  .bookings-management-section .booking-order-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }
 
 .bookings-management-section .booking-payment-status-anchor {
@@ -320,7 +368,8 @@
   border-radius: 6px;
 }
 
-.bookings-management-section .invoice-card-highlight {
+.bookings-management-section .invoice-card-highlight,
+.bookings-detail-dialog .invoice-card-highlight {
   border-color: var(--accent-yellow) !important;
   box-shadow: 0 0 0 3px rgba(245, 184, 0, 0.18);
   animation: invoice-card-pulse 1.2s ease-in-out 2;
@@ -350,27 +399,51 @@
   }
 }
 
-/* Zusätzlicher restriktiver Safari-Fix für Container und Tabelle */
-@media not all and (min-resolution: 0.001dpcm) {
-  @supports (-webkit-touch-callout: none) {
-    .section.bookings-management-section,
-    .container.bookings-container,
-    .bookings-management-section .bookings-list-table-wrap,
-    .bookings-management-section .bookings-list-table {
-      max-width: 100vw !important;
-      overflow-x: auto !important;
-      min-width: 0 !important;
-    }
-    .bookings-management-section .bookings-list-table {
-      min-width: 900px !important;
-    }
-  }
+.bookings-management-section .booking-dummy-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #f59e0b;
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: #fffbeb;
+  color: #78350f;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  font-size: 0.875rem;
 }
 
-/* Compact booking details dialog */
+/* Kompakte Kennzahl-Kacheln: Bezeichnung links, Wert rechts in einer Zeile. */
+.bookings-management-section .booking-kpi-tile {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bookings-management-section .booking-kpi-tile > div:first-child {
+  margin-bottom: 0 !important;
+}
+
+.bookings-management-section .booking-kpi-tile > div:last-child {
+  font-size: 1.1rem !important;
+  white-space: nowrap;
+}
+
+/* ============================================
+   Buchungsdialog
+   ============================================ */
+
+.bookings-detail-dialog .bookings-detail-header {
+  background: linear-gradient(180deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-top: 2px;
+  box-shadow: var(--shadow-sm);
+}
+
 .bookings-detail-dialog {
   max-width: min(980px, 95vw) !important;
-  max-height: 88vh !important;
   padding: 12px !important;
 }
 
@@ -389,14 +462,6 @@
   gap: 10px;
 }
 
-.bookings-detail-dialog .space-y-4 {
-  gap: 10px !important;
-}
-
-.bookings-detail-dialog .space-y-3 {
-  gap: 8px !important;
-}
-
 .bookings-detail-dialog h3,
 .bookings-detail-dialog h4 {
   line-height: 1.2;
@@ -404,93 +469,58 @@
 
 .bookings-detail-dialog button {
   min-height: 32px;
-  padding-top: 6px;
-  padding-bottom: 6px;
 }
 
-.bookings-detail-dialog [class*="SelectTrigger"],
 .bookings-detail-dialog textarea,
 .bookings-detail-dialog input {
   min-height: 34px;
   font-size: 0.82rem;
 }
 
-@media (min-width: 1920px) {
-  .bookings-container {
-    max-width: 2200px !important;
-    width: calc(100vw - 72px) !important;
-  }
+/* Aktive Tabs im Buchungsdialog (frueher global fuer JEDE Seite gesetzt). */
+.bookings-detail-dialog [role="tab"][data-state="active"] {
+  background: var(--white) !important;
+  color: var(--primary-blue) !important;
+  border: 1px solid var(--gray-200) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
-@media (max-width: 1400px) {
-  .bookings-container {
-    max-width: 100% !important;
-    width: 99% !important;
-  }
+.bookings-detail-dialog [role="tab"][data-state="inactive"] {
+  background: transparent !important;
+  color: var(--gray-600) !important;
 }
 
-/* Primary button style */
-button[class*="Button"]:not([disabled]) {
-  font-family: var(--font-main);
-  transition: var(--transition);
+.bookings-detail-dialog [role="tab"][data-state="inactive"]:hover {
+  background: var(--gray-100) !important;
+  color: var(--primary-blue) !important;
 }
 
-/* McRepair primary button */
-.mcrepair-btn-primary {
-  background: var(--primary-blue) !important;
-  color: var(--white) !important;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.mcrepair-btn-primary:hover:not(:disabled) {
-  background: var(--primary-blue-dark) !important;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-/* McRepair secondary button */
-.mcrepair-btn-secondary {
-  background: var(--accent-yellow) !important;
-  color: var(--gray-800) !important;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.mcrepair-btn-secondary:hover:not(:disabled) {
-  background: var(--accent-yellow-hover) !important;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-/* Mobile responsive adjustments */
 @media (max-width: 768px) {
-  .section {
-    padding: 24px 0 !important;
+  .bookings-detail-dialog [role="tablist"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+    height: auto;
   }
+}
 
-  .section .container {
-    padding: 0 16px;
-  }
+/* ============================================
+   Seite allgemein (nur innerhalb der Buchungsseite)
+   ============================================ */
 
-  .bookings-container {
-    max-width: 100% !important;
-    width: 100% !important;
-    padding: 0 8px !important;
-  }
+.bookings-management-section .animate-spin {
+  color: var(--primary-blue);
+}
 
-  .section-title h1 {
-    font-size: 1.5rem !important;
+.bookings-management-section input:focus,
+.bookings-management-section select:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1);
+  outline: none;
+}
+
+@media (max-width: 768px) {
+  .bookings-management-section.section {
+    padding-top: 16px !important;
+    padding-bottom: 24px !important;
   }
 
   .bookings-page-header {
@@ -504,434 +534,5 @@ button[class*="Button"]:not([disabled]) {
 
   .bookings-page-subtitle {
     font-size: 0.74rem !important;
-  }
-
-  /* Stats cards responsive */
-  .grid[style*="grid-cols"] {
-    grid-template-columns: 1fr !important;
-    gap: 12px !important;
-  }
-
-  /* Filters responsive */
-  .flex.flex-col.md\:flex-row {
-    flex-direction: column !important;
-  }
-
-  /* Table horizontal scroll on mobile */
-  .w-full.overflow-x-auto {
-    -webkit-overflow-scrolling: touch;
-    margin: 0 -8px;
-    padding: 0 8px;
-  }
-
-  /* Allow full horizontal scroll on mobile */
-  .bookings-management-section table {
-    min-width: 1200px;
-  }
-
-  /* Pagination responsive */
-  div[style*="justify-between"][style*="border-top"] {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 16px !important;
-  }
-
-  /* Hide pagination page numbers on small screens, keep prev/next */
-  div[style*="gap-1"] {
-    display: none !important;
-  }
-}
-
-@media (max-width: 640px) {
-  /* Smaller padding on very small screens */
-  .section .container {
-    padding: 0 12px;
-  }
-
-  /* Stack pagination controls vertically */
-  div[style*="gap-24"] {
-    flex-direction: column !important;
-    gap: 12px !important;
-    align-items: flex-start !important;
-  }
-
-  /* Table cells smaller font */
-  .TableCell {
-    font-size: 0.8rem;
-  }
-
-  /* Buttons smaller on mobile */
-  button {
-    font-size: 0.8rem !important;
-    padding: 6px 12px !important;
-  }
-}
-
-/* Tablet styles */
-@media (min-width: 768px) and (max-width: 1024px) {
-  .grid[style*="grid-cols-4"] {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  .section .container {
-    padding: 0 20px;
-  }
-
-  .bookings-container {
-    max-width: 100% !important;
-    width: 98% !important;
-  }
-
-  /* Allow horizontal scroll on tablets */
-  .bookings-management-section table {
-    min-width: 1200px;
-  }
-
-  /* Show scroll hint on tablets */
-  .w-full.overflow-x-auto::before {
-    content: '← Scroll →';
-    position: sticky;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 10px;
-    display: inline-block;
-    background: var(--accent-yellow);
-    color: var(--gray-800);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    z-index: 10;
-    animation: fadeInOut 3s ease-in-out;
-    pointer-events: none;
-  }
-
-  @keyframes fadeInOut {
-    0%, 100% { opacity: 0; }
-    10%, 90% { opacity: 1; }
-  }
-}
-
-@media (min-width: 1024px) and (max-width: 1400px) {
-  .bookings-container {
-    max-width: 1400px !important;
-    width: 96% !important;
-  }
-
-  .bookings-management-section table {
-    min-width: 1300px;
-  }
-}
-
-/* Enhanced button styles for McRepair design */
-button:not(:disabled):hover {
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-/* Badge styles aligned with McRepair */
-.badge,
-[class*="Badge"] {
-  border-radius: var(--radius-sm) !important;
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  padding: 4px 10px !important;
-}
-
-/* ============================================
-   Booking Details Dialog - Responsive Styles
-   ============================================ */
-
-/* Mobile responsive for dialog */
-@media (max-width: 768px) {
-  /* Dialog adjustments */
-  [class*="DialogContent"] {
-    max-width: 95vw !important;
-    max-height: 95vh !important;
-    margin: 10px !important;
-    padding: 16px !important;
-  }
-
-  /* Dialog header */
-  [class*="DialogHeader"] {
-    margin-bottom: 16px !important;
-    padding-bottom: 12px !important;
-  }
-
-  .bookings-detail-dialog .bookings-detail-header {
-    padding: 8px 10px !important;
-    margin-bottom: 10px !important;
-  }
-
-  [class*="DialogTitle"] {
-    font-size: 1.25rem !important;
-  }
-
-  /* Tabs - stack on mobile */
-  [class*="TabsList"] {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 2px !important;
-    padding: 2px !important;
-  }
-
-  [class*="TabsTrigger"] {
-    font-size: 0.7rem !important;
-    padding: 6px 8px !important;
-  }
-
-  /* Grid layouts - single column on mobile */
-  .grid.grid-cols-2,
-  .grid.grid-cols-3,
-  .grid.md\:grid-cols-2,
-  .grid.md\:grid-cols-3 {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Reduce padding and margins */
-  [style*="padding: 24px"],
-  [style*="padding: 20px"] {
-    padding: 12px !important;
-  }
-
-  /* Adjust font sizes */
-  h3 {
-    font-size: 0.95rem !important;
-  }
-
-  /* Button adjustments */
-  button {
-    font-size: 0.85rem !important;
-    padding: 8px 16px !important;
-  }
-
-  /* Card spacing */
-  .space-y-4 {
-    gap: 12px !important;
-  }
-
-  .space-y-3 {
-    gap: 8px !important;
-  }
-}
-
-/* Tablet responsive for dialog */
-@media (min-width: 768px) and (max-width: 1024px) {
-  [class*="DialogContent"] {
-    max-width: 90vw !important;
-    margin: 20px !important;
-  }
-
-  /* Tabs - 3 columns on tablet */
-  [class*="TabsList"] {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
-
-  [class*="TabsTrigger"] {
-    font-size: 0.8rem !important;
-  }
-
-  /* Grid adjustments for tablet */
-  .grid.md\:grid-cols-3 {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-}
-
-/* Desktop enhancements */
-@media (min-width: 1024px) {
-  /* Ensure tabs are in one row on desktop */
-  [class*="TabsList"] {
-    grid-template-columns: repeat(6, 1fr) !important;
-  }
-
-  /* Dialog hover effects */
-  [class*="DialogContent"] {
-    animation: slideUp 0.3s ease-out;
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-}
-
-/* Keep active tabs on white surfaces outside page headers */
-[role="tab"][data-state="active"] {
-  background: var(--white) !important;
-  color: var(--primary-blue) !important;
-  border: 1px solid var(--gray-200) !important;
-  box-shadow: var(--shadow-sm) !important;
-}
-
-[role="tab"][data-state="inactive"] {
-  background: transparent !important;
-  color: var(--gray-600) !important;
-}
-
-[role="tab"][data-state="inactive"]:hover {
-  background: var(--gray-100) !important;
-  color: var(--primary-blue) !important;
-}
-
-/* Hover effect on table rows */
-.TableRow:hover {
-  background-color: var(--gray-50) !important;
-  transition: background-color 0.2s ease;
-  cursor: pointer;
-}
-
-/* Alternating table row colors */
-.TableBody .TableRow:nth-child(even) {
-  background-color: var(--off-white);
-}
-
-.TableBody .TableRow:nth-child(odd) {
-  background-color: var(--white);
-}
-
-/* Table cells styling */
-.TableCell {
-  color: var(--gray-700);
-  font-size: 0.9rem;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--gray-100);
-  white-space: nowrap;
-}
-
-/* Table header cells */
-.TableHead {
-  padding: 14px 16px !important;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-/* Better table horizontal scroll */
-.w-full.overflow-x-auto {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  position: relative;
-}
-
-/* Scroll hint shadow for table */
-.w-full.overflow-x-auto::after {
-  content: '';
-  position: sticky;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 30px;
-  background: linear-gradient(to left, rgba(0,0,0,0.1), transparent);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.w-full.overflow-x-auto::-webkit-scrollbar {
-  height: 10px;
-}
-
-.w-full.overflow-x-auto::-webkit-scrollbar-track {
-  background: var(--gray-100);
-  border-radius: 5px;
-  margin: 0 10px;
-}
-
-.w-full.overflow-x-auto::-webkit-scrollbar-thumb {
-  background: var(--primary-blue);
-  border-radius: 5px;
-  transition: background 0.3s;
-}
-
-.w-full.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-blue-dark);
-}
-
-/* Ensure table takes full available width */
-.bookings-management-section table {
-  width: 100%;
-  table-layout: auto;
-  min-width: 1400px; /* Minimum width to show all columns */
-}
-
-@media (min-width: 1600px) {
-  .bookings-management-section .bookings-list-table {
-    min-width: 0;
-  }
-}
-
-/* Loading spinner color */
-.animate-spin {
-  color: var(--primary-blue);
-}
-
-/* Input field styles */
-input[type="text"],
-input[type="search"],
-select {
-  font-family: var(--font-main);
-  font-size: 0.9rem;
-  color: var(--gray-700);
-}
-
-input:focus,
-select:focus {
-  border-color: var(--primary-blue) !important;
-  box-shadow: 0 0 0 3px rgba(26, 42, 94, 0.1) !important;
-  outline: none;
-}
-
-/* Dropdown menu styling */
-[class*="DropdownMenu"] {
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  background: var(--white);
-}
-
-/* Select component styling */
-[class*="Select"] button {
-  border-color: var(--gray-200) !important;
-  transition: var(--transition);
-}
-
-[class*="Select"] button:hover {
-  border-color: var(--primary-blue) !important;
-  background: var(--gray-50);
-}
-
-/* Dialog styling */
-[class*="Dialog"] {
-  font-family: var(--font-main);
-}
-
-/* Ensure proper spacing for mobile */
-@media (max-width: 768px) {
-  h1, h2, h3, h4, h5, h6 {
-    line-height: 1.3;
-  }
-  
-  p {
-    line-height: 1.6;
-  }
-}
-
-/* Touch-friendly targets on mobile */
-@media (max-width: 768px) {
-  button,
-  a,
-  [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
   }
 }

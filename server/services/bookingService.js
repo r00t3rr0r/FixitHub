@@ -6,8 +6,10 @@ const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const InspectionCommunication = require('../models/InspectionCommunication');
 const DHLService = require('./dhlService');
+const { isMessageUnreadFor } = require('../utils/communicationReadRules');
 const SystemConfiguration = require('../models/SystemConfiguration');
 const EmailService = require('./emailService');
+const { describeGross } = require('../utils/money');
 
 // Ab wann eine Einsendelabel-Sperre ohne Abgleich-Vermerk als verwaist gilt. Der
 // DHL-Aufruf selbst ist nach ~30 Sekunden beendet; eine aeltere Sperre stammt von einem
@@ -16,6 +18,8 @@ const BOOKING_LABEL_LOCK_STALE_MS = 10 * 60 * 1000;
 // Zahlungsziel (Tage), wenn weder Kunden- noch Standardprofil lesbar sind - derselbe Wert,
 // den FinancialService.normalizePaymentDueDays ohne gueltige Angabe verwendet.
 const BOOKING_INVOICE_FALLBACK_DUE_DAYS = 7;
+// Steuerprofile ohne ausgewiesene MwSt. (wie profitabilityService TAX_EXEMPT_MODES).
+const BOOKING_TAX_EXEMPT_MODES = ['tax_free', 'reverse_charge'];
 
 class BookingService {
   static shouldRefreshShipping(filters = {}) {
@@ -96,14 +100,76 @@ class BookingService {
 
   static formatCurrencyEUR(amount) {
     const numericValue = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-    return `EUR ${numericValue.toFixed(2)}`;
+    return require('../utils/money').formatEuroDe(numericValue); // eslint-disable-line global-require
   }
 
   static roundCurrency(amount) {
     return Math.round(Number(amount || 0) * 100) / 100;
   }
 
-  static resolveBookingPricing({ orderGrossTotal, bookingData = {} }) {
+  /**
+   * EINE Ableitung der Buchungssummen aus ihren Auftraegen (FIN-2), mit DERSELBEN
+   * Preisfunktion wie die Auftragsdetailseite (OrderService.buildOrderPricingSummary):
+   *   subtotal = Summe Listen-Brutto der Positionen (vor Rabatt)
+   *   discount = Summe der Rabatte (Brutto, je einmal)
+   *   totalCost = Summe Auftragswert brutto (grossTotal)
+   *   tax      = Summe enthaltene MwSt. (taxAmount)
+   * Invariante: subtotal - discount = totalCost. Stornierte Auftraege zaehlen mit, wie
+   * bisher in booking.totalCost (Zahlungsstand behandelt sie ueber PaymentService).
+   *
+   * options.taxExempt: Kunde mit Steuerprofil reverse_charge / tax_free. Auftraege
+   * speichern dort weiterhin taxRate 19 (gespeicherte Auftragsregel, bewusst NICHT
+   * geaendert); die Buchung traegt dann - wie der Checkout - MwSt. 0. Ohne dieses Flag
+   * wuerde jede Auftragsaenderung 19 % ueber einen korrekten Checkout-Wert 0 schreiben.
+   */
+  //
+  // options.defaultTaxRate (FIN-13): konfigurierter Standardsatz fuer Auftraege OHNE
+  // gespeicherten Satz (OrderService.resolveDefaultTaxRate). Ein gespeicherter Satz 0
+  // bleibt 0 - dieselbe Regel wie die Auftragsdetailseite.
+  static computeBookingTotalsFromOrders(orders = [], { taxExempt = false, defaultTaxRate } = {}) {
+    const OrderService = require('./orderService');
+    const totals = (orders || []).filter(Boolean).reduce((acc, order) => {
+      const pricing = OrderService.buildOrderPricingSummary(order, { defaultTaxRate });
+      const orderDiscount = this.roundCurrency(Number(pricing.discount || 0) + Number(pricing.dealerDiscountAmount || 0));
+      const gross = this.roundCurrency(pricing.grossTotal);
+      const listGross = pricing.positionsReconcile
+        ? this.roundCurrency(pricing.positionsGross)
+        : this.roundCurrency(gross + orderDiscount);
+      return {
+        subtotal: acc.subtotal + listGross,
+        discount: acc.discount + orderDiscount,
+        totalCost: acc.totalCost + gross,
+        tax: acc.tax + Number(pricing.taxAmount || 0),
+      };
+    }, { subtotal: 0, discount: 0, totalCost: 0, tax: 0 });
+    return {
+      subtotal: this.roundCurrency(totals.subtotal),
+      discount: this.roundCurrency(totals.discount),
+      totalCost: this.roundCurrency(totals.totalCost),
+      tax: taxExempt ? 0 : this.roundCurrency(totals.tax),
+    };
+  }
+
+  /**
+   * Steuerbefreiung des Buchungskunden (dieselbe Regel wie Controlling/Rechnung:
+   * FinancialService.resolveFinancialProfile -> taxMode reverse_charge | tax_free).
+   * Rueckgabe: true / false, oder null wenn das Profil nicht lesbar ist (Aufrufer
+   * lassen die gespeicherte MwSt. dann unveraendert). Gast (kein Kunde) = false.
+   */
+  static async resolveCustomerTaxExempt(customerId) {
+    const id = customerId?._id || customerId || null;
+    if (!id) return false;
+    try {
+      const FinancialService = require('./financialService');
+      const profile = await FinancialService.resolveFinancialProfile({ customerId: id });
+      return BOOKING_TAX_EXEMPT_MODES.includes(String(profile?.taxMode || 'default'));
+    } catch (error) {
+      console.error('BookingService: tax profile could not be resolved:', error.message);
+      return null;
+    }
+  }
+
+  static resolveBookingPricing({ orderGrossTotal, bookingData = {}, orders = null, taxExempt = false, defaultTaxRate }) {
     const checkoutPricing = bookingData.checkoutPricing || {};
     const hasCheckoutTotal = Number.isFinite(Number(checkoutPricing.total));
 
@@ -116,8 +182,25 @@ class BookingService {
       };
     }
 
+    // Ohne Checkout-Snapshot (manuelle Buchung, Umwandlung einer Reparaturanfrage):
+    // Summen aus den Auftraegen. Frueher stand hier tax: 0 - die MwSt. war damit
+    // unsichtbar und galt im Controlling als echte Null.
+    const extraDiscount = Math.max(0, this.roundCurrency(bookingData.discount));
+    if (Array.isArray(orders) && orders.length > 0) {
+      const fromOrders = this.computeBookingTotalsFromOrders(orders, { taxExempt: taxExempt === true, defaultTaxRate });
+      if (extraDiscount <= 0) return fromOrders;
+      const totalCost = Math.max(0, this.roundCurrency(fromOrders.totalCost - extraDiscount));
+      const taxShare = fromOrders.totalCost > 0 ? totalCost / fromOrders.totalCost : 0;
+      return {
+        subtotal: fromOrders.subtotal,
+        discount: this.roundCurrency(fromOrders.discount + (fromOrders.totalCost - totalCost)),
+        tax: this.roundCurrency(fromOrders.tax * taxShare),
+        totalCost,
+      };
+    }
+
     const subtotal = this.roundCurrency(orderGrossTotal);
-    const discount = this.roundCurrency(bookingData.discount);
+    const discount = extraDiscount;
     return {
       subtotal,
       discount,
@@ -417,6 +500,7 @@ class BookingService {
       const items = [];
       const repairOrderIds = [];
       let shopProductOrderId = null;
+      const loadedOrders = [];
 
       // Fetch all orders and calculate totals
       for (const orderId of bookingData.orderIds) {
@@ -437,6 +521,7 @@ class BookingService {
 
         // Calculate costs
         orderGrossTotal += Number(order.totalCost || 0);
+        loadedOrders.push(order);
 
         // Build booking item from order
         let itemData = {
@@ -472,9 +557,21 @@ class BookingService {
 
       // Order prices are gross. Use the checkout calculation as the authoritative
       // financial snapshot so VAT is never added a second time during booking creation.
+      // Steuerprofil nur noetig, wenn kein Checkout-Snapshot vorliegt (der Snapshot
+      // enthaelt die MwSt. bereits nach Profil). Unlesbares Profil (null) = Standard.
+      const needsTaxProfile = !Number.isFinite(Number(bookingData?.checkoutPricing?.total)) && loadedOrders.length > 0;
+      const bookingTaxExempt = needsTaxProfile
+        ? (await this.resolveCustomerTaxExempt(bookingData.customerId)) === true
+        : false;
       const bookingPricing = this.resolveBookingPricing({
         orderGrossTotal,
         bookingData,
+        orders: loadedOrders,
+        taxExempt: bookingTaxExempt,
+        // FIN-13: Standardsatz nur fuer Auftraege ohne gespeicherten Satz (sonst keine Abfrage).
+        defaultTaxRate: needsTaxProfile
+          ? await require('./orderService').resolveDefaultTaxRate(loadedOrders) // eslint-disable-line global-require
+          : undefined,
       });
       ({ subtotal, discount, tax } = bookingPricing);
       const finalTotal = bookingPricing.totalCost;
@@ -495,6 +592,12 @@ class BookingService {
         discount: discount,
         totalCost: finalTotal,
         appliedPromoCode: bookingData.appliedPromoCode || '',
+        // Zahlungsart des Checkouts (DHL-12): das Schemafeld existierte, wurde aber nie
+        // geschrieben. Nur die erlaubten Werte; alles andere bleibt leer (kein Raten).
+        paymentMethod: this.normalizeBookingPaymentMethod(bookingData.paymentMethod),
+        // Idempotenzschluessel des Checkouts (DHL-14): eine Wiederholung nach verlorener
+        // Antwort liefert diese Buchung statt einer zweiten (inkl. zweitem DHL-Label).
+        ...(bookingData.checkoutAttemptId ? { checkoutAttemptId: String(bookingData.checkoutAttemptId) } : {}),
       });
 
       const savedBooking = await booking.save();
@@ -522,7 +625,11 @@ class BookingService {
             savedBooking.set(updatedBookingWithShipping.toObject ? updatedBookingWithShipping.toObject() : updatedBookingWithShipping);
           }
         } catch (shippingLabelError) {
-          console.error('BookingService: Error creating outbound shipping label for booking (non-fatal):', shippingLabelError.message);
+          console.error('BookingService: Error creating inbound shipping label for booking (non-fatal):', shippingLabelError.message);
+          // Nicht mehr nur ins Log (DHL-6): Grund am Verlauf festhalten und das Team
+          // informieren. Der Kunde sieht im Einsendestatus "Erneut versuchen" bzw. einen
+          // neutralen Hinweis - nie interne Konfigurationstexte.
+          await this.recordAutomaticInboundLabelFailure(savedBooking, shippingLabelError);
         }
       } else {
         console.log(
@@ -572,7 +679,11 @@ class BookingService {
             const base64Match = labelDataUrl.match(/^data:application\/pdf;base64,(.+)$/);
             if (base64Match) {
               emailOptions.attachments = [{
-                filename: `versandlabel-${savedBooking.bookingNumber || savedBooking._id}.pdf`,
+                // Einheitlicher Dateiname wie beim Download (DHL-Einsendelabel_<BKG>.pdf);
+                // Dummy-Modus: als Testlabel erkennbar.
+                filename: this.inboundLabelFilename(savedBooking.bookingNumber || savedBooking._id, {
+                  placeholder: this.isDummyBookingTrackingNumber(savedBooking.trackingNumber),
+                }),
                 content: Buffer.from(base64Match[1], 'base64'),
                 contentType: 'application/pdf'
               }];
@@ -588,7 +699,13 @@ class BookingService {
             bookingNumber: savedBooking.bookingNumber,
             bookingDate: new Date(savedBooking.createdAt || Date.now()).toLocaleDateString('de-DE'),
             itemSummary,
-            totalAmount: this.formatCurrencyEUR(savedBooking.totalCost || 0),
+            // FIN-4: "47,40 € (nach 2,50 € Rabatt, inkl. 7,57 € MwSt.)"; ohne bekannte
+            // Steuer nur der Bruttobetrag (nie "0,00 € MwSt.").
+            totalAmount: describeGross({
+              gross: savedBooking.totalCost || 0,
+              tax: Number(savedBooking.tax) > 0 ? savedBooking.tax : null,
+              discount: savedBooking.discount || 0,
+            }),
             bookingStatus: savedBooking.status,
             deviceBrand: primaryDevice.deviceBrand,
             deviceModel: primaryDevice.deviceModel,
@@ -661,11 +778,391 @@ class BookingService {
       throw error;
     }
 
+    // Eine DHL-Retoure an der Buchung IST bereits das Einsendelabel (gleiche Richtung
+    // Kunde -> McRepair). Ein zusaetzliches Parcel-DE-Label waere ein zweites bezahltes Label.
+    if (String(booking.returnLabelUrl || '').trim() || String(booking.returnTrackingNumber || '').trim()) {
+      const error = new Error(
+        `Für diese Buchung existiert bereits ein DHL-Einsendelabel (Retoure${booking.returnTrackingNumber ? `, Sendungsnummer ${booking.returnTrackingNumber}` : ''}). `
+        + 'Ein zweites Label wird nicht erstellt.'
+      );
+      error.status = 409;
+      error.code = 'INBOUND_LABEL_EXISTS';
+      throw error;
+    }
+
     const mode = await this.getBookingShippingLabelMode();
     if (mode === 'dummy') {
-      return this.createDummyShippingLabelForBooking(booking);
+      return this.createDummyShippingLabelForBooking(booking, options);
     }
     return this.createLiveShippingLabelForBooking(booking, options);
+  }
+
+  /** Erlaubte Werte von Booking.paymentMethod; alles andere bleibt leer. */
+  static normalizeBookingPaymentMethod(paymentMethod) {
+    const value = String(paymentMethod || '').trim().toLowerCase();
+    return ['card', 'paypal', 'invoice'].includes(value) ? value : '';
+  }
+
+  /**
+   * Einheitlicher Dateiname des Einsendelabels (Kunde -> McRepair): DHL-Einsendelabel_<BKG|ORD>.pdf.
+   * Testlabel des Dummy-Modus: DHL-Testlabel_<BKG>.pdf.
+   */
+  static inboundLabelFilename(reference, { placeholder = false } = {}) {
+    const safe = String(reference || 'Buchung').replace(/[^A-Za-z0-9\-_]/g, '');
+    return `${placeholder ? 'DHL-Testlabel' : 'DHL-Einsendelabel'}_${safe || 'Buchung'}.pdf`;
+  }
+
+  /**
+   * Fehlgeschlagenes AUTOMATISCHES Einsendelabel beim Checkout (DHL-6): Verlaufseintrag mit
+   * deutschem Grund + Hinweis an alle aktiven Administratoren. Laufende Erstellung (409) und
+   * unklare DHL-Antwort (Sperre + Abgleich-Vermerk existieren bereits) werden nicht als
+   * Fehler vermerkt. Wirft nie (die Buchung ist bereits angelegt).
+   */
+  static async recordAutomaticInboundLabelFailure(booking, labelError, { context = 'checkout' } = {}) {
+    try {
+      if (!booking?._id) return;
+      if (labelError?.indeterminate || labelError?.code === 'LABEL_CREATION_IN_PROGRESS') return;
+      const reason = String(labelError?.message || 'Unbekannter Fehler').slice(0, 500);
+      const when = context === 'checkout' ? 'beim Checkout nicht automatisch' : 'auf Anforderung nicht';
+      await Booking.updateOne(
+        { _id: booking._id },
+        {
+          $set: { shippingStatusDescription: 'Einsendelabel konnte nicht automatisch erstellt werden' },
+          $push: {
+            timeline: {
+              status: 'Shipping Label Failed',
+              description: `Das DHL-Einsendelabel (Kunde an McRepair) konnte ${when} erstellt werden: ${reason}`,
+              completedAt: new Date(),
+              staffId: 'system',
+              staffName: 'DHL Parcel Integration',
+            },
+          },
+        }
+      );
+
+      const NotificationService = require('./notificationService');
+      const admins = await User.find({ role: 'admin', isActive: { $ne: false } }).select('_id').lean();
+      const bookingLabel = booking.bookingNumber || String(booking._id);
+      // Hoechstens EIN Hinweis je Buchung und Tag (wiederholte Kundenversuche fluten sonst
+      // alle Administratoren); Notification.dedupeKey mit partiellem eindeutigem Index.
+      const dedupeKey = `inbound-label-failed:${booking._id}:${new Date().toISOString().slice(0, 10)}`;
+      await Promise.all(admins.map((admin) => NotificationService.createNotification({
+        userId: admin._id,
+        title: 'Einsendelabel fehlt',
+        message: `Für die Buchung ${bookingLabel} konnte das DHL-Einsendelabel ${when} erstellt werden. Grund: ${reason}`,
+        type: 'system',
+        // openBookingId = bestehender Deep-Link (App.tsx), oeffnet den Buchungsdialog direkt.
+        actionUrl: `/admin/bookings?openBookingId=${booking._id}`,
+        dedupeKey,
+      }, { sendEmail: false }).catch((notifyError) => {
+        console.error('BookingService: Could not notify admin about missing inbound label:', notifyError.message);
+      })));
+    } catch (recordError) {
+      console.error('BookingService: Could not record inbound label failure:', recordError.message);
+    }
+  }
+
+  /**
+   * Einsendestatus einer Buchung (Kunde -> McRepair) fuer Kunde UND Team - EIN Lesemodell fuer
+   * Bestellbestaetigung (/order-success), Auftragsdetail und Buchungsliste. Kein DHL-Aufruf,
+   * kein Base64 in der Antwort. Sperr-, Platzhalter- und Richtungsregeln kommen aus DHLService
+   * (dieselben wie in getOrderShipmentState), damit beide Ansichten nicht auseinanderlaufen.
+   *
+   * inbound.state:
+   *   'ready'      PDF vorhanden (downloadUrl)
+   *   'registered' bei DHL angelegt (Sendungsnummer), PDF liegt nicht vor
+   *   'creating'   Erstellung laeuft gerade (Sperre)
+   *   'review'     unklare DHL-Antwort bzw. verwaiste Sperre - Abgleich durch das Team
+   *   'error'      automatische/angeforderte Erstellung fehlgeschlagen (canCreate = erneut versuchen)
+   *   'none'       noch kein Label
+   *   'not-needed' keine Reparatur in der Buchung (nur Shop-Artikel)
+   *   'cancelled'  alle Reparaturauftraege storniert
+   */
+  static async getInboundLabelState(bookingId, { includeStaffFields = false } = {}) {
+    const booking = await Booking.findById(bookingId)
+      .setOptions({ skipAutoPopulate: true })
+      .select('-shippingLabelUrl -returnLabelUrl -returnQRCodeUrl')
+      .lean();
+    if (!booking) return null;
+
+    const nonEmpty = { $exists: true, $nin: [null, ''] };
+    const orderIds = Array.isArray(booking.orderIds) ? booking.orderIds : [];
+    const [parcelPdf, retourePdf, orders, ordersWithInboundPdf] = await Promise.all([
+      Booking.exists({ _id: booking._id, shippingLabelUrl: nonEmpty }),
+      Booking.exists({ _id: booking._id, returnLabelUrl: nonEmpty }),
+      Order.find({ _id: { $in: orderIds } })
+        .setOptions({ skipAutoPopulate: true })
+        .select('orderNumber deviceBrand deviceModel deviceType status returnTrackingNumber returnShipmentStatus returnLabelCreationStartedAt timeline')
+        .lean(),
+      Order.find({ _id: { $in: orderIds }, returnLabelUrl: nonEmpty }).setOptions({ skipAutoPopulate: true }).select('_id').lean(),
+    ]);
+
+    return this.buildInboundLabelView({
+      booking,
+      parcelPdf: Boolean(parcelPdf),
+      retourePdf: Boolean(retourePdf),
+      orders,
+      orderPdfIds: new Set(ordersWithInboundPdf.map((order) => String(order._id))),
+      includeStaffFields,
+    });
+  }
+
+  static buildInboundLabelView({ booking, parcelPdf, retourePdf, orders = [], orderPdfIds = new Set(), includeStaffFields = false }) {
+    const bookingId = String(booking._id);
+    const orderIndex = new Map((booking.orderIds || []).map((id, index) => [String(id), index]));
+    const sortedOrders = [...orders].sort((a, b) => (orderIndex.get(String(a._id)) ?? 0) - (orderIndex.get(String(b._id)) ?? 0));
+    const isProduct = (order) => order.deviceType === 'Shop Products';
+    const repairOrders = sortedOrders.filter((order) => !isProduct(order));
+    const activeRepairOrders = repairOrders.filter((order) => order.status !== 'cancelled');
+    const deviceReceived = activeRepairOrders.some((order) => order.status && order.status !== 'pending');
+
+    const ordersView = sortedOrders.map((order) => ({
+      orderId: String(order._id),
+      orderNumber: order.orderNumber || '',
+      type: isProduct(order) ? 'product' : 'repair',
+      device: isProduct(order) ? 'Shop-Artikel' : `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim(),
+      status: order.status || 'pending',
+    }));
+
+    const bookingView = {
+      _id: bookingId,
+      bookingNumber: booking.bookingNumber || '',
+      createdAt: booking.createdAt || null,
+      status: booking.status || 'pending',
+      totalCost: Number(booking.totalCost || 0),
+      // Die Buchung kennt nur Euro; keine Umrechnung.
+      currency: 'EUR',
+      paymentStatus: booking.paymentStatus || 'pending',
+      billingStatus: booking.billingStatus || 'unpaid',
+      paymentMethod: booking.paymentMethod || '',
+      deviceCount: repairOrders.length,
+      isGuest: Boolean(booking.guestInfo?.isGuest),
+    };
+
+    const inbound = {
+      state: 'none',
+      canCreate: false,
+      message: '',
+      trackingNumber: '',
+      downloadUrl: '',
+      filename: '',
+      source: '',
+      placeholder: false,
+      shippingStatus: '',
+      deviceReceived,
+      lastError: '',
+    };
+    const result = () => {
+      const view = { booking: bookingView, orders: ordersView, inbound };
+      if (!includeStaffFields) {
+        delete inbound.lastError;
+      }
+      return view;
+    };
+
+    if (repairOrders.length === 0) {
+      inbound.state = 'not-needed';
+      inbound.message = 'Für Shop-Artikel ist keine Einsendung nötig. Wir senden Ihre Bestellung an Ihre Lieferadresse.';
+      return result();
+    }
+    if (activeRepairOrders.length === 0 || booking.status === 'cancelled') {
+      inbound.state = 'cancelled';
+      inbound.message = 'Der Auftrag wurde storniert – bitte kein Gerät einsenden.';
+      return result();
+    }
+
+    // Einsendeplaetze: Parcel-DE-Label der Buchung (nur Richtung Einsendung), Buchungs-
+    // Retoure, Einsendung am Auftrag (Altbestand/ohne Buchung). Das erste mit PDF zaehlt.
+    const direction = DHLService.resolveStoredBookingLabelDirection(booking);
+    const slots = [];
+    if (direction === 'inbound' && (parcelPdf || String(booking.trackingNumber || '').trim())) {
+      slots.push({
+        source: 'booking',
+        hasPdf: parcelPdf,
+        trackingNumber: booking.trackingNumber || '',
+        status: booking.shippingStatus || '',
+        downloadUrl: `/api/bookings/${bookingId}/shipping-label`,
+        reference: booking.bookingNumber || bookingId,
+      });
+    }
+    if (retourePdf || String(booking.returnTrackingNumber || '').trim()) {
+      slots.push({
+        source: 'booking-retoure',
+        hasPdf: retourePdf,
+        trackingNumber: booking.returnTrackingNumber || '',
+        status: booking.returnShipmentStatus || '',
+        downloadUrl: `/api/bookings/${bookingId}/return-label`,
+        reference: booking.bookingNumber || bookingId,
+      });
+    }
+    repairOrders.forEach((order) => {
+      const hasPdf = orderPdfIds.has(String(order._id));
+      if (hasPdf || String(order.returnTrackingNumber || '').trim()) {
+        slots.push({
+          source: 'order',
+          orderId: String(order._id),
+          hasPdf,
+          trackingNumber: order.returnTrackingNumber || '',
+          status: order.returnShipmentStatus || '',
+          downloadUrl: `/api/orders/${order._id}/return-label`,
+          reference: order.orderNumber || String(order._id),
+        });
+      }
+    });
+    const primary = slots.find((slot) => slot.hasPdf) || slots[0] || null;
+
+    if (primary) {
+      const placeholder = DHLService.isPlaceholderTrackingNumber(primary.trackingNumber);
+      Object.assign(inbound, {
+        state: primary.hasPdf ? 'ready' : 'registered',
+        trackingNumber: primary.trackingNumber,
+        downloadUrl: primary.hasPdf ? primary.downloadUrl : '',
+        filename: primary.hasPdf ? this.inboundLabelFilename(primary.reference, { placeholder }) : '',
+        source: primary.source,
+        placeholder,
+        shippingStatus: primary.status,
+        message: primary.hasPdf
+          ? (placeholder
+            ? 'Testlabel – nicht für den Versand verwenden. Im Testmodus werden keine echten DHL-Labels erzeugt.'
+            : 'Drucken Sie das kostenlose DHL-Einsendelabel aus und geben Sie das Paket bei DHL ab. Ein Paket für alle Geräte dieser Buchung.')
+          : `Ihr DHL-Einsendelabel ist bei DHL angelegt${primary.trackingNumber ? ` (Sendungsnummer ${primary.trackingNumber})` : ''}. Das PDF senden wir Ihnen per E-Mail zu.`,
+      });
+      return result();
+    }
+
+    // Sperre an der Buchung bzw. an einem Auftrag (Retoure am Auftrag).
+    const bookingLock = DHLService.describeBookingLabelLock(booking);
+    const orderLocks = repairOrders.map((order) => DHLService.describeLabelLock({
+      locked: String(order.returnShipmentStatus || '') === 'pending',
+      startedAt: order.returnLabelCreationStartedAt,
+      markerPresent: DHLService.hasPendingInboundReconciliation(order),
+    }));
+    const reviewRequired = bookingLock.reconciliationRequired || orderLocks.some((lock) => lock.reconciliationRequired);
+    const creating = bookingLock.inProgress || orderLocks.some((lock) => lock.inProgress);
+    if (reviewRequired) {
+      inbound.state = 'review';
+      inbound.message = 'Ihr Einsendelabel wird geprüft. Bitte nicht erneut erstellen – wir melden uns per E-Mail, sobald es bereitsteht.';
+      if (includeStaffFields && bookingLock.reconciliationRequired) {
+        inbound.reconcileUrl = `/api/bookings/${bookingId}/shipping/reconcile`;
+        inbound.reconciliationReason = bookingLock.reconciliationReason;
+      }
+      return result();
+    }
+    if (creating) {
+      inbound.state = 'creating';
+      inbound.message = 'Ihr DHL-Einsendelabel wird erstellt …';
+      return result();
+    }
+
+    if (deviceReceived) {
+      inbound.state = 'none';
+      inbound.message = 'Ihr Gerät ist bereits bei uns eingegangen – ein Einsendelabel ist nicht mehr nötig.';
+      return result();
+    }
+    if (direction === 'outbound' && String(booking.trackingNumber || '').trim()) {
+      // Altbestand: der Buchungsplatz traegt ein Rueckweg-Label. Das Team erstellt die
+      // Einsendung als Retoure am Auftrag.
+      inbound.state = 'none';
+      inbound.message = 'Bitte kontaktieren Sie uns – wir erstellen Ihr Einsendelabel für Sie.';
+      return result();
+    }
+
+    const timeline = Array.isArray(booking.timeline) ? booking.timeline : [];
+    const timeOf = (entry) => new Date(entry?.completedAt || 0).getTime() || 0;
+    const lastFailure = timeline.filter((entry) => entry?.status === 'Shipping Label Failed')
+      .reduce((latest, entry) => (timeOf(entry) >= timeOf(latest) ? entry : latest), null);
+    const lastSettled = Math.max(0, ...timeline
+      .filter((entry) => ['Shipping Label Created', 'Shipping Label Prepared', 'Shipping Label Reconciled', 'Return Label Created'].includes(entry?.status))
+      .map(timeOf));
+
+    inbound.canCreate = true;
+    if (lastFailure && timeOf(lastFailure) >= lastSettled) {
+      inbound.state = 'error';
+      inbound.message = 'Das Einsendelabel konnte noch nicht erstellt werden. Sie können es jetzt erneut anfordern.';
+      inbound.lastError = String(lastFailure.description || '');
+    } else {
+      inbound.state = 'none';
+      inbound.message = 'Für diese Buchung wurde noch kein DHL-Einsendelabel erstellt. Das Label ist für Sie kostenlos.';
+    }
+    return result();
+  }
+
+  /**
+   * "DHL-Einsendelabel erstellen" durch den Buchungsinhaber oder das Team (DHL-6), wenn das
+   * automatische Label fehlt bzw. fehlgeschlagen ist. Hoechstens EIN Label je Buchung: es
+   * laeuft ueber createShippingLabelForBooking mit derselben atomaren Sperre wie der Checkout.
+   * Der Request-Body wird bewusst ignoriert (keine Adressen/Produkte vom Kunden).
+   * Wirft Fehler mit status/code; fuer Kunden (actor.role customer) mit neutralem Text.
+   */
+  static async createInboundLabelForBooking(bookingId, actor = {}) {
+    const isStaff = ['admin', 'staff'].includes(String(actor?.role || ''));
+    const fail = (status, code, message) => {
+      const error = new Error(message);
+      error.status = status;
+      error.code = code;
+      return error;
+    };
+
+    const before = await this.getInboundLabelState(bookingId, { includeStaffFields: true });
+    if (!before) throw fail(404, 'BOOKING_NOT_FOUND', 'Buchung wurde nicht gefunden.');
+    const { inbound } = before;
+    if (inbound.state === 'ready' || inbound.state === 'registered') {
+      return { created: false, alreadyExists: true };
+    }
+    if (inbound.state === 'creating') {
+      throw fail(409, 'LABEL_CREATION_IN_PROGRESS', 'Ihr DHL-Einsendelabel wird gerade erstellt. Bitte einen Moment warten.');
+    }
+    if (inbound.state === 'review') {
+      throw fail(409, 'LABEL_RECONCILIATION_REQUIRED', 'Ihr Einsendelabel wird geprüft. Bitte nicht erneut erstellen – wir melden uns per E-Mail.');
+    }
+    if (inbound.state === 'not-needed') {
+      throw fail(422, 'INBOUND_NOT_NEEDED', inbound.message);
+    }
+    if (inbound.state === 'cancelled') {
+      throw fail(409, 'BOOKING_CANCELLED', inbound.message);
+    }
+    if (!inbound.canCreate) {
+      throw fail(409, 'INBOUND_NOT_ALLOWED', inbound.message || 'Für diese Buchung kann derzeit kein Einsendelabel erstellt werden.');
+    }
+
+    const booking = await Booking.findById(bookingId);
+    const preferredOrder = before.orders.find((order) => order.type === 'repair' && order.status !== 'cancelled');
+    try {
+      await this.createShippingLabelForBooking(booking, {
+        preferredOrderId: preferredOrder?.orderId || null,
+        actor,
+        shipmentData: { labelDirection: 'inbound' },
+      });
+      return { created: true, alreadyExists: false };
+    } catch (labelError) {
+      console.error('BookingService: Inbound label on request failed:', labelError.message);
+      if (labelError?.code === 'LABEL_CREATION_IN_PROGRESS') {
+        throw fail(409, 'LABEL_CREATION_IN_PROGRESS', 'Ihr DHL-Einsendelabel wird gerade erstellt. Bitte einen Moment warten.');
+      }
+      if (labelError?.indeterminate || labelError?.code === 'DHL_RESULT_UNKNOWN') {
+        throw fail(409, 'DHL_RESULT_UNKNOWN', 'Ihr Einsendelabel wird geprüft. Bitte nicht erneut erstellen – wir melden uns per E-Mail, sobald es bereitsteht.');
+      }
+      await this.recordAutomaticInboundLabelFailure(booking, labelError, { context: 'manual' });
+      if (isStaff) {
+        const status = Number.isInteger(labelError?.status) ? labelError.status : 500;
+        throw fail(status, labelError?.code || 'LABEL_CREATION_FAILED', labelError?.message || 'Das Einsendelabel konnte nicht erstellt werden.');
+      }
+      const message = String(labelError?.message || '');
+      // Konfigurationsfehler (Integration, Abrechnungsnummer, Shop-Anschrift) gehen nie als
+      // Text an den Kunden; das Team wurde oben benachrichtigt. Zuerst der Fehlercode der
+      // Wurfstelle (createLiveShippingLabelForBooking), nur ohne Code die Textsuche (Altpfade).
+      const code = String(labelError?.code || '');
+      const CONFIG_CODES = ['SHOP_ADDRESS_INCOMPLETE', 'DHL_CONFIG_INCOMPLETE', 'DHL_NOT_ACTIVE'];
+      const ADDRESS_CODES = ['CUSTOMER_ADDRESS_INCOMPLETE', 'DHL_PAYLOAD_INVALID'];
+      const configProblem = CONFIG_CODES.includes(code)
+        || (!ADDRESS_CODES.includes(code) && /Abrechnungsnummer|Integration|Shop-Adresse|nicht aktiv|EKP|deaktiviert/i.test(message));
+      const addressProblem = !configProblem
+        && (ADDRESS_CODES.includes(code) || /Hausnummer|Rechnungsadresse|Absenderdaten|Straße|PLZ/i.test(message));
+      if (addressProblem) {
+        throw fail(422, 'CUSTOMER_ADDRESS_INCOMPLETE', 'Bitte prüfen Sie Ihre Rechnungsadresse (Straße mit Hausnummer, PLZ, Ort) im Profil und versuchen Sie es dann erneut.');
+      }
+      throw fail(503, 'INBOUND_LABEL_UNAVAILABLE', 'Das Einsendelabel kann gerade nicht erstellt werden. Unser Team wurde informiert und meldet sich bei Ihnen.');
+    }
   }
 
   static splitStreetAndHouse(rawStreet = '') {
@@ -793,6 +1290,46 @@ class BookingService {
       'sent': 'Gesendet',
     };
     return labels[String(billingStatus || '')] || String(billingStatus || 'Unbekannt');
+  }
+
+  /**
+   * Kundenprojektion des Buchungsverlaufs (K04, Review DHL-6): Positivliste statt Rohdaten.
+   * Interne Eintraege (fehlgeschlagenes Label mit technischem Grund, Abgleich-Vermerke,
+   * verwaiste Labels) und Akteursfelder gehen nie an Kunden. Erlaubt sind
+   *  - Buchungs-/Zahlungsstatuswechsel (Text neu aus dem Statuswert, nie die gespeicherte
+   *    Beschreibung, die das Team frei setzen kann),
+   *  - Versand-/Einsendestatus von DHL (Sendungsstatus-Text),
+   *  - die kundensichtbaren Schluessel des Verlaufsvertrags (OrderHistory.toCustomerView).
+   * Felder wie bei OrderHistory.toCustomerView: _id, status, title, description, completedAt, type.
+   */
+  static toCustomerTimeline(timeline) {
+    const OrderHistory = require('../utils/orderHistory');
+    const BOOKING_STATUS_VALUES = ['pending', 'payment-pending', 'confirmed', 'processing', 'completed', 'cancelled'];
+    const BILLING_STATUS_VALUES = ['unpaid', 'partially-paid', 'partially_paid', 'paid', 'overdue', 'refunded', 'draft', 'sent'];
+    const TRACKING_STATUS_KEYS = ['Shipping Status Updated', 'Return Status Updated'];
+    const isoOrNull = (value) => {
+      const date = value ? new Date(value) : null;
+      return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+    };
+    return (Array.isArray(timeline) ? timeline : []).flatMap((entry) => {
+      if (!entry) return [];
+      const status = String(entry.status || '');
+      const base = { _id: entry._id ? String(entry._id) : undefined, status, completedAt: isoOrNull(entry.completedAt) };
+      if (BOOKING_STATUS_VALUES.includes(status)) {
+        return [{ ...base, title: 'Status geändert', description: `Status der Buchung: ${BookingService.bookingStatusLabel(status)}`, type: 'status' }];
+      }
+      if (BILLING_STATUS_VALUES.includes(status)) {
+        return [{ ...base, title: 'Zahlungsstatus geändert', description: `Zahlungsstatus: ${BookingService.billingStatusLabel(status)}`, type: 'payment' }];
+      }
+      if (TRACKING_STATUS_KEYS.includes(status)) {
+        return [{ ...base, title: 'Versandstatus aktualisiert', description: String(entry.description || '').slice(0, 300), type: 'shipping' }];
+      }
+      // Der Buchungsplatz traegt meist das Einsendelabel (Hinweg); die Richtung steht im Text.
+      if (status === 'Shipping Label Created' && /Hinweg|inbound/i.test(String(entry.description || ''))) {
+        return [{ ...base, title: 'DHL-Einsendelabel erstellt', description: 'Ihr DHL-Einsendelabel wurde erstellt.', type: 'shipping' }];
+      }
+      return OrderHistory.toCustomerView([entry]);
+    });
   }
 
   static resolveStoredShippingDirection(booking) {
@@ -924,8 +1461,55 @@ class BookingService {
     return '';
   }
 
-  static async createDummyShippingLabelForBooking(booking) {
-    const refreshedBooking = await Booking.findById(booking._id);
+  /**
+   * HIST-LABEL: Das Einsendelabel der Buchung gilt fuer alle Geraete der Buchung, der
+   * Auftragsverlauf (Kunde und Team) liest aber nur order.timeline. Daher EIN Eintrag
+   * 'Inbound Label Created' je Reparaturauftrag der Buchung - nur fuer neu erstellte Labels,
+   * idempotent ueber eventKey, kein Nachtrag fuer Altbestand. Ein Fehler hier macht das
+   * bereits erstellte Label nicht ungueltig (nur protokolliert).
+   */
+  static async recordInboundLabelOnOrders(bookingId, { trackingNumber = '', actor = null, at = new Date(), test = false } = {}) {
+    try {
+      const OrderHistory = require('../utils/orderHistory'); // eslint-disable-line global-require
+      const booking = await Booking.findById(bookingId).setOptions({ skipAutoPopulate: true })
+        .select('repairOrderIds orderIds items.type items.orderId').lean();
+      if (!booking) return 0;
+      const toIds = (list) => (Array.isArray(list) ? list : []).map((id) => this.normalizeEntityId(id)).filter(Boolean);
+      let orderIds = toIds(booking.repairOrderIds);
+      if (orderIds.length === 0) {
+        orderIds = toIds((booking.items || []).filter((item) => item && item.type === 'repair').map((item) => item.orderId));
+      }
+      if (orderIds.length === 0) orderIds = toIds(booking.orderIds);
+      const actorFields = DHLService.timelineActor(actor);
+      let written = 0;
+      for (const orderId of [...new Set(orderIds)]) {
+        // Eigener Schluessel: 'Inbound Label Created' beendet im Auftragsverlauf einen offenen
+        // Retoure-Abgleich (DHLService.hasPendingInboundReconciliation) - das Buchungslabel darf das nicht.
+        const historyEntry = OrderHistory.entry({
+          key: 'Booking Inbound Label Created',
+          type: 'shipping',
+          description: `${test ? 'DHL-Testlabel' : 'DHL-Einsendelabel'} der Buchung (Kunde → McRepair) erstellt. Sendungsnummer: ${trackingNumber || 'noch offen'}`,
+          actor: { id: actorFields.staffId, name: actorFields.staffName },
+          source: actorFields.source,
+          refs: { bookingId, trackingNumber },
+          visibility: 'customer',
+          eventKey: `booking-inbound-label:${bookingId}:${trackingNumber || 'pending'}`,
+          at,
+        });
+        const { filter, update } = OrderHistory.updateFor(historyEntry, { _id: orderId });
+        const result = await Order.updateOne(filter, update);
+        written += Number(result?.modifiedCount || 0);
+      }
+      return written;
+    } catch (error) {
+      console.error('BookingService: Einsendelabel konnte nicht im Auftragsverlauf vermerkt werden:', error.message);
+      return 0;
+    }
+  }
+
+  static async createDummyShippingLabelForBooking(booking, options = {}) {
+    const refreshedBooking = await Booking.findById(booking._id).setOptions({ skipAutoPopulate: true })
+      .select('bookingNumber guestInfo estimatedDelivery').lean();
 
     if (!refreshedBooking) {
       throw new Error('Die Buchung wurde nach dem Anlegen nicht mehr gefunden.');
@@ -933,25 +1517,60 @@ class BookingService {
 
     const trackingNumber = this.buildDummyBookingTrackingNumber(refreshedBooking);
     const shippingCreatedAt = new Date();
+    const actorFields = DHLService.timelineActor(options.actor, 'DHL Dummy Integration');
 
-    refreshedBooking.trackingNumber = trackingNumber;
-    refreshedBooking.carrier = 'DHL';
-    refreshedBooking.shippingStatus = 'label-created';
-    refreshedBooking.shippingStatusDescription = 'DHL-Dummy-Versandlabel wurde vorbereitet';
-    refreshedBooking.shippingLabelUrl = this.buildDummyBookingLabelUrl(refreshedBooking, trackingNumber);
-    refreshedBooking.shippingCost = refreshedBooking.shippingCost || 0;
-    refreshedBooking.estimatedDelivery = refreshedBooking.estimatedDelivery || new Date(shippingCreatedAt.getTime() + (3 * 24 * 60 * 60 * 1000));
-    refreshedBooking.shippingCreatedAt = shippingCreatedAt;
-    refreshedBooking.timeline.push({
-      status: 'Shipping Label Prepared',
-      description: `DHL-Dummy-Versandlabel für die Buchung vorbereitet (Hinweg: Kunde an McRepair). Sendungsnummer: ${trackingNumber}`,
-      completedAt: shippingCreatedAt,
-      staffId: 'system',
-      staffName: 'DHL Dummy Integration',
-    });
+    // Atomar (DHL-6): EIN Schreibzugriff, der nur greift, solange kein Einsendelabel und keine
+    // laufende Erstellung existiert. Ein Doppelklick erzeugt damit nie zwei Sendungsnummern.
+    const claimed = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        shippingLabelCreationInProgress: { $ne: true },
+        shippingLabelUrl: { $in: ['', null] },
+        trackingNumber: { $in: ['', null] },
+        returnLabelUrl: { $in: ['', null] },
+        returnTrackingNumber: { $in: ['', null] },
+      },
+      {
+        $set: {
+          trackingNumber,
+          carrier: 'DHL',
+          shippingStatus: 'label-created',
+          shippingStatusDescription: 'DHL-Dummy-Versandlabel wurde vorbereitet',
+          shippingLabelUrl: this.buildDummyBookingLabelUrl(refreshedBooking, trackingNumber),
+          estimatedDelivery: refreshedBooking.estimatedDelivery || new Date(shippingCreatedAt.getTime() + (3 * 24 * 60 * 60 * 1000)),
+          shippingCreatedAt,
+          updatedAt: shippingCreatedAt,
+        },
+        $push: {
+          timeline: {
+            status: 'Shipping Label Prepared',
+            description: `DHL-Dummy-Versandlabel für die Buchung vorbereitet (Hinweg: Kunde an McRepair). Sendungsnummer: ${trackingNumber}`,
+            completedAt: shippingCreatedAt,
+            staffId: actorFields.staffId,
+            staffName: actorFields.staffName,
+          },
+        },
+      },
+      { new: true }
+    );
 
-    await refreshedBooking.save();
-    return refreshedBooking;
+    if (claimed) {
+      await this.recordInboundLabelOnOrders(booking._id, {
+        trackingNumber, actor: options.actor, at: shippingCreatedAt, test: true,
+      });
+      return claimed;
+    }
+
+    // Kein Treffer: inzwischen existiert ein Label (paralleler Aufruf) - dann ist es das
+    // Ergebnis; sonst laeuft gerade eine Erstellung.
+    const current = await Booking.findById(booking._id);
+    if (current && String(current.trackingNumber || '').trim() && String(current.shippingLabelUrl || '').trim()) {
+      return current;
+    }
+    const error = new Error('Das Einsendelabel dieser Buchung wird bereits erstellt oder ist schon vorhanden. Bitte die Seite neu laden.');
+    error.status = 409;
+    error.code = 'LABEL_CREATION_IN_PROGRESS';
+    throw error;
   }
 
   /**
@@ -1054,6 +1673,10 @@ class BookingService {
         shippingLabelUrl: { $in: ['', null] },
         // Auch eine abgeglichene Sendungsnummer ohne PDF ist ein vorhandenes Label.
         trackingNumber: { $in: ['', null] },
+        // Eine Buchungs-Retoure ist dieselbe Einsendung - symmetrisch zu
+        // DHLReturnsService.createReturnLabel (DHL-3).
+        returnLabelUrl: { $in: ['', null] },
+        returnTrackingNumber: { $in: ['', null] },
       },
       // updatedAt = Beginn der Sperre: daran erkennt der Abgleich eine verwaiste Sperre.
       { $set: { shippingLabelCreationInProgress: true, updatedAt: new Date() } },
@@ -1103,10 +1726,10 @@ class BookingService {
             const shopAddress = this.resolveConfiguredShopAddress(dhlConfig);
             const missingShopFields = this.missingShopAddressFields(shopAddress);
             if (missingShopFields.length > 0) {
-              throw new Error(
+              throw Object.assign(new Error(
                 `Die Shop-Adresse ist in der DHL-Integration nicht vollständig hinterlegt (${missingShopFields.join(', ')}). `
                 + 'Bitte unter Systemkonfiguration → Integrationen → DHL Straße mit Hausnummer, PLZ und Ort eintragen.'
-              );
+              ), { code: 'SHOP_ADDRESS_INCOMPLETE' });
             }
             console.log(`BookingService: ${shopSideRequested} wird aus der DHL-Integration übernommen (${labelDirection}).`);
           }
@@ -1120,7 +1743,12 @@ class BookingService {
           ].filter(([, value]) => !String(value || '').trim());
 
           if (missingReceiverFields.length > 0) {
-            throw new Error(`Empfängeradresse unvollständig: ${missingReceiverFields.map(([field]) => field).join(', ')}.`);
+            // Fehlercode statt Textsuche (Kundenmeldung in createInboundLabelForBooking): beim
+            // Einsendelabel ist der Empfaenger der Shop, beim Versandlabel der Kunde.
+            throw Object.assign(
+              new Error(`Empfängeradresse unvollständig: ${missingReceiverFields.map(([field]) => field).join(', ')}.`),
+              { code: labelDirection === 'outbound' ? 'CUSTOMER_ADDRESS_INCOMPLETE' : 'SHOP_ADDRESS_INCOMPLETE' }
+            );
           }
 
           const missingShipperFields = [
@@ -1133,7 +1761,13 @@ class BookingService {
           ].filter(([, value]) => !String(value || '').trim());
 
           if (missingShipperFields.length > 0) {
-            throw new Error(`Absenderdaten unvollständig: ${missingShipperFields.map(([field]) => field).join(', ')}.`);
+            const shipperCode = missingShipperFields.some(([field]) => field === 'DHL-Abrechnungsnummer')
+              ? 'DHL_CONFIG_INCOMPLETE'
+              : (labelDirection === 'outbound' ? 'SHOP_ADDRESS_INCOMPLETE' : 'CUSTOMER_ADDRESS_INCOMPLETE');
+            throw Object.assign(
+              new Error(`Absenderdaten unvollständig: ${missingShipperFields.map(([field]) => field).join(', ')}.`),
+              { code: shipperCode }
+            );
           }
 
           // Schutz gegen eine halb uebernommene Gegenpartei: wenn Absender und
@@ -1200,12 +1834,15 @@ class BookingService {
                   status: 'Shipping Label Created',
                   description: `DHL-Versandlabel für die Buchung erstellt (Hinweg: Kunde an McRepair). Sendungsnummer: ${trackingNumber || 'noch offen'}`,
                   completedAt: now,
-                  staffId: 'system',
-                  staffName: 'DHL Parcel Integration',
+                  // HIST-16: die ausloesende Person (Mitarbeiter bzw. Kunde), sonst System.
+                  staffId: DHLService.timelineActor(options.actor).staffId,
+                  staffName: DHLService.timelineActor(options.actor).staffName,
                 },
               },
             }
           );
+
+          await this.recordInboundLabelOnOrders(booking._id, { trackingNumber, actor: options.actor, at: now });
 
           const refreshedBooking = await Booking.findById(booking._id);
           if (!refreshedBooking) {
@@ -1276,12 +1913,46 @@ class BookingService {
       staffName: actorName,
     });
 
+    // Welches Produkt haelt die Sperre? Die Buchungs-Retoure (dhlReturnsService) nutzt dieselbe
+    // Sperre und denselben Abgleich-Vermerk, speichert ihr Label aber in return*. Ihr Ergebnis
+    // darf nie in den Parcel-DE-Platz (trackingNumber) geschrieben werden - im Altbestand traegt
+    // dieser Platz ein Rueckweg-Label, das nicht still ueberschrieben werden darf.
+    const timeOf = (entry) => new Date(entry?.completedAt || 0).getTime() || 0;
+    const openMarker = (Array.isArray(booking.timeline) ? booking.timeline : [])
+      .filter((entry) => entry?.status === 'Shipping Label Reconciliation Required')
+      .reduce((latest, entry) => (timeOf(entry) >= timeOf(latest) ? entry : latest), null);
+    const retoureLock = Boolean(openMarker) && (
+      String(openMarker.staffName || '') === 'DHL Returns Integration'
+      || /Retourenlabel/i.test(String(openMarker.description || ''))
+    );
+    const parcelSlotUsed = Boolean(String(booking.trackingNumber || '').trim());
+
     if (resolution === 'not-created') {
       await Booking.updateOne(
         { _id: bookingId, shippingLabelCreationInProgress: true },
         {
-          $set: { shippingLabelCreationInProgress: false, shippingStatusDescription: '' },
+          // Beschreibung nur leeren, wenn der Parcel-Platz leer ist (Altbestand behaelt seinen Text).
+          $set: { shippingLabelCreationInProgress: false, ...(parcelSlotUsed ? {} : { shippingStatusDescription: '' }) },
           $push: { timeline: timelineEntry(`Abgleich abgeschlossen: Bei DHL wurde kein Einsendelabel angelegt (geprüft von ${actorName}).`) },
+        }
+      );
+    } else if (resolution === 'created' && (retoureLock || parcelSlotUsed)) {
+      if (!/^[0-9A-Za-z]{8,40}$/.test(cleanTracking)) {
+        const error = new Error('Bitte die DHL-Sendungsnummer aus dem Geschäftskundenportal angeben (8 bis 40 Ziffern/Buchstaben).');
+        error.status = 422;
+        error.code = 'TRACKING_NUMBER_INVALID';
+        throw error;
+      }
+      await Booking.updateOne(
+        { _id: bookingId, shippingLabelCreationInProgress: true },
+        {
+          $set: {
+            shippingLabelCreationInProgress: false,
+            returnTrackingNumber: cleanTracking,
+            returnShipmentStatus: 'label-created',
+            returnShipmentStatusDescription: 'Einsendelabel (Retoure) bei DHL angelegt (per Abgleich übernommen) – PDF im DHL-Geschäftskundenportal abrufen',
+          },
+          $push: { timeline: timelineEntry(`Abgleich abgeschlossen: Retouren-Einsendelabel ${cleanTracking} (Kunde an McRepair) existiert bei DHL (geprüft von ${actorName}).`) },
         }
       );
     } else if (resolution === 'created') {
@@ -1323,18 +1994,9 @@ class BookingService {
    * Der Sperrbeginn steht in updatedAt (wird beim Setzen der Sperre geschrieben).
    */
   static isBookingLabelReconciliationAllowed(booking, now = Date.now()) {
-    const timeline = Array.isArray(booking?.timeline) ? booking.timeline : [];
-    const timeOf = (entry) => new Date(entry?.completedAt || entry?.createdAt || 0).getTime() || 0;
-    const lastMarker = Math.max(0, ...timeline
-      .filter((entry) => entry?.status === 'Shipping Label Reconciliation Required')
-      .map(timeOf));
-    const lastSettled = Math.max(0, ...timeline
-      .filter((entry) => ['Shipping Label Created', 'Shipping Label Reconciled'].includes(entry?.status))
-      .map(timeOf));
-    if (lastMarker > 0 && lastMarker >= lastSettled) return true;
-
-    const lockedSince = new Date(booking?.updatedAt || 0).getTime() || 0;
-    return lockedSince > 0 && now - lockedSince > BOOKING_LABEL_LOCK_STALE_MS;
+    // EINE Regel fuer Abgleich und Lesemodell (Auftragsansicht, Buchungs-Einsendestatus):
+    // sie liegt in DHLService, damit beide Seiten nicht auseinanderlaufen.
+    return DHLService.isBookingLabelReconciliationAllowed(booking, now);
   }
 
   static async bulkUpdateShippingStatuses() {
@@ -1532,7 +2194,56 @@ class BookingService {
     ];
   }
 
-  static async getCommunicationOrderIds(communication, userId) {
+  /**
+   * Suche in "Meine Buchungen" (CUSTUX-3): Buchungsnummer, Auftragsnummer und Geraet - immer
+   * nur innerhalb der Buchungen/Auftraege DIESES Kunden. Die Eingabe wird als Text behandelt
+   * (Regex-Sonderzeichen escaped, Laenge begrenzt), damit '.*' oder '(' weder alles findet noch
+   * einen Fehler wirft. Liefert die $or-Bedingungen fuer Booking.find (mit customerId kombiniert)
+   * oder null bei leerer Suche.
+   */
+  static async buildCustomerSearchClause(customerId, search) {
+    const normalized = String(search || '').trim().replace(/^#/, '').slice(0, 100);
+    if (!normalized || !customerId) return null;
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+    const matchingOrders = await Order.find({
+      customerId,
+      $or: [
+        { orderNumber: regex },
+        { deviceBrand: regex },
+        { deviceModel: regex },
+        {
+          $expr: {
+            $regexMatch: {
+              input: { $concat: [{ $ifNull: ['$deviceBrand', ''] }, ' ', { $ifNull: ['$deviceModel', ''] }] },
+              regex: escaped,
+              options: 'i',
+            },
+          },
+        },
+      ],
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id bookingId parentOrderId')
+      .limit(500)
+      .lean();
+    // Treffer in Reklamations-Folgeauftraegen (nicht in booking.items) finden die Buchung
+    // ueber ihre bookingId bzw. ueber den Ursprungsauftrag - wie die Liste sie anzeigt.
+    const orderIds = [
+      ...matchingOrders.map((order) => order._id),
+      ...matchingOrders.map((order) => order.parentOrderId).filter(Boolean),
+    ];
+    const bookingIds = matchingOrders.map((order) => order.bookingId).filter(Boolean);
+    return [
+      { bookingNumber: regex },
+      { 'items.orderNumber': regex },
+      { 'items.device': regex },
+      ...(orderIds.length > 0 ? [{ orderIds: { $in: orderIds } }, { 'items.orderId': { $in: orderIds } }] : []),
+      ...(bookingIds.length > 0 ? [{ _id: { $in: bookingIds } }] : []),
+    ];
+  }
+
+  static async getCommunicationOrderIds(communication, userId, viewerRole = 'staff') {
     if (communication !== 'unread-customer-response' || !userId) {
       return [];
     }
@@ -1548,23 +2259,12 @@ class BookingService {
       ],
     }).select('orderId messages').lean();
 
+    // EINE Regel fuer "ungelesen" (server/utils/communicationReadRules.js): dieselbe wie Postfach,
+    // Zaehler und Badges. Die Admin-Buchungsliste wird nur von Personal/Admin abgefragt.
+    const viewer = { userId, role: viewerRole || 'staff' };
     return communications
-      .filter((communicationThread) => communicationThread.messages.some((message) => {
-        const readByCurrentUser = (message.readBy || []).some(
-          (readEntry) => String(readEntry.userId || '') === String(userId)
-        );
-        const feedbackResponse = message.feedbackRequest?.status === 'responded'
-          && message.feedbackRequest?.respondedAt;
-
-        if (feedbackResponse) {
-          return !(message.readBy || []).some((readEntry) => (
-            String(readEntry.userId || '') === String(userId)
-            && new Date(readEntry.readAt) >= new Date(message.feedbackRequest.respondedAt)
-          ));
-        }
-
-        return message.senderType === 'customer' && !readByCurrentUser;
-      }))
+      .filter((communicationThread) => (communicationThread.messages || [])
+        .some((message) => isMessageUnreadFor(message, viewer)))
       .map((communicationThread) => communicationThread.orderId);
   }
 
@@ -1594,7 +2294,11 @@ class BookingService {
       }
 
       if (filters.search) {
-        query.$or = await BookingService.buildSearchClause(filters.search);
+        // Kundenzaehlung (customerId gesetzt) nutzt dieselbe Suche wie getByCustomer,
+        // damit Trefferliste und Gesamtzahl zusammenpassen.
+        query.$or = filters.customerId
+          ? ((await BookingService.buildCustomerSearchClause(filters.customerId, filters.search)) || [{}])
+          : await BookingService.buildSearchClause(filters.search);
       }
 
       const count = await Booking.countDocuments(query);
@@ -1697,9 +2401,13 @@ class BookingService {
         query.$or = await BookingService.buildSearchClause(filters.search);
       }
 
+      // ADMUX-5: orderIds, Retoure-Status/-Sendungsnummer und finalCost gehoeren zur Projektion,
+      // weil die Liste sie anzeigt (Spalten Geraete/Auftraege, Einsendung, Gesamt). Label-URLs
+      // werden bewusst NICHT geladen (koennen grosse data:-PDFs sein); fuer die Liste genuegen
+      // Sendungsnummern und Status.
       const bookings = await Booking.find(query)
         .setOptions({ skipAutoPopulate: true })
-        .select('customerId bookingNumber status billingStatus paymentStatus totalCost items createdAt updatedAt shippingStatus trackingNumber guestInfo')
+        .select('customerId bookingNumber status billingStatus paymentStatus totalCost finalCost items orderIds createdAt updatedAt shippingStatus trackingNumber shippingLabelCreationInProgress returnShipmentStatus returnTrackingNumber returnCreatedAt guestInfo')
         .sort({ createdAt: -1 })
         .limit(filters.limit || 50)
         .skip(filters.skip || 0)
@@ -1764,7 +2472,8 @@ class BookingService {
       const allOrders = bookingIds.length
         ? await Order.find({ bookingId: { $in: bookingIds } })
             .setOptions({ skipAutoPopulate: true })
-            .select('_id bookingId status progress hasComplaint')
+            .select('_id bookingId status progress hasComplaint orderNumber deviceBrand deviceModel deviceType createdAt')
+            .sort({ createdAt: 1 })
             .lean()
         : [];
 
@@ -1849,6 +2558,40 @@ class BookingService {
             complaintParentIdSet.has(String(order._id))
           );
 
+          // ADMUX-5: Auftraege der Buchung fuer die Spalte "Geraete / Auftraege" (Nummer, Geraet,
+          // Status, Fortschritt) - ohne Aufklappen. Nur Staff/Admin rufen getAllBookings auf.
+          // Shop-Auftraege (Checkout-Platzhalter deviceBrand 'N/A' / deviceModel 'Shop Products Order')
+          // bekommen dasselbe Etikett wie buildInboundLabelView ('Shop-Artikel') bzw. die Produktnamen
+          // aus booking.items - nie den Rohplatzhalter.
+          bookingPlain.orders = bookingOrders.map((order) => {
+            const isProduct = order.deviceType === 'Shop Products';
+            const productItem = isProduct
+              ? (booking.items || []).find((item) => String(item.orderId || '') === String(order._id))
+              : null;
+            const productNames = productItem && Array.isArray(productItem.products)
+              ? productItem.products.map((product) => product && product.name).filter(Boolean).join(', ')
+              : '';
+            return {
+              _id: order._id,
+              orderNumber: order.orderNumber || '',
+              type: isProduct ? 'product' : 'repair',
+              device: isProduct
+                ? (productNames || 'Shop-Artikel')
+                : `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim(),
+              deviceBrand: isProduct ? '' : (order.deviceBrand || ''),
+              deviceModel: isProduct ? '' : (order.deviceModel || ''),
+              deviceType: order.deviceType || '',
+              status: order.status || '',
+              progress: this.resolveOrderProgress(order),
+            };
+          });
+          if (!Array.isArray(bookingPlain.orderIds) || bookingPlain.orderIds.length === 0) {
+            bookingPlain.orderIds = bookingOrders.map((order) => order._id);
+          }
+          // DHL-5: Testlabel (Dummy-Modus) erkennbar machen - gleiche Regel wie das Einsendelabel-Lesemodell.
+          bookingPlain.inboundLabelPlaceholder = DHLService.isPlaceholderTrackingNumber(booking.trackingNumber)
+            || DHLService.isPlaceholderTrackingNumber(booking.returnTrackingNumber);
+
           return bookingPlain;
         } catch (error) {
           console.error('BookingService: Error calculating progress for booking:', booking._id, error);
@@ -1883,6 +2626,11 @@ class BookingService {
         query.billingStatus = filters.billingStatus;
       }
 
+      if (filters.search) {
+        const searchClause = await BookingService.buildCustomerSearchClause(customerId, filters.search);
+        if (searchClause) query.$or = searchClause;
+      }
+
       const [bookings, customer] = await Promise.all([
         Booking.find(query)
           .setOptions({ skipAutoPopulate: true })
@@ -1895,11 +2643,23 @@ class BookingService {
       ]);
 
       const bookingIds = bookings.map((booking) => booking._id);
+      const customerOrderFields = '_id bookingId customerId status progress hasComplaint orderNumber deviceBrand deviceModel deviceType isComplaintFollowup parentOrderId services.name';
       const allOrders = bookingIds.length
         ? await Order.find({ bookingId: { $in: bookingIds } })
             .setOptions({ skipAutoPopulate: true })
-            .select('_id bookingId status progress')
+            .select(customerOrderFields)
             .lean()
+        : [];
+      // Reklamations-Folgeauftraege ohne bookingId haengen am Ursprungsauftrag (wie in
+      // getBookingOrders) - sie gehoeren zur Buchung des Ursprungsauftrags.
+      const directOrderIds = allOrders.map((order) => order._id);
+      const knownOrderIds = new Set(directOrderIds.map(String));
+      const parentBookingById = new Map(allOrders.map((order) => [String(order._id), String(order.bookingId)]));
+      const followupOrders = directOrderIds.length
+        ? (await Order.find({ isComplaintFollowup: true, parentOrderId: { $in: directOrderIds } })
+            .setOptions({ skipAutoPopulate: true })
+            .select(customerOrderFields)
+            .lean()).filter((order) => !knownOrderIds.has(String(order._id)))
         : [];
 
       const ordersByBookingId = new Map();
@@ -1909,6 +2669,13 @@ class BookingService {
           ordersByBookingId.set(bookingKey, []);
         }
         ordersByBookingId.get(bookingKey).push(order);
+      });
+      const followupsByBookingId = new Map();
+      followupOrders.forEach((order) => {
+        const bookingKey = parentBookingById.get(String(order.parentOrderId));
+        if (!bookingKey) return;
+        if (!followupsByBookingId.has(bookingKey)) followupsByBookingId.set(bookingKey, []);
+        followupsByBookingId.get(bookingKey).push(order);
       });
 
       const balanceByBookingId = await BookingService.buildPaymentBalanceMap(bookings);
@@ -1927,14 +2694,55 @@ class BookingService {
 
           bookingPlain.items = (booking.items || []).map((item) => {
             const currentOrder = item?.orderId ? orderById.get(String(item.orderId)) : null;
-            return currentOrder
-              ? {
-                  ...item,
-                  status: currentOrder.status,
-                  progress: this.resolveOrderProgress(currentOrder),
-                  hasComplaint: Boolean(currentOrder.hasComplaint),
-                }
-              : item;
+            if (!currentOrder) return item;
+            // CUSTUX-14: Geraet und Auftragsnummer zur Lesezeit aus dem AKTUELLEN Auftrag
+            // (korrigiertes Modell nach Geraetewechsel); der Buchungs-Snapshot bleibt gespeichert.
+            const currentDevice = item.type === 'product' || currentOrder.deviceType === 'Shop Products'
+              ? ''
+              : `${currentOrder.deviceBrand || ''} ${currentOrder.deviceModel || ''}`.trim();
+            return {
+              ...item,
+              device: currentDevice || item.device,
+              orderNumber: currentOrder.orderNumber || item.orderNumber,
+              status: currentOrder.status,
+              progress: this.resolveOrderProgress(currentOrder),
+              hasComplaint: Boolean(currentOrder.hasComplaint),
+              isComplaintFollowup: Boolean(currentOrder.isComplaintFollowup),
+            };
+          });
+
+          // Decision O4: Auftraege der Buchung, die nicht in booking.items stehen (vor allem
+          // Reklamations-Folgeauftraege, aber auch Altbuchungen ohne Positionen), als eigene
+          // Lesezeit-Position anhaengen - sonst sind sie aus "Meine Buchungen" nicht mehr
+          // erreichbar. Gespeicherte Buchungspositionen bleiben unveraendert; nur Auftraege
+          // DIESES Kunden.
+          const referencedOrderIds = new Set(
+            (booking.items || []).map((item) => (item?.orderId ? String(item.orderId) : '')).filter(Boolean)
+          );
+          const orderNumberById = new Map(
+            [...bookingOrders, ...(followupsByBookingId.get(String(booking._id)) || [])]
+              .map((order) => [String(order._id), order.orderNumber || ''])
+          );
+          const extraOrders = [...bookingOrders, ...(followupsByBookingId.get(String(booking._id)) || [])]
+            .filter((order) => !referencedOrderIds.has(String(order._id)))
+            .filter((order) => !order.customerId || String(order.customerId) === String(customerId));
+          extraOrders.forEach((order) => {
+            const isProduct = order.deviceType === 'Shop Products';
+            const parentId = order.parentOrderId ? String(order.parentOrderId) : '';
+            bookingPlain.items.push({
+              type: isProduct ? 'product' : 'repair',
+              orderId: String(order._id),
+              orderNumber: order.orderNumber || '',
+              device: isProduct ? '' : `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim(),
+              services: (order.services || []).map((service) => ({ name: service?.name || '' })).filter((service) => service.name),
+              status: order.status || 'pending',
+              progress: this.resolveOrderProgress(order),
+              hasComplaint: Boolean(order.hasComplaint),
+              isComplaintFollowup: Boolean(order.isComplaintFollowup),
+              parentOrderId: parentId || null,
+              parentOrderNumber: parentId ? (orderNumberById.get(parentId) || '') : '',
+              readTimeItem: true,
+            });
           });
 
           if (bookingOrders.length > 0) {
@@ -2001,8 +2809,14 @@ class BookingService {
   }
 
   // Update booking status
-  static async updateStatus(bookingId, newStatus, description = '') {
+  static async updateStatus(bookingId, newStatus, description = '', actor = null) {
     console.log('BookingService: Updating booking status:', bookingId, 'to:', newStatus);
+
+    // Storno ueber das Statusmenue: dieselbe Regel wie DELETE (Grund Pflicht, keine offenen
+    // Auftraege, Storno-E-Mail ohne den internen Grund) - nie ein zweiter Weg.
+    if (newStatus === 'cancelled') {
+      return BookingService.cancel(bookingId, actor, { reason: description });
+    }
 
     try {
       const booking = await Booking.findById(bookingId);
@@ -2012,14 +2826,16 @@ class BookingService {
 
       const previousStatus = booking.status;
       booking.status = newStatus;
+      // HIST-16: handelnde Person statt 'System' (ohne Person bleibt 'System').
+      const actorFields = DHLService.timelineActor(actor, 'System');
 
       // Add timeline entry
       booking.timeline.push({
         status: newStatus,
         description: description || `Status geändert auf „${BookingService.bookingStatusLabel(newStatus)}“`,
         completedAt: new Date(),
-        staffId: 'system',
-        staffName: 'System',
+        staffId: actorFields.staffId,
+        staffName: actorFields.staffName,
       });
 
       const savedBooking = await booking.save();
@@ -2038,7 +2854,29 @@ class BookingService {
             ? `${populatedBooking.customerId.firstName || ''} ${populatedBooking.customerId.lastName || ''}`.trim() || customerEmail
             : `${populatedBooking?.guestInfo?.firstName || ''} ${populatedBooking?.guestInfo?.lastName || ''}`.trim() || customerEmail;
 
-          const trigger = newStatus === 'completed' ? 'booking_ready_for_pickup' : 'booking_status_updated';
+          // PAR-3 (HIST-17): 'Abgeschlossen' ist nur dann eine Abholmeldung, wenn JEDER
+          // Reparaturauftrag der Buchung abgeholt wird; Versandauftraege (Online-Buchungen)
+          // bekommen die Statusmeldung mit dem Rueckversandtext - Regel aus utils/returnMethod.
+          let trigger = 'booking_status_updated';
+          let statusNote = description
+            || `Status geändert: ${BookingService.bookingStatusLabel(previousStatus)} → ${BookingService.bookingStatusLabel(newStatus)}`;
+          if (newStatus === 'completed') {
+            const ReturnMethod = require('../utils/returnMethod'); // eslint-disable-line global-require
+            const repairOrderIds = (populatedBooking.items || [])
+              .filter((item) => item && item.type !== 'product' && item.orderId)
+              .map((item) => item.orderId);
+            if (repairOrderIds.length > 0) {
+              const methods = await Promise.all(repairOrderIds.map((id) => ReturnMethod.resolveReturnMethodForOrder(id)));
+              const method = methods.every((m) => m === 'pickup')
+                ? 'pickup'
+                : (methods.every((m) => m === 'shipping') ? 'shipping' : 'unknown');
+              if (method === 'pickup') {
+                trigger = 'booking_ready_for_pickup';
+              } else if (!description) {
+                statusNote = ReturnMethod.readyCustomerMessage(method, `Ihrer Buchung ${populatedBooking.bookingNumber}`);
+              }
+            }
+          }
 
           const itemSummary = await this.buildBookingOrdersSummary(populatedBooking.items || []);
 
@@ -2049,8 +2887,8 @@ class BookingService {
             companyName: process.env.COMPANY_NAME || 'McRepair.de',
             customerName,
             bookingNumber: populatedBooking.bookingNumber,
-            bookingStatus: newStatus,
-            statusNote: description || `Statuswechsel von ${previousStatus} auf ${newStatus}`,
+            bookingStatus: BookingService.bookingStatusLabel(newStatus),
+            statusNote,
             itemSummary,
             progressPercent: populatedBooking.overallProgress || 0,
             updatedAt: new Date().toLocaleDateString('de-DE'),
@@ -2077,7 +2915,7 @@ class BookingService {
   }
 
   // Update booking billing status
-  static async updateBillingStatus(bookingId, billingStatus, paymentStatus = null) {
+  static async updateBillingStatus(bookingId, billingStatus, paymentStatus = null, actor = null) {
     console.log('BookingService: Updating billing status:', bookingId, 'to:', billingStatus);
 
     try {
@@ -2090,14 +2928,15 @@ class BookingService {
       if (paymentStatus) {
         booking.paymentStatus = paymentStatus;
       }
+      const actorFields = DHLService.timelineActor(actor, 'System');
 
       // Add timeline entry
       booking.timeline.push({
         status: billingStatus,
         description: `Zahlungsstatus geändert auf „${BookingService.billingStatusLabel(billingStatus)}“`,
         completedAt: new Date(),
-        staffId: 'system',
-        staffName: 'System',
+        staffId: actorFields.staffId,
+        staffName: actorFields.staffName,
       });
 
       const savedBooking = await booking.save();
@@ -2149,26 +2988,100 @@ class BookingService {
     }
   }
 
+  /**
+   * Offene Reparatur-/Produktauftraege einer Buchung (nicht storniert, nicht abgeschlossen).
+   * Quelle: Order.bookingId und Booking.orderIds (Altbestand).
+   */
+  static async getOpenOrdersOfBooking(booking) {
+    const orderIds = (Array.isArray(booking?.orderIds) ? booking.orderIds : [])
+      .map((value) => (value && value._id ? value._id : value))
+      .filter(Boolean);
+    return Order.find({
+      $or: [{ bookingId: booking._id }, ...(orderIds.length ? [{ _id: { $in: orderIds } }] : [])],
+      status: { $nin: ['cancelled', 'completed'] },
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id orderNumber status')
+      .lean();
+  }
+
   // Cancel booking (soft delete/status change)
-  static async cancel(bookingId) {
+  // EINE Storno-Regel fuer DELETE /api/bookings/:id und PUT /:id/status 'cancelled' (ORD-1):
+  //  - Grund ist Pflicht (400 CANCEL_REASON_REQUIRED); er steht nur im internen Buchungsverlauf
+  //    (toCustomerTimeline zeigt nie die gespeicherte Beschreibung, die E-Mail nennt ihn nicht).
+  //  - Solange Auftraege der Buchung offen sind: 409 BOOKING_HAS_OPEN_ORDERS. Auftraege werden
+  //    einzeln mit Grund storniert ("Auftrag stornieren", haelt laufende Workflows an) - so laeuft
+  //    nie ein Workflow einer stornierten Buchung weiter.
+  //  - Bereits storniert: unveraendert, keine zweite E-Mail.
+  static async cancel(bookingId, actor = null, options = {}) {
     console.log('BookingService: Cancelling booking:', bookingId);
 
     try {
       const booking = await Booking.findById(bookingId);
       if (!booking) {
-        throw new Error('Buchung nicht gefunden.');
+        const notFoundError = new Error('Buchung wurde nicht gefunden.');
+        notFoundError.statusCode = 404;
+        throw notFoundError;
+      }
+      if (booking.status === 'cancelled') {
+        booking.$locals = booking.$locals || {};
+        booking.$locals.unchanged = true;
+        return booking;
       }
 
+      const reason = String(options.reason || '').trim();
+      if (!reason) {
+        const reasonError = new Error('Bitte einen Grund für die Stornierung angeben.');
+        reasonError.statusCode = 400;
+        reasonError.code = 'CANCEL_REASON_REQUIRED';
+        throw reasonError;
+      }
+
+      const openOrders = await BookingService.getOpenOrdersOfBooking(booking);
+      if (openOrders.length > 0) {
+        const numbers = openOrders.map((order) => order.orderNumber || String(order._id)).join(', ');
+        const openError = new Error(
+          `Die Buchung hat noch offene Aufträge (${numbers}). Bitte zuerst jeden Auftrag mit Grund stornieren („Auftrag stornieren“) – laufende Reparaturen werden dabei angehalten.`
+        );
+        openError.statusCode = 409;
+        openError.code = 'BOOKING_HAS_OPEN_ORDERS';
+        openError.openOrders = openOrders.map((order) => ({ _id: String(order._id), orderNumber: order.orderNumber || '', status: order.status }));
+        throw openError;
+      }
+
+      const previousStatus = booking.status;
       booking.status = 'cancelled';
+      const actorFields = DHLService.timelineActor(actor, 'System');
       booking.timeline.push({
         status: 'cancelled',
-        description: 'Buchung storniert',
+        description: `Buchung storniert – Grund (intern): ${reason.slice(0, 500)}`,
         completedAt: new Date(),
-        staffId: 'system',
-        staffName: 'System',
+        staffId: actorFields.staffId,
+        staffName: actorFields.staffName,
       });
 
-      const savedBooking = await booking.save();
+      // Bedingt speichern: ein paralleler Storno sendet keine zweite E-Mail.
+      booking.$where = { status: previousStatus };
+      let savedBooking;
+      try {
+        savedBooking = await booking.save();
+      } catch (saveError) {
+        if (saveError && saveError.name === 'DocumentNotFoundError') {
+          const current = await Booking.findById(bookingId);
+          if (current && current.status === 'cancelled') {
+            current.$locals = current.$locals || {};
+            current.$locals.unchanged = true;
+            return current;
+          }
+          const conflictError = new Error('Der Buchungsstatus wurde gleichzeitig geändert. Bitte neu laden und erneut versuchen.');
+          conflictError.statusCode = 409;
+          conflictError.code = 'BOOKING_STATUS_CONFLICT';
+          throw conflictError;
+        }
+        throw saveError;
+      } finally {
+        booking.$where = undefined;
+      }
       console.log('BookingService: Booking cancelled successfully');
 
       setImmediate(async () => {
@@ -2188,10 +3101,12 @@ class BookingService {
             customerName,
             bookingNumber: populatedBooking.bookingNumber,
             cancellationReason: 'Durch Service-Team storniert',
-            refundInfo: 'Falls zutreffend wird die Erstattung automatisch veranlasst',
-            refundAmount: `EUR ${(populatedBooking.totalCost || 0).toFixed(2)}`,
+            // Keine automatische Erstattung (HIST-14): Zahlungen werden gesondert geprueft.
+            refundInfo: 'Bereits geleistete Zahlungen prüfen wir und melden uns zur Erstattung bei Ihnen.',
+            // Nicht der Buchungsbetrag: ob und wie viel erstattet wird, ergibt sich erst aus den Zahlungen.
+            refundAmount: 'Wird nach Prüfung der Zahlungen mitgeteilt',
             cancelledAt: new Date().toLocaleDateString('de-DE'),
-            cancelledBy: 'System',
+            cancelledBy: 'McRepair Service-Team',
             newBookingUrl: await EmailService.buildSystemUrl('/bookings/new'),
             supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
             supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
@@ -2488,7 +3403,7 @@ class BookingService {
   static _resolveInvoiceSelection(booking, orders, invoiceData = {}) {
     const bookingOrderIds = BookingService._normalizeSelectedOrderIds(booking.orderIds || []);
     if (bookingOrderIds.length === 0) {
-      throw BookingService._createInvoiceEligibilityError('Invoice creation requires at least one associated order.');
+      throw BookingService._createInvoiceEligibilityError('Für eine Rechnung muss der Buchung mindestens ein Auftrag zugeordnet sein.');
     }
 
     const orderById = new Map(orders.map((order) => [String(order._id), order]));
@@ -2497,21 +3412,21 @@ class BookingService {
 
     if (invoiceMode === 'order') {
       if (!requestedOrderId) {
-        throw BookingService._createInvoiceEligibilityError('A completed order must be selected for a partial invoice.');
+        throw BookingService._createInvoiceEligibilityError('Für eine Teilrechnung bitte einen abgeschlossenen Auftrag auswählen.');
       }
 
       if (!bookingOrderIds.includes(requestedOrderId)) {
-        throw BookingService._createInvoiceEligibilityError('The selected order does not belong to this booking.');
+        throw BookingService._createInvoiceEligibilityError('Der gewählte Auftrag gehört nicht zu dieser Buchung.');
       }
 
       const selectedOrder = orderById.get(requestedOrderId);
       if (!selectedOrder) {
-        throw BookingService._createInvoiceEligibilityError('The selected order could not be loaded.');
+        throw BookingService._createInvoiceEligibilityError('Der gewählte Auftrag konnte nicht geladen werden.');
       }
 
       if (selectedOrder.status !== 'completed') {
         throw BookingService._createInvoiceEligibilityError(
-          `Partial invoice is only allowed for completed orders. Order ${selectedOrder.orderNumber || requestedOrderId} is currently "${selectedOrder.status}".`
+          `Eine Teilrechnung ist nur für abgeschlossene Aufträge möglich. Auftrag ${selectedOrder.orderNumber || requestedOrderId} ist derzeit „${BookingService._orderStatusLabelDe(selectedOrder.status)}“.`
         );
       }
 
@@ -2525,11 +3440,11 @@ class BookingService {
     const incompleteOrders = orders.filter((order) => order.status !== 'completed');
     if (incompleteOrders.length > 0) {
       const incompleteOrderLabels = incompleteOrders
-        .map((order) => `${order.orderNumber || order._id} (${order.status})`)
+        .map((order) => `${order.orderNumber || order._id} (${BookingService._orderStatusLabelDe(order.status)})`)
         .join(', ');
 
       throw BookingService._createInvoiceEligibilityError(
-        `A booking invoice can only be created after all related orders are completed. Pending orders: ${incompleteOrderLabels}.`,
+        `Eine Buchungsrechnung ist erst möglich, wenn alle Aufträge abgeschlossen sind. Offen: ${incompleteOrderLabels}.`,
         {
           incompleteOrders: incompleteOrders.map((order) => ({
             _id: String(order._id),
@@ -2547,33 +3462,31 @@ class BookingService {
     };
   }
 
-  static async _assertNoExistingInvoiceForSelection(bookingId, invoiceMode, selectedOrderIds) {
-    const duplicateQuery = invoiceMode === 'order'
-      ? { bookingId, repairOrderIds: { $in: selectedOrderIds } }
-      : { bookingId };
+  static _orderStatusLabelDe(status) {
+    try {
+      const { statusLabelDe } = require('../utils/orderHistory');
+      if (typeof statusLabelDe === 'function') return statusLabelDe(status);
+    } catch (error) {
+      // Hilfsmodul nicht ladbar: Rohwert anzeigen statt abzubrechen.
+    }
+    return String(status || 'unbekannt');
+  }
 
-    const existingInvoice = await Invoice.findOne(duplicateQuery)
-      .select('_id invoiceNumber status repairOrderIds')
-      .lean();
-
-    if (!existingInvoice) return;
-
-    const duplicateMessage = invoiceMode === 'order'
-      ? `An invoice already exists for the selected order (${existingInvoice.invoiceNumber || existingInvoice._id}).`
-      : `An invoice already exists for this booking (${existingInvoice.invoiceNumber || existingInvoice._id}).`;
-
-    const duplicateError = new Error(duplicateMessage);
-    duplicateError.statusCode = 409;
-    duplicateError.code = 'INVOICE_ALREADY_EXISTS';
-    duplicateError.existingInvoice = {
-      _id: String(existingInvoice._id),
-      invoiceNumber: existingInvoice.invoiceNumber || null,
-      status: existingInvoice.status || null,
-      repairOrderIds: Array.isArray(existingInvoice.repairOrderIds)
-        ? existingInvoice.repairOrderIds.map((orderId) => String(orderId))
-        : [],
-    };
-    throw duplicateError;
+  /**
+   * FIN-3: DIESELBE Duplikatregel wie alle anderen Rechnungswege (FinancialService):
+   * gezaehlt werden nur AKTIVE Rechnungen (keine Gutschriften, nicht storniert, nicht
+   * vollstaendig gutgeschrieben). Frueher blockierte hier jede Rechnung inkl. Storno-
+   * Gutschrift ("An invoice already exists for this booking (INV-CN-…)") - nach einem
+   * Storno war keine neue Buchungsrechnung moeglich. Meldungen deutsch.
+   */
+  static async _assertNoExistingInvoiceForSelection(bookingId, invoiceMode, selectedOrderIds, selectedOrders = null) {
+    // Lazy require: FinancialService laedt ueber BookingPaymentService auf diese Datei zurueck.
+    const FinancialService = require('./financialService');
+    const orderRefs = Array.isArray(selectedOrders) && selectedOrders.length > 0 ? selectedOrders : selectedOrderIds;
+    if (invoiceMode !== 'order') {
+      await FinancialService.assertBookingNotYetInvoiced(bookingId);
+    }
+    await FinancialService.assertOrdersNotYetInvoiced(orderRefs);
   }
 
   static async _resolveInvoiceDiscount({ booking, invoiceMode, selectedOrderIds, allInvoiceItems, selectedInvoiceItems }) {
@@ -2619,11 +3532,16 @@ class BookingService {
 
   // Compute invoice financial totals for gross-priced items (VAT is included in prices,
   // not added on top). Extracts the tax portion using the configured tax rate.
-  static async _computeInvoiceTotals(invoiceItems, discount = 0) {
-    const config = await SystemConfiguration.findOne()
-      .select('financialSettings.defaults.taxRate')
-      .lean();
-    const taxRatePct = config?.financialSettings?.defaults?.taxRate ?? 19;
+  static async _computeInvoiceTotals(invoiceItems, discount = 0, { taxRateOverride = null } = {}) {
+    let taxRatePct;
+    if (Number.isFinite(Number(taxRateOverride)) && taxRateOverride !== null) {
+      taxRatePct = Number(taxRateOverride);
+    } else {
+      const config = await SystemConfiguration.findOne()
+        .select('financialSettings.defaults.taxRate')
+        .lean();
+      taxRatePct = config?.financialSettings?.defaults?.taxRate ?? 19;
+    }
 
     const itemsGrossTotal = invoiceItems.reduce((sum, item) => sum + (item.total || 0), 0);
     const grossAfterDiscount = Math.max(0, itemsGrossTotal - discount);
@@ -2637,6 +3555,32 @@ class BookingService {
     // die Betraege mit dem konfigurierten Satz gerechnet wurden - bei einem Shop mit
     // 7% ergab das eine Rechnung, die rechnerisch nicht zu ihrem Steuersatz passt.
     return { subtotal, tax, discount, total: grossAfterDiscount, taxRate: taxRatePct };
+  }
+
+  /**
+   * FIN-13 (Buchungsweg): Steuerbehandlung der Buchungsrechnung aus dem gespeicherten
+   * Kunden-/Gruppenprofil, wie "Rechnungen aus Auftraegen" (buildRepairOrdersInvoice).
+   * Eine ausdrueckliche Angabe invoiceData.isReverseCharge (true/false) gewinnt; sonst
+   * reverse_charge => Reverse Charge (MwSt. 0 + Hinweis), tax_free => MwSt. 0.
+   * Gespeicherte Auftragssteuersaetze werden nicht veraendert.
+   */
+  static async _resolveBookingInvoiceTax(booking, invoiceData = {}) {
+    const explicit = invoiceData.isReverseCharge !== undefined && invoiceData.isReverseCharge !== null && invoiceData.isReverseCharge !== '';
+    let taxMode = 'default';
+    if (!explicit && booking?.customerId) {
+      try {
+        const FinancialService = require('./financialService');
+        const profile = await FinancialService.resolveFinancialProfile({ customerId: booking.customerId?._id || booking.customerId });
+        taxMode = String(profile?.taxMode || 'default');
+      } catch (error) {
+        console.error('BookingService: invoice tax profile could not be resolved:', error.message);
+      }
+    }
+    const isReverseCharge = explicit
+      ? (invoiceData.isReverseCharge === true || invoiceData.isReverseCharge === 'true')
+      : taxMode === 'reverse_charge';
+    const taxFree = !explicit && taxMode === 'tax_free';
+    return { isReverseCharge, taxFree, taxMode, taxRateOverride: (isReverseCharge || taxFree) ? 0 : null };
   }
 
   // Preview invoice for a booking
@@ -2653,7 +3597,7 @@ class BookingService {
 
       const allOrders = await BookingService._loadInvoiceOrders(booking);
       const { invoiceMode, selectedOrders, selectedOrderIds } = BookingService._resolveInvoiceSelection(booking, allOrders, invoiceData);
-      await BookingService._assertNoExistingInvoiceForSelection(booking._id, invoiceMode, selectedOrderIds);
+      await BookingService._assertNoExistingInvoiceForSelection(booking._id, invoiceMode, selectedOrderIds, selectedOrders);
 
       const primaryOrder = selectedOrders[0]
         ? await Order.findById(selectedOrders[0]._id)
@@ -2698,7 +3642,8 @@ class BookingService {
         allInvoiceItems: BookingService._buildInvoiceItemsFromOrders(booking, allOrders),
         selectedInvoiceItems: previewItems,
       });
-      const previewTotals = await BookingService._computeInvoiceTotals(previewItems, previewDiscount);
+      const previewTax = await BookingService._resolveBookingInvoiceTax(booking, invoiceData);
+      const previewTotals = await BookingService._computeInvoiceTotals(previewItems, previewDiscount, { taxRateOverride: previewTax.taxRateOverride });
 
       const invoicePreview = {
         invoiceMode,
@@ -2712,6 +3657,9 @@ class BookingService {
         tax: previewTotals.tax,
         discount: previewTotals.discount,
         total: previewTotals.total,
+        taxRate: previewTotals.taxRate,
+        isReverseCharge: previewTax.isReverseCharge,
+        taxMode: previewTax.taxMode,
       };
 
       console.log('BookingService: Invoice preview generated successfully');
@@ -2736,7 +3684,7 @@ class BookingService {
 
       const allOrders = await BookingService._loadInvoiceOrders(booking);
       const { invoiceMode, selectedOrders, selectedOrderIds } = BookingService._resolveInvoiceSelection(booking, allOrders, invoiceData);
-      await BookingService._assertNoExistingInvoiceForSelection(booking._id, invoiceMode, selectedOrderIds);
+      await BookingService._assertNoExistingInvoiceForSelection(booking._id, invoiceMode, selectedOrderIds, selectedOrders);
 
       const primaryOrderId = selectedOrders.length > 0 ? selectedOrders[0]._id : null;
       const primaryOrder = primaryOrderId
@@ -2824,11 +3772,14 @@ class BookingService {
         allInvoiceItems: BookingService._buildInvoiceItemsFromOrders(booking, allOrders),
         selectedInvoiceItems: invoiceItems,
       });
-      const invoiceTotals = await BookingService._computeInvoiceTotals(invoiceItems, invoiceDiscount);
+      const invoiceTax = await BookingService._resolveBookingInvoiceTax(booking, invoiceData);
+      const invoiceTotals = await BookingService._computeInvoiceTotals(invoiceItems, invoiceDiscount, { taxRateOverride: invoiceTax.taxRateOverride });
 
       console.log('BookingService: Created', invoiceItems.length, 'invoice items, gross total:', invoiceTotals.total);
 
-      const isReverseCharge = Boolean(invoiceData.isReverseCharge);
+      // FIN-13: frueher nur invoiceData.isReverseCharge - ein Reverse-Charge-Kunde bekam
+      // ueber "Buchungen -> Rechnung erstellen" 19 % MwSt.
+      const isReverseCharge = invoiceTax.isReverseCharge;
       const customerVatId = String(invoiceData.customerVatId || booking.customerId?.vatId || '').trim();
       const sellerVatId = String(invoiceData.sellerVatId || '').trim();
       const reverseChargeNotice = invoiceData.reverseChargeNotice || (isReverseCharge ? 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge' : undefined);
@@ -2863,7 +3814,16 @@ class BookingService {
         sentAt: new Date(),
       });
 
-      const savedInvoice = await invoice.save();
+      // FIN-3: atomarer Anspruch wie bei allen anderen Rechnungswegen (activeBillingKeys,
+      // partieller Unique-Index): zwei gleichzeitige "Rechnung erstellen" ergeben genau
+      // EINE Rechnung, der zweite Aufruf bekommt die deutsche 409. Eine Teilrechnung
+      // (Modus 'order') beansprucht nur ihren Auftrag, nicht die ganze Buchung.
+      const FinancialServiceForClaim = require('./financialService');
+      await FinancialServiceForClaim.saveClaimedInvoice(invoice, {
+        orders: selectedOrders,
+        claimBooking: invoiceMode !== 'order',
+      });
+      const savedInvoice = invoice;
       console.log('BookingService: Invoice created successfully:', savedInvoice._id, 'Number:', savedInvoice.invoiceNumber);
 
       // Gemeinsamer Abschluss: bereits eingegangene Vorauszahlungen zuordnen und den
@@ -2883,26 +3843,10 @@ class BookingService {
         console.error('BookingService: finalizing invoice creation failed:', finalizeError.message);
       }
 
-      if (customerEmail && customerEmail !== 'N/A') {
-        setImmediate(async () => {
-          try {
-            await EmailService.sendTriggerEmail('invoice_created', customerEmail, {
-              companyName: process.env.COMPANY_NAME || 'McRepair.de',
-              customerName,
-              invoiceNumber: savedInvoice.invoiceNumber,
-              orderNumber: booking.orderIds && booking.orderIds.length > 0 ? String(booking.orderIds[0]) : booking.bookingNumber,
-              invoiceAmount: `EUR ${(savedInvoice.total || 0).toFixed(2)}`,
-              dueDate: new Date(savedInvoice.dueDate).toLocaleDateString('de-DE'),
-              paymentMethod: savedInvoice.paymentMethod || 'Ueberweisung',
-              invoiceUrl: await EmailService.buildSystemUrl(`/invoices?invoiceId=${savedInvoice._id}`),
-              supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
-              supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-            });
-          } catch (notificationError) {
-            console.error('BookingService: Error sending invoice email:', notificationError.message);
-          }
-        });
-      }
+      // FIN-3: KEIN eigener Mailversand mehr. Frueher ging hier zusaetzlich eine
+      // "invoice_created"-Mail ohne PDF raus (mit dem kompletten Auftragsobjekt als
+      // "Auftragsnummer"), auch wenn "sofort senden" abgewaehlt war. Versendet wird
+      // ausschliesslich ueber FinancialService.sendInvoice (PDF, Verlauf, Benachrichtigung).
 
       // Der frisch gelesene Beleg traegt den Zahlungsstand NACH der Zuordnung
       // (paidAmount/status), der Aufrufer bekommt also keine veraltete Sicht.

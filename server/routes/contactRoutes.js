@@ -24,14 +24,9 @@ const sanitizeOrderNumber = (value = '') => String(value)
   .replace(/\s+/g, ' ')
   .trim();
 
-const getClientIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return String(forwarded).split(',')[0].trim();
-  }
-
-  return req.ip || req.socket?.remoteAddress || 'unknown';
-};
+// Gemeinsame Client-IP der Rate-Limits (X-Forwarded-For nur ueber vertrauenswuerdige Proxys);
+// frueher hob ein frei gesetzter X-Forwarded-For-Header die IP-Begrenzung des Formulars auf.
+const { getClientIp } = require('./middleware/rateLimit');
 
 const getSpamSignals = (req, payload) => {
   const now = Date.now();

@@ -15,6 +15,7 @@ import {
   MapPin,
   MessageSquare,
   Package,
+  Printer,
   Search,
   Send,
   TrendingUp,
@@ -32,6 +33,7 @@ import {
   TrackedOrder,
 } from "@/api/orderTracking";
 import { useToast } from "@/hooks/useToast";
+import { downloadDataUrlPdf, labelFilename, printDataUrlPdf } from "@/api/labelPdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -260,9 +262,10 @@ export function GuestBookingTracking() {
   };
 
   const locale = i18n.language?.toLowerCase().startsWith("de") ? "de-DE" : "en-US";
+  // Geldbetraege immer im deutschen Format ("47,40 €"), unabhaengig von der Sprache.
   const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }),
-    [locale]
+    () => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }),
+    []
   );
 
   const formatStatus = (status: string) =>
@@ -450,10 +453,61 @@ export function GuestBookingTracking() {
     return formatDate(updatedAt);
   };
 
+  // Die Schluessel orderTracking.shipping.statuses.* fehlen in den Sprachdateien - ohne deutsche
+  // Vorgabe erschienen rohe englische Werte ("label created").
+  const SHIPPING_STATUS_DE: Record<string, string> = {
+    pending: "Ausstehend",
+    "label-created": "Label erstellt",
+    shipped: "An DHL übergeben",
+    "in-transit": "Unterwegs",
+    "out-for-delivery": "In Zustellung",
+    delivered: "Zugestellt",
+    failed: "Problem bei der Zustellung",
+  };
   const formatShippingStatus = (status?: string) =>
     t(`orderTracking.shipping.statuses.${status || "pending"}`, {
-      defaultValue: String(status || "pending").replace(/-/g, " "),
+      defaultValue: SHIPPING_STATUS_DE[String(status || "pending")] || String(status || "pending").replace(/-/g, " "),
     });
+
+  // Einsendung an McRepair (Kunde -> McRepair): Parcel-DE-Label der Buchung, sonst DHL-Retoure.
+  // returnShipmentStatus ist im Schema mit 'pending' vorbelegt und allein KEINE Sendung.
+  const guestInbound = (() => {
+    // DHL REVIEW-7: der Parcel-Platz der Buchung zaehlt nur als Einsendelabel, wenn der Server
+    // ihn als 'inbound' meldet (aelteres Rueckweg-Label = Versand an den Kunden, kein Einsendelabel).
+    const parcelIsInbound = booking?.shippingLabelDirection !== "outbound";
+    const parcelUrl = parcelIsInbound && typeof booking?.shippingLabelUrl === "string" ? booking.shippingLabelUrl : "";
+    const retoureUrl = typeof booking?.returnLabelUrl === "string" ? booking.returnLabelUrl : "";
+    const useParcel = parcelIsInbound && Boolean(parcelUrl || booking?.trackingNumber);
+    const trackingNumber = String((useParcel ? booking?.trackingNumber : booking?.returnTrackingNumber) || "");
+    const hasRepair = Array.isArray(booking?.orderIds)
+      ? booking.orderIds.some((order: any) => order?.deviceType !== "Shop Products")
+      : true;
+    return {
+      visible: Boolean(booking) && (useParcel || Boolean(retoureUrl || booking?.returnTrackingNumber) || hasRepair),
+      labelDataUrl: useParcel ? parcelUrl : retoureUrl,
+      trackingNumber,
+      status: useParcel ? booking?.shippingStatus : booking?.returnShipmentStatus,
+      placeholder: trackingNumber.startsWith("DHL-DUMMY-"),
+    };
+  })();
+
+  // Label als Datei bzw. Druck: data:-URLs werden in einen Blob umgewandelt (Chrome blockiert
+  // die Navigation zu data:-URLs, der fruehere Link mit target=_blank tat nichts).
+  const handleGuestLabel = async (action: "download" | "print", dataUrl: string, filename = "DHL-Label.pdf") => {
+    try {
+      if (action === "print") {
+        await printDataUrlPdf(dataUrl);
+      } else {
+        await downloadDataUrlPdf(dataUrl, filename);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Fehler",
+        description: error?.message || "Das Label konnte nicht geöffnet werden.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-[calc(100vh-100px)] bg-slate-50">
@@ -588,61 +642,66 @@ export function GuestBookingTracking() {
                   </div>
                 </div>
 
-                {(booking?.returnLabelUrl || booking?.returnTrackingNumber || booking?.returnShipmentStatus) && (
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <Package className="h-4 w-4 text-[#1a2a5e]" />
-                      {t("orderTracking.shipping.bookingTitle", { defaultValue: "Shipping information" })}
+                {guestInbound.visible && (
+                  <section
+                    aria-labelledby="guest-inbound-title"
+                    className="rounded-xl border-2 border-[#f5b800] bg-[#fffdf3] p-4"
+                  >
+                    <h3 id="guest-inbound-title" className="mb-1 flex items-center gap-2 text-base font-semibold text-[#1a2a5e]">
+                      <Package className="h-4 w-4 text-[#1a2a5e]" aria-hidden="true" />
+                      Einsendung an McRepair (DHL-Einsendelabel)
                     </h3>
+                    <p className="mb-3 text-sm text-slate-700">
+                      {guestInbound.labelDataUrl
+                        ? "Drucken Sie das kostenlose DHL-Einsendelabel aus und geben Sie das Paket bei DHL ab. Ein Paket für alle Geräte dieser Buchung."
+                        : "Ihr Einsendelabel senden wir Ihnen per E-Mail, sobald es bereitsteht."}
+                    </p>
+
+                    {guestInbound.placeholder && (
+                      <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900" role="note">
+                        <strong>Testlabel – nicht für den Versand verwenden.</strong> Im Testmodus werden keine echten DHL-Labels erzeugt.
+                      </p>
+                    )}
 
                     <div className="grid gap-3 sm:grid-cols-3 text-sm">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {t("orderTracking.shipping.carrier", { defaultValue: "Carrier" })}
-                        </p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Versanddienst</p>
                         <p className="mt-1 font-medium text-slate-800">{booking?.carrier || "DHL"}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {t("orderTracking.shipping.trackingNumber", { defaultValue: "Tracking number" })}
-                        </p>
-                        <p className="mt-1 font-medium text-slate-800 break-all">{booking?.returnTrackingNumber || booking?.trackingNumber || "-"}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sendungsnummer</p>
+                        <p className="mt-1 font-medium text-slate-800 break-all">{guestInbound.trackingNumber || "–"}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {t("orderTracking.shipping.status", { defaultValue: "Shipping status" })}
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
+                        <p className="mt-1 font-medium text-slate-800">
+                          {guestInbound.labelDataUrl || guestInbound.trackingNumber ? formatShippingStatus(guestInbound.status) : "Noch kein Label"}
                         </p>
-                        <p className="mt-1 font-medium text-slate-800">{formatShippingStatus(booking?.returnShipmentStatus || booking?.shippingStatus)}</p>
                       </div>
                     </div>
 
-                    {(booking?.returnLabelUrl || booking?.shippingLabelUrl) && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {booking?.returnLabelUrl && (
-                          <a
-                            href={booking.returnLabelUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md bg-[#1a2a5e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#2a3f7e]"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            {t("orderTracking.shipping.downloadLabel", { defaultValue: "Download shipping label" })}
-                          </a>
-                        )}
-                        {booking?.shippingLabelUrl && !booking?.returnLabelUrl && (
-                          <a
-                            href={booking.shippingLabelUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md bg-[#1a2a5e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#2a3f7e]"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            {t("orderTracking.shipping.downloadLabel", { defaultValue: "Download shipping label" })}
-                          </a>
-                        )}
+                    {guestInbound.labelDataUrl && (
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          type="button"
+                          onClick={() => handleGuestLabel('download', guestInbound.labelDataUrl, labelFilename('inbound', booking?.bookingNumber, guestInbound.placeholder))}
+                          className="h-10 bg-[#1a2a5e] font-semibold text-white hover:bg-[#2a3f7e]"
+                        >
+                          <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                          {guestInbound.placeholder ? "Testlabel herunterladen" : "DHL-Einsendelabel herunterladen"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleGuestLabel('print', guestInbound.labelDataUrl)}
+                          className="h-10 font-semibold"
+                        >
+                          <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Label drucken
+                        </Button>
                       </div>
                     )}
-                  </div>
+                  </section>
                 )}
 
                 <div className="grid gap-4 lg:grid-cols-2">
@@ -795,44 +854,46 @@ export function GuestBookingTracking() {
                         )}
                       </Button>
 
-                      {(order?.shippingLabelUrl || order?.trackingNumber || order?.shippingStatus) && (
+                      {/* Auslieferung (McRepair -> Kunde) dieses Auftrags. Der Server trennt die
+                          Richtungen (withShipmentView); 'pending' allein ist noch keine Sendung. */}
+                      {(order?.shippingLabelUrl || order?.trackingNumber) && (
                         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                          <p className="mb-2 text-sm font-semibold text-slate-900">Rücksendung an Sie (DHL-Versandlabel)</p>
                           <div className="grid gap-2 sm:grid-cols-3">
                             <p>
-                              <span className="font-semibold text-slate-900">{t("orderTracking.shipping.carrier", { defaultValue: "Carrier" })}: </span>
+                              <span className="font-semibold text-slate-900">Versanddienst: </span>
                               {order.carrier || "DHL"}
                             </p>
                             <p className="break-all">
-                              <span className="font-semibold text-slate-900">{t("orderTracking.shipping.trackingNumber", { defaultValue: "Tracking number" })}: </span>
-                              {order.trackingNumber || "-"}
+                              <span className="font-semibold text-slate-900">Sendungsnummer: </span>
+                              {order.trackingNumber || "–"}
                             </p>
                             <p>
-                              <span className="font-semibold text-slate-900">{t("orderTracking.shipping.status", { defaultValue: "Shipping status" })}: </span>
+                              <span className="font-semibold text-slate-900">Status: </span>
                               {formatShippingStatus(order.shippingStatus)}
                             </p>
                           </div>
 
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {order.shippingLabelUrl && (
-                              <a
-                                href={order.shippingLabelUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            {typeof order.shippingLabelUrl === "string" && order.shippingLabelUrl.startsWith("data:application/pdf") && (
+                              <button
+                                type="button"
+                                onClick={() => handleGuestLabel('download', String(order.shippingLabelUrl || ''), labelFilename('outbound', order.orderNumber))}
                                 className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 font-semibold text-[#1a2a5e] ring-1 ring-slate-200 hover:bg-slate-100"
                               >
-                                <Download className="h-3.5 w-3.5" />
-                                {t("orderTracking.shipping.downloadLabel", { defaultValue: "Download shipping label" })}
-                              </a>
+                                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                                DHL-Versandlabel herunterladen
+                              </button>
                             )}
-                            {order.trackingNumber && (
+                            {order.trackingNumber && !String(order.trackingNumber).startsWith("DHL-DUMMY-") && (
                               <a
                                 href={`https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=${encodeURIComponent(order.trackingNumber)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 font-semibold text-[#1a2a5e] ring-1 ring-slate-200 hover:bg-slate-100"
                               >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                {t("orderTracking.shipping.openTracking", { defaultValue: "Open tracking" })}
+                                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                                Sendung verfolgen
                               </a>
                             )}
                           </div>

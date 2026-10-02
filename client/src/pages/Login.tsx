@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { SEO } from '@/components/SEO'
 import { useForm } from "react-hook-form"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,9 @@ interface LoginForm {
   rememberMe: boolean
 }
 
-const exampleLogins = [
+// SEC-LOGIN: Demo-Zugangsdaten nur im Entwicklungsmodus. Vite ersetzt import.meta.env.DEV im
+// Produktions-Build durch `false`; der Zweig mit den Daten wird entfernt und landet nicht im Bundle.
+const exampleLogins = import.meta.env.DEV ? [
   {
     role: "Customer",
     email: "customer@example.com",
@@ -44,7 +46,7 @@ const exampleLogins = [
     color: "bg-red-500",
     description: "Full system access, user management, analytics"
   }
-]
+] : []
 
 export function Login() {
   const { t } = useTranslation()
@@ -56,7 +58,18 @@ export function Login() {
   const rememberMe = watch('rememberMe')
   const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { toast } = useToast()
+
+  // DHL REVIEW-9: sichere Ruecksprungadresse nach der Anmeldung (z. B. /order-success).
+  // Nur gleiche Herkunft: ein relativer Pfad mit genau einem fuehrenden "/" (kein "//",
+  // kein "/\", kein Schema), nicht die Login-Seite selbst.
+  const returnTo = (() => {
+    const raw = new URLSearchParams(location.search).get('returnTo') || ''
+    if (raw.length > 500 || !/^\/(?![\/\\])/.test(raw) || /[\u0000-\u001f]/.test(raw)) return ''
+    if (/^\/login(?:[/?#]|$)/i.test(raw)) return ''
+    return raw
+  })()
 
   // Check if user is already authenticated and redirect to appropriate dashboard
   const { user } = useAuth()
@@ -65,7 +78,9 @@ export function Login() {
     if (isAuthenticated) {
       console.log('Login page: User already authenticated with role:', user?.role)
       // Redirect based on user role
-      if (user?.role === 'admin') {
+      if (returnTo) {
+        navigate(returnTo, { replace: true })
+      } else if (user?.role === 'admin') {
         console.log('Login page: User is admin, redirecting to admin dashboard')
         navigate("/admin")
       } else if (user?.role === 'staff') {
@@ -76,7 +91,7 @@ export function Login() {
         navigate("/")
       }
     }
-  }, [isAuthenticated, user, navigate])
+  }, [isAuthenticated, user, navigate, returnTo])
 
   // If user is authenticated, don't render the login form
   if (isAuthenticated) {
@@ -107,7 +122,9 @@ export function Login() {
       console.log('Login form: User role after login:', userData?.role)
 
       // Redirect based on user role
-      if (userData?.role === 'admin') {
+      if (returnTo) {
+        navigate(returnTo, { replace: true })
+      } else if (userData?.role === 'admin') {
         console.log('Login form: Redirecting admin user to admin dashboard')
         navigate("/admin")
       } else if (userData?.role === 'staff') {
@@ -173,7 +190,7 @@ export function Login() {
         canonical="/login"
         noindex={true}
       />
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
+      <div className={`w-full max-w-6xl grid ${import.meta.env.DEV ? 'lg:grid-cols-2' : ''} gap-8 items-center`}>
         {/* Left side - Login Form */}
         <div className="flex justify-center">
           <Card className="w-full max-w-md bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-2xl">
@@ -284,7 +301,8 @@ export function Login() {
           </Card>
         </div>
 
-        {/* Right side - Example Logins */}
+        {/* Right side - Example Logins (SEC-LOGIN: nur im Entwicklungsmodus) */}
+        {import.meta.env.DEV && (
         <div className="space-y-6">
           <div className="text-center lg:text-left">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -385,6 +403,7 @@ export function Login() {
             </AlertDescription>
           </Alert>
         </div>
+        )}
       </div>
     </div>
   )

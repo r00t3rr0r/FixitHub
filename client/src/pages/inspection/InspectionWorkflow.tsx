@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/useToast';
@@ -7,9 +7,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getOrderById } from '@/api/orders';
 import { getAdminOrderById } from '@/api/adminOrders';
 import { generateInspectionReport } from '@/api/deviceInspection';
+import { getOrderServices } from '@/api/orderServices';
 import { DeviceInspectionForm } from '@/components/inspection/DeviceInspectionForm';
+import { InspectionResultsDisplay } from '@/components/inspection/InspectionResultsDisplay';
 import { CommunicationPanel } from '@/components/inspection/CommunicationPanel';
-import { ArrowLeft, Download, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Download, AlertCircle, ExternalLink, MessageCircle } from 'lucide-react';
 import './InspectionWorkflow.css';
 
 export function InspectionWorkflow() {
@@ -20,6 +22,17 @@ export function InspectionWorkflow() {
 
   const [order, setOrder] = useState<any>(null);
   const [inspectionId, setInspectionId] = useState<string>('');
+  // Gebuchte Leistungen MIT Preis: GET /api/orders/:id liefert nur die Namen - wie im Auftragsdetail
+  // kommen die Positionen aus /api/order-services (gleiche Quelle, gleiche Beträge).
+  const [repairServices, setRepairServices] = useState<any[] | null>(null);
+  useEffect(() => {
+    if (!orderId) return;
+    let cancelled = false;
+    getOrderServices(orderId)
+      .then((response: any) => { if (!cancelled) setRepairServices(Array.isArray(response?.services) ? response.services : []); })
+      .catch(() => { if (!cancelled) setRepairServices(null); });
+    return () => { cancelled = true; };
+  }, [orderId]);
   const [loading, setLoading] = useState(true);
   const [generatingReport, setGeneratingReport] = useState(false);
 
@@ -121,23 +134,43 @@ export function InspectionWorkflow() {
               size="icon"
               onClick={() => navigate(-1)}
               className="inspection-back-button"
+              aria-label="Zurück zur vorherigen Seite"
+              title="Zurück"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
             <div>
               <h1 className="inspection-workflow-title">Geräteinspektion</h1>
               <p className="inspection-workflow-subtitle">Auftrag {order.orderNumber}</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleGenerateReport}
-            disabled={generatingReport}
-            className="inspection-report-button"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {generatingReport ? 'Wird erstellt …' : 'Prüfbericht erstellen'}
-          </Button>
+          <div className="inspection-header-actions">
+            <Button asChild variant="outline" className="inspection-report-button">
+              <Link to={`/orders/${orderId}`}>
+                <ExternalLink className="h-4 w-4 mr-2" aria-hidden="true" />
+                Zum Auftrag
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="inspection-report-button inspection-jump-to-communication">
+              <a href="#kundenkommunikation">
+                <MessageCircle className="h-4 w-4 mr-2" aria-hidden="true" />
+                Kundenkommunikation
+              </a>
+            </Button>
+            {/* Storniert: kein Bericht aus der Kopfzeile (der Server lehnt ihn für nicht abgeschlossene
+                Inspektionen ab); ein abgeschlossener Bericht bleibt unten über die Nur-Lese-Ansicht abrufbar. */}
+            {order.status !== 'cancelled' && (
+            <Button
+              variant="outline"
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+              className="inspection-report-button"
+            >
+              <Download className="h-4 w-4 mr-2" aria-hidden="true" />
+              {generatingReport ? 'Wird erstellt …' : 'Prüfbericht erstellen'}
+            </Button>
+            )}
+          </div>
         </div>
 
         {/* Order Summary */}
@@ -185,16 +218,45 @@ export function InspectionWorkflow() {
         <div className="inspection-content-grid">
           {/* Inspection Form - Left Column (2/3 width) */}
           <div className="inspection-form-column">
+            {order.status === 'cancelled' ? (
+              // Stornierter Auftrag: keine Erfassung (Server lehnt Schreiben mit 409 ab), aber die
+              // bisher erfassten Daten bleiben lesbar - z. B. für die Rückgabe des Geräts.
+              <div className="space-y-3">
+                <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                  <span>
+                    Auftrag storniert – Inspektion gesperrt. Die bisher erfassten Daten werden nur zum Lesen angezeigt.
+                    Zum Fortsetzen muss ein Admin im Auftrag die Stornierung aufheben.
+                  </span>
+                </div>
+                <InspectionResultsDisplay
+                  orderId={orderId!}
+                  userRole={user?.role}
+                  startBlockedReason="Auftrag storniert – Inspektion gesperrt"
+                />
+              </div>
+            ) : (
             <DeviceInspectionForm
               orderId={orderId!}
               customerId={order.customerId?._id || order.customerId}
               deviceType={order.deviceType}
               deviceBrand={order.deviceBrand}
               deviceModel={order.deviceModel}
-              bookedRepairs={Array.isArray(order.services)
+              bookedRepairs={Array.isArray(repairServices) && repairServices.length > 0
+                ? repairServices.map((service: any) => ({
+                    name: service?.serviceId?.name || service?.name || service?.serviceName || service?.title || 'Reparaturservice',
+                    price: [service?.finalPrice, service?.totalPrice, service?.price]
+                      .map((value) => (value === undefined || value === null || value === '' ? NaN : Number(value)))
+                      .find((value) => Number.isFinite(value)),
+                    quantity: Number(service?.quantity || 1),
+                  }))
+                : Array.isArray(order.services)
                 ? order.services.map((service: any) => ({
                     name: service?.name || service?.serviceName || String(service),
-                    price: typeof service?.price === 'number' ? service.price : undefined,
+                    // gleiche Quelle wie im Auftragsdetail (finalPrice/totalPrice/price, auch als Zahl-String)
+                    price: [service?.finalPrice, service?.totalPrice, service?.price, service?.serviceId?.price]
+                      .map((value) => (value === undefined || value === null || value === '' ? NaN : Number(value)))
+                      .find((value) => Number.isFinite(value)),
                     quantity: Number(service?.quantity || 1),
                   }))
                 : []}
@@ -204,19 +266,25 @@ export function InspectionWorkflow() {
                 if (inspection?._id) setInspectionId(String(inspection._id));
               }}
             />
+            )}
           </div>
 
-          {/* Communication Panel - Right Column (1/3 width) */}
-          <div className="inspection-communication-column">
+          {/* Kundenkommunikation - rechte Spalte, bleibt beim Scrollen sichtbar (sticky).
+              Eine Überschrift (Karte), das Panel füllt die Karte: Verlauf scrollt, Antwortfeld bleibt unten. */}
+          <div className="inspection-communication-column" id="kundenkommunikation">
             <Card className="inspection-communication-card">
               <CardHeader className="inspection-communication-header">
                 <CardTitle className="inspection-communication-title">Kundenkommunikation</CardTitle>
-                <CardDescription className="inspection-communication-description">Rückmeldungen & Neuigkeiten</CardDescription>
+                <CardDescription className="inspection-communication-description">
+                  Nachrichten an den Kunden, Rückfragen und interne Notizen zu diesem Auftrag
+                </CardDescription>
               </CardHeader>
               <CardContent className="inspection-communication-content">
                 <CommunicationPanel
                   orderId={orderId!}
                   inspectionId={inspectionId || undefined}
+                  layout="fill"
+                  hideTitle
                 />
               </CardContent>
             </Card>

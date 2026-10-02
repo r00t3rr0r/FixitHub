@@ -164,7 +164,7 @@ export function ProfileDropdown() {
           <DropdownMenuItem asChild className={itemClassName}>
             <Link to="/my-repair-requests" className={linkClassName}>
               <Wrench className="h-4 w-4" />
-              <span>Repair Requests</span>
+              <span>{t('navigation.repairRequests', 'Reparaturanfragen')}</span>
             </Link>
           </DropdownMenuItem>
 

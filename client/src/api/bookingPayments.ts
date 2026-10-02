@@ -159,6 +159,46 @@ export const getBookingPayments = async (bookingId: string) => {
   return unwrap(response);
 };
 
+/**
+ * Kundenprojektion derselben Route (CUSTUX-7): fuer den Buchungsinhaber liefert
+ * GET /api/bookings/:id/payments nur Summen und Geldbewegungen, ohne interne Felder.
+ * Alle Betraege gelten fuer die GESAMTE Buchung (orderCount Geraete).
+ */
+export interface CustomerBookingPaymentOverview {
+  booking: { _id: string; bookingNumber: string };
+  currency: string;
+  appliesToWholeBooking: true;
+  orderCount: number | null;
+  summary: {
+    referenceTotal: number;
+    receivedTotal: number;
+    openOrderBalance: number;
+    overpaidTotal: number;
+    refundPendingTotal: number;
+    refundsInProgressTotal: number;
+    notInvoicedTotal: number;
+    isFullyPaid: boolean;
+  };
+  invoices: Array<{ _id: string; invoiceNumber: string; isCreditNote: boolean; status: string; statusLabel: string; total: number; openAmount: number; dueDate: string | null }>;
+  payments: Array<{
+    _id: string;
+    paymentDate: string | null;
+    amount: number;
+    refundedAmount: number;
+    effectiveAmount: number;
+    paymentMethod: string;
+    status: 'completed' | 'refunded' | string;
+    currency: string;
+    allocations: Array<{ invoiceNumber: string; allocatedAmount: number }>;
+  }>;
+}
+
+// Kunde (Inhaber): fremde/unbekannte Buchung -> Fehler (Server 403).
+export const getCustomerBookingPayments = async (bookingId: string): Promise<CustomerBookingPaymentOverview> => {
+  const response = await api.get(`/api/bookings/${bookingId}/payments`);
+  return unwrap(response) as unknown as CustomerBookingPaymentOverview;
+};
+
 // Description: Record a manual payment for a booking
 // Endpoint: POST /api/bookings/:id/payments
 export const createBookingPayment = async (

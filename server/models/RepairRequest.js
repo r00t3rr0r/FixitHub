@@ -1,5 +1,43 @@
 const mongoose = require('mongoose');
 
+// Ursprüngliche Geräteangabe des Kunden (einmal bei Anlage geschrieben, nie überschrieben).
+// Gleiche Benennung wie Order.reportedDevice (deviceType statt "type", siehe dort).
+const reportedDeviceSchema = new mongoose.Schema({
+  deviceType: { type: String, default: '' },
+  brand: { type: String, default: '' },
+  model: { type: String, default: '' },
+  modelNumber: { type: String, default: '' },
+  deviceModelId: { type: mongoose.Schema.Types.ObjectId, ref: 'DeviceModel' },
+  source: { type: String, enum: ['catalog', 'manual'] },
+  capturedAt: { type: Date },
+}, { _id: false });
+
+// Kostenvoranschlag. Optional und additiv: Altbestände ohne quote werden beim Lesen
+// kompatibel behandelt (estimatedCost > 0 => gilt als veröffentlicht, siehe
+// RepairRequestService.getEffectiveQuote). Der Status der Anfrage (enum unten) bleibt
+// unverändert; "approved" bedeutet seit diesem Feld "Kostenvoranschlag angenommen".
+const quoteSchema = new mongoose.Schema({
+  amount: { type: Number, min: 0, default: 0 }, // brutto, EUR; 0 € ist ein gültiger Kostenvoranschlag
+  description: { type: String, default: '' },
+  status: { type: String, enum: ['draft', 'sent', 'accepted', 'declined'], default: 'draft' },
+  version: { type: Number, default: 0 }, // +1 bei jedem Versand
+  legacy: { type: Boolean, default: false }, // aus Altbestand (estimatedCost) übernommen
+  draftUpdatedAt: { type: Date },
+  draftUpdatedByName: { type: String, default: '' },
+  publishedAt: { type: Date },
+  publishedById: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  publishedByName: { type: String, default: '' },
+  feedbackMessageId: { type: mongoose.Schema.Types.ObjectId },
+  respondedAt: { type: Date },
+  respondedByName: { type: String, default: '' },
+  responseChannel: { type: String, enum: ['customer', 'guest'] },
+  // Ergebnis des E-Mail-Versands an den Kunden: 'accepted' = vom Mailserver angenommen
+  // (keine Zustellbestätigung), 'failed' = fehlgeschlagen.
+  emailStatus: { type: String, enum: ['accepted', 'failed'] },
+  emailError: { type: String, default: '' },
+  emailSentAt: { type: Date },
+}, { _id: false });
+
 const repairRequestSchema = new mongoose.Schema({
   // Request Number
   requestNumber: {
@@ -36,6 +74,10 @@ const repairRequestSchema = new mongoose.Schema({
     type: String,
     index: { sparse: true, unique: true },
   },
+  // Vor-/Nachname des Gastes getrennt (für die Umwandlung in einen Gast-Auftrag).
+  // Altbestand ohne diese Felder: customerName wird beim Umwandeln am ersten Leerzeichen geteilt.
+  guestFirstName: { type: String, default: undefined },
+  guestLastName: { type: String, default: undefined },
 
   // Device Information
   deviceType: {
@@ -53,6 +95,16 @@ const repairRequestSchema = new mongoose.Schema({
   deviceModelId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DeviceModel',
+  },
+  // Herkunft der aktuellen Gerätedaten: 'catalog' (deviceModelId geprüft) oder 'manual'.
+  // Altbestand ohne Feld: deviceModelId vorhanden => catalog, sonst manual (Lese-Kompatibilität).
+  deviceSource: {
+    type: String,
+    enum: ['catalog', 'manual'],
+  },
+  reportedDevice: {
+    type: reportedDeviceSchema,
+    default: undefined,
   },
 
   // Questionnaire Responses
@@ -158,13 +210,25 @@ const repairRequestSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Atomare Sperre für "In Auftrag umwandeln" (verhindert Doppelumwandlung).
+  conversionStartedAt: {
+    type: Date,
+  },
 
   // Admin Notes
   adminNotes: [{
+    // Additiv: Verlaufseinträge, die der Kunde/Gast auslöst (z. B. Antwort auf den
+    // Kostenvoranschlag), haben keine Mitarbeiter-ID. Altbestand ohne actorType = 'staff'.
+    actorType: {
+      type: String,
+      enum: ['staff', 'customer', 'guest', 'system'],
+    },
     staffId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: function requiredForStaffNotes() {
+        return !this.actorType || this.actorType === 'staff';
+      },
     },
     staffName: {
       type: String,
@@ -192,6 +256,12 @@ const repairRequestSchema = new mongoose.Schema({
     type: Number,
     min: 0,
     default: 0,
+  },
+
+  // Kostenvoranschlag mit Veröffentlichungsgrenze (siehe quoteSchema oben).
+  quote: {
+    type: quoteSchema,
+    default: undefined,
   },
 
   // Timestamps

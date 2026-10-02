@@ -48,6 +48,36 @@ class CalculationHelper {
   }
 
   /**
+   * FIN-13: Ist ein Steuersatz tatsaechlich gespeichert? Ein ausdruecklich gespeicherter
+   * Satz 0 ist ein echter Satz (darf nie per `|| 19` zu 19 werden). Fehlend, null, leer
+   * oder nicht numerisch heisst dagegen "nicht gespeichert" (nie stillschweigend 0 %;
+   * Number(null) waere 0).
+   */
+  static hasStoredTaxRate(value) {
+    if (value === null || value === undefined || typeof value === 'boolean') return false;
+    if (typeof value === 'string' && value.trim() === '') return false;
+    const num = Number(value);
+    return Number.isFinite(num) && num >= 0;
+  }
+
+  /**
+   * FIN-13: Steuersatz eines Belegs/Auftrags mit Herkunft.
+   *   gespeichert (auch 0) -> { taxRate: <gespeichert>, taxRateSource: 'stored' }
+   *   nicht gespeichert    -> { taxRate: <Standardsatz>, taxRateSource: 'default' }
+   * defaultRate ist der konfigurierte Standardsatz (Finanzeinstellungen); fehlt er,
+   * gilt DEFAULT_TAX_RATE.
+   */
+  static resolveTaxRate(value, defaultRate = CalculationHelper.DEFAULT_TAX_RATE) {
+    if (CalculationHelper.hasStoredTaxRate(value)) {
+      return { taxRate: Number(value), taxRateSource: 'stored' };
+    }
+    const fallback = CalculationHelper.hasStoredTaxRate(defaultRate)
+      ? Number(defaultRate)
+      : CalculationHelper.DEFAULT_TAX_RATE;
+    return { taxRate: fallback, taxRateSource: 'default' };
+  }
+
+  /**
    * Berechnet den Auftragswert für Endkunden und Händler
    * Regel:
    * - Auftragswert ist immer Brutto

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/useToast"
 import {
@@ -16,7 +15,9 @@ import {
   Ban,
   CheckCircle2,
   ClipboardCheck,
+  Lock,
   MessageSquare,
+  RefreshCw,
   Send,
   ShieldCheck,
   Wrench,
@@ -34,6 +35,13 @@ import {
   Complaint,
 } from "@/api/complaints"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
+import { formatEUR } from "@/lib/utils"
+import { ComplaintLabelDownloadButton } from "@/components/complaints/ComplaintLabelDownloadButton"
+
+// Die API liefert das Label nie als Daten (nur hasShippingLabel + Sendungsnummer).
+type ComplaintWithLabel = Complaint & { hasShippingLabel?: boolean; shippingTrackingNumber?: string | null }
+
+const ROLE_LABELS: Record<string, string> = { customer: "Kunde", staff: "Mitarbeiter", admin: "Admin" }
 
 interface AdminComplaintRow {
   _id: string
@@ -121,9 +129,14 @@ export function ComplaintsManagement() {
   const [selectedComplaintId, setSelectedComplaintId] = useState("")
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState("")
   const [actionDialog, setActionDialog] = useState<ActionDialogType>(null)
-  const [statusFilter, setStatusFilter] = useState("all")
+  // Filter aus der URL (Dashboard-Links, z. B. ?status=offen&priority=high-urgent): wirklich angewendet,
+  // die Gesamtzahl kommt vom Server (gleiche Regel wie der Dashboard-Zähler).
+  const [statusFilter, setStatusFilter] = useState(() => new URLSearchParams(location.search).get("status") || "all")
+  const [priorityFilter, setPriorityFilter] = useState(() => new URLSearchParams(location.search).get("priority") || "")
+  const [listTotal, setListTotal] = useState<number | null>(null)
   const [technicianFilter, setTechnicianFilter] = useState("")
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
@@ -137,8 +150,7 @@ export function ComplaintsManagement() {
   const [offerAmount, setOfferAmount] = useState("0")
   const [offerDescription, setOfferDescription] = useState("")
   const [complaintMessage, setComplaintMessage] = useState("")
-  const [sendingComplaintMessage, setSendingComplaintMessage] = useState(false)
-  const [postAsInternalNote, setPostAsInternalNote] = useState(false)
+  const [sendingComplaintMessage, setSendingComplaintMessage] = useState<"" | "customer" | "internal">("")
   const { toast } = useToast()
 
   const resetActionForms = () => {
@@ -158,6 +170,7 @@ export function ComplaintsManagement() {
       setLoading(true)
       const response = await getAllComplaints({
         status: statusFilter === "all" ? undefined : statusFilter,
+        priority: priorityFilter || undefined,
         from: fromDate || undefined,
         to: toDate || undefined,
         limit: 200,
@@ -167,6 +180,8 @@ export function ComplaintsManagement() {
       const listRows = (response as any).rows || []
       setComplaints(items)
       setRows(listRows)
+      setListTotal(typeof (response as any).total === "number" ? (response as any).total : null)
+      setLoadError(null)
 
       if (!keepSelection) {
         setSelectedComplaintId("")
@@ -180,11 +195,7 @@ export function ComplaintsManagement() {
         }
       }
     } catch (error: any) {
-      toast({
-        title: "Fehler",
-        description: error?.message || "Reklamationen konnten nicht geladen werden.",
-        variant: "destructive"
-      })
+      setLoadError(error?.message || "Reklamationen konnten nicht geladen werden.")
     } finally {
       setLoading(false)
     }
@@ -193,6 +204,26 @@ export function ComplaintsManagement() {
   useEffect(() => {
     fetchComplaints()
   }, [])
+
+  // Prioritätsfilter (nur per Dashboard-Link gesetzt) entfernt -> sofort neu laden.
+  const priorityFilterInitialRef = useRef(true)
+  useEffect(() => {
+    if (priorityFilterInitialRef.current) {
+      priorityFilterInitialRef.current = false
+      return
+    }
+    void fetchComplaints()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priorityFilter])
+
+  // Direktlink aus Benachrichtigungen: /admin/complaints?complaintId=<id> oeffnet die Reklamation.
+  useEffect(() => {
+    const complaintIdParam = new URLSearchParams(location.search).get("complaintId")
+    if (complaintIdParam && complaintIdParam !== selectedComplaintId) {
+      loadComplaintDetails(complaintIdParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search])
 
   useEffect(() => {
     const reopenComplaintId = (location.state as { reopenComplaintId?: string } | null)?.reopenComplaintId
@@ -235,6 +266,35 @@ export function ComplaintsManagement() {
         description: error?.message || "Die Aktion konnte nicht ausgefuehrt werden.",
         variant: "destructive"
       })
+    } finally {
+      setActionLoading("")
+    }
+  }
+
+  // Genehmigen: Label erstellen + Kunde benachrichtigen; Speichern und Benachrichtigung
+  // werden getrennt gemeldet.
+  const handleApprove = async () => {
+    if (!selectedComplaint) return
+    try {
+      setActionLoading("approve")
+      const result = await approveComplaint(selectedComplaint._id)
+      const notification = (result as any)?.customerNotification
+      const warnings: string[] = (result as any)?.warnings || []
+      if (warnings.length > 0) {
+        toast({ title: "Genehmigt – Benachrichtigung fehlgeschlagen", description: warnings.join(" "), variant: "destructive" })
+      } else {
+        const notified = notification?.inApp === "created" || notification?.email === "sent"
+        toast({
+          title: "Reklamation genehmigt",
+          description: notified
+            ? "DHL-Einsendelabel erstellt, Kunde benachrichtigt."
+            : "DHL-Einsendelabel erstellt. Der Kunde hat Benachrichtigungen abgeschaltet oder wurde bereits informiert.",
+        })
+      }
+      await loadComplaintDetails(selectedComplaint._id)
+      await fetchComplaints()
+    } catch (error: any) {
+      toast({ title: "Genehmigung fehlgeschlagen", description: error?.message || "Die Reklamation konnte nicht genehmigt werden.", variant: "destructive" })
     } finally {
       setActionLoading("")
     }
@@ -321,29 +381,34 @@ export function ComplaintsManagement() {
     setActionDialog(null)
   }
 
-  const handleSendComplaintMessage = async () => {
+  // Zwei getrennte Aktionen: Nachricht an den Kunden ODER interne Notiz (nur Team).
+  const handleSendComplaintMessage = async (audience: "customer" | "internal") => {
     if (!selectedComplaint || !complaintMessage.trim()) {
       return
     }
 
     try {
-      setSendingComplaintMessage(true)
-      await addComplaintComment(selectedComplaint._id, complaintMessage.trim(), postAsInternalNote)
+      setSendingComplaintMessage(audience)
+      const result = await addComplaintComment(selectedComplaint._id, complaintMessage.trim(), audience === "internal")
       await loadComplaintDetails(selectedComplaint._id)
       setComplaintMessage("")
-      setPostAsInternalNote(false)
-      toast({
-        title: "Nachricht gesendet",
-        description: "Die Reklamationskommunikation wurde aktualisiert."
-      })
+      if (audience === "internal") {
+        toast({ title: "Interne Notiz gespeichert", description: "Nur für das Team sichtbar – der Kunde wurde nicht benachrichtigt." })
+      } else {
+        const delivery = (result as any)?.customerNotification
+        const failed = delivery && (delivery.email === "failed" || delivery.inApp === "failed")
+        toast(failed
+          ? { title: "Nachricht gespeichert – Benachrichtigung fehlgeschlagen", description: delivery.error || "Der Kunde konnte nicht per E-Mail informiert werden.", variant: "destructive" }
+          : { title: "Nachricht an Kunden gesendet", description: "Der Kunde sieht die Nachricht in seiner Reklamation und wurde benachrichtigt." })
+      }
     } catch (error: any) {
       toast({
-        title: "Senden fehlgeschlagen",
+        title: "Speichern fehlgeschlagen",
         description: error?.message || "Die Nachricht konnte nicht gespeichert werden.",
         variant: "destructive"
       })
     } finally {
-      setSendingComplaintMessage(false)
+      setSendingComplaintMessage("")
     }
   }
 
@@ -377,8 +442,9 @@ export function ComplaintsManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Status</SelectItem>
+                <SelectItem value="offen">Alle offenen</SelectItem>
                 {STATUS_OPTIONS.map((status) => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                  <SelectItem key={status} value={status}>{STATUS_META[status]?.label || status}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -403,6 +469,22 @@ export function ComplaintsManagement() {
               <Button className="complaints-secondary-button" variant="outline" onClick={exportCsv}>CSV Export</Button>
             </div>
           </div>
+
+          {(priorityFilter || listTotal !== null) && (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700" aria-live="polite">
+              {listTotal !== null && <span>{listTotal} {listTotal === 1 ? "Reklamation" : "Reklamationen"} für diesen Filter{technicianFilter ? ` (davon ${visibleRows.length} beim gewählten Techniker)` : ""}</span>}
+              {priorityFilter && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800"
+                  onClick={() => setPriorityFilter("")}
+                  aria-label="Prioritätsfilter entfernen"
+                >
+                  Priorität: {priorityFilter === "high-urgent" ? "hoch oder dringend" : priorityFilter} ✕
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="complaints-table-wrap overflow-x-auto border rounded-md">
             <table className="complaints-table w-full text-sm">
@@ -441,7 +523,7 @@ export function ComplaintsManagement() {
                             className="complaints-secondary-button"
                             onClick={(e) => {
                               e.stopPropagation()
-                              navigate(getOrderDetailsPath(row.complaintOrderId), {
+                              navigate(getOrderDetailsPath(row.complaintOrderId as string), {
                                 state: buildOrderDetailsState(location, {
                                   label: t('common.back'),
                                   restoreState: { reopenComplaintId: row._id },
@@ -465,15 +547,35 @@ export function ComplaintsManagement() {
                       </Badge>
                     </td>
                     <td className="p-3">{new Date(row.createdAt).toLocaleDateString("de-DE")}</td>
-                    <td className="p-3">{(row.extraCosts || 0).toFixed(2)} EUR</td>
+                    <td className="p-3">{formatEUR(row.extraCosts || 0)}</td>
                   </tr>
                     )
                   })()
                 ))}
-                {!loading && !visibleRows.length && (
+                {loading && !visibleRows.length && (
                   <tr>
                     <td colSpan={8} className="p-6 text-center text-muted-foreground">
-                      Keine Reklamationen gefunden.
+                      Reklamationen werden geladen …
+                    </td>
+                  </tr>
+                )}
+                {!loading && loadError && (
+                  <tr>
+                    <td colSpan={8} className="p-6 text-center">
+                      <div className="flex flex-col items-center gap-2" role="alert">
+                        <span className="text-red-700 font-medium">Reklamationen konnten nicht geladen werden.</span>
+                        <span className="text-xs text-muted-foreground">{loadError}</span>
+                        <Button size="sm" variant="outline" onClick={() => fetchComplaints()}>
+                          <RefreshCw className="h-3.5 w-3.5 mr-1" /> Erneut versuchen
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!loading && !loadError && !visibleRows.length && (
+                  <tr>
+                    <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                      {rows.length ? "Keine Reklamation entspricht den gewählten Filtern." : "Noch keine Reklamationen vorhanden."}
                     </td>
                   </tr>
                 )}
@@ -508,11 +610,11 @@ export function ComplaintsManagement() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Zusatzkosten</p>
-                      <p className="font-medium">{(selectedComplaint.extraCosts || 0).toFixed(2)} EUR</p>
+                      <p className="font-medium">{formatEUR(selectedComplaint.extraCosts || 0)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Teilerstattung</p>
-                      <p className="font-medium">{(selectedComplaint.partialRefund || 0).toFixed(2)} EUR</p>
+                      <p className="font-medium">{formatEUR(selectedComplaint.partialRefund || 0)}</p>
                     </div>
                   </div>
 
@@ -544,17 +646,21 @@ export function ComplaintsManagement() {
                     </div>
                   )}
 
-                  {selectedComplaint.shippingLabelUrl && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Versandlabel</p>
-                      <a
-                        href={selectedComplaint.shippingLabelUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm complaints-link"
-                      >
-                        {selectedComplaint.shippingLabelUrl}
-                      </a>
+                  {(selectedComplaint as ComplaintWithLabel).hasShippingLabel && (
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/20 complaints-sub-panel">
+                      <p className="text-xs text-muted-foreground">DHL-Einsendelabel (Kunde → McRepair)</p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <ComplaintLabelDownloadButton
+                          complaintId={selectedComplaint._id}
+                          complaintNumber={selectedComplaint.complaintNumber}
+                          variant="secondary"
+                        />
+                        {(selectedComplaint as ComplaintWithLabel).shippingTrackingNumber && (
+                          <span className="text-sm">
+                            Sendungsnummer: <strong>{(selectedComplaint as ComplaintWithLabel).shippingTrackingNumber}</strong>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -615,9 +721,9 @@ export function ComplaintsManagement() {
                     <Button
                       className="w-full complaints-primary-button"
                       disabled={actionLoading === "approve"}
-                      onClick={() => runAction("approve", () => approveComplaint(selectedComplaint._id), "Reklamation wurde zur Prüfung eingesendet.")}
+                      onClick={handleApprove}
                     >
-                      {actionLoading === "approve" ? "Bitte warten..." : "Admin: Zur Prüfung einsenden"}
+                      {actionLoading === "approve" ? "Label wird erstellt …" : "Genehmigen & DHL-Einsendelabel erstellen"}
                     </Button>
                   )}
 
@@ -652,10 +758,10 @@ export function ComplaintsManagement() {
                   <div className="complaints-communication-panel border rounded-xl p-3 space-y-3">
                     <div className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4 complaints-communication-icon" />
-                      <h4 className="font-medium text-sm">Customer Communication</h4>
+                      <h4 className="font-medium text-sm">Nachrichten zur Reklamation</h4>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Eigenstaendiger Kommunikationskanal dieser Reklamation. Nachrichten werden direkt auf der Reklamationsanfrage gespeichert.
+                      „An Kunden“ sieht der Kunde in seiner Reklamation (mit Benachrichtigung). „Intern – nur für das Team“ sieht der Kunde nie.
                     </p>
 
                     <div className="complaints-communication-surface rounded-lg border bg-background">
@@ -667,13 +773,17 @@ export function ComplaintsManagement() {
                                 <div className="flex items-center gap-2 text-xs">
                                   <span className="font-semibold text-foreground">{comment.userName}</span>
                                   <Badge variant="outline" className="text-[10px] px-2 py-0 h-5">
-                                    {comment.userRole}
+                                    {ROLE_LABELS[comment.userRole] || comment.userRole}
                                   </Badge>
-                                  {comment.isInternal && (
-                                    <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 complaints-internal-badge">
-                                      intern
+                                  {comment.isInternal ? (
+                                    <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 gap-1 complaints-internal-badge bg-slate-100 text-slate-700">
+                                      <Lock className="h-3 w-3" /> Intern – nur für das Team
                                     </Badge>
-                                  )}
+                                  ) : comment.userRole !== "customer" ? (
+                                    <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 gap-1 bg-blue-50 text-blue-800 border-blue-200">
+                                      <Send className="h-3 w-3" /> An Kunden
+                                    </Badge>
+                                  ) : null}
                                 </div>
                                 <span className="text-[11px] text-muted-foreground">
                                   {new Date(comment.createdAt).toLocaleString("de-DE")}
@@ -690,32 +800,47 @@ export function ComplaintsManagement() {
                       </div>
 
                       <div className="complaints-thread-composer p-3 border-t space-y-3">
+                        <Label htmlFor="complaint-message-draft" className="text-xs text-muted-foreground">
+                          Text
+                        </Label>
                         <Textarea
+                          id="complaint-message-draft"
                           value={complaintMessage}
                           onChange={(e) => setComplaintMessage(e.target.value)}
                           rows={3}
-                          placeholder="Nachricht zur Reklamation schreiben..."
+                          placeholder="Nachricht an den Kunden oder interne Notiz schreiben …"
                           className="text-sm"
                         />
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="complaint-internal-note"
-                              checked={postAsInternalNote}
-                              onCheckedChange={(checked) => setPostAsInternalNote(Boolean(checked))}
-                            />
-                            <Label htmlFor="complaint-internal-note" className="text-xs text-muted-foreground">
-                              Als interne Notiz markieren
-                            </Label>
-                          </div>
+                        <div className="flex flex-col gap-2">
                           <Button
-                            className="complaints-primary-button"
+                            className="complaints-primary-button justify-start"
                             size="sm"
-                            onClick={handleSendComplaintMessage}
-                            disabled={!complaintMessage.trim() || sendingComplaintMessage}
+                            onClick={() => handleSendComplaintMessage("customer")}
+                            disabled={!complaintMessage.trim() || Boolean(sendingComplaintMessage)}
                           >
                             <Send className="h-3.5 w-3.5 mr-1" />
-                            {sendingComplaintMessage ? "Wird gesendet..." : "Nachricht senden"}
+                            {sendingComplaintMessage === "customer" ? "Wird gesendet …" : "Nachricht an Kunden senden"}
+                            <span className="ml-auto rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold">An Kunden</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="justify-start border-slate-300 bg-slate-50 text-slate-800 hover:bg-slate-100"
+                            onClick={() => handleSendComplaintMessage("internal")}
+                            disabled={!complaintMessage.trim() || Boolean(sendingComplaintMessage)}
+                          >
+                            <Lock className="h-3.5 w-3.5 mr-1" />
+                            {sendingComplaintMessage === "internal" ? "Wird gespeichert …" : "Interne Notiz speichern"}
+                            <span className="ml-auto rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold">Intern – nur für das Team</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="self-end text-xs text-muted-foreground"
+                            onClick={() => setComplaintMessage("")}
+                            disabled={!complaintMessage || Boolean(sendingComplaintMessage)}
+                          >
+                            Entwurf verwerfen
                           </Button>
                         </div>
                       </div>

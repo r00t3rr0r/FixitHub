@@ -26,7 +26,7 @@ import {
   Filter,
   Edit,
   Trash2,
-  DollarSign,
+  Euro,
   Clock,
   Star,
   Save,
@@ -86,6 +86,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { formatEUR } from '@/lib/utils'
 
 export function AddOnServiceManagement() {
   const { t } = useTranslation()
@@ -511,11 +512,11 @@ export function AddOnServiceManagement() {
             <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
               Avg. Price
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <Euro className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent className="px-4 pb-3 pt-0">
             <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-              ${addOnServices.length > 0 ? (addOnServices.reduce((sum, s) => sum + s.price, 0) / addOnServices.length).toFixed(0) : 0}
+              {formatEUR(addOnServices.length > 0 ? addOnServices.reduce((sum, s) => sum + s.price, 0) / addOnServices.length : 0)}
             </div>
           </CardContent>
         </Card>
@@ -674,8 +675,8 @@ export function AddOnServiceManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm font-medium">${service.price}</span>
+                        <Euro className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm font-medium">{formatEUR(service.price)}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -843,7 +844,7 @@ export function AddOnServiceManagement() {
                     <div className="space-y-1">
                       <Label className={compactLabelClassName}>{t('addOnServices.price')}</Label>
                       <div className="flex items-center gap-1 text-base font-semibold">
-                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <Euro className="h-4 w-4 text-green-600" />
                         {detailService.price}
                       </div>
                     </div>

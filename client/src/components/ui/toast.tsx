@@ -15,7 +15,12 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+      // Ueber Dialog/AlertDialog/Drawer (z-[12000]/z-[12010]) und Popovern (z-[12100]): sonst liegen
+      // Fehlermeldungen aus einem offenen Dialog verdeckt unter dessen Overlay. Der Viewport ist ein
+      // DismissableLayer-Branch - ein Klick auf die Meldung schliesst den Dialog nicht.
+      // Immer oben rechts (Mobil: oben): unten rechts verdeckte die Meldung die Fussleisten-Buttons
+      // offener Dialoge (z. B. 'Bestätigen & Starten').
+      "fixed top-0 right-0 z-[12200] flex max-h-screen w-full flex-col-reverse p-4 md:max-w-[420px]",
       className
     )}
     {...props}
@@ -24,7 +29,7 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full",
   {
     variants: {
       variant: {

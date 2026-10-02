@@ -8,6 +8,7 @@ const DHLService = require('../services/dhlService');
 const DHLReturnsService = require('../services/dhlReturnsService');
 const NotificationService = require('../services/notificationService');
 const OrderRevisionService = require('../services/orderRevisionService');
+const OrderHistory = require('../utils/orderHistory');
 const User = require('../models/User');
 const { requireUser, requireRole } = require('./middleware/auth');
 
@@ -16,17 +17,24 @@ const router = express.Router();
 // Interne Abgleich-Details einer Versandrichtung (Admin-Endpunkt, Abgleichgrund, Sperrzeit,
 // DHL-Referenz) - nur fuer Mitarbeiter. Kunden sehen Status und Sendungsnummern, keine
 // internen Aktionsentscheidungen.
-const STAFF_ONLY_SHIPMENT_KEYS = ['reconcileUrl', 'reconciliationReason', 'lockStale', 'lockStartedAt', 'reference'];
+const STAFF_ONLY_SHIPMENT_KEYS = ['reconcileUrl', 'reconciliationReason', 'lockStale', 'lockStartedAt', 'reference', 'lockScope'];
 // Interner Statustext "... – Abgleich erforderlich" (DHLService.mark*ReconciliationRequired):
 // Kunden sehen stattdessen einen neutralen Text.
 const INTERNAL_SHIPPING_DESCRIPTION = /Abgleich/i;
 const CUSTOMER_PENDING_LABEL_TEXT = 'Versandlabel wird vorbereitet';
 const CUSTOMER_PENDING_INBOUND_LABEL_TEXT = 'Einsendelabel wird vorbereitet';
-const toCustomerStatusDescription = (text, neutralText = CUSTOMER_PENDING_LABEL_TEXT) =>
-  (INTERNAL_SHIPPING_DESCRIPTION.test(String(text || '')) ? neutralText : text);
+// Dummy-Modus (DHL-5): interner Text "DHL-Dummy-Versandlabel ..." -> klarer Kundentext.
+const DUMMY_SHIPPING_DESCRIPTION = /Dummy/i;
+const CUSTOMER_DUMMY_LABEL_TEXT = 'Einsendelabel (Testmodus) – nicht für den Versand verwenden';
+const toCustomerStatusDescription = (text, neutralText = CUSTOMER_PENDING_LABEL_TEXT) => {
+  if (DUMMY_SHIPPING_DESCRIPTION.test(String(text || ''))) return CUSTOMER_DUMMY_LABEL_TEXT;
+  return INTERNAL_SHIPPING_DESCRIPTION.test(String(text || '')) ? neutralText : text;
+};
 const toCustomerShipments = (shipments) => {
   if (!shipments || typeof shipments !== 'object') return shipments;
   const view = { ...shipments };
+  // K11: Anschriften je Richtung sind eine reine Team-Ansicht.
+  delete view.parties;
   ['outbound', 'inbound'].forEach((direction) => {
     if (!view[direction] || typeof view[direction] !== 'object') return;
     const directionView = { ...view[direction] };
@@ -55,24 +63,18 @@ const toCustomerShipments = (shipments) => {
   return view;
 };
 
-// Interne Verlaufseintraege der Label-Abgleiche (Anweisungen fuer das DHL-Portal, ueberzaehlige
-// bezahlte Labels mit Sendungsnummer, verschobene Altlabels) - nur fuer Mitarbeiter. Kunden
-// sehen den regulaeren Verlauf.
-const STAFF_ONLY_TIMELINE_STATUS = /Reconcil|Orphaned|Legacy Inbound Label Moved/i;
+// Verlauf fuer Kunden: POSITIVLISTE (OrderHistory.toCustomerView, HIST-15) statt der frueheren
+// Ausschlussliste - keine Mitarbeiternamen, Pausengruende, Ersatzteil-/Workflow-Details oder
+// DHL-Abgleichtexte. Dieselbe Projektion nutzen Gast-Tracking und GET /:id/history.
 const toCustomerOrderView = (order) => {
   if (!order || typeof order !== 'object') return order;
   if (Array.isArray(order.timeline)) {
-    order.timeline = order.timeline.filter((entry) => !STAFF_ONLY_TIMELINE_STATUS.test(String(entry?.status || '')));
+    order.timeline = OrderHistory.toCustomerView(order.timeline);
   }
-  // Interne Mitarbeiterzuweisung einzelner Zusatzleistungen (Arbeitsplanung) - nur fuer Mitarbeiter.
-  if (Array.isArray(order.addOns)) {
-    order.addOns = order.addOns.map((addon) => {
-      if (!addon || typeof addon !== 'object') return addon;
-      const addonView = { ...addon };
-      delete addonView.assignedStaff;
-      return addonView;
-    });
-  }
+  // Personalbezogene Felder (gleiche Projektion wie das Gast-Tracking, HIST-15/K04):
+  // addOns[].assignedStaff (Arbeitsplanung), Mitarbeitername in pickupConfirmation, interne
+  // Pruefnotiz und Name in unlockConfirmation - nur fuer Mitarbeiter.
+  Object.assign(order, OrderHistory.customerOrderOverrides(order));
   if (order.shippingStatusDescription !== undefined) {
     order.shippingStatusDescription = toCustomerStatusDescription(order.shippingStatusDescription);
   }
@@ -232,7 +234,12 @@ router.get('/:id', requireUser, async (req, res) => {
 // Description: Get order progress timeline with milestone data
 // Endpoint: GET /api/orders/:id/progress-timeline
 // Request: {}
-// Response: { stages: Array<{ id: string, label: string, status: string, date?: string }>, currentStage: string }
+// Response (ehrliche Meilensteine, OrderHistory.buildMilestones):
+//   { stages: Array<{ id, label, state: 'reached'|'current'|'skipped'|'pending',
+//       status: 'completed'|'in-progress'|'skipped'|'pending' (Altfeld), reachedAt: ISO|null,
+//       timeKnown, date: 'TT.MM.JJJJ, HH:MM'|null, detail|null, note|null,
+//       actorName?|null, sourceEntryId?|null (nur Personal) }>,
+//     currentStage: string, orderStatus, progress, paused, cancelled }
 router.get('/:id/progress-timeline', requireUser, async (req, res) => {
   console.log('Get order progress timeline request received for order:', req.params.id);
 
@@ -250,18 +257,74 @@ router.get('/:id/progress-timeline', requireUser, async (req, res) => {
       });
     }
 
-    const timeline = await OrderService.getProgressTimeline(req.params.id);
+    const timeline = await OrderService.getProgressTimeline(req.params.id, {
+      forCustomer: !['admin', 'staff'].includes(req.user.role),
+    });
     console.log('Progress timeline retrieved successfully for order:', req.params.id);
 
     return res.status(200).json(timeline);
   } catch (error) {
     console.error('Error getting order progress timeline:', error);
     if (error.message === 'Order not found') {
-      return res.status(404).json({ error: error.message });
+      return res.status(404).json({ error: 'Auftrag wurde nicht gefunden.' });
     }
     return res.status(500).json({
-      error: error.message || 'Der Fortschrittsverlauf konnte nicht geladen werden.'
+      error: 'Der Fortschrittsverlauf konnte nicht geladen werden.'
     });
+  }
+});
+
+// Description: Zusammengefuehrter Auftragsverlauf (Lesemodell, schreibt nichts)
+// Endpoint: GET /api/orders/:id/history?types=status,pricing&before=<cursor>&limit=100
+// Zugriff: Personal/Admin -> vollstaendig (Verlauf + nicht verknuepfte Revisionen + Rechnungen +
+//   Zahlungen + Alt-Zeitstempel Reparatur-Workflow/Eingangspruefung) mit Akteur, Quelle,
+//   Aenderungen, Grund, refs und link. Eigentuemer (Kunde) -> nur Positivliste
+//   (OrderHistory.toCustomerView). Fremde Kunden sowie unbekannte/ungueltige IDs -> 403
+//   (keine Existenzpruefung), Personal: 404 bei unbekannter ID.
+// Query: types = kommagetrennte Liste aus OrderHistory.TYPES; before = nextCursor der
+//   vorherigen Seite; limit 1..300 (Standard 100).
+// Response: { success, orderId, orderNumber, entries: HistoryEntry[], total, nextCursor|null,
+//   groups: [{ id, label, types, count }], milestones (wie /progress-timeline) }
+//   HistoryEntry (Personal): { id, at: ISO|null, timeKnown, timeNote, key, type, typeLabel, title,
+//     description, actor: { id|null, name }, source, changes: [{ field, label, from, to, fromText,
+//     toText }], reason|null, refs|null, link: { kind, id, label, href|null, apiUrl|null }|null,
+//     visibility: 'customer'|'staff', eventKey|null, origin }
+//   HistoryEntry (Kunde): { id, at, timeKnown, timeNote, key, type, typeLabel, title, description, origin }
+router.get('/:id/history', requireUser, async (req, res) => {
+  const isPrivileged = ['admin', 'staff'].includes(req.user.role);
+  const deny = () => (isPrivileged
+    ? res.status(404).json({ success: false, error: 'Auftrag wurde nicht gefunden.' })
+    : res.status(403).json({ success: false, error: 'Zugriff verweigert.' }));
+  try {
+    if (!/^[a-f0-9]{24}$/i.test(String(req.params.id || ''))) {
+      return deny();
+    }
+    const owner = await Order.findById(req.params.id).setOptions({ skipAutoPopulate: true }).select('customerId').lean();
+    if (!owner || (!isPrivileged && String(owner.customerId || '') !== String(req.user._id))) {
+      return deny();
+    }
+    const types = String(req.query.types || '')
+      .split(',')
+      .map((type) => type.trim())
+      .filter(Boolean);
+    const unknownTypes = types.filter((type) => !OrderHistory.TYPES.includes(type));
+    if (unknownTypes.length) {
+      return res.status(400).json({
+        success: false,
+        error: `Unbekannte Eintragsart: ${unknownTypes.join(', ')}. Erlaubt: ${OrderHistory.TYPES.join(', ')}.`,
+      });
+    }
+    const result = await OrderService.getOrderHistory(req.params.id, {
+      viewer: { isStaff: isPrivileged },
+      types,
+      before: typeof req.query.before === 'string' ? req.query.before : undefined,
+      limit: req.query.limit,
+    });
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error loading order history:', error);
+    if (error && error.statusCode === 404) return deny();
+    return res.status(500).json({ success: false, error: 'Der Verlauf konnte nicht geladen werden.' });
   }
 });
 
@@ -306,12 +369,11 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
       });
     }
 
-    const complaintNumber = `R${order._id}`;
     const complaintData = {
       bookingId: order.bookingId || null,
       orderId: order._id,
       customerId: req.user._id,
-      subject: `Reklamation fuer Auftrag ${order.orderNumber}`,
+      subject: `Reklamation für Auftrag ${order.orderNumber}`,
       description,
       category: 'service',
       priority: 'medium',
@@ -335,9 +397,9 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
       }]
     };
 
+    // Die Nummer vergibt das Modell (CMP-JJJJ-NNNN). Frueher wurde sie hier mit "R<Auftrags-ID>"
+    // ueberschrieben, was Kunden und Personal als unlesbare Kennung angezeigt bekamen.
     const complaint = await ComplaintService.create(complaintData);
-    complaint.complaintNumber = complaintNumber;
-    await complaint.save();
 
     await Order.updateOne(
       { _id: order._id },
@@ -392,9 +454,9 @@ router.post('/:orderId/complaint', requireUser, async (req, res) => {
         await EmailService.sendTriggerEmail('complaint_created', req.user.email, {
           companyName: process.env.COMPANY_NAME || 'McRepair.de',
           customerName,
-          complaintNumber: complaint.complaintNumber || complaintNumber,
+          complaintNumber: complaint.complaintNumber,
           complaintCategory: complaint.category || 'service',
-          complaintSubject: complaint.subject || `Reklamation fuer Auftrag ${order.orderNumber}`,
+          complaintSubject: complaint.subject || `Reklamation für Auftrag ${order.orderNumber}`,
           orderNumber: order.orderNumber,
           priority: complaint.priority || 'medium',
           submittedAt: new Date().toLocaleDateString('de-DE'),
@@ -491,7 +553,8 @@ router.post('/:id/shipping/create-label', requireUser, requireRole(['admin', 'st
       shipmentData.shippingCost = cost;
     }
 
-    const result = await DHLService.createShipment(req.params.id, shipmentData, { direction: 'outbound' });
+    // HIST-16: handelnde Person fuer den Verlaufseintrag "Versandlabel erstellt".
+    const result = await DHLService.createShipment(req.params.id, shipmentData, { direction: 'outbound', actor: req.user });
 
     console.log('Outbound shipping label created successfully');
     return res.status(200).json(result);
@@ -536,11 +599,104 @@ router.get('/:id/shipments', requireUser, async (req, res) => {
     const state = await DHLService.getOrderShipmentState(req.params.id);
     // Kunden sehen den Versandstand, aber keine internen Aktionsentscheidungen/Abgleich-Details.
     const shipments = isPrivileged ? state.shipments : toCustomerShipments(state.shipments);
+    if (isPrivileged) {
+      // K11: Absender/Empfaenger je Richtung (gleiche Quellen wie die Label-Erstellung) - NUR
+      // fuer das Team; ein Fehler hier darf den Versandstand nicht verdecken.
+      try {
+        shipments.parties = await DHLService.getShipmentPartiesForStaff(req.params.id);
+      } catch (partiesError) {
+        console.error('Order shipments: parties could not be resolved:', partiesError.message);
+        shipments.parties = null;
+      }
+    }
     return res.status(200).json({ success: true, shipments });
   } catch (error) {
     console.error('Error loading order shipments:', error.message);
     const status = Number.isInteger(error.status) ? error.status : 500;
     return res.status(status).json({ success: false, error: error.message || 'Der Versandstand konnte nicht geladen werden.' });
+  }
+});
+
+// Description: Einsendestatus (Kunde -> McRepair) fuer die Auftragsdetailseite - Inhaber oder Team.
+//   Mit Buchung: identisch mit GET /api/bookings/:bookingId/inbound-label (ein Paket fuer alle
+//   Geraete der Buchung, Erstellung durch den Inhaber ueber POST /api/bookings/:bookingId/inbound-label).
+//   Ohne Buchung: aus dem Versandstand des Auftrags (Erstellung nur durch das Team).
+// Endpoint: GET /api/orders/:id/inbound-label
+// Response: { success, scope: 'booking'|'order', orderId, booking|null, orders, inbound } (Form siehe bookingRoutes)
+router.get('/:id/inbound-label', requireUser, async (req, res) => {
+  const isPrivileged = ['admin', 'staff'].includes(req.user.role);
+  const deny = () => (isPrivileged
+    ? res.status(404).json({ success: false, error: 'Auftrag wurde nicht gefunden.' })
+    : res.status(403).json({ success: false, error: 'Zugriff verweigert.' }));
+  try {
+    if (!/^[a-f0-9]{24}$/i.test(String(req.params.id || ''))) {
+      return deny();
+    }
+    const owner = await Order.findById(req.params.id).setOptions({ skipAutoPopulate: true })
+      .select('customerId bookingId orderNumber deviceBrand deviceModel deviceType status').lean();
+    if (!owner || (!isPrivileged && String(owner.customerId || '') !== String(req.user._id))) {
+      return deny();
+    }
+
+    const BookingService = require('../services/bookingService');
+    const Booking = require('../models/Booking');
+    const booking = owner.bookingId
+      ? { _id: owner.bookingId }
+      : await Booking.findOne({ $or: [{ orderIds: owner._id }, { repairOrderIds: owner._id }] })
+        .setOptions({ skipAutoPopulate: true }).select('_id').lean();
+    if (booking) {
+      const view = await BookingService.getInboundLabelState(booking._id, { includeStaffFields: isPrivileged });
+      if (view) {
+        return res.status(200).json({ success: true, scope: 'booking', orderId: String(owner._id), ...view });
+      }
+    }
+
+    // Auftrag ohne Buchung: Einsendung am Auftrag (DHL-Retoure), nur durch das Team erstellbar.
+    const isProduct = owner.deviceType === 'Shop Products';
+    const { shipments } = await DHLService.getOrderShipmentState(owner._id);
+    const shipmentInbound = shipments.inbound || {};
+    const inbound = {
+      state: 'none',
+      canCreate: false,
+      message: 'Ihr DHL-Einsendelabel erstellt unser Team. Sie erhalten es per E-Mail.',
+      trackingNumber: shipmentInbound.trackingNumber || '',
+      downloadUrl: shipmentInbound.hasLabel ? shipmentInbound.downloadUrl : '',
+      filename: shipmentInbound.hasLabel ? `DHL-Einsendelabel_${String(owner.orderNumber || owner._id).replace(/[^A-Za-z0-9\-_]/g, '')}.pdf` : '',
+      source: shipmentInbound.source || '',
+      placeholder: Boolean(shipmentInbound.placeholder),
+      shippingStatus: shipmentInbound.status || '',
+      deviceReceived: Boolean(owner.status && owner.status !== 'pending'),
+    };
+    if (isProduct) {
+      Object.assign(inbound, { state: 'not-needed', message: 'Für Shop-Artikel ist keine Einsendung nötig.' });
+    } else if (shipmentInbound.hasLabel) {
+      Object.assign(inbound, { state: 'ready', message: 'Drucken Sie das kostenlose DHL-Einsendelabel aus und geben Sie das Paket bei DHL ab.' });
+    } else if (shipmentInbound.trackingNumber) {
+      Object.assign(inbound, { state: 'registered', message: `Ihr DHL-Einsendelabel ist bei DHL angelegt (Sendungsnummer ${shipmentInbound.trackingNumber}). Das PDF senden wir Ihnen per E-Mail zu.` });
+    } else if (shipmentInbound.reconciliationRequired) {
+      Object.assign(inbound, { state: 'review', message: 'Ihr Einsendelabel wird geprüft. Bitte nicht erneut erstellen – wir melden uns per E-Mail, sobald es bereitsteht.' });
+    } else if (shipmentInbound.inProgress) {
+      Object.assign(inbound, { state: 'creating', message: 'Ihr DHL-Einsendelabel wird erstellt …' });
+    } else if (owner.status === 'cancelled') {
+      Object.assign(inbound, { state: 'cancelled', message: 'Der Auftrag wurde storniert – bitte kein Gerät einsenden.' });
+    }
+    return res.status(200).json({
+      success: true,
+      scope: 'order',
+      orderId: String(owner._id),
+      booking: null,
+      orders: [{
+        orderId: String(owner._id),
+        orderNumber: owner.orderNumber || '',
+        type: isProduct ? 'product' : 'repair',
+        device: isProduct ? 'Shop-Artikel' : `${owner.deviceBrand || ''} ${owner.deviceModel || ''}`.trim(),
+        status: owner.status || 'pending',
+      }],
+      inbound,
+    });
+  } catch (error) {
+    console.error('Error loading order inbound label state:', error.message);
+    return res.status(500).json({ success: false, error: 'Der Status des Einsendelabels konnte nicht geladen werden.' });
   }
 });
 
@@ -606,7 +762,8 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     }
 
     const pdfBuffer = Buffer.from(base64Match[1], 'base64');
-    const filename = `versandlabel-${order.orderNumber || order._id}.pdf`;
+    // Einheitlicher Dateiname der Auslieferung (McRepair -> Kunde).
+    const filename = `DHL-Versandlabel_${String(order.orderNumber || order._id).replace(/[^A-Za-z0-9\-_]/g, '')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
@@ -640,7 +797,8 @@ router.post('/:id/return-label', requireUser, requireRole(['admin', 'staff']), a
       });
     }
 
-    const result = await DHLReturnsService.createReturnLabelForOrder(req.params.id, req.body || {});
+    // actor (HIST-16) immer aus der Anmeldung, nie aus dem Body.
+    const result = await DHLReturnsService.createReturnLabelForOrder(req.params.id, { ...(req.body || {}), actor: req.user });
     return res.status(200).json({ ...result, direction: 'inbound' });
   } catch (error) {
     console.error('Error creating order inbound label:', error.message);
@@ -698,7 +856,7 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
     }
 
     if (!order.returnLabelUrl) {
-      return res.status(404).json({ success: false, error: 'Für diesen Auftrag ist kein Rücksendelabel hinterlegt.' });
+      return res.status(404).json({ success: false, error: 'Für diesen Auftrag ist kein Einsendelabel hinterlegt.' });
     }
 
     const base64Match = order.returnLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
@@ -707,7 +865,8 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
     }
 
     const pdfBuffer = Buffer.from(base64Match[1], 'base64');
-    const filename = `ruecksendelabel-${order.orderNumber || order._id}.pdf`;
+    // Der return*-Platz des Auftrags ist die EINSENDUNG (Kunde -> McRepair).
+    const filename = `DHL-Einsendelabel_${String(order.orderNumber || order._id).replace(/[^A-Za-z0-9\-_]/g, '')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
@@ -794,13 +953,17 @@ router.put('/:id/tracking/update', requireUser, requireRole(['admin', 'staff']),
 
 // Description: Update order status and send notification email to customer
 // Endpoint: PUT /api/orders/:id/status
-// Request: { status: string, statusMessage?: string }
-// Response: { success: boolean, order: Order }
+// Request: { status: one of Order.ORDER_STATUSES, statusMessage?: string (Hinweis AN DEN KUNDEN),
+//            reason?: string (nur Verlauf, intern) }
+// Response: { success: boolean, order: Order, unchanged?: true }
 router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (req, res) => {
   console.log('Update order status request received for order:', req.params.id);
 
   try {
-    const { status, statusMessage } = req.body;
+    const { status, statusMessage, reason, reopen } = req.body || {};
+    if (reopen === true && req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Nur Administratoren können eine Stornierung aufheben.', code: 'REOPEN_ADMIN_ONLY' });
+    }
 
     if (!status) {
       return res.status(400).json({
@@ -808,22 +971,34 @@ router.put('/:id/status', requireUser, requireRole(['admin', 'staff']), async (r
         error: 'Bitte einen Status angeben.'
       });
     }
+    if (!Order.ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Unbekannter Auftragsstatus.', code: 'INVALID_ORDER_STATUS' });
+    }
 
-    // Update order status via service
-    const order = await OrderService.updateStatus(req.params.id, status, statusMessage, req.user._id);
-
-    // Customer notifications and email dispatch are handled centrally in OrderService.updateStatus.
+    // Update order status via service (Benachrichtigung zentral in OrderService.updateStatus;
+    // statusMessage ist hier ausdruecklich der Kundenhinweis dieser Route).
+    const order = await OrderService.updateStatus(req.params.id, status, null, req.user._id, {
+      reason: typeof reason === 'string' ? reason.trim() : '',
+      customerMessage: typeof statusMessage === 'string' ? statusMessage.trim() : '',
+      source: reopen === true ? 'Storno aufheben' : 'Statusmenü',
+      reopen: reopen === true,
+    });
+    const unchanged = Boolean(order?.$locals?.unchanged);
 
     return res.status(200).json({
       success: true,
       order,
-      message: 'Der Auftragsstatus wurde aktualisiert.'
+      unchanged: unchanged || undefined,
+      message: unchanged
+        ? 'Der Auftrag hat bereits diesen Status – keine Änderung gespeichert.'
+        : 'Der Auftragsstatus wurde aktualisiert.'
     });
   } catch (error) {
     console.error('Error updating order status:', error);
-    return res.status(400).json({
+    return res.status(Number(error?.statusCode) || 400).json({
       success: false,
-      error: error.message || 'Der Auftragsstatus konnte nicht aktualisiert werden.'
+      error: error?.statusCode ? error.message : 'Der Auftragsstatus konnte nicht aktualisiert werden.',
+      code: error?.code || undefined,
     });
   }
 });

@@ -179,6 +179,8 @@ export const getAdminOrders = async (filters: any = {}) => {
     if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.append('dateTo', filters.dateTo);
     if (filters.assignedStaff) params.append('assignedStaff', filters.assignedStaff);
+    // Nur diese Auftraege (Array oder kommagetrennt); leeres Array = keine Treffer.
+    if (filters.ids !== undefined) params.append('ids', Array.isArray(filters.ids) ? filters.ids.join(',') : String(filters.ids));
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());
 
@@ -329,10 +331,11 @@ export const getAdminOrders = async (filters: any = {}) => {
 // Endpoint: PUT /api/admin/orders/:id/status
 // Request: { status: string, note?: string }
 // Response: { success: boolean, message: string, order: AdminOrder }
-export const updateOrderStatus = async (orderId: string, status: string, note?: string) => {
+export const updateOrderStatus = async (orderId: string, status: string, note?: string, options?: { reopen?: boolean }) => {
   console.log('updateOrderStatus called:', { orderId, status, note });
   try {
-    const response = await api.put(`/api/admin/orders/${orderId}/status`, { status, note });
+    // reopen: "Storno aufheben" (nur Admin, Grund Pflicht, Ziel immer "pending") - siehe OrderCancelDialog.
+    const response = await api.put(`/api/admin/orders/${orderId}/status`, { status, note, ...(options?.reopen ? { reopen: true } : {}) });
     console.log('updateOrderStatus API response:', response.data);
     return response.data;
   } catch (error: any) {
@@ -683,6 +686,10 @@ export const changeDeviceAndRecalculateServices = async (
       oldOrderServiceId: string
       newServiceId: string
     }>
+    /** Herkunft für den Verlauf, z. B. 'Inspektion Schritt 1' / 'Gerätekarte' (HIST-9). */
+    source?: string
+    /** Grund der Korrektur, erscheint im Auftragsverlauf. */
+    reason?: string
   } & OrderRepricingOptions
 ) => {
   console.log('changeDeviceAndRecalculateServices called with:', {
@@ -700,6 +707,8 @@ export const changeDeviceAndRecalculateServices = async (
       deviceType,
       serviceReplacement: options?.serviceReplacement,
       serviceReplacements: options?.serviceReplacements,
+      ...(options?.source ? { source: options.source } : {}),
+      ...(options?.reason ? { reason: options.reason } : {}),
       ...repricingPayload(options),
     });
     console.log('changeDeviceAndRecalculateServices API response:', response.data);

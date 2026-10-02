@@ -1,6 +1,6 @@
 const express = require('express');
 const DeviceService = require('../services/deviceService');
-const { requireUser, requireRole } = require('./middleware/auth');
+const { requireUser, requireRole, optionalAuth } = require('./middleware/auth');
 
 const router = express.Router();
 
@@ -483,17 +483,52 @@ router.post('/models', requireUser, requireRole(['admin']), async (req, res) => 
 // Endpoint: PUT /api/devices/models/:id
 // Request: { name?: string, brandId?: string, deviceType?: string, image?: string, specifications?: Record<string, string> }
 // Response: { success: boolean, message: string, model: Model }
-router.put('/models/:id', async (req, res) => {
+// Ohne Admin-Anmeldung (oeffentlicher Reparatur-Konfigurator ergaenzt Bild/Spezifikationen aus der
+// Mobile-API) duerfen NUR leere Anreicherungsfelder befuellt werden. Name, Marke, Geraetetyp, Slug,
+// Modellnummern, Aktiv-Status usw. bleiben Admin-Sache - frueher konnte jeder ohne Anmeldung
+// Katalogmodelle umbenennen, einer anderen Marke zuordnen oder deaktivieren.
+const PUBLIC_MODEL_ENRICHMENT_FIELDS = ['image', 'images', 'specifications', 'network', 'physical', 'display', 'platform',
+  'memory', 'rearCamera', 'frontCamera', 'audio', 'connectivity', 'features', 'battery', 'other'];
+const isEmptyEnrichmentValue = (value) => {
+  if (value === undefined || value === null || value === '') return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.values(value).every((v) => isEmptyEnrichmentValue(v));
+  return false;
+};
+
+router.put('/models/:id', optionalAuth, async (req, res) => {
   try {
     console.log('DeviceRoutes: PUT /models/:id -', req.params.id);
-    console.log('DeviceRoutes: Update data:', req.body);
 
-    const model = await DeviceService.updateModel(req.params.id, req.body);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    let updateData = body;
+    let ignoredFields = [];
+    if (req.user?.role !== 'admin') {
+      const DeviceModel = require('mongoose').model('DeviceModel');
+      const current = await DeviceModel.findOne({ _id: req.params.id, isActive: true }).lean().catch(() => null);
+      if (!current) {
+        return res.status(404).json({ success: false, error: 'Model not found' });
+      }
+      updateData = {};
+      Object.keys(body).forEach((key) => {
+        if (PUBLIC_MODEL_ENRICHMENT_FIELDS.includes(key) && isEmptyEnrichmentValue(current[key]) && !isEmptyEnrichmentValue(body[key])) {
+          updateData[key] = body[key];
+        } else {
+          ignoredFields.push(key);
+        }
+      });
+      if (Object.keys(updateData).length === 0) {
+        return res.json({ success: true, message: 'Keine Änderung: nur leere Bild-/Spezifikationsfelder dürfen ohne Admin-Rechte ergänzt werden.', model: current, ignoredFields });
+      }
+    }
+
+    const model = await DeviceService.updateModel(req.params.id, updateData);
 
     res.json({
       success: true,
       message: 'Model updated successfully',
-      model
+      model,
+      ...(ignoredFields.length ? { ignoredFields } : {})
     });
   } catch (error) {
     console.error('DeviceRoutes: Error updating model:', error);

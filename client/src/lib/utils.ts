@@ -55,15 +55,37 @@ export function formatPrice(value: any, decimals: number = 2): string {
 }
 
 /**
- * Formats a numeric value as Euro currency using German locale (e.g. 10,99 €)
+ * DER Geldformatierer der Anwendung (CUSTUX-12 / FIN-12).
+ *
+ * Regeln:
+ *  - Die Waehrung kommt aus den DATEN (payment.currency, Finanzeinstellungen; Standard
+ *    EUR) - nie aus der Sprache. Ein ungueltiger Waehrungscode faellt auf EUR zurueck.
+ *  - Das Zahlenformat ist standardmaessig de-DE ("47,40 €"), auch in der englischen
+ *    Oberflaeche. Ein anderes Format nur, wenn ein Aufrufer es ausdruecklich uebergibt.
+ *  - Nicht lesbare Werte werden als 0 formatiert (wie safeToNumber).
+ *
+ * @example formatMoney(47.4)               // "47,40 €"
+ * @example formatMoney(47.4, 'EUR', 'en-GB') // "€47.40"
+ * @example formatMoney(1, 'XX!')            // "1,00 €" (Fallback EUR)
+ */
+export function formatMoney(value: unknown, currency: string = 'EUR', locale: string = 'de-DE'): string {
+  const code = typeof currency === 'string' && /^[A-Z]{3}$/.test(currency) ? currency : 'EUR'
+  const amount = safeToNumber(value)
+  try {
+    return new Intl.NumberFormat(locale || 'de-DE', { style: 'currency', currency: code }).format(amount)
+  } catch {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
+  }
+}
+
+/**
+ * Formats a numeric value as Euro currency using German locale (e.g. 10,99 €).
+ * Wrapper um formatMoney (bestehende Aufrufer bleiben unveraendert).
  *
  * @param value The price value to format
  * @returns Formatted Euro string, e.g. "10,99 €"
  */
 export function formatEUR(value: any): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(safeToNumber(value))
+  return formatMoney(value, 'EUR')
 }
 

@@ -42,6 +42,12 @@ export function buildOrderDetailsState(
   }
 }
 
-export function getOrderDetailsPath(orderId: string) {
-  return `/orders/${orderId}`
+/**
+ * Bereiche der Personal-/Admin-Ansicht des Auftragsdetails (ADMUX-7). Kunden ignorieren den Parameter.
+ * Beispiel: getOrderDetailsPath(id, 'kommunikation') -> /orders/<id>?bereich=kommunikation
+ */
+export type OrderDetailsSection = 'uebersicht' | 'kommunikation' | 'verlauf' | 'rechnungen' | 'versand'
+
+export function getOrderDetailsPath(orderId: string, bereich?: OrderDetailsSection) {
+  return bereich ? `/orders/${orderId}?bereich=${bereich}` : `/orders/${orderId}`
 }

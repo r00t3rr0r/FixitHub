@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatEUR } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -143,7 +144,7 @@ const ServiceCSVPreviewTable: React.FC<ServiceCSVPreviewTableProps> = ({
                       <TableCell className="font-medium">{row.rowIndex}</TableCell>
                       <TableCell>{row.data.name}</TableCell>
                       <TableCell>{row.data.category}</TableCell>
-                      <TableCell className="text-right">${row.data.price?.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{formatEUR(row.data.price ?? 0)}</TableCell>
                       <TableCell>{row.data.estimatedTime} min</TableCell>
                       <TableCell>
                         <Badge

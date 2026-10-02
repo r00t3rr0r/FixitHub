@@ -185,6 +185,29 @@ const cartSchema = new mongoose.Schema({
   versionKey: false
 });
 
+// Katalogbetrag eines Geraets im Warenkorb: Summe der Listenpreise der (populierten)
+// Leistungen + Zusatzleistungen - genau die Grundlage, aus der der Checkout den Auftrag
+// bildet (rawTotalCost). null, wenn die Leistungen nicht populiert sind (dann bleibt der
+// gespeicherte Wert unveraendert).
+function catalogRepairOrderTotal(order) {
+  const services = Array.isArray(order?.services) ? order.services : [];
+  const populated = services.every((service) => service && typeof service === 'object'
+    && typeof service.price === 'number' && Number.isFinite(service.price));
+  if (!populated) return null;
+  // Doppelte Leistungs-IDs zaehlen einmal (populate behaelt Duplikate, der Checkout legt
+  // jede Leistung per Service.find({$in}) genau einmal an).
+  const seen = new Set();
+  const servicesTotal = services.reduce((sum, service) => {
+    const id = String(service._id || '');
+    if (id && seen.has(id)) return sum;
+    seen.add(id);
+    return sum + service.price;
+  }, 0);
+  const addOnsTotal = (Array.isArray(order?.addOns) ? order.addOns : [])
+    .reduce((sum, addOn) => sum + (Number(addOn?.price) || 0), 0);
+  return Number((servicesTotal + addOnsTotal).toFixed(2));
+}
+
 // Calculate totals before saving
 cartSchema.pre('save', async function(next) {
   console.log('Cart pre-save: Calculating totals');
@@ -204,8 +227,16 @@ cartSchema.pre('save', async function(next) {
     }
   });
 
-  // Calculate subtotal from repair orders
+  // Calculate subtotal from repair orders. Der Betrag eines Geraets kommt aus dem KATALOG
+  // (dieselbe Grundlage wie die Auftragsanlage im Checkout), nie aus dem vom Client
+  // gesendeten totalCost: sonst war der Gruppen-/Aktionsrabatt auf einen frei waehlbaren
+  // Betrag bezogen (z. B. 100000 -> Rabatt groesser als der Katalogpreis -> Auftraege 0,00 €)
+  // und Buchungsbetrag und Auftragssumme liefen auseinander.
   this.repairOrders.forEach(order => {
+    const catalogTotal = catalogRepairOrderTotal(order);
+    if (catalogTotal !== null && Math.abs(catalogTotal - Number(order.totalCost || 0)) > 0.004) {
+      order.totalCost = catalogTotal;
+    }
     subtotal += order.totalCost;
     totalItems += 1;
   });
@@ -234,6 +265,8 @@ cartSchema.pre('save', async function(next) {
 cartSchema.index({ userId: 1 });
 cartSchema.index({ sessionId: 1 });
 cartSchema.index({ isActive: 1 });
+
+cartSchema.statics.catalogRepairOrderTotal = catalogRepairOrderTotal;
 
 const Cart = mongoose.model('Cart', cartSchema);
 
