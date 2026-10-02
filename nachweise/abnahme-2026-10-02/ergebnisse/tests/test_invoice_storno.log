@@ -1,0 +1,90 @@
+
+[1 Storno einer unbezahlten Rechnung (Admin-Route)]
+  PASS ohne Grund: 400, deutsche Meldung :: 400 Bitte einen Grund für das Storno angeben.
+  PASS Mitarbeiter darf nicht stornieren (403) :: 403
+  PASS Storno erfolgreich (200) :: 200 
+  PASS Storno-Gutschrift mit eigener Nummer INV-CN-JJJJ-NNNN :: INV-CN-2026-0001
+  PASS Gutschrift referenziert die Ursprungsrechnung :: full_cancellation / INV-2026-0001
+  PASS Gutschriftsbetrag = -Rechnungsbrutto (Rabatt nur einmal) :: -84.92
+  PASS Storno-Gutschrift ist ausgestellt (kein Entwurf) :: sent
+  PASS Grund steht auf der Gutschrift :: Storno der Rechnung INV-2026-0001: Falscher Kunde berechnet
+  PASS Original: Status storniert, Storno abgeschlossen :: cancelled / completed
+  PASS Storno-Datensatz: Grund, Bearbeiter, Gutschrift :: {"r":"Falscher Kunde berechnet","a":"Admin Storno"}
+  PASS Revisionsspur enthaelt das Storno :: document_archived,cancelled
+  PASS Originalbetraege und Nummer unveraendert :: 84.92 / 14.98
+  PASS Archiviertes Original-PDF unveraendert :: 71531766c8b2
+  PASS Forderung nach Storno 0, nichts offen :: 0 / 0
+  PASS Stornierte Rechnung nicht in der Mahnliste :: 0
+  PASS Storno-Gutschrift als PDF archiviert :: ja
+
+[2 Kein doppeltes Storno (Wiederholung, Parallelitaet)]
+  PASS Wiederholung: 200, bereits storniert gemeldet :: 200 true
+  PASS genau eine Storno-Gutschrift :: 1
+  PASS 6 parallele Stornos: genau eine Gutschrift :: 1
+  PASS Verlierer: 409 (in Bearbeitung) oder "bereits storniert" :: CANCELLATION_IN_PROGRESS,CANCELLATION_IN_PROGRESS,CANCELLATION_IN_PROGRESS,CANCELLATION_IN_PROGRESS,CANCELLATION_IN_PROGRESS
+  PASS Forderung genau einmal gemindert :: 60
+
+[3 Entwurf verwerfen ist ein eigener Weg]
+  PASS Storno eines Entwurfs abgelehnt (409, deutsch) :: 409 Ein Entwurf wird nicht storniert, sondern verworfen („Entwurf verwerfen“).
+  PASS Entwurf verworfen (kein Loeschen, Nummer bleibt belegt) :: 200 cancelled draft_discarded INV-2026-0004
+  PASS Verwerfen erzeugt keine Gutschrift :: 0
+  PASS verworfener Entwurf fuer Kunden unsichtbar (Liste, PDF) :: 404
+  PASS verworfener Entwurf wird nicht archiviert :: nein
+  PASS Ausgestellte Rechnung kann nicht verworfen werden (409) :: 409 Ein ausgestellter Beleg kann nicht verworfen werden – bitte stattdessen stornieren.
+
+[4 Bezahlte Rechnung: Zahlung bleibt, keine automatische Erstattung]
+  PASS ohne Bestaetigung: 409 mit gebuchtem Betrag :: 409 Auf diese Rechnung sind bereits 100,00 € gebucht. Beim Storno bleibt die Zahlung erhalten und wird als Guthaben bzw. offene Erstattung ausgewiesen – es wird nichts automatisch erstattet. Bitte das Storno ausdrücklich bestätigen.
+  PASS abgelehnter Versuch hinterlaesst keine Gutschrift :: 0
+  PASS mit Bestaetigung storniert :: 200 
+  PASS Zahlung unveraendert, keine Erstattung ausgeloest :: completed/0
+  PASS Zuordnung bleibt erhalten :: 100
+  PASS Guthaben/Erstattung offen: 100 :: overpaid / 100
+  PASS Storno vermerkt das bereits gebuchte Geld :: 100
+
+[5 Teilweise gutgeschrieben: Storno nur ueber den Rest]
+  PASS Storno-Gutschrift ueber den Restbetrag 80 :: -80
+  PASS insgesamt genau 100 gutgeschrieben :: 100
+
+[6 Alter Weg PATCH /status cancelled = Storno]
+  PASS ohne Grund 400 :: 400 Bitte einen Grund für das Storno angeben.
+  PASS Status nicht einfach umgeschaltet :: sent
+  PASS Statuswechsel erzeugt die Storno-Gutschrift :: 200 / 1
+
+[7 Neuberechnung, Kundensicht]
+  PASS Auftrag nach Storno neu berechenbar :: INV-2026-0010
+  PASS Kunde sieht Storno-Gutschrift und storniertes Original :: true / cancelled
+  PASS Detail verweist auf die Storno-Gutschrift :: 1
+
+[8 Storno + Neuausstellung fuer einen Auftrag MIT Buchung (MAJOR 1)]
+  PASS solange die erste Rechnung gilt: zweite Rechnung abgelehnt (409) :: INVOICE_ALREADY_EXISTS Für diese Buchung besteht bereits die Rechnung INV-2026-0011. Für eine Korrektur bitte diese Rechnung zuerst stornieren.
+  PASS nach Storno: Neuausstellung ueber die Admin-Route (Auftrag mit Buchung) :: 201 INV-2026-0012
+  PASS neue Rechnung: Betrag und Buchungsbezug :: 80 / 6abf932ad653de1b4504831b
+  PASS zweite Neuausstellung waehrend die erste gilt: 409 (nennt keine Gutschrift als Rechnung) :: INVOICE_ALREADY_EXISTS Für diese Buchung besteht bereits die Rechnung INV-2026-0012. Für eine Korrektur bitte diese Rechnung zuerst stornieren.
+  PASS Sammelrechnung ueber dieselbe Leistung: 409 :: ORDER_ALREADY_INVOICED
+  PASS manuelle Rechnung zur Buchung mit aktiver Rechnung: 409 :: INVOICE_ALREADY_EXISTS
+  PASS nach zweitem Storno: Sammelrechnung zur Buchung moeglich :: INV-2026-0013
+  PASS nach Storno: manuelle Rechnung zur Buchung moeglich :: INV-2026-0014
+  PASS je Buchung genau eine aktive Rechnung :: 1
+
+[9 Storno nach Absturz fortsetzen (MAJOR 2)]
+  PASS Ausgangslage: Gutschrift gespeichert, Storno haengt in "processing" :: sent / processing / 1
+  PASS Wiederholung schliesst das Storno ab :: cancelled / completed
+  PASS genau EINE Storno-Gutschrift (die vorab vergebene), Betrag -100 :: INV-CN-2026-0012:-100
+  PASS Storno-Datensatz: Gutschriftnummer, urspruenglicher Grund :: INV-CN-2026-0012 / Absturztest
+  PASS genau einmal gemindert (100), Forderung 0 :: 100 / 0
+  PASS dritter Aufruf: bereits storniert :: true
+  PASS sofortige Wiederholung (Karenz): 409 "wird gerade ausgefuehrt", keine Uebernahme :: CANCELLATION_IN_PROGRESS
+  PASS Wiederholung nach der Karenz: abgeschlossen, eine Gutschrift :: cancelled / 1
+  PASS Fortsetzung legt die Gutschrift mit der vorab vergebenen ID an :: 1 / cancelled
+  PASS Teilgutschrift + Absturz: genau eine Storno-Gutschrift ueber 80, insgesamt 100 :: -80 / 100
+  PASS haengende Reservierung, Beleg voll gutgeschrieben: freigegeben, echter Grund, keine Storno-Gutschrift :: INVOICE_ALREADY_CREDITED / null
+
+[10 Reservierung: echter Grund statt irrefuehrendem 409]
+  PASS Statuswechsel sent->viewed waehrend des Stornos: Storno trotzdem ausgefuehrt :: cancelled
+  PASS Zahlung waehrend des Stornos: Bestaetigung verlangt (mit Betrag) :: CANCELLATION_REQUIRES_CONFIRMATION Auf diese Rechnung sind bereits 30,00 € gebucht. Beim Storno bleibt die Zahlung erhalten und wird als Guthaben bzw. offene Erstattung ausgewiesen – es wird nichts automatisch erstattet. Bitte das Storno ausdrücklich bestätigen.
+  PASS keine Reservierung, keine Gutschrift hinterlassen :: null / partially_paid / 0
+  PASS inzwischen gutgeschrieben: echter Grund (deutsch) :: INVOICE_ALREADY_CREDITED Diese Rechnung wurde inzwischen vollständig gutgeschrieben – ein Storno ist nicht mehr nötig.
+  PASS laufender Mahnschritt: 409 DUNNING_IN_PROGRESS, keine Reservierung :: DUNNING_IN_PROGRESS Für diese Rechnung wird gerade ein Mahnschritt versendet. Bitte das Storno in einem Moment erneut auslösen.
+  PASS verwaiste Mahnsperre blockiert das Storno nicht :: ok
+
+==== 68 bestanden, 0 fehlgeschlagen ====

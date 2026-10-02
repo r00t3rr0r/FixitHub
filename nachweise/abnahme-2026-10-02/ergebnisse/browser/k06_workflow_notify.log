@@ -1,0 +1,58 @@
+Testdaten: Warenkorb+Checkout per API als partner@e2e.invalid (2 Geräte, PayPal ausstehend, keine Zahlung) -> 200/200/200 BKG-2026-0009
+Testdaten: Eingangsprüfung per API angelegt (Voraussetzung für die Karte "Reparatur-Workflow") ORD-2026-065 -> 200
+Testdaten: Eingangsprüfung per API angelegt (Voraussetzung für die Karte "Reparatur-Workflow") ORD-2026-066 -> 200
+   Auftrag A ORD-2026-065 (6abf808e2a854d3cec72c5f0), Auftrag B ORD-2026-066 (6abf808e2a854d3cec72c5fd), Lauf 5182606
+  PASS Freigabe: "Kunde informieren" ist standardmäßig AUS :: false
+  PASS Freigabe: Schalter per Klick EINGESCHALTET :: true
+  PASS mit Schalter AN erscheint das Feld "Nachricht an Kunden" 
+   [shot] 01_A_freigabe_schalter_an.png
+   [shot] 02_A_gestartet_kunde_benachrichtigt.png
+  PASS UI meldet getrennt: "Kunde wurde benachrichtigt" :: Kunde wurde benachrichtigt Benachrichtigung im Kundenkonto und E-Mail gesendet.
+  PASS gespeichert: Workflow läuft, approvalData.notifyCustomer = true :: in-progress true
+  PASS AN: genau EINE In-App-Benachrichtigung für Auftrag A :: 1 Reparatur begonnen
+  PASS AN: genau EINE E-Mail an partner@e2e.invalid mit der Kundennachricht :: 1790935194855-0009-partner@e2e.invalid.eml
+  PASS interne Notiz steht weder in der E-Mail noch in der Benachrichtigung 
+  PASS E-Mail deutsch: Betreff + Titel "Reparatur begonnen" + Auftragsnummer im Text :: Neue Benachrichtigung bei McRepair.de: Aufträge
+  PASS Freigabe B: "Kunde informieren" AUS :: false
+  PASS mit Schalter AUS gibt es kein Feld "Nachricht an Kunden" 
+   [shot] 03_B_freigabe_schalter_aus.png
+   [shot] 04_B_gestartet_ohne_kundeninfo.png
+  PASS gespeichert: Workflow B läuft, notifyCustomer = false, keine Benachrichtigung :: in-progress false
+  PASS UI meldet bei AUS keine Kundenbenachrichtigung 
+  PASS AUS: KEINE In-App-Benachrichtigung für Auftrag B :: 0
+  PASS AUS: KEINE E-Mail zu Auftrag B an den Kunden :: 0
+  PASS Team-Verlauf von B hat den Eintrag "Reparatur gestartet" :: 1
+   [shot] 05_C_zwischenfall_schalter_an.png
+  PASS Zwischenfall 1: Schalter "Kunde informieren" AN :: true
+   [shot] 06_C_zwischenfall_an_gemeldet.png
+  PASS Zwischenfall AN: genau EINE In-App-Benachrichtigung :: 1 Information zu Ihrer Reparatur
+  PASS Zwischenfall AN: genau EINE E-Mail, ohne interne Kurzbeschreibung :: 1790935216952-0010-partner@e2e.invalid.eml
+  PASS Workflow per "Fortsetzen" wieder in Bearbeitung :: in-progress
+   [shot] 07_C_zwischenfall_schalter_aus.png
+  PASS Zwischenfall 2: Schalter "Kunde informieren" AUS :: false
+   [shot] 08_C_zwischenfall_aus_gemeldet.png
+  PASS Zwischenfall 2 gespeichert ohne Kundenbenachrichtigung :: 2 null
+  PASS Zwischenfall AUS: KEINE In-App-Benachrichtigung :: 0
+  PASS Zwischenfall AUS: KEINE E-Mail an den Kunden :: 0
+  PASS nach Reload (A): Freigabe-Daten "Kunde benachrichtigt: Ja, am …" :: Kunde benachrichtigt Ja, am 02.10.2026, 11:59 Schließen
+   [shot] 09_D_reload_A_freigabedaten.png
+  PASS nach Reload: Zwischenfall 1 "Kunde benachrichtigt: Ja, am …" :: Kunde benachrichtigt: Ja, am 02.10.2026, 12:00 Als e
+  PASS nach Reload: Zwischenfall 2 "Kunde benachrichtigt: Nein" (Team sieht den Eintrag) :: Kunde benachrichtigt: Nein Als erledigt markieren
+   [shot] 10_D_reload_A_zwischenfaelle.png
+  PASS Team-Verlauf A: "Reparatur gestartet" + 2x "Zwischenfall gemeldet" :: 4x
+   [shot] 11_D_verlauf_A_team.png
+  PASS nach Reload (B): Freigabe-Daten "Kunde benachrichtigt: Nein (nicht gewählt)" :: Kunde benachrichtigt Nein (nicht gewählt) Schließen
+   [shot] 12_D_reload_B_freigabedaten.png
+  PASS Team-Verlauf B zeigt "Reparatur gestartet" (Schritt AUS ist für das Team dokumentiert) 
+   [shot] 13_D_verlauf_B_team.png
+  PASS Kunde /notifications: genau die zwei AN-Nachrichten dieses Laufs :: Information zu Ihrer Reparatur | Reparatur begonnen
+  PASS Kunde sieht keine internen Notizen/Kurzbeschreibungen 
+   [shot] 14_E_kunde_benachrichtigungen_suche.png
+  PASS Kunde: zu Auftrag B keine Workflow-Benachrichtigung :: Statusupdate zu Ihrem Auftrag
+   [shot] 15_E_kunde_suche_auftrag_B.png
+  PASS Kunde: Glocke zeigt beide AN-Nachrichten dieses Laufs (Start + Zwischenfall) :: Benachrichtigungen 22 ungelesen Information zu Ihrer Reparatur Guten Tag, die Reparatur zu Auftrag ORD-2026-065 dauert etwas länger. Referenz K06INFO5182606 Gerade eben Auftrag öffnen Reparatur begonn
+  PASS Kunde: Glocke zeigt keine internen Texte 
+   [shot] 16_E_kunde_glocke.png
+  PASS Endstand: Workflow-Benachrichtigungen A = 2 (Start + Zwischenfall 1), B = 0 :: 2/0
+  PASS netguard_after.log unverändert (kein externer Aufruf) :: 0 -> 0 Bytes
+==== k06_workflow_notify: 37 bestanden, 0 fehlgeschlagen ====

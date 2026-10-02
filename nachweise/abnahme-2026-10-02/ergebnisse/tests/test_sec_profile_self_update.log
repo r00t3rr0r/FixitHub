@@ -1,0 +1,53 @@
+(node:1103285) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1103285) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1103285) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] Vorher: Kunde hat keinen Admin-Zugriff
+Admin middleware: Checking admin role for user: profil-kunde@test.invalid
+Admin middleware: Access denied - user is not admin: customer
+  PASS Kunde GET /api/admin/users :: 403
+
+[2] Kunde versucht ueber PUT /api/users/me geschuetzte Felder zu setzen
+Update user profile request received for user: profil-kunde@test.invalid
+Update profile fields: [ 'firstName', 'phone', 'invoiceAddress', 'preferences' ]
+UserService: Updating user with ID: new ObjectId('6abf938f20ac28d9a89fbf9e') Fields: firstName, phone, invoiceAddress, preferences
+UserService: User updated successfully
+User profile updated successfully
+  PASS Antwort 200 :: 200
+  PASS Rolle bleibt customer :: customer
+  PASS status/isActive unveraendert :: active/true
+  PASS E-Mail unveraendert :: true
+  PASS Kundennummer unveraendert :: K-1000
+  PASS internalKey nicht gesetzt :: -
+  PASS Rabatt nicht selbst setzbar :: 0
+  PASS totalSpent nicht selbst setzbar :: 0
+  PASS passwordResetToken nicht selbst setzbar :: -
+  PASS erlaubte Felder gespeichert (Vorname, Telefon) :: Neu/+49 30 000000
+  PASS Rechnungsadresse gespeichert :: Berlin
+  PASS Benachrichtigungs-Einstellung gespeichert :: false
+  PASS Antwort ohne Passwort-Hash :: false
+
+[3] Nachher: Kunde weiterhin ohne Admin-Zugriff
+Admin middleware: Checking admin role for user: profil-kunde@test.invalid
+Admin middleware: Access denied - user is not admin: customer
+  PASS Kunde GET /api/admin/users nach Versuch :: 403
+
+[4] Mitarbeiter kann sich ebenfalls nicht hochstufen
+Update user profile request received for user: profil-staff@test.invalid
+Update profile fields: [ 'firstName' ]
+UserService: Updating user with ID: new ObjectId('6abf939020ac28d9a89fbfe8') Fields: firstName
+UserService: User updated successfully
+User profile updated successfully
+  PASS Mitarbeiter-Rolle bleibt staff, Vorname gespeichert :: 200 staff
+
+[5] Anonym abgewiesen, Admin-Pfad fuer Rollenaenderung unveraendert
+  PASS anonym PUT /api/users/me :: 401
+Admin middleware: Checking admin role for user: profil-admin@test.invalid
+Admin middleware: Admin access granted for user: profil-admin@test.invalid
+Admin: Update user request from: profil-admin@test.invalid for user: 6abf938f20ac28d9a89fbf9e
+UserService: Updating user with ID: 6abf938f20ac28d9a89fbf9e Fields: role
+UserService: User updated successfully
+  PASS Admin kann Rolle ueber /api/admin/users/:id aendern :: 200 staff
+
+Ergebnis: 18 PASS, 0 FAIL

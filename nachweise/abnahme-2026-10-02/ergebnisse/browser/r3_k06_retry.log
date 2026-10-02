@@ -1,0 +1,28 @@
+Testdaten: Warenkorb + Checkout per API (partner@e2e.invalid, PayPal ausstehend, keine Zahlung) -> 200/200 BKG-2026-0019
+Testdaten: Admin weist ORD-2026-076 dem Techniker staff@e2e.invalid zu (API) -> 200
+Testdaten: Eingangsprüfung angelegt (API, Voraussetzung "Arbeitsablauf zuweisen") ORD-2026-076 -> 200
+  PASS Start: "Kunde informieren" AUS :: false
+  PASS Workflow läuft (Bestätigen & Starten als Techniker) :: in-progress
+  PASS Abschluss: "Kunde informieren" ausgeschaltet (Standard war AN) :: true -> false
+   [shot] 01_abschluss_kunde_informieren_aus.png
+  PASS Workflow abgeschlossen :: completed
+   nach Abschluss (AUS): completionNotification=null
+  PASS Abschluss mit "Kunde informieren" AUS: keine E-Mail, keine In-App-Benachrichtigung an den Kunden :: 0/0
+  PASS Abschlusskarte bietet "Kunde über Abschluss informieren" an :: Kunde benachrichtigt: Nein Auslieferung vorbereiten Reparatur wieder aufnehmen Nac
+   [shot] 02_abschlusskarte_nachtraeglich_informieren.png
+   UI-POSTs an /notify-customer: 1; completionNotification=sent; Benachrichtigungen=Reparatur abgeschlossen
+  PASS Nachholen: genau EINE In-App-Benachrichtigung an den Kunden :: 1 Reparatur abgeschlossen
+  PASS Nachholen: genau EINE E-Mail an partner@e2e.invalid (Test-Postfach) :: 1790936003638-0029-partner@e2e.invalid.eml
+  PASS Doppelklick: höchstens eine wirksame Sendung (Button gesperrt bzw. Server dedupliziert) :: POSTs=1
+  PASS Workflow vermerkt die Abschluss-Benachrichtigung als gesendet :: sent
+   Meldungen: Kunde wurde benachrichtigt Benachrichtigung im Kundenkonto und E-Mail gesendet.
+  PASS nach dem Senden wird die Aktion nicht mehr angeboten :: Kunde benachrichtigt: Ja, am 02.10.2026, 12:13
+   [shot] 03_nach_nachtraeglicher_benachrichtigung.png
+  PASS nach Reload: kein erneutes Angebot "Kunde über Abschluss informieren" 
+   [shot] 04_nach_reload_abschlusskarte.png
+   API-Wiederholung (Nachprüfung) -> 200 status=duplicate "Der Kunde wurde hierzu bereits benachrichtigt – keine zweite Nachricht gesendet."
+  PASS erneuter Versuch nach erfolgreichem Senden: keine zweite E-Mail/Benachrichtigung :: duplicate 0/0
+  PASS Gesamt seit Workflow-Start: genau 1 E-Mail + 1 In-App-Benachrichtigung für diesen Auftrag :: 1/1
+   E-Mail: 1790936003638-0029-partner@e2e.invalid.eml; enthält Auftragsnummer=true, Titel "Reparatur abgeschlossen"=true
+  PASS netguard_after.log unverändert :: 0 -> 0 B
+==== r3_k06_retry: 15 bestanden, 0 fehlgeschlagen ====

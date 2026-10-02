@@ -1,0 +1,92 @@
+Client-API aus: /home/adar/Projects/FixitHub/client/src/api
+(node:1099480) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1099480) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1099480) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+OrderService: Creating new order with data: {
+  customerId: '6abf930c59b6532cfff16795',
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  services: [ '6abf930c59b6532cfff1684c' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf930c59b6532cfff16870')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Ausgangslage: Auftrag 100,00 - 10 % = 90,00 :: 90
+
+[1] Auswaehlbare Services fuer den Auftrag (Staff)
+RequireRole middleware: User fe-staff@test.invalid has required role staff
+  PASS nur Services fuer das Geraet des Auftrags (iPhone 15) :: keine fremden
+  PASS alle 12 passenden Services, nicht nur die erste Seite :: 12
+
+[2] Manuelle Position aus dem Dialog (Standardpreis brutto 50,00)
+RequireRole middleware: User fe-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding manual line to order 6abf930c59b6532cfff16870
+[OrderServiceManagement] Manual line added to order 6abf930c59b6532cfff16870. List price: 50. Order value: 135
+[OrderServiceRoutes] Position added by user 6abf930c59b6532cfff167ff to order 6abf930c59b6532cfff16870
+Manual line added to order 6abf930c59b6532cfff16870
+  PASS Speichern erfolgreich (kein Fehler) :: ok
+  PASS DB: manuelle Position ohne Katalog-ID :: Platinenreparatur
+  PASS DB: Beschreibung gespeichert :: Mikrolöten am Ladechip
+  PASS DB: 150,00 - 15,00 = 135,00 (Rabatt bleibt) :: 135 / 15
+  PASS Antwort: pricing.grossTotal 135,00 :: 135
+  PASS Historie enthaelt den Grund :: Auftrag angelegt: Positionen 100,00 €, Rabatt 10,00 €, Auftragswert 90,00 € (brutto) | Manuelle Position „Platinenreparatur“ hinzugefügt (Standardpreis 50,00 €)
+
+[3] Manuelle Position bearbeiten (Name, Beschreibung, Grund)
+RequireRole middleware: User fe-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf930d59b6532cfff168b5 in order 6abf930c59b6532cfff16870
+[OrderServiceManagement] Service 6abf930d59b6532cfff168b5 updated in order 6abf930c59b6532cfff16870. List price: 60. Order value: 144
+[OrderServiceRoutes] Service 6abf930d59b6532cfff168b5 updated by user 6abf930c59b6532cfff167ff in order 6abf930c59b6532cfff16870
+Service 6abf930d59b6532cfff168b5 updated in order 6abf930c59b6532cfff16870
+  PASS DB: neuer Name :: Platinenreparatur (Ladechip)
+  PASS DB: neue Beschreibung :: Ladechip getauscht
+  PASS DB: 160,00 - 16,00 = 144,00 :: 144
+  PASS Historie enthaelt den Grund der Aenderung :: 3
+
+[4] Position entfernen mit Grund
+RequireRole middleware: User fe-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf930c59b6532cfff1681c to order 6abf930c59b6532cfff16870
+[OrderServiceManagement] Service 6abf930c59b6532cfff1681c added to order 6abf930c59b6532cfff16870. List price: 20. Order value: 162
+[OrderServiceRoutes] Position added by user 6abf930c59b6532cfff167ff to order 6abf930c59b6532cfff16870
+Service 6abf930c59b6532cfff1681c added to order 6abf930c59b6532cfff16870
+RequireRole middleware: User fe-staff@test.invalid has required role staff
+[OrderServiceRoutes] DELETE /:orderId/:serviceId - Removing service 6abf930d59b6532cfff168e9 from order 6abf930c59b6532cfff16870
+[OrderServiceManagement] Service 6abf930d59b6532cfff168e9 removed from order 6abf930c59b6532cfff16870. Order value: 144
+[OrderServiceRoutes] Service 6abf930d59b6532cfff168e9 removed by user 6abf930c59b6532cfff167ff from order 6abf930c59b6532cfff16870
+Service 6abf930d59b6532cfff168e9 removed from order 6abf930c59b6532cfff16870
+  PASS DB: Position entfernt :: 2
+  PASS Historie: Grund des Entfernens gespeichert :: Position „Reparatur iPhone 15 Nr. 02“ entfernt (Standardpreis 20,00 €) | Auftragswert 162,00 € → 144,00 € | Grund: Kunde lehnt ab
+
+[5] Warnungen der Aenderungsantwort
+RequireRole middleware: User fe-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf930c59b6532cfff16818 to order 6abf930c59b6532cfff16870
+[OrderServiceManagement] Financial sync failed for order 6abf930c59b6532cfff16870: Simulierter Ausfall
+[OrderServiceManagement] Service 6abf930c59b6532cfff16818 added to order 6abf930c59b6532cfff16870. List price: 10. Order value: 153
+[OrderServiceRoutes] Position added by user 6abf930c59b6532cfff167ff to order 6abf930c59b6532cfff16870
+Service 6abf930c59b6532cfff16818 added to order 6abf930c59b6532cfff16870
+  PASS Warnung zum Finanzabgleich wird ausgelesen (deutsch) :: ["Die Position wurde gespeichert, der Abgleich mit Buchung/Rechnung ist jedoch fehlgeschlagen. Bitte den Finanzabgleich für diesen Auftrag erneut ausführen."]
+  PASS leere Warnungen werden ignoriert :: 0
+
+[6] Zahlungsstand der Rechnung aus dem Server-Saldo
+FinancialService: Creating invoice from order: 6abf930c59b6532cfff16870
+FinancialService: Invoice created from order successfully with resolved tax rate: 19%
+  PASS Rechnungsbrutto === Auftragswert :: 153 === 153
+FinancialService: Adding payment to invoice: 6abf930d59b6532cfff16941
+InvoiceRoutes: Getting invoices for user: new ObjectId('6abf930c59b6532cfff16795')
+InvoiceRoutes: Retrieved 1 invoices for user
+  PASS Teilzahlung: offen 103 laut Server :: 103
+  PASS Label "Teilbezahlt · offen …" :: Teilbezahlt · offen 103,00 €
+FinancialService: Adding payment to invoice: 6abf930d59b6532cfff16941
+InvoiceRoutes: Getting invoices for user: new ObjectId('6abf930c59b6532cfff16795')
+InvoiceRoutes: Retrieved 1 invoices for user
+  PASS Server: Erstattung offen 20,00 :: 20
+  PASS Anzeige: "Überzahlt · Erstattung offen 20,00 €" :: Überzahlt · Erstattung offen 20,00 €
+  PASS Anzeige: offen 0,00 :: 0
+
+[7] Belege ohne Saldo werden ergaenzt, unbekannte bleiben ohne
+InvoiceRoutes: Getting invoices for user: new ObjectId('6abf930c59b6532cfff16795')
+InvoiceRoutes: Retrieved 1 invoices for user
+  PASS Beleg aus Buchungsliste bekommt Server-Saldo :: 20
+  PASS unbekannter Beleg: kein Saldo, keine erfundene 0 :: false
+
+==== 25 bestanden, 0 fehlgeschlagen ====

@@ -1,0 +1,76 @@
+
+[A Index activeBillingKeys: partiell, unique, baut trotz Altbestand]
+  PASS Index vorhanden, unique und partiell - Bau mit Altbestand fehlerfrei :: {"v":2,"key":{"activeBillingKeys":1},"name":"activeBillingKeys_unique","background":true,"unique":true,"partialFilterExpression":{"activeBillingKeys":{"$type":"string"}}}
+
+[B Doppelklick: N parallele Rechnungen fuer DENSELBEN Auftrag -> genau eine]
+  PASS 6x createInvoiceFromOrder parallel: genau eine aktive Rechnung :: aktiv=1 erfolgreich=1
+  PASS Verlierer: deutsche 409 mit der Nummer der bestehenden Rechnung :: ORDER_ALREADY_INVOICED:Für Auftrag ORD-2026-7001 besteht bereits die Rechnung INV-2 | ORDER_ALREADY_INVOICED:Für Auftrag ORD-2026-7001 besteht bereits die Rechnung INV-2 | ORDER_ALREADY_INVOICED:Für Auftrag ORD-2026-7001 besteht bereits die Rechnung INV-2 | ORDER_ALREADY_INVOICED:Für Auftrag ORD-2026-7001 besteht bereits die Rechnung INV-2 | ORDER_ALREADY_INVOICED:Für Auftrag ORD-2026-7001 besteht bereits die Rechnung INV-2
+  PASS 6x generateFromRepairOrders parallel: genau eine aktive Rechnung :: aktiv=1 erfolgreich=1
+  PASS Verlierer (Sammelrechnung): deutsche 409 :: ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED
+  PASS 6x createInvoice (orderId) parallel: genau eine aktive Rechnung :: aktiv=1 erfolgreich=1
+  PASS Verlierer (manuelle Rechnung): deutsche 409 :: ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED,ORDER_ALREADY_INVOICED
+  PASS gemischte Wege parallel fuer denselben Auftrag: genau eine aktive Rechnung :: aktiv=1 erfolgreich=1
+  PASS nacheinander: weiterhin deutsche 409 :: ORDER_ALREADY_INVOICED
+
+[C Doppelklick: N parallele Rechnungen fuer DIESELBE Buchung -> genau eine]
+  PASS 8 parallele Wege fuer eine Buchung: genau eine aktive Rechnung :: aktiv=1 erfolgreich=1
+  PASS Verlierer: deutsche 409 :: INVOICE_ALREADY_EXISTS,INVOICE_ALREADY_EXISTS,INVOICE_ALREADY_EXISTS,INVOICE_ALREADY_EXISTS,INVOICE_ALREADY_EXISTS,INVOICE_ALREADY_EXISTS,INVOICE_ALREADY_EXISTS
+
+[D Admin-Route: Doppelklick auf "Rechnung erstellen"]
+  PASS 5 parallele POST: einmal 201, viermal 409, eine aktive Rechnung :: 201,409,409,409,409 aktiv=1
+  PASS 409-Antworten: deutsch, nennen die bestehende Rechnung :: Für Auftrag ORD-2026-7007 besteht bereits die Rechnung INV-2026-0022. Eine Leistung darf nicht zweimal berechnet werden – bitte die bestehende Rechnung verwenden oder sie zuerst vollständig gutschreiben.
+
+[E Storno -> Neuausstellung (auch parallel) und Nummernkreis]
+  PASS stornierte Rechnung und Storno-Gutschrift tragen keinen aktiven Schluessel :: {"o":null,"c":null}
+  PASS nach Storno: 6 parallele Neuausstellungen -> genau eine neue Rechnung :: aktiv=1
+  PASS neue Rechnung: eigene Nummer, Betrag 80 :: INV-2026-0026 80
+  PASS neue Rechnung beansprucht den Auftrag :: ["order:6abf9323346e5c3c87749e5d"]
+  PASS Nummern eindeutig; verbrauchte Nummern der Verlierer werden nicht wiederverwendet :: 8 Nummern, naechste INV-2026-0032
+  PASS zweites Storno -> Sammelrechnung moeglich :: INV-2026-0033
+
+[F Vollgutschrift, verworfener Gutschrift-Entwurf]
+  PASS vollstaendig gutgeschrieben: Schluessel freigegeben :: credited null
+  PASS wieder geoeffnet: Schluessel wiederhergestellt :: sent ["order:6abf9324346e5c3c8774a017"]
+  PASS wieder geoeffnet: zweite Rechnung abgelehnt :: ORDER_ALREADY_INVOICED
+  PASS neue Rechnung aktiv: Verwerfen des Gutschrift-Entwurfs abgelehnt (deutsch, nennt die neue Rechnung) :: CREDIT_NOTE_DISCARD_BLOCKED Dieser Gutschrift-Entwurf kann nicht verworfen werden: Für denselben Auftrag bzw. dieselbe Buchung besteht inzwischen die Rechnung INV-2026-0035. Bitte den Entwurf ausstellen oder die neue Rechnung zuerst stornieren.
+  PASS genau eine aktive Rechnung, Original bleibt gutgeschrieben, Entwurf bleibt :: aktiv=1 original=credited entwurf=draft
+  PASS Wettlauf: genau eine aktive Rechnung, Original bleibt gutgeschrieben, Revisionsspur vermerkt es :: aktiv=1 credited
+
+[G Kundenendpunkte /pay, /payments/confirm, /view ohne Interna]
+  PASS POST /pay (202, neu vorgemerkt): keine Interna :: 202 sauber 
+  PASS POST /pay: Kundenfelder bleiben (Nummer, Saldo, Positionen) :: INV-2026-0036
+  PASS POST /pay (202, bereits vorgemerkt): keine Interna :: 202 sauber
+  PASS POST /payments/confirm (bereits erfasst, 200): keine Interna :: 200 sauber 
+  PASS POST /payments/confirm (neu erfasst, 201): keine Interna :: 201 sauber 
+  PASS POST /payments/confirm (Duplikat, 200): keine Interna :: 200 sauber 
+  PASS PUT /view fuer Freigabebeleg: 404 wie GET, keine Notizen, Status unveraendert :: 404/404 pending_approval
+  PASS PUT /view: deutsche Meldung und Code :: INVOICE_NOT_FOUND Die Rechnung wurde nicht gefunden.
+  PASS PUT /view fuer ausgestellte Rechnung weiterhin 200 ohne Interna :: 200 sauber
+
+[H Mahnschritt: Lesefehler nach dem Versand, verlorene Sperre]
+  PASS Lesefehler nach Versand: genau EIN Schreiben (kein Doppelversand) :: 1 Mails, r1=sent/payment_reminder r2=skipped
+  PASS versendete Stufe ist vermerkt, Sperre frei :: payment_reminder/1 null
+  PASS keine falsche Notiz "bezahlt oder storniert" :: sent
+  PASS Stand unklar: Stufe nicht gesetzt, Sperre bleibt (blockiert automatischen Neuversand) :: 0 Sperre
+  PASS Versand protokolliert, Hinweis "nicht ermittelt", Bearbeiter soll pruefen :: Stufe nicht übernommen: Der Rechnungsstand konnte nach dem Versand nicht ermittelt werden. Die Sperre bleibt bestehen; bitte prüfen, bevor der Schritt erneut ausgelöst wird. / Zahlungserinnerung wurde versendet, die Mahnstufe aber nicht erhöht: Der Rechnungsstand konnte nach dem Versand nicht ermittelt werden. Die Sperre bleibt bestehen; bitte prüfen, bevor der Schritt erneut ausgelöst wird.
+  PASS automatischer Lauf versendet bei unklarem Stand nicht erneut :: 0
+  PASS Mahnliste: Fall nicht automatisch faellig (Sperre) :: Wird gerade bearbeitet.
+  PASS Sperre verloren: Notiz nennt den echten Grund :: Stufe nicht übernommen: Die Bearbeitungssperre wurde während des Versands von einem anderen Vorgang übernommen.
+  PASS fremde Sperre bleibt unangetastet; Meldung deutsch :: fremd / Zahlungserinnerung wurde versendet, die Mahnstufe aber nicht erhöht: Die Bearbeitungssperre wurde während des Versands von einem anderen Vorgang übernommen.
+  PASS bezahlt waehrend des Versands: Notiz "bezahlt", Sperre frei :: paid Stufe nicht übernommen: Die Rechnung wurde während des Versands bezahlt.
+
+[I Inkasso: Zahlung waehrend der Mitteilung]
+  PASS bezahlt waehrend der Mitteilung: keine Inkasso-Stufe auf bezahltem Beleg, Sperre frei :: paid / none / frei
+  PASS Mitteilung protokolliert (mit Hinweis) :: collection Stufe nicht übernommen: Die Rechnung wurde während des Versands bezahlt.
+  PASS Route: 409 mit deutscher Begruendung :: 409 COLLECTION_NOT_APPLIED Die Inkasso-Mitteilung wurde versendet, die Übergabe an das Inkasso aber nicht vermerkt: Die Rechnung wurde während des Versands bezahlt.
+  PASS Normalfall: Inkasso-Stufe gesetzt :: 200 collection
+
+[J Storno-Fortsetzung uebernimmt keinen laufenden Storno]
+  PASS zweiter Klick waehrend des Stornos: 409 "wird gerade ausgefuehrt" :: CANCELLATION_IN_PROGRESS
+  PASS erster Aufruf schliesst selbst ab, E-Mail genau einmal versendet :: false true 1
+  PASS kein irrefuehrender Eintrag "cancellation_resumed" :: document_archived,cancelled
+  PASS direkt danach (innerhalb der Karenz): 409 statt Uebernahme :: CANCELLATION_IN_PROGRESS
+  PASS nach der Karenz: fortgesetzt, genau ein Revisionseintrag :: cancelled 1
+  PASS gescheiterte Fortsetzung: kein Eintrag "cancellation_resumed" :: INVOICE_ALREADY_CREDITED document_archived
+
+==== 54 bestanden, 0 fehlgeschlagen ====

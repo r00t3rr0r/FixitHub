@@ -1,0 +1,26 @@
+  PASS Workflow-Vorlagen: Knopf "Visual Builder" vorhanden :: 1
+   Visual Builder: 2 Hinweis-Badges: Pflicht (ohne Wirkung)
+  PASS Schrittkarten: gedämpfter deutscher Hinweis "… (ohne Wirkung)" für Pflicht/Freigabe/Formular :: 2
+  PASS Schrittkarten: keine englischen Badges "Required" / "Approval" / "Form Required" mehr 
+  PASS Hinweis-Badge ist gedämpft (nicht rot/destruktiv) :: inline-flex items-center rounded-full border py-0.5 font-semibold transition-col
+   [shot] 01_visual_builder_schrittkarten.png
+  PASS Visual Builder: Schritt-Bearbeiten-Knopf vorhanden :: 1
+  PASS Hinweis: nicht ausgewertet + wo der wirksame Schalter ist :: Diese Vorlagen-Schalter werden vom System nicht ausgewertet und sind deshalb gesperrt (gespeicherte Werte bleiben erhalten). So wird der Kunde tatsächlich informiert: Im Auftrag, Bereich „Reparatur-Workflow“: Schalter „K
+  PASS Schalter #notify-start gesperrt :: true
+  PASS Schalter #notify-complete gesperrt :: true
+  PASS Schalter #notify-delay gesperrt :: true
+  PASS Schalter #is-required gesperrt :: true
+  PASS Schalter #requires-approval gesperrt :: true
+  PASS Schalter #requires-form gesperrt :: true
+  PASS "Überspringen erlaubt" bleibt bedienbar (wirkt in der Ausführung) :: aktiv
+  PASS Klick auf gesperrten Schalter aendert nichts :: unchecked -> unchecked
+   [shot] 02_schritt_basic_gesperrt.png
+  PASS "Regel hinzufügen" gesperrt :: true
+  PASS Automation-Hinweis: "Benachrichtigung senden" verschickt nichts, Verweis auf "Kunde informieren" :: Automatisierungsregeln werden vom System nicht ausgeführt – auch „Benachrichtigung senden“ verschickt nichts. Deshalb können keine neuen Regeln angelegt werden; bereits gespeicherte Regeln bleiben erh
+   [shot] 03_schritt_automation_gesperrt.png
+   Kontrollen im Dialog: button "Save" || button "Regel hinzufügen" || button "Cancel" || button "Save Changes"
+   [shot] 04_vorlage_ansicht_schritte.png
+   Ansicht-Dialog: englische Badges=0, Hinweis "(ohne Wirkung)"=2
+  PASS Vorlagen-Ansicht (Auge): keine englischen/roten "Required"-Badges 
+  PASS Vorlagen-Ansicht: derselbe gedämpfte Hinweis "… (ohne Wirkung)" wie im Visual Builder :: 2
+==== r3_workflow_template_ui: 18 bestanden, 0 fehlgeschlagen ====

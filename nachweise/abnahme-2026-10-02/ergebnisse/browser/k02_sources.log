@@ -1,0 +1,24 @@
+  PASS Reklamation: Kundennachricht im Reklamationsdialog sichtbar 
+   [shot] 01_kunde_reklamation_nachricht.png
+  PASS Admin: Filter "Reklamationen" zeigt das Reklamationsgespraech 
+  PASS Admin: Reklamationsgespraech geoeffnet, Nachricht lesbar :: 2
+   [shot] 02_admin_reklamation_im_postfach.png
+  PASS Admin: Antwort an Kunden im Reklamationsgespraech 
+  PASS Antwort ist an der Reklamation gespeichert (GET /api/complaints/my) 
+  PASS Kunde sieht die Antwort im Reklamationsdialog 
+  PASS Mitglied: Reparaturanfrage (manuelles Geraet) angelegt :: 201 
+   [shot] 03_kunde_reparaturanfrage.png
+  PASS Mitglied: Nachricht zur Reparaturanfrage gesendet 
+  PASS Admin: Filter "Reparaturanfragen" zeigt RR-1790935123437-00002 
+  PASS Admin: Anfrage-Nachricht im geoeffneten Gespraech lesbar 
+  PASS Admin: Antwort zur Reparaturanfrage gesendet 
+   [shot] 04_admin_reparaturanfrage_im_postfach.png
+  PASS Mitglied sieht die Antwort in "Meine Reparaturanfragen" 
+  PASS Gast: Anfrage angelegt, Tracking-Token erhalten :: 201
+   [shot] 05_gast_tracking.png
+  PASS Gast: Nachricht auf der Tracking-Seite gesendet 
+  PASS Admin: Gast-Anfrage RR-1790935140888-00003 im Postfach 
+  PASS Admin: Gast-Nachricht im geoeffneten Gespraech lesbar 
+  PASS Gast sieht die Antwort auf der Tracking-Seite 
+  PASS Gast-Token oeffnet KEINE fremde Anfrage :: 403
+==== k02_sources: 18 bestanden, 0 fehlgeschlagen ====

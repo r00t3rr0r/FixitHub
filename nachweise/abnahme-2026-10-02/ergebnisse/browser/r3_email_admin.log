@@ -1,0 +1,19 @@
+   server/logs/email-delivery-log.json vorhanden=true Größe=662578 B; versionierte Dateien unter server/logs=0; von .gitignore erfasst=true
+  PASS server/logs: Datei auf der Platte, nicht mehr versioniert, durch .gitignore erfasst :: tracked=0
+   API (Nachprüfung): delivery-stats 200 total=768 sent=765 failed=3; advanced-log 200 Einträge=20 SMTP=50; delivery-history(Test-Adresse) 200 Einträge=20
+  PASS Seite lädt ohne Fehlermeldung/Fehler-Toast :: 0 Fehler-Toasts
+   [shot] 01_email_statistik.png
+   Statistik-Tab: Gesamt # Einträge im Protokoll Vom Mailserver angenommen # Fehlgeschlagen 3 Durchschnitt 1.62s
+  PASS Statistik zeigt dieselben Zahlen wie die API (gesamt/gesendet/fehlgeschlagen) :: 768/765/3/1.62
+   [shot] 02_email_verlauf_testadresse.png
+  PASS Empfänger-Verlauf (Test-Adresse) lädt und entspricht der API :: UI=20 API=20
+   [shot] 03_email_protokoll.png
+   Protokoll-Tab: E-Mail-Versandprotokoll Die Zustellung beim Empfänger wird nicht geprüft. „Vom Mailserver angenommen“ bedeutet: Unser Mailserver hat die Nachricht zur Weiterleitung übernommen. Gesamt # Geprüft # Versucht # Fehlgeschlage
+  PASS Protokoll (advanced-log) lädt ohne Fehler :: 200 Einträge=20
+  PASS Statusbegriffe: nirgends "zugestellt" (nur angenommen/gesendet/fehlgeschlagen) :: 0
+   Anfragen der Seite: 200 /api/system-config/email/delivery-stats | 200 /api/system-config/email/advanced-log | 200 /api/system-config | 200 /api/system-config/email/delivery-history/<adresse>
+  PASS Alle /api/system-config-Anfragen der Seite mit 2xx beantwortet :: 7 Anfragen
+   abgebrochene Anfragen: lokal=0 extern (vom Test-Harness blockiert)=1 [t.adcell.com]
+  PASS keine Konsolenfehler der App (nur vom Harness blockierte externe Ressourcen) :: 1 ERR_FAILED durch blockierte externe Hosts
+  PASS netguard_after.log unverändert :: 0 -> 0 B
+==== r3_email_admin: 9 bestanden, 0 fehlgeschlagen ====

@@ -1,0 +1,62 @@
+1. Logger: fehlendes Verzeichnis beim Start
+  PASS verschachteltes Verzeichnis angelegt
+  PASS Tageslog angelegt, 1 Zeile
+2. Logger: Verzeichnis zur Laufzeit geloescht
+  PASS kein "Failed to write log file" :: 0
+  PASS Verzeichnis + Datei neu angelegt, Zeile geschrieben
+3. EmailDeliveryTracker: fehlend/leer/kaputt/kein Array
+  PASS [missing] Verzeichnis vorhanden
+  PASS [missing] Zustellprotokoll leer :: 0
+  PASS [missing] SMTP-Protokoll leer :: 0
+  PASS [missing] Tracker-Logger schreibt in logsDir :: true
+  PASS [missing] email-delivery-log.json gueltig neu geschrieben :: 1
+  PASS [missing] smtp-connection-log.json gueltig neu geschrieben
+  PASS [missing] EmailDelivery-Tageslog im logsDir
+  PASS [missing] getStatistics :: {"totalRecords":1,"sent":1,"failed":0,"queued":0,"averageDuration":5,"failureRate":0}
+  PASS [missing] getDeliveryHistory
+  PASS [missing] getSMTPStatistics
+  PASS [missing] Neustart liest Datei wieder ein :: 1
+  PASS [missing] nach Laufzeit-Loeschung neu angelegt (Speicherstand erhalten) :: 2
+  PASS [empty] Verzeichnis vorhanden
+  PASS [empty] Zustellprotokoll leer :: 0
+  PASS [empty] SMTP-Protokoll leer :: 0
+  PASS [empty] Tracker-Logger schreibt in logsDir :: true
+  PASS [empty] email-delivery-log.json gueltig neu geschrieben :: 1
+  PASS [empty] smtp-connection-log.json gueltig neu geschrieben
+  PASS [empty] EmailDelivery-Tageslog im logsDir
+  PASS [empty] getStatistics :: {"totalRecords":1,"sent":1,"failed":0,"queued":0,"averageDuration":5,"failureRate":0}
+  PASS [empty] getDeliveryHistory
+  PASS [empty] getSMTPStatistics
+  PASS [empty] Neustart liest Datei wieder ein :: 1
+  PASS [empty] nach Laufzeit-Loeschung neu angelegt (Speicherstand erhalten) :: 2
+  PASS [corrupt] Verzeichnis vorhanden
+  PASS [corrupt] Zustellprotokoll leer :: 0
+  PASS [corrupt] SMTP-Protokoll leer :: 0
+  PASS [corrupt] Tracker-Logger schreibt in logsDir :: true
+  PASS [corrupt] email-delivery-log.json gueltig neu geschrieben :: 1
+  PASS [corrupt] smtp-connection-log.json gueltig neu geschrieben
+  PASS [corrupt] EmailDelivery-Tageslog im logsDir
+  PASS [corrupt] getStatistics :: {"totalRecords":1,"sent":1,"failed":0,"queued":0,"averageDuration":5,"failureRate":0}
+  PASS [corrupt] getDeliveryHistory
+  PASS [corrupt] getSMTPStatistics
+  PASS [corrupt] Neustart liest Datei wieder ein :: 1
+  PASS [corrupt] nach Laufzeit-Loeschung neu angelegt (Speicherstand erhalten) :: 2
+  PASS [nonarray] Verzeichnis vorhanden
+  PASS [nonarray] Zustellprotokoll leer :: 0
+  PASS [nonarray] SMTP-Protokoll leer :: 0
+  PASS [nonarray] Tracker-Logger schreibt in logsDir :: true
+  PASS [nonarray] email-delivery-log.json gueltig neu geschrieben :: 1
+  PASS [nonarray] smtp-connection-log.json gueltig neu geschrieben
+  PASS [nonarray] EmailDelivery-Tageslog im logsDir
+  PASS [nonarray] getStatistics :: {"totalRecords":1,"sent":1,"failed":0,"queued":0,"averageDuration":5,"failureRate":0}
+  PASS [nonarray] getDeliveryHistory
+  PASS [nonarray] getSMTPStatistics
+  PASS [nonarray] Neustart liest Datei wieder ein :: 1
+  PASS [nonarray] nach Laufzeit-Loeschung neu angelegt (Speicherstand erhalten) :: 2
+4. EmailRetryHandler schreibt in logsDir
+  PASS Retry-Logger nutzt logsDir
+  PASS EmailRetry-Tageslog im logsDir angelegt
+5. Standardpfad unveraendert (ohne Option)
+  PASS Standard-Logverzeichnis ist weiterhin server/logs
+
+Ergebnis: 55 PASS, 0 FAIL

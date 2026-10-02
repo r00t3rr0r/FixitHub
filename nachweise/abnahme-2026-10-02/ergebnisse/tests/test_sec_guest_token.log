@@ -1,0 +1,109 @@
+
+[Setup] Token-Erzeugung der Modelle/Services
+  PASS Gast-Auftrag und Gast-Buchung: 64 Hex (crypto.randomBytes(32)) :: 64 64
+  PASS Gast-Reparaturanfrage: 201, Token 64 Hex :: 201
+  PASS Kundenkonto-Buchung hat keinen Gast-Token (Standardwert leer) :: ""
+  PASS interne Notiz an der Anfrage gespeichert (Personal-Route) :: 1
+
+[F] Gast-Antworten: nur Kundensicht, nichts Fremdes
+  PASS eigener Auftrags-Link -> 200 :: 200
+  PASS Auftrag ohne interne Felder/Token/Sperren :: keine
+  PASS Antwort enthaelt weder interne Notiz noch Fremddaten noch den Token :: 3832
+  PASS eigener Buchungs-Link -> 200 (E-Mail ohne Gross-/Kleinschreibung) :: 200
+  PASS Buchung ohne Token/Idempotenzschluessel/Sperren :: keine
+  PASS nur Auftraege dieser Buchung, ohne interne Felder :: ORD-GT-A1
+  PASS Buchungsantwort ohne interne Notiz, Idempotenzschluessel und Token :: 4910
+  PASS Buchungsnummer + E-Mail -> 200, liefert den Link-Token NICHT mit :: 200
+  PASS Gast-Reparaturanfrage: nur Felder der Positivliste :: 27 Felder
+  PASS ohne interne Notiz, Token und Fremddaten :: 860
+
+[A] Token eines anderen Datensatzes
+  PASS Buchungs-Token A + Auftrag B -> 404 ohne Daten :: 404
+  PASS eigener Thread -> 200 :: 200
+  PASS Nachricht in fremden Buchungs-Thread -> 404 :: 404
+  PASS Anfrage-Token A auf Anfrage B lesen/schreiben -> 403 :: 403 403
+  PASS Auftrags-Token ist kein Buchungs-Token -> 404 :: 404
+
+[B] fehlender / kurzer / fehlgeformter / falscher Token
+  PASS fehlend 400, kurz 404, falsch 404, falsche E-Mail 403 :: 400 404 404 403
+  PASS Operator-Injection ($ne, $regex) und Token-Array -> 404 ohne Daten (frueher als Abfrageoperator ausgefuehrt) :: 404 404 404
+  PASS token=' ' + E-Mail eines Kundenkontos -> 404 (frueher Treffer auf Buchung ohne Token, Thread lesbar) :: 404
+  PASS Gast-Anfrage: Objekt-Token 400/404, Leerzeichen-Token 404 :: 400 404
+  PASS Buchungsnummer als Objekt -> 400 :: 400
+
+[C] Altbestand und Bericht
+  PASS Link aus 2024 (unveraendertes Format) -> 200, keine Ablaufzeit :: 200
+  PASS Leerzeichen um den Token (kopierter Link) -> weiterhin 200 :: 200
+  PASS Bericht (nur lesend): 0 Links wuerden ungueltig, keine doppelten Tokens :: {"orders":"4/0","bookings":"3/0","repairrequests":"2/0"}
+  PASS Bericht gibt keine Tokens aus :: 668
+
+[D] Sperre im Einzelfall (Skript --rotate)
+  PASS Vorschau aendert nichts :: true
+  PASS --confirm: alter Link 404, neuer Link 200 (keine Mail) :: 404 200
+  PASS keine E-Mail an den Gast :: 2
+
+[E1] Fehlversuche -> 429, gefaelschter X-Forwarded-For hilft nicht
+  PASS 30 falsche Tokens -> 404 :: 404
+  PASS 31. Versuch (auch mit RICHTIGEM Token, neuem X-Forwarded-For) -> 429 deutsch, ohne Daten :: 429
+  PASS Sperre gilt fuer alle Gast-Zugaenge dieses Clients (auch Reparaturanfrage) :: 429
+  PASS anderer Client (andere echte Adresse) -> 200 :: 200
+  PASS direkter Client mit wechselndem X-Forwarded-For -> nach 30 Fehlversuchen 429 :: 404 -> 429
+
+[E2] Normale Nutzung: Aktualisierung zaehlt nicht als Fehlversuch
+  PASS 40 Aktualisierungen (Gastseite alle 10 s, ~7 min) -> alle 200 :: 200
+
+[E3] Schreib-Limit (Nachrichten-Spam)
+  PASS 30 Nachrichten 201, 31. -> 429, anderer Client 201 :: 201 429 201
+  PASS gesperrte Nachricht wurde nicht gespeichert :: 31
+
+[E4] Anlege-Limits (E-Mail-Bombing, Speicher)
+  PASS gleiche Ziel-E-Mail von 6 verschiedenen Adressen: 5x 201, 6. -> 429 :: 201,201,201,201,201,429
+  PASS hoechstens 5 Mails an die Zieladresse je Stunde :: 5
+  PASS eine Adresse: 20 Anfragen 201, 21. -> 429 :: 201 429
+  PASS anderer Client darf weiter anlegen :: 201
+
+[E5] Buchungsnummer + E-Mail: verteiltes Durchprobieren
+  PASS 10 falsche Nummern fuer eine Adresse (10 IPs) -> danach 429, auch von neuer IP :: 404 429
+  PASS Token-Link derselben Adresse bleibt nutzbar (keine Aussperrung des Kunden) :: 200
+
+[E7] Paralleler Schwall: laufende Anfragen zaehlen mit (R1b)
+  PASS 100 parallele Buchungsnummern fuer eine E-Mail: hoechstens 10 bearbeitet, Rest 429 ohne Daten :: {"404":10,"429":90}
+  PASS danach auch die richtige Nummer von neuer IP -> 429 :: 429
+  PASS 100 parallele falsche Tokens einer IP: hoechstens 30 bearbeitet :: {"404":30,"429":70}
+  PASS anderer Client mit eigenem Link unberuehrt :: 200
+
+[E8] /by-number: Parameter token=x schaltet das E-Mail-Limit nicht ab (R2)
+  PASS 10 falsche Nummern mit &token=... (10 IPs) -> richtige Nummer danach 429 ohne Daten (frueher 200) :: 404,404,404,404,404,404,404,404,404,404 -> 429
+
+[E9] Zahlender Gast nach PayPal-Erfassung nie gesperrt (R3)
+  PASS 5x 400 Dritter zaehlen nicht: Gast-Reparaturanfrage des Opfers danach 201 (frueher 429) :: 400,400,400,400,400 -> 201
+  PASS Anti-E-Mail-Bombing: nach 5 erfolgreichen Anlagen -> 429 :: 201,201,201,201,429
+  PASS erfundene paypalCaptureId -> weiterhin 429 :: 429
+  PASS erfasste PayPal-Zahlung: Abschluss 200, Zahlung der Buchung zugeordnet (frueher 429, Zahlung ohne Buchung) :: 200  6abf938e9e75e162b5f74cbf
+  PASS Wiederholung (gleicher checkoutAttemptId) -> 200 dieselbe Buchung :: 200 6abf938e9e75e162b5f74cbf
+  PASS bereits zugeordnete Zahlung mit neuem Versuch -> keine Ausnahme mehr (429) :: 429
+  PASS Zahlung einer ANDEREN E-Mail -> keine Ausnahme :: 429
+  PASS IP-Limit erschoepft (20x 400, dann 429) - zahlender Gast derselben IP -> 200 :: 429 200 
+
+[E10] Ungueltige Anfragen sperren nicht alle Gaeste (R4)
+  PASS 220 ungueltige Abschluesse von 11 IPs -> alle 400, kein 429 (frueher 25x 429) :: {"400":220}
+  PASS danach: unbeteiligte Gast-Anfrage 201, Gast-Checkout 200, zahlender Gast 200 :: 201 200 200
+
+[E11] POST-Routen: ?email=<zufall> in der URL verteilt die Fehlversuche nicht
+  PASS 10 Fehlversuche fuer dieselbe Body-Adresse mit wechselnder Query-Adresse (10 IPs) -> 11. Versuch 429 :: 404 -> 429
+
+[E12] Abgebrochene Anfrage: gezaehlt wird der Status, den der Handler sendet
+  PASS abgebrochene 400er zaehlen nicht als erfolgreiche Anlage (Opfer nicht ausgesperrt) :: durchgelassen
+  PASS zwei echte Anlagen -> dritte Anfrage 429 :: 429
+
+[E6] Mail erneut senden + Login-Limit
+  PASS resend-verification-email: 6. Anfrage -> 429 :: 404,404,404,404,404,429
+  PASS Login direkt mit wechselndem X-Forwarded-For: 8x 400, 9. -> 429 (frueher umgehbar) :: 400,400,400,400,400,400,400,400,429
+  PASS Login-Limit hinter nginx je echter Client-Adresse (anderer Client nicht gesperrt) :: 400
+
+[G] trust proxy / Client-IP
+  PASS Standard 'loopback', TRUST_PROXY ueberschreibbar :: loopback false
+  PASS Internet-Client direkt am Node-Port: X-Forwarded-For ignoriert :: 203.0.113.99
+  PASS ueber lokalen nginx: von nginx angehaengte Adresse, nicht der gefaelschte erste Eintrag :: 198.51.100.7
+
+Ergebnis: 69 bestanden, 0 fehlgeschlagen

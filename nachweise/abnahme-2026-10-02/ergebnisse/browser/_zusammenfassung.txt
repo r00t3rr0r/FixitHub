@@ -1,0 +1,33 @@
+k01_messages                     exit=0     37s ==== k01_messages: 15 bestanden, 0 fehlgeschlagen ====
+k02_sources                      exit=0     63s ==== k02_sources: 18 bestanden, 0 fehlgeschlagen ====
+k03_source_error                 exit=0     22s ==== k03_source_error: 26 bestanden, 0 fehlgeschlagen ====
+k06_workflow_notify              exit=0     83s ==== k06_workflow_notify: 37 bestanden, 0 fehlgeschlagen ====
+k07_guest_quote                  exit=0     38s ==== k07_guest_quote: 15 bestanden, 0 fehlgeschlagen ====
+k07b_catalog_convert             exit=0     53s ==== k07b_catalog_convert: 14 bestanden, 0 fehlgeschlagen ====
+k08_k09                          exit=0     27s ==== k08_k09: 11 bestanden, 0 fehlgeschlagen ====
+k08_device_service_change        exit=0     46s ==== k08_device_service_change: 36 bestanden, 0 fehlgeschlagen ====
+k09_technician_workflow          exit=0     79s ==== k09_technician_workflow: 34 bestanden, 0 fehlgeschlagen ====
+k10_k11                          exit=0     23s ==== k10_k11: 11 bestanden, 0 fehlgeschlagen ====
+k11_admin_label_download         exit=0     34s ==== k11_admin_label_download: 47 bestanden, 0 fehlgeschlagen ====
+k12_k17                          exit=0     49s ==== k12_k17: 22 bestanden, 0 fehlgeschlagen ====
+k14                              exit=0     23s ==== k14: 7 bestanden, 0 fehlgeschlagen ====
+k15_payment_dialogs              exit=0     74s ==== k15_payment_dialogs: 54 bestanden, 0 fehlgeschlagen ====
+k16_settings                     exit=0     50s ==== k16_settings: 5 bestanden, 0 fehlgeschlagen ====
+k17_epart_order_tracking         exit=0     45s ==== k17_epart_order_tracking: 54 bestanden, 0 fehlgeschlagen ====
+extra                            exit=0     41s ==== extra: 14 bestanden, 0 fehlgeschlagen ====
+lost1_quick_action               exit=1     68s ==== lost1_quick_action: 0 bestanden, 5 fehlgeschlagen ====
+check_orch_cancelled             exit=0     18s ==== check_orch_cancelled: 9 bestanden, 0 fehlgeschlagen ====
+r3_status_from_detail            exit=0     31s ==== r3_status_from_detail: 22 bestanden, 0 fehlgeschlagen ====
+check_r3_workflow_template_ui    exit=0     20s ==== r3_workflow_template_ui: 18 bestanden, 0 fehlgeschlagen ====
+check_r3_k06_retry               exit=0     35s ==== r3_k06_retry: 15 bestanden, 0 fehlgeschlagen ====
+check_r3_fin13_display           exit=0     57s ==== r3_fin13_display: 25 bestanden, 0 fehlgeschlagen ====
+check_r3_profile_neworder        exit=0     56s ==== r3_profile_neworder: 37 bestanden, 0 fehlgeschlagen ====
+check_r3_email_admin             exit=0     17s ==== r3_email_admin: 9 bestanden, 0 fehlgeschlagen ====
+server netguard: 0 -> 0 blockierte Verbindungen
+DONE
+--- Wiederholung lost1 nach Anpassung der Vorbereitung (keine Aenderung an der App) ---
+lost1_quick_action: erster Endlauf 0/5 - Vorbereitung nutzte fest eingetragene Auftrags-/Anfrage-IDs aus der alten, neu aufgebauten Test-DB (404). Jetzt Auswahl zur Laufzeit.
+lost1_quick_action               exit=0     68s ==== lost1_quick_action: 27 bestanden, 0 fehlgeschlagen ====
+--- Fruehere Anpassungen (Endlauf vor Runde 3, Erstprotokolle nicht mehr vorhanden) ---
+k09_technician_workflow: damals 27/1 - der Ablauf klickte "Fortsetzen" am stornierten Auftrag, das der Dialog seit der Abschlussrunde vorab sperrt; jetzt geprueft: Sperre + Hinweis, Serverablehnung 409 per API.
+k12_k17: damals 21/1 - Vergleich zaehlte bis zu 50 Buchungen per API, die Liste zeigt 20 je Seite; jetzt gleiche Seite.

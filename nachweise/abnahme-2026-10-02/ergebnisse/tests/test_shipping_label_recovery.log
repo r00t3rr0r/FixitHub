@@ -1,0 +1,800 @@
+(node:1103841) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1103841) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1103841) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[R1] Altbestand + Zeitueberschreitung + Abgleich "created": nie das Einsende-PDF als Auslieferung
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0001
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+OrderService: Getting order by ID: 6abf939f7b2497dd326b9161
+  PASS Vor jeder Auslieferung: Download liefert das Einsende-PDF NICHT als Versandlabel :: 404 {"success":false,"error":"Für diesen Auftrag ist kein Auslie
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf939f7b2497dd326b9161
+DHLService: Creating shipment for order: 6abf939f7b2497dd326b9161
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-001",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating outbound shipment: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen. 
+Error creating shipping label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+  PASS Zeitueberschreitung -> 409 DHL_RESULT_UNKNOWN :: 409 DHL_RESULT_UNKNOWN
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Abgleich uebernimmt Sendungsnummer, kein PDF vorhanden (hasLabel=false) :: 200 {"tn":"00340434161094777777","hasLabel":false}
+OrderService: Getting order by ID: 6abf939f7b2497dd326b9161
+  PASS Nach dem Abgleich: Download liefert NICHT das alte Einsende-PDF :: 404 {"success":false,"error":"Für die Auslieferung (Sendungsnummer 00340434161094777
+  PASS Auslieferungsfeld traegt keine Reste der Einsendung (PDF, Zustellung, Ereignisse) :: {"pdf":"","events":[],"delivered":null}
+  PASS Original-Einsendelabel an der Buchung unveraendert :: LEGACYIN00000001
+
+[R1b] Abgleich mit der Einsende-Sendungsnummer wird abgelehnt
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0002
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf939f7b2497dd326b921e
+DHLService: Creating shipment for order: 6abf939f7b2497dd326b921e
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-002",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating outbound shipment: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen. 
+Error creating shipping label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+RequireRole middleware: User admin@test.invalid has required role admin
+Error reconciling shipping label: Die Sendungsnummer LEGACYIN00000002 gehört zur Einsendung (Kunde → McRepair) und kann nicht als Auslieferung übernommen werden.
+  PASS Einsende-Sendungsnummer als Auslieferung -> 422 :: 422 "Die Sendungsnummer LEGACYIN00000002 gehört zur Einsendung (Kunde → McRepair) und kann nicht als Auslieferung übernommen werden."
+
+[R1c] Altbestand + eindeutiger DHL-Fehler: Sperre frei, Buchung unveraendert, genau ein neues Label
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0003
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a07b2497dd326b924c
+DHLService: Creating shipment for order: 6abf93a07b2497dd326b924c
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-003",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating outbound shipment: Request failed with status code 400 { title: 'Bad Request', status: 400, detail: 'Invalid shipment' }
+Error creating shipping label: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+  PASS Nach DHL-400: Aktion wieder frei, keine Auslieferung gemeldet :: 422 OK
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a07b2497dd326b924c
+DHLService: Creating shipment for order: 6abf93a07b2497dd326b924c
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-003",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161095000001",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTkVVRS1BVVNMSUVGRVJVTkcgMDAzNDA0MzQxNjEwOTUwMDAwMDE=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161095000001
+DHLService: Outbound shipment stored on order: 00340434161095000001
+Outbound shipping label created successfully
+  PASS Wiederholung erzeugt genau ein Label, Buchung behaelt ihr Einsendelabel :: 200 calls+1
+OrderService: Getting order by ID: 6abf93a07b2497dd326b924c
+  PASS Download liefert jetzt die neue Auslieferung :: 200 %PDF-1.4 NEUE-AUSLIEFERUNG 00340434161095000001
+
+[R2] DHL-Retoure am Auftrag: zwei gleichzeitige Klicks -> genau ein DHL-Aufruf
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b92a1
+RequireRole middleware: User admin@test.invalid has required role admin
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b92a1
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b92a1
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b92a1
+DHLReturnsService: Order found: ORD-P1B-004
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf939f7b2497dd326b913b'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:03.451Z
+}
+DHLReturnsService: Order found: ORD-P1B-004
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf939f7b2497dd326b913b'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:03.451Z
+}
+DHLReturnsService: Error creating return label for order: Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden.
+Error creating order inbound label: Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden.
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Lieferweg",
+    "addressHouse": "7",
+    "postalCode": "20095",
+    "city": "Hamburg",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Return label created successfully for order
+DHLReturnsService: Order updated with return information
+  PASS genau ein DHL-Retoure-Aufruf :: calls+1 (200/409)
+  PASS eine Anfrage erfolgreich, die andere 409 oder vorhandenes Label :: 200 "RETMOCK000001" / 409 "Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden."
+  PASS Einsendelabel am Auftrag gespeichert :: label-created RETMOCK000001
+
+[R2b] DHL-Retoure: eindeutiger Fehler loest die Reservierung
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b92c2
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b92c2
+DHLReturnsService: Order found: ORD-P1B-005
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf939f7b2497dd326b913b'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:03.451Z
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Lieferweg",
+    "addressHouse": "7",
+    "postalCode": "20095",
+    "city": "Hamburg",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Error creating return label for order: { detail: 'Invalid shipper' }
+DHLReturnsService: DHL rejected the return order: Invalid shipper
+Error creating order inbound label: DHL hat die Rücksendung abgelehnt. Bitte die Absenderadresse (Straße, Hausnummer, PLZ, Ort) prüfen.
+  PASS Reservierung nach DHL-400 geloest :: 422 status=""
+
+[R3] Einsendung (Retoure) nach Zeitueberschreitung: Abgleich statt Sackgasse
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b92d8
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b92d8
+DHLReturnsService: Order found: ORD-P1B-006
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf939f7b2497dd326b913b'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:03.451Z
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Lieferweg",
+    "addressHouse": "7",
+    "postalCode": "20095",
+    "city": "Hamburg",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Error creating return label for order: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+Error creating order inbound label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+  PASS Zeitueberschreitung -> 409 DHL_RESULT_UNKNOWN :: 409 DHL_RESULT_UNKNOWN "DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen."
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Versandstand meldet Abgleich der Einsendung, Aktion gesperrt :: {"recon":true,"action":{"allowed":false,"code":"LABEL_RECONCILIATION_REQUIRED","reason":"Die letzte Erstellung des Einsendelabels bei DHL hat keine eindeutige Antwort geliefert. Bitte zuerst im DHL-Geschäftskundenportal prüfen, ob die Sendung angelegt wurde, und den Abgleich abschließen.","target":""}}
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b92d8
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b92d8
+DHLReturnsService: Error creating return label for order: Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden.
+Error creating order inbound label: Für diesen Auftrag wird bereits ein Einsendelabel erstellt oder abgeglichen. Bitte den Auftrag neu laden.
+  PASS Zweiter Klick ruft DHL NICHT erneut auf :: 409 calls+0
+RequireRole middleware: User staff@test.invalid has role staff, but requires one of: admin
+  PASS Abgleich der Einsendung ist Admin-Recht :: 403
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Admin uebernimmt die Sendungsnummer; neue Einsendung gesperrt :: 200 "RETPORTAL0001" INBOUND_LABEL_EXISTS
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b92d8
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b92d8
+DHLReturnsService: Error creating return label for order: Das Einsendelabel wurde bei DHL bereits angelegt (Sendungsnummer RETPORTAL0001), das PDF liegt aber nicht vor. Bitte das Label im DHL-Geschäftskundenportal abrufen, statt ein neues zu erstellen.
+Error creating order inbound label: Das Einsendelabel wurde bei DHL bereits angelegt (Sendungsnummer RETPORTAL0001), das PDF liegt aber nicht vor. Bitte das Label im DHL-Geschäftskundenportal abrufen, statt ein neues zu erstellen.
+  PASS Nach Abgleich "created": kein zweites bezahltes Label :: 409 calls+0 "Das Einsendelabel wurde bei DHL bereits angelegt (Sendungsnummer RETPORTAL0001), das PDF liegt aber nicht vor. Bitte das Label im DHL-Geschäftskundenportal abrufen, statt ein neues zu erstellen."
+
+[R3b] Einsendung: Abgleich "not-created" gibt die Aktion frei
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b931b
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b931b
+DHLReturnsService: Order found: ORD-P1B-007
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf939f7b2497dd326b913b'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:03.451Z
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Lieferweg",
+    "addressHouse": "7",
+    "postalCode": "20095",
+    "city": "Hamburg",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Error creating return label for order: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+Error creating order inbound label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Abgleich "nicht angelegt" -> Aktion frei :: 200 {"allowed":true,"code":"OK","reason":"Erstellt ein DHL-Retourenlabel für die Einsendung: Absender ist der Kunde, Empfänger McRepair.","target":"order","bookingId":null}
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a07b2497dd326b931b
+DHLReturnsService: Creating return label for order: 6abf93a07b2497dd326b931b
+DHLReturnsService: Order found: ORD-P1B-007
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf939f7b2497dd326b913b'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:03.451Z
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Lieferweg",
+    "addressHouse": "7",
+    "postalCode": "20095",
+    "city": "Hamburg",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Return label created successfully for order
+DHLReturnsService: Order updated with return information
+  PASS Danach genau ein neues Einsendelabel :: 200 calls+1
+
+[R3c] Einsendung ueber Parcel DE (Reklamationspfad) nach Zeitueberschreitung: gleicher Abgleich
+DHLService: Creating shipment for order: new ObjectId('6abf93a07b2497dd326b934f')
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-008",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating inbound shipment: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen. 
+  PASS Reklamations-Einsendung: Abgleich gemeldet, Aktion gesperrt :: {"code":"DHL_RESULT_UNKNOWN","recon":true,"action":"LABEL_RECONCILIATION_REQUIRED"}
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Abgleich loest die Einsende-Reservierung :: 200 OK
+
+[R4] Verwaiste Sperre ohne Marker (Altbestand) -> Abgleich erforderlich
+  PASS Sperre ohne Startzeit/Marker -> reconciliationRequired + lockStale :: {"out":{"inProgress":false,"recon":true,"stale":true},"action":"LABEL_RECONCILIATION_REQUIRED"}
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Admin kann die verwaiste Sperre abgleichen :: 200 "OK"
+
+[R4b] Frische Sperre (Anfrage laeuft) -> KEIN Abgleich moeglich
+  PASS Frische Sperre -> inProgress, kein Abgleich angezeigt :: {"inProgress":true,"recon":false}
+RequireRole middleware: User admin@test.invalid has required role admin
+Error reconciling shipping label: Die Label-Erstellung läuft gerade noch. Ein Abgleich ist erst möglich, wenn DHL geantwortet hat oder die Anfrage nach 5 Minuten als abgebrochen gilt. Bitte die Seite später neu laden.
+  PASS Abgleich einer laufenden Anfrage -> 409, Sperre bleibt :: 409 LABEL_CREATION_IN_PROGRESS lock=true
+
+[R4c] Sperre aelter als die Frist -> Abgleich erforderlich
+  PASS Sperre seit 60 Minuten -> Abgleich erforderlich :: {"recon":true,"stale":true}
+
+[R4d] Verwaiste Einsende-Reservierung (Altbestand) -> Abgleich erforderlich
+  PASS return* "pending" ohne Startzeit -> Abgleich der Einsendung :: {"recon":true,"action":"LABEL_RECONCILIATION_REQUIRED"}
+
+[R5] LABEL_PERSIST_FAILED -> Abgleich-Marker mit Sendungsnummer
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a17b2497dd326b93a1
+DHLService: Creating shipment for order: 6abf93a17b2497dd326b93a1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-013",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161095000002",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTkVVRS1BVVNMSUVGRVJVTkcgMDAzNDA0MzQxNjEwOTUwMDAwMDI=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161095000002
+DHLService: Outbound label created at DHL but could not be stored: simulierter Datenbankfehler
+DHLService: Error creating outbound shipment: Das Versandlabel wurde bei DHL erstellt (Sendungsnummer 00340434161095000002), konnte aber nicht am Auftrag gespeichert werden. Bitte die Sendungsnummer notieren und den Vorgang NICHT wiederholen. 
+Error creating shipping label: Das Versandlabel wurde bei DHL erstellt (Sendungsnummer 00340434161095000002), konnte aber nicht am Auftrag gespeichert werden. Bitte die Sendungsnummer notieren und den Vorgang NICHT wiederholen.
+  PASS Speicherfehler nach DHL-Erfolg -> sofort Abgleich erforderlich, Sendungsnummer im Verlauf :: 500 LABEL_PERSIST_FAILED recon=true
+
+[R6] Eignung wird in der atomaren Reservierung erneut geprueft
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a17b2497dd326b93b8
+DHLService: Creating shipment for order: 6abf93a17b2497dd326b93b8
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Error creating outbound shipment: Die Auslieferung an den Kunden ist erst möglich, wenn die Reparatur abgeschlossen ist (ab Qualitätsprüfung). Aktueller Status: In Bearbeitung. 
+Error creating shipping label: Die Auslieferung an den Kunden ist erst möglich, wenn die Reparatur abgeschlossen ist (ab Qualitätsprüfung). Aktueller Status: In Bearbeitung.
+  PASS Status zwischen Pruefung und Reservierung geaendert -> kein DHL-Aufruf, keine Sperre :: 422 OUTBOUND_STATUS_NOT_READY calls+0
+
+[R7] GET /:id/shipments: einheitliche Antwort fuer fremde und fehlende Auftraege
+  PASS fremd / fehlend / ungueltig -> identische Antwort :: 403 {"success":false,"error":"Zugriff verweigert."} | 403 {"success":false,"error":"Zugriff verweigert."} | 403
+  PASS Eigentuemerin sieht den Versandstand ohne Aktionen :: 200
+
+[R8] Versandkosten: gespeicherter Wert bleibt, negative Werte abgelehnt
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a17b2497dd326b93db
+  PASS negative Versandkosten -> 422, kein DHL-Aufruf :: 422 "Die Versandkosten müssen eine Zahl größer oder gleich 0 sein."
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a17b2497dd326b93db
+DHLService: Creating shipment for order: 6abf93a17b2497dd326b93db
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-P1B-016",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161095000003",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTkVVRS1BVVNMSUVGRVJVTkcgMDAzNDA0MzQxNjEwOTUwMDAwMDM=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161095000003
+DHLService: Outbound shipment stored on order: 00340434161095000003
+Outbound shipping label created successfully
+  PASS ohne Angabe bleibt shippingCost 7,49 :: 200 7.49
+
+[R9] Gast-Sendungsverfolgung: Einsendelabel-Kopie ist keine Auslieferung
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0004
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+OrderTrackingRoutes: Order found: ORD-P1B-017
+  PASS Gastauftrag: Versand-Sendungsnummer leer, Einsendung separat :: {"status":200,"tn":"","pdf":"","inbound":"LEGACYIN00000009"}
+OrderTrackingRoutes: Booking found: BKG-2026-0004
+  PASS Gastbuchung: Auftrag zeigt keine Einsendung als zugestellte Auslieferung :: {"status":200,"found":true,"shipments":{"in":"LEGACYIN00000009","out":""}}
+
+[R10] DHL-Produkte: alte Codes serverseitig normalisiert, unbekannte abgelehnt
+  PASS Kurzcodes, Kleinschreibung und leere Angabe normalisiert :: [["P","V01PAK","V01PAK"],["p","V01PAK","V01PAK"],[" v53wpak ","V53WPAK","V53WPAK"],["Y","V54EPAK","V54EPAK"],["","V01PAK","V01PAK"]]
+  PASS Nicht angebotene Codes mit 400 DHL_PRODUCT_NOT_OFFERED und deutscher Meldung abgelehnt :: [["V62WP","DHL_PRODUCT_NOT_OFFERED",400,true],["UNSINN","DHL_PRODUCT_NOT_OFFERED",400,true]]
+  PASS Konfiguriertes Produkt bleibt zulaessig :: V62WP
+
+[R11] Tracking-Aktualisierung/Webhook: Einsendelabel-Kopie wird nicht als Auslieferung verfolgt
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0005
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+DHLService: Updating order tracking for: new ObjectId('6abf93a17b2497dd326b9416')
+DHLService: Error updating order tracking: ShippingLabelError: Die hinterlegte Sendungsnummer LEGACYIN00000011 gehört zur Einsendung (Kunde → McRepair, Altbestand) und wird nicht als Auslieferung verfolgt.
+    at DHLService.updateOrderTracking (/home/adar/Projects/FixitHub/server/services/dhlService.js:3255:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async main (/home/adar/Projects/FixitHub/test-shipping-label-recovery.js:538:22) {
+  code: 'LEGACY_INBOUND_TRACKING',
+  status: 409,
+  retryable: false,
+  details: []
+}
+  PASS updateOrderTracking verweigert die Einsende-Sendungsnummer (kein DHL-Abruf) :: LEGACY_INBOUND_TRACKING Die hinterlegte Sendungsnummer LEGACYIN00000011 gehört zur Einsendung (Kunde → M
+DHLService: Processing webhook: {"trackingNumber":"LEGACYIN00000011"}
+DHLService: Found order: ORD-P1B-018
+DHLService: Updating order tracking for: new ObjectId('6abf93a17b2497dd326b9416')
+DHLService: Error updating order tracking: ShippingLabelError: Die hinterlegte Sendungsnummer LEGACYIN00000011 gehört zur Einsendung (Kunde → McRepair, Altbestand) und wird nicht als Auslieferung verfolgt.
+    at DHLService.updateOrderTracking (/home/adar/Projects/FixitHub/server/services/dhlService.js:3255:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DHLService.handleWebhook (/home/adar/Projects/FixitHub/server/services/dhlService.js:3509:9)
+    at async main (/home/adar/Projects/FixitHub/test-shipping-label-recovery.js:542:25) {
+  code: 'LEGACY_INBOUND_TRACKING',
+  status: 409,
+  retryable: false,
+  details: []
+}
+DHLService: Webhook for legacy inbound copy ignored: LEGACYIN00000011
+  PASS Webhook fuer die Einsende-Kopie wird ignoriert statt zu scheitern :: "Tracking number belongs to an inbound shipment (legacy copy)"
+
+[R12] Sperr-Startzeit (nicht im Schema deklariert) stoert ein spaeteres save() nicht
+  PASS save() funktioniert, Startzeit bleibt erhalten :: {"err":null,"startedAt":"2026-10-02T11:21:05.537Z"}
+
+Ergebnis: 44 bestanden, 0 fehlgeschlagen

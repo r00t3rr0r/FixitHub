@@ -1,0 +1,65 @@
+
+[Rollen]
+  PASS ohne Anmeldung -> 401 :: 401
+  PASS Kunde -> 403 :: 403
+  PASS Mitarbeiter -> 403 (nur Admin) :: 403
+  PASS Mitarbeiter darf Einstellungen nicht speichern -> 403 :: 403
+
+[FIN-1 Auftragswert netto (statt Brutto)]
+  PASS GET /profitability -> 200 :: 200
+  PASS 5 %: brutto 47,40 / netto 39,83 :: 47.4/39.83
+  PASS 5 %: netAmount/netRevenue = 39,83 (frueher 47,40) :: 39.83/39.83
+  PASS 15 %: brutto 42,42 / netto 35,65 :: 42.42/35.65
+  PASS manuelle Buchung (tax 0 gespeichert): 119 -> netto 100,00 :: 100
+  PASS Reverse Charge: netto = brutto 47,40 :: true 47.4
+  PASS Auftragszeile netto 39,83 :: 39.83
+  PASS MwSt.-Satz aus den Finanzeinstellungen :: 0.19 financialSettings.defaults.taxRate
+
+[FIN-7 drei Kennzahlen, Storno, Gutschrift, Split-Zahlung]
+  PASS A fakturiert netto 39,83 / brutto 47,40 mit Rechnungsnummer :: 39.83/47.4 INV-2026-0001
+  PASS A Zahlungseingang 47,40 :: 47.4
+  PASS Storno erzeugt Gutschrift :: INV-CN-2026-0001
+  PASS B Rechnung + Storno -> fakturiert 0 :: 0/0
+  PASS Gutschrift ist nie "Rechnung Nr." :: -
+  PASS ohne aktive Rechnung kein Rechnungsdatum (kein Buchungsdatum als Ersatz) :: false null
+  PASS C Teilerstattung abgezogen: 10 - 4 = 6 :: 6
+  PASS F 100 € auf zwei Rechnungen verteilt -> einmal 100 :: 100
+  PASS F zwei Teilrechnungen: brutto 100 / netto 84,04 :: 100/84.04
+  PASS F Zahlung real auf 2 Rechnungen zugeordnet :: 50+50
+  PASS E stornierte Buchung bleibt sichtbar, markiert :: true
+  PASS summary.excludedBookings = 1 :: 1
+  PASS Zeitraum Auftragswert brutto 356,22 / netto 306,92 = 39,83 + 35,65 + 100 + 47,40 + 2 x 42,02 (je Auftrag gerundet, ohne E) :: 356.22/306.92
+  PASS Zeitraum fakturiert brutto 147,40 / netto 123,87 (B storniert) :: 147.4/123.87
+  PASS Belegzaehler: 4 Rechnungen, 1 Gutschrift :: 4/1
+  PASS Zeitraum Zahlungseingang 153,40 (47,40 + 6 + 100) aus 3 Zahlungen :: 153.4/3
+  PASS Kennzahl-Definitionen werden mitgeliefert (deutsch) :: Fakturiert (netto): Nettobeträge ausgest
+  PASS Kosten/DB als Schaetzung gekennzeichnet :: true
+  PASS Zeitraum ab morgen: fakturiert 0 / Zahlungseingang 0 :: 0/0
+
+[FIN-8/SET-2/SP-9 Einstellungen speichern und neu lesen]
+  PASS PUT Einstellungen -> 200 :: 200 
+  PASS Antwort: "0,02" -> 0,02 (nicht 0 oder 2) :: 0.02
+  PASS neu gelesen: Ziel-Deckungsbeitrag 0,25 :: 0.25
+  PASS neu gelesen: Prognose-Arbeitstage 20 :: 20
+  PASS neu gelesen: feste Zahlungsgebuehr 0,35 :: 0.35
+  PASS neu gelesen: Verpackungsquote 0,02 / Stundensatz 110 :: 0.02 110
+  PASS MwSt. nicht separat speicherbar - kommt aus Finanzeinstellungen (0,19) :: 0.19
+  PASS Rohdokument in MongoDB enthaelt accounting + paymentFeeFixedAmount :: {"targetGrossMarginRate":0.25,"defaultProjectionWorkdays":20}
+  PASS Auswertung nutzt Prognose-Arbeitstage 20 :: 20
+  PASS Verpackungsquote 2 (200 %) -> 400 deutsch mit Feldname :: 400 Einstellungen nicht gespeichert. Verpackungsquote: erlaubt ist 0 % bis 100 % (eingegeben: 200 %).
+  PASS Stundensatz "abc" -> 400 deutsch :: 400 Einstellungen nicht gespeichert. Stundensatz: bitte eine Zahl eingeben.
+  PASS nach Ablehnung: gespeicherte Werte unveraendert :: 0.02 110
+
+[SET-1/SET-2 Steuersatz der Finanzeinstellungen wirkt auf Netto; kein Zuruecksetzen]
+  PASS PUT /api/system-config {financialSettings} -> 200 :: 200 
+  PASS Analyse-MwSt. folgt den Finanzeinstellungen: 0,07 :: 0.07
+  PASS Analyse-Einstellungen nach Finanz-Speichern unveraendert :: 110 20
+  PASS manuelle Buchung mit 7 %: 119 / 1,07 = 111,21 :: 111.21
+
+[Review: stornierte Altrechnung ohne Gutschrift zaehlt nicht als fakturiert]
+  PASS Zeile: Alt-Storno ohne Gutschrift -> fakturiert 0 (frueher 47,40) :: 0/0
+  PASS Zeitraum fakturiert unveraendert durch Alt-Storno :: 147.4 -> 147.4 / 4 -> 4
+  PASS Storno mit Gutschrift (B) weiterhin 0 :: 0
+  PASS aktive Rechnung (A) weiterhin 47,40 :: 47.4
+
+Ergebnis: 51 PASS, 0 FAIL

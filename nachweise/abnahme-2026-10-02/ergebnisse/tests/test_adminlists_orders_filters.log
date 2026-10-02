@@ -1,0 +1,30 @@
+
+[Suche ueber alle Auftraege]
+  PASS Admin: totalOrders = 121 :: 200 121
+  PASS Voraussetzung: ORD-ALO-0000 liegt ausserhalb der neuesten 100 :: 100
+  PASS Suche nach aelterer Auftragsnummer findet sie :: 1 ORD-ALO-0000
+  PASS Suche nach Kundenname (registriert) :: 120
+  PASS Suche nach Kunden-E-Mail :: 120
+  PASS Suche nach Gast-E-Mail :: 1
+  PASS Suche nach Gastname :: 1
+  PASS Regex-Sonderzeichen werden woertlich gesucht (kein 500, keine Allesmenge) :: 200 0
+
+[Prioritaet Hoch und Dringend, Kennzahlen]
+  PASS priority=high-urgent -> 3 Treffer (inkl. aelterer) :: 200 3
+  PASS Hoch UND Dringend enthalten :: ORD-ALO-0001,ORD-ALO-0002,ORD-ALO-0110
+  PASS stats.highOrUrgent == Treffer des Filters :: 3
+  PASS stats.total = alle Auftraege :: 121
+  PASS Status-Filter "Abgeschlossen": Treffer == Kennzahl :: 40/40
+  PASS priority=urgent unveraendert nur Dringend :: 1
+
+[ids-Filter (Warten auf Kundenrueckmeldung)]
+  PASS ids liefert genau diese Auftraege (ungueltige ID ignoriert) :: 200 2
+  PASS leere ids -> keine Treffer :: 200 0
+  PASS ids kombiniert mit Suche :: 1
+
+[Rollen]
+  PASS Staff 200 mit gleichem Ergebnis :: 200 3
+  PASS Kunde -> 403 :: 403
+  PASS ohne Anmeldung -> 401 :: 401
+
+Ergebnis: 20 PASS, 0 FAIL

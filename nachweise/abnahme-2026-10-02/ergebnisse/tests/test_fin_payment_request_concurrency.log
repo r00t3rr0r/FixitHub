@@ -1,0 +1,169 @@
+
+[Zahlungsaufforderung: 8 parallele Anfragen (Buchung)]
+  INFO Antworten: {"200 accepted_by_provider":1,"409 PAYMENT_REQUEST_RECENT":7} | PaymentRequest-Dokumente: 1 ({"accepted_by_provider":1}) | Mails: 1
+  PASS genau EINE Anfrage meldet "uebergeben" :: 1
+  PASS genau EIN Protokolleintrag :: 1
+  PASS genau EINE Mail an den Kunden :: 1
+  PASS uebrige Anfragen -> 409 PAYMENT_REQUEST_RECENT, deutsch :: {"PAYMENT_REQUEST_RECENT":7}
+  PASS Ablehnung nennt die laufende/letzte Aufforderung (recentRequest) :: true,true,true,true,true,true,true
+  PASS keine In-App-Benachrichtigung :: 0
+  PASS kein PayPal-/Provider-Aufruf :: 0
+  PASS Rechnungsstatus und Mahnstufe unveraendert :: partially_paid/0 -> partially_paid/0
+  PASS kein Anspruch bleibt haengen :: 0
+  PASS Wiederholung nach Erfolg -> 409 "Zuletzt am … gesendet" (bestehende Meldung) :: 409 Zuletzt am 02.10.26, 13:17 an k15-kunde1@test.invalid gesendet (37,40 €). Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.
+  PASS keine Mail, kein neuer Eintrag :: 0
+  INFO force parallel: {"200 accepted_by_provider":1,"409 PAYMENT_REQUEST_IN_PROGRESS":4}
+  PASS force x5 parallel -> genau EIN weiterer Versand :: 1 ok, Mails gesamt 2
+  PASS parallele force-Klicks -> 409 deutsch :: 200,409,409,409,409
+  PASS 2 Protokolleintraege (Erstversand + bestaetigter Wiederversand) :: 2
+
+[Zahlungsaufforderung: SMTP-Fehler, Wiederholung, Wiederversand (Rechnung)]
+  PASS SMTP-Fehler -> success:false, status failed, deutsche Meldung :: 200 failed Die Zahlungsaufforderung konnte nicht per E-Mail gesendet werden: SMTP nicht erreichbar (Test)
+  PASS Fehlversuch protokolliert (status failed) :: failed
+  PASS keine Mail angenommen :: 0
+  PASS kein Anspruch bleibt nach dem Fehler haengen :: 0
+  INFO Wiederholung parallel: {"409 PAYMENT_REQUEST_RECENT":7,"200 accepted_by_provider":1}
+  PASS Wiederholung nach Fehler nicht gesperrt, genau EIN Versand :: 1
+  PASS genau EINE Mail :: 1
+  PASS Verlauf: 1 failed + 1 uebergeben :: {"accepted_by_provider":1,"failed":1}
+  PASS Wiederversand innerhalb 24 h nach Erfolg -> 429 PAYMENT_REQUEST_COOLDOWN (bestehende Meldung) :: 429 PAYMENT_REQUEST_COOLDOWN,429 PAYMENT_REQUEST_COOLDOWN,429 PAYMENT_REQUEST_COOLDOWN,429 PAYMENT_REQUEST_COOLDOWN,429 PAYMENT_REQUEST_COOLDOWN
+  PASS keine weitere Mail :: 1
+
+[Wiederversand (resend) parallel nach Fehlversuch]
+  PASS Ausgangslage: Fehlversuch :: failed
+  INFO resend parallel: {"409 PAYMENT_REQUEST_IN_PROGRESS":7,"200 accepted_by_provider":1}
+  PASS resend x8 parallel -> genau EIN Versand :: 1 ok, Mails 1
+  PASS uebrige -> 409/429 deutsch :: 409,409,409,200,409,409,409,409
+  PASS neuer Eintrag verweist auf das Original (resendOfId) :: 6abf92e453e57ceb0c2f64a9
+  PASS resend mit force -> gesendet (bewusste Ausnahme) :: 200 accepted_by_provider
+
+[Verwaister und laufender Anspruch]
+  PASS laufender Versand -> 409 "Wird gerade gesendet" :: 409 Wird gerade gesendet – gestartet am 02.10.26, 13:17 an k15-kunde7@test.invalid (37,40 €). Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.
+  PASS laufender Versand + force -> 409 PAYMENT_REQUEST_IN_PROGRESS (kein Doppelversand) :: 409 PAYMENT_REQUEST_IN_PROGRESS
+  PASS keine Mail :: 0
+  PASS Anspruch 6 Min. alt (Versand kann noch laufen) -> 409, kein Doppelversand :: 409 PAYMENT_REQUEST_IN_PROGRESS
+  PASS keine Mail :: 0
+  PASS Anspruch 44 Min. alt -> weiterhin 409, kein Doppelversand :: 409 PAYMENT_REQUEST_IN_PROGRESS
+  PASS verwaister Anspruch (> 45 Min.) sperrt nicht :: 200 accepted_by_provider
+  PASS Anspruch danach freigegeben :: 0
+
+[Buchung || Rechnung derselben Buchung parallel (gemeinsamer Anspruch)]
+  INFO resend(BKG) || request(INV) Runde 0: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS resend(BKG) || request(INV) Runde 0: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS resend(BKG) || request(INV) Runde 0: Gegenseite 409/429 deutsch :: 409,200
+  PASS resend(BKG) || request(INV) Runde 0: kein Anspruch bleibt haengen :: 0
+  INFO resend(BKG) || request(INV) Runde 1: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS resend(BKG) || request(INV) Runde 1: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS resend(BKG) || request(INV) Runde 1: Gegenseite 409/429 deutsch :: 409,200
+  PASS resend(BKG) || request(INV) Runde 1: kein Anspruch bleibt haengen :: 0
+  INFO resend(BKG) || request(INV) Runde 2: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS resend(BKG) || request(INV) Runde 2: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS resend(BKG) || request(INV) Runde 2: Gegenseite 409/429 deutsch :: 409,200
+  PASS resend(BKG) || request(INV) Runde 2: kein Anspruch bleibt haengen :: 0
+  INFO resend(BKG) || request(INV) Runde 3: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS resend(BKG) || request(INV) Runde 3: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS resend(BKG) || request(INV) Runde 3: Gegenseite 409/429 deutsch :: 409,200
+  PASS resend(BKG) || request(INV) Runde 3: kein Anspruch bleibt haengen :: 0
+  INFO resend(BKG) || request(INV) Runde 4: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS resend(BKG) || request(INV) Runde 4: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS resend(BKG) || request(INV) Runde 4: Gegenseite 409/429 deutsch :: 409,200
+  PASS resend(BKG) || request(INV) Runde 4: kein Anspruch bleibt haengen :: 0
+  INFO force(BKG) || force(INV) Runde 0: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS force(BKG) || force(INV) Runde 0: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS force(BKG) || force(INV) Runde 0: Gegenseite 409/429 deutsch :: 409,200
+  PASS force(BKG) || force(INV) Runde 0: kein Anspruch bleibt haengen :: 0
+  INFO force(BKG) || force(INV) Runde 1: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS force(BKG) || force(INV) Runde 1: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS force(BKG) || force(INV) Runde 1: Gegenseite 409/429 deutsch :: 409,200
+  PASS force(BKG) || force(INV) Runde 1: kein Anspruch bleibt haengen :: 0
+  INFO force(BKG) || force(INV) Runde 2: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS force(BKG) || force(INV) Runde 2: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS force(BKG) || force(INV) Runde 2: Gegenseite 409/429 deutsch :: 409,200
+  PASS force(BKG) || force(INV) Runde 2: kein Anspruch bleibt haengen :: 0
+  INFO force(BKG) || force(INV) Runde 3: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS force(BKG) || force(INV) Runde 3: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS force(BKG) || force(INV) Runde 3: Gegenseite 409/429 deutsch :: 409,200
+  PASS force(BKG) || force(INV) Runde 3: kein Anspruch bleibt haengen :: 0
+  INFO force(BKG) || force(INV) Runde 4: 409 PAYMENT_REQUEST_IN_PROGRESS | 200 accepted_by_provider | Mails 1
+  PASS force(BKG) || force(INV) Runde 4: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS force(BKG) || force(INV) Runde 4: Gegenseite 409/429 deutsch :: 409,200
+  PASS force(BKG) || force(INV) Runde 4: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 0: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 0: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 0: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 0: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 1: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 1: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 1: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 1: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 2: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 2: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 2: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 2: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 3: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 3: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 3: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 3: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 4: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 4: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 4: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 4: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 5: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 5: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 5: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 5: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 6: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 6: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 6: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 6: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 7: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 7: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 7: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 7: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 8: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 8: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 8: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 8: kein Anspruch bleibt haengen :: 0
+  INFO BKG || INV (Latenz) Runde 9: 409 PAYMENT_REQUEST_RECENT | 200 accepted_by_provider | Mails 1
+  PASS BKG || INV (Latenz) Runde 9: genau EINE Mail / EIN Versand :: 1 Mails, 1 uebergeben
+  PASS BKG || INV (Latenz) Runde 9: Gegenseite 409/429 deutsch :: 409,200
+  PASS BKG || INV (Latenz) Runde 9: kein Anspruch bleibt haengen :: 0
+
+[Anspruch wird waehrend des Einfuegens freigegeben]
+  PASS Zeitfenster getroffen (E11000, dann Freigabe) :: 1
+  PASS frei gewordener Anspruch -> gesendet statt 409 "Wird gerade gesendet" :: 200 accepted_by_provider
+  PASS genau EINE Mail :: 1
+  PASS force: frei gewordener Anspruch -> gesendet statt 409 PAYMENT_REQUEST_IN_PROGRESS :: 200 accepted_by_provider
+  PASS force: genau EINE Mail :: 1
+  PASS kein Anspruch bleibt haengen :: 0
+
+[24-h-Sperre: Buchungs-Aufforderung vor der Rechnung zaehlt auch fuer die Rechnung]
+  PASS Buchungs-Aufforderung ohne Rechnung gesendet :: 200 accepted_by_provider
+  PASS gespeichert ohne invoiceId (Rechnung gab es noch nicht) :: -
+  PASS Rechnung danach erstellt :: 201 INV-2026-0027
+  PASS ueber die Rechnung innerhalb von 24 h -> 409 "Zuletzt am …" (Bestaetigung noetig) :: 409 PAYMENT_REQUEST_RECENT Zuletzt am 02.10.26, 13:18 an k15-kunde53@test.invalid gesendet (47,40 €). Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.
+  PASS keine zweite Mail an den Kunden :: 0
+  PASS Wiederversand ueber die Rechnung -> 429 Sperrfrist (Buchungs-Aufforderung zaehlt) :: 429 PAYMENT_REQUEST_COOLDOWN
+  PASS auch beim Wiederversand keine zweite Mail :: 0
+  PASS ausdrueckliche Bestaetigung (force) sendet genau eine Mail :: 200 1
+  PASS kein Anspruch bleibt haengen :: 0
+
+[Rollen unveraendert]
+  PASS Kunde/fremder Kunde/Mitarbeiter 403, ohne Anmeldung 401 :: 403/403/403/401
+  PASS Verlauf fuer Kunden 403 :: 403
+  PASS nichts gesendet, nichts protokolliert :: 0
+  PASS Verlauf fuer Admin weiterhin abrufbar :: 200
+
+["Rechnungen aus Auftraegen erstellen": parallel + Wiederholung]
+  INFO parallel: {"201 ":1,"409 ORDER_ALREADY_INVOICED":7}
+  PASS 8 parallele Laeufe -> genau EINE Rechnung fuer den Auftrag :: 1 erstellt, 1 in DB
+  PASS uebrige -> 409 deutsch (bereits berechnet) :: {"ORDER_ALREADY_INVOICED":7}
+  PASS "sofort senden" -> genau EINE Rechnungs-Mail :: 200 1
+  PASS Wiederholung (auch per ID) -> 409 mit bestehender Rechnung :: 409 INV-2026-0029
+  PASS weiterhin EINE Rechnung :: 1
+  INFO ueberlappend: 409 INVOICE_ALREADY_EXISTS | 201  | 201  | 409 ORDER_ALREADY_INVOICED
+  PASS ueberlappende parallele Auswahl -> jeder Auftrag auf genau EINER Rechnung :: A=1 B=1
+  PASS nur 201/409, kein 500 :: 409,201,201,409
+  PASS keine Dateien im Repository hinterlassen (logs/uploads) :: unveraendert
+
+Ergebnis: 123 PASS, 0 FAIL

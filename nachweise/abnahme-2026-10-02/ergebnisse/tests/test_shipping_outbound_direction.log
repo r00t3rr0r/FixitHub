@@ -1,0 +1,1445 @@
+(node:1103951) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1103951) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1103951) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[T13-1] Auslieferung Standardadresse: Absender = Shop, Empfaenger = LIEFERadresse
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a2b578848de3c4e831
+DHLService: Creating shipment for order: 6abf93a2b578848de3c4e831
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-001",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000001",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000001
+DHLService: Outbound shipment stored on order: 00340434161094000001
+Outbound shipping label created successfully
+  PASS Staff kann Auslieferungslabel erstellen :: 200 "00340434161094000001"
+  PASS Absender ist der Shop :: {"name1":"McRepair.de GmbH","addressStreet":"Werkstattstraße","addressHouse":"5","postalCode":"10115","city":"Berlin","country":"DEU","email":"werkstatt@test.invalid"}
+  PASS Empfaenger ist die Lieferadresse (nicht München) :: {"name1":"Anna Kundin","addressStreet":"Lieferweg","addressHouse":"7","postalCode":"20095","city":"Hamburg","country":"DEU","email":"anna@test.invalid"}
+  PASS refNo (8-35 Zeichen) fuer den Abgleich im DHL-Portal gesetzt :: "ORD-T13-001"
+
+[T13-1b] Manipulierter Absender im Request wird ignoriert
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e889
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e889
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-002",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000002",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000002
+DHLService: Outbound shipment stored on order: 00340434161094000002
+Outbound shipping label created successfully
+  PASS Absender bleibt der Shop, auch wenn der Client einen anderen schickt :: {"name1":"McRepair.de GmbH","addressStreet":"Werkstattstraße","addressHouse":"5","postalCode":"10115","city":"Berlin","country":"DEU","email":"werkstatt@test.invalid"}
+
+[T13-1c] Ohne Adress-Snapshot am Auftrag: Lieferadresse aus dem Kundenprofil, nicht Rechnungsadresse
+RequireRole middleware: User admin@test.invalid has required role admin
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e89b
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e89b
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-003",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000003",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000003
+DHLService: Outbound shipment stored on order: 00340434161094000003
+Outbound shipping label created successfully
+  PASS Empfaenger = Profil-Lieferadresse Hamburg :: 200 {"name1":"Anna Kundin","addressStreet":"Lieferweg","addressHouse":"7","postalCode":"20095","city":"Hamburg","country":"DEU","email":"anna@test.invalid"}
+
+[T13-2] Packstation: name, Postnummer, Packstationsnummer (Zahl), PLZ, Ort
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e8ad
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e8ad
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-004",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name": "Paula Packstation",
+        "lockerID": 118,
+        "postNumber": "12345678",
+        "postalCode": "10117",
+        "city": "Berlin",
+        "country": "DEU"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000004",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lIjoiUGF1bGEgUGFja3N0YXRpb24iLCJsb2NrZXJJRCI6MTE4LCJwb3N0TnVtYmVyIjoiMTIzNDU2NzgiLCJwb3N0YWxDb2RlIjoiMTAxMTciLCJjaXR5IjoiQmVybGluIiwiY291bnRyeSI6IkRFVSJ9CiUlRU9G",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000004
+DHLService: Outbound shipment stored on order: 00340434161094000004
+Outbound shipping label created successfully
+  PASS Packstation-Label wird erstellt :: 200 undefined
+  PASS Locker-Empfaenger nutzt `name` (DHL-Schema Locker), nicht `name1` :: {"name":"Paula Packstation","lockerID":118,"postNumber":"12345678","postalCode":"10117","city":"Berlin","country":"DEU"}
+  PASS lockerID als Zahl 118, Postnummer, PLZ, Ort, keine Strasse :: {"name":"Paula Packstation","lockerID":118,"postNumber":"12345678","postalCode":"10117","city":"Berlin","country":"DEU"}
+
+[T13-3] Gastauftrag: Lieferadresse des Gastes
+Order: Generated guest tracking token for order: ORD-T13-005
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e8bf
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e8bf
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-005",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Gerd Gast",
+        "addressStreet": "Gastweg",
+        "addressHouse": "12a",
+        "postalCode": "04109",
+        "city": "Leipzig",
+        "country": "DEU",
+        "email": "gast@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000005",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkdlcmQgR2FzdCIsImFkZHJlc3NTdHJlZXQiOiJHYXN0d2VnIiwiYWRkcmVzc0hvdXNlIjoiMTJhIiwicG9zdGFsQ29kZSI6IjA0MTA5IiwiY2l0eSI6IkxlaXB6aWciLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJnYXN0QHRlc3QuaW52YWxpZCJ9CiUlRU9G",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000005
+DHLService: Outbound shipment stored on order: 00340434161094000005
+Outbound shipping label created successfully
+  PASS Gast: Empfaenger = Gast-Lieferadresse Leipzig :: 200 {"name1":"Gerd Gast","addressStreet":"Gastweg","addressHouse":"12a","postalCode":"04109","city":"Leipzig","country":"DEU","email":"gast@test.invalid"}
+
+[T13-4] Fehlende Adresse: ausdruecklicher deutscher Fehler, kein DHL-Aufruf
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e8cf
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e8cf
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Error creating outbound shipment: Die Lieferadresse des Kunden ist unvollständig. Es fehlt: Lieferadresse. Bitte die Lieferadresse ergänzen und das Label erneut erstellen. 
+Error creating shipping label: Die Lieferadresse des Kunden ist unvollständig. Es fehlt: Lieferadresse. Bitte die Lieferadresse ergänzen und das Label erneut erstellen.
+  PASS HTTP 422 mit deutscher Meldung zur Lieferadresse :: 422 "Die Lieferadresse des Kunden ist unvollständig. Es fehlt: Lieferadresse. Bitte die Lieferadresse ergänzen und das Label erneut erstellen."
+
+[T13-5] PDF-Download des Auslieferungslabels
+OrderService: Getting order by ID: 6abf93a2b578848de3c4e831
+  PASS PDF wird ausgeliefert :: 200 application/pdf
+  PASS (Mock-)Label: Absender Shop, Empfaenger Kunde :: ABSENDER: {"name1":"McRepair.de GmbH","addressStreet":"Werkstattstraße","addressHouse":"5","postalCode":"10115","city":"Berlin","country":"DEU","email":"werkstatt@test.invalid"} | EMPFAENGER: {"name1":"Anna Kundin","addressStreet":"Lieferweg","addressHouse":"7","postalCode":"20095","city":"Hamburg","country":"DEU","email":"anna@test.invalid"}
+
+[T13-6] Provider-Fehler: deutsche Meldung, Sperre frei, Wiederholung erzeugt genau EIN Label
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e8e5
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e8e5
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-007",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating outbound shipment: Request failed with status code 400 {
+  title: 'Bad Request',
+  status: 400,
+  detail: 'Invalid shipment',
+  items: [ { sstatus: [Object], validationMessages: [Array] } ]
+}
+Error creating shipping label: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+  PASS DHL-400 -> deutsche Meldung ohne englischen Rohtext :: 422 "DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen."
+  PASS keine Sendung gespeichert, Sperre geloest :: {"lock":false,"tn":""}
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e8e5
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e8e5
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-007",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000006",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000006
+DHLService: Outbound shipment stored on order: 00340434161094000006
+Outbound shipping label created successfully
+  PASS Wiederholung nach eindeutigem Fehler: genau ein neues Label :: 200 calls+1
+
+[T13-7] Zeitueberschreitung: KEIN blindes Wiederholen, Abgleichzustand
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e906
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e906
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-008",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating outbound shipment: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen. 
+Error creating shipping label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+  PASS Timeout -> 409 DHL_RESULT_UNKNOWN, nicht wiederholbar :: 409 DHL_RESULT_UNKNOWN retryable=false
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e906
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e906
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Error creating outbound shipment: Die letzte Label-Erstellung bei DHL hat keine eindeutige Antwort geliefert. Bitte zuerst im DHL-Geschäftskundenportal prüfen, ob die Sendung angelegt wurde, und den Abgleich abschließen. 
+Error creating shipping label: Die letzte Label-Erstellung bei DHL hat keine eindeutige Antwort geliefert. Bitte zuerst im DHL-Geschäftskundenportal prüfen, ob die Sendung angelegt wurde, und den Abgleich abschließen.
+  PASS Zweiter Klick nach Timeout ruft DHL NICHT erneut auf :: 409 LABEL_RECONCILIATION_REQUIRED calls+0
+Get order by ID request received: 6abf93a3b578848de3c4e906
+OrderService: Getting order by ID: 6abf93a3b578848de3c4e906
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e7e8
+Access control check - User role: staff
+Access granted - returning order details
+  PASS Detailansicht meldet Abgleich erforderlich :: {"direction":"outbound","label":"Auslieferung (McRepair → Kunde)","hasLabel":false,"trackingNumber":"","status":"pending","statusDescription":"Ergebnis der DHL-Labelerstellung unklar – Abgleich erforderlich","estimatedDelivery":null,"actualDelivery":null,"inProgress":false,"reconciliationRequired":true,"reconciliationReason":"dhl-result-unknown","lockStale":false,"lockStartedAt":"2026-10-02T11:21:07.294Z","reconcileUrl":"/api/orders/6abf93a3b578848de3c4e906/shipping/reconcile","reference":"ORD-T13-008","downloadUrl":""}
+RequireRole middleware: User staff@test.invalid has role staff, but requires one of: admin
+  PASS Abgleich aufloesen ist Admin-Recht :: 403
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Admin bestaetigt "bei DHL nicht angelegt" :: 200 undefined
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e906
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e906
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-008",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000007",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000007
+DHLService: Outbound shipment stored on order: 00340434161094000007
+Outbound shipping label created successfully
+  PASS Danach kann das Label regulaer erstellt werden :: 200 undefined
+
+[T13-8] Doppelklick: zwei gleichzeitige Anfragen -> genau ein DHL-Aufruf
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e944
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e944
+DHLService: Retrieving DHL configuration
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e944
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e944
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-009",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000008",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000008
+DHLService: Error creating outbound shipment: Das Versandlabel wird gerade erstellt. Bitte kurz warten und die Seite neu laden. 
+Error creating shipping label: Das Versandlabel wird gerade erstellt. Bitte kurz warten und die Seite neu laden.
+DHLService: Outbound shipment stored on order: 00340434161094000008
+Outbound shipping label created successfully
+  PASS genau ein DHL-Aufruf :: calls+1 (200/409)
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e944
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e944
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+Outbound shipping label created successfully
+  PASS erneuter Klick liefert das vorhandene Label, kein neues :: 200 alreadyExists=true
+
+[T24] Status- und Zahlungsbedingung serverseitig (identisch zur Oberflaeche)
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e96c
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e96c
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Error creating outbound shipment: Die Auslieferung an den Kunden ist erst möglich, wenn die Reparatur abgeschlossen ist (ab Qualitätsprüfung). Aktueller Status: In Bearbeitung. 
+Error creating shipping label: Die Auslieferung an den Kunden ist erst möglich, wenn die Reparatur abgeschlossen ist (ab Qualitätsprüfung). Aktueller Status: In Bearbeitung.
+  PASS Auftrag "in Bearbeitung" -> abgelehnt, kein DHL-Aufruf :: 422 OUTBOUND_STATUS_NOT_READY "Die Auslieferung an den Kunden ist erst möglich, wenn die Reparatur abgeschlossen ist (ab Qualitätsprüfung). Aktueller Status: In Bearbeitung."
+Get order by ID request received: 6abf93a3b578848de3c4e96c
+OrderService: Getting order by ID: 6abf93a3b578848de3c4e96c
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e7e8
+Access control check - User role: staff
+Access granted - returning order details
+  PASS Detailansicht liefert dieselbe Entscheidung :: {"allowed":false,"code":"OUTBOUND_STATUS_NOT_READY","reason":"Die Auslieferung an den Kunden ist erst möglich, wenn die Reparatur abgeschlossen ist (ab Qualitätsprüfung). Aktueller Status: In Bearbeitung."}
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e981
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e981
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Error creating outbound shipment: Für diesen Auftrag ist vor dem Versand eine Zahlung erforderlich. Das Versandlabel kann erst nach Zahlungseingang erstellt werden. 
+Error creating shipping label: Für diesen Auftrag ist vor dem Versand eine Zahlung erforderlich. Das Versandlabel kann erst nach Zahlungseingang erstellt werden.
+  PASS Auftrag mit Zahlungspflicht vor Versand (bestehende Regel) -> abgelehnt :: 422 PAYMENT_REQUIRED_BEFORE_SHIPPING
+RequireRole middleware: User anna@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf kein Label erstellen :: 403
+Get order by ID request received: 6abf93a3b578848de3c4e889
+OrderService: Getting order by ID: 6abf93a3b578848de3c4e889
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e7e8
+Access control check - User role: staff
+Access granted - returning order details
+  PASS Projektion: hasLabel stimmt, kein Base64-PDF im Detail-Payload :: {"out":{"direction":"outbound","label":"Auslieferung (McRepair → Kunde)","hasLabel":true,"trackingNumber":"00340434161094000002","status":"label-created","statusDescription":"DHL-Versandlabel für die Auslieferung erstellt – noch nicht an DHL übergeben","estimatedDelivery":"2026-10-05T11:21:07.056Z","actualDelivery":null,"inProgress":false,"reconciliationRequired":false,"reconciliationReason":"","lockStale":false,"lockStartedAt":null,"reconcileUrl":"","reference":"ORD-T13-002","downloadUrl":"/api/orders/6abf93a3b578848de3c4e889/shipping-label"},"url":""}
+
+[T12/T14] Buchung mit zwei Geraeten: Einsendelabel darf Auslieferung nicht blockieren
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0001
+Booking pre-save: Total orders: 2 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e999
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-012",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000009",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiQW5uYSBLdW5kaW4iLCJhZGRyZXNzU3RyZWV0IjoiUmVjaG51bmdzYWxsZWUiLCJhZGRyZXNzSG91c2UiOiIxIiwicG9zdGFsQ29kZSI6IjgwMzMxIiwiY2l0eSI6Ik3DvG5jaGVuIiwiY291bnRyeSI6IkRFVSIsImVtYWlsIjoiYW5uYUB0ZXN0LmludmFsaWQifQpFTVBGQUVOR0VSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIiwicGhvbmUiOiIrNDkzMDEyMzQ1NjcifQolJUVPRg==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000009
+  PASS Einsendelabel: Absender Kunde, Empfaenger Shop :: Anna Kundin -> McRepair.de GmbH
+  PASS Einsendelabel der Buchung landet NICHT im Auslieferungsfeld des Auftrags :: {"tn":"","st":"pending"}
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e999
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e999
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-012",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000010",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000010
+DHLService: Outbound shipment stored on order: 00340434161094000010
+Outbound shipping label created successfully
+  PASS Auslieferung fuer Geraet 1 erzeugt ein NEUES Label (nicht das Einsendelabel) :: 200 tn=00340434161094000010 inbound=00340434161094000009
+  PASS Auslieferung: Shop -> Kunde :: McRepair.de GmbH -> Anna Kundin
+  PASS Einsende-Sendungsnummer der Buchung unveraendert :: 00340434161094000009
+  PASS Geraet 2 bleibt unberuehrt (nicht versendet, nicht abgeschlossen) :: {"tn":"","st":"pending","status":"in-progress"}
+  PASS Label erstellt heisst NICHT versendet/abgeschlossen :: {"status":"ready-for-pickup","shippingStatus":"label-created"}
+Get order by ID request received: 6abf93a3b578848de3c4e999
+OrderService: Getting order by ID: 6abf93a3b578848de3c4e999
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e7e8
+Access control check - User role: staff
+Access granted - returning order details
+  PASS Detail: Einsendung und Auslieferung getrennt sichtbar :: {"inbound":"00340434161094000009","outbound":"00340434161094000010"}
+
+[T14] Sammel-Auslieferung ueber die Buchung wird mit deutscher Erklaerung abgelehnt
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Create shipping label request received for booking: 6abf93a3b578848de3c4e99f
+BookingRoutes: Shipment data: {
+  shipmentData: { labelDirection: 'outbound', shipperFromConfiguration: true }
+}
+BookingService: Getting booking: 6abf93a3b578848de3c4e99f
+BookingService: Booking retrieved successfully
+BookingRoutes: Error creating shipping label for booking: Error: Die Auslieferung an den Kunden (McRepair → Kunde) wird je Auftrag erstellt: bitte im jeweiligen Auftrag „An Kunden versenden“ verwenden. Ein gemeinsames Paket für mehrere Geräte einer Buchung wird derzeit nicht unterstützt.
+    at BookingService.createShippingLabelForBooking (/home/adar/Projects/FixitHub/server/services/bookingService.js:743:21)
+    at /home/adar/Projects/FixitHub/server/routes/bookingRoutes.js:1237:49
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 422,
+  code: 'BOOKING_OUTBOUND_NOT_SUPPORTED'
+}
+  PASS Buchungs-Auslieferung abgelehnt, kein DHL-Aufruf :: 422 BOOKING_OUTBOUND_NOT_SUPPORTED "Die Auslieferung an den Kunden (McRepair → Kunde) wird je Auftrag erstellt: bitte im jeweiligen Auftrag „An Kunden versenden“ verwenden. Ein gemeinsames Paket für mehrere Geräte einer Buchung wird derzeit nicht unterstützt."
+
+[Altbestand] Einsendelabel der Buchung steht (vor dem Fix gespeichert) im Auslieferungsfeld
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0002
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+Get order by ID request received: 6abf93a3b578848de3c4e9f8
+OrderService: Getting order by ID: 6abf93a3b578848de3c4e9f8
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e7e8
+Access control check - User role: staff
+Access granted - returning order details
+  PASS Lesepfad erkennt Altbestand: keine Auslieferung, Aktion frei, Einsendung sichtbar :: {"legacy":{"inboundInOutboundSlot":true,"bookingOutboundLabel":null},"out":false,"action":"OK"}
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4e9f8
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4e9f8
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-014",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000011",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIn0KRU1QRkFFTkdFUjogeyJuYW1lMSI6IkFubmEgS3VuZGluIiwiYWRkcmVzc1N0cmVldCI6IkxpZWZlcndlZyIsImFkZHJlc3NIb3VzZSI6IjciLCJwb3N0YWxDb2RlIjoiMjAwOTUiLCJjaXR5IjoiSGFtYnVyZyIsImNvdW50cnkiOiJERVUiLCJlbWFpbCI6ImFubmFAdGVzdC5pbnZhbGlkIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000011
+DHLService: Outbound shipment stored on order: 00340434161094000011
+Outbound shipping label created successfully
+  PASS Auslieferung ersetzt die Alt-Kopie, Tracking-Ereignisse der Einsendung werden nicht als Auslieferung weitergefuehrt :: 200 tn=00340434161094000011 events=1
+  PASS Alt-Sendungsnummer im Verlauf dokumentiert :: Legacy Inbound Label Moved
+  PASS Original-Einsendelabel an der Buchung unveraendert :: LEGACYINBOUND0001
+
+[T13-7b] Abgleich "bei DHL angelegt": Sendungsnummer uebernehmen, kein zweites Label
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4ea32
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4ea32
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-015",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating outbound shipment: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen. 
+Error creating shipping label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Sendungsnummer uebernommen, Sperre geloest :: 200 00340434161094999999
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf93a3b578848de3c4ea32
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4ea32
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Error creating outbound shipment: Die DHL-Sendung wurde bereits angelegt (Sendungsnummer 00340434161094999999), aber das PDF-Label fehlt. Bitte das Label im DHL-Geschäftskundenportal abrufen, bevor ein neues erzeugt wird. 
+Error creating shipping label: Die DHL-Sendung wurde bereits angelegt (Sendungsnummer 00340434161094999999), aber das PDF-Label fehlt. Bitte das Label im DHL-Geschäftskundenportal abrufen, bevor ein neues erzeugt wird.
+  PASS Kein neues Label - Hinweis PDF im DHL-Portal abrufen :: 409 EXISTING_SHIPMENT_LABEL_MISSING
+
+[Buchung] Doppelklick auf das Einsendelabel -> genau ein DHL-Aufruf; Timeout -> kein Folgeversuch
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0003
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf93a3b578848de3c4ea5b
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-016",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000012",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiQW5uYSBLdW5kaW4iLCJhZGRyZXNzU3RyZWV0IjoiUmVjaG51bmdzYWxsZWUiLCJhZGRyZXNzSG91c2UiOiIxIiwicG9zdGFsQ29kZSI6IjgwMzMxIiwiY2l0eSI6Ik3DvG5jaGVuIiwiY291bnRyeSI6IkRFVSIsImVtYWlsIjoiYW5uYUB0ZXN0LmludmFsaWQifQpFTVBGQUVOR0VSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIiwicGhvbmUiOiIrNDkzMDEyMzQ1NjcifQolJUVPRg==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000012
+  PASS genau ein DHL-Aufruf fuer das Einsendelabel :: calls+1 fulfilled/rejected
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0004
+Booking pre-save: Total orders: 2 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf93a4b578848de3c4ea8b
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-017",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating inbound shipment: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen. 
+BookingService: Failed to create live shipping label for order 6abf93a4b578848de3c4ea8b: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Label angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+  PASS Timeout: kein zweiter Versuch mit dem naechsten Auftrag, Sperre bleibt fuer den Abgleich :: calls+1 DHL_RESULT_UNKNOWN lock=true
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Create shipping label request received for booking: 6abf93a4b578848de3c4ea91
+BookingRoutes: Shipment data: {
+  shipmentData: { labelDirection: 'inbound', receiverFromConfiguration: true }
+}
+BookingService: Getting booking: 6abf93a4b578848de3c4ea91
+BookingService: Booking retrieved successfully
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+BookingRoutes: Error creating shipping label for booking: Error: Das Einsendelabel dieser Buchung wird bereits erstellt, ist schon vorhanden oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.
+    at BookingService.createLiveShippingLabelForBooking (/home/adar/Projects/FixitHub/server/services/bookingService.js:1686:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/bookingRoutes.js:1237:28 {
+  status: 409,
+  code: 'LABEL_CREATION_IN_PROGRESS'
+}
+  PASS Erneuter Klick waehrend offenem Abgleich: kein DHL-Aufruf :: 409 LABEL_CREATION_IN_PROGRESS
+RequireRole middleware: User staff@test.invalid has role staff, but requires one of: admin
+  PASS Buchungs-Abgleich ist Admin-Recht :: 403
+RequireRole middleware: User admin@test.invalid has required role admin
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf93a4b578848de3c4ea8b
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-017",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000013",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiQW5uYSBLdW5kaW4iLCJhZGRyZXNzU3RyZWV0IjoiUmVjaG51bmdzYWxsZWUiLCJhZGRyZXNzSG91c2UiOiIxIiwicG9zdGFsQ29kZSI6IjgwMzMxIiwiY2l0eSI6Ik3DvG5jaGVuIiwiY291bnRyeSI6IkRFVSIsImVtYWlsIjoiYW5uYUB0ZXN0LmludmFsaWQifQpFTVBGQUVOR0VSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIiwiZW1haWwiOiJ3ZXJrc3RhdHRAdGVzdC5pbnZhbGlkIiwicGhvbmUiOiIrNDkzMDEyMzQ1NjcifQolJUVPRg==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000013
+  PASS Nach Admin-Abgleich genau ein neues Einsendelabel :: 200 tn=00340434161094000013 calls+2
+
+[Altaufrufer] Reklamations-Einsendelabel (Kunde als Absender) belegt nicht den Auslieferungsplatz
+DHLService: Creating shipment for order: new ObjectId('6abf93a4b578848de3c4eae6')
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-T13-019",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Lieferweg",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161094000014",
+      "sstatus": {
+        "title": "OK",
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQKJSBNT0NLLURITC1MQUJFTCAoa2VpbiBlY2h0ZXMgTGFiZWwpCkFCU0VOREVSOiB7Im5hbWUxIjoiQW5uYSBLdW5kaW4iLCJhZGRyZXNzU3RyZWV0IjoiTGllZmVyd2VnIiwiYWRkcmVzc0hvdXNlIjoiNyIsInBvc3RhbENvZGUiOiIyMDA5NSIsImNpdHkiOiJIYW1idXJnIiwiY291bnRyeSI6IkRFVSIsImVtYWlsIjoiYW5uYUB0ZXN0LmludmFsaWQifQpFTVBGQUVOR0VSOiB7Im5hbWUxIjoiTWNSZXBhaXIuZGUgR21iSCIsImFkZHJlc3NTdHJlZXQiOiJXZXJrc3RhdHRzdHJhw59lIiwiYWRkcmVzc0hvdXNlIjoiNSIsInBvc3RhbENvZGUiOiIxMDExNSIsImNpdHkiOiJCZXJsaW4iLCJjb3VudHJ5IjoiREVVIn0KJSVFT0Y=",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161094000014
+  PASS Reklamationslabel wird weiterhin als Einsendung erzeugt :: Anna Kundin -> McRepair.de GmbH
+  PASS gespeichert im Einsendeplatz (return*), nicht im Auslieferungsplatz :: {"outbound":"","inbound":"00340434161094000014"}
+DHLService: Creating shipment for order: new ObjectId('6abf93a4b578848de3c4eae6')
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+  PASS erneute Genehmigung erzeugt kein zweites Label :: alreadyExists=true
+
+[Richtung Retoure] DHL-Retoure am Auftrag ist eine EINSENDUNG (Kunde = Absender)
+RequireRole middleware: User staff@test.invalid has required role staff
+Create order inbound (DHL Retoure) label request received for order: 6abf93a4b578848de3c4eafa
+DHLReturnsService: Creating return label for order: 6abf93a4b578848de3c4eafa
+DHLReturnsService: Order found: ORD-T13-020
+DHLReturnsService: Customer ID: {
+  invoiceAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    zipCode: '80331',
+    country: 'DE',
+    state: ''
+  },
+  _id: new ObjectId('6abf93a2b578848de3c4e800'),
+  email: 'anna@test.invalid',
+  name: 'Anna Kundin',
+  phone: '',
+  role: 'customer',
+  avatar: '',
+  isActive: true,
+  createdAt: 2026-10-02T11:21:06.785Z
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Lieferweg",
+    "addressHouse": "7",
+    "postalCode": "20095",
+    "city": "Hamburg",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Return label created successfully for order
+DHLReturnsService: Order updated with return information
+  PASS Retoure: Absender Kunde, Empfaenger = receiverId (McRepair) :: 200 "Anna Kundin" -> receiverId
+Get order by ID request received: 6abf93a4b578848de3c4eafa
+OrderService: Getting order by ID: 6abf93a4b578848de3c4eafa
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e7e8
+Access control check - User role: staff
+Access granted - returning order details
+  PASS Detail: Retoure erscheint als Einsendung, Auslieferung weiterhin offen :: {"in":{"direction":"inbound","label":"Einsendung (Kunde → McRepair)","hasLabel":true,"trackingNumber":"RET1","status":"label-created","statusDescription":"DHL-Retourenlabel (Kunde → McRepair) erstellt","source":"order","downloadUrl":"/api/orders/6abf93a4b578848de3c4eafa/return-label","inProgress":false,"reconciliationRequired":false,"reconciliationReason":"","lockStale":false,"lockStartedAt":null,"reconcileUrl":"","lockScope":"","placeholder":false,"reference":"ORD-T13-020"},"out":false}
+
+[Versandstand-Endpunkt] Admin/Staff erhalten die Entscheidung, Kunden nur den Stand
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Staff: GET /shipments liefert Auslieferung + Aktion :: 200 {"allowed":false,"code":"OUTBOUND_LABEL_EXISTS","reason":"Für diesen Auftrag wurde bereits ein Auslieferungslabel erstellt."}
+  PASS Kunde: Stand sichtbar, keine Aktionsfreigabe :: 200 NOT_PERMITTED
+  PASS Kunde sieht fremde Auftraege nicht :: 403
+
+[K11-Parteien] Versandkarten: Absender/Empfaenger je Richtung aus denselben Quellen wie die Labels (nur Team)
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Staff: Einsendung = Kunde -> McRepair, Auslieferung = McRepair -> Kunde :: {"in":["customer","shop"],"out":["shop","customer"]}
+  PASS Einsendung: Anzeige = Parteien des tatsaechlich gesendeten Buchungs-Einsendelabels (Rechnungsadresse München -> Shop) :: {"ui":{"direction":"inbound","label":"Einsendung (Kunde → McRepair)","sender":{"role":"customer","name":"Anna Kundin","deliveryType":"address","street":"Rechnungsallee","house":"1","postalCode":"80331","city":"München","country":"DE","source":"customer.invoiceAddress","sourceLabel":"Rechnungsadresse im Kundenprofil","missing":[]},"recipient":{"role":"shop","name":"McRepair.de GmbH","deliveryType":"address","street":"Werkstattstraße","house":"5","postalCode":"10115","city":"Berlin","country":"DE","source":"integration.settings","sourceLabel":"DHL-Integration (Shop-Anschrift)","missing":[]}},"payload":{"s":{"name1":"Anna Kundin","addressStreet":"Rechnungsallee","addressHouse":"1","postalCode":"80331","city":"München","country":"DEU","email":"anna@test.invalid"},"c":{"name1":"McRepair.de GmbH","addressStreet":"Werkstattstraße","addressHouse":"5","postalCode":"10115","city":"Berlin","country":"DEU","email":"werkstatt@test.invalid","phone":"+49301234567"}}}
+  PASS Auslieferung: Anzeige = Parteien des gesendeten Auslieferungslabels (Shop -> Lieferweg 7, Hamburg) :: {"ui":{"direction":"outbound","label":"Auslieferung (McRepair → Kunde)","sender":{"role":"shop","name":"McRepair.de GmbH","deliveryType":"address","street":"Werkstattstraße","house":"5","postalCode":"10115","city":"Berlin","country":"DE","source":"integration.settings","sourceLabel":"DHL-Integration (Shop-Anschrift)","missing":[]},"recipient":{"role":"customer","name":"Anna Kundin","deliveryType":"address","street":"Lieferweg","house":"7","packstationNumber":"","postNumber":"","postalCode":"20095","city":"Hamburg","country":"DE","source":"order.shippingAddress","sourceLabel":"Lieferadresse des Auftrags","missing":[]}},"payload":{"s":{"name1":"McRepair.de GmbH","addressStreet":"Werkstattstraße","addressHouse":"5","postalCode":"10115","city":"Berlin","country":"DEU","email":"werkstatt@test.invalid"},"c":{"name1":"Anna Kundin","addressStreet":"Lieferweg","addressHouse":"7","postalCode":"20095","city":"Hamburg","country":"DEU","email":"anna@test.invalid"}}}
+  PASS Parteien ohne E-Mail/Telefon (nur Name + Anschrift) :: ["role","name","deliveryType","street","house","packstationNumber","postNumber","postalCode","city","country","source","sourceLabel","missing"]
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Packstation: Empfaenger mit Packstationsnummer statt Strasse :: {"role":"customer","name":"Paula Packstation","deliveryType":"packstation","street":"","house":"","packstationNumber":"118","postNumber":"12345678","postalCode":"10117","city":"Berlin","country":"DE","source":"order.shippingAddress","sourceLabel":"Lieferadresse des Auftrags","missing":[]}
+  PASS Einsendung ohne Buchung: Packstation nicht als Absender (wie Retourenlabel), sonst Rechnungsadresse bzw. "fehlt" :: {"role":"customer","name":"Paula Packstation","deliveryType":"address","street":"Rechnungsallee","house":"9","postalCode":"50667","city":"Köln","country":"DE","source":"customer.invoiceAddress","sourceLabel":"Rechnungsadresse im Kundenprofil","missing":[]}
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Fehlende Kundenadresse wird gemeldet (missing), nichts ergaenzt :: {"role":"customer","name":"Ohne Adresse","deliveryType":"address","street":"","house":"","packstationNumber":"","postNumber":"","postalCode":"","city":"","country":"","source":"","sourceLabel":"","missing":["Lieferadresse"]}
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Unvollstaendige Shop-Anschrift (DHL-Integration) wird gemeldet, nichts ergaenzt :: {"role":"shop","name":"McRepair.de GmbH","deliveryType":"address","street":"","house":"","postalCode":"10115","city":"Berlin","country":"DE","source":"integration.settings","sourceLabel":"DHL-Integration (Shop-Anschrift)","missing":["Straße","Hausnummer"]}
+  PASS Kunde (Inhaber): GET /shipments ohne Team-Parteien :: 200 keys=outbound,inbound,inboundLabels,outboundAction,inboundAction,legacy
+Get order by ID request received: 6abf93a3b578848de3c4e999
+OrderService: Getting order by ID: 6abf93a3b578848de3c4e999
+Access control check - Order customer ID: 6abf93a2b578848de3c4e800
+Access control check - Current user ID: 6abf93a2b578848de3c4e800
+Access control check - User role: customer
+Access granted - returning order details
+  PASS Kunde (Inhaber): Auftragsdetail ohne Team-Parteien :: 200 keys=outbound,inbound,inboundLabels,outboundAction,inboundAction,legacy
+
+[(d) POST /api/orders] Kunde kann Status, Versandfelder und Auftragswert nicht setzen
+Create order request received from user: anna@test.invalid
+Order data: {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display',
+  services: [ '6abf93a4b578848de3c4eb96' ],
+  totalCost: 1,
+  discount: 99,
+  status: 'completed',
+  paymentStatus: 'paid',
+  trackingNumber: 'FAKE00000001',
+  shippingStatus: 'delivered',
+  shippingLabelUrl: 'data:application/pdf;base64,AAAA',
+  requiresPaymentBeforeCompletion: false
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf93a2b578848de3c4e800'),
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  services: [ '6abf93a4b578848de3c4eb96' ],
+  errorDescription: 'Display'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf93a4b578848de3c4eb9b')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Order confirmation email sent to: anna@test.invalid
+  PASS Status/Versandfelder aus dem Request werden ignoriert :: 201 {"status":"pending","tn":"","ship":"pending"} undefined
+  PASS Auftragswert kommt aus dem Katalog (100,00), nicht vom Client (1,00) :: {"totalCost":100,"discount":0,"paymentStatus":"pending"}
+
+==== 69 bestanden, 0 fehlgeschlagen ====

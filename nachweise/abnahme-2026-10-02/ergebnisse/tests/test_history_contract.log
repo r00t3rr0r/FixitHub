@@ -1,0 +1,814 @@
+(node:1099598) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1099598) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1099598) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Statusmenue: deutscher Eintrag, Idempotenz, Validierung, kein interner Text an Kunden
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf930fec12c2aaff8bb477')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf930fec12c2aaff8bb477 { status: 'diagnostic-assessment', note: 'INTERN: Kunde schwierig' }
+OrderService: Updating order status: 6abf930fec12c2aaff8bb477 to diagnostic-assessment
+OrderService: Order status updated successfully
+  PASS PUT status: genau ein Statuseintrag (+ ein Eintrag fuer die implizite Zuweisung) :: 200 1->3
+  PASS implizite Personalzuweisung wird protokolliert (HIST-8, frueher ohne Eintrag) :: [["automatisch bei Bearbeitung","Admin Verlauf"]]
+  PASS Eintrag deutsch mit stabilem Schluessel :: Order Status Updated | Status geändert: Ausstehend → Diagnosebewertung
+  PASS from/to, echter Akteur, Grund und Quelle gespeichert :: {"c":[{"field":"status","label":"Auftragsstatus","from":"pending","to":"diagnostic-assessment"}],"n":"Admin Verlauf","r":"INTERN: Kunde schwierig"}
+  PASS Kundenbenachrichtigung: genau eine, ohne interne Notiz, ohne Englisch :: ["Ihr Auftrag ORD-2026-001 wurde aktualisiert: Diagnosebewertung. Aktueller Fortschritt: 0%."]
+Update order status request received: 6abf930fec12c2aaff8bb477 { status: 'diagnostic-assessment' }
+OrderService: Updating order status: 6abf930fec12c2aaff8bb477 to diagnostic-assessment
+  PASS gleicher Status erneut: 200 unchanged, kein zweiter Eintrag :: 200 true 3->3
+  PASS keine zweite Benachrichtigung :: 1
+Update order status request received: 6abf930fec12c2aaff8bb477 { status: 'diagnosed' }
+  PASS unbekannter Status (frueher 500 englisch): 400 deutsch, Auftrag unveraendert :: 400 Unbekannter Auftragsstatus. diagnostic-assessment
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+Update order status request received for order: 6abf930fec12c2aaff8bb477
+  PASS zweite Statusroute validiert ebenfalls :: 400 Unbekannter Auftragsstatus.
+  PASS Kunde darf Status nicht aendern :: 403
+Update order status request received: 6abf930fec12c2aaff8bb477 { status: 'cancelled', reason: 'Kunde zieht zurück' }
+OrderService: Updating order status: 6abf930fec12c2aaff8bb477 to cancelled
+OrderService: Order status updated successfully
+  PASS Storno: Fortschritt 0 (frueher blieb 60), Grund im Eintrag :: 0 Kunde zieht zurück
+
+[B] Ehrliche Meilensteine (GET /api/orders/:id/progress-timeline)
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf930fec12c2aaff8bb4df')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf930fec12c2aaff8bb4df { status: 'diagnostic-assessment' }
+OrderService: Updating order status: 6abf930fec12c2aaff8bb4df to diagnostic-assessment
+OrderService: Order status updated successfully
+Update order status request received: 6abf930fec12c2aaff8bb4df { status: 'completed' }
+OrderService: Updating order status: 6abf930fec12c2aaff8bb4df to completed
+OrderService: Order status updated successfully
+Get order progress timeline request received for order: 6abf930fec12c2aaff8bb4df
+OrderService: Getting order by ID: 6abf930fec12c2aaff8bb4df
+Progress timeline retrieved successfully for order: 6abf930fec12c2aaff8bb4df
+  PASS nie erreichte Stufen: skipped "Übersprungen – nicht erfasst" (frueher "Abgeschlossen") :: [["skipped","skipped","Übersprungen – nicht erfasst"],["skipped","skipped","Übersprungen – nicht erfasst"]]
+  PASS erreichte Stufe: echter Zeitpunkt (ISO + de-DE) und Akteur :: 2026-10-02T11:18:39.796Z 02.10.2026, 13:18 Admin Verlauf
+  PASS Reparatur abgeschlossen erreicht :: {"id":"pickup","label":"Reparatur abgeschlossen","state":"reached","status":"completed","reachedAt":"2026-10-02T11:18:39.816Z","timeKnown":true,"date":"02.10.2026, 13:18","detail":null,"note":null,"actorName":"Admin Verlauf","sourceEntryId":"6abf930fec12c2aaff8bb4fd"}
+Get order progress timeline request received for order: 6abf930fec12c2aaff8bb4df
+OrderService: Getting order by ID: 6abf930fec12c2aaff8bb4df
+Progress timeline retrieved successfully for order: 6abf930fec12c2aaff8bb4df
+  PASS Kunde: Meilensteine ohne Mitarbeiternamen :: 200
+Get order progress timeline request received for order: 6abf930fec12c2aaff8bb4df
+OrderService: Getting order by ID: 6abf930fec12c2aaff8bb4df
+Access denied - User does not own order and is not admin/staff
+  PASS fremder Kunde: 403 :: 403
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf930fec12c2aaff8bb522')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Get order progress timeline request received for order: 6abf930fec12c2aaff8bb522
+OrderService: Getting order by ID: 6abf930fec12c2aaff8bb522
+Progress timeline retrieved successfully for order: 6abf930fec12c2aaff8bb522
+  PASS neuer Auftrag: nur "Auftrag erhalten" aktuell, Rest offen :: ["current","pending","pending","pending","pending","pending"]
+
+[C] Positionen: Eintrag atomar mit Akteur/Grund, Revision verknuepft, kein Duplikat
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf930fec12c2aaff8bb539')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding manual line to order 6abf930fec12c2aaff8bb539
+[OrderServiceManagement] Manual line added to order 6abf930fec12c2aaff8bb539. List price: 10. Order value: 110
+[OrderServiceRoutes] Position added by user 6abf930fec12c2aaff8bb434 to order 6abf930fec12c2aaff8bb539
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9310ec12c2aaff8bb549 in order 6abf930fec12c2aaff8bb539
+[OrderServiceManagement] Service 6abf9310ec12c2aaff8bb549 updated in order 6abf930fec12c2aaff8bb539. List price: 15. Order value: 115
+[OrderServiceRoutes] Service 6abf9310ec12c2aaff8bb549 updated by user 6abf930fec12c2aaff8bb434 in order 6abf930fec12c2aaff8bb539
+  PASS zwei Verlaufseintraege fuer zwei Positionsaenderungen :: 201 200 2
+  PASS Preisaenderung: Akteur, 10 -> 15, Grund, Art "pricing" :: {"n":"Sophie Technik","priceChange":{"field":"services.price","label":"Standardpreis „Reinigung“","from":10,"to":15},"r":"Preis korrigiert","t":"pricing"}
+  PASS Hinzufuegen: Grund und Auftragswert alt/neu :: [{"field":"totalCost","label":"Auftragswert","from":100,"to":110}]
+  PASS refs.revisionId zeigt auf die OrderRevision :: [{"revisionId":"6abf9310ec12c2aaff8bb54e","revisionNumber":2},{"revisionId":"6abf9310ec12c2aaff8bb566","revisionNumber":3}]
+  PASS GET /history: genau 2 Eintraege fuer die 2 Aenderungen (verknuepfte Revisionen nicht doppelt) :: [["timeline","Leistungen geändert"],["timeline","Leistungen geändert"],["revision","Änderungsbeleg"],["timeline","Auftrag erhalten"]]
+  PASS nicht verknuepfte Alt-Revision (Anlage) erscheint einmal als Änderungsbeleg :: Auftragswert bei Anlage (Änderungsbeleg #1) · Auftrag angelegt: Positionen 100,00 €, Rabatt 0,00 €, Auftragswert 100,00 € (brutto)
+  PASS Ansicht: Link "Änderungsbeleg #n" und formatierte Betraege :: {"link":{"kind":"revision","id":"6abf9310ec12c2aaff8bb566","label":"Änderungsbeleg #3","href":null,"apiUrl":"/api/orders/6abf930fec12c2aaff8bb539/revisions"},"ch":[{"field":"services.price","label":"Standardpreis „Reinigung“","from":10,"to":15,"fromText":"10,00 €","toText":"15,00 €"},{"field":"totalCost","label":"Auftragswert","from":110,"to":115,"fromText":"110,00 €","toText":"115,00 €"}]}
+
+[D] Shop-Produkte: hinzufuegen / Menge / entfernen werden protokolliert
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb57e')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Add shop product to order request received: 6abf9310ec12c2aaff8bb57e { productId: '6abf9310ec12c2aaff8bb589', quantity: 1 }
+OrderService: Adding shop product to order: 6abf9310ec12c2aaff8bb57e Product: 6abf9310ec12c2aaff8bb589 Quantity: 1
+OrderService: Added new product to order
+OrderService: Recalculating order total for order: new ObjectId('6abf9310ec12c2aaff8bb57e')
+OrderService: Total cost recalculated: 109.9
+OrderService: Shop product added successfully to order: 6abf9310ec12c2aaff8bb57e
+Update shop product quantity in order request received: 6abf9310ec12c2aaff8bb57e 6abf9310ec12c2aaff8bb591 { quantity: 3 }
+OrderService: Updating shop product quantity in order: 6abf9310ec12c2aaff8bb57e Product item: 6abf9310ec12c2aaff8bb591 New quantity: 3
+OrderService: Shop product quantity updated
+OrderService: Recalculating order total for order: new ObjectId('6abf9310ec12c2aaff8bb57e')
+OrderService: Total cost recalculated: 129.7
+OrderService: Shop product quantity updated successfully in order: 6abf9310ec12c2aaff8bb57e
+Remove shop product from order request received: 6abf9310ec12c2aaff8bb57e 6abf9310ec12c2aaff8bb591
+OrderService: Removing shop product from order: 6abf9310ec12c2aaff8bb57e Product item: 6abf9310ec12c2aaff8bb591
+OrderService: Shop product removed from order
+OrderService: Recalculating order total for order: new ObjectId('6abf9310ec12c2aaff8bb57e')
+OrderService: Total cost recalculated: 100
+OrderService: Shop product removed successfully from order: 6abf9310ec12c2aaff8bb57e
+  PASS 3 Eintraege fuer 3 Produktaenderungen :: 200 200 200 3
+  PASS Name, Menge 1 -> 3, Akteur :: {"d":"Produkt „Panzerglas“ ×1 hinzugefügt (9,90 € je Stück)","qtyChange":{"field":"shopProducts.quantity","label":"Menge „Panzerglas“","from":1,"to":3},"n":"Sophie Technik"}
+  PASS Entfernen nennt das Produkt (frueher ohne Namen) und den Akteur :: Produkt „Panzerglas“ ×3 entfernt (9,90 € je Stück)
+
+[E] Zusatzleistung: Finanzabgleich-Fehler sichtbar, Leer-Tick ohne Eintrag
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb5af')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Add add-on to order request received: 6abf9310ec12c2aaff8bb5af { name: 'Express', price: 20 }
+OrderService: Adding add-on to order: {
+  orderId: '6abf9310ec12c2aaff8bb5af',
+  addonData: {
+    name: 'Express',
+    description: undefined,
+    price: 20,
+    estimatedTime: undefined,
+    status: undefined,
+    confirmRepricing: false
+  },
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Add-on added successfully
+  PASS Hinzufuegen: warnings-Feld vorhanden :: []
+Update add-on in order request received: 6abf9310ec12c2aaff8bb5af 6abf9310ec12c2aaff8bb5bf { price: 25 }
+OrderService: Updating add-on in order: {
+  orderId: '6abf9310ec12c2aaff8bb5af',
+  addonId: '6abf9310ec12c2aaff8bb5bf',
+  updateData: {
+    name: undefined,
+    description: undefined,
+    price: 25,
+    estimatedTime: undefined,
+    status: undefined,
+    progress: undefined,
+    confirmRepricing: false
+  },
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Financial sync failed for order 6abf9310ec12c2aaff8bb5af: Testfehler Finanzabgleich
+OrderService: Add-on updated successfully
+  PASS Preisaenderung trotz Abgleichfehler gespeichert, Fehler als deutsche Warnung (frueher nur console.warn) :: 200 ["Die Änderung wurde gespeichert, der Abgleich mit Buchung/Rechnung ist jedoch fehlgeschlagen. Bitte den Finanzabgleich für diesen Auftrag erneut ausführen."]
+Update add-on in order request received: 6abf9310ec12c2aaff8bb5af 6abf9310ec12c2aaff8bb5bf { price: 25, status: 'pending' }
+OrderService: Updating add-on in order: {
+  orderId: '6abf9310ec12c2aaff8bb5af',
+  addonId: '6abf9310ec12c2aaff8bb5bf',
+  updateData: {
+    name: undefined,
+    description: undefined,
+    price: 25,
+    estimatedTime: undefined,
+    status: 'pending',
+    progress: undefined,
+    confirmRepricing: false
+  },
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Add-on updated successfully
+  PASS Wiederholung ohne Aenderung: kein neuer Eintrag :: 1->1
+
+[F] Personalzuweisung: Akteur, alt/neu, keine Wiederholung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb5f5')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Assign staff to order request received: 6abf9310ec12c2aaff8bb5f5 { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9310ec12c2aaff8bb5f5 staff: [ '6abf930fec12c2aaff8bb43f' ]
+OrderService: Staff assigned successfully
+  PASS Eintrag mit echtem Akteur (frueher "System") und neuer Zuweisung :: {"n":"Admin Verlauf","c":[{"field":"assignedStaff","label":"Zugewiesenes Personal","from":[],"to":["Tom Technik"]}]}
+Assign staff to order request received: 6abf9310ec12c2aaff8bb5f5 { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9310ec12c2aaff8bb5f5 staff: [ '6abf930fec12c2aaff8bb43f' ]
+  PASS gleiche Zuweisung erneut: kein Eintrag :: 1->1
+
+[G] Geraetewechsel: strukturierte Aenderung, Grund, Quelle, Idempotenz, Bestaetigung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb612')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+[DeviceChange] Change device request received: 6abf9310ec12c2aaff8bb612 {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPad Pro',
+  deviceType: 'Tablet',
+  reason: 'Kunde hat iPad eingeschickt',
+  source: 'Inspektion Schritt 1',
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf9310ec12c2aaff8bb613',
+      newServiceId: '6abf930fec12c2aaff8bb464'
+    }
+  ]
+}
+[DeviceChange] Starting device change for order 6abf9310ec12c2aaff8bb612. Old: Apple iPhone 15 (Smartphone), New: Apple iPad Pro (Tablet)
+[DeviceChange] Replaced service Displaytausch iPhone 15 with Displaytausch iPad Pro: 100 -> 180
+[DeviceChange] Total cost change: 100 -> 180 (+80)
+[DeviceChange] Device successfully changed for order 6abf9310ec12c2aaff8bb612. Requires confirmation: true
+  PASS Aenderungen: Geraetetyp, Modell, Service-Tausch :: 200  deviceType,deviceModel,services,totalCost
+  PASS Grund, Quelle und Akteur im Eintrag (frueher nur in der unsichtbaren Revision) :: {"r":"Kunde hat iPad eingeschickt","s":"Inspektion Schritt 1"}
+  PASS Beschreibungsanfang fuer den Pruefbericht unveraendert :: Modellwechsel: Apple iPhone 15 -> Apple iPad Pro. Auftragskosten: 100,00 € -> 180,00 €. Noch offen: 180,00 €.
+  PASS reportedDevice bleibt das gebuchte Geraet :: {"brand":"Apple","model":"iPhone 15","deviceType":"Smartphone","capturedAt":"2026-10-02T11:18:40.410Z"}
+  PASS Pruefbericht ermittelt weiterhin das gebuchte Modell :: {"model":"Apple iPhone 15","source":"order-snapshot"}
+[DeviceChange] Change device request received: 6abf9310ec12c2aaff8bb612 {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPad Pro',
+  deviceType: 'Tablet',
+  reason: 'Kunde hat iPad eingeschickt',
+  source: 'Inspektion Schritt 1',
+  serviceReplacements: []
+}
+[DeviceChange] Starting device change for order 6abf9310ec12c2aaff8bb612. Old: Apple iPad Pro (Tablet), New: Apple iPad Pro (Tablet)
+[DeviceChange] Error changing device: Gerät ist bereits als Apple iPad Pro (Tablet) erfasst – keine Änderung gespeichert.
+[DeviceChange] Error changing device: Error: Gerät ist bereits als Apple iPad Pro (Tablet) erfasst – keine Änderung gespeichert.
+    at buildDeviceChangeError (/home/adar/Projects/FixitHub/server/services/deviceChangeService.js:14:17)
+    at /home/adar/Projects/FixitHub/server/services/deviceChangeService.js:125:17
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DeviceChangeService.changeDeviceAndRecalculateServices (/home/adar/Projects/FixitHub/server/services/deviceChangeService.js:96:34)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1290:20 {
+  statusCode: 409
+}
+  PASS identische Wiederholung: 409 deutsch, kein Eintrag "X -> X" :: 409 Gerät ist bereits als Apple iPad Pro (Tablet) erfasst – keine Änderung gespeichert. 1
+[DeviceChange] Confirm device change request received: 6abf9310ec12c2aaff8bb612 { confirmed: true }
+[DeviceChange] Device change confirmed for order 6abf9310ec12c2aaff8bb612 by user 6abf930fec12c2aaff8bb44c
+[DeviceChange] Confirm device change request received: 6abf9310ec12c2aaff8bb612 { confirmed: true }
+[DeviceChange] Device change confirmed for order 6abf9310ec12c2aaff8bb612 by user 6abf930fec12c2aaff8bb44c
+  PASS Bestaetigung: genau ein Eintrag mit Akteur :: 200 200 1
+  PASS zweite Bestaetigung: keine zweite Kundenbenachrichtigung :: 0->1
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb657')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update device information request received: 6abf9310ec12c2aaff8bb657 { deviceBrand: 'Apple', deviceModel: 'iPad Pro', deviceType: 'Tablet' }
+[DeviceChange] Starting device change for order 6abf9310ec12c2aaff8bb657. Old: Apple iPhone 15 (Smartphone), New: Apple iPad Pro (Tablet)
+[DeviceChange] Error changing device: Der Service „Displaytausch iPhone 15“ passt nicht zu Apple iPad Pro. Bitte ordnen Sie einen passenden Reparaturservice zu.
+Error updating device information: Error: Der Service „Displaytausch iPhone 15“ passt nicht zu Apple iPad Pro. Bitte ordnen Sie einen passenden Reparaturservice zu.
+    at buildDeviceChangeError (/home/adar/Projects/FixitHub/server/services/deviceChangeService.js:14:17)
+    at /home/adar/Projects/FixitHub/server/services/deviceChangeService.js:319:23
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:23)
+    at async DeviceChangeService.changeDeviceAndRecalculateServices (/home/adar/Projects/FixitHub/server/services/deviceChangeService.js:96:34)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:980:20 {
+  statusCode: 400
+}
+  PASS Alt-Route PUT /:id/device nutzt den Geraetewechsel (unpassender Service -> 400 deutsch, nichts geaendert) :: 400 Der Service „Displaytausch iPhone 15“ passt nicht zu Apple iPad Pro. Bitte ordnen Sie einen passenden Reparaturservice zu.
+
+[H] Abholung bestaetigen: parallel doppelt -> ein Eintrag
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb66b')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9310ec12c2aaff8bb66b { status: 'ready-for-pickup' }
+OrderService: Updating order status: 6abf9310ec12c2aaff8bb66b to ready-for-pickup
+OrderService: Order status updated successfully
+  PASS genau ein "Pickup Confirmed", Status abgeschlossen, actualCompletion gesetzt :: 200 200 1 completed
+  PASS zweiter Klick: alreadyConfirmed :: [null,true]
+Get order progress timeline request received for order: 6abf9310ec12c2aaff8bb66b
+OrderService: Getting order by ID: 6abf9310ec12c2aaff8bb66b
+Progress timeline retrieved successfully for order: 6abf9310ec12c2aaff8bb66b
+  PASS Meilenstein Rückgabe: Abgeholt mit Zeitpunkt :: {"id":"return","label":"Rückgabe","state":"reached","status":"completed","reachedAt":"2026-10-02T11:18:40.624Z","timeKnown":true,"date":"02.10.2026, 13:18","detail":"Abgeholt","note":null}
+
+[I] Entsperrdaten: Pause mit Verlauf, Fortsetzung ueber Markierung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb69f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9310ec12c2aaff8bb69f { status: 'diagnostic-assessment' }
+OrderService: Updating order status: 6abf9310ec12c2aaff8bb69f to diagnostic-assessment
+OrderService: Order status updated successfully
+Request unlock update received for order: 6abf9310ec12c2aaff8bb69f by user: hist-staff@test.invalid
+OrderService: Confirming unlock for order: 6abf9310ec12c2aaff8bb69f by user: Sophie Technik
+OrderService: Unlock confirmation recorded for order: 6abf9310ec12c2aaff8bb69f
+OrderService: Updating order status: 6abf9310ec12c2aaff8bb69f to paused
+OrderService: Order status updated successfully
+InspectionCommunicationService: Creating quick action update_unlock_info for order 6abf9310ec12c2aaff8bb69f
+InspectionCommunicationService: Quick action created successfully
+Request unlock update successful for order: 6abf9310ec12c2aaff8bb69f
+  PASS Pause mit Eintrag (frueher keiner) und "Unlock Incorrect" mit Notiz :: 200  paused 1 1
+  PASS Helfer setzt auf den Status vor der Pause fort (Eintrag Quelle "Kunde") :: true diagnostic-assessment
+  PASS zweiter Aufruf: keine Wirkung :: false
+
+[J] Template-Workflow: doppelte Pause und paralleler Schrittabschluss
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb6fa')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update workflow status request received: 6abf9310ec12c2aaff8bb6fa 6abf9310ec12c2aaff8bb706 { status: 'on-hold', pauseReason: 'Teil fehlt' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  status: 'on-hold',
+  pauseReason: 'Teil fehlt',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434'),
+  pauseReason: 'Teil fehlt'
+}
+OrderService: Workflow status updating from in-progress to on-hold
+OrderService: Pausing workflow with reason: Teil fehlt
+OrderService: Order status changed from in-progress to paused
+OrderService: Timeline entry added for workflow status change
+OrderService: Timeline entry added for order status change
+OrderService: Workflow status updated successfully: {
+  workflowStatus: 'on-hold',
+  orderStatus: 'paused',
+  pauseReason: 'Teil fehlt'
+}
+Update workflow status: Success. Order status: paused
+Update workflow status request received: 6abf9310ec12c2aaff8bb6fa 6abf9310ec12c2aaff8bb706 { status: 'on-hold', pauseReason: 'Teil fehlt' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  status: 'on-hold',
+  pauseReason: 'Teil fehlt',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434'),
+  pauseReason: 'Teil fehlt'
+}
+Update workflow status: Success. Order status: paused
+  PASS zweimal pausieren: ein "Workflow Paused" :: 200 200 1
+  PASS Statuswechsel durch Workflow: strukturiert und deutsch :: Status geändert: Reparatur in Bearbeitung → Pausiert (durch Workflow „Displaytausch-Ablauf“)
+Update workflow status request received: 6abf9310ec12c2aaff8bb6fa 6abf9310ec12c2aaff8bb706 { status: 'in-progress' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  status: 'in-progress',
+  pauseReason: 'N/A',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  status: 'in-progress',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434'),
+  pauseReason: null
+}
+OrderService: Workflow status updating from on-hold to in-progress
+OrderService: Resuming workflow, clearing pause reason
+OrderService: Pause reason and timestamp cleared
+OrderService: Timeline entry added for workflow status change
+OrderService: Timeline entry added for order status change
+OrderService: Workflow status updated successfully: {
+  workflowStatus: 'in-progress',
+  orderStatus: 'in-progress',
+  pauseReason: 'N/A'
+}
+Update workflow status: Success. Order status: in-progress
+Complete workflow step request received: 6abf9310ec12c2aaff8bb6fa 6abf9310ec12c2aaff8bb706 6abf9310ec12c2aaff8bb707 {}
+OrderService: Completing workflow step: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  stepId: '6abf9310ec12c2aaff8bb707',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+Complete workflow step request received: 6abf9310ec12c2aaff8bb6fa 6abf9310ec12c2aaff8bb706 6abf9310ec12c2aaff8bb707 {}
+OrderService: Completing workflow step: {
+  orderId: '6abf9310ec12c2aaff8bb6fa',
+  workflowId: '6abf9310ec12c2aaff8bb706',
+  stepId: '6abf9310ec12c2aaff8bb707',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb43f')
+}
+OrderService: Workflow step completed successfully
+OrderService: Error completing workflow step: Error: Dieser Schritt wurde bereits abgeschlossen oder übersprungen.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.saveIfStepOpen (/home/adar/Projects/FixitHub/server/services/orderService.js:2664:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.completeWorkflowStep (/home/adar/Projects/FixitHub/server/services/orderService.js:2850:28)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:790:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_STEP_ALREADY_DONE'
+}
+Error completing workflow step: Error: Dieser Schritt wurde bereits abgeschlossen oder übersprungen.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.saveIfStepOpen (/home/adar/Projects/FixitHub/server/services/orderService.js:2664:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.completeWorkflowStep (/home/adar/Projects/FixitHub/server/services/orderService.js:2850:28)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:790:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_STEP_ALREADY_DONE'
+}
+  PASS paralleler Doppelklick: genau ein Eintrag, eine 409 (deutsch) :: 200,409 1 |Dieser Schritt wurde bereits abgeschlossen oder übersprungen.
+
+[K] Sichtbarkeit: interne Eintraege nie fuer Kunde/Gast
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9310ec12c2aaff8bb765')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9310ec12c2aaff8bb765 { status: 'in-progress', note: 'INTERN-Notiz' }
+OrderService: Updating order status: 6abf9310ec12c2aaff8bb765 to in-progress
+OrderService: Order status updated successfully
+Get order by ID request received: 6abf9310ec12c2aaff8bb765
+OrderService: Getting order by ID: 6abf9310ec12c2aaff8bb765
+Access control check - Order customer ID: 6abf930fec12c2aaff8bb3b2
+Access control check - Current user ID: 6abf930fec12c2aaff8bb3b2
+Access control check - User role: customer
+Access granted - returning order details
+  PASS Kunde GET /api/orders/:id: keine internen Eintraege, keine Namen/Gruende :: [{"_id":"6abf9310ec12c2aaff8bb76a","status":"Order Received","title":"Auftrag erhalten","description":"Ihr Auftrag ist bei uns eingegangen.","completedAt":"2026-10-02T11:18:40.945Z","type":"status"},{"_id":"6abf9310ec12c2aaff8bb772","status":"Inbound Label Created","title":"DHL-Einsendelabel erstell
+  PASS Kunde: freigegebene Eintraege mit deutschem Titel :: [{"_id":"6abf9310ec12c2aaff8bb76a","status":"Order Received","title":"Auftrag erhalten","description":"Ihr Auftrag ist bei uns eingegangen.","completedAt":"2026-10-02T11:18:40.945Z","type":"status"},{"_id":"6abf9310ec12c2aaff8bb772","status":"Inbound Label Created","title":"DHL-Einsendelabel erstell
+OrderTrackingRoutes: Order found: ORD-2026-013
+  PASS Gast GET /api/track-order: nur Positivliste (frueher kompletter Verlauf) :: [{"_id":"6abf9310ec12c2aaff8bb76a","status":"Order Received","title":"Auftrag erhalten","description":"Ihr Auftrag ist bei uns eingegangen.","completedAt":"2026-10-02T11:18:40.945Z","type":"status"},{"_id":"6abf9310ec12c2aaff8bb772","status":"Inbound Label Created","title":"DHL-Einsendelabel erstell
+  PASS Gast: keine workflows/assignedStaff, Meilensteine ohne Namen :: 62
+OrderTrackingRoutes: Email mismatch for order tracking
+  PASS Gast mit falscher E-Mail: 403 :: 403
+Admin get order by ID request received: 6abf9310ec12c2aaff8bb765
+OrderService: Getting order by ID: 6abf9310ec12c2aaff8bb765
+  PASS Admin sieht die internen Eintraege :: 200
+
+[L] GET /api/orders/:id/history: Zusammenfuehrung, Filter, Rollen
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb7a8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9311ec12c2aaff8bb7a8 { status: 'in-progress', reason: 'INTERN-Grund-L' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb7a8 to in-progress
+OrderService: Order status updated successfully
+  PASS Rechnung im Verlauf mit Link "Rechnung öffnen" :: {"kind":"invoice","id":"6abf9311ec12c2aaff8bb7be","label":"Rechnung öffnen","href":null,"apiUrl":"/api/invoices/6abf9311ec12c2aaff8bb7be/pdf"}
+  PASS Zahlung im Verlauf (de-DE Betrag, Methode, erfasst von) :: Zahlung 47,40 € (PayPal) – eingegangen
+  PASS Personal: Grund, Akteur, deutscher Titel :: {"r":"INTERN-Grund-L","t":"Status geändert"}
+  PASS Filtergruppen mit Zaehlern und Meilensteine in der Antwort :: [["status",2],["device",0],["pricing",1],["staff",1],["inspection",0],["communication",0],["finance",3],["shipping",0]]
+  PASS neueste zuerst :: 7
+  PASS Typfilter liefert nur Zahlung & Rechnung :: payment,invoice,invoice
+  PASS unbekannte Eintragsart: 400 deutsch :: 400 Unbekannte Eintragsart: foo. Erlaubt: status, workflow, device, services, pricing, parts, staff, inspection, quote, communication, payment, invoice, shipping, note.
+  PASS Seitenweise laden ueber nextCursor :: 1790939921092|pay:6abf9311ec12c2aaff8bb7bf
+  PASS Eigentuemer: nur freigegebene Eintraege ohne Akteur/Grund/Finanzdetails :: {"success":true,"orderId":"6abf9311ec12c2aaff8bb7a8","orderNumber":"ORD-2026-014","entries":[{"id":"6abf9311ec12c2aaff8bb7bb","at":"2026-10-02T11:18:41.085Z","timeKnown":true,"timeNote":null,"key":"Or
+  PASS fremder Kunde / unbekannte ID: 403 ohne Daten :: 403 403
+  PASS Personal: unbekannte ID 404 :: 404
+  PASS ohne Anmeldung abgewiesen :: 401
+
+[M1] Parallel gleicher Status -> ein Eintrag, eine Benachrichtigung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb817')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9311ec12c2aaff8bb817 { status: 'quality-check' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb817 to quality-check
+Update order status request received: 6abf9311ec12c2aaff8bb817 { status: 'quality-check' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb817 to quality-check
+Update order status request received: 6abf9311ec12c2aaff8bb817 { status: 'quality-check' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb817 to quality-check
+OrderService: Order status updated successfully
+  PASS drei parallele Klicks: genau ein Statuseintrag, zwei "unchanged" :: 200,200,200 1
+  PASS genau eine Kundenbenachrichtigung (frueher je Klick eine) :: 1
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb84f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9311ec12c2aaff8bb84f { status: 'in-progress' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb84f to in-progress
+Update order status request received: 6abf9311ec12c2aaff8bb84f { status: 'cancelled', reason: 'Kunde storniert' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb84f to cancelled
+OrderService: Order status updated successfully
+OrderService: Order status updated successfully
+  PASS parallel verschiedene Ziele: zweiter Eintrag nennt das echte "von" (frueher zweimal "pending") :: ["pending->in-progress","in-progress->cancelled"]
+
+[M2] Parallel gleiche Zuweisung / Workflow-Pause -> ein Eintrag
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb87f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Assign staff to order request received: 6abf9311ec12c2aaff8bb87f { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9311ec12c2aaff8bb87f staff: [ '6abf930fec12c2aaff8bb43f' ]
+Assign staff to order request received: 6abf9311ec12c2aaff8bb87f { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9311ec12c2aaff8bb87f staff: [ '6abf930fec12c2aaff8bb43f' ]
+Assign staff to order request received: 6abf9311ec12c2aaff8bb87f { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9311ec12c2aaff8bb87f staff: [ '6abf930fec12c2aaff8bb43f' ]
+Assign staff to order request received: 6abf9311ec12c2aaff8bb87f { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9311ec12c2aaff8bb87f staff: [ '6abf930fec12c2aaff8bb43f' ]
+OrderService: Staff assigned successfully
+Assign staff to order request received: 6abf9311ec12c2aaff8bb87f { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9311ec12c2aaff8bb87f staff: [ '6abf930fec12c2aaff8bb43f' ]
+Assign staff to order request received: 6abf9311ec12c2aaff8bb87f { staffIds: [ '6abf930fec12c2aaff8bb43f' ] }
+OrderService: Assigning staff to order: 6abf9311ec12c2aaff8bb87f staff: [ '6abf930fec12c2aaff8bb43f' ]
+  PASS sechs parallele Zuweisungen: ein "Staff Assigned", fuenf "unchanged" :: 200,200,200,200,200,200 1
+  PASS keine doppelte Zuweisungsbenachrichtigung :: 1
+Update workflow status request received: 6abf9311ec12c2aaff8bb87f 6abf9311ec12c2aaff8bb8c3 { status: 'on-hold', pauseReason: 'Teil fehlt' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  pauseReason: 'Teil fehlt',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb434'),
+  pauseReason: 'Teil fehlt'
+}
+Update workflow status request received: 6abf9311ec12c2aaff8bb87f 6abf9311ec12c2aaff8bb8c3 { status: 'on-hold', pauseReason: 'Teil fehlt' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  pauseReason: 'Teil fehlt',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb43f')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb43f'),
+  pauseReason: 'Teil fehlt'
+}
+OrderService: Workflow status updating from in-progress to on-hold
+OrderService: Pausing workflow with reason: Teil fehlt
+OrderService: Order status changed from in-progress to paused
+Update workflow status request received: 6abf9311ec12c2aaff8bb87f 6abf9311ec12c2aaff8bb8c3 { status: 'on-hold', pauseReason: 'Teil fehlt' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  pauseReason: 'Teil fehlt',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb44c')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb44c'),
+  pauseReason: 'Teil fehlt'
+}
+OrderService: Workflow status updating from in-progress to on-hold
+OrderService: Pausing workflow with reason: Teil fehlt
+OrderService: Order status changed from in-progress to paused
+OrderService: Timeline entry added for workflow status change
+OrderService: Timeline entry added for order status change
+OrderService: Workflow status updating from in-progress to on-hold
+OrderService: Pausing workflow with reason: Teil fehlt
+OrderService: Order status changed from in-progress to paused
+OrderService: Workflow status updated successfully: {
+  workflowStatus: 'on-hold',
+  orderStatus: 'paused',
+  pauseReason: 'Teil fehlt'
+}
+Update workflow status: Success. Order status: paused
+OrderService: Timeline entry added for workflow status change
+OrderService: Timeline entry added for order status change
+OrderService: Timeline entry added for workflow status change
+OrderService: Timeline entry added for order status change
+OrderService: Updating workflow status: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb43f'),
+  pauseReason: 'Teil fehlt'
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf9311ec12c2aaff8bb87f',
+  workflowId: '6abf9311ec12c2aaff8bb8c3',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf930fec12c2aaff8bb44c'),
+  pauseReason: 'Teil fehlt'
+}
+Update workflow status: Success. Order status: paused
+Update workflow status: Success. Order status: paused
+  PASS drei parallele Pausen: ein "Workflow Paused", ein Statuswechsel, eine Pause in der Historie :: 200,200,200 1 1 1
+  PASS eine Kundenbenachrichtigung :: 1
+
+[M3] Positionspreis: Wiederholung und paralleler Doppelklick mit Grund -> kein Leer-Eintrag
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb913')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding manual line to order 6abf9311ec12c2aaff8bb913
+[OrderServiceManagement] Manual line added to order 6abf9311ec12c2aaff8bb913. List price: 10. Order value: 110
+[OrderServiceRoutes] Position added by user 6abf930fec12c2aaff8bb434 to order 6abf9311ec12c2aaff8bb913
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9311ec12c2aaff8bb923 in order 6abf9311ec12c2aaff8bb913
+[OrderServiceManagement] Service 6abf9311ec12c2aaff8bb923 updated in order 6abf9311ec12c2aaff8bb913. List price: 15. Order value: 115
+[OrderServiceRoutes] Service 6abf9311ec12c2aaff8bb923 updated by user 6abf930fec12c2aaff8bb434 in order 6abf9311ec12c2aaff8bb913
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9311ec12c2aaff8bb923 in order 6abf9311ec12c2aaff8bb913
+[OrderServiceManagement] Service 6abf9311ec12c2aaff8bb923 updated in order 6abf9311ec12c2aaff8bb913. List price: 15. Order value: 115
+[OrderServiceRoutes] Service 6abf9311ec12c2aaff8bb923 updated by user 6abf930fec12c2aaff8bb434 in order 6abf9311ec12c2aaff8bb913
+  PASS erneut gesendet (gleicher Preis, mit Grund): kein Eintrag mit 0 Aenderungen :: 2->2
+RequireRole middleware: User hist-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9311ec12c2aaff8bb923 in order 6abf9311ec12c2aaff8bb913
+RequireRole middleware: User hist-staff2@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9311ec12c2aaff8bb923 in order 6abf9311ec12c2aaff8bb913
+OrderService: gleichzeitige Aenderung an Auftrag 6abf9311ec12c2aaff8bb913 erkannt (Versuch 1/6) - wird auf frischem Stand wiederholt.
+[OrderServiceManagement] Service 6abf9311ec12c2aaff8bb923 updated in order 6abf9311ec12c2aaff8bb913. List price: 20. Order value: 120
+[OrderServiceRoutes] Service 6abf9311ec12c2aaff8bb923 updated by user 6abf930fec12c2aaff8bb434 in order 6abf9311ec12c2aaff8bb913
+[OrderServiceManagement] Service 6abf9311ec12c2aaff8bb923 updated in order 6abf9311ec12c2aaff8bb913. List price: 20. Order value: 120
+[OrderServiceRoutes] Service 6abf9311ec12c2aaff8bb923 updated by user 6abf930fec12c2aaff8bb43f in order 6abf9311ec12c2aaff8bb913
+  PASS paralleler Doppelklick: genau ein Eintrag 15 -> 20 :: [["Sophie Technik",2]]
+  PASS genau ein Aenderungsbeleg fuer die eine echte Aenderung :: 3->4
+  PASS Auftragswert 120,00 (100 + 20) :: 120
+
+[M4] Personalfelder am Auftrag: weder Kunde noch Gast sehen Namen oder interne Notiz
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb98a')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Request unlock update received for order: 6abf9311ec12c2aaff8bb98a by user: hist-staff@test.invalid
+OrderService: Confirming unlock for order: 6abf9311ec12c2aaff8bb98a by user: Sophie Technik
+OrderService: Unlock confirmation recorded for order: 6abf9311ec12c2aaff8bb98a
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb98a to paused
+OrderService: Order status updated successfully
+InspectionCommunicationService: Creating quick action update_unlock_info for order 6abf9311ec12c2aaff8bb98a
+InspectionCommunicationService: Quick action created successfully
+Request unlock update successful for order: 6abf9311ec12c2aaff8bb98a
+  PASS Vorbereitung: Entsperrpruefung und Abholung durch Personal :: 200 200 
+Get order by ID request received: 6abf9311ec12c2aaff8bb98a
+OrderService: Getting order by ID: 6abf9311ec12c2aaff8bb98a
+Access control check - Order customer ID: 6abf930fec12c2aaff8bb3b2
+Access control check - Current user ID: 6abf930fec12c2aaff8bb3b2
+Access control check - User role: customer
+Access granted - returning order details
+  PASS Kunde GET /:id: Abholzeit und Pruefergebnis ja, Namen/interne Notiz/Zuweisung nein (frueher sichtbar) :: {"p":{"confirmedAt":"2026-10-02T11:18:41.840Z"},"u":{"confirmationStatus":"incorrect","confirmedAt":"2026-10-02T11:18:41.795Z"}}
+OrderTrackingRoutes: Order found: ORD-2026-019
+  PASS Gast /api/track-order: keine Mitarbeiternamen, keine internen Felder (frueher confirmedByName, addOns.assignedStaff, Bedarfsliste) :: 
+
+[M5] Entsperr-Anforderung bei bereits pausiertem Auftrag
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9311ec12c2aaff8bb9e8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9311ec12c2aaff8bb9e8 { status: 'in-progress' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb9e8 to in-progress
+OrderService: Order status updated successfully
+Update order status request received: 6abf9311ec12c2aaff8bb9e8 { status: 'paused', reason: 'Teile fehlen' }
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb9e8 to paused
+OrderService: Order status updated successfully
+Request unlock update received for order: 6abf9311ec12c2aaff8bb9e8 by user: hist-staff@test.invalid
+OrderService: Confirming unlock for order: 6abf9311ec12c2aaff8bb9e8 by user: Sophie Technik
+OrderService: Unlock confirmation recorded for order: 6abf9311ec12c2aaff8bb9e8
+OrderService: Updating order status: 6abf9311ec12c2aaff8bb9e8 to paused
+InspectionCommunicationService: Creating quick action update_unlock_info for order 6abf9311ec12c2aaff8bb9e8
+InspectionCommunicationService: Quick action created successfully
+Request unlock update successful for order: 6abf9311ec12c2aaff8bb9e8
+  PASS Verlauf zeigt die Anforderung (nur Team), Status bleibt pausiert (frueher keine Spur) :: 200 paused 1
+  PASS keine automatische Fortsetzung: die andere Pause ("Teile fehlen") bleibt bestehen :: paused
+  PASS Kunde sieht den Team-Eintrag nicht :: 200
+
+[M6] Meilensteine: keine erfundene Reparaturstufe, Versandlabel als Rueckgabe-Ereignis
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9312ec12c2aaff8bba42')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9312ec12c2aaff8bba42 { status: 'paused', reason: 'Rückfrage' }
+OrderService: Updating order status: 6abf9312ec12c2aaff8bba42 to paused
+OrderService: Order status updated successfully
+Get order progress timeline request received for order: 6abf9312ec12c2aaff8bba42
+OrderService: Getting order by ID: 6abf9312ec12c2aaff8bba42
+Progress timeline retrieved successfully for order: 6abf9312ec12c2aaff8bba42
+  PASS pausiert ohne Stufenereignis: aktuell "Auftrag erhalten · Pausiert" (frueher Reparatur aktuell, Eingangspruefung uebersprungen) :: ["order-received:current","diagnostic:pending","repair:pending","quality-check:pending","pickup:pending","return:pending"]
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf930fec12c2aaff8bb3b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf930fec12c2aaff8bb45e' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9312ec12c2aaff8bba65')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Update order status request received: 6abf9312ec12c2aaff8bba65 { status: 'ready-for-pickup' }
+OrderService: Updating order status: 6abf9312ec12c2aaff8bba65 to ready-for-pickup
+OrderService: Order status updated successfully
+Update order status request received: 6abf9312ec12c2aaff8bba65 { status: 'completed' }
+OrderService: Updating order status: 6abf9312ec12c2aaff8bba65 to completed
+OrderService: Order status updated successfully
+Get order progress timeline request received for order: 6abf9312ec12c2aaff8bba65
+OrderService: Getting order by ID: 6abf9312ec12c2aaff8bba65
+Progress timeline retrieved successfully for order: 6abf9312ec12c2aaff8bba65
+  PASS abgeschlossen + Versandlabel: Rückgabe erreicht mit Zeitpunkt (frueher "Übersprungen") :: {"id":"return","label":"Rückgabe","state":"reached","status":"completed","reachedAt":"2026-10-02T11:18:42.100Z","timeKnown":true,"date":"02.10.2026, 13:18","detail":"Versandlabel erstellt","note":null}
+
+==== 87 bestanden, 0 fehlgeschlagen ====

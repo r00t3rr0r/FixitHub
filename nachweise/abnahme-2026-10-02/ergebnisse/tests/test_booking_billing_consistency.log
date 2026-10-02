@@ -1,0 +1,48 @@
+
+[1 Stornierter Auftrag traegt keine Forderung]
+  PASS Bezugsgroesse 50 (Storno 30 zaehlt nicht) :: 50
+  PASS Offen 0 :: 0
+  PASS billingStatus bezahlt (nicht teilbezahlt) :: paid
+  PASS Ohne Rechnung: Bezugsgroesse 50, offen 0 :: {"r":50,"o":0}
+  PASS Listenweg identisch :: {"r":50,"o":0}
+
+[2 Buchungsliste === Detail bei teilweise berechneter Buchung]
+  PASS Detail: Bezugsgroesse 80, keine Ueberzahlung :: 80 / 0
+  PASS Liste: gleiche Bezugsgroesse wie Detail :: 80 === 80
+  PASS Liste: gleiches offen/ueberzahlt wie Detail :: 0/0 vs 0/0
+
+[3 Manuelle Position erscheint mit Namen auf Rechnung und in Buchungsansichten]
+  PASS FinancialService-Rechnung: Position "Akku-Kalibrierung" :: Displaytausch | Akku-Kalibrierung
+  PASS Beschreibung der manuellen Position uebernommen :: Apple iPhone 15 – Akku-Kalibrierung: Kalibrierung nach Tausch
+  PASS Rechnungsbrutto === Auftragswert :: 70
+  PASS Buchungsrechnung: Position "Akku-Kalibrierung" :: Akku-Kalibrierung
+  PASS Buchungsansicht (getBookingOrders): Name statt "Unknown Service" :: Akku-Kalibrierung
+
+[4 createInvoice mit orderId ohne Rabatt uebernimmt den Auftragsrabatt]
+  PASS Rabatt 4,99 aus dem Auftrag, Brutto 44,91 === Auftragswert :: 4.99 / 44.91
+  PASS Freie Rechnung: 15 % Profilrabatt :: 15 / 85
+
+[5 Dialog "Rechnung aus Reparaturauftraegen" mit Standard-Nutzlast]
+  PASS Rechnungsbrutto 42,42 === Auftragswert :: 42.42
+  PASS Rabatt nur einmal (7,48) :: 7.48
+
+[6 syncOrderAndBookingValue meldet Fehler statt sie zu verschlucken]
+  PASS Erfolg meldet { ok: true } :: {"ok":true,"invoiceUpdated":true}
+  PASS Fehler sichtbar ({ ok:false } oder Ausnahme) :: {"ok":false,"error":"Simulierter Speicherfehler"}
+  PASS Fehlertext wird mitgeliefert :: {"ok":false,"error":"Simulierter Speicherfehler"}
+
+[7 Buchungsrechnung: Faelligkeit und Text aus dem Kundenprofil]
+  PASS Faellig nach 7 Tagen (nicht 30) :: 7
+  PASS Zahlungsziel 7 Tage aus derselben Bedingung :: 7 / 7 Tage netto ohne Abzug
+  PASS Ausdruecklich gewaehltes Datum gewinnt, Text folgt :: 10 / 10 Tage netto ohne Abzug
+
+[8 Einsendelabel: kein zweites Label nach Abgleich, kein Abgleich waehrend laufender Erstellung]
+  PASS Kein zweiter DHL-Aufruf :: 0
+  PASS Abgeglichene Sendungsnummer bleibt erhalten :: 00340434161094888888
+  PASS Deutliche 409-Meldung :: 409 Für diese Buchung existiert bei DHL bereits ein Einsendelabel (Sendungsnummer 00340434161094888888). Das PDF bitte im DHL-Geschäftskundenportal abrufen – ein zweites Label wird nicht erstellt.
+  PASS Abgleich waehrend laufender Erstellung abgelehnt, Sperre bleibt :: 409 Die Erstellung des Einsendelabels läuft gerade noch. Bitte einige Minuten warten und die Buchung neu laden – ein Abgleich ist erst nach einer unklaren DHL-Antwort oder nach Ablauf der Sperre möglich.
+  PASS Mit Vermerk: Abgleich erlaubt, Sperre geloest :: false
+  PASS Verwaiste Sperre (>10 Min.): Abgleich erlaubt :: false
+  PASS Buchung ohne Label wird nicht durch den neuen Schutz blockiert :: erstellt
+
+==== 30 bestanden, 0 fehlgeschlagen ====

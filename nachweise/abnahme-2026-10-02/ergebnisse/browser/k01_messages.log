@@ -1,0 +1,26 @@
+   [shot] 01_kunde_schreibt_im_auftrag.png
+  PASS Kundennachricht erscheint sofort im Auftragsverlauf 
+  PASS genau EINE gespeicherte Nachricht (kein Duplikat) :: 1
+  PASS Admin: Ungelesen-Zaehler > 0 nach Kundennachricht :: Ungelesen (57)
+  PASS Suche nach ORD-2026-002 findet das Gespraech 
+   [shot] 02_admin_postfach_suche.png
+  PASS Gespraech oeffnet mit einem Klick und zeigt die Kundennachricht 
+   [shot] 03_admin_gespraech_offen.png
+   Admin-Composer-Buttons: AuftragAuftrag ORD-2026-002gerade ebenPaula Partner · Apple iPad Pro 9.7 · Buchung BKG-2026-0001Kunde: E2E-Kundenfrage 060173: Ist das Display schon bestellt?Antwort ausstehendRückfrage offen | Nachricht an Kunden | Interne Notiz | Rückfrage an Kunden | Aktion anfordern | Entwurf verwerfen | Nachricht an Kunden senden
+   [shot] 04_admin_antwort_an_kunden.png
+  PASS Admin-Antwort erscheint im Gespraech 
+   [shot] 05_admin_interne_notiz.png
+  PASS interne Notiz fuer das Team sichtbar (Badge Intern) 
+   Antwort ausstehend nach Antwort: Antwort ausstehend (0)
+   [shot] 06_kunde_postfach_liste.png
+  PASS Kunde: Gespraech im zentralen Postfach sichtbar (vorher "Kein Feedback vorhanden") 
+  PASS Kunde sieht die Antwort im Postfach 
+  PASS Kunde sieht die interne Notiz NICHT (UI) 
+   [shot] 07_kunde_postfach_antwort.png
+  PASS derselbe Verlauf im Auftrag 
+  PASS interne Notiz auch im Auftrag unsichtbar 
+  PASS Kunden-API liefert die interne Notiz nicht 
+  PASS Kunden-Postfach-API liefert die interne Notiz nicht 
+  PASS fremder Kunde: 403 auf das Gespraech :: 403
+   Admin-Summary: {"success":true,"unread":56,"unreadMessages":56,"awaitingReply":56,"bySource":{"order":{"all":57,"unread":56,"awaitingReply":55},"repair_request":{"all":0,"unread":0,"awaitingReply":0},"complaint":{"all":1,"unread":0,"awaitingReply":1},"contact":{"all":0,"unread":0,"awaitingReply":0}},"recent":[],"s
+==== k01_messages: 15 bestanden, 0 fehlgeschlagen ====

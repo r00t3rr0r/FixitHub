@@ -1,0 +1,63 @@
+Testdaten: Ausgangsprofil partner@e2e.invalid im Speicher gesichert (Rolle customer; Lieferadresse: wieRechnung=true Zustellart=address eigeneStrasse=leer)
+Testdaten: Warenkorb-Position per API (nur damit der Checkout-Dialog geöffnet werden kann, es wird NICHT bestellt) -> 200
+   Checkout geöffnet; Lieferadresse-Zusammenfassung: "Gleich wie Rechnungsadresse"; Profil: wieRechnung=true Zustellart=address eigeneStrasse=leer
+  PASS Checkout zeigt bei "Lieferadresse wie Rechnung" auch "Gleich wie Rechnungsadresse" :: Gleich wie Rechnungsadresse
+   [shot] 01_C_checkout_vorher.png
+   [shot] 02_C_checkout_rechnungsadresse_editor.png
+  PASS Checkout: Rechnungsadresse gespeichert (Erfolgsmeldung) :: Erfolgreich Ihre Angaben wurden gespeichert. Sie können jetzt bezahlen.
+  PASS DB: Rechnungsadresse aus dem Checkout gespeichert (Straße neu, PLZ/Ort unverändert) 
+   DB nach "Adresse speichern" im Checkout: wieRechnung=true Zustellart=address eigeneStrasse=leer; eigene Lieferstraße = ALTE Rechnungsstraße: false
+  PASS Checkout-Rechnungsadresse: "Lieferadresse wie Rechnung" bleibt erhalten (keine alte Rechnungsanschrift als eigene Lieferadresse eingefroren) :: wieRechnung=true Zustellart=address eigeneStrasse=leer
+  PASS Checkout-Ansicht nach dem Speichern: Lieferung folgt der neuen Rechnungsadresse 
+   [shot] 03_C_checkout_lieferadresse_editor.png
+  PASS Checkout: Lieferadresse gespeichert (Erfolgsmeldung) :: Erfolgreich Lieferadresse wurde gespeichert.
+  PASS DB: Lieferadresse gespeichert (eigene Adresse), Rechnungsadresse bleibt 
+  PASS Nach Reload: Checkout zeigt gespeicherte Rechnungs- und Lieferadresse 
+   [shot] 04_C_checkout_nach_reload.png
+  PASS Profilseite zeigt die im Checkout gespeicherten Adressen :: true/true
+   [shot] 05_C_profil_nach_checkout_adressen.png
+  PASS Adresstest im Checkout hat KEINE Buchung/Bestellung erzeugt :: 17 -> 17
+Testdaten: Warenkorb per API DELETE /api/cart/clear geleert -> 200
+  PASS Aufräumen: Warenkorb wieder leer (keine Bestellung ausgelöst) 
+Testdaten: Ausgangsprofil per API PUT /api/users/me zurückgeschrieben (nach Checkout-Test) -> 200, identisch=true
+Testdaten: Lieferadresse des Kunden per API auf eine Test-Packstation gesetzt -> 200
+Testdaten: Warenkorb-Position per API (keine Bestellung) -> 200
+  PASS Checkout zeigt die Packstation als Lieferadresse 
+   [shot] 06_C2_checkout_packstation_nach_rechnungsadresse.png
+  PASS Packstation-Kunde: Rechnungsadresse im Checkout gespeichert 
+  PASS Packstation bleibt nach dem Speichern der Rechnungsadresse vollständig erhalten :: wieRechnung=false Zustellart=packstation eigeneStrasse=leer
+Testdaten: Warenkorb per API geleert -> 200
+Testdaten: Ausgangsprofil per API PUT /api/users/me zurückgeschrieben (nach Packstation-Test) -> 200, identisch=true
+  PASS Profil lädt die gespeicherten Werte (Vorname, Telefon, Rechnungsstraße) 
+  PASS Profil: "Lieferadresse wie Rechnung" wird als solche angezeigt (kein leeres eigenes Lieferadress-Formular) :: wie Rechnung
+  PASS Benachrichtigung "Nachrichten" (In-App) ist anfangs aktiv :: true
+  PASS Checkbox "Nachrichten" (In-App) im Formular abgewählt 
+   [shot] 07_A_profil_geaendert_vor_speichern.png
+  PASS Speichern meldet Erfolg ("Profil erfolgreich aktualisiert") :: Erfolgreich Profil erfolgreich aktualisiert
+   [shot] 08_A_profil_gespeichert.png
+  PASS DB: Vorname, Telefon und Rechnungsstraße gespeichert 
+  PASS DB: Benachrichtigung "Nachrichten" In-App = aus 
+  PASS DB: Nachname, E-Mail, Rolle unverändert 
+   DB Lieferadresse nach Profil-Speichern: wieRechnung=true Zustellart=address eigeneStrasse=leer (vorher wieRechnung=true Zustellart=address eigeneStrasse=leer)
+  PASS DB: "Lieferadresse wie Rechnung" durch das Speichern NICHT verändert :: true -> true
+  PASS DB: übrige Benachrichtigungseinstellungen unverändert (keine Nebenwirkung) 
+  PASS Nach Reload: geänderte Werte und Benachrichtigungseinstellung bleiben erhalten 
+   [shot] 09_A_profil_nach_reload.png
+  PASS Wiederherstellung über das Profil gespeichert :: Erfolgreich Profil erfolgreich aktualisiert
+  PASS DB: Originalwerte (Vorname, Telefon, Rechnungs-/Lieferadresse, Benachrichtigungen) über die Profilseite vollständig wiederhergestellt :: wieRechnung=true Zustellart=address eigeneStrasse=leer
+   API PUT /api/users/me {role:'admin'} (Kunde) -> 200, Antwort-Rolle=customer, Passwortfeld in Antwort=false
+  PASS PUT /api/users/me mit role:"admin" ändert die Rolle NICHT (DB + /api/auth/me = customer) :: 200 db=customer me=customer
+  PASS Antwort enthält kein Passwortfeld 
+Testdaten: Ausgangsprofil per API PUT /api/users/me zurückgeschrieben (Abschluss) -> 200, identisch=true
+  PASS Aufräumen: Kundenprofil entspricht wieder dem Ausgangszustand 
+   [shot] 10_D_gast_schritt3_kundeninformationen.png
+   Gast Schritt 3 Kundeninformationen: "Kundeninformationen — —"
+  PASS Gast: Schritt 3 erreicht 
+  PASS Gast: keine Demo-Admin-Daten (Admin User / admin@example.com / +1 (555) 000-0000) auf der Seite 
+  PASS Gast: Kundeninformationen neutral ("—"), keine fremden Daten :: Kundeninformationen — —
+   [shot] 11_D_kunde_schritt3_kundeninformationen.png
+  PASS Kunde: Schritt 3 erreicht 
+  PASS Kunde: keine Demo-Admin-Daten auf der Seite 
+  PASS Kunde: Kundeninformationen zeigen eigenen Namen und eigene E-Mail :: Name=true E-Mail=true
+  PASS netguard_after.log unverändert :: 0 -> 0 B
+==== r3_profile_neworder: 37 bestanden, 0 fehlgeschlagen ====

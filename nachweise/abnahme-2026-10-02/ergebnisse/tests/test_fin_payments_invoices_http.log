@@ -1,0 +1,135 @@
+
+[FIN-9 Zahlungsliste mit Bezuegen, Vorauszahlung vs. Ueberzahlung, Suche]
+  PASS Admin GET /payments -> 200 mit Zahlung :: 200
+  PASS Buchungsnummer aufgeloest :: BKG-2026-0001
+  PASS Auftragsnummer aufgeloest :: ORD-FINP-003
+  PASS vor der Rechnung: Vorauszahlung 10 € (kein Ueberzahlungsalarm) :: prepayment 10
+  PASS Buchungsrechnung erstellt :: 201 INV-2026-0001
+  PASS nach der Rechnung: Zuordnung 10 € -> INV :: [{"invoiceId":"6abf92fe159c41c52c716230","invoiceNumber":"INV-2026-0001","allocatedAmount":10}]
+  PASS nichts mehr unzugeordnet :: 0 null
+  PASS Rechnungsnummer an der Zahlung :: INV-2026-0001
+  PASS mehr bezahlt als berechnet: Ueberzahlung (nicht Vorauszahlung) :: overpayment 12.6 alloc 47.4
+  PASS Suche nach BKG-Nummer findet genau diese Buchung :: 1
+  PASS Suche nach INV-Nummer (ueber Zuordnung) findet die Zahlung :: 1
+  PASS Suche nach Kunden-E-Mail :: 2
+  PASS Suche ohne Treffer -> leere Liste :: 0
+  PASS Kunde -> 403 :: 403
+  PASS Mitarbeiter -> 403 (Finanzen nur Admin) :: 403
+
+[FIN-3/FIN-4 Buchungsrechnung: genau eine Mail, MwSt., Doppelklick, Storno, SMTP-Fehler]
+  PASS POST sendImmediately -> 201, sent :: 201 true null
+  PASS genau EINE Rechnungs-Mail (frueher 2) :: 1
+  PASS Mail hat PDF-Anhang :: Rechnung_INV-2026-0003.pdf
+  PASS Bezug = BKG-Nummer (kein Objekt-Dump) :: BKG-2026-0003
+  PASS kein "ObjectId(" in den Mail-Variablen :: false
+  PASS FIN-4 Rechnungsbetrag mit MwSt. :: 47,40 € (inkl. 7,57 € MwSt. 19 %)
+  PASS Netto/MwSt.-Variablen :: 39,83 € / 7,57 €
+  PASS zweite Rechnung -> 409 deutsch :: 409 Für diese Buchung besteht bereits die Rechnung INV-2026-0003. Für eine Korrektur bitte diese Rechnung zuerst stornieren.
+  PASS ohne "sofort senden": 201, keine Mail :: 201 mails+0
+  PASS Doppelklick: 1x 201 + 1x 409, genau 1 Rechnung :: 201/409 count=1
+  PASS Storno ueber /api/admin/financial/invoices/:id/cancel :: 200 
+  PASS nach Storno: neue Buchungsrechnung moeglich (frueher englische 409 wegen INV-CN) :: 201 
+  PASS SMTP-Fehler: 201 + Warnung "erstellt, aber nicht versendet" :: 201 Rechnung INV-2026-0008 wurde erstellt, aber nicht versendet: Die Rechnung wurde NICHT versendet, weil der E-Mail-Versand fehlgeschlagen ist. Der Beleg bleibt unverändert; der Versand kann erneut ausgelöst werden.
+  PASS Rechnung bleibt trotz Versandfehler bestehen :: 1
+  PASS Kunde darf keine Rechnung erstellen -> 403 :: 403
+
+[FIN-10/FIN-13 Rechnung aus Auftraegen (ORD-Nummern, Vorschau, Steuerprofil)]
+  PASS Vorschau mit ORD-Nummer: 39,83 / 7,57 / 47,40 :: 200 39.83/7.57/47.4 
+  PASS Vorschau nennt Kunde und Auftrag :: finp-kunde9@test.invalid ORD-FINP-010
+  PASS Vorschau speichert nichts :: 8
+  PASS unbekannte Nummer -> 400 deutsch (kein CastError) :: 400 Auftrag "ORD-GIBT-ES-NICHT" wurde nicht gefunden.
+  PASS leere Auswahl -> 400 deutsch :: 400 Bitte mindestens einen Auftrag auswählen.
+  PASS Rechnung erstellt 47,40 (MwSt. 7,57) :: 201 47.4
+  PASS nochmal (auch per ID) -> 409 mit bestehender Rechnung :: 409 Für Auftrag ORD-FINP-010 besteht bereits die Rechnung INV-2026-0009. Eine Leistung darf nicht zweimal berechnet werden – bitte die bestehende Rechnung verwenden oder sie zuerst vollständig gutschreiben.
+  PASS Vorschau zeigt "bereits berechnet" :: {"_id":"6abf9302159c41c52c7169c0","invoiceNumber":"INV-2026-0009"}
+  PASS nicht abgeschlossen ohne Bestaetigung -> 409 :: 409 ORDERS_NOT_COMPLETED
+  PASS mit Bestaetigung: 15 % -> 42,42 / 35,65 / 6,77 :: 201 42.42/35.65
+  PASS Reverse-Charge-Profil wird ohne overrideTax NICHT ueberschrieben (MwSt. 0) :: true 0
+  PASS nur mit ausdruecklicher Abweichung 19 %; Profil wird weiter angezeigt :: false 7.57
+  PASS erstellte Rechnung: Reverse Charge, MwSt. 0 :: 201 true 0
+  PASS Steuer-Snapshot des Auftrags unveraendert :: 19 -> 19
+  PASS Kunde -> 403 :: 403
+
+[FIN-11/FIN-4 Zahlungsaufforderung mit Sperrfrist]
+  PASS erste Aufforderung -> uebergeben :: 200 accepted_by_provider 
+  PASS Mail: "37,40 €" (nicht "EUR 37.40") mit Rechnungsnummer :: 37,40 €
+  PASS 1 Protokolleintrag :: 1
+  PASS innerhalb 24 h -> 409 PAYMENT_REQUEST_RECENT mit Empfaenger :: 409 PAYMENT_REQUEST_RECENT finp-kunde1@test.invalid
+  PASS Meldung deutsch "Zuletzt am …" :: Zuletzt am 02.10.26, 13:18 an finp-kunde1@test.invalid gesendet (37,40 €). Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.
+  PASS keine Mail, kein neuer Eintrag :: 0
+  PASS force: true -> erneut gesendet (2 Eintraege) :: 200 accepted_by_provider
+  PASS kein offener Betrag -> kein Versand, kein Eintrag :: no_open_balance
+  PASS Kunde -> 403 :: 403
+
+[CUSTUX-7 Kundenprojektion der Buchungszahlungen]
+  PASS Inhaber: Gesamt 47,40 / Bezahlt 10 / Offen 37,40 :: 200 47.4/10/37.4
+  PASS Hinweis "gilt fuer die gesamte Buchung", Anzahl Geraete, EUR :: true 1
+  PASS Zahlungsbewegung mit Rechnungsbezug :: [{"invoiceNumber":"INV-2026-0012","allocatedAmount":10}]
+  PASS keine internen Felder (metadata, notes, PayPal-IDs, …) :: keine
+  PASS interne Notiz nicht im Text :: false
+  PASS fremder Kunde -> 403 :: 403
+  PASS unbekannte ID fuer Kunden -> 403 (nicht unterscheidbar) :: 403
+  PASS Buchungsnummer statt ID fuer Kunden -> 403 :: 403
+  PASS ohne Anmeldung -> 401 :: 401
+  PASS Team: vollstaendige Uebersicht unveraendert (inkl. interner Felder) :: 200 true
+  PASS ueberzahlt 50 auf 47,40 -> Erstattung offen 2,60 :: 2.6
+
+[FIN-4 Zahlungseingang-Benachrichtigung (Rechnungsnummer, Restbetrag, de-Format)]
+  PASS Zahlung bestaetigt (PayPal gemockt) :: 201 
+  PASS Titel "Zahlung eingegangen" :: Zahlung eingegangen
+  PASS Text mit 47,40 €, Rechnungsnummer und Restbetrag :: Ihre Zahlung über 47,40 € zu Rechnung INV-2026-0015 ist eingegangen. Offener Restbetrag: 0,00 €.
+  PASS kein "47.40 EUR", Link zur Rechnung :: /invoices?invoiceId=6abf9304159c41c52c7171c8
+  PASS nur gemockte PayPal-Aufrufe :: 2
+
+[FIN-6 Finanzbericht: Zeitraum, Erstattungen, keine Mock-Felder]
+  PASS Maerz 2020: Zahlungseingang 47,40 + (10 - 4) = 53,40 (Februar zaehlt nicht) :: 200 53.4
+  PASS Erstattungen im Zeitraum 4,00 :: 4
+  PASS keine Mock-Felder (Nettogewinn/Ausgaben/Marge) :: period,periodKey,dateFrom,dateTo,basis,collectedGross,totalRevenue,paymentCount,refundAmount,disputeAmount,openInvoiceCount,overdueInvoiceCount,openReceivablesGross,paymentsInReviewCount,paymentMethodBreakdown,monthlyTrends
+  PASS Zeitraum deutsch formatiert :: 01.03.2020 – 31.03.2020
+  PASS offene/ueberfaellige Rechnungen serverseitig gezaehlt :: 9/0/401.62
+  PASS period=month beginnt am 1. des Monats (frueher ignoriert) :: month 2026-09-30T22:00:00.000Z
+  PASS ungueltiger Zeitraum -> 400 deutsch :: 400 Ungültiger Zeitraum für den Finanzbericht.
+  PASS Kunde -> 403 :: 403
+
+[FIN-2/FIN-4 Buchungssummen aus Auftraegen + Buchungs-Mail]
+  PASS manuelle Buchung ohne Checkout: MwSt. 19,00 aus 119 (frueher 0) :: 119/0/19/119
+  PASS Checkout-Snapshot bleibt massgeblich :: 49.9/2.5/7.57/47.4
+  PASS Buchungs-Mail mit Rabatt und MwSt. :: 47,40 € (nach 2,50 € Rabatt, inkl. 7,57 € MwSt.)
+  PASS manuelle Buchung: nie "0,00 € MwSt." :: 119,00 € (inkl. 19,00 € MwSt.)
+  PASS nach Aenderung: 79,90 - 2,50 = 77,40, MwSt. 12,36 :: 79.9/2.5/12.36/77.4
+  PASS Invariante subtotal - discount = totalCost :: 77.4
+  PASS Skript: veralteter Snapshot korrigierbar (49,90 / 2,50 / 7,57) :: {"subtotal":49.9,"discount":2.5,"totalCost":47.4,"tax":7.57}
+  PASS Skript: abweichender Gesamtbetrag nur gemeldet :: Gesamtbetrag 90 weicht von der Auftragssumme 100 ab – manuell prüfen, wird nicht geändert
+  PASS Dry-Run (Planung) schreibt nichts :: 0
+  PASS --confirm: Snapshot korrigiert, Gesamtbetrag unveraendert :: 1 49.9/7.57/47.4
+  PASS abweichende Buchung unveraendert :: 90/10
+  PASS Sicherung der alten Werte geschrieben :: {"subtotal":47.4,"discount":0,"tax":0,"totalCost":47.4}
+  PASS idempotent: zweiter Lauf findet nichts mehr :: 0
+
+[Review: Reverse Charge / steuerfrei in Buchungssummen, Skript und Buchungsrechnung]
+  PASS Skript: Reverse-Charge-Buchung mit MwSt. 0 ist NICHT korrigierbar :: 0
+  PASS Auftragsaenderung: Reverse Charge bleibt MwSt. 0 (Summen nachgezogen) :: 79.9/2.5/0/77.4
+  PASS manuelle Buchung steuerfrei: MwSt. 0, Gesamt 47,40 :: 0/47.4
+  PASS Skript: Checkout-Buchung MwSt. 0 -> > 0 nur gemeldet :: MwSt. 0 -> 7.57: Buchung aus dem Checkout (MwSt. nach Kundenprofil berechnet) – manuell prüfen, wird nicht geändert
+  PASS Buchungsrechnung Reverse Charge: MwSt. 0, Hinweis, 47,40 :: 201 true 0 47.4
+  PASS Buchungsrechnung steuerfrei: MwSt. 0 (kein Reverse Charge) :: 201 false 0 0
+  PASS Standardkunde unveraendert: 47,40 inkl. 7,57 MwSt. :: 7.57
+  PASS Steuer-Snapshot des Auftrags unveraendert :: 19
+
+[Review: Teilrechnung im Buchungsweg, Rest ueber "Rechnung aus Auftraegen"]
+  PASS Teilrechnung Auftrag A (Buchungsweg) :: 201 
+  PASS Vorschau Auftrag B: keine falsche Buchungs-Sperre :: 200 []
+  PASS Vorschau A+B: A bereits berechnet -> gesperrt :: ["Auftrag ORD-FINP-035 ist bereits berechnet (Rechnung INV-2026-0019)."]
+  PASS Rechnung fuer Auftrag B erstellt :: 201 
+  PASS Teilauswahl beansprucht nur den Auftrag, nicht die Buchung :: ["order:6abf9307159c41c52c717736"]
+  PASS Auftrag B nochmal -> 409 :: 409
+  PASS Gesamtrechnung der Buchung :: 201
+  PASS nach Gesamtrechnung: Teilauswahl gesperrt :: ["Auftrag ORD-FINP-038 ist bereits berechnet (Rechnung INV-2026-0021)."]
+
+[Review: Sperrfrist auch bei laufender Aufforderung; Dashboard-Zaehler]
+  PASS laufende Aufforderung (pending) -> 409, keine zweite Mail :: 409 Wird gerade gesendet – gestartet am 02.10.26, 13:18 an finp-kunde39@test.invalid (47,40 €). Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.
+  PASS keine Mail versendet :: 0
+  PASS verwaiste pending-Aufforderung (> 5 Min.) sperrt nicht :: 200 accepted_by_provider
+  PASS Zahlungen in Pruefung serverseitig: pending + disputed + frische processing (abgebrochener Checkout zaehlt nicht) :: 0 -> 3
+
+Ergebnis: 111 PASS, 0 FAIL

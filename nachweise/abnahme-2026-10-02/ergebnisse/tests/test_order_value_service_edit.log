@@ -1,0 +1,264 @@
+(node:1101588) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1101588) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1101588) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf934f304a3f1b5e4a38f7'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display gebrochen',
+  services: [
+    {
+      serviceId: new ObjectId('6abf934f304a3f1b5e4a3965'),
+      price: 100,
+      estimatedTime: 60
+    }
+  ],
+  totalCost: 90,
+  discount: 10,
+  status: 'pending'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9350304a3f1b5e4a3998')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+
+[1] Ausgangslage: 100,00 Liste - 10 % = 90,00
+  PASS gespeicherter Auftragswert = 90,00 :: 90
+  PASS gespeicherter Rabatt = 10,00 :: 10
+  PASS gespeichertes Netto = 75,63 :: 75.63
+  PASS gespeicherte MwSt = 14,37 :: 14.37
+  PASS Netto + MwSt === Auftragswert :: 75.63 + 14.37 = 90
+  PASS Konditionen-Snapshot: 10 % festgehalten :: {"groupDiscountPercent":10,"promoDiscountAmount":0,"source":"customer","customerGroupId":null,"customerGroupName":"","appliedAt":"2026-10-02T11:19:44.009Z"}
+  PASS Konditionen-Snapshot: Zeitpunkt festgehalten :: Fri Oct 02 2026 13:19:44 GMT+0200 (Central European Summer Time)
+
+[2] Service hinzufuegen (50,00 Liste) -> 150,00 - 15,00 = 135,00
+[OrderServiceManagement] Service 6abf934f304a3f1b5e4a3971 added to order 6abf9350304a3f1b5e4a3998. List price: 50. Order value: 135
+  PASS Positionen (Listenpreise) = 150,00 :: 150
+  PASS Rabatt neu berechnet = 15,00 :: 15
+  PASS Auftragswert = 135,00 :: 135
+  PASS Netto = 113,45 :: 113.45
+  PASS MwSt = 21,55 :: 21.55
+  PASS Netto + MwSt === Auftragswert :: 135 === 135
+
+[2b] Lese-API liefert dieselben Werte
+[OrderServiceManagement] Retrieved 2 services for order 6abf9350304a3f1b5e4a3998
+  PASS API Zwischensumme = 150,00 :: 150
+  PASS API Rabatt = 15,00 :: 15
+  PASS API Brutto = 135,00 :: 135
+  PASS API Netto = 113,45 :: 113.45
+  PASS API Positionen stimmen mit Gesamt ueberein :: true
+  PASS API liefert 2 Positionen :: 2
+
+[3] Preisaenderung: Display 100,00 -> 120,00 -> 170,00 - 17,00 = 153,00
+[OrderServiceManagement] Service 6abf9350304a3f1b5e4a3999 updated in order 6abf9350304a3f1b5e4a3998. List price: 120. Order value: 153
+  PASS Rabatt = 17,00 :: 17
+  PASS Auftragswert = 153,00 :: 153
+  PASS Netto + MwSt === 153,00 :: 153
+
+[4] Service loeschen (Akku) -> 120,00 - 12,00 = 108,00
+[OrderServiceManagement] Service 6abf9350304a3f1b5e4a39f0 removed from order 6abf9350304a3f1b5e4a3998. Order value: 108
+  PASS nur noch 1 Position :: 1
+  PASS Rabatt = 12,00 :: 12
+  PASS Auftragswert = 108,00 :: 108
+
+[5] Zusatzleistungen und Produkte bleiben im Auftragswert
+[OrderServiceManagement] Error adding service to order: Der gespeicherte Auftragswert (108,00 €) passt nicht zu den Positionen (170,00 € abzüglich 12,00 € Rabatt = 158,00 €). Eine automatische Neuberechnung würde die Differenz von 50,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS nicht aufgehender Auftrag wird ohne Bestaetigung nicht neu berechnet (409, deutsch) :: Der gespeicherte Auftragswert (108,00 €) passt nicht zu den Positionen (170,00 € abzüglich 12,00 € Rabatt = 158,00 €). Eine automatische Neuberechnung würde die Differenz von 50,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+[OrderServiceManagement] Service 6abf934f304a3f1b5e4a397c added to order 6abf9350304a3f1b5e4a3998. List price: 20. Order value: 171
+  PASS Positionen inkl. Zusatz + Produkte = 190,00 :: 190
+  PASS Rabatt = 19,00 :: 19
+  PASS Auftragswert = 171,00 :: 171
+  PASS Produkt ueberlebt die Bearbeitung :: 1
+  PASS Zusatzleistung ueberlebt die Bearbeitung :: 1
+  PASS Katalogservice ohne gepflegte Zeit laesst sich hinzufuegen :: [60,0]
+
+[6] Historie: wer, wann, vorher/nachher, Grund
+  PASS mindestens 4 Aenderungssaetze historisiert :: 4
+  PASS Verursacher festgehalten :: 6abf934f304a3f1b5e4a3941,6abf934f304a3f1b5e4a3941,6abf934f304a3f1b5e4a3941,6abf934f304a3f1b5e4a3941
+  PASS Name des Verursachers festgehalten :: Sophie Mitarbeiterin | Sophie Mitarbeiterin | Sophie Mitarbeiterin | Sophie Mitarbeiterin
+  PASS Grund der Aenderung festgehalten :: Position „Akkutausch“ hinzugefügt (Standardpreis 50,00 €) | Auftragswert 90,00 € → 135,00 € | Grund: Akku bei der Diagnose als defekt erkannt | Position „Displaytausch“ geändert: Standardpreis 100,00 € → 120,00 € | Auftragswert 135,00 € → 153,00 € | Grund: Aufpreis Originaldisplay | Position „Akkutausch“ entfernt (Standardpreis 50,00 €) | Auftragswert 153,00 € → 108,00 € | Grund: Kunde moechte den Akku doch behalten | Position „Diagnose“ hinzugefügt (Standardpreis 20,00 €) | Auftragswert 108,00 € → 171,00 € | Grund: Diagnose berechnet | Neuberechnung trotz Abweichung bestätigt: gespeicherter Auftragswert 108,00 €, Positionen abzüglich Rabatt 158,00 €
+  PASS vorher 90,00 -> nachher 135,00 historisiert :: 90 -> 135
+
+[7] Konditionen sind zeitgebunden
+[OrderServiceManagement] Service 6abf9350304a3f1b5e4a3999 updated in order 6abf9350304a3f1b5e4a3998. List price: 120. Order value: 171
+  PASS alter Auftrag behaelt 10 % (Rabatt 19,00) :: 19
+  PASS alter Auftrag behaelt 171,00 :: 171
+
+[8] Katalogpreisaenderung aendert gespeicherte Positionen nicht
+  PASS Positionspreis bleibt 120,00 :: 120
+  PASS Auftragswert bleibt 171,00 :: 171
+
+[9] Rechnungsbrutto === Auftragswert (Zusammenspiel mit T23)
+FinancialService: Generating invoice from repair orders: [ '6abf9350304a3f1b5e4a3998' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0001
+  PASS Rechnungsbrutto === Auftragswert :: 171 === 171
+
+[10] Benachrichtigung an den Kunden wird wirklich ausgeloest (Mock)
+  PASS Benachrichtigungen fuer die Bearbeitungen erzeugt :: 4
+  PASS Empfaenger ist der Kunde des Auftrags :: 6abf934f304a3f1b5e4a38f7,6abf934f304a3f1b5e4a38f7,6abf934f304a3f1b5e4a38f7,6abf934f304a3f1b5e4a38f7
+  PASS deutscher Text mit Umlaut :: Ein neuer Reparaturservice wurde Ihrem Auftrag #ORD-2026-001 hinzugefügt. | Ein Reparaturservice in Ihrem Auftrag #ORD-2026-001 wurde aktualisiert. | Ein Reparaturservice wurde aus Ihrem Auftrag #ORD-2026-001 entfernt. | Ein neuer Reparaturservice wurde Ihrem Auftrag #ORD-2026-001 hinzugefügt.
+
+[11] POST /api/orders-Pfad: manipulierte Summen werden ignoriert
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf934f304a3f1b5e4a38f7'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Manipulationsversuch',
+  services: [
+    {
+      serviceId: new ObjectId('6abf934f304a3f1b5e4a3965'),
+      price: 1,
+      estimatedTime: 60
+    }
+  ],
+  addOns: [ { name: 'Expressbearbeitung', price: 0.01 } ],
+  totalCost: 1,
+  discount: 0,
+  dealerDiscountPercent: 50,
+  netAmount: 0.5,
+  paymentStatus: 'paid',
+  pricingConditions: { groupDiscountPercent: 99, appliedAt: 2020-01-01T00:00:00.000Z },
+  trustedPricing: { totalCost: 1, discount: 0 }
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9350304a3f1b5e4a3af3')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Positionspreis aus dem Katalog (nicht 1,00) :: 100
+  PASS Zusatzleistung aus dem Katalog (nicht 0,01) :: 30
+  PASS Rabatt serverseitig = 13,00 :: 13
+  PASS Auftragswert serverseitig = 117,00 (nicht 1,00) :: 117
+  PASS Netto + MwSt === 117,00 :: 117
+  PASS Client-Haendlerrabatt ignoriert :: 0
+  PASS Client kann sich nicht selbst "bezahlt" setzen :: pending
+  PASS Konditionen aus dem Kundenstamm (nicht 99 %) :: 10
+FinancialService: Generating invoice from repair orders: [ '6abf9350304a3f1b5e4a3af3' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0002
+  PASS [11] POST /api/orders: Rechnungsbrutto === Auftragswert :: 117 === 117
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf934f304a3f1b5e4a38f7'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      isManual: true,
+      name: 'Gratisreparatur',
+      price: 0,
+      estimatedTime: 0
+    }
+  ],
+  totalCost: 0
+}
+OrderService: Error creating order: Error: Manuelle Reparaturpositionen können nur vom Personal am Auftrag angelegt werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.resolveUntrustedPositions (/home/adar/Projects/FixitHub/server/services/orderService.js:624:15)
+    at OrderService.create (/home/adar/Projects/FixitHub/server/services/orderService.js:733:45)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-value-service-edit.js:444:5) {
+  statusCode: 400,
+  code: 'MANUAL_LINE_NOT_ALLOWED'
+}
+  PASS Client darf keine manuelle Position mit eigenem Preis anlegen :: Manuelle Reparaturpositionen können nur vom Personal am Auftrag angelegt werden.
+
+[12] Checkout-Pfad: vertrauenswuerdige Preisbildung nur ueber die interne Option
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf934f304a3f1b5e4a38f7'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Checkout',
+  services: [
+    {
+      serviceId: new ObjectId('6abf934f304a3f1b5e4a3965'),
+      price: 100,
+      estimatedTime: 60
+    }
+  ],
+  totalCost: 85.5,
+  discount: 14.5,
+  appliedPromoCode: 'SOMMER5',
+  status: 'pending'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9350304a3f1b5e4a3b3e')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Checkout-Wert unveraendert uebernommen = 85,50 :: 85.5
+  PASS Checkout-Rabatt unveraendert = 14,50 :: 14.5
+  PASS Aktionsrabatt als fester Betrag festgehalten :: 5
+  PASS Gruppenrabatt 10 % festgehalten :: 10
+[OrderServiceManagement] Service 6abf934f304a3f1b5e4a3971 added to order 6abf9350304a3f1b5e4a3b3e. List price: 50. Order value: 130.5
+  PASS Aktion fest + Prozent neu = 19,50 :: 19.5
+  PASS Auftragswert = 130,50 :: 130.5
+FinancialService: Generating invoice from repair orders: [ '6abf9350304a3f1b5e4a3b3e' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0003
+  PASS [12] Checkout + Bearbeitung: Rechnungsbrutto === Auftragswert :: 130.5 === 130.5
+
+[13] Manuelle Reparaturposition
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf934f304a3f1b5e4a38f7'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Platine',
+  services: [ '6abf934f304a3f1b5e4a3965' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9351304a3f1b5e4a3b9f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+[OrderServiceManagement] Error adding service to order: Bitte geben Sie einen Namen für die manuelle Reparaturposition an.
+  PASS manuelle Position ohne Namen wird abgelehnt (deutsch) :: Bitte geben Sie einen Namen für die manuelle Reparaturposition an.
+[OrderServiceManagement] Manual line added to order 6abf9351304a3f1b5e4a3b9f. List price: 100. Order value: 180
+  PASS manuelle Position gespeichert :: {"isManual":true,"name":"Platinenreparatur","description":"Mikrolöten am Ladechip","price":100,"estimatedTime":0,"notes":"","_id":"6abf9351304a3f1b5e4a3bae"}
+  PASS keine erfundene Katalog-ID :: undefined
+  PASS Name gespeichert :: Platinenreparatur
+  PASS Beschreibung gespeichert :: Mikrolöten am Ladechip
+  PASS Standardpreis brutto 100,00 gespeichert :: 100
+  PASS Haendlerrabatt greift auch auf manuelle Position = 20,00 :: 20
+  PASS Auftragswert = 180,00 :: 180
+  PASS Netto = 151,26 :: 151.26
+  PASS MwSt = 28,74 :: 28.74
+  PASS Katalogposition traegt Namens-Snapshot :: Displaytausch
+[OrderServiceManagement] Retrieved 2 services for order 6abf9351304a3f1b5e4a3b9f
+  PASS Lese-API liefert die manuelle Position :: Displaytausch,Platinenreparatur
+  PASS Lese-API liefert Rabatt in Prozent :: 10
+[OrderServiceManagement] Service 6abf9351304a3f1b5e4a3bae updated in order 6abf9351304a3f1b5e4a3b9f. List price: 150. Order value: 225
+  PASS manuelle Position 150,00 -> 250 - 25 = 225,00 :: 225
+  PASS Name der manuellen Position aenderbar :: Displaytausch,Platinenreparatur (aufwendig)
+FinancialService: Generating invoice from repair orders: [ '6abf9351304a3f1b5e4a3b9f' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0004
+  PASS [13] manuelle Position: Rechnungsbrutto === Auftragswert :: 225 === 225
+  INFO Rechnungsposition der manuellen Zeile :: Platinenreparatur (aufwendig)
+
+[14] Zusatzleistung hinzufuegen haelt den Haendlerrabatt
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf934f304a3f1b5e4a38f7'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [ '6abf934f304a3f1b5e4a3965' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9351304a3f1b5e4a3c1f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+OrderService: Adding add-on to order: {
+  orderId: '6abf9351304a3f1b5e4a3c1f',
+  addonData: { name: 'Expressbearbeitung', price: 30 },
+  staffId: new ObjectId('6abf934f304a3f1b5e4a3941')
+}
+OrderService: Add-on added successfully
+  PASS Rabatt nach Zusatzleistung = 13,00 :: 13
+  PASS Auftragswert nach Zusatzleistung = 117,00 :: 117
+FinancialService: Generating invoice from repair orders: [ '6abf9351304a3f1b5e4a3c1f' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0005
+  PASS [14] Zusatzleistung: Rechnungsbrutto === Auftragswert :: 117 === 117
+
+[15] Altauftrag ohne Konditionen-Snapshot
+[OrderServiceManagement] Service 6abf934f304a3f1b5e4a3971 added to order 6abf9351304a3f1b5e4a3c8c. List price: 50. Order value: 127.5
+  PASS Altauftrag: Rabatt aus eigenen Werten = 22,50 :: 22.5
+  PASS Altauftrag: Auftragswert = 127,50 :: 127.5
+  PASS Altauftrag: Herkunft "legacy" festgehalten :: legacy
+FinancialService: Generating invoice from repair orders: [ '6abf9351304a3f1b5e4a3c8c' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0006
+  PASS [15] Altauftrag: Rechnungsbrutto === Auftragswert :: 127.5 === 127.5
+[OrderServiceManagement] Service 6abf934f304a3f1b5e4a3971 added to order 6abf9351304a3f1b5e4a3ce0. List price: 50. Order value: 140
+  PASS Altauftrag mit Aktionscode: Rabatt bleibt fest 10,00 :: 10
+  PASS Altauftrag mit Aktionscode: 140,00 :: 140
+
+==== 87 bestanden, 0 fehlgeschlagen ====

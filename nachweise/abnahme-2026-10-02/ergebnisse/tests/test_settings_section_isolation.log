@@ -1,0 +1,67 @@
+(node:1103632) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1103632) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1103632) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+RequireRole middleware: User iso-admin@test.invalid has required role admin
+Get system configuration request received
+SystemConfigService: Getting system configuration
+SystemConfigService: No configuration found, creating default
+SystemConfigService: Configuration retrieved successfully
+  PASS Konfiguration lesbar :: 200
+RequireRole middleware: User iso-admin@test.invalid has required role admin
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS Analyse-Einstellungen trotz ungueltigem Altbestand gespeichert (vorher 500) :: 200 {"success":true,"settings":{"labor":{"defaultHourlyRate":95.5,"includeTrackedTimeOnly":true,"fallbackProgressWeight":0.72,"minimumProgressFactor":0.18,"productH
+RequireRole middleware: User iso-admin@test.invalid has required role admin
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS Stundensatz nach erneutem Lesen 95,5 :: 95.5
+RequireRole middleware: User iso-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Configuration updated successfully
+  PASS Finanzeinstellungen trotz ungueltigem Altbestand gespeichert :: 200 "Einstellungen gespeichert"
+  PASS Zahlungsziel 21 in der DB gespeichert :: 21
+  PASS Analyse-Wert durch Finanz-Speichern nicht ueberschrieben :: 95.5
+  PASS Altbestand unveraendert (nicht still repariert oder geloescht) :: {"name":"DHL Paket (Altbestand)","provider":"DHL","type":"shipping","isActive":true,"settings":{"bookingLabelMode":"dumm
+RequireRole middleware: User iso-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at numberInRange (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:568:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:585:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Steuersatz -5 weiterhin abgelehnt (400) :: 400 "Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein."
+  PASS gespeicherter Steuersatz bleibt gueltig :: 19
+RequireRole middleware: User iso-admin@test.invalid has required role admin
+Admin analytics settings update error: Error: Einstellungen nicht gespeichert. Stundensatz: erlaubt ist 0 bis 1000 (eingegeben: -10).
+    at validateSettingsUpdate (/home/adar/Projects/FixitHub/server/services/profitabilityService.js:400:19)
+    at ProfitabilityService.updateSettings (/home/adar/Projects/FixitHub/server/services/profitabilityService.js:887:5)
+    at /home/adar/Projects/FixitHub/server/routes/adminAnalyticsRoutes.js:54:49
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 400,
+  code: 'PROFITABILITY_SETTINGS_INVALID',
+  problems: [ 'Stundensatz: erlaubt ist 0 bis 1000 (eingegeben: -10).' ]
+}
+  PASS negativer Stundensatz abgelehnt (400) :: 400
+RequireRole middleware: User iso-customer@test.invalid has role customer, but requires one of: admin
+  PASS Kunde darf Analyse-Einstellungen nicht speichern :: 403
+  PASS Gast darf Systemkonfiguration nicht speichern :: 401
+
+==== 12 bestanden, 0 fehlgeschlagen ====

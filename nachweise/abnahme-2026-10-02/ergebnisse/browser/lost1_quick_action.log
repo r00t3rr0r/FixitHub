@@ -1,0 +1,44 @@
+   Testdaten: Auftrag ORD-2026-077, Reparaturanfrage RR-1790935160067-00004
+   [setup] Admin-API POST /api/inspection-communication/ORD-2026-077/quick-action part_replacement -> 201
+   [setup] Admin-API POST /api/inspection-communication/ORD-2026-077/quick-action additional_costs -> 201
+   [setup] Admin-API POST /api/repair-request-communication/RR-1790935160067-00004/quick-action approval_required -> 201
+  PASS Vorbereitung: drei offene Aktionen angelegt :: 201/201/201
+  PASS Kunde (Auftrag): Aktion A sichtbar 
+  PASS Kunde (Auftrag): Hinweis "Rückfrage beantworten" vor dem Erledigen 
+  PASS Kunde (Auftrag): Knopf "Als erledigt markieren" in Aktion A vorhanden 
+   [shot] 01_kunde_auftrag_aktion_offen.png
+  PASS Kunde (Auftrag): Aktion A als "Erledigt" markiert 
+  PASS Kunde (Auftrag): Knopf nach dem Erledigen verschwunden 
+  PASS Kunde (Auftrag): Erfolgsmeldung sichtbar 
+   [shot] 02_kunde_auftrag_aktion_erledigt.png
+  PASS DB/API: Aktion A completed :: completed
+   API: completedByRole=customer completedAt=2026-10-02T10:16:53.855Z
+  PASS Kunde (Auftrag): nach Neuladen weiterhin "Erledigt" 
+  PASS Kunde (Auftrag): nach Neuladen kein Erledigen-Knopf 
+  PASS Kunde (Auftrag): Hinweis zaehlt nur noch die offene Aktion B ("Rückfrage beantworten") 
+   [shot] 03_kunde_auftrag_nach_reload.png
+  PASS Kunde (Postfach): Gespraech ORD-2026-077 gelistet 
+  PASS Kunde (Postfach): Knopf "Als erledigt markieren" in Aktion B 
+  PASS Kunde (Postfach): Aktion A dort ebenfalls "Erledigt" 
+   [shot] 04_kunde_postfach_aktion_offen.png
+  PASS Kunde (Postfach): Aktion B als "Erledigt" markiert 
+   [shot] 05_kunde_postfach_aktion_erledigt.png
+  PASS Kunde (Postfach): nach Neuladen Aktion B weiterhin "Erledigt" 
+  PASS DB/API: Aktion B completed 
+   offene Aktionen im Auftrag laut API: 0
+  PASS Kunde (Auftrag): "Rückfrage beantworten" verschwunden, wenn nichts mehr offen 
+   [shot] 06_kunde_auftrag_ohne_offene_aktion.png
+  PASS Admin (Auftrag, Kommunikation): beide Aktionen "Erledigt" 
+  PASS Admin: kein "Wartet auf den Kunden." mehr 
+  PASS Admin: kein Kunden-Erledigen-Knopf (nur Kunde) 
+   [shot] 07_admin_auftrag_kommunikation_erledigt.png
+  PASS Kunde (Postfach, Reparaturanfrage): Knopf "Als erledigt markieren" 
+   [shot] 08_kunde_rr_aktion_offen.png
+  PASS Kunde (Reparaturanfrage): Aktion als "Erledigt" markiert 
+   [shot] 09_kunde_rr_aktion_erledigt.png
+  PASS Kunde (Reparaturanfrage): nach Neuladen weiterhin "Erledigt" 
+  PASS DB/API: Reparaturanfrage-Aktion completed 
+  PASS Admin (Postfach, Reparaturanfrage): Aktion "Erledigt" 
+   [shot] 10_admin_rr_erledigt.png
+  PASS fremder Kunde: kein Abschluss fremder Aktionen :: 403
+==== lost1_quick_action: 27 bestanden, 0 fehlgeschlagen ====

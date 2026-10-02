@@ -1,0 +1,17 @@
+   (A) Server-Funktion, aktuelle Konfiguration: in=Paula Partner/customer.invoiceAddress -> shop missing=aktive DHL-Integration; out-> order.shippingAddress
+   (A) UI: Einsendung [Absender Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Rechnungsadresse im Kundenprofil] -> [Empfänger McRepair Adresse fehlt – bitte prüfen (fehlt: aktive DHL-Integration) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)] | Auslieferung [Absender McRepair Adresse fehlt – bitte prüfen (fehlt: aktive DHL-Integration) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)] -> [Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags]
+  PASS (A) Einsendung: Absender = Kunde mit Anschrift und Quelle 
+  PASS (A) Unvollstaendige Shop-Anschrift: "Adresse fehlt – bitte prüfen" auf beiden McRepair-Seiten :: Absender McRepair Adresse fehlt – bitte prüfen (fehlt: aktive DHL-Integration) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)
+  PASS (A) Auslieferung: Empfänger = Kunde mit Lieferadresse 
+   [shot] 01_A_aktuelle_konfiguration.png
+   (B) UI: Einsendung [Absender Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Rechnungsadresse im Kundenprofil] -> [Empfänger McRepair McRepair Vorschau GmbH Werkstattweg 5 20095 Hamburg Quelle: DHL-Integration (Shop-Anschrift)] | Auslieferung [Absender McRepair McRepair Vorschau GmbH Werkstattweg 5 20095 Hamburg Quelle: DHL-Integration (Shop-Anschrift)] -> [Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags]
+  PASS (B) Vollstaendige Shop-Anschrift: Einsendung-Empfänger und Auslieferung-Absender identisch aus der DHL-Integration 
+  PASS (B) Reihenfolge Absender -> Empfänger je Karte :: inbound-sender,inbound-recipient,outbound-sender,outbound-recipient
+   [shot] 02_B_shopadresse_vollstaendig_1366.png
+  PASS (B) 390 px: keine horizontale Seitenverschiebung :: 0px
+   [shot] 03_B_shopadresse_vollstaendig_390.png
+   (C) UI: Einsendung-Absender [Absender Kunde Paula Partner Adresse fehlt – bitte prüfen (fehlt: Straße, Hausnummer, PLZ, Ort)] | Auslieferung-Empfänger [Empfänger Kunde Paula Partner Adresse fehlt – bitte prüfen (fehlt: Lieferadresse)]
+  PASS (C) Fehlende Kundenadresse: ausdruecklich "Adresse fehlt – bitte prüfen" mit Feldern, nichts geraten 
+   [shot] 04_C_kundenadresse_fehlt.png
+  PASS (D) ohne parties: Hinweis "Absender und Empfänger konnten nicht geladen werden." 
+==== k11_parties_preview: 8 bestanden, 0 fehlgeschlagen ====

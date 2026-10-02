@@ -1,0 +1,22 @@
+  PASS Gast-Anfrage mit manuellem Geraet angelegt :: 201 RR-1790935265117-00005
+   Mails an Gast nach Anlage: 1 (Ihre Reparaturanfrage RR-1790935265117-00005 ist bei uns)
+  PASS Details von RR-1790935265117-00005 geoeffnet 
+  PASS manuell angegebenes Geraet (Erstangabe) sichtbar 
+   [shot] 01_admin_angebot_entwurf.png
+  PASS Entwurf speichern sendet KEINE Mail :: 1 -> 1
+  PASS Entwurf (Betrag + Beschreibung) ist fuer den Gast noch NICHT sichtbar 
+   [shot] 02_admin_angebot_bestaetigen.png
+   [shot] 03_admin_angebot_gesendet.png
+  PASS Senden erzeugt genau EINE Mail an die Gast-Adresse :: 1
+  PASS Mail enthaelt den Betrag 89,00 € :: =?UTF-8?Q?Kostenvoranschlag_zu_Ihrer_Reparaturanfr?=
+  PASS Mail enthaelt die Beschreibung 
+  PASS Mail enthaelt einen Gast-Link zur Anfrage :: http://localhost:5173/guest-repair-tracking?token=<entfernt>&email
+  PASS erneutes Speichern sendet nicht doppelt :: 1
+   [shot] 04_gast_link_aus_mail.png
+  PASS Gast sieht den Kostenvoranschlag ueber den Mail-Link 
+  PASS strukturierte Antwort "Annehmen" angeboten 
+   [shot] 05_gast_angenommen.png
+  PASS Gast sieht "angenommen" 
+  PASS Admin: Status "Kostenvoranschlag angenommen" (approved, quote accepted) :: approved {"amount":89,"description":"Displaytausch inkl. Ersatzteil, 12 Monate Garantie","status":"accepted","version":1,"legacy":false,"draftUpdatedAt":"2026-10-02T10:0
+  PASS Token mit falscher E-Mail: kein Zugriff :: 404
+==== k07_guest_quote: 15 bestanden, 0 fehlgeschlagen ====

@@ -1,0 +1,13 @@
+   Testdaten: stornierter Auftrag ORD-2026-070, offener Auftrag ORD-2026-064 (beide mit laufender Inspektion)
+  PASS Storniert: Karte zeigt erfasste Daten nur lesend mit Begruendung :: Geräteinspektion Inspektion starten, fortsetzen oder Ergebnisse direkt einsehen. Erfasste Inspektionsdaten (nur lesen) Auftrag storniert – Inspektion gesperrt I
+  PASS Storniert: kein "Fortfahren"-Hinweis/Knopf auf der Karte 
+   [shot] 01_storniert_karte_nur_lesen.png
+  PASS Zahlungswort widerspricht nicht den angezeigten Zahlen :: Zahlung Storniert – keine Zahlung offen Gesamt (brutto) 49,90 € · Bezahlt 0,00 € · Offen 0,00 € Bezahlt/Offen gelten für die ges
+  PASS Inspektionsseite: Hinweis "Auftrag storniert – Inspektion gesperrt" 
+  PASS Inspektionsseite: kein "Speichern & Weiter" bei storniertem Auftrag 
+  PASS keine schreibende Inspektionsanfrage (kein init/save) beim Oeffnen :: 0
+  PASS Inspektionsseite: kein "Prüfbericht erstellen" in der Kopfzeile bei storniertem Auftrag 
+  PASS Status-Badge im dunklen Kopf hell (lesbar) :: rgb(255, 255, 255)
+   [shot] 02_storniert_inspektionsseite.png
+  PASS offener Auftrag: Inspektion kann fortgesetzt werden :: Geräteinspektion Inspektion starten, fortsetzen oder Ergebnisse direkt einsehen. Geräteinspektion In Bearbeitung Schritt
+==== check_orch_cancelled: 9 bestanden, 0 fehlgeschlagen ====

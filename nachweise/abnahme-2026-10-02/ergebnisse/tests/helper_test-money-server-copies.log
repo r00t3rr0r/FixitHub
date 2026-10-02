@@ -1,0 +1,28 @@
+
+[1] Referenz money.formatEuroDe
+  PASS money.formatEuroDe(47.4) :: 47,40 €
+  PASS money.formatEuroDe(1234.5) mit Tausenderpunkt :: 1.234,50 €
+
+[2] Servermodule nutzen denselben Formatter
+  PASS OrderHistory.formatEuroDe vorhanden :: function
+  PASS OrderHistory.formatEuroDe(47.4) = money.formatEuroDe :: 47,40 €
+  PASS OrderHistory.formatEuroDe(1234.5) = money.formatEuroDe :: 1.234,50 €
+  PASS OrderHistory.formatEuroDe(0) = money.formatEuroDe :: 0,00 €
+  PASS OrderHistory.formatEuroDe(1000000) = money.formatEuroDe :: 1.000.000,00 €
+  PASS NotificationService.formatEuroDe vorhanden :: function
+  PASS NotificationService.formatEuroDe(47.4) = money.formatEuroDe :: 47,40 €
+  PASS NotificationService.formatEuroDe(1234.5) = money.formatEuroDe :: 1.234,50 €
+  PASS NotificationService.formatEuroDe(0) = money.formatEuroDe :: 0,00 €
+  PASS NotificationService.formatEuroDe(1000000) = money.formatEuroDe :: 1.000.000,00 €
+  PASS RepairRequestService.formatEuro vorhanden :: function
+  PASS RepairRequestService.formatEuro(47.4) = money.formatEuroDe :: 47,40 €
+  PASS RepairRequestService.formatEuro(1234.5) = money.formatEuroDe :: 1.234,50 €
+  PASS RepairRequestService.formatEuro(0) = money.formatEuroDe :: 0,00 €
+  PASS RepairRequestService.formatEuro(1000000) = money.formatEuroDe :: 1.000.000,00 €
+  PASS OrderHistory: nicht lesbarer Betrag -> "–" :: – –
+
+[3] complaintRoutes.js ohne eigene Kopie
+  PASS keine lokale formatEuroDe-Definition :: ok
+  PASS formatEuroDe aus server/utils/money.js :: ok
+
+Ergebnis: 20 bestanden, 0 fehlgeschlagen

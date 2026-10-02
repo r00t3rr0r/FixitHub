@@ -1,5 +1,8 @@
 # Technischer Änderungsbericht — Stabilisierung nach Sophies Test vom 24.09.2026
 
+> **Fortgeschrieben am 02.10.2026:** siehe `TECHNISCHER_AENDERUNGSBERICHT_2026-10-02.md` und `BEFUNDLISTE_2026-10-02.md`.
+
+
 **Branch:** `adars`, Basis `6943b03` · **Stand:** 26.09.2026
 **Umfang:** 75 geänderte und 25 neue Dateien, ca. +16.900 / −5.700 Zeilen
 **Status:** vollständig im Arbeitsbaum, **nicht committet**, nicht gemergt, nicht deployed

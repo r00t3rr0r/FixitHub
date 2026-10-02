@@ -1,0 +1,34 @@
+  PASS Buchungsliste: je Geraet genau ein sichtbares "Details ansehen" (Anzahl = Geraete der Buchungen auf Seite 1 laut API) :: 14 Schaltflaechen / 14 Geraete (12 Buchungen)
+   [shot] 01_buchungen_suche_ipad.png
+   nach Suche "iPad": 4 Detail-Schaltflaechen
+  PASS iPad-Zeile sichtbar 
+  PASS EIN Klick fuehrt zur Reparatur des iPad (richtige Auftrags-ID) :: http://127.0.0.1:5199/orders/6abf70357ce3fee63969cb2e
+  PASS Detailkopf zeigt Geraet + Auftragsnummer 
+  PASS Zusammenfassung "Auf einen Blick" oben sichtbar 
+  PASS Zahlungsuebersicht: "Gesamt / Dieses Gerät (brutto)" ohne Aufklappen sichtbar 
+  PASS Zahlungsuebersicht: "Bezahlt" ohne Aufklappen sichtbar 
+  PASS Zahlungsuebersicht: "Offen" ohne Aufklappen sichtbar 
+  PASS Mehrgeraete-Buchung: Bezug "ganze Buchung" steht direkt an Bezahlt und Offen/Ueberzahlt 
+  PASS Ein hervorgehobener "Nächster Schritt" ist vorhanden 
+   [shot] 02_detail_ipad_glance.png
+  PASS Zurueck zur Liste: Suchbegriff bleibt erhalten :: iPad
+   Klickpfad nachher: Buchungen -> "Details ansehen" (1 Klick); Dauer bis Detail 5150 ms (inkl. Laden)
+  PASS 390 px Auftragsdetail: kein horizontaler Seitenscroll :: 390/390
+   [shot] 03_detail_390.png
+  PASS 390 px Buchungsliste: kein horizontaler Seitenscroll :: 390/390
+   [shot] 04_buchungen_390.png
+  PASS Dialog "Lieferant" geoeffnet 
+  PASS Dialog passt in den 718 px hohen Viewport :: {"top":16,"bottom":702,"vh":718}
+   [shot] 05_lieferant_dialog_778x718.png
+   Felder: epo-supplier-name, epo-supplier-email, epo-supplier-contactPerson, epo-supplier-phone, epo-supplier-website, epo-supplier-ustId, epo-supplier-street, epo-supplier-zipCode, epo-supplier-city, epo-supplier-state, epo-supplier-country, epo-supplier-iban, epo-supplier-bic, epo-supplier-bankName, epo-supplier-accountHolder, epo-supplier-paymentTerms, epo-supplier-leadTime
+  PASS Feld Name ausfuellbar 
+  PASS letztes Feld (Lieferzeit) per Scroll im Dialog erreichbar 
+  PASS Speichern-Schaltflaeche im Viewport erreichbar :: {"x":561.921875,"y":649,"width":183.078125,"height":40}
+   [shot] 06_lieferant_dialog_unten.png
+  PASS neuer Lieferant erscheint in der Liste 
+  PASS nach Reload weiterhin vorhanden (persistiert) 
+   [shot] 07_lieferant_nach_reload.png
+  PASS gleicher Name + E-Mail: 409 statt Duplikat :: 409 Ein Lieferant mit diesem Namen und dieser E-Mail existiert bereits.
+  PASS 200 % Zoom (683x384): Speichern per Scroll erreichbar :: {"x":466.921875,"y":315,"width":183.078125,"height":40}
+   [shot] 08_lieferant_200prozent.png
+==== k12_k17: 22 bestanden, 0 fehlgeschlagen ====

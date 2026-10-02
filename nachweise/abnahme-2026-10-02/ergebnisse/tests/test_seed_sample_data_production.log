@@ -1,0 +1,12 @@
+
+[A] Produktion -> Verweigerung mit Exit-Code 1
+  PASS Exit-Code 1 (vorher 0) :: 1
+  PASS Sperrmeldung ausgegeben :: true
+  PASS keine Erfolgsmeldung :: true
+  PASS keine Demo-Konten angelegt :: 0
+
+[B] Gegenprobe: Trockenlauf ausserhalb der Produktion
+  PASS Trockenlauf -> Exit 0 mit Hinweis :: 0 true
+  PASS Trockenlauf legt nichts an :: 0
+
+Ergebnis: 6 bestanden, 0 fehlgeschlagen

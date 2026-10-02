@@ -1,0 +1,59 @@
+Testdaten: Katalog (DB, idempotent) Marke "K08 Testmarke", Modell "K08 Testphone" (smartphone), Services K08 Diagnose 59,80 € / K08 Akkutausch 89,80 €
+Testdaten: DHL-Buchungslabel-Modus vor dem Checkout = dummy (Dummy/Test, kein echtes Label)
+Testdaten: Checkout-API (paypal ausstehend, keine Zahlung) -> Buchung BKG-2026-0011 / Auftrag ORD-2026-068 (6abf81572a854d3cec738712), Markierung E2E-K08DSC-MUQSOPV8
+  PASS Ausgangslage: frischer Einzelauftrag 49,90 € - 5 % = 47,40 € :: 47.4 / Auftraege in Buchung: 1
+Testdaten: interne Notiz per Admin-API angelegt (201)
+  PASS Admin-Detail zeigt Ausgangspreis :: 47,40 €
+   [shot] 01_admin_detail_vorher.png
+  PASS Dialog "Gerät ändern" zeigt aktuelles Gerät Apple iPhone 15 
+  PASS Service-Zuordnung Diagnose E2E -> K08 Diagnose vollstaendig (1/1) 
+   [shot] 02_geraetewechsel_auswahl.png
+  PASS Pruefschritt zeigt neu berechneten Auftragswert 47,40 € -> 56,81 € :: Auftragswert bisher (brutto): 47,40 € Auftragswert neu (brutto, nach Kundenrabatt): 56,81 € 
+   [shot] 03_geraetewechsel_pruefen.png
+  PASS Geraetekarte zeigt neues Geraet :: Geräteinformationen Bearbeiten K08 Testmarke K08 Testphone Vom Kunden gemeldet: Apple iPhone 15 Reparaturleistungen K08 
+  PASS Preisuebersicht zeigt neu berechneten Gesamtbetrag nach Geraetewechsel :: 56,81 €
+  PASS DB: Geraet, Position und Auftragswert gespeichert :: K08 Testmarke K08 Testphone | K08 Diagnose=59.8 | 56.81
+   [shot] 04_nach_geraetewechsel.png
+  PASS Katalogpreis wird uebernommen (89,80) :: 89.8
+   [shot] 05_leistung_hinzufuegen_dialog.png
+  PASS Leistung hinzugefuegt: Liste + neuer Gesamtbetrag angezeigt :: 142,12 €
+   [shot] 06_leistung_aendern_dialog.png
+  PASS Preis geaendert: neuer Gesamtbetrag angezeigt :: 132,43 €
+   [shot] 07_leistung_entfernen_dialog.png
+  PASS Leistung entfernt: Liste + neuer Gesamtbetrag angezeigt :: 75,62 € | Reparaturdienste Gebuchte Reparaturleistungen und Technikernotizen zu diesem Auftrag. Dienst hinzufügen K08 Akkutausch K08 Akkutausch (E2E-Testkatalog K08) 45 m
+   [shot] 08_nach_leistungsaenderungen.png
+  PASS nach Reload: Geraet, Leistung (79,60 €) und Gesamtbetrag (75,62 €) unveraendert :: 75,62 € | Reparaturdienste Gebuchte Reparaturleistungen und Technikernotizen zu diesem Auftrag. Dienst hinzufügen K08 Akkutausch K08 Akkutausch (E2E-T
+  PASS DB: genau eine Position K08 Akkutausch 79,60, Auftragswert 75,62 :: K08 Akkutausch=79.6 | 75.62
+  PASS DB: Buchungssumme = Auftragssumme (Zwischensumme 79,60 / Rabatt 3,98 / gesamt 75,62) :: booking total=75.62 subtotal=79.6 discount=3.98 | order=75.62
+   [shot] 09_verlauf_alle.png
+  PASS Verlauf "Gerät korrigiert": Zeit, Akteur, Marke/Modell/Service alt -> neu, Auftragswert, Grund :: 02.10.2026, 12:03 Gerät korrigiert Gerät Quelle: Gerätekarte Modellwechsel: Apple iPhone 15 -> K08 Testmarke K08 Testphone. Auftragskosten: 47,40 € -> 56,81 €. Noch offen: 56,81 €. Marke: Apple → K08 Testmarke Modell: iPhone 15 → K08 Testphone Reparaturservice: Diagnose E2E (49,90 €) → K08 Diagnose (59,80 €) Auftragswert: 47,40 € → 56,81 € Grund: Eingangsprüfung: anderes Modell als gebucht (E2E-K0
+  PASS Verlauf "Gerätewechsel bestätigt" mit Zeit und Akteur :: 02.10.2026, 12:03 Gerätewechsel bestätigt Gerät Quelle: Gerätewechsel-Dialog Gerätewechsel bestätigt (K08 Testmarke K08 Testphone) von Admin User
+  PASS Verlauf Leistung hinzugefuegt: Zeit, Akteur, Auftragswert alt -> neu, Grund :: 02.10.2026, 12:03 Leistungen geändert Leistungen Quelle: Leistungen bearbeiten Position „K08 Akkutausch“ hinzugefügt (Standardpreis 89,80 €) Auftragswert: 56,81 € → 142,12 € Grund: Akku bei Diagnose aufgebläht (E2E-K08DSC-MUQSOPV8) von Admin User Änderungsbeleg #3
+  PASS Verlauf Preis geaendert: Preis 89,80 -> 79,60, Auftragswert, Grund :: 02.10.2026, 12:03 Leistungen geändert Preise Quelle: Leistungen bearbeiten Position „K08 Akkutausch“ geändert: Standardpreis 89,80 € → 79,60 € Standardpreis „K08 Akkutausch“: 89,80 € → 79,60 € Auftragswert: 142,12 € → 132,43 € Grund: Kulanzpreis nach Rücksprache (E2E-K08DSC-MUQSOPV8) von Admin User 
+  PASS Verlauf Leistung entfernt: Zeit, Akteur, Auftragswert alt -> neu, Grund :: 02.10.2026, 12:03 Leistungen geändert Leistungen Quelle: Leistungen bearbeiten Position „K08 Diagnose“ entfernt (Standardpreis 59,80 €) Auftragswert: 132,43 € → 75,62 € Grund: Diagnose entfällt, Akkutausch reicht (E2E-K08DSC-MUQSOPV8) von Admin User Änderungsbeleg #5
+   Akteur laut Verlauf: Admin User
+   [shot] 10_verlauf_filter_geraet_leistungen.png
+  PASS Filter "Gerät & Leistungen": nur Geraet/Leistungen, Geraetewechsel + hinzugefuegt + entfernt enthalten :: 4/9 Typen: Leistungen,Gerät
+   [shot] 11_verlauf_filter_preise.png
+  PASS Filter "Preise & Rabatte": nur Preis-Eintraege, Preisaenderung enthalten, kein Geraetewechsel :: 2 Typen: Preise
+  PASS "Alle" zeigt wieder saemtliche Eintraege :: 9/9
+  PASS Verlauf-Tab steht in der URL :: /orders/6abf81572a854d3cec738712?bereich=verlauf
+  PASS nach Reload: Verlauf-Tab offen, alle Eintraege inkl. Gruende vorhanden :: 9/9
+   [shot] 12_verlauf_nach_reload.png
+   (Gegenprobe Filter: ohne Filter 9 Eintraege, davon Auftrag/Buchung/Label sichtbar: true)
+   [shot] 13_kunde_auftrag.png
+  PASS Kunde sieht neues Geraet :: Zurück K08 Testmarke K08 Testphone Auftrag ORD-2026-06
+  PASS Kunde sieht neuen Betrag 75,62 € (Auf einen Blick) 
+   [shot] 14_kunde_geplante_leistungen.png
+  PASS Kunde: "Geplante Leistungen" zeigt neue Leistung K08 Akkutausch, entfernte/alte nicht :: Reparatur in Bearbeitung Hier sehen Sie die aktuell geplanten Reparaturdienste und Zusatzdienste für diesen Auftrag. Reparaturdienste K08 Akkutausch K08 Akkutausch (E2E-Testkatalog K08) 79,60 € 45 min Zusatzdienste Keine
+   [shot] 15_kunde_preisaufstellung.png
+  PASS Kunde: Preisaufstellung 79,60 € Listenpreis -> 75,62 € gesamt, ohne entfernte Leistung :: Preisaufstellung Gesamt 75,62 € Listenpreis (Brutto) 79,60 € Kundenrabatt (5 %) −3,98 € Gesamtbetrag (Brutto) 75,62 € davon Netto 63,55 € davon MwSt. (19 %) 12,07 € Leistungen im Detail ansehen
+  PASS Kundenseite zeigt keine interne Notiz und keine internen Aenderungsgruende :: keine
+   [shot] 16_kunde_verlauf.png
+  PASS Kunden-Verlauf: nur Eintraege der Positivliste :: DHL-Einsendelabel erstellt | Auftrag erhalten
+  PASS Kunden-Verlauf ohne interne Details (Gruende, Notiz, Akteur, alt->neu, Geraetekorrektur) :: keine
+  PASS API-Gegenprobe Kunden-Verlauf: keine Gruende/Aenderungen/Akteure/Markierung :: 200 2 Eintraege
+  PASS fremder Kunde: kein Zugriff auf den Verlauf :: 403
+  PASS neue E-Mails nur an Testadressen :: 1: partner@e2e.invalid.eml
+  PASS netguard_after.log unveraendert (kein externer Verbindungsversuch) :: 0 -> 0 Bytes
+==== k08_device_service_change: 36 bestanden, 0 fehlgeschlagen ====

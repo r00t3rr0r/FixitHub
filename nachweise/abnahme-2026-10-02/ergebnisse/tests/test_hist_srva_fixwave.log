@@ -1,0 +1,272 @@
+(node:1099733) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1099733) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1099733) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] EUR-FORMAT: Aenderungsbeleg "Auftrag angelegt" (POST /api/orders als Kundin)
+Create order request received from user: srva-kunde@test.invalid
+Order data: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  services: [ '6abf93137bb680cca35b97e7' ],
+  errorDescription: 'Display gesprungen'
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf93137bb680cca35b97b3'),
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  services: [ '6abf93137bb680cca35b97e7' ],
+  errorDescription: 'Display gesprungen'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf93137bb680cca35b97ee')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Order confirmation email sent to: srva-kunde@test.invalid
+  PASS Auftrag angelegt (201) :: 201 undefined
+  PASS Belegnotiz im deutschen Geldformat :: Auftrag angelegt: Positionen 49,90 €, Rabatt 0,00 €, Auftragswert 49,90 € (brutto)
+  PASS Teamverlauf zeigt "49,90 €" (kein "49.90 EUR") :: Auftragswert bei Anlage (Änderungsbeleg #1) · Auftrag angelegt: Positionen 49,90 €, Rabatt 0,00 €, Auftragswert 49,90 € (brutto)
+
+[B] K08-CASE + EUR-FORMAT: Geraetewechsel mit Katalogtyp "smartphone" (POST change-device)
+[DeviceChange] Change device request received: 6abf93137bb680cca35b97ee {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'smartphone',
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf93137bb680cca35b97ef',
+      newServiceId: '6abf93137bb680cca35b97e9'
+    }
+  ],
+  reason: 'Kunde hat falsches Modell gebucht'
+}
+[DeviceChange] Starting device change for order 6abf93137bb680cca35b97ee. Old: Apple iPhone 14 (Smartphone), New: Apple iPhone 15 (smartphone)
+[DeviceChange] Replaced service Displaytausch iPhone 14 with Displaytausch iPhone 15: 49.9 -> 59.9
+[DeviceChange] Total cost change: 49.9 -> 59.9 (+10)
+[DeviceChange] Device successfully changed for order 6abf93137bb680cca35b97ee. Requires confirmation: true
+  PASS Geraetewechsel 200 :: 200 undefined
+  PASS Geraetetyp bleibt "Smartphone" (nur Gross-/Kleinschreibung verschieden) :: Smartphone
+  PASS Modell geaendert :: iPhone 15
+  PASS kein Aenderungseintrag "Gerätetyp: Smartphone → smartphone" :: [{"field":"deviceModel","label":"Modell","from":"iPhone 14","to":"iPhone 15"},{"field":"services","label":"Reparaturservice","from":"Displaytausch iPhone 14 (49,90 €)","to":"Displaytausch iPhone 15 (59,90 €)"},{"field":"totalCost","label":"Auftragswert","from":49.9,"to":59.9}]
+  PASS Modellaenderung weiterhin protokolliert :: deviceModel,services,totalCost
+  PASS Verlaufstext im deutschen Geldformat :: Modellwechsel: Apple iPhone 14 -> Apple iPhone 15. Auftragskosten: 49,90 € -> 59,90 €. Noch offen: 59,90 €.
+  PASS Zahlungshinweis im deutschen Geldformat (PAR-6c) :: Modellwechsel: Apple iPhone 14 -> Apple iPhone 15. Auftragskosten: 49,90 € -> 59,90 €. Noch offen: 59,90 €.
+  PASS Pruefbericht liest das Ursprungsgeraet weiter :: Apple iPhone 14
+  PASS Aenderungsbeleg im deutschen Geldformat :: Gerätewechsel Apple iPhone 14 → Apple iPhone 15 | „Displaytausch iPhone 14“ → „Displaytausch iPhone 15“ (59,90 €) | Auftragswert 49,90 € → 59,90 € | Grund: Kunde hat falsches Modell gebucht
+  PASS Zusammenfassung meldet den gespeicherten Typ :: Smartphone
+
+[C] PAR-4: E-Teil-Verlaufseintraege deutsch mit type "parts"
+Assign EPart to order request received: 6abf93137bb680cca35b97ee {
+  partId: '6abf93147bb680cca35b9821',
+  versionId: '6abf93147bb680cca35b9822',
+  quantity: 1
+}
+OrderService: Assigning EPart to order: {
+  orderId: '6abf93137bb680cca35b97ee',
+  partId: '6abf93147bb680cca35b9821',
+  versionId: '6abf93147bb680cca35b9822',
+  quantity: 1,
+  staffId: new ObjectId('6abf93137bb680cca35b97de')
+}
+OrderService: EPart assigned successfully
+  PASS E-Teil zugewiesen :: 200 undefined
+Update EPart status request received: 6abf93137bb680cca35b97ee 6abf93147bb680cca35b982c { status: 'used' }
+OrderService: Updating EPart status: {
+  orderId: '6abf93137bb680cca35b97ee',
+  ePartId: '6abf93147bb680cca35b982c',
+  status: 'used',
+  staffId: new ObjectId('6abf93137bb680cca35b97de')
+}
+OrderService: EPart status updated successfully
+  PASS E-Teil-Status geaendert :: 200 undefined
+Remove EPart from order request received: 6abf93137bb680cca35b97ee 6abf93147bb680cca35b982c
+OrderService: Removing EPart from order: {
+  orderId: '6abf93137bb680cca35b97ee',
+  ePartId: '6abf93147bb680cca35b982c',
+  staffId: new ObjectId('6abf93137bb680cca35b97de')
+}
+OrderService: EPart removed successfully
+  PASS E-Teil entfernt :: 200 undefined
+Record EPart need list entry request received: 6abf93137bb680cca35b97ee {
+  partId: '6abf93147bb680cca35b9821',
+  quantity: 2,
+  needListName: 'Wochenbestellung'
+}
+OrderService: Recording EPart need list entry: {
+  orderId: '6abf93137bb680cca35b97ee',
+  entryData: {
+    partId: '6abf93147bb680cca35b9821',
+    quantity: 2,
+    needListId: undefined,
+    needListName: 'Wochenbestellung',
+    needListStatus: undefined,
+    targetType: undefined,
+    notes: undefined
+  },
+  staffId: new ObjectId('6abf93137bb680cca35b97de')
+}
+OrderService: EPart need list entry recorded successfully
+  PASS Bedarfsliste vermerkt :: 200 undefined
+  PASS Status: deutscher Text, type parts :: Status von Display iPhone 15: Zugewiesen → Verbaut / parts
+  PASS Entfernen: deutscher Text, type parts :: Display iPhone 15 (original) ×1 vom Auftrag entfernt / parts
+  PASS Bedarfsliste: deutscher Text, type parts :: Display iPhone 15 ×2 auf Bedarfsliste „Wochenbestellung“ gesetzt / parts
+  PASS handelnde Person statt "Staff Member" :: Sophie Technik,Sophie Technik,Sophie Technik
+  PASS Teamverlauf: 3 deutsche Ersatzteil-Eintraege :: parts:Display iPhone 15 ×2 auf Bedarfsliste „Wochenbestellung“ gesetzt | parts:Display iPhone 15 (original) ×1 vom Auftrag entfernt | parts:Status von Display iPhone 15: Zugewiesen → Verbaut
+  PASS Kundenverlauf zeigt keine Ersatzteil-Eintraege :: Order Received
+
+[D] PAR-3: Buchung "Abgeschlossen" - Versand vs. Abholung (PUT /api/bookings/:id/status)
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf93137bb680cca35b97b3'),
+  orderIds: [ new ObjectId('6abf93147bb680cca35b986e') ],
+  status: 'processing',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf93147bb680cca35b986e') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0001
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf93147bb680cca35b9876') Number: BKG-2026-0001
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf93137bb680cca35b97b3'),
+  orderIds: [ new ObjectId('6abf93147bb680cca35b9881') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf93147bb680cca35b9881') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0002
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf93147bb680cca35b9889') Number: BKG-2026-0002
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+RequireRole middleware: User srva-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kundin darf den Buchungsstatus nicht setzen :: 403
+RequireRole middleware: User srva-staff@test.invalid has required role staff
+BookingRoutes: Updating booking status: 6abf93147bb680cca35b9889
+BookingService: Updating booking status: 6abf93147bb680cca35b9889 to: processing
+Booking pre-save: Total orders: 1 Booking status: processing
+BookingService: Booking status updated successfully
+BookingRoutes: Booking status updated successfully
+  PASS Abholbuchung -> In Bearbeitung :: 200 undefined
+  PASS Statushinweis ohne rohe Enum-Werte :: Status geändert: Ausstehend → In Bearbeitung
+  PASS Betreff-Status deutsch :: In Bearbeitung
+RequireRole middleware: User srva-staff@test.invalid has required role staff
+BookingRoutes: Updating booking status: 6abf93147bb680cca35b9876
+BookingService: Updating booking status: 6abf93147bb680cca35b9876 to: completed
+Booking pre-save: Total orders: 1 Booking status: completed
+BookingService: Booking status updated successfully
+BookingRoutes: Booking status updated successfully
+  PASS Versandbuchung -> Abgeschlossen :: 200 undefined
+  PASS Versandbuchung: KEINE Abholmail :: booking_status_updated
+  PASS Versandbuchung: Hinweis auf den Rueckversand :: Die Reparatur Ihrer Buchung BKG-2026-0001 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+  PASS Status "Abgeschlossen" deutsch :: Abgeschlossen
+RequireRole middleware: User srva-staff@test.invalid has required role staff
+BookingRoutes: Updating booking status: 6abf93147bb680cca35b9889
+BookingService: Updating booking status: 6abf93147bb680cca35b9889 to: completed
+Booking pre-save: Total orders: 1 Booking status: completed
+BookingService: Booking status updated successfully
+BookingRoutes: Booking status updated successfully
+  PASS Abholbuchung -> Abgeschlossen :: 200 undefined
+  PASS reine Abholbuchung: Abholmail :: booking_ready_for_pickup
+
+[E] HIST-LABEL: Einsendelabel der Buchung im Auftragsverlauf (POST /api/bookings/:id/inbound-label)
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf93137bb680cca35b97b3'),
+  orderIds: [
+    new ObjectId('6abf93147bb680cca35b98e4'),
+    new ObjectId('6abf93147bb680cca35b98e7')
+  ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf93147bb680cca35b98e4') Type: Smartphone
+BookingService: Processing order: new ObjectId('6abf93147bb680cca35b98e7') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0003
+Booking pre-save: Total orders: 2 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf93147bb680cca35b98f2') Number: BKG-2026-0003
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 2
+BookingService: Shipping label creation disabled for booking.
+  PASS fremder Kunde: 403 :: 403
+  PASS Inhaberin erstellt das Testlabel :: 200 true
+  PASS Wiederholung: kein zweites Label :: 200 true
+  PASS ORD-SRVA-003: Kundenverlauf zeigt "DHL-Einsendelabel erstellt" genau einmal :: DHL-Einsendelabel erstellt | Auftrag erhalten
+  PASS Kundeneintrag ohne Akteur und interne Details :: {"id":"6abf93147bb680cca35b991e","at":"2026-10-02T11:18:44.870Z","timeKnown":true,"timeNote":null,"key":"Booking Inbound Label Created","type":"shipping","typeLabel":"Versand","title":"DHL-Einsendelabel erstellt","description":"Ihr DHL-Einsendelabel wurde erstellt.","origin":"timeline"}
+  PASS Teamverlauf: ein Eintrag mit Testlabel-Hinweis :: DHL-Testlabel der Buchung (Kunde → McRepair) erstellt. Sendungsnummer: DHL-DUMMY-KG20260003-924870
+  PASS Buchungslabel schreibt nicht den Retoure-Schluessel "Inbound Label Created" in den Auftragsverlauf :: Order Received | Booking Inbound Label Created
+  PASS ORD-SRVA-004: Kundenverlauf zeigt "DHL-Einsendelabel erstellt" genau einmal :: DHL-Einsendelabel erstellt | Auftrag erhalten
+  PASS Kundeneintrag ohne Akteur und interne Details :: {"id":"6abf93147bb680cca35b9920","at":"2026-10-02T11:18:44.870Z","timeKnown":true,"timeNote":null,"key":"Booking Inbound Label Created","type":"shipping","typeLabel":"Versand","title":"DHL-Einsendelabel erstellt","description":"Ihr DHL-Einsendelabel wurde erstellt.","origin":"timeline"}
+  PASS Teamverlauf: ein Eintrag mit Testlabel-Hinweis :: DHL-Testlabel der Buchung (Kunde → McRepair) erstellt. Sendungsnummer: DHL-DUMMY-KG20260003-924870
+  PASS Buchungslabel schreibt nicht den Retoure-Schluessel "Inbound Label Created" in den Auftragsverlauf :: Order Received | Booking Inbound Label Created
+  PASS fremder Kunde liest den Verlauf nicht :: 403
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf93137bb680cca35b97b3'),
+  orderIds: [ new ObjectId('6abf93157bb680cca35b995e') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid'
+}
+BookingService: Processing order: new ObjectId('6abf93157bb680cca35b995e') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0004
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf93157bb680cca35b9966') Number: BKG-2026-0004
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+  PASS Buchung mit automatischem Testlabel :: DHL-DUMMY-KG20260004-925071
+  PASS automatisches Label: Kundenverlauf zeigt den Eintrag genau einmal :: DHL-Einsendelabel erstellt | Auftrag erhalten
+
+[F] K09: Inspektion auf storniertem Auftrag gesperrt (Lesen erlaubt)
+  PASS Kundin: 403 (Rollenpruefung vor Statuspruefung) :: 403
+  PASS Start auf storniertem Auftrag: 409 deutsch :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS keine Inspektion angelegt :: none
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93157bb680cca35b9989
+[DeviceInspection] New inspection created: 6abf93157bb680cca35b9993
+OrderService: Updating order status: new ObjectId('6abf93157bb680cca35b9989') to diagnostic-assessment
+OrderService: Order status updated successfully
+  PASS Start auf offenem Auftrag: 200 :: 200 undefined
+  PASS model-verification: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS identification: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS accessories: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS external-inspection: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS device-tests: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS apple-specific: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS complete: 409 :: 409 Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS erneuter Start: 409 :: 409
+  PASS Inspektion unveraendert :: in-progress -> in-progress
+  PASS keine Benachrichtigung, keine E-Mail :: 0 / 0
+[DeviceInspectionRoutes] GET /:orderId - Fetching inspection
+[DeviceInspection] Retrieving inspection for order: 6abf93157bb680cca35b9989
+OrderService: Getting order by ID: 6abf93157bb680cca35b9989
+  PASS Lesen bleibt erlaubt (Team) :: 200
+[DeviceInspectionRoutes] GET /:orderId/report - Generating inspection report
+  PASS Pruefbericht fuer laufende Inspektion eines stornierten Auftrags: 409, nichts geschrieben :: 409 Der Auftrag ist storniert – für eine nicht abgeschlossene Inspektion wird kein Prüfbericht erstellt.
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93157bb680cca35b99c1
+[DeviceInspection] New inspection created: 6abf93157bb680cca35b99cb
+OrderService: Updating order status: new ObjectId('6abf93157bb680cca35b99c1') to diagnostic-assessment
+OrderService: Order status updated successfully
+  PASS offener Auftrag: Start 200 :: 200
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf93157bb680cca35b99c1
+[DeviceInspection] Inspection completed: 6abf93157bb680cca35b99cb
+  PASS offener Auftrag: Abschluss 200 :: 200 "completed"
+  PASS offener Auftrag: Kundeninformation wird gesendet :: Information zu einem Defekt an Ihrem Gerät
+
+==== 66 bestanden, 0 fehlgeschlagen ====

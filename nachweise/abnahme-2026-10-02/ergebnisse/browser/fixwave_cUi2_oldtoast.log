@@ -1,0 +1,43 @@
+-- Toast vs. Dialog (1366)
+  PASS leerer Toast-Viewport faengt oben rechts keine Klicks ab (1366) :: SPAN
+  PASS Storno-Dialog offen (1366) 
+  PASS Dialog-Fussleisten-Buttons gefunden (1366) :: Abbrechen | Auftrag stornieren
+  PASS Button "Abbrechen" bei sichtbarem Toast nicht verdeckt (1366) 
+  PASS Button "Auftrag stornieren" bei sichtbarem Toast nicht verdeckt (1366) 
+  PASS Toast liegt sichtbar ueber dem Overlay (1366) :: {"top":638,"right":16,"bottom":752,"onTop":true,"bg":"rgb(239, 68, 68)","zToast":"12200","zOverlay":"12000"}
+  FAIL Toast oben (1366) :: 638
+  PASS Toast hat deckenden Hintergrund (1366) :: rgb(239, 68, 68)
+   [shot] 01_toast_over_dialog_1366.png
+-- Toast vs. Dialog (375)
+  PASS leerer Toast-Viewport faengt oben rechts keine Klicks ab (375) :: BUTTON
+  PASS Storno-Dialog offen (375) 
+  PASS Dialog-Fussleisten-Buttons gefunden (375) :: Abbrechen | Auftrag stornieren
+  PASS Button "Abbrechen" bei sichtbarem Toast nicht verdeckt (375) 
+  PASS Button "Auftrag stornieren" bei sichtbarem Toast nicht verdeckt (375) 
+  PASS Toast liegt sichtbar ueber dem Overlay (375) :: {"top":16,"right":16,"bottom":130,"onTop":true,"bg":"rgb(239, 68, 68)","zToast":"12200","zOverlay":"12000"}
+  PASS Toast oben (375) :: 16
+  PASS Toast hat deckenden Hintergrund (375) :: rgb(239, 68, 68)
+   [shot] 02_toast_over_dialog_375.png
+-- Toast vs. hoher Workflow-Dialog (1366x768)
+  FAIL Workflow-Dialog: Fussleisten-Bereich unten rechts nicht vom Toast verdeckt :: {"x":1135,"y":682,"toast":true}
+   Beobachtung: Kopfzeilen-X des Dialogs bei sichtbarem Toast: frei
+  PASS Workflow-Dialog: sichtbare Aktions-Buttons gefunden :: Schließen | Workflow pausierenZeiterfassung unterbre | Reparatur abschließenAlle Arbeiten abges
+  PASS Workflow-Dialog: "Schließen" bei sichtbarem Toast nicht verdeckt 
+  PASS Workflow-Dialog: "Workflow pausierenZeiterfassung unterbre" bei sichtbarem Toast nicht verdeckt 
+  PASS Workflow-Dialog: "Reparatur abschließenAlle Arbeiten abges" bei sichtbarem Toast nicht verdeckt 
+   [shot] 03_toast_over_workflow_dialog.png
+-- Stornierter Auftrag: Header
+  PASS storniert: keine Hauptaktion "Inspektion fortsetzen/starten" :: {"primaryText":"Storniert – Inspektion gesperrt","primaryDisabled":true,"primaryTitle":"Auftrag storniert – Inspektion gesperrt. Zum Fortsetzen muss ein Admin die Stornierung aufheben.","pill":"Storniert – keine Zahlung offen","openShown":"0,00 €","anyFortsetzen":false}
+  PASS storniert: Hauptaktion zeigt gesperrten Stornostatus :: Storniert – Inspektion gesperrt
+  PASS storniert: Zahlungs-Badge behauptet bei 0,00 € offen kein "Offen" :: Storniert – keine Zahlung offen / Offen 0,00 €
+   [shot] 04_cancelled_header.png
+-- Offener Auftrag mit Inspektion in Arbeit
+  PASS offen: "Inspektion fortsetzen" angeboten :: Inspektion fortsetzen
+   Zahlungskarte offen: Zahlung OffenGesamt (brutto) 123,40 € · Bezahlt 0,00 € · Offen 170,81 €Bezahlt/Offen gelten für die gesamte Buchung BKG-2026-0018 (2 Geräte, Gesamt 170,81 €)
+   [shot] 05_open_header.png
+-- Inspektion Schritt 1: Notizen-Marker
+  PASS Notizen-Feld Schritt 1 zeigt Kundensichtbarkeits-Marker ::  Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+  PASS Marker mit Symbol (nicht nur Farbe) 
+  PASS Textarea per aria-describedby mit Marker verknuepft :: model-notes-visibility
+   [shot] 06_inspection_notes_marker.png
+==== fixwave_cUi2_oldtoast: 26 bestanden, 2 fehlgeschlagen ====

@@ -1,0 +1,23 @@
+(node:1103012) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1103012) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1103012) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] Ohne Anmeldung: Stammdaten bleiben, leere Anreicherung wird ergaenzt
+DeviceRoutes: PUT /models/:id - 6abf938865e09863ddb0b911
+  PASS Anfrage beantwortet (Konfigurator bricht nicht ab) :: 200
+  PASS Name/Marke/Typ/Aktiv unveraendert :: iPhone 15 smartphone true
+  PASS leeres Bild + Akku-Daten ergaenzt :: https://img.example/iphone15.png Li-Ion 3349 mAh
+  PASS ignorierte Felder werden gemeldet :: ["name","brandId","deviceType","isActive","slug"]
+
+[2] Bereits befuellte Felder werden ohne Admin nicht ueberschrieben
+DeviceRoutes: PUT /models/:id - 6abf938865e09863ddb0b911
+  PASS Kunde ueberschreibt Bild/Akku nicht :: https://img.example/iphone15.png Li-Ion 3349 mAh
+
+[3] Admin darf Stammdaten aendern
+DeviceRoutes: PUT /models/:id - 6abf938865e09863ddb0b911
+  PASS Admin: Name und Bild geaendert :: 200 iPhone 15 (A3090)
+DeviceRoutes: PUT /models/:id - 000000000000000000000000
+  PASS unbekanntes Modell ohne Anmeldung: 404 :: 404
+
+==== 7 bestanden, 0 fehlgeschlagen ====

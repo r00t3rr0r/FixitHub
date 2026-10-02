@@ -1,0 +1,575 @@
+(node:1100599) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1100599) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1100599) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Reklamation genehmigen: Label nur per autorisiertem Download, keine PDF-Daten in Texten
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933097f635c64095547d')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+RequireRole middleware: User notify-admin@test.invalid has required role admin
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+NotificationService: Notification created successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: No configuration found, creating default
+SystemConfigService: Configuration retrieved successfully
+[32m[11:19:12] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation in Bearbeitung","to":"notify-owner@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintStatus","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","handlerName","processingStartedAt","estimatedResolutionDate","senderName","messageSentAt","resolutionSummary","compensationInfo","resolvedAt","decision","decisionReason","decidedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation in Bearbeitung" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:12] [EmailRetry] INFO: sendTemplateEmail(Reklamation in Bearbeitung) succeeded[0m {"attempt":1,"duration":"20ms","messageId":"<muqvenkg.485c5e5b3q@mcrepair.de>","to":"notify-owner@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:12] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-owner@test.invalid","subject":"Ihre Reklamation CMP-2026-0001 wird bearbeitet","messageId":"<muqvenkg.485c5e5b3q@mcrepair.de>","duration":"20ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS Admin genehmigt: 200 :: 200 
+  PASS Genehmigungsantwort enthaelt keine PDF-Daten :: 2278 Zeichen
+  PASS Antwort: hasShippingLabel + Sendungsnummer statt Daten :: true 00340434161094015902
+  PASS Antwort meldet Benachrichtigungsergebnis getrennt (In-App erstellt, E-Mail vom Mailserver angenommen) :: {"inApp":"created","email":"sent"}
+  PASS genau EINE Kundenbenachrichtigung in der DB :: 1
+  PASS Benachrichtigungstext kurz, deutsch, ohne PDF-Daten :: 190 Zeichen: Ihre Reklamation CMP-2026-0001 wurde genehmigt. Bitte senden Sie Ihr Gerät mit dem DHL-Versandlabel an uns (Reklamationsauftrag ORD-2026-002). Das Versandlabel können Sie hier herunterladen.
+  PASS Metadaten ohne Data-URI :: complaintId,complaintNumber,event,trackingNumber,complaintOrderId,complaintOrderNumber,document
+  PASS strukturierte Dokumentreferenz gespeichert :: {"kind":"complaint_shipping_label","complaintId":"6abf933097f635c64095548d","complaintNumber":"CMP-2026-0001","trackingNumber":"00340434161094015902","downloadPath":"/api/complaints/6abf933097f635c64095548d/shipping-label","filename":"Versandlabel-CMP-2026-0001.pdf"}
+  PASS Ziel ist die Reklamation selbst (nicht die Liste) :: /my-complaints/6abf933097f635c64095548d
+  PASS dedupeKey gesetzt :: complaint:6abf933097f635c64095548d:admin_approved
+  PASS Protokolleintrag ohne PDF (shippingLabelStored) :: {"shippingLabelStored":true,"trackingNumber":"00340434161094015902","complaintOrderId":"6abf933097f635c64095549c","compl
+  PASS PDF bleibt am Datensatz (Download-Quelle) :: data:application/pdf;base64,JV
+  PASS genau EINE Kunden-E-Mail (keine zusaetzliche allgemeine Benachrichtigungs-E-Mail) :: Ihre Reklamation CMP-2026-0001 wird bearbeitet
+  PASS E-Mail traegt das Label als PDF-Anhang :: Versandlabel-CMP-2026-0001.pdf
+Get notifications request from user: notify-owner@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933097f635c64095540b')
+NotificationService: Found 1 notifications
+  PASS GET /api/notifications (Kunde) ohne base64 :: 2258
+  PASS Aktion "Versandlabel herunterladen" mit API-Pfad :: {"kind":"download","label":"Versandlabel herunterladen","url":"/api/complaints/6abf933097f635c64095548d/shipping-label","filename":"Versandlabel-CMP-2026-0001.pdf"}
+  PASS Aktion "Reklamation öffnen" + Kategorie Reklamation :: {"kind":"open","label":"Reklamation öffnen","url":"/my-complaints/6abf933097f635c64095548d"} complaint
+  PASS Eigentuemer: 200 PDF :: 200 application/pdf %PDF-1.4
+1 0 obj<<>>
+  PASS fremder Kunde: 403 :: 403 Zugriff verweigert.
+  PASS fremder Kunde: unbekannte/ungueltige ID ebenfalls 403 :: 403 403
+  PASS Personal und Admin: 200 :: 200 200
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933097f635c640956016')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS ohne Label: 404 deutsch :: 404 Für diese Reklamation liegt kein Versandlabel vor.
+  PASS GET /my: hasShippingLabel, keine PDF-Daten :: 200 true
+RequireRole middleware: User notify-admin@test.invalid has required role admin
+  PASS Admin-Liste ohne PDF-Daten :: 4975
+RequireRole middleware: User notify-admin@test.invalid has required role admin
+ComplaintRoutes: Approve complaint not allowed while complaint status is approved
+ComplaintRoutes: Error approving complaint: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1217:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS erneute Genehmigung: 409, weiterhin eine Benachrichtigung :: 409 1
+
+[B] Altdaten: Lese-Bereinigung und Bereinigungsskript (Dry-Run, --confirm, idempotent)
+Get notifications request from user: notify-owner@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933097f635c64095540b')
+NotificationService: Found 2 notifications
+  PASS Altbenachrichtigung beim Lesen bereinigt (kurzer Text) :: Ihre Reklamation RALT1 wurde genehmigt. Bitte senden Sie Ihr Gerät mit dem DHL-Versandlabel an uns (Reklamationsauftrag ORD-ALT-1). Das Versandlabel können Sie hier herunterladen.
+  PASS Altbenachrichtigung: Dokumentreferenz + Ziel auf die Reklamation :: /api/complaints/6abf933097f635c640956049/shipping-label /my-complaints/6abf933097f635c640956049
+  PASS Lesen schreibt die Altdaten NICHT still um :: 169
+  PASS Alt-Reklamation: Protokoll ohne PDF in der Antwort :: 200 ALT-TRACK
+  PASS Dry-Run: meldet Treffer, schreibt nichts :: {"n":1,"c":1}
+  PASS --confirm: Benachrichtigung bereinigt + Dokumentreferenz :: Ihre Reklamation RALT1 wurde genehmigt. Bitte senden Sie Ihr Gerät mit dem DHL-Versandlabel an uns (Reklamationsauftrag ORD-ALT-1). Das Versandlabel können Sie hier herunterladen.
+  PASS --confirm: Protokoll bereinigt, PDF am Datensatz bleibt :: {"trackingNumber":"ALT-TRACK","shippingLabelStored":true}
+  PASS Sicherungsdatei mit Originaldokumenten geschrieben (ausserhalb des Repos) :: /tmp/notify-cleanup-BQ9v4A/notification-label-cleanup-backup-2026-10-02T11-19-12-892Z.json
+  PASS zweiter Lauf: nichts mehr zu tun (idempotent) :: {"n":0,"c":0}
+
+[C] COMMS-8: interne Kommentare nie in Kunden-APIs, /booking mit Eigentuemerpruefung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933097f635c640956064')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintService: Adding comment to complaint: 6abf933097f635c640956070
+ComplaintService: Comment added successfully
+  PASS Personal speichert interne Notiz (Antwort an Personal enthaelt sie) :: 200
+  PASS interne Notiz benachrichtigt den Kunden nicht :: 0
+ComplaintService: Adding comment to complaint: 6abf933097f635c640956070
+ComplaintService: Comment added successfully
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095546a')
+NotificationService: Notification created successfully
+  PASS Kunde kann keine interne Notiz anlegen :: false
+  PASS POST /comments-Antwort an den Kunden ohne interne Notiz :: 2020
+ComplaintService: Getting complaints for booking: 6abf933097f635c64095606f
+ComplaintService: Found 1 complaints for booking
+  PASS GET /my ohne interne Notiz :: 200
+  PASS GET /:id ohne interne Notiz :: 200
+  PASS GET /booking/:id (Eigentuemer) ohne interne Notiz :: 200 1
+  PASS fremder Kunde GET /booking/:id: 403 ohne Daten :: 403 Zugriff verweigert.
+  PASS unbekannte/ungueltige Buchung fuer Kunden: 403 :: 403 403
+  PASS fremder Kunde GET /:id: 403 :: 403
+ComplaintService: Getting complaints for booking: 6abf933097f635c64095606f
+ComplaintService: Found 1 complaints for booking
+  PASS Personal sieht die interne Notiz :: 200
+  PASS Admin sieht sie auch ueber /booking :: 200
+
+[D] Reklamationsnachrichten: je Ereignis eine Benachrichtigung/E-Mail, Kundennachricht erreicht das Team
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933197f635c6409560ea')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintService: Adding comment to complaint: 6abf933197f635c6409560f5
+ComplaintService: Comment added successfully
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+NotificationService: Notification created successfully
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation neue Nachricht","to":"notify-owner@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintStatus","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","handlerName","processingStartedAt","estimatedResolutionDate","senderName","messageSentAt","resolutionSummary","compensationInfo","resolvedAt","decision","decisionReason","decidedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation neue Nachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:13] [EmailRetry] INFO: sendTemplateEmail(Reklamation neue Nachricht) succeeded[0m {"attempt":1,"duration":"4ms","messageId":"<muqveo3r.qzkxjubgcm@mcrepair.de>","to":"notify-owner@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:13] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-owner@test.invalid","subject":"Neue Mitteilung zu Ihrer Reklamation CMP-2026-0004","messageId":"<muqveo3r.qzkxjubgcm@mcrepair.de>","duration":"4ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS Personalnachricht: eine Kundenbenachrichtigung mit Link auf die Reklamation :: 1 /my-complaints/6abf933197f635c6409560f5
+  PASS Personalnachricht: genau EINE E-Mail (vorher zwei) :: Neue Mitteilung zu Ihrer Reklamation CMP-2026-0004
+  PASS Antwort meldet das E-Mail-Ergebnis :: {"inApp":"created","email":"sent"}
+ComplaintService: Adding comment to complaint: 6abf933197f635c6409560f5
+ComplaintService: Comment added successfully
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095546a')
+NotificationService: Notification created successfully
+  PASS Kundennachricht ohne Zuweisung: aktiver Admin benachrichtigt (Link auf Reklamation) :: /admin/complaints?complaintId=6abf933197f635c6409560f5
+  PASS Team-Benachrichtigung ohne Kunden-E-Mail-Vorlage an Admin :: 0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933197f635c64095662a')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+RequireRole middleware: User notify-admin@test.invalid has required role admin
+InspectionCommunicationService: Sending repair offer message to order 6abf933197f635c64095662a
+InspectionCommunicationService: Repair offer message sent successfully
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+NotificationService: Notification created successfully
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation abgelehnt","to":"notify-owner@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintStatus","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","handlerName","processingStartedAt","estimatedResolutionDate","senderName","messageSentAt","resolutionSummary","compensationInfo","resolvedAt","decision","decisionReason","decidedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation abgelehnt" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:13] [EmailRetry] INFO: sendTemplateEmail(Reklamation abgelehnt) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqveo8f.1551r5vzuo@mcrepair.de>","to":"notify-owner@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:13] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-owner@test.invalid","subject":"Entscheidung zu Ihrer Reklamation CMP-2026-0005","messageId":"<muqveo8f.1551r5vzuo@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS Angebot: Eintrag im Nachrichtenverlauf des Auftrags (kein CastError mehr) :: 200 1 Neues Reparaturangebot: Displaytausch – Kosten: 49,90 €
+  PASS Angebot: genau EINE Kundenbenachrichtigung (Verlauf benachrichtigt nicht zusaetzlich) :: 200 Neues Reparaturangebot verfügbar: Ihre Reklamation CMP-2026-0005 wurde nach Prüfung abgelehnt. Neues Reparaturangebot: 49,90 €. Bitte nehmen Sie das Angebot an oder lehnen Sie es ab.
+  PASS Angebot: genau EINE E-Mail (Verlauf + Reklamation zusammen) :: Entscheidung zu Ihrer Reklamation CMP-2026-0005
+  PASS Angebot: Antwort meldet das Benachrichtigungsergebnis :: {"inApp":"created","email":"sent"}
+
+[E] Zaehler/Kategorien aus der DB, Limit, alle gelesen, Linkabbildung
+Get notifications request from user: notify-counter@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933197f635c640956b53')
+NotificationService: Found 100 notifications
+  PASS Zaehler aus der DB (nicht aus den geladenen 100) :: 130 40 100
+  PASS Kategorien: Rechnungen unter Zahlungen, Reklamationen eigene Kategorie :: {"order":57,"message":58,"payment":10,"complaint":5,"assignment":0,"reminder":0,"system":0}
+  PASS hasMore bei weiteren Eintraegen :: true
+Get notifications request from user: notify-counter@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933197f635c640956b53')
+NotificationService: Found 130 notifications
+  PASS Limit nach oben begrenzt (200) :: 130 200
+Mark all notifications as read request from user: notify-counter@test.invalid
+NotificationService: Marking all notifications as read for user: new ObjectId('6abf933197f635c640956b53')
+NotificationService: Marked 40 notifications as read
+Get notifications request from user: notify-counter@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933197f635c640956b53')
+NotificationService: Found 1 notifications
+  PASS alle gelesen -> unreadCount 0 :: 0
+Get notifications request from user: notify-counter@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933197f635c640956b53')
+NotificationService: Found 5 notifications
+  PASS tote Route /customer/invoices -> /invoices?invoiceId= :: /invoices?invoiceId=INV1
+  PASS tote Route /admin/orders/:id -> /orders/:id :: /orders/6abf933197f635c640956bf3
+  PASS Liste /my-complaints -> Reklamation (Kunde) :: /my-complaints/6abf933197f635c640956bf4
+Get notifications request from user: notify-admin@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933097f635c64095546a')
+NotificationService: Found 3 notifications
+  PASS gleiche Altdaten fuer Admin -> Admin-Reklamationsseite :: /admin/complaints?complaintId=6abf933197f635c640956bf4
+Mark notification as read request: 6abf933197f635c640956bf5
+NotificationService: Marking notification as read: 6abf933197f635c640956bf5
+NotificationService: Error marking notification as read: Error: Notification not found
+    at NotificationService.markAsRead (/home/adar/Projects/FixitHub/server/services/notificationService.js:740:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/notificationRoutes.js:30:26
+Error marking notification as read: Error: Notification not found
+    at NotificationService.markAsRead (/home/adar/Projects/FixitHub/server/services/notificationService.js:740:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/notificationRoutes.js:30:26
+  PASS fremde Benachrichtigung als gelesen markieren: 404 :: 404
+Get notifications request from user: notify-counter@test.invalid
+NotificationService: Getting notifications for user: new ObjectId('6abf933197f635c640956b53')
+NotificationService: Found 50 notifications
+  PASS verschachtelte Data-URI beim Lesen entfernt, DB unveraendert :: {"extra":{"keep":"ja","list":["b"]}}
+
+[F] E-Mail-Ergebnis zurueckgeben/speichern, dedupeKey
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095540b')
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationService: Error sending notification email: Error: Vorlage deaktiviert (Test)
+    at NotificationService.sendCustomerNotificationEmail (/home/adar/Projects/FixitHub/server/services/notificationService.js:498:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NotificationService.createNotification (/home/adar/Projects/FixitHub/server/services/notificationService.js:611:25)
+    at async /home/adar/Projects/FixitHub/test-notify-notifications-http.js:492:18
+    at async section (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:116:5)
+    at async main (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:487:5)
+NotificationService: Notification created successfully
+  PASS Ergebnis meldet E-Mail-Fehler (statt still zu schlucken) :: {"status":"failed","error":"Vorlage deaktiviert (Test)"}
+  PASS E-Mail-Fehler an der Benachrichtigung gespeichert :: {"status":"failed","at":"2026-10-02T11:19:13.631Z","error":"Vorlage deaktiviert (Test)"}
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095545f')
+NotificationService: Notification created successfully
+  PASS ohne returnResult: Rueckgabe wie bisher (Dokument) :: object
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095540b')
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095540b')
+NotificationService: Notification created successfully
+NotificationService: Concurrent duplicate notification suppressed: test:6abf933197f635c640956e9f:event
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095540b')
+NotificationService: Duplicate notification suppressed: test:6abf933197f635c640956e9f:event
+  PASS gleichzeitig + wiederholt: genau EINE Benachrichtigung :: 1 false true true
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c640955446')
+NotificationService: Notification created successfully
+  PASS gleicher Schluessel, anderer Empfaenger: eigene Benachrichtigung :: false
+  PASS Benachrichtigungen ohne Schluessel unbeschraenkt (partieller Index) :: 2
+NotificationService: Creating notification for user: new ObjectId('6abf933197f635c640956eb6')
+NotificationService: Creating notification for user: new ObjectId('6abf933197f635c640956eb6')
+NotificationService: Concurrent duplicate e-mail-only notification suppressed: test:6abf933197f635c640956eba:email_only
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"notify-pushoff@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:13] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqveofy.apkhfoqp9m@mcrepair.de>","to":"notify-pushoff@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:13] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-pushoff@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Nachrichten","messageId":"<muqveofy.apkhfoqp9m@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Creating notification for user: new ObjectId('6abf933197f635c640956eb6')
+NotificationService: Duplicate e-mail-only notification suppressed: test:6abf933197f635c640956eba:email_only
+  PASS In-App aus: gleicher Schluessel (gleichzeitig + wiederholt) -> genau EINE E-Mail, keine In-App-Zeile :: mails=1 rows=0 true false true
+NotificationService: Creating notification for user: new ObjectId('6abf933197f635c640956eb6')
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"notify-pushoff@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:13] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqveohy.vjbv9wk5hw@mcrepair.de>","to":"notify-pushoff@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:13] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-pushoff@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Nachrichten","messageId":"<muqveohy.vjbv9wk5hw@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS In-App aus: anderer Schluessel wird gesendet :: {"status":"sent","messageId":"<muqveohy.vjbv9wk5hw@mcrepair.de>"}
+
+[G] SMTP-Ergebnis und Wiederholungen
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:13] [EmailRetry] INFO: sendTemplateEmail(Allgemeine Systemnachricht) succeeded[0m {"attempt":1,"duration":"0ms","messageId":"<x@test>","to":"smtp-test@test.invalid"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","attempts":1,"errorMessage":"Vom Mailserver abgelehnt: smtp-test@test.invalid","errorStack":"Error: Vom Mailserver abgelehnt: smtp-test@test.invalid |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1060:30)"} [Context: {"deliveryTracker":true}]
+  PASS alle Empfaenger abgelehnt -> fehlgeschlagen (nicht "gesendet") :: false failed Vom Mailserver abgelehnt: smtp-test@test.invalid
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Timeout","errorCode":"ETIMEDOUT","errorStack":"Error: Timeout |     at /home/adar/Projects/FixitHub/test-notify-notifications-http.js:549:69 |     at Object.sendMail (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:534:108)"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Timeout","errorCode":"ETIMEDOUT","errorStack":"Error: Timeout |     at /home/adar/Projects/FixitHub/test-notify-notifications-http.js:549:69 |     at Object.sendMail (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:534:108)"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Timeout","errorCode":"ETIMEDOUT","errorStack":"Error: Timeout |     at /home/adar/Projects/FixitHub/test-notify-notifications-http.js:549:69 |     at Object.sendMail (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:534:108)"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","attempts":1,"errorMessage":"Timeout","errorStack":"Error: Timeout |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+  PASS Timeout nach DATA: KEINE Wiederholung (keine Doppel-E-Mail) :: 1
+  PASS Protokoll zaehlt den EINEN echten Versuch (nicht 3) :: 1
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[33m[11:19:13] [EmailRetry] WARN: sendTemplateEmail(Allgemeine Systemnachricht) retry[0m {"attempt":"1/3","retryDelayMs":1,"lastError":"connect ECONNREFUSED"} [Context: {"retryHandler":true}]
+[32m[11:19:13] [EmailRetry] INFO: sendTemplateEmail(Allgemeine Systemnachricht) succeeded[0m {"attempt":2,"duration":"0ms","messageId":"<muqveol2.4xrsg1fghv@mcrepair.de>","to":"smtp-test@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:13] [EmailDelivery] INFO: Email delivered[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","messageId":"<muqveol2.4xrsg1fghv@mcrepair.de>","duration":"0ms","attempts":2} [Context: {"deliveryTracker":true}]
+  PASS Verbindungsfehler: Wiederholung mit derselben Message-ID :: 2 <muqveol2.4xrsg1fghv@mcrepair.de> <muqveol2.4xrsg1fghv@mcrepair.de>
+  PASS Protokoll: angenommen + Bezug :: {"trigger":"system_notification","entityType":"order","entityId":"abc","reference":"Auftrag ORD-T"}
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Timeout","errorCode":"ETIMEDOUT","errorStack":"Error: Timeout |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at /home/adar/Projects/FixitHub/test-notify-notifications-http.js:568:60"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Timeout","errorCode":"ETIMEDOUT","errorStack":"Error: Timeout |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at /home/adar/Projects/FixitHub/test-notify-notifications-http.js:568:60"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Timeout","errorCode":"ETIMEDOUT","errorStack":"Error: Timeout |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at /home/adar/Projects/FixitHub/test-notify-notifications-http.js:568:60"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","attempts":1,"errorMessage":"Timeout","errorStack":"Error: Timeout |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+  PASS Leerlauf-Timeout (ETIMEDOUT "Timeout"): keine Wiederholung :: 1
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Connection closed unexpectedly","errorCode":"ECONNECTION","errorStack":"Error: Connection closed unexpectedly |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at nodemailerError.syscall (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:569:69)"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Connection closed unexpectedly","errorCode":"ECONNECTION","errorStack":"Error: Connection closed unexpectedly |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at nodemailerError.syscall (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:569:69)"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"Connection closed unexpectedly","errorCode":"ECONNECTION","errorStack":"Error: Connection closed unexpectedly |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at nodemailerError.syscall (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:569:69)"} [Context: {"retryHandler":true}]
+[31m[11:19:13] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","attempts":1,"errorMessage":"Connection closed unexpectedly","errorStack":"Error: Connection closed unexpectedly |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+  PASS Verbindung unerwartet geschlossen (ECONNECTION): keine Wiederholung :: 1
+[32m[11:19:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:19:14] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"read ECONNRESET","errorCode":"ESOCKET","errorStack":"Error: read ECONNRESET |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at calls.length (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:570:69)"} [Context: {"retryHandler":true}]
+[31m[11:19:14] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"read ECONNRESET","errorCode":"ESOCKET","errorStack":"Error: read ECONNRESET |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at calls.length (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:570:69)"} [Context: {"retryHandler":true}]
+[31m[11:19:14] [EmailRetry] ERROR: sendTemplateEmail(Allgemeine Systemnachricht) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"smtp-test@test.invalid","errorMessage":"read ECONNRESET","errorCode":"ESOCKET","errorStack":"Error: read ECONNRESET |     at nodemailerError (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:566:78) |     at calls.length (/home/adar/Projects/FixitHub/test-notify-notifications-http.js:570:69)"} [Context: {"retryHandler":true}]
+[31m[11:19:14] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","attempts":1,"errorMessage":"read ECONNRESET","errorStack":"Error: read ECONNRESET |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+  PASS Socket-Reset beim Lesen (ESOCKET, syscall read): keine Wiederholung :: 1
+[32m[11:19:14] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[33m[11:19:14] [EmailRetry] WARN: sendTemplateEmail(Allgemeine Systemnachricht) retry[0m {"attempt":"1/3","retryDelayMs":1,"lastError":"connect ECONNREFUSED 127.0.0.1:25"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailRetry] INFO: sendTemplateEmail(Allgemeine Systemnachricht) succeeded[0m {"attempt":2,"duration":"0ms","messageId":"<muqveop5.ydrmuuy74j@mcrepair.de>","to":"smtp-test@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailDelivery] INFO: Email delivered[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","messageId":"<muqveop5.ydrmuuy74j@mcrepair.de>","duration":"0ms","attempts":2} [Context: {"deliveryTracker":true}]
+  PASS Verbindungsaufbau abgelehnt (ESOCKET, syscall connect): eine Wiederholung, dann angenommen :: 2
+[32m[11:19:14] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[33m[11:19:14] [EmailRetry] WARN: sendTemplateEmail(Allgemeine Systemnachricht) retry[0m {"attempt":"1/3","retryDelayMs":1,"lastError":"Connection timeout"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailRetry] INFO: sendTemplateEmail(Allgemeine Systemnachricht) succeeded[0m {"attempt":2,"duration":"0ms","messageId":"<muqveoq9.vsc4rse98s@mcrepair.de>","to":"smtp-test@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailDelivery] INFO: Email delivered[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","messageId":"<muqveoq9.vsc4rse98s@mcrepair.de>","duration":"0ms","attempts":2} [Context: {"deliveryTracker":true}]
+  PASS Verbindungs-Timeout (ETIMEDOUT "Connection timeout"): eine Wiederholung, dann angenommen :: 2
+[32m[11:19:14] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"smtp-test@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[33m[11:19:14] [EmailRetry] WARN: sendTemplateEmail(Allgemeine Systemnachricht) retry[0m {"attempt":"1/3","retryDelayMs":1,"lastError":"getaddrinfo ENOTFOUND smtp.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailRetry] INFO: sendTemplateEmail(Allgemeine Systemnachricht) succeeded[0m {"attempt":2,"duration":"0ms","messageId":"<muqveorc.aueiuiqslc@mcrepair.de>","to":"smtp-test@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailDelivery] INFO: Email delivered[0m {"to":"smtp-test@test.invalid","subject":"T – McRepair.de","messageId":"<muqveorc.aueiuiqslc@mcrepair.de>","duration":"0ms","attempts":2} [Context: {"deliveryTracker":true}]
+  PASS DNS-Fehler (EDNS): eine Wiederholung, dann angenommen :: 2
+
+[H] Eingangspruefung: Kundentexte, Test-Auffaelligkeiten, Defekt-Information, E-Mail-Betreff
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933297f635c64095aad2')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf933297f635c64095aad2
+[DeviceInspection] New inspection created: 6abf933297f635c64095aae4
+OrderService: Updating order status: new ObjectId('6abf933297f635c64095aad2') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS Personal startet die Eingangspruefung :: 200 
+  PASS Kunde darf keine Pruefung starten :: 403
+  PASS Start: deutscher Kundentext ohne englische Technik-Notiz :: Ihr Auftrag ORD-2026-007 wurde aktualisiert: Diagnosebewertung. Hinweis: Ihr Gerät ist bei uns eingegangen. Die Eingangsprüfung hat begonnen.
+[DeviceInspectionRoutes] PUT /:orderId/device-tests - Updating device tests
+[DeviceInspection] Updating device test for order: 6abf933297f635c64095aad2
+[DeviceInspection] Creating customer notification for failed tests
+NotificationService: Creating notification for user: new ObjectId('6abf933097f635c64095540b')
+NotificationService: Notification created successfully
+[DeviceInspection] Customer notification created
+[DeviceInspection] Device test updated. Failed tests: 1
+[DeviceInspectionRoutes] PUT /:orderId/device-tests - Updating device tests
+[DeviceInspection] Updating device test for order: 6abf933297f635c64095aad2
+[DeviceInspection] Customer failed-test notification already created, skipping duplicate
+[DeviceInspection] Device test updated. Failed tests: 1
+  PASS Test-Auffaelligkeit: gueltige Benachrichtigung (einmal, mit Auftrag) :: 1 order_update /orders/6abf933297f635c64095aad2
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf933297f635c64095aad2
+[DeviceInspection] Inspection completed: 6abf933297f635c64095aae4
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:19:14] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"notify-owner@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:14] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"6ms","messageId":"<muqveoxf.mu9k5vbkzd@mcrepair.de>","to":"notify-owner@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-owner@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Nachrichten","messageId":"<muqveoxf.mu9k5vbkzd@mcrepair.de>","duration":"6ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+[32m[11:19:14] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Eingangspruefung abgeschlossen","to":"notify-owner@test.invalid","variableKeys":["companyName","customerName","orderNumber","deviceBrand","deviceModel","diagnosisResult","diagnosisCompletedAt","inspectionCompletedAt","deviceCondition","recommendedAction","orderUrl","supportEmail","supportPhone","baseUrl","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Eingangspruefung abgeschlossen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:14] [EmailRetry] INFO: sendTemplateEmail(Eingangspruefung abgeschlossen) succeeded[0m {"attempt":1,"duration":"11ms","messageId":"<muqveoz5.sgcq0nbqei@mcrepair.de>","to":"notify-owner@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:14] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-owner@test.invalid","subject":"Eingangsprüfung abgeschlossen: Auftrag ORD-2026-00","messageId":"<muqveoz5.sgcq0nbqei@mcrepair.de>","duration":"11ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS Defekt-Information: Kundentext, nie die interne Notiz :: 1 Information zu einem Defekt an Ihrem Gerät :: Bitte geben Sie uns Rückmeldung zum Akku.
+  PASS E-Mail nach Abschluss: Betreff "Eingangsprüfung", nicht "Diagnose abgeschlossen" :: Neue Benachrichtigung bei McRepair.de: Nachrichten | Eingangsprüfung abgeschlossen: Auftrag ORD-2026-007 – Apple iPhone 15
+  PASS keine E-Mail enthaelt die interne Notiz :: 2
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf933297f635c64095aad2
+[DeviceInspection] Inspection completed: 6abf933297f635c64095aae4
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+NotificationService: Duplicate notification suppressed: inspection:6abf933297f635c64095aae4:customer_defect_info
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS erneuter Abschluss: keine zweite Defekt-Information, keine zweite Abschluss-E-Mail :: 1 1
+  PASS Abschluss meldet die Kundeninformation getrennt (gesendet / bereits gesendet) :: {"status":"sent"} {"status":"duplicate"}
+  PASS Zeitpunkt der Kundeninformation bleibt nach erneutem Abschluss erhalten :: 2026-10-02T11:19:14.368Z
+[DeviceInspectionRoutes] GET /:orderId - Fetching inspection
+[DeviceInspection] Retrieving inspection for order: 6abf933297f635c64095aad2
+OrderService: Getting order by ID: 6abf933297f635c64095aad2
+[DeviceInspectionRoutes] GET /:orderId - Fetching inspection
+[DeviceInspection] Retrieving inspection for order: 6abf933297f635c64095aad2
+OrderService: Getting order by ID: 6abf933297f635c64095aad2
+[DeviceInspectionRoutes] GET /:orderId - Fetching inspection
+[DeviceInspection] Retrieving inspection for order: 6abf933297f635c64095aad2
+OrderService: Getting order by ID: 6abf933297f635c64095aad2
+[DeviceInspectionRoutes] Access denied - User does not own order
+  PASS Kunde liest die Inspektion ohne interne Notiz (nur Kundentext) :: 200 {"shouldInform":true,"reason":"","customerMessage":"Bitte geben Sie uns Rückmeldung zum Akku.","sentAt":"2026-10-02T11:19:14.368Z"}
+  PASS Personal sieht die interne Notiz weiterhin :: x
+  PASS fremder Kunde: 403 :: 403
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933497f635c64095b7ea'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933497f635c64095b7f0')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf933497f635c64095b7f0
+[DeviceInspection] New inspection created: 6abf933497f635c64095b802
+OrderService: Updating order status: new ObjectId('6abf933497f635c64095b7f0') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf933497f635c64095b7ea
+OrderService: Order status updated successfully
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf933497f635c64095b7f0
+[DeviceInspection] Inspection completed: 6abf933497f635c64095b802
+NotificationService: Creating notification for user: 6abf933497f635c64095b7ea
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:19:16] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"notify-pushoff-insp@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:16] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"6ms","messageId":"<muqveqxc.efdysk6ysf@mcrepair.de>","to":"notify-pushoff-insp@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:16] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-pushoff-insp@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Nachrichten","messageId":"<muqveqxc.efdysk6ysf@mcrepair.de>","duration":"6ms","attempts":1} [Context: {"deliveryTracker":true}]
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf933497f635c64095b7f0
+[32m[11:19:16] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Eingangspruefung abgeschlossen","to":"notify-pushoff-insp@test.invalid","variableKeys":["companyName","customerName","orderNumber","deviceBrand","deviceModel","diagnosisResult","diagnosisCompletedAt","inspectionCompletedAt","deviceCondition","recommendedAction","orderUrl","supportEmail","supportPhone","baseUrl","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Eingangspruefung abgeschlossen" for channel "email"
+SystemConfigService: Getting system configuration
+[DeviceInspection] Inspection completed: 6abf933497f635c64095b802
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+NotificationService: Creating notification for user: 6abf933497f635c64095b7ea
+NotificationService: Duplicate e-mail-only notification suppressed: inspection:6abf933497f635c64095b802:customer_defect_info
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+[32m[11:19:17] [EmailRetry] INFO: sendTemplateEmail(Eingangspruefung abgeschlossen) succeeded[0m {"attempt":1,"duration":"16ms","messageId":"<muqveqzc.yfvxaojyq1@mcrepair.de>","to":"notify-pushoff-insp@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:17] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-pushoff-insp@test.invalid","subject":"Eingangsprüfung abgeschlossen: Auftrag ORD-2026-00","messageId":"<muqveqzc.yfvxaojyq1@mcrepair.de>","duration":"16ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS In-App aus: Defekt-Information genau EINMAL per E-Mail, auch bei erneutem Abschluss :: sent duplicate mails=1
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933097f635c64095540b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf933097f635c640955474' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933597f635c64095c4b8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf933597f635c64095c4b8
+[DeviceInspection] New inspection created: 6abf933597f635c64095c4ca
+OrderService: Updating order status: new ObjectId('6abf933597f635c64095c4b8') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf933097f635c64095540b
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf933597f635c64095c4b8
+[DeviceInspection] Inspection completed: 6abf933597f635c64095c4ca
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf933597f635c64095c4b8
+[32m[11:19:17] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Eingangspruefung abgeschlossen","to":"notify-owner@test.invalid","variableKeys":["companyName","customerName","orderNumber","deviceBrand","deviceModel","diagnosisResult","diagnosisCompletedAt","inspectionCompletedAt","deviceCondition","recommendedAction","orderUrl","supportEmail","supportPhone","baseUrl","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Eingangspruefung abgeschlossen" for channel "email"
+SystemConfigService: Getting system configuration
+[DeviceInspection] Inspection completed: 6abf933597f635c64095c4ca
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:19:17] [EmailRetry] INFO: sendTemplateEmail(Eingangspruefung abgeschlossen) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqverph.uytg1d8yuk@mcrepair.de>","to":"notify-owner@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:19:17] [EmailDelivery] INFO: Email delivered[0m {"to":"notify-owner@test.invalid","subject":"Eingangsprüfung abgeschlossen: Auftrag ORD-2026-00","messageId":"<muqverph.uytg1d8yuk@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS ohne Haken bzw. ohne Kundentext: keine Kundeninformation (Notiz nie) :: 0
+
+[I] Oberflaeche (Quelltext): keine Platzhalter-/Rohschluessel, keine Data-URI-Links, keine toten Ziele
+  PASS jeder verwendete Schluessel existiert in de (auch Plural) :: ok
+  PASS keine automatisch erzeugten Platzhaltertexte :: ok
+  PASS kein Label als data:-Link oder Linktext :: ok
+  PASS keine tote Rechnungsroute, keine englischen Zeitangaben :: ok
+  PASS Reklamations-Composer: zwei getrennte Aktionen + "Entwurf verwerfen" :: ok
+  PASS Admin-Reklamationen lesen ?complaintId (Direktlink) :: ok
+  PASS Inspektion: kein eigener Kunden-Quick-Action-Aufruf, getrennte Felder "Nachricht an Kunden" / "Intern – nur für das Team" :: ok
+
+Ergebnis: 107 bestanden, 0 fehlgeschlagen

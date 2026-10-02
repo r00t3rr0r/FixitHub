@@ -1,0 +1,80 @@
+(node:1101023) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1101023) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1101023) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933cd0982403264d0f55'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Display defekt',
+  services: [ '6abf933dd0982403264d0fe3' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933dd0982403264d0ff9')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+
+[C] Geraetewechsel mit Herkunft + Grund (Body wie der Dialog ihn sendet)
+[DeviceChange] Change device request received: 6abf933dd0982403264d0ff9 {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15 Pro',
+  deviceType: 'Smartphone',
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf933dd0982403264d0ffa',
+      newServiceId: '6abf933dd0982403264d0fe7'
+    }
+  ],
+  source: 'Gerätekarte',
+  reason: 'Bei der Eingangsprüfung festgestellt: Pro-Modell'
+}
+[DeviceChange] Starting device change for order 6abf933dd0982403264d0ff9. Old: Apple iPhone 15 (Smartphone), New: Apple iPhone 15 Pro (Smartphone)
+[DeviceChange] Replaced service Displaytausch iPhone 15 with Displaytausch iPhone 15 Pro: 100 -> 140
+[DeviceChange] Total cost change: 100 -> 140 (+40)
+[DeviceChange] Device successfully changed for order 6abf933dd0982403264d0ff9. Requires confirmation: true
+  PASS POST change-device (Personal) gespeichert :: 200 
+  PASS gespeichert: aktuelles Geraet korrigiert, reportedDevice = gebuchtes Geraet :: iPhone 15 Pro / {"brand":"Apple","model":"iPhone 15","deviceType":"Smartphone","capturedAt":"2026-10-02T11:19:25.155Z"}
+  PASS Verlauf (Personal, Filter Geraet): Eintrag mit Quelle und Grund :: {"s":"Gerätekarte","r":"Bei der Eingangsprüfung festgestellt: Pro-Modell","t":"Gerät korrigiert"}
+  PASS Kundenverlauf zeigt den internen Grund nicht :: 200
+  PASS fremder Kunde: Verlauf 403 :: 403
+
+[A] Personal-Detailantwort enthaelt das gemeldete Geraet (HIST-9)
+Admin get order by ID request received: 6abf933dd0982403264d0ff9
+OrderService: Getting order by ID: 6abf933dd0982403264d0ff9
+  PASS Admin: reportedDevice (gebucht) neben dem korrigierten Geraet :: 200 {"brand":"Apple","model":"iPhone 15","deviceType":"Smartphone","capturedAt":"2026-10-02T11:19:25.155Z"} / iPhone 15 Pro
+Admin get order by ID request received: 6abf933dd0982403264d0ff9
+OrderService: Getting order by ID: 6abf933dd0982403264d0ff9
+  PASS Personal: reportedDevice (gebucht) neben dem korrigierten Geraet :: 200 {"brand":"Apple","model":"iPhone 15","deviceType":"Smartphone","capturedAt":"2026-10-02T11:19:25.155Z"} / iPhone 15 Pro
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933cd0982403264d0f55'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Akku',
+  services: [ '6abf933dd0982403264d0fe3' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933dd0982403264d1094')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Admin get order by ID request received: 6abf933dd0982403264d1094
+OrderService: Getting order by ID: 6abf933dd0982403264d1094
+  PASS ohne Korrektur: reportedDevice fehlt oder entspricht dem aktuellen Geraet :: {"brand":"Apple","model":"iPhone 15","deviceType":"Smartphone","capturedAt":"2026-10-02T11:19:25.477Z"}
+
+[B] Kundensicht und Rollen unveraendert
+Get order by ID request received: 6abf933dd0982403264d0ff9
+OrderService: Getting order by ID: 6abf933dd0982403264d0ff9
+Access control check - Order customer ID: 6abf933cd0982403264d0f55
+Access control check - Current user ID: 6abf933cd0982403264d0f55
+Access control check - User role: customer
+Access granted - returning order details
+  PASS Kunde: GET /api/orders/:id ohne reportedDevice (Projektion unveraendert) :: 200 undefined
+  PASS Kunde: Personalroute 403 :: 403
+  PASS fremder Kunde: Personalroute 403 :: 403
+  PASS ohne Anmeldung: 401/403 :: 401
+Get order by ID request received: 6abf933dd0982403264d0ff9
+OrderService: Getting order by ID: 6abf933dd0982403264d0ff9
+Access control check - Order customer ID: 6abf933cd0982403264d0f55
+Access control check - Current user ID: 6abf933dd0982403264d0fa9
+Access control check - User role: customer
+Access denied - User does not own order and is not admin/staff
+  PASS fremder Kunde: Kundenroute 403/404 :: 403
+
+==== 13 bestanden, 0 fehlgeschlagen ====

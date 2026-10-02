@@ -1,0 +1,142 @@
+(node:1099893) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1099893) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1099893) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] Veralteter Client: Standardwerte duerfen nicht als Ergebnis gespeichert werden
+[DeviceInspection] Initializing inspection for order: 6abf9316973ac807deb7d7a8
+[DeviceInspection] New inspection created: 6abf9316973ac807deb7d7d6
+[DeviceInspection] Updating model verification for order: 6abf9316973ac807deb7d7a8
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9316973ac807deb7d7a8
+[DeviceInspection] Identification updated
+[DeviceInspection] Completing inspection for order: 6abf9316973ac807deb7d7a8
+[DeviceInspection] Ignoring deprecated isRepairable/completionAction for order 6abf9316973ac807deb7d7a8 (no longer part of the inspection)
+[DeviceInspection] Inspection completed: 6abf9316973ac807deb7d7d6
+  PASS isRepairable nicht automatisch gespeichert :: undefined
+  PASS completionAction nicht automatisch gespeichert :: undefined
+  PASS Fehlender Preis bleibt unbekannt (kein 0) :: undefined
+  PASS Zeitraum bleibt erhalten :: 3-5 Tage
+  PASS Kein Freigabestatus ohne Preis :: undefined
+  PASS API: repairOfferKnownCost = null (unbekannt) :: null
+  PASS Diagnose-E-Mail wurde (gemockt) ausgeloest :: true
+  PASS E-Mail: keine Reparierbar-Aussage :: undefined
+  PASS E-Mail: kein "EUR 0.00" :: Eingangsprüfung abgeschlossen – wir melden uns mit dem weiteren Vorgehen.
+[DeviceInspection] Generating report for order: 6abf9316973ac807deb7d7a8
+[DeviceInspection] Report generated: inspection-6abf9316973ac807deb7d7d6-1790939927164.pdf
+  PASS PDF: keine Reparierbar-Zeile :: -
+  PASS PDF: keine 0-EUR-Kosten :: Kosten: nicht angegeben
+  PASS PDF: Zeitrahmen gedruckt :: Zeitrahmen: 3-5 Tage
+
+[2] Leere Preisangaben (null, "", undefined) werden nicht zu 0
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d842
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d84a
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d842
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9317973ac807deb7d842
+[DeviceInspection] Identification updated
+[DeviceInspection] Completing inspection for order: 6abf9317973ac807deb7d842
+[DeviceInspection] Inspection completed: 6abf9317973ac807deb7d84a
+  PASS cost=null: unbekannt :: null
+  PASS cost=null: Beschreibung erhalten :: Display tauschen
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d866
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d86e
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d866
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9317973ac807deb7d866
+[DeviceInspection] Identification updated
+[DeviceInspection] Completing inspection for order: 6abf9317973ac807deb7d866
+[DeviceInspection] Inspection completed: 6abf9317973ac807deb7d86e
+  PASS cost=leerer String: unbekannt :: null
+  PASS cost=leerer String: Beschreibung erhalten :: Display tauschen
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d88a
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d892
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d88a
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9317973ac807deb7d88a
+[DeviceInspection] Identification updated
+[DeviceInspection] Completing inspection for order: 6abf9317973ac807deb7d88a
+[DeviceInspection] Inspection completed: 6abf9317973ac807deb7d892
+  PASS cost=undefined: unbekannt :: null
+  PASS cost=undefined: Beschreibung erhalten :: Display tauschen
+
+[3] Ausdruecklich kostenloser Kostenvoranschlag bleibt als 0 erkennbar
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d8ae
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d8b6
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d8ae
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9317973ac807deb7d8ae
+[DeviceInspection] Identification updated
+[DeviceInspection] Completing inspection for order: 6abf9317973ac807deb7d8ae
+[DeviceInspection] Inspection completed: 6abf9317973ac807deb7d8b6
+  PASS API: repairOfferKnownCost = 0 (ausdruecklich) :: 0
+  PASS Freigabestatus bei echtem Kostenvoranschlag :: awaiting-customer
+[DeviceInspection] Generating report for order: 6abf9317973ac807deb7d8ae
+[DeviceInspection] Report generated: inspection-6abf9317973ac807deb7d8b6-1790939927601.pdf
+  PASS PDF: "Kosten: 0,00 EUR" gedruckt :: Kosten: 0,00 EUR (kostenlos)
+  PASS E-Mail: kostenloser Kostenvoranschlag genannt :: Kostenvoranschlag: 0,00 EUR (kostenlos)
+
+[3b] Normaler Kostenvoranschlag 89,90
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d8dd
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d8e5
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d8dd
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9317973ac807deb7d8dd
+[DeviceInspection] Identification updated
+[DeviceInspection] Completing inspection for order: 6abf9317973ac807deb7d8dd
+[DeviceInspection] Inspection completed: 6abf9317973ac807deb7d8e5
+  PASS API: repairOfferKnownCost = 89,90 :: 89.9
+
+[4] Altbestand: historische Werte bleiben unveraendert, werden aber nirgends ausgegeben
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d901
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d909
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d901
+[DeviceInspection] Model verification updated
+[DeviceInspection] Updating identification for order: 6abf9317973ac807deb7d901
+[DeviceInspection] Identification updated
+  PASS Alt-Preis 0 ohne Kennzeichnung gilt als unbekannt :: null
+[DeviceInspection] Generating report for order: 6abf9317973ac807deb7d901
+[DeviceInspection] Report generated: inspection-6abf9317973ac807deb7d909-1790939927715.pdf
+  PASS PDF: weder "reparierbar" noch 0-Kosten aus Altdaten :: -
+[DeviceInspection] Completing inspection for order: 6abf9317973ac807deb7d901
+[DeviceInspection] Inspection completed: 6abf9317973ac807deb7d909
+  PASS Historische Werte in der DB unveraendert :: true/repairable
+
+[5] A -> B -> C: Gemeldet A, tatsaechlich C (auch im PDF)
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d92d
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d935
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d92d
+[DeviceInspection] Model verification updated
+  PASS Gemeldetes Modell = A :: Apple iPhone 12
+  PASS Tatsaechliches Modell = C :: Apple iPhone 14
+[DeviceInspection] Generating report for order: 6abf9317973ac807deb7d92d
+[DeviceInspection] Report generated: inspection-6abf9317973ac807deb7d935-1790939927809.pdf
+  PASS PDF: Gemeldetes Modell A :: 1. Modellprüfung | Gemeldetes Modell: Apple iPhone 12 | Tatsächliches Modell: Apple iPhone 14 | Prüfstatus: Korrekt - Modell stimmt überein
+  PASS PDF: Tatsächliches Modell C :: 1. Modellprüfung | Gemeldetes Modell: Apple iPhone 12 | Tatsächliches Modell: Apple iPhone 14 | Prüfstatus: Korrekt - Modell stimmt überein
+[DeviceInspection] Updating model verification for order: 6abf9317973ac807deb7d92d
+[DeviceInspection] Replaced stale draft actualModel "Apple iPhone 12" for order 6abf9317973ac807deb7d92d with corrected device "Apple iPhone 14"
+[DeviceInspection] Model verification updated
+  PASS Veralteter Entwurf dreht C nicht auf A zurueck :: Apple iPhone 14
+
+[6] Altauftrag ohne Schnappschuss, Wechsel im Auftragsverlauf dokumentiert
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d95a
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d960
+  PASS Gemeldet = aeltester dokumentierter Stand (A) :: Apple iPhone 12
+  PASS Tatsaechlich = aktuelles Geraet (C) :: Apple iPhone 14
+  PASS Herkunft = Auftragsverlauf :: order-timeline
+
+[7] Altauftrag ohne Schnappschuss, Wechsel ohne lesbare Angabe
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d963
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d968
+  PASS Herkunft als nicht gesichert gekennzeichnet :: order-current-unverified
+[DeviceInspection] Generating report for order: 6abf9317973ac807deb7d963
+[DeviceInspection] Report generated: inspection-6abf9317973ac807deb7d968-1790939927873.pdf
+  PASS PDF: Hinweis "nicht gesichert" gedruckt :: 1. Modellprüfung | Gemeldetes Modell: Apple iPhone 14 | Hinweis: Das ursprünglich gemeldete Modell ist nicht gesichert erfasst; die Angabe  | Tatsächliches Modell: Apple iPhone 14 | Prüfstatus: Korrekt - Modell stimmt überein
+
+[8] Normaler Auftrag ohne Wechsel: kein Hinweis
+[DeviceInspection] Initializing inspection for order: 6abf9317973ac807deb7d971
+[DeviceInspection] New inspection created: 6abf9317973ac807deb7d979
+  PASS Gemeldet = gebuchtes Geraet :: Apple iPhone 12
+  PASS Herkunft = Schnappschuss am Auftrag :: order-snapshot
+
+==== 38 bestanden, 0 fehlgeschlagen ====

@@ -1,0 +1,70 @@
+
+[R19/R20 Ungeklaerte PayPal-Erstattung: keine Wiederholung als Nebenwirkung, keine manuelle Doppelbuchung]
+  PASS Zeitueberschreitung: ausstehend, ungeklaert :: pending true
+  PASS kein PayPal-Erstattungsaufruf (weder alt noch neu) :: 0
+  PASS Stand wird beim Anbieter nur abgefragt :: ["ORDER-R20"]
+  PASS neue Erstattung: 409 REFUND_UNRESOLVED :: REFUND_UNRESOLVED
+  PASS Meldung empfiehlt Abgleich, NICHT manuelle Erstattung :: Eine frühere PayPal-Erstattung dieser Zahlung über 20,00 € ist noch ungeklärt (PayPal hat nicht eindeutig geantwortet). Bitte zuerst im PayPal-Konto prüfen, ob diese Erstattung ausgeführt wurde, und den Vorgang bei der Zahlung über „Abgleichen“ klären (ausgeführt – mit PayPal-Erstattungs-ID – oder nicht ausgeführt). Bis dahin wird keine weitere Erstattung gebucht, auch keine manuelle: sonst würde dasselbe Geld doppelt gezählt, sobald PayPal den offenen Vorgang abschließt.
+  PASS manuelle Erstattung waehrend ungeklaertem Anbieter-Vorgang abgelehnt :: REFUND_UNRESOLVED 0
+  PASS Klaerung ohne erneute Ausfuehrung :: 0
+  PASS alter Vorgang per Abfrage geklaert (20, Referenz) :: 20 RF-PAYPAL-1
+  PASS neue Erstattung angehalten, damit der Bearbeiter den Stand prueft :: REFUND_SETTLED_RECHECK
+  PASS danach: bewusste neue Erstattung 15 (einmal ausgefuehrt) :: completed 35
+  PASS gleicher Dialog: dieselbe Request-ID (PayPal-idempotent) :: 57a711-1,57a711-1
+
+[R21 Server-Flag unresolved in der Zahlungsliste]
+  PASS Altbestand ohne Merker: unresolved=true :: true
+
+[R23 POST /api/invoices/:id/pay antwortet deutsch]
+  PASS deutsche Meldung (404) :: 404 Die Rechnung wurde nicht gefunden.
+  PASS deutsche Meldung (403) :: 403 Sie haben keine Berechtigung, diese Rechnung zu bezahlen.
+  PASS deutsche Meldung (Zahlungsart) :: 400 Die gewählte Zahlungsart ist derzeit nicht verfügbar.
+  PASS deutsche Meldung (Weiterleitung) :: 400 Kartenzahlung und PayPal werden über die Weiterleitung zum Zahlungsanbieter abgewickelt. Bitte die Zahlung erneut starten.
+  PASS Statuscodes unveraendert (404/403) :: 404/403
+
+[R24 createInvoice mit orderId: Auftragsrabatt nur fuer die Auftragspositionen]
+  PASS Gebuehrenrechnung zum Auftrag: kein Auftragsrabatt :: 0 / 10
+  PASS Auftragspositionen: festgehaltener Rabatt genau einmal (42,42) :: 7.48 / 42.42
+
+[L18 Bericht doppelter Kundengruppenrabatt (nur lesend)]
+  PASS Skript laeuft ohne Fehler :: 0
+  PASS Datenbank unveraendert (nur lesend) :: 1ba79e0bd2 / 1ba79e0bd2
+  PASS Sophies Fall mit Vorher/Vorschlag (13,84/36,06 -> 7,48/42,42) :: INV-2026-0007 | 22.09.2026 | Rita Rest | Status: versendet | Aufträge: ORD-2026-004
+  PASS Vorschlag: Storno + neue Rechnung, keine stille Korrektur :: ja
+  PASS korrekte Rechnung nicht als Treffer :: geprueft
+  PASS unklarer Fall separat gelistet :: INV-2026-0009 | 23.09.2026 | Rita Rest | Status: versendet | Rechnung: Rabatt 20,00 €, Brutto 80,00 € | Aufträge: Rabatt 9,00 €, Wert 51,00 €
+Dieses Skript ist nur lesend und schreibt nicht. Korrekturen erfolgen fachlich per Storno-Gutschrift + neuer Rechnung.
+  PASS --apply wird verweigert :: Dieses Skript ist nur lesend und schreibt nicht. Korrekturen erfolgen fachlich per Storno-Gutschrift + neuer Rechnung.
+
+[L17 repairGrossNetInvoiceTotals.js aendert keine ausgestellten Belege]
+  PASS Trockenlauf aendert nichts :: 141.61
+  PASS ausgestellte Rechnung bleibt unveraendert (auch mit --apply) :: 141.61 / 22.61
+  PASS Skript meldet den ausgestellten Beleg als Pruefbedarf :: INV-2025-0100 [ausgestellt (Status: sent) – wird nicht geändert, Korrektur nur per Storno-Gutschrift + Neuausstellung]: ausgewiesen 141.61 (MwSt 22.61), korrekt waere 119 (MwSt 19)
+  PASS Entwurf vorhanden (darf korrigiert werden) :: 119
+
+[D1 Kundenendpunkte liefern keine internen Felder]
+  PASS GET /api/invoices: keine Interna :: sauber
+  PASS Liste: Kundenfelder vollstaendig (Status, Nummer, Betrag, Storno-Hinweis, Saldo) :: {"s":"cancelled","c":{"kind":"storno","state":"completed","reason":"Kundenwunsch","completedAt":"2026-10-02T11:17:38.273Z","creditNoteId":"6abf92d2e48a5e57694193a1","creditNoteNumber":"INV-CN-2026-0001"}}
+  PASS GET /api/invoices/:id: keine Interna :: sauber
+  PASS Detail: Positionen, Gutschriften, Zahlungshistorie, Saldo vorhanden :: 1 / 1
+  PASS GET /api/invoices/for-order/:id (Kunde): keine Interna :: 200
+  PASS PUT /api/invoices/:id/view: keine Interna :: 200 sauber
+  PASS Mitarbeiter: Detail weiterhin vollstaendig (Revisionsspur) :: 200
+
+[D2 Weiterleitungs-Zahlung: deutsche Meldungen]
+  PASS initialize mit Ueberweisung: 400, deutsch, Code :: 400 UNSUPPORTED_REDIRECT_PROVIDER Diese Zahlungsart wird über die Weiterleitung zum Zahlungsanbieter nicht unterstützt. Bitte wählen Sie Kartenzahlung oder PayPal.
+  PASS confirm mit Ueberweisung: 400, deutsch, Code :: 400 UNSUPPORTED_REDIRECT_PROVIDER Diese Zahlungsart kann nicht über die Rückleitung vom Zahlungsanbieter bestätigt werden.
+
+[D3 PDF-Archiv waechst nicht unbegrenzt, ausgestellte Fassung bleibt erhalten]
+  PASS nach 24 Neufassungen: Rechnungsdokument waechst nicht um die PDF-Bytes :: 1690 -> 11015 Bytes (PDF ~3749 Bytes)
+  PASS keine PDF-Bytes mehr im Rechnungsdokument (weder aktuell noch Historie) :: 0
+  PASS Historie im Beleg begrenzt, ausgestellte Fassung 1 (Hash) bleibt vermerkt :: 20 Eintraege, erste Fassung 1
+  PASS Bytes der ausgestellten Fassung 1 unveraendert abrufbar (sha256) :: c77a26c59733
+  PASS jede Fassung liegt genau einmal in der Archivsammlung :: 25
+  PASS aktuelle Fassung abrufbar :: 200
+  PASS erneuter Abruf: dieselbe (letzte) Fassung, keine neue :: false v25
+  PASS Altbestand mit Inline-Bytes wird unveraendert ausgeliefert :: %PDF-1.4 Altfassung 2 (inline)
+  PASS Neufassung eines Altbelegs: Inline-Bytes ausgelagert :: v3
+  PASS Altfassungen 1 und 2 byte-genau in der Archivsammlung erhalten :: v1,v2,v3
+
+==== 49 bestanden, 0 fehlgeschlagen ====

@@ -1,0 +1,38 @@
+
+[1 Standardfall unveraendert (neue Auftraege 19 %)]
+  PASS DB: 49,90 -> 19 %, 41,93 + 7,97 :: 19 41.93 7.97
+  PASS Kunde: 19 % gespeichert, 41,93 + 7,97 :: 19 % (stored) brutto 49.9 netto 41.93 MwSt 7.97
+  PASS Personal: 5 %-Fall 47,40 -> 39,83 + 7,57 :: 19 % (stored) brutto 47.4 netto 39.83 MwSt 7.57
+  PASS POST /api/orders mit taxRate 0 vom Client: weiterhin 19 % gespeichert (Anlageverhalten unveraendert) :: 201 19 7.97
+
+[2 Gespeicherter Satz 0 bleibt 0 (Speichern, Neuberechnung, Anzeige)]
+  PASS DB nach Anlage: 0 %, MwSt. 0,00, Netto 49,90 (vorher 19 % / 7,97) :: 0 0 49.9
+  PASS DB nach erneutem Speichern: weiterhin 0 % :: 0 0
+  PASS Positionsaenderung (Neuberechnung 99,90): 0 % bleibt, MwSt. 0,00 :: 201 99.9 0 0
+  PASS Antwort der Positionsaenderung: 0 % gespeichert :: 0 % (stored) brutto 99.9 netto 99.9 MwSt 0
+  PASS GET /api/orders/:id (Kunde): 0 %, MwSt. 0,00, Netto = Brutto :: 0 % (stored) brutto 99.9 netto 99.9 MwSt 0
+  PASS GET /api/admin/orders/:id (Personal): 0 % :: 0 % (stored) brutto 99.9 netto 99.9 MwSt 0
+  PASS GET /api/order-services/:id: 0 % :: 0 % (stored) brutto 99.9 netto 99.9 MwSt 0
+
+[3 Fehlender Satz (null / nicht vorhanden) = Standardsatz, gekennzeichnet]
+  PASS null: Kunde sieht Standardsatz 19 % (default), nicht 0 % :: 19 % (default) brutto 49.9 netto 41.93 MwSt 7.97
+  PASS null: Personal sieht Standardsatz (default) :: 19 % (default) brutto 49.9 netto 41.93 MwSt 7.97
+  PASS null + Speichern: gerechnet mit Standardsatz, Feld NICHT still befuellt :: null 41.93 7.97
+  PASS Feld fehlt: Standardsatz 19 % (default) :: 19 % (default) brutto 49.9 netto 41.93 MwSt 7.97
+  PASS Feld fehlt + Einstellung 7 %: Standardsatz aus den Einstellungen (46,64 + 3,26) :: 7 % (default) brutto 49.9 netto 46.64 MwSt 3.26
+  PASS gespeicherte 19 % bleiben trotz Einstellung 7 % :: 19 % (stored) brutto 49.9 netto 41.93 MwSt 7.97
+  PASS gespeicherte 0 % bleiben trotz Einstellung 7 % :: 0 % (stored) brutto 99.9 netto 99.9 MwSt 0
+
+[4 Buchungssummen konsistent mit den Auftraegen]
+  PASS computeBookingTotalsFromOrders: 97,30 brutto, MwSt. 0 + 7,57 = 7,57 :: {"subtotal":99.8,"discount":2.5,"totalCost":97.3,"tax":7.57}
+  PASS Sync der Buchung: MwSt. 7,57 (gespeicherte 0 % nicht zu 19 % gemacht) :: 97.3 7.57
+  PASS Auftrag ohne Satz in Buchungssumme: Standardsatz (7,97), nicht 0 :: {"subtotal":49.9,"discount":0,"totalCost":49.9,"tax":7.97}
+  PASS Buchungssumme mit konfiguriertem Standardsatz 7 %: 3,26 :: {"subtotal":49.9,"discount":0,"totalCost":49.9,"tax":3.26}
+  PASS resolveBookingPricing (ohne Checkout-Snapshot): MwSt. 7,57 :: {"subtotal":99.8,"discount":2.5,"totalCost":97.3,"tax":7.57}
+
+[5 Bestandsrechnungen: erneutes Speichern aendert keine Betraege (Invoice.js unveraendert)]
+  PASS neue Rechnung 19 %: 47,40 = 39,83 + 7,57 :: 47.4 39.83 7.57
+  PASS Altrechnung ohne Satz + Statuswechsel: Betraege unveraendert :: null 47.4 40 7.4
+  PASS Rechnung mit gespeicherten 0 %: bleibt 0 % / 49,90 :: 0 49.9 0
+
+==== 26 bestanden, 0 fehlgeschlagen ====

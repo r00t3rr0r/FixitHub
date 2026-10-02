@@ -1,0 +1,81 @@
+Testdaten: Lagerteil "E2E K17 Display 761573" (SKU E2E-K17-761573, Bestand 0) per POST /api/inventory angelegt (id 6abf82d12a854d3cec755cca)
+--- Teil A: Desktop 1366x768 ---
+  PASS Dialog "Bestellung anlegen" geoeffnet 
+  PASS Lieferanten-Dialog erklaert die Rueckkehr zur Bestellung 
+   [shot] 01_A_lieferant_dialog.png
+  PASS nach dem Speichern zurueck im Bestelldialog, neuer Lieferant ist ausgewaehlt :: E2E K17 Lieferant 761573 – k17-761573@e2e.invalid
+  PASS DB: Lieferant gespeichert (Name, E-Mail, aktiv) :: E2E K17 Lieferant 761573 / k17-761573@e2e.invalid
+  PASS Vorschau: Positionen 62,50 €, Versand 4,90 €, Gesamt (brutto) 67,40 € :: Positionen 62,50 € Versand 4,90 € MwSt. nicht erfasst Gesamt (brutto) 67,40 €
+   [shot] 02_A_bestellung_ausgefuellt.png
+  PASS Meldung nennt die Bestellnummer im Format EPO-NNNNNN :: Bestellung EPO-000001 angelegt
+  PASS Dialog nach dem Speichern geschlossen 
+  PASS Liste zeigt die neue Bestellung (Nummer, Lieferant, Status "Bestellt") :: EPO-000001 E2E K17 Lieferant 761573 1 67,40 € Bestellt Unbezahlt 02.10.2026 – – Details
+   [shot] 03_A_liste_nach_anlegen.png
+  PASS DB: Bestellung A gespeichert (Nummer, Lieferant, Teil, 5 × 12,50, Status confirmed, Gesamt 67,40) :: EPO-000001 confirmed qty=5 total=67.4
+  PASS Detaildialog: Sendungsnummer zunaechst "nicht erfasst" 
+  PASS Hinweis "Ungespeicherte Änderungen" vor dem Speichern 
+  PASS nach dem Speichern: Kopf zeigt die Sendungsnummer, "Gespeichert um …" 
+   [shot] 04_A_sendungsnummer_gespeichert.png
+  PASS nach Reload: Listenzeile zeigt Bestellung mit Sendungsnummer :: EPO-000001 E2E K17 Lieferant 761573 1 67,40 € Bestellt Unbezahlt 02.10.2026 – 00340434K17A761573 Details
+  PASS Suche nach der Sendungsnummer findet genau diese Bestellung (Server-Suche) :: 1 Treffer
+   [shot] 05_A_nach_reload_suche_sendungsnr.png
+  PASS nach Reload: Feld Sendungsnummer enthaelt den gespeicherten Wert :: 00340434K17A761573
+  PASS DB: trackingNumber gespeichert + Verlaufseintrag "Sendungsnummer erfasst" mit Benutzer :: 00340434K17A761573 / Sendungsnummer erfasst: 00340434K17A761573
+  PASS Wareneingang-Dialog: offene Menge 5 vorbelegt 
+  PASS Schaltflaeche nennt die Buchungsmenge "(2 Stück)" :: Wareneingang speichern (2 Stück)
+   [shot] 06_A_wareneingang_teil_2.png
+  PASS Detaildialog: Status "Teilweise erhalten" 
+  PASS DB: receivedQuantity 2, Status partial, Lagerbestand +2 :: partial rq=2 lager=2
+   [shot] 07_A_teilweise_erhalten.png
+  PASS Rest 3 vorbelegt 
+  PASS Mehrbuchung (4 bei 3 offen): klare deutsche Meldung "Höchstens 3 Stück offen." 
+  PASS Mehrbuchung: "Wareneingang speichern" gesperrt 
+   [shot] 08_A_mehrbuchung_blockiert.png
+  PASS Mehrbuchung (auch per Enter) bucht nichts: DB bleibt bei 2 / Lager +2 :: rq=2
+  PASS Tab A: 3 Stueck eingetragen, Speichern freigegeben (noch nicht geklickt) 
+   Tab B (zweite Admin-Sitzung, UI) hat parallel 1 Stueck gebucht
+   [shot] 09_A_tabB_parallel_1_stueck.png
+  PASS veralteter Dialog: Server blockiert Mehrbuchung mit deutscher Meldung "… sind nur noch 2 Stück offen." (Toast) 
+   Beobachtung: Fehler-Toast liegt ueber der Dialog-Abdunklung (oberstes Element an der Toast-Position: div.text-sm opacity-90)
+  PASS Dialog laedt den aktuellen Stand nach: Feldmeldung "Höchstens 2 Stück offen." 
+   [shot] 10_A_server_blockiert_mehrbuchung.png
+  PASS DB: nur 2 (Tab A) + 1 (Tab B) = 3 gebucht, keine Mehrbuchung, Lager +3 :: rq=3 lager=3
+  PASS Restmenge gebucht: Status "Erhalten", "Wareneingang buchen" gesperrt mit Hinweis 
+  PASS DB: Status received, 5/5 erhalten, receivedBy gesetzt, Lager +5 :: received rq=5 lager=5
+   [shot] 11_A_vollstaendig_erhalten.png
+  PASS API-Gegenprobe: Buchung nach "Erhalten" -> 400 mit deutscher Meldung :: 400 Wareneingang ist nur für Bestellungen mit Status „Bestellt“, „Versendet“ oder „Teilweise erhalten“ möglich.
+  PASS nach abgelehnter Gegenprobe unveraendert 5 / Lager +5 
+  PASS nach Reload: Positionen Bestellt 5 / Erhalten 5 / Offen 0 / Status Erhalten :: E2E K17 Display 761573 | E2E-K17-761573 | 5 | 5 | 0 | 12,50 € | Netto | 4,90 € | 0,00 € | 67,40 € | Erhalten
+   [shot] 12_A_positionen_nach_reload.png
+  PASS Tab "Verlauf" ist aktiv (aria-selected) 
+  PASS Verlauf: 3 Wareneingaenge (2 + 1 + 2) und "Sendungsnummer erfasst" sichtbar :: 3 Wareneingaenge
+   [shot] 13_A_verlauf_nach_reload.png
+--- Teil B: 778x718 ---
+  PASS 778x718 Bestellliste: kein horizontaler Seitenscroll :: 778/778/778
+   [shot] 14_B_liste_778.png
+  PASS 778x718: Dialog "Bestellung anlegen" passt in den Viewport :: {"top":29,"bottom":701,"left":20,"right":758,"vh":718,"vw":778}
+  PASS 778x718: "Bestellung anlegen" (Speichern) im Viewport erreichbar :: {"y":649,"h":40}
+  PASS 778x718: mit offenem Dialog kein horizontaler Seitenscroll :: 778/778
+   [shot] 15_B_bestellung_dialog_778.png
+  PASS Bestellung B: Nummer EPO-NNNNNN, verschieden von A und fortlaufend hoeher :: EPO-000001 -> EPO-000002
+  PASS DB: Bestellung B gespeichert (3 × 9,99, confirmed, gleicher Lieferant) :: EPO-000002 confirmed
+  PASS 778x718: Detaildialog passt in den Viewport :: {"top":43,"bottom":699,"left":29,"right":749,"vh":718,"vw":778}
+  PASS 778x718: "Änderungen speichern" im Viewport erreichbar :: {"y":661,"h":40}
+   [shot] 16_B_detail_sendungsnr_778.png
+  PASS 778x718: Detaildialog ohne horizontalen Seitenscroll :: 778/778
+  PASS 778x718 nach Reload: Zeile enthaelt die Sendungsnummer 
+  PASS 778x718 nach Reload: Sendungsnummer im Feld erhalten 
+  PASS DB: Sendungsnummer B gespeichert :: 00340434K17B761573
+  PASS 778x718: Wareneingang-Dialog passt in den Viewport :: {"top":246,"bottom":481,"left":114,"right":664,"vh":718,"vw":778}
+  PASS 778x718: "Wareneingang speichern" im Viewport erreichbar :: {"y":429,"h":40}
+  PASS DB: Bestellung B teilweise erhalten (1/3) :: partial rq=1
+  PASS 778x718: Mehrbuchung (5 bei 2 offen) mit Meldung "Höchstens 2 Stück offen." blockiert 
+   [shot] 17_B_mehrbuchung_778.png
+  PASS DB: Bestellung B vollstaendig erhalten (3/3), Lager gesamt +8 (5 + 3) :: received rq=3 lager=8
+   [shot] 18_B_erhalten_778.png
+  PASS DB: jede Bestellnummer genau einmal vorhanden, Unique-Index auf orderNumber :: EPO-000001:1 EPO-000002:1 unique=true
+  PASS API-Gegenprobe: 4 parallele Anlagen -> 4 verschiedene EPO-NNNNNN, keine Dublette in der DB :: 201,201,201,201 -> EPO-000003, EPO-000004, EPO-000005, EPO-000006 (DB 6 Nummern, 6 verschieden)
+Testdaten: 4 Entwurfsbestellungen "E2E K17 parallel 761573 #1-4" per API (nur Nummern-Gegenprobe)
+   neue .eml im Testpostfach waehrend des Laufs: 0 (an den Testlieferanten: 0)
+   netguard_after.log: 0 -> 0 Bytes
+==== k17_epart_order_tracking: 54 bestanden, 0 fehlgeschlagen ====

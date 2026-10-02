@@ -1,0 +1,49 @@
+Testdaten: Warenkorb (Kunde partner@e2e.invalid, API) Reparatur "E2E FIN13-MUQT2CHE Steuersatz 0" -> 200
+Testdaten: Checkout (API, PayPal ausstehend, keine Zahlung) -> 200 BKG-2026-0020
+  PASS Testbuchung enthält genau den eigenen Auftrag :: BKG-2026-0020 orders=1
+Testdaten: Auftrag ORD-2026-077 (6abf83d32a854d3cec75d2eb) taxRate 19 -> 0 direkt in e2e_after gesetzt (totalCost 47.4 unverändert; Buchung BKG-2026-0020 tax=7.57 total=47.4 unverändert)
+   [shot] 01_A0_kunde_preisaufstellung.png
+   [shot] 02_A0_kunde_leistungen_popup.png
+   Kunde 0 %: Kopf brutto 47.4 | Preisaufstellung brutto 47.4 / netto 47.4 / MwSt 0 (0 %) | Popup brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Kunde 0 %: "Auf einen Blick" Gesamt (brutto) = Auftragswert :: 47,40 €
+  PASS Kunde 0 % – Preisaufstellung: "davon MwSt. (0 %)" mit 0,00 € :: brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Kunde 0 % – Preisaufstellung: Netto = Brutto = 47,40 € :: brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Kunde 0 % – Leistungen im Detail (Preisübersicht): "davon MwSt. (0 %)" mit 0,00 € :: brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Kunde 0 % – Leistungen im Detail (Preisübersicht): Netto = Brutto = 47,40 € :: brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Kunde 0 %: auf der ganzen Seite nur "MwSt. (0 %)", kein 19 %/Standardsatz :: MwSt. (0 %)
+   [shot] 03_B0_admin_uebersicht_preisuebersicht.png
+   [shot] 04_B0_admin_rechnungen_zahlungsstand.png
+   Admin 0 %: Kopf brutto 47.4 | Übersicht brutto 47.4 / netto 47.4 / MwSt 0 (0 %) | Zahlungsstand brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Admin 0 %: Kopf Gesamt (brutto) = Auftragswert :: 47,40 €
+  PASS Admin 0 % – Übersicht/Preisübersicht: MwSt. (0 %) 0,00 €, Netto = Brutto :: brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Admin 0 % – Rechnungen & Zahlungen/Zahlungsstand: MwSt. (0 %) 0,00 €, Netto = Brutto :: brutto 47.4 / netto 47.4 / MwSt 0 (0 %)
+  PASS Admin 0 %: auf allen geöffneten Tabs nur "MwSt. (0 %)", kein 19 %/Standardsatz :: MwSt. (0 %)
+   [shot] 05_C1_admin_buchung_finanzen.png
+   Buchungsübersicht VOR Abgleich (Buchung tax=7.57): Finanzen Zwischensumme (Brutto, vor Rabatt) 49,90 € Rabatt -2,50 € Nettobetrag 39,83 € davon MwSt. (im Gesamtbetrag enthalten) 7,57 € Gesamtbetrag (Brutto) 47,40 €
+Testdaten: Finanzabgleich der Buchung per Admin-API POST /api/admin/financial/bookings/:id/sync -> 200; Buchung tax 7.57 -> 0, totalCost 47.4 -> 47.4
+  PASS Buchungsabgleich übernimmt den gespeicherten Auftragssatz 0 % (Buchung MwSt. 0, Gesamt unverändert) :: tax=0 total=47.4
+   [shot] 06_C2_admin_buchung_finanzen.png
+   Buchungsübersicht NACH Abgleich: Finanzen Zwischensumme (Brutto, vor Rabatt) 49,90 € Rabatt -2,50 € Gesamtbetrag (Brutto) 47,40 €
+  PASS Buchungsübersicht nach Abgleich: Gesamt = Auftragswert, keine MwSt. > 0 :: brutto 47.4 MwSt (Zeile ausgeblendet, da 0)
+  PASS ORD-K03-001 hat kein taxRate-Feld (Altdaten) :: kein Feld
+   [shot] 07_D19std_admin_uebersicht_preisuebersicht.png
+   [shot] 08_D19std_admin_rechnungen_zahlungsstand.png
+   Admin ORD-K03-001: Übersicht brutto 10 / netto 8.4 / MwSt 1.6 (19 %, Standardsatz) | Zahlungsstand brutto 10 / netto 8.4 / MwSt 1.6 (19 %, Standardsatz) | erwartet 10,00 € / 8,40 € / 1,60 €
+  PASS ORD-K03-001 – Übersicht/Preisübersicht: Kennzeichnung "19 %, Standardsatz" :: 19 %, Standardsatz
+  PASS ORD-K03-001 – Übersicht/Preisübersicht: Beträge unverändert (10,00 € = 8,40 € + 1,60 €) :: brutto 10 / netto 8.4 / MwSt 1.6 (19 %, Standardsatz)
+  PASS ORD-K03-001 – Zahlungsstand: Kennzeichnung "19 %, Standardsatz" :: 19 %, Standardsatz
+  PASS ORD-K03-001 – Zahlungsstand: Beträge unverändert (10,00 € = 8,40 € + 1,60 €) :: brutto 10 / netto 8.4 / MwSt 1.6 (19 %, Standardsatz)
+  PASS ORD-K03-001: alle MwSt.-Angaben der Seite einheitlich "19 %, Standardsatz" :: MwSt. (19 %, Standardsatz)
+   normaler Auftrag: ORD-2026-076 (taxRate 19 gespeichert), erwartet 47,40 € = 39,83 € + 7,57 €
+   [shot] 09_E19_admin_uebersicht_preisuebersicht.png
+   [shot] 10_E19_admin_rechnungen_zahlungsstand.png
+   [shot] 11_E19_kunde_preisaufstellung.png
+   [shot] 12_E19_kunde_leistungen_popup.png
+   ORD-2026-076: Admin Übersicht brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %) | Admin Zahlungsstand brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %) | Kunde brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %) | Kunde Popup brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %)
+  PASS ORD-2026-076 – Admin Übersicht: "19 %" ohne Standardsatz, Beträge 47,40 € = 39,83 € + 7,57 € :: brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %)
+  PASS ORD-2026-076 – Admin Zahlungsstand: "19 %" ohne Standardsatz, Beträge 47,40 € = 39,83 € + 7,57 € :: brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %)
+  PASS ORD-2026-076 – Kunde Preisaufstellung: "19 %" ohne Standardsatz, Beträge 47,40 € = 39,83 € + 7,57 € :: brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %)
+  PASS ORD-2026-076 – Kunde Leistungen-Popup: "19 %" ohne Standardsatz, Beträge 47,40 € = 39,83 € + 7,57 € :: brutto 47.4 / netto 39.83 / MwSt 7.57 (19 %)
+  PASS ORD-2026-076: nirgends "Standardsatz" :: MwSt. (19 %)
+  PASS netguard_after.log unverändert :: 0 -> 0 B
+==== r3_fin13_display: 25 bestanden, 0 fehlgeschlagen ====

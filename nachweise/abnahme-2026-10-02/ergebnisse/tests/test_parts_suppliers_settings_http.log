@@ -1,0 +1,596 @@
+(node:1101827) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1101827) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1101827) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] SP-6 Lieferanten: Rollen, Validierung, Dubletten, Deaktivieren/Reaktivieren
+  PASS Gast ohne Token -> 401 :: 401
+  PASS Kunde -> 403 :: 403
+  PASS Kunde darf keinen Lieferanten anlegen :: 403
+Error creating supplier: Error: Bitte eine gültige E-Mail-Adresse eingeben (z. B. bestellung@lieferant.de).
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.normalizeSupplierInput (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:341:15)
+    at EPartOrderService.createSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:415:23)
+    at /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:142:46
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at requireAdminOrStaff (/home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:90:3)
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5) {
+  status: 400
+}
+  PASS ungueltige E-Mail -> 400 deutsch :: 400 Bitte eine gültige E-Mail-Adresse eingeben (z. B. bestellung@lieferant.de).
+Error creating supplier: Error: Bitte einen Namen für den Lieferanten eingeben.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.normalizeSupplierInput (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:335:31)
+    at EPartOrderService.createSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:415:23)
+    at /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:142:46
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at requireAdminOrStaff (/home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:90:3)
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5) {
+  status: 400
+}
+  PASS leerer Name -> 400 deutsch :: 400 Bitte einen Namen für den Lieferanten eingeben.
+  PASS nach Fehlern kein Lieferant gespeichert :: 0
+  PASS gueltiger Lieferant -> 201 :: 201
+  PASS DB: Name getrimmt, E-Mail klein :: Teile GmbH / bestellung@teile.invalid
+  PASS Client-_id wird ignoriert :: 6abf9356dc0a1c84cdc78433
+  PASS Lieferzeit Zahl, IBAN normalisiert :: 5 DE123456
+Error creating supplier: Error: Ein Lieferant mit diesem Namen und dieser E-Mail existiert bereits.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.assertNoDuplicateSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:407:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async EPartOrderService.createSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:418:7)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:142:22 {
+  status: 409
+}
+  PASS Dublette (Name+E-Mail) -> 409 deutsch :: 409 Ein Lieferant mit diesem Namen und dieser E-Mail existiert bereits.
+  PASS Dublette nicht gespeichert :: 1
+  PASS gleicher Name, andere E-Mail erlaubt :: 201
+Error updating supplier: Error: Lieferzeit muss eine ganze Zahl zwischen 0 und 365 Tagen sein.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.normalizeSupplierInput (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:370:17)
+    at EPartOrderService.updateSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:435:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:156:22 {
+  status: 400
+}
+  PASS Lieferzeit -3 -> 400 deutsch :: 400 Lieferzeit muss eine ganze Zahl zwischen 0 und 365 Tagen sein.
+  PASS Deaktivieren mit vollem Objekt (inkl. _id/__v) -> 200 :: 200
+  PASS aktive Liste ohne deaktivierten Lieferanten :: 1
+  PASS Inaktiv-Filter zeigt deaktivierten Lieferanten :: 1
+  PASS "Alle" zeigt aktive und inaktive :: 2
+  PASS gleiche Daten erlaubt, solange Original inaktiv :: 201
+Error updating supplier: Error: Ein Lieferant mit diesem Namen und dieser E-Mail existiert bereits.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.assertNoDuplicateSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:407:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async EPartOrderService.updateSupplier (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:440:7)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:156:22 {
+  status: 409
+}
+  PASS Reaktivierung trotz aktiver Dublette -> 409 :: 409
+  PASS Deaktivieren per DELETE nur Admin (Staff 403) :: 403
+  PASS Admin DELETE -> 200 (deaktiviert) :: 200
+  PASS "Wieder aktivieren" -> 200 :: 200
+  PASS reaktivierter Lieferant wieder in aktiver Liste :: 2
+Error fetching supplier: Error: Ungültige Lieferanten-ID.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at assertObjectId (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:38:38)
+    at EPartOrderService.getSupplierById (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:315:5)
+    at /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:128:46
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at requireAdminOrStaff (/home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:90:3)
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5) {
+  status: 400
+}
+  PASS ungueltige ID -> 400 deutsch (kein CastError) :: 400 Ungültige Lieferanten-ID.
+
+[2] SP-2 / SP-5 manuelle Bestellung, Nummernkreis
+  PASS Kunde darf keine Ersatzteilbestellung anlegen :: 403
+Error creating epart order: Error: Position 1: Bitte ein Ersatzteil auswählen.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.createEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:598:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:244:19 {
+  status: 400
+}
+  PASS leere Teil-ID -> 400 "Position 1: ..." :: 400 Position 1: Bitte ein Ersatzteil auswählen.
+Error creating epart order: Error: Position 1: Menge muss eine ganze Zahl von mindestens 1 sein.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.createEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:602:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:244:19 {
+  status: 400
+}
+  PASS Menge 0 -> 400 deutsch :: 400 Position 1: Menge muss eine ganze Zahl von mindestens 1 sein.
+Error creating epart order: Error: Position 1: Einzelpreis muss 0 oder größer sein.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.createEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:606:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:244:19 {
+  status: 400
+}
+  PASS negativer Einzelpreis -> 400 :: 400
+Error creating epart order: Error: Bitte einen Lieferanten auswählen.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.createEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:578:13)
+    at /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:244:43
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at requireAdminOrStaff (/home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:90:3)
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 400
+}
+  PASS ohne Lieferant -> 400 deutsch :: 400 Bitte einen Lieferanten auswählen.
+Error creating epart order: Error: Der Lieferant „Teile GmbH“ ist inaktiv. Bitte zuerst wieder aktivieren.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.createEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:585:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:244:19 {
+  status: 400
+}
+  PASS inaktiver Lieferant -> 400 :: 400 Der Lieferant „Teile GmbH“ ist inaktiv. Bitte zuerst wieder aktivieren.
+  PASS nach Validierungsfehlern keine Bestellung gespeichert :: 1
+  PASS Bestellung mit Inventar-Teil -> 201 (vorher immer 400 partName) :: 201 
+  PASS partName = itemName, SKU uebernommen :: Display iPhone 13 / DSP-13
+  PASS erste neue Nummer folgt dem Altbestand (EPO-000051) :: EPO-000051
+  PASS GET /:id liefert denselben partName :: Display iPhone 13
+  PASS DB: Gesamt = Positionen + Versand :: 53.9
+  PASS 5 parallele Bestellungen -> alle 201 (kein E11000) :: 201,201,201,201,201
+  PASS 5 eindeutige Nummern im Format EPO-NNNNNN :: EPO-000052,EPO-000053,EPO-000054,EPO-000055,EPO-000056
+  PASS DocumentSequence epart_order steht auf 56 :: 56
+
+[3] SP-3 Sendungsnummer, Status-Regeln, Zahlungsstatus
+  PASS Sendungsnummer setzen (getrimmt) :: JJD001
+  PASS Verlauf: "Sendungsnummer geändert: alt → neu" :: 3
+  PASS leere Sendungsnummer loescht das Feld (vorher blieb alter Wert) :: undefined
+Error updating epart order: Error: Die Sendungsnummer darf höchstens 64 Zeichen lang sein.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.updateEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:719:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:258:19 {
+  status: 400
+}
+  PASS Sendungsnummer > 64 Zeichen -> 400 :: 400
+  PASS Lieferdatum setzen :: 2026-10-15T00:00:00.000Z
+  PASS Lieferdatum leeren :: undefined
+Error updating epart order: Error: „Teilweise erhalten“ und „Erhalten“ werden nur über „Wareneingang buchen“ gesetzt.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.updateEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:694:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:258:19 {
+  status: 400
+}
+  PASS Status "received" per PUT -> 400 deutsch :: 400 „Teilweise erhalten“ und „Erhalten“ werden nur über „Wareneingang buchen“ gesetzt.
+  PASS Lager unveraendert nach verbotenem Statuswechsel :: 1
+Error updating epart order: Error: Ungültiger Bestellstatus.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.updateEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:700:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:258:19 {
+  status: 400
+}
+  PASS unbekannter Status -> 400 deutsch :: Ungültiger Bestellstatus.
+  PASS Status Bestellt -> Versendet :: shipped
+  PASS Verlauf deutsch "Bestellt → Versendet" :: 
+Error updating epart order: Error: Ungültiger Zahlungsstatus.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.updateEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:737:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:258:19 {
+  status: 400
+}
+  PASS ungueltiger Zahlungsstatus -> 400 deutsch :: Ungültiger Zahlungsstatus.
+  PASS Zahlungsstatus Bezahlt :: paid
+  PASS Kunde darf Bestellung nicht aendern :: 403
+
+[4] SP-4 Wareneingang
+Error receiving order items: Error: Bitte für mindestens eine Position eine Menge größer 0 eingeben.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.receiveOrderItems (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:873:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:272:19 {
+  status: 400
+}
+  PASS nur Nullmengen -> 400 deutsch :: Bitte für mindestens eine Position eine Menge größer 0 eingeben.
+  PASS Teilbuchung -> "partial" :: 200 partial
+  PASS keine "0 Stück"-Verlaufseintraege :: 
+Error receiving order items: Error: Für „Display iPhone 13“ sind nur noch 1 Stück offen.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.receiveOrderItems (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:867:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:272:19 {
+  status: 400
+}
+  PASS Mehrbuchung -> 400 "nur noch 1 Stück offen" :: 400 Für „Display iPhone 13“ sind nur noch 1 Stück offen.
+  PASS Lager nach Mehrbuchungsversuch unveraendert (+1 aus Teilbuchung) :: 2
+Error receiving order items: Error: Die Bestellung wurde inzwischen geändert (z. B. Wareneingang bereits gebucht). Bitte neu laden und erneut prüfen.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.receiveOrderItems (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:932:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:272:19 {
+  status: 409
+}
+  PASS parallele Doppelbuchung: genau eine 200, die andere 409/400 :: 200,409
+  PASS Bestellung danach "received" :: received
+  PASS erhaltene Menge = bestellte Menge (keine Mehrbuchung) :: 2/2,3/3
+  PASS Lagerzugang exakt = bestellte Menge (2 und 3) :: 3 3
+Error receiving order items: Error: Wareneingang ist nur für Bestellungen mit Status „Bestellt“, „Versendet“ oder „Teilweise erhalten“ möglich.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.receiveOrderItems (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:840:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:272:19 {
+  status: 400
+}
+  PASS Wareneingang fuer Entwurf -> 400 deutsch :: Wareneingang ist nur für Bestellungen mit Status „Bestellt“, „Versendet“ oder „Teilweise erhalten“ möglich.
+Error updating epart order: Error: Der Status einer Bestellung im Zustand „Erhalten“ kann nicht mehr manuell geändert werden.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.updateEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:703:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:258:19 {
+  status: 400
+}
+  PASS Status einer erhaltenen Bestellung nicht mehr aenderbar :: 400
+  PASS Zahlungsstatus bleibt auch nach Erhalt aenderbar :: 200
+
+[4b] SP-4 Review: parallele Buchung verschiedener Positionen, Altdaten-Lager, Kompensation, deutsche Texte
+  PASS parallele Buchung verschiedener Positionen: beide 200 (6 Laeufe) :: 0
+  PASS keine Bestellung bleibt auf "partial" haengen, alle Positionen "received" :: 0
+  PASS Bedarfslisten-Zuweisung genau einmal je Bestellung :: 6/6
+  PASS Lagerzugang exakt je Position :: 6 6
+  PASS Bestellung fuer Altdaten-Lagerteil -> 201 :: 201 
+  PASS Wareneingang mit Altdaten-Lagerteil -> 200, "received" :: 200 received 
+  PASS Altdaten-Lager atomar erhoeht (1 + 2) :: 3
+  PASS genau ein Verlaufseintrag "Wareneingang gebucht" :: 2
+  PASS Altdaten nicht stillschweigend umgeschrieben (versionId weiterhin fehlend) :: ["_id","versionType","quantity","minStockLevel","reorderLevel","lowStockAlert"]
+EPart Wareneingang: Lagerbuchung fehlgeschlagen Simulierter Lagerfehler
+Error receiving order items: Error: Der Lagerbestand für „Lautsprecher iPhone 13“ konnte nicht erhöht werden. Der Wareneingang wurde nicht gebucht. Bitte neu laden und erneut versuchen.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.receiveOrderItems (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:985:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:272:19 {
+  status: 409
+}
+  PASS Lagerfehler nach Claim -> 409 deutsch :: 409 Der Lagerbestand für „Lautsprecher iPhone 13“ konnte nicht erhöht werden. Der Wareneingang wurde nicht gebucht. Bitte neu laden und erneut versuchen.
+  PASS Claim zurueckgenommen: receivedQuantity 0, Status "confirmed" :: 0,0 confirmed
+  PASS kein Verlaufseintrag fuer die gescheiterte Buchung :: 1
+  PASS Lager unveraendert (bereits gebuchte Position zurueckgebucht) :: 6 6
+  PASS Retry nach Fehler -> 200 "received" :: 200 received
+  PASS Retry bucht Lager genau einmal :: 8 7
+  PASS veralteter Statuswechsel -> 409 deutsch :: 409 Die Bestellung wurde inzwischen geändert. Bitte neu laden und erneut versuchen.
+  PASS "received" bleibt erhalten :: 
+  PASS Verlauf "Rücksendung angefordert: …" :: 200 
+  PASS ungueltiger Ruecksendestatus -> 400 deutsch :: Ungültiger Status für Rücksendung/Umtausch. Erlaubt: genehmigt, unterwegs, abgeschlossen, abgelehnt.
+  PASS Verlauf "Rücksendung/Umtausch: genehmigt" :: 200
+  PASS falscher Dateityp -> 400 JSON deutsch (statt HTML-500) :: 400 Nur PDF-, Bild- und Office-Dateien (PDF, JPG, PNG, DOC, DOCX, XLS, XLSX) sind erlaubt.
+
+[5] SP-7 Paging, SP-8 Statistik ohne Stornos, Suche mit Sonderzeichen
+  PASS Seite 2 enthaelt 14 von 39 :: 14 / 39 / pages 2
+  PASS limit wird auf 100 begrenzt :: 100
+  PASS Suche mit "(" -> 200 statt 500 :: 200
+  PASS Stornieren -> 200 :: cancelled
+Error cancelling epart order: Error: Die Bestellung ist bereits storniert.
+    at httpError (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:28:17)
+    at EPartOrderService.cancelEPartOrder (/home/adar/Projects/FixitHub/server/services/epartOrderService.js:1076:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/epartOrderRoutes.js:290:19 {
+  status: 400
+}
+  PASS erneutes Stornieren -> 400 deutsch :: Die Bestellung ist bereits storniert.
+  PASS Bestellwert gesamt ohne Stornos :: 126.9 vs 126.9
+
+[6] SP-5 Bedarfsliste: parallele Umwandlung
+RequireRole middleware: User parts-staff@test.invalid has required role staff
+POST /api/need-lists/:id/convert-to-order - Converting need list to order: 6abf9358dc0a1c84cdc78b65
+NeedListService.convertToOrder: Converting need list to order: 6abf9358dc0a1c84cdc78b65
+RequireRole middleware: User parts-staff@test.invalid has required role staff
+POST /api/need-lists/:id/convert-to-order - Converting need list to order: 6abf9358dc0a1c84cdc78b65
+NeedListService.convertToOrder: Converting need list to order: 6abf9358dc0a1c84cdc78b65
+POST /api/need-lists/:id/convert-to-order - Error: Diese Bedarfsliste wurde bereits in eine Bestellung umgewandelt.
+NeedListService.convertToOrder: Order created successfully: EPO-000089
+NeedListService.getNeedListById: Fetching need list: 6abf9358dc0a1c84cdc78b65
+  PASS parallel: genau 201 + 409 :: 201,409
+  PASS 409 mit deutscher Meldung ::  | Diese Bedarfsliste wurde bereits in eine Bestellung umgewandelt.
+  PASS genau eine Bestellung erzeugt :: 1
+  PASS Bedarfsliste verweist auf existierende Bestellung, Status ordered :: EPO-000089 ordered
+
+[7] SET-1 / SET-4 Systemkonfiguration abschnittsweise speichern
+RequireRole middleware: User parts-staff@test.invalid has role staff, but requires one of: admin
+  PASS Staff darf Systemkonfiguration nicht speichern :: 403
+RequireRole middleware: User parts-customer@test.invalid has role customer, but requires one of: admin
+  PASS Kunde darf Systemkonfiguration nicht lesen :: 403
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Get system configuration request received
+SystemConfigService: Getting system configuration
+SystemConfigService: No configuration found, creating default
+SystemConfigService: Configuration retrieved successfully
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Configuration updated successfully
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS Analyse-Stundensatz 110 gespeichert :: 200
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Configuration updated successfully
+  PASS Steuersatz 7 gespeichert :: 7
+  PASS Teil-Abschnitt setzt Geschwister NICHT auf Standard zurueck (Zahlungsziel 30, Verkaeufer Firma X) :: 30 Firma X
+  PASS Antwort nennt updatedSections :: ["financialSettings"]
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Configuration updated successfully
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Get system configuration request received
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS Systemkonfiguration (siteName) laesst Finanz-Steuersatz 7 stehen :: McRepair Test 7
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Configuration updated successfully
+  PASS profitabilitySettings im Gesamtstand wird ignoriert :: 200  ["profitabilitySettings","notificationTemplateDefaultsVersion","_id","notificationTemplates","integrations","updatedAt"]
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS Analyse-Stundensatz bleibt 110 (vorher Rueckfall auf 92) :: 110
+  PASS Benachrichtigungsvorlagen unveraendert :: 84
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at numberInRange (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:568:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:585:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Steuersatz -5 -> 400 deutsch :: 400 Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at numberInRange (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:568:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:585:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Steuersatz "abc" -> 400 deutsch :: 400 Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at numberInRange (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:568:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:585:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Steuersatz 150 -> 400 deutsch :: 400 Steuersatz (%) muss eine Zahl zwischen 0 und 100 sein.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Standardwährung ist fest auf EUR eingestellt (keine Umrechnung).
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:591:20)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5) {
+  status: 400
+}
+  PASS Waehrung CHF -> 400 deutsch :: 400 Standardwährung ist fest auf EUR eingestellt (keine Umrechnung).
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Zahlungsziel (Tage) muss eine ganze Zahl zwischen 0 und 365 sein.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at numberInRange (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:568:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:587:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Zahlungsziel 10,5 -> 400 deutsch :: 400 Zahlungsziel (Tage) muss eine ganze Zahl zwischen 0 und 365 sein.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Standardrabatt (%) muss eine Zahl zwischen 0 und 100 sein.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at numberInRange (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:568:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:586:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Rabatt 101 -> 400 deutsch :: 400 Standardrabatt (%) muss eine Zahl zwischen 0 und 100 sein.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+Error updating system configuration: Error: Absender-E-Mail für Rechnungen: Bitte eine gültige E-Mail-Adresse eingeben.
+    at SystemConfigService.validationError (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:546:19)
+    at emailOrEmpty (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:576:20)
+    at SystemConfigService.validateFinancialSettingsPatch (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:615:5)
+    at SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:641:38)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:33
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  status: 400
+}
+  PASS Absender-E-Mail ungueltig -> 400 deutsch :: 400 Absender-E-Mail für Rechnungen: Bitte eine gültige E-Mail-Adresse eingeben.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Get system configuration request received
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS gespeicherte Werte nach abgelehnten Eingaben unveraendert :: 7 EUR 30
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Configuration updated successfully
+  PASS Steuersatz "19" als Zahl gespeichert :: 19
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Update system configuration request received
+SystemConfigService: Updating system configuration
+SystemConfigService: Error updating configuration: Error: SystemConfiguration validation failed: cartSettings.maxItems: Cast to Number failed for value "viele" (type string) at path "cartSettings.maxItems"
+    at ValidationError.inspect (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/error/validation.js:52:26)
+    at formatValue (node:internal/util/inspect:829:19)
+    at inspect (node:internal/util/inspect:372:10)
+    at formatWithOptionsInternal (node:internal/util/inspect:2325:40)
+    at formatWithOptions (node:internal/util/inspect:2187:10)
+    at console.value (node:internal/console/constructor:350:14)
+    at console.warn (node:internal/console/constructor:383:61)
+    at SystemConfigService.updateSystemConfiguration (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:494:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:662:21) {
+  errors: {
+    'cartSettings.maxItems': CastError: Cast to Number failed for value "viele" (type string) at path "cartSettings.maxItems"
+        at SchemaNumber.cast (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schema/number.js:401:11)
+        at SchemaType.applySetters (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schemaType.js:1288:12)
+        at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1456:22)
+        at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1245:14)
+        at model.set [as cartSettings] (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/helpers/document/compile.js:189:13)
+        at Function.assign (<anonymous>)
+        at SystemConfigService.updateSystemConfiguration (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:479:16)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:662:21)
+        at async /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:7 {
+      stringValue: '"viele"',
+      messageFormat: undefined,
+      kind: 'Number',
+      value: 'viele',
+      path: 'cartSettings.maxItems',
+      reason: AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+      
+        assert.ok(!isNaN(val))
+      
+          at castNumber (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/cast/number.js:27:10)
+          at SchemaNumber.cast (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schema/number.js:399:12)
+          at SchemaType.applySetters (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schemaType.js:1288:12)
+          at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1456:22)
+          at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1245:14)
+          at model.set [as cartSettings] (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/helpers/document/compile.js:189:13)
+          at Function.assign (<anonymous>)
+          at SystemConfigService.updateSystemConfiguration (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:479:16)
+          at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+          at async SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:662:21) {
+        generatedMessage: true,
+        code: 'ERR_ASSERTION',
+        actual: false,
+        expected: true,
+        operator: '=='
+      },
+      valueType: 'string'
+    }
+  },
+  _message: 'SystemConfiguration validation failed'
+}
+Error updating system configuration: Error: SystemConfiguration validation failed: cartSettings.maxItems: Cast to Number failed for value "viele" (type string) at path "cartSettings.maxItems"
+    at ValidationError.inspect (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/error/validation.js:52:26)
+    at formatValue (node:internal/util/inspect:829:19)
+    at inspect (node:internal/util/inspect:372:10)
+    at formatWithOptionsInternal (node:internal/util/inspect:2325:40)
+    at formatWithOptions (node:internal/util/inspect:2187:10)
+    at console.value (node:internal/console/constructor:350:14)
+    at console.warn (node:internal/console/constructor:383:61)
+    at /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:51:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  errors: {
+    'cartSettings.maxItems': CastError: Cast to Number failed for value "viele" (type string) at path "cartSettings.maxItems"
+        at SchemaNumber.cast (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schema/number.js:401:11)
+        at SchemaType.applySetters (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schemaType.js:1288:12)
+        at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1456:22)
+        at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1245:14)
+        at model.set [as cartSettings] (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/helpers/document/compile.js:189:13)
+        at Function.assign (<anonymous>)
+        at SystemConfigService.updateSystemConfiguration (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:479:16)
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:662:21)
+        at async /home/adar/Projects/FixitHub/server/routes/systemConfigRoutes.js:36:7 {
+      stringValue: '"viele"',
+      messageFormat: undefined,
+      kind: 'Number',
+      value: 'viele',
+      path: 'cartSettings.maxItems',
+      reason: AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+      
+        assert.ok(!isNaN(val))
+      
+          at castNumber (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/cast/number.js:27:10)
+          at SchemaNumber.cast (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schema/number.js:399:12)
+          at SchemaType.applySetters (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/schemaType.js:1288:12)
+          at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1456:22)
+          at model.$set (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/document.js:1245:14)
+          at model.set [as cartSettings] (/home/adar/Projects/FixitHub/server/node_modules/mongoose/lib/helpers/document/compile.js:189:13)
+          at Function.assign (<anonymous>)
+          at SystemConfigService.updateSystemConfiguration (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:479:16)
+          at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+          at async SystemConfigService.updateSystemConfigurationSections (/home/adar/Projects/FixitHub/server/services/systemConfigService.js:662:21) {
+        generatedMessage: true,
+        code: 'ERR_ASSERTION',
+        actual: false,
+        expected: true,
+        operator: '=='
+      },
+      valueType: 'string'
+    }
+  },
+  _message: 'SystemConfiguration validation failed'
+}
+  PASS Typfehler in anderem Abschnitt -> 400 statt 500 :: 400 Ungültiger Wert für „cartSettings.maxItems“. Bitte Eingabe prüfen.
+RequireRole middleware: User parts-admin@test.invalid has required role admin
+Get system configuration request received
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+  PASS cartSettings nach Typfehler unveraendert :: 50
+
+[8] SP-5 Seed-Schritt epart_order (Dry-Run Standard, --confirm idempotent)
+  PASS Dry-Run zeigt Plan, schreibt nichts :: 89 -> 89
+  PASS --confirm (2x) hebt Zaehler idempotent auf 900 :: 900
+  PASS naechste Bestellung EPO-000901 :: EPO-000901
+
+Ergebnis: 121 PASS, 0 FAIL
