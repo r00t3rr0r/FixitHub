@@ -9,7 +9,7 @@ const Logger = require('./logger');
 
 class EmailRetryHandler {
   constructor(options = {}) {
-    this.logger = new Logger('EmailRetry', { context: { retryHandler: true } });
+    this.logger = new Logger('EmailRetry', { context: { retryHandler: true }, logDir: options.logsDir });
     this.maxRetries = options.maxRetries || 3;
     this.baseDelay = options.baseDelay || 1000; // 1 second
     this.maxBackoffDelay = options.maxBackoffDelay || 30000; // 30 seconds
@@ -122,7 +122,7 @@ class EmailRetryHandler {
  */
 class EmailDeliveryTracker {
   constructor(options = {}) {
-    this.logger = new Logger('EmailDelivery', { context: { deliveryTracker: true } });
+    this.logger = new Logger('EmailDelivery', { context: { deliveryTracker: true }, logDir: options.logsDir });
     this.logsDir = options.logsDir || path.join(__dirname, '..', 'logs');
     this.deliveryLogFilePath = options.deliveryLogFilePath || path.join(this.logsDir, 'email-delivery-log.json');
     this.smtpLogFilePath = options.smtpLogFilePath || path.join(this.logsDir, 'smtp-connection-log.json');
