@@ -8,11 +8,12 @@
  */
 
 require('dotenv').config();
-const mongoose = require('mongoose');
 const { connectDB, gracefulShutdown } = require('../config/database');
-const { generatePasswordHash } = require('../utils/password');
-const User = require('../models/User');
+const SeedService = require('../services/seedService');
 
+// Create-only: delegates to SeedService.seedAdminUser(), which never modifies an
+// existing admin. The initial password comes from SEED_ADMIN_PASSWORD, otherwise
+// a random one is generated and printed once by SeedService.
 async function seedAdmin() {
   console.log('=== Seeding Admin User ===');
 
@@ -22,49 +23,8 @@ async function seedAdmin() {
     await connectDB();
     console.log('✓ Connected to database');
 
-    // Check if admin already exists
-    const existingAdmin = await User.findOne({ email: 'admin@example.com' });
-
-    if (existingAdmin) {
-      console.log('⚠ Admin user already exists:');
-      console.log(`  Email: ${existingAdmin.email}`);
-      console.log(`  Name: ${existingAdmin.name}`);
-      console.log(`  Role: ${existingAdmin.role}`);
-      console.log(`  Active: ${existingAdmin.isActive}`);
-      console.log('\nSkipping admin creation.');
-      return;
-    }
-
-    // Create admin user
-    console.log('\nCreating admin user...');
-    const hashedPassword = await generatePasswordHash('admin123');
-
-    const adminUser = new User({
-      email: 'admin@example.com',
-      password: hashedPassword,
-      name: 'Admin User',
-      phone: '+1 (555) 000-0000',
-      role: 'admin',
-      isActive: true,
-      avatar: 'https://via.placeholder.com/150x150/3b82f6/ffffff?text=AU',
-      notificationPreferences: {
-        email: true,
-        sms: false,
-        push: true,
-        orderUpdates: true,
-        promotions: false,
-        newsletter: false
-      }
-    });
-
-    await adminUser.save();
-
-    console.log('✓ Admin user created successfully!');
-    console.log('\n=== Admin Credentials ===');
-    console.log('  Email: admin@example.com');
-    console.log('  Password: admin123');
-    console.log('  Role: admin');
-    console.log('\n⚠ IMPORTANT: Change this password in production!');
+    const result = await SeedService.seedAdminUser();
+    console.log(`✓ ${result.message}`);
 
   } catch (error) {
     console.error('✗ Error seeding admin user:', error);

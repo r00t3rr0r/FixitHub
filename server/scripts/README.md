@@ -13,16 +13,15 @@ node server/scripts/seed-admin.js
 ```
 
 **What it does:**
-- Checks if admin user already exists
-- Creates admin user with credentials:
-  - Email: admin@example.com
-  - Password: admin123
-  - Role: admin
+- Checks if an admin user already exists (an existing admin is never modified)
+- Otherwise creates `admin@example.com` (role: admin) with the password from
+  `SEED_ADMIN_PASSWORD`; if that variable is unset, a random password is printed
+  once to the console - except in production (`NODE_ENV=production`), where no
+  admin is created without `SEED_ADMIN_PASSWORD`
 
 **When to use:**
 - Setting up a fresh database
 - Creating an admin account for testing
-- Recovering admin access
 
 ---
 

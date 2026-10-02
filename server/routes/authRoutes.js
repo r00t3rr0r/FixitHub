@@ -86,7 +86,6 @@ router.post('/login', authLoginRateLimit, async (req, res) => {
 
   try {
     console.log('Attempting to authenticate user:', normalizedEmail);
-    console.log('Password provided length:', password.length);
     console.log('Environment:', process.env.NODE_ENV);
 
     // Check if user exists first

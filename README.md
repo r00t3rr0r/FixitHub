@@ -80,6 +80,9 @@ Before setting up the project, ensure you have the following installed:
    REFRESH_TOKEN_SECRET=<Your refresh token secret>
    SESSION_SECRET=<Your session secret>
 
+   # Initial password for admin@example.com (only used when no admin exists yet)
+   SEED_ADMIN_PASSWORD=<choose a password>
+
    # Optional security hardening
    # Comma-separated allowed frontend origins for CORS
    CLIENT_URL=http://localhost:5173
@@ -216,9 +219,16 @@ node scripts/setup-env.js
 
 After seeding the database, you can use these test accounts:
 
-- **Admin**: admin@example.com / admin123
-- **Staff**: staff@example.com / password123
-- **Customer**: customer@example.com / password123
+- **Admin**: `admin@example.com` — there is no default password. The admin is only created
+  when the database has no admin yet; its initial password is taken from `SEED_ADMIN_PASSWORD`
+  in `.env` (set it before the first server start). In production (`NODE_ENV=production`) the
+  variable is required: without it **no admin is created** (only a warning is logged). Outside
+  production an unset variable yields a random password that is printed **once** to the server log
+  on the boot that creates the admin. An existing admin is never modified by seeding, so password
+  changes survive restarts.
+- **Staff / Customer**: there are no other accounts after a normal start. The demo accounts
+  `staff@example.com` and `customer@example.com` exist only on a **development** database after running
+  `node server/scripts/seed-sample-data.js --confirm` (the script refuses to run with `NODE_ENV=production`).
 
 ### License
 

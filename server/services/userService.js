@@ -93,7 +93,8 @@ class UserService {
 
   static async update(id, data) {
     try {
-      console.log('UserService: Updating user with ID:', id, 'Data:', data);
+      // Nur Feldnamen protokollieren - Adressen/Telefon gehoeren nicht ins Serverprotokoll.
+      console.log('UserService: Updating user with ID:', id, 'Fields:', Object.keys(data || {}).join(', '));
 
       // Remove sensitive fields that shouldn't be updated directly
       const { password, refreshToken, _id, createdAt, ...updateData } = data;
@@ -159,7 +160,7 @@ class UserService {
         // Log expected passwords for debugging in development
         if (process.env.NODE_ENV === 'development') {
           if (normalizedEmail === 'admin@example.com') {
-            console.log(`UserService.authenticateWithPassword: Expected password for admin should be 'admin123'`);
+            console.log(`UserService.authenticateWithPassword: Initial admin password comes from SEED_ADMIN_PASSWORD (or was printed once when the admin was first seeded)`);
           } else if (normalizedEmail.includes('@example.com')) {
             console.log(`UserService.authenticateWithPassword: Expected password for test users should be 'password123'`);
           }

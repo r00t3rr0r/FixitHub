@@ -165,7 +165,8 @@ async function main() {
     log('   1. Local MongoDB: Start the MongoDB service', 'yellow');
     log('   2. MongoDB Atlas: Update DATABASE_URL in .env with your connection string', 'yellow');
     log('   3. Docker: Run: docker run -d -p 27017:27017 --name mongodb mongo:latest', 'yellow');
-    log('\n   Current DATABASE_URL: ' + updates.DATABASE_URL, 'blue');
+    // Zugangsdaten nie ins Protokoll: Benutzer/Passwort in der URL maskieren.
+    log('\n   Current DATABASE_URL: ' + String(updates.DATABASE_URL || '').replace(/\/\/[^@/]*@/, '//<zugangsdaten>@'), 'blue');
   }
 
   log('\n' + '='.repeat(60), 'cyan');

@@ -2,12 +2,14 @@
 
 /**
  * Verify Admin User Script
- * Checks if the admin user exists and can be authenticated
+ * Checks if the admin user exists and, if SEED_ADMIN_PASSWORD is set, whether it
+ * matches. Read-only: never creates the admin or resets its password (use
+ * `node scripts/seed-data.js --type admin` to create a missing admin).
  */
 
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const { validatePassword, generatePasswordHash } = require('../utils/password');
+const { validatePassword } = require('../utils/password');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
@@ -25,66 +27,36 @@ async function verifyAdmin() {
 
     // Check for admin user
     const adminEmail = 'admin@example.com';
-    const adminPassword = 'admin123';
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
 
     console.log(`🔎 Searching for admin user: ${adminEmail}`);
     const admin = await User.findOne({ email: adminEmail });
 
     if (!admin) {
       console.log('❌ Admin user not found!');
-      console.log('\n📝 Creating admin user...');
-
-      const hashedPassword = await generatePasswordHash(adminPassword);
-      const newAdmin = await User.create({
-        email: adminEmail,
-        password: hashedPassword,
-        firstName: 'Admin',
-        lastName: 'User',
-        name: 'Admin User',
-        phone: '+1 (555) 000-0000',
-        role: 'admin',
-        avatar: 'https://via.placeholder.com/150x150/3b82f6/ffffff?text=AU',
-        isActive: true,
-        department: 'Administration',
-        specializations: ['System Management', 'User Management'],
-        addOnCapabilities: ['All Services']
-      });
-
-      console.log('✅ Admin user created successfully!');
-      console.log(`   ID: ${newAdmin._id}`);
-      console.log(`   Email: ${newAdmin.email}`);
-      console.log(`   Password: admin123`);
-    } else {
-      console.log('✅ Admin user found!');
-      console.log(`   ID: ${admin._id}`);
-      console.log(`   Email: ${admin.email}`);
-      console.log(`   Role: ${admin.role}`);
-      console.log(`   Active: ${admin.isActive}`);
-      console.log(`   Created: ${admin.createdAt}`);
-
-      // Test password
-      console.log('\n🔐 Testing password validation...');
-      const isValid = await validatePassword(adminPassword, admin.password);
-
-      if (!isValid) {
-        console.log('❌ Password validation failed!');
-        console.log('📝 Resetting admin password...');
-
-        admin.password = await generatePasswordHash(adminPassword);
-        await admin.save();
-
-        console.log('✅ Admin password reset successfully!');
-      } else {
-        console.log('✅ Password validation successful!');
-      }
+      console.log('   Create it with: node scripts/seed-data.js --type admin');
+      process.exitCode = 1;
+      return;
     }
 
-    console.log('\n' + '='.repeat(60));
-    console.log('✅ Admin user is ready to use!');
-    console.log('='.repeat(60));
-    console.log('\n📋 Login Credentials:');
-    console.log(`   Email: ${adminEmail}`);
-    console.log(`   Password: ${adminPassword}`);
+    console.log('✅ Admin user found!');
+    console.log(`   ID: ${admin._id}`);
+    console.log(`   Email: ${admin.email}`);
+    console.log(`   Role: ${admin.role}`);
+    console.log(`   Active: ${admin.isActive}`);
+    console.log(`   Created: ${admin.createdAt}`);
+
+    if (!adminPassword) {
+      console.log('\nℹ️  SEED_ADMIN_PASSWORD is not set - skipping password check.');
+      return;
+    }
+
+    // Test password (never reset it here)
+    console.log('\n🔐 Testing SEED_ADMIN_PASSWORD against the stored password...');
+    const isValid = await validatePassword(adminPassword, admin.password);
+    console.log(isValid
+      ? '✅ Password validation successful!'
+      : '❌ Password does not match SEED_ADMIN_PASSWORD (it may have been changed deliberately).');
     console.log();
 
   } catch (error) {

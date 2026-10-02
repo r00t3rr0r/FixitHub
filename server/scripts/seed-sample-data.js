@@ -26,6 +26,13 @@ async function seedSampleData() {
     const args = process.argv.slice(2);
     const confirmSeed = args.includes('--confirm');
 
+    // Demo-Konten (bekannte Passwoerter) duerfen nie in einer Produktionsdatenbank entstehen.
+    if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+      console.error('✗ seed-sample-data.js legt Demo-Konten mit bekannten Passwoertern an und laeuft nicht mit NODE_ENV=production.');
+      process.exitCode = 1;
+      return;
+    }
+
     if (!confirmSeed) {
       console.log('\n⚠ DRY RUN MODE');
       console.log('This will create sample data in your database.');
@@ -227,6 +234,10 @@ async function seedSampleData() {
 if (require.main === module) {
   seedSampleData()
     .then(() => {
+      // Abbruch (z. B. Produktionssperre) setzt process.exitCode – nicht als Erfolg melden.
+      if (process.exitCode) {
+        process.exit(process.exitCode);
+      }
       console.log('\n✓ Script completed successfully');
       process.exit(0);
     })

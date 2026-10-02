@@ -171,8 +171,8 @@ interface TrackingInfo {
    Integration Name: DHL Shipping
    Type: Shipping & Tracking
    Provider: DHL
-   API Key: FXeDS8NuE39knXv2wzjwvZTqLfRTMik1
-   API Secret: LlLIqLo7v06IPc6G
+   API Key: <dhl-api-key>
+   API Secret: <dhl-api-secret>
    Endpoint URL: https://express.api.dhl.com
    ```
 

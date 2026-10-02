@@ -408,6 +408,8 @@ export function DebugLogin() {
               </AlertDescription>
             </Alert>
             
+            {/* SEC-LOGIN: Test-Zugangsdaten nur im Entwicklungsmodus anzeigen */}
+            {import.meta.env.DEV && (
             <div className="space-y-2">
               <h4 className="font-medium">Test Credentials:</h4>
               <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm font-mono space-y-1">
@@ -416,6 +418,7 @@ export function DebugLogin() {
                 <div>Customer: customer@example.com / password123</div>
               </div>
             </div>
+            )}
             
             <div className="space-y-2">
               <h4 className="font-medium">Manual API Endpoints:</h4>

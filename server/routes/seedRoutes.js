@@ -27,10 +27,27 @@ const router = express.Router();
  */
 
 // ---------------------------------------------------------------------------
-// Bootstrap (public)
+// Bootstrap (public NUR solange es noch keinen Admin gibt)
 // ---------------------------------------------------------------------------
+// Sobald ein Admin existiert, sind /admin und /all Admin-Aktionen. Vorher konnte jeder anonym
+// POST /api/seed/admin aufrufen. seedService.seedAdminUser legt den Admin nur noch an, wenn keiner
+// existiert, und aendert nie einen bestehenden Nutzer (auch nicht beim Serverstart ueber seedAll());
+// in Produktion nur mit SEED_ADMIN_PASSWORD. Diese Pruefung schuetzt zusaetzlich die oeffentlichen Routen.
+const bootstrapOnlyWithoutAdmin = async (req, res, next) => {
+  try {
+    const User = require('../models/User');
+    const adminExists = await User.exists({ role: 'admin' });
+    if (!adminExists) return next();
+    return requireUser(req, res, (authError) => {
+      if (authError) return next(authError);
+      return requireRole(['admin'])(req, res, next);
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Bootstrap-Prüfung fehlgeschlagen.' });
+  }
+};
 
-router.post('/admin', async (req, res) => {
+router.post('/admin', bootstrapOnlyWithoutAdmin, async (req, res) => {
   try {
     const result = await SeedService.seedAdminUser();
     return res.status(200).json({
@@ -50,7 +67,7 @@ router.post('/admin', async (req, res) => {
   }
 });
 
-router.post('/all', async (req, res) => {
+router.post('/all', bootstrapOnlyWithoutAdmin, async (req, res) => {
   try {
     const results = await SeedService.seedAll();
     return res.status(200).json({
